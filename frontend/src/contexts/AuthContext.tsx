@@ -27,7 +27,7 @@ interface AuthContextType {
   user: User | null;
   tenant: Tenant | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (slug: string, email: string, password: string) => Promise<void>; // ✅ slug ajoute
   logout: () => void;
   updateUser: (user: User) => void;
 }
@@ -47,36 +47,42 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser]     = useState<User | null>(null);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // ✅ Kle localStorage inifye
+  const STORAGE = {
+    token:  'plusgroup-token',
+    user:   'plusgroup-user',
+    tenant: 'plusgroup-tenant',
+    slug:   'plusgroup-slug',
+    lang:   'plusgroup-lang',
+  };
 
   // Load user from localStorage on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
-        const token = localStorage.getItem('plusgroup-token');
-        const savedUser = localStorage.getItem('plusgroup-user');
-        
+        const token = localStorage.getItem(STORAGE.token);
+        const savedUser = localStorage.getItem(STORAGE.user);
+
         if (token && savedUser) {
           setUser(JSON.parse(savedUser));
-          
+
           // Fetch fresh user data from backend
-          const response = await authAPI.getMe();
+          const response = await authAPI.me();
           if (response.data.success) {
             setUser(response.data.user);
             setTenant(response.data.tenant);
-            localStorage.setItem('plusgroup-user', JSON.stringify(response.data.user));
-            localStorage.setItem('plusgroup-tenant', JSON.stringify(response.data.tenant));
+            localStorage.setItem(STORAGE.user,   JSON.stringify(response.data.user));
+            localStorage.setItem(STORAGE.tenant, JSON.stringify(response.data.tenant));
           }
         }
       } catch (error) {
         console.error('Failed to load user:', error);
-        // Clear invalid token
-        localStorage.removeItem('plusgroup-token');
-        localStorage.removeItem('plusgroup-user');
-        localStorage.removeItem('plusgroup-tenant');
+        Object.values(STORAGE).forEach(k => localStorage.removeItem(k));
       } finally {
         setLoading(false);
       }
@@ -85,45 +91,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     loadUser();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  // ✅ login kounye a aksepte slug kòm premye paramèt
+  const login = async (slug: string, email: string, password: string) => {
     try {
-      const response = await authAPI.login(email, password);
-      
+      const response = await authAPI.login({ slug, email, password });
+
       if (response.data.success && response.data.token) {
-        // Save token
-        localStorage.setItem('plusgroup-token', response.data.token);
-        localStorage.setItem('plusgroup-user', JSON.stringify(response.data.user));
-        
-        // Set state
+        // Sove token + slug
+        localStorage.setItem(STORAGE.token, response.data.token);
+        localStorage.setItem(STORAGE.user,  JSON.stringify(response.data.user));
+        localStorage.setItem(STORAGE.slug,  slug);
+
         setUser(response.data.user);
-        
-        // Set language preference
+
         if (response.data.user.preferredLang) {
-          localStorage.setItem('plusgroup-lang', response.data.user.preferredLang);
+          localStorage.setItem(STORAGE.lang, response.data.user.preferredLang);
         }
-        
-        // Fetch tenant info
+
+        // Fetch tenant info (slug deja nan localStorage, interceptor ap jwenn li)
         try {
-          const meResponse = await authAPI.getMe();
+          const meResponse = await authAPI.me();
           if (meResponse.data.success && meResponse.data.tenant) {
             setTenant(meResponse.data.tenant);
-            localStorage.setItem('plusgroup-tenant', JSON.stringify(meResponse.data.tenant));
+            localStorage.setItem(STORAGE.tenant, JSON.stringify(meResponse.data.tenant));
           }
         } catch (err) {
           console.error('Failed to fetch tenant:', err);
         }
-        
-        // Navigate to dashboard
+
         navigate('/dashboard');
       } else {
-        throw new Error(response.data.message || 'Login failed');
+        throw new Error(response.data.message || 'Login echwe.');
       }
     } catch (error: any) {
-      console.error('Login error:', error);
-      throw new Error(
-        error?.message || 
-        'Email oswa modpas pa kòrèk. / Email ou mot de passe incorrect.'
-      );
+      const msg =
+        error?.response?.data?.message ||
+        error?.message ||
+        'Email oswa modpas pa kòrèk.';
+      throw new Error(msg);
     }
   };
 
@@ -133,33 +138,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear state
       setUser(null);
       setTenant(null);
-      
-      // Clear storage
-      localStorage.removeItem('plusgroup-token');
-      localStorage.removeItem('plusgroup-user');
-      localStorage.removeItem('plusgroup-tenant');
-      
-      // Navigate to login
+      Object.values(STORAGE).forEach(k => localStorage.removeItem(k));
       navigate('/login');
     }
   };
 
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
-    localStorage.setItem('plusgroup-user', JSON.stringify(updatedUser));
+    localStorage.setItem(STORAGE.user, JSON.stringify(updatedUser));
   };
 
-  const value = {
-    user,
-    tenant,
-    loading,
-    login,
-    logout,
-    updateUser,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, tenant, loading, login, logout, updateUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 };

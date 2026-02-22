@@ -1,35 +1,37 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import { Eye, EyeOff, LogIn, Building2 } from 'lucide-react';
 
 const LoginPage = () => {
   const { t } = useTranslation();
   const { login } = useAuth();
-  
+
   const [formData, setFormData] = useState({
-    email: '',
+    slug:     '',
+    email:    '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.slug) {
+      setError('Non entreprise (slug) obligatwa.');
+      return;
+    }
     setLoading(true);
     setError('');
-
     try {
-      await login(formData.email, formData.password);
+      // ✅ Voye slug, email, password nan login
+      await login(formData.slug.trim().toLowerCase(), formData.email, formData.password);
     } catch (err: any) {
       setError(err.message || t('auth.loginError'));
     } finally {
@@ -65,7 +67,7 @@ const LoginPage = () => {
         {/* Card login */}
         <div className="rounded-3xl p-8 shadow-2xl"
           style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', border: '1px solid rgba(201,168,76,0.2)' }}>
-          <h2 className="text-2xl font-black mb-6 text-white">{t('auth.welcome')}</h2>
+          <h2 className="text-2xl font-black mb-6 text-white">{t('auth.welcome', 'Konekte nan kont ou')}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
@@ -74,9 +76,34 @@ const LoginPage = () => {
               </div>
             )}
 
+            {/* ✅ Champ Slug */}
             <div>
               <label className="block text-sm font-bold mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                {t('auth.email')}
+                Non Entreprise (slug)
+              </label>
+              <div className="relative">
+                <Building2 size={16} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'rgba(255,255,255,0.3)' }} />
+                <input
+                  type="text"
+                  name="slug"
+                  placeholder="moncoeur-auto-parts"
+                  value={formData.slug}
+                  onChange={handleChange}
+                  required
+                  autoFocus
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-white placeholder-gray-400"
+                  style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(201,168,76,0.2)', outline: 'none' }}
+                />
+              </div>
+              <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                Egzanp: moncoeur-auto-parts
+              </p>
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-bold mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
+                {t('auth.email', 'Email')}
               </label>
               <input
                 type="email"
@@ -85,15 +112,15 @@ const LoginPage = () => {
                 value={formData.email}
                 onChange={handleChange}
                 required
-                autoFocus
                 className="w-full px-4 py-3 rounded-xl text-white placeholder-gray-400"
                 style={{ background: 'rgba(255,255,255,0.1)', border: '2px solid rgba(201,168,76,0.2)', outline: 'none' }}
               />
             </div>
 
+            {/* Modpas */}
             <div>
               <label className="block text-sm font-bold mb-2" style={{ color: 'rgba(255,255,255,0.7)' }}>
-                {t('auth.password')}
+                {t('auth.password', 'Modpas')}
               </label>
               <div className="relative">
                 <input
@@ -131,16 +158,22 @@ const LoginPage = () => {
               {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {t('common.loading')}
+                  {t('common.loading', 'Chajman...')}
                 </>
               ) : (
                 <>
                   <LogIn size={18} />
-                  {t('auth.loginButton')}
+                  {t('auth.loginButton', 'Konekte')}
                 </>
               )}
             </button>
           </form>
+
+          {/* Demo info */}
+          <div className="mt-6 p-3 rounded-xl text-center text-xs"
+            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.4)' }}>
+            Demo → slug: <strong>moncoeur-auto-parts</strong> · email: moncoeur@gmail.com · mdp: Moncoeur2024!
+          </div>
         </div>
 
         <p className="text-center text-xs mt-6" style={{ color: 'rgba(255,255,255,0.3)' }}>

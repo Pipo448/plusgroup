@@ -8,14 +8,11 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// Request: ajoute token + slug automatiquement
+// ✅ Request: ajoute token + slug automatiquement
 api.interceptors.request.use((config) => {
   try {
-    const raw  = JSON.parse(localStorage.getItem('pg-auth') || '{}')
-    // ✅ Sipòte 2 fòma: dirèk {token,tenant} oswa nested {state:{token,tenant}}
-    const auth   = raw?.state || raw
-    const token  = auth?.token
-    const slug   = auth?.tenant?.slug
+    const token = localStorage.getItem('plusgroup-token')
+    const slug  = localStorage.getItem('plusgroup-slug')
 
     if (token) config.headers.Authorization = `Bearer ${token}`
     if (!config.headers['X-Tenant-Slug'] && slug) {
@@ -32,22 +29,20 @@ api.interceptors.response.use(
     const status = err.response?.status
     const isLoginRoute = err.config?.url?.includes('/auth/login')
 
-    // ✅ Pa touche erè sou wout login — LoginPage jere yo
     if (isLoginRoute) return Promise.reject(err)
 
     if (status === 401) {
-      localStorage.removeItem('pg-auth')
+      ['plusgroup-token','plusgroup-user','plusgroup-tenant','plusgroup-slug','plusgroup-lang']
+        .forEach(k => localStorage.removeItem(k))
       window.location.href = '/login'
       return Promise.reject(err)
     }
 
-    // ✅ 402 = abònman ekspire — montre mesaj espesyal
     if (status === 402) {
       toast.error('Abònman ekspire. Kontakte administrasyon.', { id: 'expired' })
       return Promise.reject(err)
     }
 
-    // Pa montre toast pou 404 (jere pa chak page)
     if (status !== 404) {
       const msg = err.response?.data?.message || 'Erè koneksyon. Verifye entènèt ou.'
       toast.error(msg)
@@ -57,8 +52,11 @@ api.interceptors.response.use(
 )
 
 // ── Auth
+// ✅ login aksepte { slug, email, password } epi voye slug nan header
 export const authAPI = {
-  login:          (data) => api.post('/auth/login', data),
+  login: (data) => api.post('/auth/login', data, {
+    headers: { 'X-Tenant-Slug': data.slug }
+  }),
   logout:         ()     => api.post('/auth/logout'),
   me:             ()     => api.get('/auth/me'),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),
@@ -115,7 +113,6 @@ export const invoiceAPI = {
   getOne:       (id)   => api.get(`/invoices/${id}`),
   cancel:       (id,d) => api.patch(`/invoices/${id}/cancel`, d),
   addPayment:   (id,d) => api.post(`/invoices/${id}/payment`, d),
-  // ✅ PDF — voye ak headers (token + slug) — retounen blob
   downloadPDF:  (id, size) => api.get(`/invoices/${id}/pdf`, {
     params: { size },
     responseType: 'blob'
@@ -131,20 +128,18 @@ export const stockAPI = {
 
 // ── Reports
 export const reportAPI = {
-  getSales:      (p) => api.get('/reports/sales', { params: p }),
-  getStock:      ()  => api.get('/reports/stock'),
-  getTopProducts:(p) => api.get('/reports/top-products', { params: p }),
+  getSales:       (p) => api.get('/reports/sales', { params: p }),
+  getStock:       ()  => api.get('/reports/stock'),
+  getTopProducts: (p) => api.get('/reports/top-products', { params: p }),
 }
 
-// ── Super Admin
-// ✅ Axios instance separe pou admin (PA bezwen X-Tenant-Slug)
+// ── Super Admin (instance separe — pa bezwen X-Tenant-Slug)
 const adminAxios = axios.create({
   baseURL: '/api/v1/admin',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 })
 
-// ✅ Interceptor pou ajoute token admin nan chak demann
 adminAxios.interceptors.request.use((config) => {
   try {
     const { token } = JSON.parse(localStorage.getItem('pg-admin') || '{}')
@@ -153,7 +148,6 @@ adminAxios.interceptors.request.use((config) => {
   return config
 })
 
-// ✅ Si 401, retounen sou login
 adminAxios.interceptors.response.use(
   r => r,
   err => {
@@ -166,15 +160,15 @@ adminAxios.interceptors.response.use(
 )
 
 export const adminAPI = {
-  login:          (data)    => adminAxios.post('/login', data),
-  getTenants:     (p)       => adminAxios.get('/tenants', { params: p }),
-  getTenant:      (id)      => adminAxios.get(`/tenants/${id}`),
-  createTenant:   (data)    => adminAxios.post('/tenants', data),
-  updateStatus:   (id, s)   => adminAxios.patch(`/tenants/${id}/status`, { status: s }),
-  renewSub:       (id, m)   => adminAxios.post(`/tenants/${id}/renew`, { months: m }),  // ✅ Renouvle abònman
-  getPlans:       ()        => adminAxios.get('/plans'),
-  getStats:       ()        => adminAxios.get('/stats'),
-  getExpiring:    ()        => adminAxios.get('/expiring-soon'),
+  login:        (data)  => adminAxios.post('/login', data),
+  getTenants:   (p)     => adminAxios.get('/tenants', { params: p }),
+  getTenant:    (id)    => adminAxios.get(`/tenants/${id}`),
+  createTenant: (data)  => adminAxios.post('/tenants', data),
+  updateStatus: (id, s) => adminAxios.patch(`/tenants/${id}/status`, { status: s }),
+  renewSub:     (id, m) => adminAxios.post(`/tenants/${id}/renew`, { months: m }),
+  getPlans:     ()      => adminAxios.get('/plans'),
+  getStats:     ()      => adminAxios.get('/stats'),
+  getExpiring:  ()      => adminAxios.get('/expiring-soon'),
 }
 
 export default api
