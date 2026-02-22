@@ -147,9 +147,11 @@ export default function LoginPage() {
   const inp = {
     width:'100%', padding:'11px 14px', borderRadius:10,
     border:'1.5px solid rgba(255,255,255,0.25)', outline:'none',
-    background:'rgba(255,255,255,0.12)', color:'white',
+    background:'rgba(20,15,60,0.55)', color:'#FFFFFF',
+    WebkitTextFillColor:'#FFFFFF',
     fontSize:14, fontFamily:'DM Sans, sans-serif', boxSizing:'border-box',
     backdropFilter:'blur(8px)', transition:'border-color 0.2s',
+    caretColor:'#FF6600',
   }
 
   return (
@@ -324,7 +326,14 @@ export default function LoginPage() {
         @keyframes spin    { to{transform:rotate(360deg)} }
         * { box-sizing:border-box }
         ::placeholder { color:rgba(255,255,255,0.35) !important }
-        input:-webkit-autofill { -webkit-box-shadow:0 0 0 30px rgba(255,255,255,0.1) inset !important; -webkit-text-fill-color:white !important; }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus { 
+          -webkit-box-shadow:0 0 0 30px rgba(20,15,60,0.8) inset !important; 
+          -webkit-text-fill-color:#FFFFFF !important;
+          caret-color:#FF6600 !important;
+        }
+        input { color:#FFFFFF !important; }
       `}</style>
     </div>
   )
