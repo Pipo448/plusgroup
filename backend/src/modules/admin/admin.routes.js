@@ -29,6 +29,131 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({ success: true, token, admin: { id: admin.id, name: admin.name, email: admin.email } });
 }));
 
+// ============================================================
+// ✅ SETUP ENDPOINT - SAN AUTHENTICATION
+// ✅ MOVE ANVAN router.use(superAdminAuth) POU PA GEN PROTECTION!
+// ============================================================
+router.post('/setup-demo', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const bcrypt = require('bcryptjs');
+    const prismaClient = new PrismaClient();
+
+    // Verifye si tenant deja egziste
+    const existingTenant = await prismaClient.tenant.findUnique({
+      where: { slug: 'moncoeur-auto-parts' }
+    });
+
+    if (existingTenant) {
+      await prismaClient.$disconnect();
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant "moncoeur-auto-parts" deja egziste!'
+      });
+    }
+
+    // 1. Kreye Tenant
+    const tenant = await prismaClient.tenant.create({
+      data: {
+        name: 'Moncoeur Auto Parts',
+        slug: 'moncoeur-auto-parts',
+        email: 'moncoeur@gmail.com',
+        phone: '+50942449024',
+        address: 'Ouanaminthe, Haiti',
+        defaultCurrency: 'HTG',
+        defaultLanguage: 'ht',
+        status: 'active'
+      }
+    });
+
+    console.log('✅ Tenant created:', tenant.id);
+
+    // 2. Kreye User Admin
+    const hashedPassword = await bcrypt.hash('Moncoeur2024!', 10);
+    
+    const user = await prismaClient.user.create({
+      data: {
+        tenantId: tenant.id,
+        fullName: 'Moncoeur Admin',
+        email: 'moncoeur@gmail.com',
+        passwordHash: hashedPassword,
+        role: 'admin',
+        isActive: true
+      }
+    });
+
+    console.log('✅ User created:', user.id);
+
+    // 3. Kreye kek categories demo
+    const categories = await prismaClient.category.createMany({
+      data: [
+        { tenantId: tenant.id, name: 'Pièces Moteur', color: '#1B3A6B' },
+        { tenantId: tenant.id, name: 'Freins', color: '#C0392B' },
+        { tenantId: tenant.id, name: 'Huiles & Filtres', color: '#27ae60' },
+        { tenantId: tenant.id, name: 'Électrique', color: '#C9A84C' },
+        { tenantId: tenant.id, name: 'Accessoires', color: '#E8836A' }
+      ]
+    });
+
+    console.log('✅ Categories created:', categories.count);
+
+    // 4. Kreye sekans dokiman
+    await Promise.all([
+      prismaClient.documentSequence.create({
+        data: { 
+          tenantId: tenant.id, 
+          documentType: 'quote', 
+          prefix: 'DEV', 
+          currentYear: new Date().getFullYear() 
+        }
+      }),
+      prismaClient.documentSequence.create({
+        data: { 
+          tenantId: tenant.id, 
+          documentType: 'invoice', 
+          prefix: 'FAC', 
+          currentYear: new Date().getFullYear() 
+        }
+      })
+    ]);
+
+    console.log('✅ Document sequences created');
+
+    await prismaClient.$disconnect();
+
+    res.json({
+      success: true,
+      message: 'Demo tenant kreye avèk siksè! 🎉',
+      data: {
+        tenant: {
+          id: tenant.id,
+          slug: tenant.slug,
+          name: tenant.name
+        },
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role
+        },
+        credentials: {
+          slug: 'moncoeur-auto-parts',
+          email: 'moncoeur@gmail.com',
+          password: 'Moncoeur2024!'
+        },
+        categoriesCreated: categories.count
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Setup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erè pandan kreye tenant',
+      error: error.message
+    });
+  }
+});
+
 // ── Proteksyon tout routes anba a
 router.use(superAdminAuth);
 
@@ -293,109 +418,5 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
 
   res.json({ success: true, expiring, count: expiring.length });
 }));
-
-// ============================================================
-// SETUP ENDPOINT - Pour créer tenant de démo en production
-// AJOUTE SA NAN backend/src/modules/admin/admin.routes.js
-// ANVAN: module.exports = router;
-// ============================================================
-
-router.post('/setup-demo', async (req, res) => {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    const bcrypt = require('bcryptjs');
-    const prisma = new PrismaClient();
-
-    // Verifye si tenant deja egziste
-    const existingTenant = await prisma.tenant.findUnique({
-      where: { slug: 'moncoeur-auto-parts' }
-    });
-
-    if (existingTenant) {
-      return res.status(400).json({
-        success: false,
-        message: 'Tenant "moncoeur-auto-parts" deja egziste!'
-      });
-    }
-
-    // 1. Kreye Tenant
-    const tenant = await prisma.tenant.create({
-      data: {
-        slug: 'moncoeur-auto-parts',
-        companyName: 'Moncoeur Auto Parts',
-        email: 'moncoeur@gmail.com',
-        phone: '+50942449024',
-        address: 'Ouanaminthe, Haiti',
-        plan: 'free',
-        isActive: true,
-        exchangeRate: 135.00
-      }
-    });
-
-    console.log('✅ Tenant created:', tenant.id);
-
-    // 2. Kreye User Admin
-    const hashedPassword = await bcrypt.hash('Moncoeur2024!', 10);
-    
-    const user = await prisma.user.create({
-      data: {
-        tenantId: tenant.id,
-        name: 'Moncoeur Admin',
-        email: 'moncoeur@gmail.com',
-        password: hashedPassword,
-        role: 'admin',
-        isActive: true
-      }
-    });
-
-    console.log('✅ User created:', user.id);
-
-    // 3. Kreye kek categories demo
-    const categories = await prisma.category.createMany({
-      data: [
-        { tenantId: tenant.id, name: 'Pièces Moteur', color: '#1B3A6B' },
-        { tenantId: tenant.id, name: 'Freins', color: '#C0392B' },
-        { tenantId: tenant.id, name: 'Huiles & Filtres', color: '#27ae60' },
-        { tenantId: tenant.id, name: 'Électrique', color: '#C9A84C' },
-        { tenantId: tenant.id, name: 'Accessoires', color: '#E8836A' }
-      ]
-    });
-
-    console.log('✅ Categories created:', categories.count);
-
-    await prisma.$disconnect();
-
-    res.json({
-      success: true,
-      message: 'Demo tenant kreye avèk siksè! 🎉',
-      data: {
-        tenant: {
-          id: tenant.id,
-          slug: tenant.slug,
-          companyName: tenant.companyName
-        },
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        },
-        credentials: {
-          slug: 'moncoeur-auto-parts',
-          email: 'moncoeur@gmail.com',
-          password: 'Moncoeur2024!'
-        },
-        categoriesCreated: categories.count
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Setup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erè pandan kreye tenant',
-      error: error.message
-    });
-  }
-});
 
 module.exports = router;
