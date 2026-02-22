@@ -46,7 +46,7 @@ app.use(cors({
     'http://localhost:3000',
     'http://localhost:5173',
     'https://plusgroup-frontend.onrender.com',  // ← AJOUTE SA!
-    /\.plusinnovation\.ht$/,
+    'https://app.plusgroupe.com',
     /\.onrender\.com$/  // ← AJOUTE SA TOU (aksepte tout Render apps)
   ],
   credentials: true,
