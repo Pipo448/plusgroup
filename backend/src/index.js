@@ -43,9 +43,11 @@ app.use(helmet({
 // ✅ CORS KORIJE - Aksepte tou de frontend yo (port 3000 ak 5173)
 app.use(cors({
   origin: [
-    'http://localhost:3000',      // Frontend #1 (Moncoeur style)
-    'http://localhost:5173',      // Frontend #2 (PLUS GROUP style)
-    /\.plusinnovation\.ht$/       // tous les sous-domaines production
+    'http://localhost:3000',
+    'http://localhost:5173',
+    'https://plusgroup-frontend.onrender.com',  // ← AJOUTE SA!
+    /\.plusinnovation\.ht$/,
+    /\.onrender\.com$/  // ← AJOUTE SA TOU (aksepte tout Render apps)
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
