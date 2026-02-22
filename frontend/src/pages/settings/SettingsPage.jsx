@@ -6,7 +6,26 @@ import { useAuthStore } from '../../stores/authStore'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Globe, Printer } from 'lucide-react'
+
+const D = {
+  blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
+  blueDim:'rgba(27,42,143,0.07)', blueDim2:'rgba(27,42,143,0.13)',
+  gold:'#C9A84C', goldDk:'#8B6914', goldDim:'rgba(201,168,76,0.12)',
+  red:'#C0392B', redDim:'rgba(192,57,43,0.08)',
+  white:'#FFFFFF', bg:'#F4F6FF', border:'rgba(27,42,143,0.10)',
+  text:'#0F1A5C', muted:'#6B7AAB',
+  success:'#059669', successBg:'rgba(5,150,105,0.08)',
+  shadow:'0 4px 20px rgba(27,42,143,0.10)',
+}
+
+const inp = {
+  width:'100%', padding:'10px 14px', borderRadius:10,
+  border:`1.5px solid ${D.border}`, outline:'none',
+  fontSize:13, color:D.text, background:'#F8F9FF',
+  fontFamily:'DM Sans,sans-serif', boxSizing:'border-box',
+  transition:'border-color 0.2s',
+}
 
 export default function SettingsPage() {
   const { updateTenant } = useAuthStore()
@@ -14,47 +33,43 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general')
   const [newRate, setNewRate] = useState('')
 
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ['tenant-settings'],
-    queryFn: () => tenantAPI.getSettings().then(r => r.data.tenant)
+  const { data:settings, isLoading } = useQuery({
+    queryKey:['tenant-settings'],
+    queryFn:() => tenantAPI.getSettings().then(r=>r.data.tenant)
   })
 
-  const { register, handleSubmit, reset, watch } = useForm()
+  const { register, handleSubmit, reset, watch, setValue } = useForm()
 
-  // ✅ Chaje valè yo nan fòm lan chak fwa settings yo chaje
   useEffect(() => {
     if (settings) reset({
       name:            settings.name            || '',
       email:           settings.email           || '',
       phone:           settings.phone           || '',
       address:         settings.address         || '',
-      primaryColor:    settings.primaryColor    || '#1E40AF',
+      primaryColor:    settings.primaryColor    || '#1B2A8F',
       taxRate:         settings.taxRate         || 0,
       defaultLanguage: settings.defaultLanguage || 'ht',
       defaultCurrency: settings.defaultCurrency || 'HTG',
-      receiptSize:     settings.receiptSize     || '80mm',  // ✅ Ajoute
+      receiptSize:     settings.receiptSize     || '80mm',
     })
   }, [settings, reset])
 
-  // ✅ Mete ajou paramèt jeneral
   const updateMutation = useMutation({
     mutationFn: (data) => tenantAPI.updateSettings(data),
     onSuccess: (res) => {
       const updated = res.data.tenant
-      // ✅ Update Zustand store → sidebar ak header mete ajou imedyatman
       updateTenant({ ...settings, ...updated })
-      qc.setQueryData(['tenant-settings'], (old) => ({ ...old, ...updated }))
+      qc.setQueryData(['tenant-settings'], old => ({ ...old, ...updated }))
       toast.success('Paramèt sovgade!')
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan sovgad.')
   })
 
-  // ✅ Mete ajou taux chanje
   const rateMutation = useMutation({
     mutationFn: (rate) => tenantAPI.updateRate(rate),
     onSuccess: (_, rate) => {
       updateTenant({ ...settings, exchangeRate: rate })
-      qc.setQueryData(['tenant-settings'], (old) => ({ ...old, exchangeRate: rate }))
+      qc.setQueryData(['tenant-settings'], old => ({ ...old, exchangeRate: rate }))
       toast.success(`Taux ajou: 1 USD = ${rate} HTG`)
       setNewRate('')
     },
@@ -62,252 +77,245 @@ export default function SettingsPage() {
   })
 
   const TABS = [
-    { key:'general',  label:'Jeneral',       icon:<Settings size={15}/> },
-    { key:'currency', label:'Taux & Devise',  icon:<DollarSign size={15}/> },
-    { key:'users',    label:'Itilizatè',      icon:<Users size={15}/> },
+    { key:'general',  label:'Jeneral',      icon:<Building2 size={15}/> },
+    { key:'currency', label:'Taux & Devise', icon:<DollarSign size={15}/> },
+    { key:'users',    label:'Itilizatè',     icon:<Users size={15}/> },
   ]
 
   if (isLoading) return (
-    <div className="flex justify-center py-20">
-      <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"/>
+    <div style={{ display:'flex', justifyContent:'center', alignItems:'center', padding:'80px 0' }}>
+      <div style={{ width:36, height:36, border:`3px solid ${D.blueDim2}`, borderTopColor:D.blue, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
     </div>
   )
 
   const currentRate = Number(settings?.exchangeRate || 132)
+  const primaryColor = watch('primaryColor') || D.blue
 
   return (
-    <div className="animate-fade-in max-w-3xl">
-      <div className="mb-6">
-        <h1 className="page-title">Paramèt</h1>
-        <p className="text-slate-500 text-sm">{settings?.name}</p>
+    <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760 }}>
+
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:28 }}>
+        <div style={{ width:48, height:48, borderRadius:14, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${D.blue}40` }}>
+          <Settings size={22} color="#fff"/>
+        </div>
+        <div>
+          <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>Paramèt</h1>
+          <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{settings?.name}</p>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-slate-100 p-1 rounded-xl w-fit">
+      <div style={{ display:'flex', gap:4, marginBottom:24, background:'#EEF0FF', padding:5, borderRadius:14, width:'fit-content' }}>
         {TABS.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all
-              ${activeTab === t.key ? 'bg-white shadow text-brand-700' : 'text-slate-500 hover:text-slate-700'}`}>
+          <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
+            display:'flex', alignItems:'center', gap:6, padding:'9px 18px', borderRadius:10,
+            fontSize:13, fontWeight:700, cursor:'pointer', transition:'all 0.2s', fontFamily:'DM Sans,sans-serif',
+            background: activeTab===t.key ? D.white : 'transparent',
+            color: activeTab===t.key ? D.blue : D.muted,
+            boxShadow: activeTab===t.key ? D.shadow : 'none',
+            border: 'none',
+          }}>
             {t.icon} {t.label}
           </button>
         ))}
       </div>
 
       {/* ══ JENERAL ══ */}
-      {activeTab === 'general' && (
-        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} className="space-y-5">
+      {activeTab==='general' && (
+        <form onSubmit={handleSubmit(d => updateMutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:16 }}>
 
-          <div className="card p-5 space-y-4">
-            <h3 className="section-title">Enfòmasyon Entreprise</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2">
-                <label className="label">Non Entreprise *</label>
-                <input className="input" {...register('name', { required: true })} />
+          {/* Enfòmasyon */}
+          <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
+              <div style={{ width:32, height:32, borderRadius:9, background:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Building2 size={16} color={D.blue}/>
               </div>
-              <div>
-                <label className="label">Email</label>
-                <input type="email" className="input" {...register('email')} />
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Enfòmasyon Entreprise</h3>
+            </div>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Non Entreprise *</label>
+                <input style={inp} {...register('name',{required:true})} onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
-              <div>
-                <label className="label">Telefòn</label>
-                <input className="input" {...register('phone')} />
-              </div>
-              <div className="col-span-2">
-                <label className="label">Adrès</label>
-                <input className="input" {...register('address')} />
-              </div>
-              <div>
-                <label className="label">Koulè Prensipal (hex)</label>
-                <div className="flex gap-2 items-center">
-                  <input className="input flex-1" placeholder="#1E40AF" {...register('primaryColor')} />
-                  <input type="color" className="w-10 h-10 rounded cursor-pointer border border-slate-200 p-0.5"
-                    value={watch('primaryColor') || '#1E40AF'}
-                    onChange={e => reset({ ...watch(), primaryColor: e.target.value })}
-                  />
+              {[{label:'Email',key:'email',type:'email'},{label:'Telefòn',key:'phone',type:'text'}].map(f=>(
+                <div key={f.key}>
+                  <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>{f.label}</label>
+                  <input type={f.type} style={inp} {...register(f.key)} onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
+              ))}
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Adrès</label>
+                <input style={inp} {...register('address')} onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
               <div>
-                <label className="label">Taks TVA (%)</label>
-                <input type="number" step="0.5" min="0" max="100" className="input" {...register('taxRate')} />
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Taks TVA (%)</label>
+                <input type="number" step="0.5" min="0" max="100" style={inp} {...register('taxRate')} onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
               <div>
-                <label className="label">Lang defò</label>
-                <select className="input" {...register('defaultLanguage')}>
-                  <option value="ht">Kreyòl Ayisyen</option>
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Lang defò</label>
+                <select style={inp} {...register('defaultLanguage')}>
+                  <option value="ht">🇭🇹 Kreyòl Ayisyen</option>
+                  <option value="fr">🇫🇷 Français</option>
+                  <option value="en">🇺🇸 English</option>
                 </select>
               </div>
               <div>
-                <label className="label">Devise defò</label>
-                <select className="input" {...register('defaultCurrency')}>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Devise defò</label>
+                <select style={inp} {...register('defaultCurrency')}>
                   <option value="HTG">HTG — Goud Ayisyen</option>
                   <option value="USD">USD — Dola Ameriken</option>
                 </select>
               </div>
               <div>
-                <label className="label">Gwosè Receipt Thermal</label>
-                <select className="input" {...register('receiptSize')}>
-                  <option value="80mm">80mm × ∞ (Papye laj)</option>
-                  <option value="57mm">57mm × ∞ (Papye etwat)</option>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Receipt Thermal</label>
+                <select style={inp} {...register('receiptSize')}>
+                  <option value="80mm">80mm (Papye laj)</option>
+                  <option value="57mm">57mm (Papye etwat)</option>
                 </select>
-                <p className="text-xs text-slate-400 mt-1">Pou enprimant thermal (receipt)</p>
               </div>
             </div>
           </div>
 
-          {/* Logo */}
-          <div className="card p-5">
-            <h3 className="section-title">Logo Entreprise</h3>
-            <div className="flex items-center gap-4">
-              {settings?.logoUrl
-                ? <img src={settings.logoUrl} alt="logo"
-                    className="w-16 h-16 rounded-xl object-contain border border-slate-200 p-1"/>
-                : <div className="w-16 h-16 rounded-xl bg-brand-100 flex items-center justify-center
-                    text-brand-600 font-display font-bold text-2xl">
-                    {settings?.name?.charAt(0)}
-                  </div>
-              }
-              <div>
-                <label className="btn-secondary cursor-pointer">
-                  <Upload size={15}/> Chwazi Logo
-                  <input type="file" accept="image/*" className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files[0]
-                      if (!file) return
-                      const fd = new FormData()
-                      fd.append('logo', file)
+          {/* Koulè + Logo */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+            {/* Koulè */}
+            <div style={{ background:D.white, borderRadius:16, padding:22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+                <Palette size={16} color={D.blue}/>
+                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Koulè Prensipal</h3>
+              </div>
+              <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                <div style={{ width:48, height:48, borderRadius:12, background:primaryColor, flexShrink:0, boxShadow:`0 4px 14px ${primaryColor}50` }}/>
+                <div style={{ flex:1 }}>
+                  <input style={{ ...inp, fontFamily:'monospace', marginBottom:8 }} placeholder="#1B2A8F" {...register('primaryColor')}
+                    onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}
+                  />
+                  <input type="color" value={primaryColor} onChange={e=>setValue('primaryColor',e.target.value)}
+                    style={{ width:'100%', height:36, borderRadius:8, cursor:'pointer', border:`1px solid ${D.border}`, padding:3 }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Logo */}
+            <div style={{ background:D.white, borderRadius:16, padding:22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16 }}>
+                <Upload size={16} color={D.blue}/>
+                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Logo</h3>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+                {settings?.logoUrl
+                  ? <img src={settings.logoUrl} alt="logo" style={{ width:56, height:56, borderRadius:12, objectFit:'contain', border:`1px solid ${D.border}`, padding:4 }}/>
+                  : <div style={{ width:56, height:56, borderRadius:12, background:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, fontWeight:900, fontSize:20 }}>{settings?.name?.charAt(0)}</div>
+                }
+                <div>
+                  <label style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, background:D.blueDim, color:D.blue, fontWeight:700, fontSize:12, cursor:'pointer', border:`1px solid ${D.border}` }}>
+                    <Upload size={14}/> Chwazi Logo
+                    <input type="file" accept="image/*" style={{ display:'none' }} onChange={async(e)=>{
+                      const file=e.target.files[0]; if(!file) return
+                      const fd=new FormData(); fd.append('logo',file)
                       try {
-                        const res = await tenantAPI.uploadLogo(fd)
-                        updateTenant({ ...settings, logoUrl: res.data.logoUrl })
-                        qc.setQueryData(['tenant-settings'], old => ({ ...old, logoUrl: res.data.logoUrl }))
+                        const res=await tenantAPI.uploadLogo(fd)
+                        updateTenant({...settings,logoUrl:res.data.logoUrl})
+                        qc.setQueryData(['tenant-settings'],old=>({...old,logoUrl:res.data.logoUrl}))
                         toast.success('Logo ajou!')
                       } catch { toast.error('Erè upload logo.') }
-                    }}
-                  />
-                </label>
-                <p className="text-xs text-slate-400 mt-1">PNG, JPG, SVG · Max 5MB</p>
+                    }}/>
+                  </label>
+                  <p style={{ fontSize:11, color:D.muted, marginTop:6 }}>PNG, JPG, SVG · 5MB max</p>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button type="submit" disabled={updateMutation.isPending} className="btn-primary">
-              <Save size={16}/>
-              {updateMutation.isPending ? 'Ap sovgade...' : 'Sovgade Chanjman'}
+          <div style={{ display:'flex', justifyContent:'flex-end' }}>
+            <button type="submit" disabled={updateMutation.isPending} style={{
+              display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:12,
+              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff',
+              border:'none', fontWeight:800, fontSize:14, cursor:'pointer',
+              boxShadow:`0 4px 16px ${D.blue}40`, fontFamily:'DM Sans,sans-serif',
+              opacity: updateMutation.isPending ? 0.7 : 1,
+            }}>
+              <Save size={16}/>{updateMutation.isPending ? 'Ap sovgade...' : 'Sovgade Chanjman'}
             </button>
           </div>
         </form>
       )}
 
-      {/* ══ TAUX & DEVISE ══ */}
-      {activeTab === 'currency' && (
-        <div className="space-y-5">
-
-          {/* Taux aktyèl */}
-          <div className="card p-5">
-            <h3 className="section-title">Taux Chanje Aktyèl</h3>
-            <div className="flex items-center gap-4 p-4 bg-brand-50 border border-brand-200 rounded-xl mb-5">
-              <ArrowUpDown size={28} className="text-brand-600 flex-shrink-0"/>
+      {/* ══ TAUX ══ */}
+      {activeTab==='currency' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+          <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+              <ArrowUpDown size={16} color={D.blue}/>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Taux Chanje Aktyèl</h3>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:16, padding:'16px 20px', background:D.blueDim, border:`1px solid ${D.border}`, borderRadius:14, marginBottom:20 }}>
+              <div style={{ width:48, height:48, borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 14px ${D.blue}40` }}>
+                <ArrowUpDown size={20} color="#fff"/>
+              </div>
               <div>
-                <p className="text-2xl font-bold text-brand-700 font-mono">
-                  1 USD = {currentRate.toFixed(2)} HTG
-                </p>
-                <p className="text-sm text-brand-500">Taux sistèm ap itilize kounye a</p>
+                <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:22, color:D.blue, margin:0 }}>1 USD = {currentRate.toFixed(2)} HTG</p>
+                <p style={{ fontSize:12, color:D.muted, margin:'3px 0 0' }}>Taux sistèm ap itilize kounye a</p>
               </div>
             </div>
-
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="label">Nouvo Taux (HTG pou 1 USD)</label>
-                <input
-                  type="number" step="0.01" min="1"
-                  className="input font-mono"
-                  placeholder={currentRate.toFixed(2)}
-                  value={newRate}
-                  onChange={e => setNewRate(e.target.value)}
-                />
+            <div style={{ display:'flex', gap:10, alignItems:'flex-end' }}>
+              <div style={{ flex:1 }}>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>Nouvo Taux (HTG pou 1 USD)</label>
+                <input type="number" step="0.01" min="1" style={{ ...inp, fontFamily:'monospace', fontSize:15 }} placeholder={currentRate.toFixed(2)} value={newRate} onChange={e=>setNewRate(e.target.value)}
+                  onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const r = Number(newRate)
-                  if (!newRate || r < 1) return toast.error('Taux pa valid.')
-                  rateMutation.mutate(r)
-                }}
-                disabled={rateMutation.isPending || !newRate}
-                className="btn-primary">
-                <RefreshCw size={16}/> {rateMutation.isPending ? 'Ap mete ajou...' : 'Mete ajou'}
+              <button onClick={()=>{ const r=Number(newRate); if(!newRate||r<1) return toast.error('Taux pa valid.'); rateMutation.mutate(r) }}
+                disabled={rateMutation.isPending||!newRate}
+                style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.gold},${D.goldDk})`, color:'#fff', border:'none', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:`0 4px 14px ${D.gold}40`, fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap', height:42 }}>
+                <RefreshCw size={14}/>{rateMutation.isPending?'Ap mete...':'Mete ajou'}
               </button>
             </div>
           </div>
-
-          {/* Eksplikasyon konvèsyon */}
-          <div className="card p-5">
-            <h3 className="section-title">Konvèsyon Otomatik nan Devis & Facture</h3>
-            <div className="space-y-3">
-
-              <div className="flex items-start gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-emerald-700 font-display font-bold text-sm">HTG</span>
-                </div>
-                <div>
-                  <p className="font-display font-semibold text-emerald-800 mb-1">Kasye chwazi Goud (HTG)</p>
-                  <p className="text-emerald-600 text-sm">
-                    Li antre pri yo an HTG. Sistèm nan kalkile total la an HTG epi konvèti
-                    an USD otomatikman pou afiche <strong>tou 2 montan</strong> sou facture a.
-                  </p>
-                  <div className="mt-2 p-2 bg-emerald-100 rounded-lg font-mono text-xs text-emerald-700">
-                    Egz: 10,000 HTG ÷ {currentRate.toFixed(0)} = {(10000/currentRate).toFixed(2)} USD
+          {/* Eksplikasyon */}
+          <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Konvèsyon Otomatik</h3>
+            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+              {[
+                { title:'Kasye chwazi HTG', desc:`Antre pri an HTG. Konvèti an USD otomatikman. Egz: 10,000 HTG = ${(10000/currentRate).toFixed(2)} USD`, color:D.success, bg:D.successBg, tag:'HTG' },
+                { title:'Kasye chwazi USD', desc:`Antre pri an USD. Konvèti an HTG otomatikman. Egz: 100 USD = ${(100*currentRate).toLocaleString()} HTG`, color:D.blue, bg:D.blueDim2, tag:'USD' },
+              ].map(item=>(
+                <div key={item.tag} style={{ display:'flex', alignItems:'flex-start', gap:12, padding:'14px 16px', background:item.bg, borderRadius:12, border:`1px solid ${item.color}20` }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background:item.color, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:900, fontSize:11, flexShrink:0 }}>{item.tag}</div>
+                  <div>
+                    <p style={{ fontWeight:700, color:item.color, fontSize:13, margin:'0 0 4px' }}>{item.title}</p>
+                    <p style={{ fontSize:12, color:D.muted, margin:0 }}>{item.desc}</p>
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-700 font-display font-bold text-sm">USD</span>
-                </div>
-                <div>
-                  <p className="font-display font-semibold text-blue-800 mb-1">Kasye chwazi Dola (USD)</p>
-                  <p className="text-blue-600 text-sm">
-                    Li antre pri yo an USD. Sistèm nan kalkile total la an USD epi konvèti
-                    an HTG otomatikman pou afiche <strong>tou 2 montan</strong> sou facture a.
-                  </p>
-                  <div className="mt-2 p-2 bg-blue-100 rounded-lg font-mono text-xs text-blue-700">
-                    Egz: 100 USD × {currentRate.toFixed(0)} = {(100 * currentRate).toLocaleString()} HTG
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 font-medium">
-                💡 Taux aktyèl: <span className="font-mono font-bold">1 USD = {currentRate.toFixed(2)} HTG</span>.
-                Chanje l nan tab "Taux Chanje" anwo a.
-              </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       {/* ══ ITILIZATÈ ══ */}
-      {activeTab === 'users' && (
-        <div className="card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="section-title mb-0">Jesyon Itilizatè</h3>
-            <Link to="/settings/users" className="btn-primary btn-sm">
-              <Users size={14}/> Jere itilizatè
+      {activeTab==='users' && (
+        <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <Users size={16} color={D.blue}/>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Jesyon Itilizatè</h3>
+            </div>
+            <Link to="/settings/users" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:12, boxShadow:`0 3px 12px ${D.blue}35` }}>
+              <Users size={13}/> Jere itilizatè
             </Link>
           </div>
-          <p className="text-slate-500 text-sm mb-4">
-            Ajoute, modifye oswa siprime itilizatè ki gen aksè nan sistèm nan.
-          </p>
+          <p style={{ color:D.muted, fontSize:13, marginBottom:16 }}>Ajoute, modifye oswa siprime itilizatè ki gen aksè nan sistèm nan.</p>
           {settings?.plan && (
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-              Plan <strong>{settings.plan.name}</strong> pèmèt{' '}
-              <strong>{settings.plan.maxUsers} itilizatè</strong>.
+            <div style={{ padding:'12px 16px', background:D.blueDim, border:`1px solid ${D.border}`, borderRadius:12, fontSize:13, color:D.blue, fontWeight:600 }}>
+              Plan <strong>{settings.plan.name}</strong> pèmèt <strong>{settings.plan.maxUsers} itilizatè</strong>.
             </div>
           )}
         </div>
       )}
+
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }
