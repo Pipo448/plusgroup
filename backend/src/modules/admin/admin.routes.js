@@ -33,7 +33,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 // ✅ SETUP ENDPOINT - SAN AUTHENTICATION
 // ✅ MOVE ANVAN router.use(superAdminAuth) POU PA GEN PROTECTION!
 // ============================================================
-router.post('/setup-demo', async (req, res) => {
+router.get('/setup-demo', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
     const bcrypt = require('bcryptjs');
@@ -41,7 +41,7 @@ router.post('/setup-demo', async (req, res) => {
 
     // ✅ KOREKSYON: Si tenant deja egziste, retounen done li yo olye bloke
     const existingTenant = await prismaClient.tenant.findUnique({
-      where: { slug: 'moncoeur-auto-parts' }
+      where: { slug: 'plus-store' }
     });
 
     if (existingTenant) {
@@ -66,9 +66,9 @@ router.post('/setup-demo', async (req, res) => {
             role: existingUser.role
           } : null,
           credentials: {
-            slug: 'moncoeur-auto-parts',
-            email: 'moncoeur@gmail.com',
-            password: 'Moncoeur2024!'
+            slug: 'plus-store',
+            email: 'admin@plusstore.ht',
+            password: 'PlusStore2024!'
           }
         }
       });
@@ -77,11 +77,11 @@ router.post('/setup-demo', async (req, res) => {
     // 1. Kreye Tenant
     const tenant = await prismaClient.tenant.create({
       data: {
-        name: 'Moncoeur Auto Parts',
-        slug: 'moncoeur-auto-parts',
-        email: 'moncoeur@gmail.com',
+        name: 'Plus Store',
+        slug: 'plus-store',
+        email: 'admin@plusstore.ht',
         phone: '+50942449024',
-        address: 'Ouanaminthe, Haiti',
+        address: 'Port-au-Prince, Haiti',
         defaultCurrency: 'HTG',
         defaultLanguage: 'ht',
         status: 'active'
@@ -91,13 +91,13 @@ router.post('/setup-demo', async (req, res) => {
     console.log('✅ Tenant created:', tenant.id);
 
     // 2. Kreye User Admin
-    const hashedPassword = await bcrypt.hash('Moncoeur2024!', 10);
+    const hashedPassword = await bcrypt.hash('PlusStore2024!', 10);
     
     const user = await prismaClient.user.create({
       data: {
         tenantId: tenant.id,
-        fullName: 'Moncoeur Admin',
-        email: 'moncoeur@gmail.com',
+        fullName: 'Plus Store Admin',
+        email: 'admin@plusstore.ht',
         passwordHash: hashedPassword,
         role: 'admin',
         isActive: true
@@ -109,11 +109,11 @@ router.post('/setup-demo', async (req, res) => {
     // 3. Kreye kek categories demo
     const categories = await prismaClient.category.createMany({
       data: [
-        { tenantId: tenant.id, name: 'Pièces Moteur', color: '#1B3A6B' },
-        { tenantId: tenant.id, name: 'Freins', color: '#C0392B' },
-        { tenantId: tenant.id, name: 'Huiles & Filtres', color: '#27ae60' },
-        { tenantId: tenant.id, name: 'Électrique', color: '#C9A84C' },
-        { tenantId: tenant.id, name: 'Accessoires', color: '#E8836A' }
+        { tenantId: tenant.id, name: 'Elektronik', color: '#1B3A6B' },
+        { tenantId: tenant.id, name: 'Rad ak Chosèt', color: '#C0392B' },
+        { tenantId: tenant.id, name: 'Manje ak Bwason', color: '#27ae60' },
+        { tenantId: tenant.id, name: 'Kosmetik', color: '#C9A84C' },
+        { tenantId: tenant.id, name: 'Akseswa', color: '#E8836A' }
       ]
     });
 
@@ -158,9 +158,9 @@ router.post('/setup-demo', async (req, res) => {
           role: user.role
         },
         credentials: {
-          slug: 'moncoeur-auto-parts',
-          email: 'moncoeur@gmail.com',
-          password: 'Moncoeur2024!'
+          slug: 'plus-store',
+          email: 'admin@plusstore.ht',
+          password: 'PlusStore2024!'
         },
         categoriesCreated: categories.count
       }
@@ -226,7 +226,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   if (!name || !slug)
     return res.status(400).json({ success: false, message: 'Non ak slug obligatwa.' });
 
-  // Slug: miniskil, tiret sèlman, pa kòmanse/fini ak tiret
   const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '');
   if (!cleanSlug)
     return res.status(400).json({ success: false, message: 'Slug pa valid.' });
@@ -235,7 +234,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   if (existing)
     return res.status(409).json({ success: false, message: `Slug "${cleanSlug}" deja egziste.` });
 
-  // ✅ Kalkile dat ekspirasyon
   let subscriptionEndsAt = null;
   const months = Number(subscriptionMonths);
   if (months > 0) {
@@ -243,11 +241,9 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     subscriptionEndsAt = new Date(now.setMonth(now.getMonth() + months));
   }
 
-  // ✅ planId — verifye li egziste sinon mete null
   let cleanPlanId = null;
   if (planId && typeof planId === 'string' && planId.trim() !== '') {
     const trimmedId = planId.trim();
-    // Verifye se yon UUID valid
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidPattern.test(trimmedId)) {
       try {
@@ -260,7 +256,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     }
   }
 
-  // ✅ Devise ak lang
   const cleanCurrency = ['HTG', 'USD'].includes(defaultCurrency) ? defaultCurrency : 'HTG';
   const cleanLanguage  = ['ht', 'fr', 'en'].includes(defaultLanguage)  ? defaultLanguage  : 'ht';
 
@@ -279,7 +274,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     }
   });
 
-  // ✅ Kreye itilizatè admin si done yo bay
   if (adminEmail && adminPassword) {
     const emailExists = await prisma.user.findFirst({
       where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id }
@@ -299,7 +293,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     }
   }
 
-  // ✅ Kreye sekans dokiman (DEV + FAC) — upsert pou evite erè doublòn
   try {
     await Promise.all([
       prisma.documentSequence.upsert({
