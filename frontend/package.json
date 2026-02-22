@@ -1,0 +1,37 @@
+{
+  "name": "plusgroup-saas-frontend",
+  "version": "1.0.0",
+  "description": "PLUS GROUP — Innov@tion & Tech | SaaS Frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.20.0",
+    "axios": "^1.6.7",
+    "date-fns": "^3.3.1",
+    "i18next": "^25.8.11",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
+    "lucide-react": "^0.330.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.50.1",
+    "react-hot-toast": "^2.4.1",
+    "react-i18next": "^16.5.4",
+    "react-router-dom": "^6.22.0",
+    "recharts": "^2.12.0",
+    "zustand": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1",
+    "vite": "^5.1.3"
+  }
+}

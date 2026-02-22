@@ -1,0 +1,15 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.tabSize": 2,
+  "files.eol": "\n",
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": true,
+  "workbench.colorTheme": "Default Dark+",
+  "javascript.preferences.quoteStyle": "single",
+  "editor.wordWrap": "on",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.routes.js": "${capture}.controller.js, ${capture}.service.js"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+    "prisma.prisma",
+    "rangav.vscode-thunder-client",
+    "PKief.material-icon-theme",
+    "christian-kohler.path-intellisense",
+    "mikestead.dotenv",
+    "eamodio.gitlens"
+  ]
+}
