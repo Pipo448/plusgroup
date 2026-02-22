@@ -140,7 +140,7 @@ export default function LoginPage() {
                 <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: '#C9A84C' }} />
                 <input
                   type="text"
-                  placeholder="moncoeur-auto-parts"
+                  placeholder="plus-store"
                   {...register('slug', { required: 'Slug entreprise obligatwa' })}
                   className="w-full pl-12 pr-4 py-3 rounded-xl text-white placeholder-gray-400 transition-all"
                   style={{
@@ -154,7 +154,7 @@ export default function LoginPage() {
               </div>
               {errors.slug && <p className="text-xs mt-1" style={{ color: '#FF4500' }}>{errors.slug.message}</p>}
               <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
-                Egzanp: <span style={{ color: '#C9A84C', fontFamily: 'monospace' }}>moncoeur-auto-parts</span>
+                Egzanp: <span style={{ color: '#C9A84C', fontFamily: 'monospace' }}>plus-store</span>
               </p>
             </div>
 
