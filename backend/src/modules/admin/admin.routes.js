@@ -106,20 +106,7 @@ router.get('/setup-demo', async (req, res) => {
 
     console.log('✅ User created:', user.id);
 
-    // 3. Kreye kek categories demo
-    const categories = await prismaClient.category.createMany({
-      data: [
-        { tenantId: tenant.id, name: 'Elektronik', color: '#1B3A6B' },
-        { tenantId: tenant.id, name: 'Rad ak Chosèt', color: '#C0392B' },
-        { tenantId: tenant.id, name: 'Manje ak Bwason', color: '#27ae60' },
-        { tenantId: tenant.id, name: 'Kosmetik', color: '#C9A84C' },
-        { tenantId: tenant.id, name: 'Akseswa', color: '#E8836A' }
-      ]
-    });
-
-    console.log('✅ Categories created:', categories.count);
-
-    // 4. Kreye sekans dokiman
+    // 3. Kreye sekans dokiman
     await Promise.all([
       prismaClient.documentSequence.create({
         data: { 
@@ -161,8 +148,7 @@ router.get('/setup-demo', async (req, res) => {
           slug: 'plus-store',
           email: 'admin@plusstore.ht',
           password: 'PlusStore2024!'
-        },
-        categoriesCreated: categories.count
+        }
       }
     });
 
