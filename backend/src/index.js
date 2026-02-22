@@ -100,6 +100,22 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    app: 'PLUS GROUP SaaS API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      admin: '/api/v1/admin',
+      auth: '/api/v1/auth',
+      setup: '/api/v1/admin/setup-demo'
+    }
+  });
+});
+
 // Super Admin
 app.use(`${API}/admin`, adminRoutes);
 
