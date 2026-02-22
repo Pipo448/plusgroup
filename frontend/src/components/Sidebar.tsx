@@ -15,10 +15,20 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
+// ✅ Retire "/api/v1" pou jwenn base URL pou uploads
+const BASE_URL = (import.meta.env.VITE_API_URL || '').replace('/api/v1', '');
+
 const Sidebar = () => {
   const { t } = useTranslation();
   const { tenant } = useAuth();
   const location = useLocation();
+
+  // ✅ Fonction pou konstwi URL logo a kòrèkteman
+  const getLogoUrl = (logoUrl) => {
+    if (!logoUrl) return null;
+    if (logoUrl.startsWith('http')) return logoUrl; // deja yon URL konplè
+    return `${BASE_URL}${logoUrl}`;                 // ajoute base URL devan
+  };
 
   const menuItems = [
     {
@@ -76,12 +86,24 @@ const Sidebar = () => {
       {/* Logo */}
       <div className="sidebar-brand">
         {tenant?.logoUrl ? (
-          <img src={tenant.logoUrl} alt={tenant.name} className="sidebar-logo" />
-        ) : (
-          <div className="sidebar-logo-placeholder">
-            <Package size={32} />
-          </div>
-        )}
+          <img
+            src={getLogoUrl(tenant.logoUrl)}
+            alt={tenant.name}
+            className="sidebar-logo"
+            onError={(e) => {
+              // ✅ Si imaj la pa chaje, montre placeholder a
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        {/* Placeholder — parèt si logo pa chaje oswa pa egziste */}
+        <div
+          className="sidebar-logo-placeholder"
+          style={{ display: tenant?.logoUrl ? 'none' : 'flex' }}
+        >
+          <Package size={32} />
+        </div>
         <div className="sidebar-brand-info">
           <h2 className="sidebar-brand-name">{tenant?.name || 'PLUS GROUP'}</h2>
           <p className="sidebar-brand-subtitle">Innov@tion & Tech</p>
