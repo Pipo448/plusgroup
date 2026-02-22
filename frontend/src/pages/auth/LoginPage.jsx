@@ -3,10 +3,17 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, LogIn, Building2 } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
+
+const LANGS = [
+  { code:'ht', name:'Kreyòl', flag:'🇭🇹' },
+  { code:'fr', name:'Français', flag:'🇫🇷' },
+  { code:'en', name:'English', flag:'🇺🇸' },
+]
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -14,10 +21,28 @@ export default function LoginPage() {
   const setAuth  = useAuthStore(s => s.setAuth)
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showLang, setShowLang] = useState(false)
+  const { i18n } = useTranslation()
+
+  const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
   const { register, handleSubmit, formState: { errors }, setValue } = useForm()
 
-  // ✅ Pre-fill slug ak email depi URL parameters
+  const changeLanguage = (code) => {
+    i18n.changeLanguage(code)
+    localStorage.setItem('plusgroup-lang', code)
+    setShowLang(false)
+  }
+
+  // Fèmen dropdown si klike deyo
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!e.target.closest('#lang-switcher')) setShowLang(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   useEffect(() => {
     const slugParam = searchParams.get('slug')
     const emailParam = searchParams.get('email')
@@ -28,27 +53,14 @@ export default function LoginPage() {
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      // 1. Slug pwòp
       const slug = data.slug.trim().toLowerCase()
-
-      // 2. Mete slug nan TOUT kote ANVAN login
       api.defaults.headers.common['X-Tenant-Slug'] = slug
-
-      // 3. Login
       const res = await authAPI.login({ slug, email: data.email, password: data.password })
       const { token, user } = res.data
-
-      // 4. Mete token imedyatman pou /me
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-
-      // 5. Jwenn tenant konplè via /me
       const meRes = await authAPI.me()
       const tenant = meRes.data.tenant
-
-      // 6. Sove nan Zustand (persist → localStorage)
       setAuth(token, meRes.data.user, tenant)
-
-      // 7. ✅ Asire slug la nan localStorage dirèkteman (pou evite race condition)
       try {
         const stored = JSON.parse(localStorage.getItem('pg-auth') || '{}')
         const authState = stored?.state || stored
@@ -57,14 +69,12 @@ export default function LoginPage() {
         authState.tenant = tenant
         localStorage.setItem('pg-auth', JSON.stringify({ state: authState, version: 0 }))
       } catch {}
-
       toast.success(`Byenveni, ${user.fullName}! 🎉`)
       navigate('/dashboard')
     } catch (e) {
       api.defaults.headers.common['X-Tenant-Slug'] = ''
       const status = e.response?.status
       const msg    = e.response?.data?.message
-
       if (status === 402) {
         toast.error('Abònman ou ekspire. Kontakte administrasyon pou renouvle.', { duration: 6000 })
       } else if (status === 403) {
@@ -98,6 +108,60 @@ export default function LoginPage() {
           animation: 'shimmer 4s linear infinite',
           backgroundSize: '200% 100%'
         }} />
+
+      {/* ── Language Switcher - Anwo adwat ── */}
+      <div id="lang-switcher" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
+        <button
+          onClick={() => setShowLang(!showLang)}
+          style={{
+            display:'flex', alignItems:'center', gap:6,
+            padding:'7px 14px', borderRadius:12,
+            border: `1px solid ${showLang ? 'rgba(201,168,76,0.6)' : 'rgba(255,255,255,0.2)'}`,
+            background: showLang ? 'rgba(201,168,76,0.15)' : 'rgba(255,255,255,0.08)',
+            color: showLang ? '#C9A84C' : 'rgba(255,255,255,0.8)',
+            cursor:'pointer', transition:'all 0.2s',
+            fontSize:12, fontWeight:700,
+            backdropFilter:'blur(10px)',
+          }}
+        >
+          <Globe size={14}/>
+          <span style={{ fontSize:15 }}>{currentLang.flag}</span>
+          <span style={{ fontSize:11, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
+          <ChevronDown size={12} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+        </button>
+
+        {showLang && (
+          <div style={{
+            position:'absolute', top:'calc(100% + 8px)', right:0,
+            background:'rgba(20,20,30,0.95)', borderRadius:12, minWidth:170,
+            boxShadow:'0 12px 40px rgba(0,0,0,0.5)',
+            border:'1px solid rgba(201,168,76,0.2)',
+            overflow:'hidden',
+            backdropFilter:'blur(20px)',
+            animation:'dropDown 0.2s ease',
+          }}>
+            {LANGS.map(lang => (
+              <button key={lang.code} onClick={() => changeLanguage(lang.code)}
+                style={{
+                  width:'100%', display:'flex', alignItems:'center', gap:12,
+                  padding:'11px 16px', border:'none', cursor:'pointer',
+                  background: i18n.language === lang.code ? 'rgba(201,168,76,0.15)' : 'transparent',
+                  color: i18n.language === lang.code ? '#C9A84C' : 'rgba(255,255,255,0.7)',
+                  fontWeight: i18n.language === lang.code ? 700 : 500,
+                  fontSize:13, transition:'all 0.15s',
+                  borderBottom:'1px solid rgba(255,255,255,0.05)',
+                }}
+                onMouseEnter={e => { if(i18n.language !== lang.code) e.currentTarget.style.background='rgba(255,255,255,0.05)' }}
+                onMouseLeave={e => { if(i18n.language !== lang.code) e.currentTarget.style.background='transparent' }}
+              >
+                <span style={{ fontSize:18 }}>{lang.flag}</span>
+                <span style={{ flex:1 }}>{lang.name}</span>
+                {i18n.language === lang.code && <span style={{ color:'#C9A84C', fontSize:14 }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="w-full max-w-md relative z-10">
 
@@ -267,6 +331,10 @@ export default function LoginPage() {
         @keyframes shimmer {
           0% { background-position: -200% 0 }
           100% { background-position: 200% 0 }
+        }
+        @keyframes dropDown {
+          from { opacity:0; transform:translateY(-8px) }
+          to   { opacity:1; transform:translateY(0) }
         }
       `}</style>
     </div>

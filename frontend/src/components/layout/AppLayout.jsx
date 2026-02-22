@@ -7,12 +7,11 @@ import {
   BarChart3, Settings, LogOut, Bell, Warehouse,
   TrendingUp, Menu, X, Globe, ChevronDown
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { authAPI } from '../../services/api'
 import api from '../../services/api'
 
-// ── Koulè PLUS GROUP
 const C = {
   black:   '#0A0A0F',
   darkBg:  '#111118',
@@ -55,8 +54,36 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [showLang, setShowLang] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
+  const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+
+  // Detekte Desktop vs Mobil
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Fèmen lang dropdown si klike deyo
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (langRef.current && !langRef.current.contains(e.target)) {
+        setShowLang(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  // Bloke scroll lè meni louvri sou mobil
+  useEffect(() => {
+    if (!isDesktop) {
+      document.body.style.overflow = open ? 'hidden' : ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [open, isDesktop])
 
   useEffect(() => {
     try {
@@ -95,25 +122,58 @@ export default function AppLayout() {
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
 
+      {/* ══ OVERLAY MOBIL - Klike deyo pou fèmen ══ */}
+      {open && !isDesktop && (
+        <div
+          onClick={() => setOpen(false)}
+          style={{
+            position:'fixed', inset:0, zIndex:35,
+            background:'rgba(0,0,0,0.75)',
+            backdropFilter:'blur(2px)',
+            animation:'fadeIn 0.2s ease',
+          }}
+        />
+      )}
+
       {/* ══ SIDEBAR ══ */}
       <aside style={{
-        position:'fixed', inset:'0 auto 0 0', zIndex:40, width:252,
+        position: isDesktop ? 'relative' : 'fixed',
+        inset: isDesktop ? 'auto' : '0 auto 0 0',
+        zIndex: 40,
+        width: 252,
         background:`linear-gradient(180deg, ${C.black} 0%, ${C.darkBg} 40%, ${C.navBg} 100%)`,
         display:'flex', flexDirection:'column',
-        transform: open ? 'translateX(0)' : undefined,
+        transform: isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
         transition:'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-        boxShadow:'4px 0 32px rgba(0,0,0,0.5)',
+        boxShadow: isDesktop ? '4px 0 32px rgba(0,0,0,0.3)' : '4px 0 32px rgba(0,0,0,0.5)',
         borderRight:`1px solid ${C.border}`,
-      }}
-        className="lg:relative lg:translate-x-0"
-      >
-        {/* Ligne or animée en haut */}
+        flexShrink: 0,
+      }}>
+        {/* Ligne or animée */}
         <div style={{
           height:3,
           background:'linear-gradient(90deg, transparent 0%, #8B6914 15%, #C9A84C 35%, #F0D080 50%, #C9A84C 65%, #8B6914 85%, transparent 100%)',
           animation:'shimmer 3s linear infinite',
           backgroundSize:'200% 100%',
         }}/>
+
+        {/* Bouton fèmen sou mobil */}
+        {!isDesktop && (
+          <button
+            onClick={() => setOpen(false)}
+            style={{
+              position:'absolute', top:12, right:12, zIndex:50,
+              background:'rgba(255,255,255,0.08)', border:`1px solid ${C.border}`,
+              borderRadius:8, padding:6, cursor:'pointer', color:C.muted,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              transition:'all 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.color=C.white; e.currentTarget.style.background='rgba(255,255,255,0.15)' }}
+            onMouseLeave={e => { e.currentTarget.style.color=C.muted; e.currentTarget.style.background='rgba(255,255,255,0.08)' }}
+          >
+            <X size={16}/>
+          </button>
+        )}
 
         {/* ── Logo zone ── */}
         <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}` }}>
@@ -156,9 +216,7 @@ export default function AppLayout() {
                 padding:'9px 12px', borderRadius:10, marginBottom:2,
                 textDecoration:'none',
                 transition:'all 0.2s cubic-bezier(0.4,0,0.2,1)',
-                background: isActive
-                  ? `linear-gradient(135deg, ${C.gold}22, ${C.gold}0C)`
-                  : 'transparent',
+                background: isActive ? `linear-gradient(135deg, ${C.gold}22, ${C.gold}0C)` : 'transparent',
                 color: isActive ? C.goldLt : C.muted,
                 borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
                 fontWeight: isActive ? 700 : 500,
@@ -241,12 +299,8 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* Overlay mobile */}
-      {open && <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', zIndex:30 }} onClick={() => setOpen(false)}/>}
-
       {/* ══ MAIN ══ */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden',
-        marginLeft: 0 }} className="lg:ml-[252px]">
+      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
         {/* ── Header ── */}
         <header style={{
@@ -256,22 +310,22 @@ export default function AppLayout() {
           display:'flex', alignItems:'center', gap:10,
           padding:'0 20px', flexShrink:0, position:'relative', zIndex:10
         }}>
-          {/* Ligne dégradée en bas */}
           <div style={{
             position:'absolute', bottom:0, left:0, right:0, height:2,
             background:'linear-gradient(90deg, transparent, #C0392B 20%, #C9A84C 50%, #C0392B 80%, transparent)'
           }}/>
 
-          {/* Menu mobile */}
-          <button onClick={() => setOpen(!open)}
-            style={{ background:'none', border:'none', cursor:'pointer', color:C.black,
-              padding:6, borderRadius:8, display:'flex', transition:'all 0.15s' }}
-            className="lg:hidden"
-            onMouseEnter={e => e.currentTarget.style.background='#f5f0e8'}
-            onMouseLeave={e => e.currentTarget.style.background='none'}
-          >
-            {open ? <X size={20}/> : <Menu size={20}/>}
-          </button>
+          {/* Menu mobil bouton */}
+          {!isDesktop && (
+            <button onClick={() => setOpen(!open)}
+              style={{ background:'none', border:'none', cursor:'pointer', color:C.black,
+                padding:6, borderRadius:8, display:'flex', transition:'all 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.background='#f5f0e8'}
+              onMouseLeave={e => e.currentTarget.style.background='none'}
+            >
+              <Menu size={20}/>
+            </button>
+          )}
 
           {/* Taux */}
           <div style={{
@@ -287,8 +341,8 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
-          {/* ✅ LANGUAGE SWITCHER - AKOTE HTG! */}
-          <div style={{ position:'relative' }}>
+          {/* Language Switcher */}
+          <div style={{ position:'relative' }} ref={langRef}>
             <button
               onClick={() => setShowLang(!showLang)}
               style={{
@@ -300,16 +354,11 @@ export default function AppLayout() {
                 cursor:'pointer', transition:'all 0.2s',
                 fontSize:12, fontWeight:700,
               }}
-              onMouseEnter={e => { if(!showLang) { e.currentTarget.style.background='#FFF8E7'; e.currentTarget.style.borderColor=C.gold }}}
-              onMouseLeave={e => { if(!showLang) { e.currentTarget.style.background='transparent'; e.currentTarget.style.borderColor='rgba(0,0,0,0.1)' }}}
             >
               <Globe size={16}/>
               <span style={{ fontSize:16 }}>{currentLang.flag}</span>
               <span style={{ fontSize:11, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
-              <ChevronDown size={14} style={{ 
-                transform: showLang ? 'rotate(180deg)' : 'none',
-                transition:'transform 0.2s'
-              }}/>
+              <ChevronDown size={14} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
             </button>
 
             {showLang && (
@@ -322,9 +371,7 @@ export default function AppLayout() {
                 animation:'dropDown 0.2s ease'
               }}>
                 {LANGS.map(lang => (
-                  <button
-                    key={lang.code}
-                    onClick={() => changeLanguage(lang.code)}
+                  <button key={lang.code} onClick={() => changeLanguage(lang.code)}
                     style={{
                       width:'100%', display:'flex', alignItems:'center', gap:12,
                       padding:'12px 16px', border:'none', cursor:'pointer',
@@ -334,14 +381,10 @@ export default function AppLayout() {
                       fontSize:13, transition:'all 0.15s',
                       borderBottom:'1px solid rgba(0,0,0,0.05)',
                     }}
-                    onMouseEnter={e => { if(i18n.language !== lang.code) e.currentTarget.style.background='#F5F0E8' }}
-                    onMouseLeave={e => { if(i18n.language !== lang.code) e.currentTarget.style.background='transparent' }}
                   >
                     <span style={{ fontSize:20 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
-                    {i18n.language === lang.code && (
-                      <span style={{ color:C.gold, fontWeight:'bold', fontSize:16 }}>✓</span>
-                    )}
+                    {i18n.language === lang.code && <span style={{ color:C.gold, fontWeight:'bold', fontSize:16 }}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -363,8 +406,8 @@ export default function AppLayout() {
             position:'relative', background:'none', border:'none', cursor:'pointer',
             color:'#555', padding:8, borderRadius:10, transition:'all 0.15s', display:'flex'
           }}
-            onMouseEnter={e => { e.currentTarget.style.background='#FFF8E7'; e.currentTarget.style.color=C.gold; e.currentTarget.style.transform='scale(1.1)' }}
-            onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#555'; e.currentTarget.style.transform='scale(1)' }}
+            onMouseEnter={e => { e.currentTarget.style.background='#FFF8E7'; e.currentTarget.style.color=C.gold }}
+            onMouseLeave={e => { e.currentTarget.style.background='none'; e.currentTarget.style.color='#555' }}
           >
             <Bell size={19}/>
             <span style={{
@@ -392,33 +435,14 @@ export default function AppLayout() {
           from { opacity:0; transform:translateY(-10px) }
           to   { opacity:1; transform:translateY(0) }
         }
+        @keyframes fadeIn {
+          from { opacity:0 }
+          to   { opacity:1 }
+        }
         @keyframes pulse {
           0%,100% { opacity:1; box-shadow:0 0 0 0 rgba(192,57,43,0.5) }
           50%      { opacity:0.8; box-shadow:0 0 0 5px rgba(192,57,43,0) }
         }
-        .lg\\:relative { position: static !important; }
-        .lg\\:translate-x-0 { transform: translateX(0) !important; }
-        @media (max-width:1023px) {
-          .lg\\:relative { position: fixed !important; }
-          aside { transform: translateX(-100%); }
-          aside.open { transform: translateX(0) !important; }
-          .lg\\:ml-\\[252px\\] { margin-left: 0 !important; }
-        }
-        @media (min-width:1024px) {
-          .lg\\:hidden { display:none !important; }
-          .lg\\:ml-\\[252px\\] { margin-left: 252px; }
-        }
-        button { position: relative; overflow: hidden; }
-        button::after {
-          content:''; position:absolute; inset:0;
-          background:radial-gradient(circle, rgba(201,168,76,0.3) 0%, transparent 70%);
-          opacity:0; transition:opacity 0.3s;
-          pointer-events:none;
-        }
-        button:active::after { opacity:1; }
-        a[href], button { transition: transform 0.1s ease, box-shadow 0.1s ease; }
-        a[href]:active, button:active { transform: scale(0.97); }
-        nav a:active { transform: scale(0.98) translateX(2px); }
       `}</style>
     </div>
   )
