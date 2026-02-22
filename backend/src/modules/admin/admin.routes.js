@@ -39,16 +39,38 @@ router.post('/setup-demo', async (req, res) => {
     const bcrypt = require('bcryptjs');
     const prismaClient = new PrismaClient();
 
-    // Verifye si tenant deja egziste
+    // ✅ KOREKSYON: Si tenant deja egziste, retounen done li yo olye bloke
     const existingTenant = await prismaClient.tenant.findUnique({
       where: { slug: 'moncoeur-auto-parts' }
     });
 
     if (existingTenant) {
+      // Jwenn user admin ki asosye ak tenant an
+      const existingUser = await prismaClient.user.findFirst({
+        where: { tenantId: existingTenant.id, role: 'admin' }
+      });
+
       await prismaClient.$disconnect();
-      return res.status(400).json({
-        success: false,
-        message: 'Tenant "moncoeur-auto-parts" deja egziste!'
+      return res.status(200).json({
+        success: true,
+        message: 'Tenant deja konfigire — done retounen. ✅',
+        data: {
+          tenant: {
+            id: existingTenant.id,
+            slug: existingTenant.slug,
+            name: existingTenant.name
+          },
+          user: existingUser ? {
+            id: existingUser.id,
+            email: existingUser.email,
+            role: existingUser.role
+          } : null,
+          credentials: {
+            slug: 'moncoeur-auto-parts',
+            email: 'moncoeur@gmail.com',
+            password: 'Moncoeur2024!'
+          }
+        }
       });
     }
 
@@ -249,18 +271,16 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       email:           email   || null,
       phone:           phone   || null,
       address:         address || null,
-      planId:          cleanPlanId,   // null si pa chwazi oswa pa jwenn
+      planId:          cleanPlanId,
       defaultCurrency: cleanCurrency,
       defaultLanguage: cleanLanguage,
       status:          'active',
       subscriptionEndsAt
-      // ✅ Pa mete createdBy — SuperAdmin relation pa toujou konfigire
     }
   });
 
   // ✅ Kreye itilizatè admin si done yo bay
   if (adminEmail && adminPassword) {
-    // Verifye si email la pa deja itilize nan menm tenant an
     const emailExists = await prisma.user.findFirst({
       where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id }
     });
@@ -294,7 +314,6 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       })
     ]);
   } catch (seqErr) {
-    // Pa bloke si sekans deja egziste
     console.warn('Sekans dokiman:', seqErr.message);
   }
 
@@ -314,7 +333,6 @@ router.patch('/tenants/:id/status', asyncHandler(async (req, res) => {
 }));
 
 // ── POST /api/v1/admin/tenants/:id/renew
-// ✅ Renouvle abònman pou 1 mwa (oswa plis) apre peman
 router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   const { months = 1 } = req.body;
   const numMonths = Math.max(1, Math.min(36, Number(months)));
@@ -326,8 +344,6 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   if (!existing)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' });
 
-  // ✅ Si abònman ekspire (oswa pa gen dat), pati de kounye a
-  // Si abònman poko ekspire, ajoute mwa yo sou dat ki deja la
   const baseDate = (existing.subscriptionEndsAt && new Date(existing.subscriptionEndsAt) > new Date())
     ? new Date(existing.subscriptionEndsAt)
     : new Date();
@@ -338,7 +354,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: {
       subscriptionEndsAt: baseDate,
-      status: 'active'   // ✅ Reaktive si te bloke
+      status: 'active'
     },
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   });
@@ -357,7 +373,6 @@ router.get('/plans', asyncHandler(async (req, res) => {
     orderBy: { priceMonthly: 'asc' }
   });
 
-  // ✅ Si tab la vid, kreye plans defo otomatikman
   if (plans.length === 0) {
     await prisma.subscriptionPlan.createMany({
       data: [
@@ -396,7 +411,6 @@ router.get('/stats', asyncHandler(async (req, res) => {
 }));
 
 // ── GET /api/v1/admin/expiring-soon
-// ✅ Jwenn tenants ki gen abònman ki ap ekspire nan 5 jou oswa mwens
 router.get('/expiring-soon', asyncHandler(async (req, res) => {
   const fiveDaysFromNow = new Date();
   fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
@@ -405,8 +419,8 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
     where: {
       status: 'active',
       subscriptionEndsAt: {
-        lte: fiveDaysFromNow,      // Ekspire nan 5 jou oswa mwens
-        gte: new Date()             // Men pa deja ekspire
+        lte: fiveDaysFromNow,
+        gte: new Date()
       }
     },
     select: {
