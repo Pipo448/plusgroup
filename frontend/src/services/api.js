@@ -3,7 +3,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: 'https://plusgroup-backend.onrender.com/api/v1',  // ← URL dirèk backend
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 })
