@@ -135,7 +135,7 @@ export const reportAPI = {
 
 // ── Super Admin (instance separe — pa bezwen X-Tenant-Slug)
 const adminAxios = axios.create({
-  baseURL: '/api/v1/admin',
+  baseURL: baseURL: 'https://plusgroup-backend.onrender.com/api/v1/admin',,
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' }
 })

@@ -35,7 +35,7 @@ export default function LoginPage() {
       api.defaults.headers.common['X-Tenant-Slug'] = slug
 
       // 3. Login
-      const res = await authAPI.login({ email: data.email, password: data.password })
+      const res = await authAPI.login({ slug, email: data.email, password: data.password })
       const { token, user } = res.data
 
       // 4. Mete token imedyatman pou /me
