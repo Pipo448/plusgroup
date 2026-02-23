@@ -36,8 +36,6 @@ const LANGS = [
   { code:'en', name:'English',  flag:'🇺🇸' },
 ]
 
-const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', GBP: '£' }
-
 const logoSrc = (url) => {
   if (!url) return null
   if (url.startsWith('http')) return url
@@ -65,6 +63,7 @@ export default function AppLayout() {
   // ── Parse taux chanj tenant
   const exchangeRates     = parseJson(tenant?.exchangeRates, {})
   const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
+  // Toujou montre taux — showExchangeRate pou kontrol nan paramèt
   const showExchangeRate  = tenant?.showExchangeRate !== false
 
   useEffect(() => {
@@ -116,6 +115,18 @@ export default function AppLayout() {
   }
 
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
+
+  // ── Kalkile tou to yo pou afichaj
+  const rateItems = showExchangeRate
+    ? visibleCurrencies
+        .map(currency => {
+          const rate = exchangeRates[currency]
+            ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : null)
+          if (!rate || Number(rate) <= 0) return null
+          return { currency, rate: Number(rate) }
+        })
+        .filter(Boolean)
+    : []
 
   const sidebarStyle = {
     position: isDesktop ? 'relative' : 'fixed',
@@ -254,26 +265,20 @@ export default function AppLayout() {
           )}
 
           {/* ✅ Taux chanj — afiche tout devise ki aktive yo */}
-          {showExchangeRate && visibleCurrencies.map(currency => {
-            // Pran taux: nan exchangeRates d abò, sinon fallback sou exchangeRate pou USD
-            const rate = exchangeRates[currency]
-              ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 132) : null)
-            if (!rate) return null
-            return (
-              <div key={currency} style={{
-                display:'flex', alignItems:'center', gap:5,
-                padding:'4px 10px', borderRadius:8,
-                background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
-                border:'1px solid #F0D080', fontSize:12, flexShrink:0,
-              }}>
-                <span style={{ color:'#8B6914', fontWeight:700 }}>1 {currency}</span>
-                <span style={{ color:C.gold }}>=</span>
-                <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
-                  {Number(rate).toFixed(2)} HTG
-                </span>
-              </div>
-            )
-          })}
+          {rateItems.map(({ currency, rate }) => (
+            <div key={currency} style={{
+              display:'flex', alignItems:'center', gap:5,
+              padding:'4px 10px', borderRadius:8,
+              background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
+              border:'1px solid #F0D080', fontSize:12, flexShrink:0,
+            }}>
+              <span style={{ color:'#8B6914', fontWeight:700 }}>1 {currency}</span>
+              <span style={{ color:C.gold }}>=</span>
+              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
+                {rate.toFixed(2)} HTG
+              </span>
+            </div>
+          ))}
 
           <div style={{ flex:1 }}/>
 

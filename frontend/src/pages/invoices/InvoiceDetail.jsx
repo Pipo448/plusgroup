@@ -27,16 +27,29 @@ const PDF_SIZES = [
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
 ]
 
-const RECEIPT_LANGS = [
-  { value: 'ht', label: 'Kreyòl',  flag: '🇭🇹' },
-  { value: 'fr', label: 'Français', flag: '🇫🇷' },
-  { value: 'en', label: 'English',  flag: '🇺🇸' },
-]
+// ── Konvèti URL imaj an base64 pou enpresyon
+const toBase64 = (url) => new Promise((resolve) => {
+  if (!url) return resolve(null)
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width  = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext('2d').drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    } catch { resolve(null) }
+  }
+  img.onerror = () => resolve(null)
+  // Ajoute timestamp pou evite cache CORS
+  img.src = url.includes('?') ? url : `${url}?t=${Date.now()}`
+})
 
 // ──────────────────────────────────────────────
 // Komponan resi enprime
 // ──────────────────────────────────────────────
-function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
+function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   if (!invoice) return null
   const snap    = invoice.clientSnapshot || {}
   const isPaid  = invoice.status === 'paid'
@@ -57,6 +70,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
     ? invoice.payments[invoice.payments.length - 1]
     : null
 
+  // Sèlman logo base64 — pa URL distant
+  const logoSrc = logoBase64 || null
+
   return (
     <div id="printable-receipt" style={{
       display: 'none',
@@ -73,8 +89,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
 
       {/* LOGO + NOM BIZNIS */}
       <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
-        {tenant?.logoUrl && (
-          <img src={tenant.logoUrl} alt="Logo"
+        {logoSrc && (
+          <img
+            src={logoSrc}
+            alt="Logo"
             style={{ height: '40px', objectFit: 'contain', marginBottom: '4px', display: 'block', margin: '0 auto 4px' }}
           />
         )}
@@ -90,7 +108,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         {t('invoice.receiptTitle')}
       </div>
 
-      {/* INFO FAKTI */}
+      {/* INFO FAKTI — sans taux de change */}
       <div style={{ marginBottom: '6px', fontSize: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>{t('invoice.invoiceNumber')}:</span>
@@ -100,12 +118,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
           <span style={{ color: '#555' }}>{t('invoice.date')}:</span>
           <span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy HH:mm')}</span>
         </div>
-        {invoice.exchangeRate && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#555' }}>{t('invoice.exchangeRate')}</span>
-            <span>{Number(invoice.exchangeRate).toFixed(2)} HTG</span>
-          </div>
-        )}
       </div>
 
       {/* KLIYAN */}
@@ -225,6 +237,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
   )
 }
 
+// Zoom selon lang
+const LANG_ZOOM = { ht: '100%', fr: '80%', en: '60%' }
+
 // ──────────────────────────────────────────────
 // KOMPONAN PRENSIPAL
 // ──────────────────────────────────────────────
@@ -238,11 +253,9 @@ export default function InvoiceDetail() {
 
   const [showPayment, setShowPayment]   = useState(false)
   const [showPdfMenu, setShowPdfMenu]   = useState(false)
-  const [showLangMenu, setShowLangMenu] = useState(false)
-  const [receiptLang, setReceiptLang]   = useState(i18n.language || 'ht')
   const [qrDataUrl, setQrDataUrl]       = useState(null)
+  const [logoBase64, setLogoBase64]     = useState(null)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
-  const langMenuRef = useRef(null)
 
   const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
   const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
@@ -251,8 +264,6 @@ export default function InvoiceDetail() {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target))
         setShowPdfMenu(false)
-      if (langMenuRef.current && !langMenuRef.current.contains(e.target))
-        setShowLangMenu(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -262,6 +273,14 @@ export default function InvoiceDetail() {
     queryKey: ['invoice', id],
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
+
+  // Konvèti logo an base64 yon fwa sèlman
+  useEffect(() => {
+    const url = tenant?.logoUrl
+    if (!url) return
+    const fullUrl = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`)
+    toBase64(fullUrl).then(b64 => setLogoBase64(b64))
+  }, [tenant?.logoUrl])
 
   useEffect(() => {
     if (!invoice) return
@@ -278,36 +297,22 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice])
 
-  // ✅ FIX PRENSIPAL — ouvri nouvo fenèt pou enprime resi sèlman
-  // Anvan: window.print() te fè paj antye a tounen nwa
-  // Kounye a: popup fenèt ki gen sèlman resi a, epi li enprime
-  const handlePrintWithLang = async () => {
-    const originalLang = i18n.language
-
-    // Chanje lang si diferan
-    if (receiptLang !== originalLang) {
-      await i18n.changeLanguage(receiptLang)
-      // Tann traduksyon yo chaje
-      await new Promise(resolve => setTimeout(resolve, 300))
-    }
-
+  // Enprime resi — zoom selon lang courant, logo base64, san taux
+  const handlePrint = async () => {
     const receiptEl = document.getElementById('printable-receipt')
-    if (!receiptEl) {
-      toast.error('Resi pa disponib.')
-      return
-    }
+    if (!receiptEl) { toast.error('Resi pa disponib.'); return }
 
-    // Kopye kontni resi a (avèk display:block)
+    const currentLang = i18n.language || 'ht'
+    const zoom = LANG_ZOOM[currentLang] || '100%'
+    const receiptSize = tenant?.receiptSize || '80mm'
+
     const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
 
-    // Ouvri yon ti fenèt pou resi sèlman
     const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
     if (!printWindow) {
       toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
       return
     }
-
-    const receiptSize = tenant?.receiptSize || '80mm'
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -322,13 +327,14 @@ export default function InvoiceDetail() {
             padding: 0;
             background: #fff;
             font-family: 'Courier New', Courier, monospace;
+            zoom: ${zoom};
           }
           @media print {
             @page {
               margin: 0;
               size: ${receiptSize} auto;
             }
-            body { margin: 0; }
+            body { margin: 0; zoom: ${zoom}; }
           }
         </style>
       </head>
@@ -337,19 +343,12 @@ export default function InvoiceDetail() {
     `)
     printWindow.document.close()
 
-    // Tann imaj yo chaje (logo, QR) anvan enprime
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.focus()
         printWindow.print()
-        // Fèmen fenèt apre enpresyon
         setTimeout(() => printWindow.close(), 1000)
       }, 200)
-    }
-
-    // Retounen nan lang orijinal
-    if (receiptLang !== originalLang) {
-      setTimeout(() => i18n.changeLanguage(originalLang), 800)
     }
   }
 
@@ -402,13 +401,11 @@ export default function InvoiceDetail() {
   const amtNum      = Number(payData.amountHtg || 0)
   const monnen      = amtNum > balance && balance > 0 ? amtNum - balance : 0
 
-  const currentLangInfo = RECEIPT_LANGS.find(l => l.value === receiptLang) || RECEIPT_LANGS[0]
-
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      {/* Resi Enprime (kaché nan ekran, kopye nan popup pou print) */}
-      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} />
+      {/* Resi Enprime (kaché nan ekran) */}
+      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} logoBase64={logoBase64} />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -439,58 +436,15 @@ export default function InvoiceDetail() {
 
         <div className="flex gap-2 flex-wrap">
 
-          {/* ── Bouton Enprime Resi (popup fenèt — pa dialog navigatè) */}
-          <div className="relative" ref={langMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            <button
-              onClick={handlePrintWithLang}
-              className="btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: '8px 0 0 8px', borderRight: 'none' }}
-            >
-              <Printer size={14} />
-              Enprime Resi
-              <span style={{ fontSize: 11, background: 'rgba(0,0,0,0.08)', padding: '1px 5px', borderRadius: 4 }}>
-                {currentLangInfo.flag}
-              </span>
-            </button>
-            <button
-              onClick={() => setShowLangMenu(v => !v)}
-              className="btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', borderRadius: '0 8px 8px 0', padding: '0 8px' }}
-              title="Chwazi lang resi"
-            >
-              <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showLangMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-            </button>
-
-            {showLangMenu && (
-              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, background: '#fff', borderRadius: 12, minWidth: 160, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <div style={{ padding: '8px 14px 5px', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Lang resi
-                </div>
-                {RECEIPT_LANGS.map((lang, i) => (
-                  <button key={lang.value}
-                    onClick={() => { setReceiptLang(lang.value); setShowLangMenu(false) }}
-                    style={{
-                      width: '100%', textAlign: 'left', padding: '10px 14px',
-                      background: receiptLang === lang.value ? '#f0f9ff' : 'none',
-                      border: 'none', cursor: 'pointer',
-                      borderBottom: i < RECEIPT_LANGS.length - 1 ? '1px solid #f1f5f9' : 'none',
-                      display: 'flex', alignItems: 'center', gap: 10,
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background = receiptLang === lang.value ? '#f0f9ff' : 'none'}
-                  >
-                    <span style={{ fontSize: 18 }}>{lang.flag}</span>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', fontFamily: 'DM Sans,sans-serif' }}>{lang.label}</div>
-                    </div>
-                    {receiptLang === lang.value && (
-                      <span style={{ marginLeft: 'auto', color: '#2563eb', fontWeight: 800, fontSize: 14 }}>✓</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* ── Bouton Enprime Resi — yon sèl bouton, pa gen lang menu */}
+          <button
+            onClick={handlePrint}
+            className="btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
+            <Printer size={14} />
+            Enprime Resi
+          </button>
 
           {/* Bouton Bluetooth Printer */}
           {hasBluetooth && (
@@ -507,7 +461,7 @@ export default function InvoiceDetail() {
                     className="btn-secondary btn-sm"
                     style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
                     <Printer size={14} />
-                    {printing ? 'Ap enprime...' : 'Enprime Resi'}
+                    {printing ? 'Ap enprime...' : 'Enprime BT'}
                   </button>
                   <button onClick={disconnect} title="Dekonekte printer"
                     style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
@@ -565,7 +519,7 @@ export default function InvoiceDetail() {
       {connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Goojprt PT-210 konekte via Bluetooth — Klike "Enprime Resi" pou voye resi bay printer a
+          Goojprt PT-210 konekte via Bluetooth — Klike "Enprime BT" pou voye resi bay printer a
         </div>
       )}
 
