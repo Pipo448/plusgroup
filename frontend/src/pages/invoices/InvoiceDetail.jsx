@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
+import { usePrinter } from '../../hooks/usePrinter'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -19,7 +20,6 @@ const PAYMENT_METHODS = [
   { value:'check',    label:'Chèk'      },
 ]
 
-// ✅ 2 fòma enprimant
 const PDF_SIZES = [
   { value: '80mm', label: '80mm', desc: 'Enprimant nòmal (80×80)' },
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
@@ -35,6 +35,10 @@ export default function InvoiceDetail() {
   const [showPayment, setShowPayment] = useState(false)
   const [showPdfMenu, setShowPdfMenu] = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
+
+  // ── Bluetooth Printer
+  const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
+  const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
   useEffect(() => {
     const handler = (e) => {
@@ -66,7 +70,6 @@ export default function InvoiceDetail() {
     onSuccess: () => { toast.success('Facture anile.'); qc.invalidateQueries(['invoice', id]) }
   })
 
-  // ✅ Ouvri modal peman — ranpli montan ak balans otomatikman
   const openPaymentModal = () => {
     const bal = Number(invoice?.balanceDueHtg || 0)
     setPayData({ amountHtg: bal > 0 ? String(bal) : '', method: 'cash', reference: '' })
@@ -125,11 +128,55 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <button onClick={() => window.print()} className="btn-secondary btn-sm">
-            <Printer size={14} /> Enprime
-          </button>
 
-          {/* ✅ Dropdown PDF — chwazi 80mm oswa 57mm */}
+          {/* ── Bouton Bluetooth Printer */}
+          {hasBluetooth && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              {!connected ? (
+                <button
+                  onClick={connect}
+                  disabled={connecting}
+                  className="btn-secondary btn-sm"
+                  style={{ display:'flex', alignItems:'center', gap:6 }}
+                >
+                  <Bluetooth size={14} />
+                  {connecting ? 'Ap konekte...' : 'Konekte Printer'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => print(invoice, tenant)}
+                    disabled={printing}
+                    className="btn-secondary btn-sm"
+                    style={{
+                      display:'flex', alignItems:'center', gap:6,
+                      background:'rgba(5,150,105,0.08)',
+                      color:'#059669',
+                      borderColor:'rgba(5,150,105,0.3)',
+                    }}
+                  >
+                    <Printer size={14} />
+                    {printing ? 'Ap enprime...' : 'Enprime Resi'}
+                  </button>
+                  <button
+                    onClick={disconnect}
+                    title="Dekonekte printer"
+                    style={{
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      width:32, height:32, borderRadius:8,
+                      background:'rgba(192,57,43,0.07)',
+                      border:'1px solid rgba(192,57,43,0.2)',
+                      color:'#C0392B', cursor:'pointer',
+                    }}
+                  >
+                    <BluetoothOff size={13}/>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ── Bouton PDF */}
           <div className="relative" ref={pdfMenuRef}>
             <button
               onClick={() => setShowPdfMenu(v => !v)}
@@ -188,6 +235,18 @@ export default function InvoiceDetail() {
           )}
         </div>
       </div>
+
+      {/* ── Bandwòl Bluetooth statut */}
+      {connected && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:8, padding:'8px 14px',
+          background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)',
+          borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600,
+        }}>
+          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
+          Goojprt PT-210 konekte via Bluetooth — Klike "Enprime Resi" pou voye resi bay printer a
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
@@ -294,6 +353,19 @@ export default function InvoiceDetail() {
               <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy')}</span></div>
               <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
+
+            {/* ── Bouton enprime nan kolòn dwat (mobil-friendly) */}
+            {connected && (
+              <button
+                onClick={() => print(invoice, tenant)}
+                disabled={printing}
+                className="btn-primary w-full mt-4"
+                style={{ justifyContent:'center' }}
+              >
+                <Printer size={15}/>
+                {printing ? 'Ap enprime...' : 'Enprime Resi Bluetooth'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -330,16 +402,13 @@ export default function InvoiceDetail() {
                 </div>
               </div>
 
-              {/* ✅ Montan — pre-ranpli, editable */}
               <div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
                   <label className="label mb-0">Montan k ap peye (HTG) *</label>
                   {amtNum !== balance && balance > 0 && (
-                    <button
-                      type="button"
+                    <button type="button"
                       onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}
-                      style={{ fontSize:10, color:'#2563eb', fontWeight:700, background:'#eff6ff', border:'none', cursor:'pointer', padding:'2px 8px', borderRadius:4 }}
-                    >
+                      style={{ fontSize:10, color:'#2563eb', fontWeight:700, background:'#eff6ff', border:'none', cursor:'pointer', padding:'2px 8px', borderRadius:4 }}>
                       Ranpli tout ↑
                     </button>
                   )}
@@ -350,27 +419,20 @@ export default function InvoiceDetail() {
                   style={{ fontSize:16, fontWeight:700 }}
                 />
                 {amtNum > 0 && amtNum < balance && (
-                  <p style={{ fontSize:11, color:'#d97706', marginTop:4 }}>
-                    ⚠ Peman pasyal — {fmt(balance - amtNum)} HTG ap rete
-                  </p>
+                  <p style={{ fontSize:11, color:'#d97706', marginTop:4 }}>⚠ Peman pasyal — {fmt(balance - amtNum)} HTG ap rete</p>
                 )}
                 {amtNum >= balance && amtNum > 0 && (
-                  <p style={{ fontSize:11, color:'#16a34a', marginTop:4 }}>
-                    ✓ Peman konplè — fakti a ap mache "Peye"
-                  </p>
+                  <p style={{ fontSize:11, color:'#16a34a', marginTop:4 }}>✓ Peman konplè — fakti a ap mache "Peye"</p>
                 )}
               </div>
 
-              {/* Metòd */}
               <div>
                 <label className="label">Metòd peman</label>
-                <select className="input" value={payData.method}
-                  onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
+                <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
                   {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
 
-              {/* Referans */}
               <div>
                 <label className="label">Referans (opsyonèl)</label>
                 <input className="input" placeholder="ex: MCash #12345"
@@ -378,13 +440,11 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
               </div>
 
-              {/* Boutons */}
               <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={paymentMutation.isPending}>
                   Anile
                 </button>
-                <button
-                  type="button"
+                <button type="button"
                   onClick={() => {
                     if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
                     paymentMutation.mutate({ ...payData, amountHtg: amtNum })
@@ -407,7 +467,10 @@ export default function InvoiceDetail() {
         </div>
       )}
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      `}</style>
     </div>
   )
 }
