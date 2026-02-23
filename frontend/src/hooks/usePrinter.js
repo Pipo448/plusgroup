@@ -4,7 +4,7 @@ import { connectPrinter, disconnectPrinter, isPrinterConnected, printInvoice } f
 import toast from 'react-hot-toast'
 
 export const usePrinter = () => {
-  const [connected, setConnected]   = useState(false)
+  const [connected, setConnected] = useState(isPrinterConnected())
   const [connecting, setConnecting] = useState(false)
   const [printing, setPrinting]     = useState(false)
 
