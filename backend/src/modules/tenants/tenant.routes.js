@@ -72,7 +72,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     name, address, phone, email, website,
     defaultCurrency, defaultLanguage,
     exchangeRate, taxRate, primaryColor,
-   // receiptSize, printerConnection  // ✅ Ajoute printerConnection
+    receiptSize, //printerConnection  // ✅ Ajoute printerConnection
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -88,7 +88,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
       exchangeRate: true, taxRate: true, primaryColor: true,
-      //receiptSize: true, printerConnection: true  // ✅
+      receiptSize: true, //printerConnection: true  // ✅
     }
   });
   res.json({ success: true, tenant, message: 'Paramèt ajou avèk siksè.' });

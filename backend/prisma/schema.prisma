@@ -133,6 +133,7 @@ model Tenant {
   exchangeRate        Decimal         @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
   taxRate             Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
   receiptSize         String          @default("80mm") @map("receipt_size") @db.VarChar(10)  // ✅ "80mm" oswa "57mm"
+  printerConnection   String          @default("usb") @map("printer_connection") @db.VarChar(20)
   planId              String?         @map("plan_id")
   status              TenantStatus    @default(pending)
   trialEndsAt         DateTime?       @map("trial_ends_at")

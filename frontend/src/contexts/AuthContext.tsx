@@ -72,7 +72,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(JSON.parse(savedUser));
 
           // Fetch fresh user data from backend
-          const response = await authAPI.me();
+          const response = await authAPI.getMe();
           if (response.data.success) {
             setUser(response.data.user);
             setTenant(response.data.tenant);
@@ -110,7 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Fetch tenant info (slug deja nan localStorage, interceptor ap jwenn li)
         try {
-          const meResponse = await authAPI.me();
+          const meResponse = await authAPI.getMe();
           if (meResponse.data.success && meResponse.data.tenant) {
             setTenant(meResponse.data.tenant);
             localStorage.setItem(STORAGE.tenant, JSON.stringify(meResponse.data.tenant));
