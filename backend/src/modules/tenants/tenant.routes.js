@@ -30,6 +30,14 @@ const upload = multer({
   }
 });
 
+// ── Helper: konvèti logoUrl relatif → absoli
+const getAbsoluteLogoUrl = (logoUrl) => {
+  if (!logoUrl) return null;
+  if (logoUrl.startsWith('http')) return logoUrl; // deja absoli
+  const BASE = process.env.API_URL || 'https://plusgroup-backend.onrender.com';
+  return `${BASE}${logoUrl}`;
+};
+
 router.use(identifyTenant, authenticate);
 
 // ── GET /api/v1/tenant/settings
@@ -40,27 +48,48 @@ router.get('/settings', asyncHandler(async (req, res) => {
       id: true, name: true, slug: true, logoUrl: true, primaryColor: true,
       address: true, phone: true, email: true, website: true,
       defaultCurrency: true, defaultLanguage: true,
-      exchangeRate: true, taxRate: true, receiptSize: true,  // ✅ Ajoute
+      exchangeRate: true, taxRate: true,
+      receiptSize: true,
+      printerConnection: true, // ✅ Ajoute
       status: true, subscriptionEndsAt: true,
       plan: { select: { name: true, maxUsers: true, maxProducts: true, features: true } }
     }
   });
-  res.json({ success: true, tenant });
+
+  // ✅ Korije logoUrl pou retounen URL absoli
+  res.json({
+    success: true,
+    tenant: {
+      ...tenant,
+      logoUrl: getAbsoluteLogoUrl(tenant.logoUrl)
+    }
+  });
 }));
 
 // ── PUT /api/v1/tenant/settings
 router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
-  const { name, address, phone, email, website, defaultCurrency, defaultLanguage, exchangeRate, taxRate, primaryColor, receiptSize } = req.body;
+  const {
+    name, address, phone, email, website,
+    defaultCurrency, defaultLanguage,
+    exchangeRate, taxRate, primaryColor,
+    receiptSize, printerConnection  // ✅ Ajoute printerConnection
+  } = req.body;
+
   const tenant = await prisma.tenant.update({
     where: { id: req.tenant.id },
     data: {
       name, address, phone, email, website, primaryColor,
       defaultCurrency, defaultLanguage,
-      exchangeRate: exchangeRate ? Number(exchangeRate) : undefined,
-      taxRate:      taxRate      ? Number(taxRate)      : undefined,
-      receiptSize:  receiptSize  ? String(receiptSize)  : undefined  // ✅ "80mm" oswa "57mm"
+      exchangeRate:      exchangeRate      ? Number(exchangeRate)    : undefined,
+      taxRate:           taxRate           ? Number(taxRate)         : undefined,
+      receiptSize:       receiptSize       ? String(receiptSize)     : undefined,
+      printerConnection: printerConnection ? String(printerConnection) : undefined, // ✅
     },
-    select: { id: true, name: true, defaultCurrency: true, defaultLanguage: true, exchangeRate: true, taxRate: true, primaryColor: true, receiptSize: true }
+    select: {
+      id: true, name: true, defaultCurrency: true, defaultLanguage: true,
+      exchangeRate: true, taxRate: true, primaryColor: true,
+      receiptSize: true, printerConnection: true  // ✅
+    }
   });
   res.json({ success: true, tenant, message: 'Paramèt ajou avèk siksè.' });
 }));
@@ -85,7 +114,10 @@ router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(asy
 
   const logoUrl = `/uploads/logos/${req.file.filename}`;
   await prisma.tenant.update({ where: { id: req.tenant.id }, data: { logoUrl } });
-  res.json({ success: true, logoUrl, message: 'Logo chanje avèk siksè.' });
+
+  // ✅ Retounen URL absoli pou frontend ka afiche logo imedyatman
+  const absoluteLogoUrl = getAbsoluteLogoUrl(logoUrl);
+  res.json({ success: true, logoUrl: absoluteLogoUrl, message: 'Logo chanje avèk siksè.' });
 }));
 
 // ── GET /api/v1/tenant/sequences
