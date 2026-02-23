@@ -27,7 +27,6 @@ const PDF_SIZES = [
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
 ]
 
-// ── Langages disponib pou resi enprime
 const RECEIPT_LANGS = [
   { value: 'ht', label: 'Kreyòl',  flag: '🇭🇹' },
   { value: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -35,7 +34,7 @@ const RECEIPT_LANGS = [
 ]
 
 // ──────────────────────────────────────────────
-// Komponan resi enprime (kaché nan UI, vizib pou print)
+// Komponan resi enprime
 // ──────────────────────────────────────────────
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
   if (!invoice) return null
@@ -52,15 +51,8 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         ? t('invoice.statusPartial')
         : t('invoice.statusUnpaid')
 
-  const statusColor = isPaid
-    ? '#16a34a'
-    : isCancelled
-      ? '#6b7280'
-      : isPartial
-        ? '#d97706'
-        : '#dc2626'
+  const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
 
-  // Dènye peman (si genyen)
   const lastPayment = invoice.payments?.length > 0
     ? invoice.payments[invoice.payments.length - 1]
     : null
@@ -79,32 +71,26 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
       lineHeight: '1.5',
     }}>
 
-      {/* ── LOGO + NOM BIZNIS */}
+      {/* LOGO + NOM BIZNIS */}
       <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
         {tenant?.logoUrl && (
-          <img
-            src={tenant.logoUrl}
-            alt="Logo"
+          <img src={tenant.logoUrl} alt="Logo"
             style={{ height: '40px', objectFit: 'contain', marginBottom: '4px', display: 'block', margin: '0 auto 4px' }}
           />
         )}
         <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '14px', letterSpacing: '0.5px', color: '#111' }}>
           {tenant?.businessName || tenant?.name || 'PlusGroup'}
         </div>
-        {tenant?.phone && (
-          <div style={{ fontSize: '10px', color: '#555' }}>📞 {tenant.phone}</div>
-        )}
-        {tenant?.address && (
-          <div style={{ fontSize: '10px', color: '#555' }}>{tenant.address}</div>
-        )}
+        {tenant?.phone && <div style={{ fontSize: '10px', color: '#555' }}>📞 {tenant.phone}</div>}
+        {tenant?.address && <div style={{ fontSize: '10px', color: '#555' }}>{tenant.address}</div>}
       </div>
 
-      {/* ── TITRE RESI */}
+      {/* TITRE RESI */}
       <div style={{ textAlign: 'center', margin: '6px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '13px', letterSpacing: '1.5px', color: '#111' }}>
         {t('invoice.receiptTitle')}
       </div>
 
-      {/* ── INFO FAKTI */}
+      {/* INFO FAKTI */}
       <div style={{ marginBottom: '6px', fontSize: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>{t('invoice.invoiceNumber')}:</span>
@@ -122,7 +108,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         )}
       </div>
 
-      {/* ── KLIYAN */}
+      {/* KLIYAN */}
       {snap.name && (
         <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#f8f8f8', borderRadius: '4px', fontSize: '10px' }}>
           <div style={{ fontWeight: '700', fontSize: '11px' }}>👤 {t('invoice.client')}: {snap.name}</div>
@@ -132,10 +118,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         </div>
       )}
 
-      {/* ── SEPATÈ */}
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* ── TABLO ATIK */}
+      {/* TABLO ATIK */}
       <div style={{ fontSize: '10px', marginBottom: '4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '3px', borderBottom: '1px solid #ddd' }}>
           <span style={{ flex: 3 }}>{t('invoice.product')}</span>
@@ -158,10 +143,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         ))}
       </div>
 
-      {/* ── SEPATÈ */}
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* ── TOTAUX */}
+      {/* TOTAUX */}
       <div style={{ fontSize: '10px', marginBottom: '6px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
           <span style={{ color: '#555' }}>{t('invoice.subtotal')}:</span>
@@ -197,7 +181,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         )}
       </div>
 
-      {/* ── METÒD PEMAN */}
+      {/* METÒD PEMAN */}
       {lastPayment && (
         <div style={{ fontSize: '10px', marginBottom: '6px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -213,17 +197,16 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         </div>
       )}
 
-      {/* ── STATUT BADGE */}
+      {/* STATUT BADGE */}
       <div style={{ textAlign: 'center', margin: '8px 0', padding: '6px', background: `${statusColor}15`, border: `1.5px solid ${statusColor}`, borderRadius: '6px' }}>
         <span style={{ fontWeight: '900', fontSize: '12px', color: statusColor, fontFamily: 'Arial' }}>
           {statusLabel}
         </span>
       </div>
 
-      {/* ── SEPATÈ */}
       <div style={{ borderTop: '1px dashed #aaa', margin: '8px 0' }} />
 
-      {/* ── QR CODE */}
+      {/* QR CODE */}
       {qrDataUrl && (
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
           <img src={qrDataUrl} alt="QR Code" style={{ width: '100px', height: '100px', display: 'block', margin: '0 auto 3px' }} />
@@ -232,13 +215,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
         </div>
       )}
 
-      {/* ── PYE PAJ */}
+      {/* PYE PAJ */}
       <div style={{ textAlign: 'center', fontSize: '10px', borderTop: '1px dashed #ccc', paddingTop: '6px' }}>
         <div style={{ fontWeight: '700', fontSize: '11px', marginBottom: '3px' }}>{t('invoice.thankYou')}</div>
         <div style={{ color: '#666', fontSize: '9px', lineHeight: '1.4' }}>{t('invoice.footerTerms')}</div>
         <div style={{ marginTop: '6px', fontSize: '9px', color: '#bbb' }}>{t('invoice.poweredBy')}</div>
       </div>
-
     </div>
   )
 }
@@ -254,19 +236,17 @@ export default function InvoiceDetail() {
   const pdfMenuRef  = useRef(null)
   const { t, i18n } = useTranslation()
 
-  const [showPayment, setShowPayment]       = useState(false)
-  const [showPdfMenu, setShowPdfMenu]       = useState(false)
-  const [showLangMenu, setShowLangMenu]     = useState(false)
-  const [receiptLang, setReceiptLang]       = useState(i18n.language || 'ht')
-  const [qrDataUrl, setQrDataUrl]           = useState(null)
+  const [showPayment, setShowPayment]   = useState(false)
+  const [showPdfMenu, setShowPdfMenu]   = useState(false)
+  const [showLangMenu, setShowLangMenu] = useState(false)
+  const [receiptLang, setReceiptLang]   = useState(i18n.language || 'ht')
+  const [qrDataUrl, setQrDataUrl]       = useState(null)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
   const langMenuRef = useRef(null)
 
-  // ── Bluetooth Printer
   const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
   const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
-  // ── Fèmen menus klike deyò
   useEffect(() => {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target))
@@ -283,7 +263,6 @@ export default function InvoiceDetail() {
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
 
-  // ── Jenere QR code lè fakti chaje
   useEffect(() => {
     if (!invoice) return
     const qrContent = [
@@ -294,44 +273,90 @@ export default function InvoiceDetail() {
       window.location.href,
     ].join('\n')
 
-    QRCode.toDataURL(qrContent, {
-      width: 200,
-      margin: 1,
-      color: { dark: '#1a1a1a', light: '#ffffff' }
-    })
+    QRCode.toDataURL(qrContent, { width: 200, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } })
       .then(url => setQrDataUrl(url))
       .catch(err => console.error('QR Code error:', err))
   }, [invoice])
 
-  // ── Chanje lang pou resi, apre enprime retounen nan lang orijinal
+  // ✅ FIX PRENSIPAL — ouvri nouvo fenèt pou enprime resi sèlman
+  // Anvan: window.print() te fè paj antye a tounen nwa
+  // Kounye a: popup fenèt ki gen sèlman resi a, epi li enprime
   const handlePrintWithLang = async () => {
     const originalLang = i18n.language
+
+    // Chanje lang si diferan
     if (receiptLang !== originalLang) {
       await i18n.changeLanguage(receiptLang)
+      // Tann traduksyon yo chaje
+      await new Promise(resolve => setTimeout(resolve, 300))
     }
 
-    // Montre seksyon enpresyon an
     const receiptEl = document.getElementById('printable-receipt')
-    if (receiptEl) {
-      receiptEl.style.display = 'block'
+    if (!receiptEl) {
+      toast.error('Resi pa disponib.')
+      return
     }
 
-    // Enprime
-    window.print()
+    // Kopye kontni resi a (avèk display:block)
+    const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
 
-    // Kache ankò epi retounen nan lang orijinal
-    setTimeout(async () => {
-      if (receiptEl) receiptEl.style.display = 'none'
-      if (receiptLang !== originalLang) {
-        await i18n.changeLanguage(originalLang)
-      }
-    }, 500)
+    // Ouvri yon ti fenèt pou resi sèlman
+    const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
+    if (!printWindow) {
+      toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
+      return
+    }
+
+    const receiptSize = tenant?.receiptSize || '80mm'
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Resi ${invoice?.invoiceNumber || ''}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 0;
+            background: #fff;
+            font-family: 'Courier New', Courier, monospace;
+          }
+          @media print {
+            @page {
+              margin: 0;
+              size: ${receiptSize} auto;
+            }
+            body { margin: 0; }
+          }
+        </style>
+      </head>
+      <body>${receiptHTML}</body>
+      </html>
+    `)
+    printWindow.document.close()
+
+    // Tann imaj yo chaje (logo, QR) anvan enprime
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus()
+        printWindow.print()
+        // Fèmen fenèt apre enpresyon
+        setTimeout(() => printWindow.close(), 1000)
+      }, 200)
+    }
+
+    // Retounen nan lang orijinal
+    if (receiptLang !== originalLang) {
+      setTimeout(() => i18n.changeLanguage(originalLang), 800)
+    }
   }
 
   const paymentMutation = useMutation({
     mutationFn: (data) => invoiceAPI.addPayment(id, data),
     onSuccess: () => {
-      toast.success(`Peman anrejistre!`)
+      toast.success('Peman anrejistre!')
       qc.invalidateQueries(['invoice', id])
       setShowPayment(false)
       setPayData({ amountHtg: '', method: 'cash', reference: '' })
@@ -382,32 +407,15 @@ export default function InvoiceDetail() {
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      {/* ── Resi Enprime (kaché nan ekran, parèt lè print) */}
-      <PrintableReceipt
-        invoice={invoice}
-        tenant={tenant}
-        t={t}
-        qrDataUrl={qrDataUrl}
-      />
+      {/* Resi Enprime (kaché nan ekran, kopye nan popup pou print) */}
+      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} />
 
-      {/* ── Stil pou enpresyon */}
       <style>{`
-        @media print {
-          body > * { display: none !important; }
-          #printable-receipt {
-            display: block !important;
-            position: fixed;
-            top: 0; left: 0;
-            width: 80mm;
-            margin: 0;
-            padding: 4mm;
-          }
-        }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
       `}</style>
 
-      {/* ── Header */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/invoices')} className="btn-ghost p-2">
@@ -431,9 +439,8 @@ export default function InvoiceDetail() {
 
         <div className="flex gap-2 flex-wrap">
 
-          {/* ── Bouton Enprime Resi (Browser Print avèk lang) */}
+          {/* ── Bouton Enprime Resi (popup fenèt — pa dialog navigatè) */}
           <div className="relative" ref={langMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-            {/* Bouton prensipal enprime */}
             <button
               onClick={handlePrintWithLang}
               className="btn-secondary btn-sm"
@@ -445,7 +452,6 @@ export default function InvoiceDetail() {
                 {currentLangInfo.flag}
               </span>
             </button>
-            {/* Bouton seleksyon lang */}
             <button
               onClick={() => setShowLangMenu(v => !v)}
               className="btn-secondary btn-sm"
@@ -455,7 +461,6 @@ export default function InvoiceDetail() {
               <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showLangMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
             </button>
 
-            {/* Dropdown lang */}
             {showLangMenu && (
               <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, background: '#fff', borderRadius: 12, minWidth: 160, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                 <div style={{ padding: '8px 14px 5px', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -487,7 +492,7 @@ export default function InvoiceDetail() {
             )}
           </div>
 
-          {/* ── Bouton Bluetooth Printer */}
+          {/* Bouton Bluetooth Printer */}
           {hasBluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
@@ -513,7 +518,7 @@ export default function InvoiceDetail() {
             </div>
           )}
 
-          {/* ── Bouton PDF */}
+          {/* Bouton PDF */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -556,7 +561,7 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* ── Bandwòl Bluetooth statut */}
+      {/* Bandwòl Bluetooth statut */}
       {connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
@@ -670,7 +675,6 @@ export default function InvoiceDetail() {
               <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 
-            {/* ── Bouton Bluetooth nan kolòn dwat */}
             {connected && (
               <button onClick={() => print(invoice, tenant)} disabled={printing}
                 className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
@@ -679,7 +683,6 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {/* ── Aperçu QR Code nan UI */}
             {qrDataUrl && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
                 <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>QR Verifikasyon</p>
@@ -691,7 +694,7 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* ── Modal Peman */}
+      {/* Modal Peman */}
       {showPayment && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPayment(false)}>
           <div className="modal max-w-md">
@@ -704,8 +707,6 @@ export default function InvoiceDetail() {
             </div>
 
             <div className="p-5 space-y-4">
-
-              {/* Rezime balans */}
               <div style={{ background:'linear-gradient(135deg,#fef2f2,#fff5f5)', borderRadius:12, padding:'12px 16px', border:'1px solid #fecaca' }}>
                 <div className="flex justify-between items-center">
                   <span style={{ fontSize:12, color:'#6b7280', fontWeight:600 }}>Total Fakti:</span>
@@ -723,7 +724,6 @@ export default function InvoiceDetail() {
                 </div>
               </div>
 
-              {/* Input montan */}
               <div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
                   <label className="label mb-0">Montan kliyan bay (HTG) *</label>
@@ -775,7 +775,6 @@ export default function InvoiceDetail() {
                 )}
               </div>
 
-              {/* Metòd */}
               <div>
                 <label className="label">Metòd peman</label>
                 <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
@@ -783,7 +782,6 @@ export default function InvoiceDetail() {
                 </select>
               </div>
 
-              {/* Referans */}
               <div>
                 <label className="label">Referans (opsyonèl)</label>
                 <input className="input" placeholder="ex: MCash #12345"
@@ -791,7 +789,6 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
               </div>
 
-              {/* Boutons */}
               <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={paymentMutation.isPending}>
                   Anile

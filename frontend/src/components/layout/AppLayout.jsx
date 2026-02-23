@@ -36,10 +36,19 @@ const LANGS = [
   { code:'en', name:'English',  flag:'🇺🇸' },
 ]
 
+const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', GBP: '£' }
+
 const logoSrc = (url) => {
   if (!url) return null
   if (url.startsWith('http')) return url
   return url.startsWith('/') ? url : `/${url}`
+}
+
+// ── Parse JSON fields ki ka vini kòm string oswa objè
+const parseJson = (val, fallback) => {
+  if (!val) return fallback
+  if (typeof val === 'object') return val
+  try { return JSON.parse(val) } catch { return fallback }
 }
 
 export default function AppLayout() {
@@ -52,6 +61,11 @@ export default function AppLayout() {
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+
+  // ── Parse taux chanj tenant
+  const exchangeRates     = parseJson(tenant?.exchangeRates, {})
+  const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
+  const showExchangeRate  = tenant?.showExchangeRate !== false
 
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
@@ -95,7 +109,6 @@ export default function AppLayout() {
 
   const handleLogout = () => { logout(); toast.success('Ou dekonekte.'); navigate('/login') }
 
-  // ✅ PA RELOAD - sesyon rete aktif
   const changeLanguage = (code) => {
     i18n.changeLanguage(code)
     localStorage.setItem('plusgroup-lang', code)
@@ -229,7 +242,7 @@ export default function AppLayout() {
           height:58, background:'#fff',
           borderBottom:`1px solid rgba(201,168,76,0.2)`,
           boxShadow:'0 2px 20px rgba(0,0,0,0.06)',
-          display:'flex', alignItems:'center', gap:10,
+          display:'flex', alignItems:'center', gap:8,
           padding:'0 20px', flexShrink:0, position:'relative', zIndex:10,
         }}>
           <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:'linear-gradient(90deg,transparent,#C0392B 20%,#C9A84C 50%,#C0392B 80%,transparent)' }}/>
@@ -240,12 +253,27 @@ export default function AppLayout() {
             </button>
           )}
 
-          {/* Taux */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #F0D080', fontSize:12 }}>
-            <span style={{ color:'#8B6914', fontWeight:700 }}>1 USD</span>
-            <span style={{ color:C.gold }}>=</span>
-            <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>{Number(tenant?.exchangeRate || 132).toFixed(2)} HTG</span>
-          </div>
+          {/* ✅ Taux chanj — afiche tout devise ki aktive yo */}
+          {showExchangeRate && visibleCurrencies.map(currency => {
+            // Pran taux: nan exchangeRates d abò, sinon fallback sou exchangeRate pou USD
+            const rate = exchangeRates[currency]
+              ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 132) : null)
+            if (!rate) return null
+            return (
+              <div key={currency} style={{
+                display:'flex', alignItems:'center', gap:5,
+                padding:'4px 10px', borderRadius:8,
+                background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
+                border:'1px solid #F0D080', fontSize:12, flexShrink:0,
+              }}>
+                <span style={{ color:'#8B6914', fontWeight:700 }}>1 {currency}</span>
+                <span style={{ color:C.gold }}>=</span>
+                <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
+                  {Number(rate).toFixed(2)} HTG
+                </span>
+              </div>
+            )
+          })}
 
           <div style={{ flex:1 }}/>
 
