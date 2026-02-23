@@ -296,11 +296,20 @@ export default function InvoiceDetail() {
 
   // Enprime resi — logo base64, san taux, san zoom
   const handlePrint = async () => {
-    const receiptEl = document.getElementById('printable-receipt')
-    if (!receiptEl) { toast.error('Resi pa disponib.'); return }
+  const targetLang = tenant?.defaultLanguage || 'ht'
+  const currentLang = i18n.language
 
-    const receiptSize = tenant?.receiptSize || '80mm'
-    const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
+  // Chanje lang si nesesè epi tann React rerender
+  if (targetLang !== currentLang) {
+    await i18n.changeLanguage(targetLang)
+    await new Promise(r => setTimeout(r, 350))
+  }
+
+  const receiptEl = document.getElementById('printable-receipt')
+  if (!receiptEl) { toast.error('Resi pa disponib.'); return }
+
+  const receiptSize = tenant?.receiptSize || '80mm'
+  const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
 
     const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
     if (!printWindow) {
@@ -336,6 +345,12 @@ export default function InvoiceDetail() {
       }, 200)
     }
   }
+
+ // Retounen nan lang UI orijinal
+  if (targetLang !== currentLang) {
+    setTimeout(() => i18n.changeLanguage(currentLang), 800)
+  }
+}
 
   const paymentMutation = useMutation({
     mutationFn: (data) => invoiceAPI.addPayment(id, data),

@@ -173,7 +173,7 @@ export default function SettingsPage() {
     onSuccess: (res, { currency, rate }) => {
       const newRates = { ...rates, [currency]: String(rate) }
       setRates(newRates)
-      updateTenant({ ...settings, exchangeRates: newRates })
+      updateTenant({ ...settings, exchangeRates: newRates, exchangeRate: currency === 'USD' ? rate : (settings?.exchangeRate || 0) })
       qc.setQueryData(['tenant-settings'], old => ({ ...old, exchangeRates: newRates }))
       toast.success(`Taux ${currency} ajou: 1 ${currency} = ${rate} HTG`)
     },
