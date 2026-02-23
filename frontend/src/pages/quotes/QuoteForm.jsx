@@ -147,12 +147,16 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>{t('quotes.qty')}</label>
           <input type="number" step="0.001" min="0.001" className="input text-center text-sm py-2"
-            value={item.quantity} onChange={e => update('quantity', e.target.value)}/>
+            value={item.quantity}
+            onFocus={e => e.target.select()}
+            onChange={e => update('quantity', e.target.value)}/>
         </div>
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
           <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-            value={item.unitPriceHtg} onChange={e => update('unitPriceHtg', e.target.value)}/>
+            value={item.unitPriceHtg}
+            onFocus={e => e.target.select()}
+            onChange={e => update('unitPriceHtg', e.target.value)}/>
         </div>
       </div>
 
@@ -161,7 +165,9 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Remiz %</label>
           <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-            value={item.discountPct || 0} onChange={e => update('discountPct', e.target.value)}/>
+            value={item.discountPct || 0}
+            onFocus={e => e.target.select()}
+            onChange={e => update('discountPct', e.target.value)}/>
         </div>
         <div style={{ textAlign:'right' }}>
           <p style={{ fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 5px' }}>Total</p>
@@ -238,15 +244,21 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
       </td>
       <td className="p-2 w-24">
         <input type="number" step="0.001" min="0.001" className="input text-center text-sm py-2"
-          value={item.quantity} onChange={e => update('quantity', e.target.value)} />
+          value={item.quantity}
+          onFocus={e => e.target.select()}
+          onChange={e => update('quantity', e.target.value)} />
       </td>
       <td className="p-2 w-32">
         <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-          value={item.unitPriceHtg} onChange={e => update('unitPriceHtg', e.target.value)} />
+          value={item.unitPriceHtg}
+          onFocus={e => e.target.select()}
+          onChange={e => update('unitPriceHtg', e.target.value)} />
       </td>
       <td className="p-2 w-20">
         <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-          value={item.discountPct || 0} onChange={e => update('discountPct', e.target.value)} />
+          value={item.discountPct || 0}
+          onFocus={e => e.target.select()}
+          onChange={e => update('discountPct', e.target.value)} />
       </td>
       <td className="p-2 w-36 text-right">
         <span className="font-mono font-semibold text-slate-800">
@@ -390,7 +402,9 @@ export default function QuoteForm() {
                 <option value="percent">{t('quotes.percentage')} (%)</option>
               </select>
               <input type="number" min="0" step="0.01" className="input py-1.5 text-sm w-24 text-right font-mono"
-                value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
+                value={discountValue}
+                onFocus={e => e.target.select()}
+                onChange={e => setDiscountValue(e.target.value)} />
             </div>
             {discountAmt * factor > 0 && (
               <div className="flex justify-between text-sm text-red-600">
@@ -403,7 +417,9 @@ export default function QuoteForm() {
           <div className="border-t border-slate-100 pt-3">
             <label className="label">{t('quotes.taxVAT')} (%)</label>
             <input type="number" min="0" max="100" step="0.5" className="input py-1.5 text-sm text-right font-mono"
-              value={taxRate} onChange={e => setTaxRate(e.target.value)} />
+              value={taxRate}
+              onFocus={e => e.target.select()}
+              onChange={e => setTaxRate(e.target.value)} />
             {taxAmt * factor > 0 && (
               <div className="flex justify-between text-sm text-slate-600 mt-2">
                 <span>{t('quotes.taxVAT')} ({taxRate}%)</span>
@@ -453,7 +469,6 @@ export default function QuoteForm() {
             {isEdit && <p className="text-slate-500 text-sm">{existingQuote?.quoteNumber}</p>}
           </div>
         </div>
-        {/* Bouton sove — desktop sèlman */}
         {!isMobile && (
           <button type="submit" disabled={mutation.isPending} className="btn-primary">
             <Save size={16}/> {mutation.isPending ? t('common.saving') : isEdit ? t('common.update') : t('quotes.createQuote')}
@@ -467,7 +482,6 @@ export default function QuoteForm() {
           {/* Infos client */}
           <div className="card p-5">
             <h3 className="section-title">{t('quotes.clientInfo')}</h3>
-            {/* ── Mobil: kolòn yon pa youn ── */}
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
               <div className={isMobile ? '' : 'col-span-2'}>
                 <label className="label">{t('quotes.client')}</label>
@@ -496,7 +510,6 @@ export default function QuoteForm() {
               </button>
             </div>
 
-            {/* ── MOBIL: Kat pou chak atik ── */}
             {isMobile ? (
               <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
                 {items.map((item, idx) => (
@@ -504,7 +517,6 @@ export default function QuoteForm() {
                 ))}
               </div>
             ) : (
-              /* ── DESKTOP: Tablo ── */
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-slate-50 text-xs font-display font-semibold text-slate-500 uppercase tracking-wide">
@@ -536,7 +548,6 @@ export default function QuoteForm() {
 
           {/* Notes */}
           <div className="card p-5">
-            {/* ── Mobil: yon kolòn ── */}
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
               <div>
                 <label className="label">{t('quotes.notesForClient')}</label>
@@ -553,11 +564,9 @@ export default function QuoteForm() {
             </div>
           </div>
 
-          {/* Totaux — afiche nan kolòn prensipal sou mobil */}
           {isMobile && <TotauxBlock />}
         </div>
 
-        {/* Totaux — kolòn lateral sou desktop sèlman */}
         {!isMobile && (
           <div className="space-y-4">
             <div className="sticky top-4">

@@ -57,7 +57,7 @@ export default function InvoiceDetail() {
   const paymentMutation = useMutation({
     mutationFn: (data) => invoiceAPI.addPayment(id, data),
     onSuccess: () => {
-      toast.success(`Peman ${fmt(payData.amountHtg)} HTG anrejistre!`)
+      toast.success(`Peman anrejistre!`)
       qc.invalidateQueries(['invoice', id])
       setShowPayment(false)
       setPayData({ amountHtg: '', method: 'cash', reference: '' })
@@ -101,6 +101,7 @@ export default function InvoiceDetail() {
   const isCancelled = invoice.status === 'cancelled'
   const balance     = Number(invoice.balanceDueHtg || 0)
   const amtNum      = Number(payData.amountHtg || 0)
+  const monnen      = amtNum > balance && balance > 0 ? amtNum - balance : 0  // ✅ Monnen pou remet
 
   return (
     <div className="animate-fade-in max-w-4xl">
@@ -133,42 +134,21 @@ export default function InvoiceDetail() {
           {hasBluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
-                <button
-                  onClick={connect}
-                  disabled={connecting}
-                  className="btn-secondary btn-sm"
-                  style={{ display:'flex', alignItems:'center', gap:6 }}
-                >
+                <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
+                  style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <Bluetooth size={14} />
                   {connecting ? 'Ap konekte...' : 'Konekte Printer'}
                 </button>
               ) : (
                 <>
-                  <button
-                    onClick={() => print(invoice, tenant)}
-                    disabled={printing}
+                  <button onClick={() => print(invoice, tenant)} disabled={printing}
                     className="btn-secondary btn-sm"
-                    style={{
-                      display:'flex', alignItems:'center', gap:6,
-                      background:'rgba(5,150,105,0.08)',
-                      color:'#059669',
-                      borderColor:'rgba(5,150,105,0.3)',
-                    }}
-                  >
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
                     <Printer size={14} />
                     {printing ? 'Ap enprime...' : 'Enprime Resi'}
                   </button>
-                  <button
-                    onClick={disconnect}
-                    title="Dekonekte printer"
-                    style={{
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      width:32, height:32, borderRadius:8,
-                      background:'rgba(192,57,43,0.07)',
-                      border:'1px solid rgba(192,57,43,0.2)',
-                      color:'#C0392B', cursor:'pointer',
-                    }}
-                  >
+                  <button onClick={disconnect} title="Dekonekte printer"
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
                     <BluetoothOff size={13}/>
                   </button>
                 </>
@@ -178,41 +158,24 @@ export default function InvoiceDetail() {
 
           {/* ── Bouton PDF */}
           <div className="relative" ref={pdfMenuRef}>
-            <button
-              onClick={() => setShowPdfMenu(v => !v)}
-              className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6 }}
-            >
+            <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
+              style={{ display:'flex', alignItems:'center', gap:6 }}>
               <Download size={14} />
               Resi PDF
               <ChevronDown size={12} style={{ transition:'transform 0.2s', transform: showPdfMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
             </button>
 
             {showPdfMenu && (
-              <div style={{
-                position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:50,
-                background:'#fff', borderRadius:12, minWidth:210,
-                boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0',
-                overflow:'hidden'
-              }}>
+              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:50, background:'#fff', borderRadius:12, minWidth:210, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0', overflow:'hidden' }}>
                 <div style={{ padding:'8px 14px 5px', fontSize:10, fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>
                   Fòma enprimant
                 </div>
                 {PDF_SIZES.map((s, i) => (
-                  <button
-                    key={s.value}
-                    onClick={() => downloadPdf(s.value)}
-                    style={{
-                      width:'100%', textAlign:'left', padding:'10px 14px',
-                      background:'none', border:'none', cursor:'pointer',
-                      borderBottom: i < PDF_SIZES.length - 1 ? '1px solid #f1f5f9' : 'none'
-                    }}
+                  <button key={s.value} onClick={() => downloadPdf(s.value)}
+                    style={{ width:'100%', textAlign:'left', padding:'10px 14px', background:'none', border:'none', cursor:'pointer', borderBottom: i < PDF_SIZES.length - 1 ? '1px solid #f1f5f9' : 'none' }}
                     onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background='none'}
-                  >
-                    <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', fontFamily:'DM Sans,sans-serif' }}>
-                      🖨 {s.label}
-                    </div>
+                    onMouseLeave={e => e.currentTarget.style.background='none'}>
+                    <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', fontFamily:'DM Sans,sans-serif' }}>🖨 {s.label}</div>
                     <div style={{ fontSize:11, color:'#94a3b8', marginTop:1 }}>{s.desc}</div>
                   </button>
                 ))}
@@ -238,11 +201,7 @@ export default function InvoiceDetail() {
 
       {/* ── Bandwòl Bluetooth statut */}
       {connected && (
-        <div style={{
-          display:'flex', alignItems:'center', gap:8, padding:'8px 14px',
-          background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)',
-          borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600,
-        }}>
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
           Goojprt PT-210 konekte via Bluetooth — Klike "Enprime Resi" pou voye resi bay printer a
         </div>
@@ -354,14 +313,9 @@ export default function InvoiceDetail() {
               <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 
-            {/* ── Bouton enprime nan kolòn dwat (mobil-friendly) */}
             {connected && (
-              <button
-                onClick={() => print(invoice, tenant)}
-                disabled={printing}
-                className="btn-primary w-full mt-4"
-                style={{ justifyContent:'center' }}
-              >
+              <button onClick={() => print(invoice, tenant)} disabled={printing}
+                className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
                 <Printer size={15}/>
                 {printing ? 'Ap enprime...' : 'Enprime Resi Bluetooth'}
               </button>
@@ -402,9 +356,10 @@ export default function InvoiceDetail() {
                 </div>
               </div>
 
+              {/* ✅ Input montan — gwo ak onFocus select */}
               <div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <label className="label mb-0">Montan k ap peye (HTG) *</label>
+                  <label className="label mb-0">Montan kliyan bay (HTG) *</label>
                   {amtNum !== balance && balance > 0 && (
                     <button type="button"
                       onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}
@@ -415,17 +370,48 @@ export default function InvoiceDetail() {
                 </div>
                 <input type="number" step="0.01" min="0.01" className="input"
                   value={payData.amountHtg}
+                  onFocus={e => e.target.select()}
                   onChange={e => setPayData(d => ({ ...d, amountHtg: e.target.value }))}
-                  style={{ fontSize:16, fontWeight:700 }}
+                  style={{ fontSize:22, fontWeight:800, textAlign:'center' }}
                 />
+
+                {/* Eta 1: Peman pasyal */}
                 {amtNum > 0 && amtNum < balance && (
-                  <p style={{ fontSize:11, color:'#d97706', marginTop:4 }}>⚠ Peman pasyal — {fmt(balance - amtNum)} HTG ap rete</p>
+                  <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>⚠ Peman pasyal</span>
+                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG ap rete</span>
+                  </div>
                 )}
-                {amtNum >= balance && amtNum > 0 && (
-                  <p style={{ fontSize:11, color:'#16a34a', marginTop:4 }}>✓ Peman konplè — fakti a ap mache "Peye"</p>
+
+                {/* Eta 2: Peman egzak */}
+                {amtNum === balance && amtNum > 0 && (
+                  <div style={{ marginTop:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>✓ Peman egzak</span>
+                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
+                  </div>
+                )}
+
+                {/* ✅ Eta 3: Kalkikatè monnen */}
+                {monnen > 0 && (
+                  <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
+                    <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                        💵 Monnen pou remet
+                      </span>
+                      <span style={{ fontSize:11, color:'rgba(255,255,255,0.7)', fontFamily:'monospace' }}>
+                        {fmt(amtNum)} − {fmt(balance)}
+                      </span>
+                    </div>
+                    <div style={{ background:'#f0fdf4', padding:'14px', textAlign:'center' }}>
+                      <p style={{ fontFamily:'monospace', fontSize:36, fontWeight:900, color:'#15803d', margin:0 }}>
+                        {fmt(monnen)} <span style={{ fontSize:18, color:'#16a34a' }}>HTG</span>
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
+              {/* Metòd */}
               <div>
                 <label className="label">Metòd peman</label>
                 <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
@@ -433,6 +419,7 @@ export default function InvoiceDetail() {
                 </select>
               </div>
 
+              {/* Referans */}
               <div>
                 <label className="label">Referans (opsyonèl)</label>
                 <input className="input" placeholder="ex: MCash #12345"
@@ -440,6 +427,7 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
               </div>
 
+              {/* Boutons */}
               <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={paymentMutation.isPending}>
                   Anile
@@ -447,7 +435,9 @@ export default function InvoiceDetail() {
                 <button type="button"
                   onClick={() => {
                     if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
-                    paymentMutation.mutate({ ...payData, amountHtg: amtNum })
+                    // ✅ Si kliyan bay plis, anrejistre sèlman balans la — pa lajan total li te bay
+                    const amtToRecord = monnen > 0 ? balance : amtNum
+                    paymentMutation.mutate({ ...payData, amountHtg: amtToRecord })
                   }}
                   disabled={paymentMutation.isPending || amtNum <= 0}
                   className="btn-primary"
@@ -458,7 +448,9 @@ export default function InvoiceDetail() {
                         <span style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
                         Ap anrejistre...
                       </span>
-                    : `✓ Konfime ${fmt(amtNum)} HTG`
+                    : monnen > 0
+                      ? `✓ Konfime ${fmt(balance)} HTG`
+                      : `✓ Konfime ${fmt(amtNum)} HTG`
                   }
                 </button>
               </div>
