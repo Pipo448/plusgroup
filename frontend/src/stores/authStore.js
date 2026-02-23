@@ -5,13 +5,16 @@ import { persist } from 'zustand/middleware'
 export const useAuthStore = create(
   persist(
     (set, get) => ({
-      token:  null,
-      user:   null,
-      tenant: null,
+      token:   null,
+      user:    null,
+      tenant:  null,
+      loading: true, // ✅ true pa default — tann persist fin rehydrate
 
       setAuth: (token, user, tenant) => set({ token, user, tenant }),
 
       updateTenant: (tenant) => set({ tenant }),
+
+      setLoading: (loading) => set({ loading }), // ✅ nouvo
 
       logout: () => {
         set({ token: null, user: null, tenant: null })
@@ -27,7 +30,11 @@ export const useAuthStore = create(
     }),
     {
       name: 'pg-auth',
-      partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant })
+      partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
+      // ✅ Lè persist fin chaje localStorage, mete loading false
+      onRehydrateStorage: () => (state) => {
+        if (state) state.setLoading(false)
+      },
     }
   )
 )
