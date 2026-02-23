@@ -33,9 +33,16 @@ const upload = multer({
 // ── Helper: konvèti logoUrl relatif → absoli
 const getAbsoluteLogoUrl = (logoUrl) => {
   if (!logoUrl) return null;
-  if (logoUrl.startsWith('http')) return logoUrl; // deja absoli
+  if (logoUrl.startsWith('http')) return logoUrl;
   const BASE = process.env.API_URL || 'https://plusgroup-backend.onrender.com';
   return `${BASE}${logoUrl}`;
+};
+
+// ── Helper: parse JSON fields ki ka vini kòm string oswa objè
+const parseJsonField = (field, fallback = null) => {
+  if (!field) return fallback;
+  if (typeof field === 'object') return field;
+  try { return JSON.parse(field); } catch { return fallback; }
 };
 
 router.use(identifyTenant, authenticate);
@@ -48,20 +55,31 @@ router.get('/settings', asyncHandler(async (req, res) => {
       id: true, name: true, slug: true, logoUrl: true, primaryColor: true,
       address: true, phone: true, email: true, website: true,
       defaultCurrency: true, defaultLanguage: true,
-      exchangeRate: true, taxRate: true,
+      // ✅ Nouvo champs multi-devise
+      exchangeRate:       true,   // Garde pou backward compat (HTG/USD sèlman)
+      exchangeRates:      true,   // JSON: { USD: 132, DOP: 2.28, EUR: 143 }
+      visibleCurrencies:  true,   // JSON array: ['USD', 'DOP']
+      showExchangeRate:   true,   // Boolean toggle
+      taxRate: true,
       receiptSize: true,
-      printerConnection: true, // ✅ Ajoute
+      printerConnection: true,
       status: true, subscriptionEndsAt: true,
       plan: { select: { name: true, maxUsers: true, maxProducts: true, features: true } }
     }
   });
 
-  // ✅ Korije logoUrl pou retounen URL absoli
+  // Parse JSON fields (Prisma retounen yo kòm string si se TextField)
+  const exchangeRates     = parseJsonField(tenant.exchangeRates, {});
+  const visibleCurrencies = parseJsonField(tenant.visibleCurrencies, ['USD']);
+
   res.json({
     success: true,
     tenant: {
       ...tenant,
-      logoUrl: getAbsoluteLogoUrl(tenant.logoUrl)
+      logoUrl:          getAbsoluteLogoUrl(tenant.logoUrl),
+      exchangeRates,
+      visibleCurrencies,
+      showExchangeRate: tenant.showExchangeRate ?? false,
     }
   });
 }));
@@ -72,7 +90,11 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     name, address, phone, email, website,
     defaultCurrency, defaultLanguage,
     exchangeRate, taxRate, primaryColor,
-    receiptSize, printerConnection  // ✅ Ajoute printerConnection
+    receiptSize, printerConnection,
+    // ✅ Nouvo champs multi-devise
+    exchangeRates,
+    visibleCurrencies,
+    showExchangeRate,
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -83,18 +105,38 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       exchangeRate:      exchangeRate      ? Number(exchangeRate)    : undefined,
       taxRate:           taxRate           ? Number(taxRate)         : undefined,
       receiptSize:       receiptSize       ? String(receiptSize)     : undefined,
-      printerConnection: printerConnection ? String(printerConnection) : undefined, // ✅
+      printerConnection: printerConnection ? String(printerConnection) : undefined,
+      // ✅ Stoke JSON kòm string si schema se TextField, sinon dirèkteman
+      exchangeRates:      exchangeRates     != null
+                            ? JSON.stringify(exchangeRates)
+                            : undefined,
+      visibleCurrencies:  visibleCurrencies != null
+                            ? JSON.stringify(visibleCurrencies)
+                            : undefined,
+      showExchangeRate:   showExchangeRate  != null
+                            ? Boolean(showExchangeRate)
+                            : undefined,
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
       exchangeRate: true, taxRate: true, primaryColor: true,
-      receiptSize: true, printerConnection: true  // ✅
+      receiptSize: true, printerConnection: true,
+      exchangeRates: true, visibleCurrencies: true, showExchangeRate: true,
     }
   });
-  res.json({ success: true, tenant, message: 'Paramèt ajou avèk siksè.' });
+
+  res.json({
+    success: true,
+    tenant: {
+      ...tenant,
+      exchangeRates:     parseJsonField(tenant.exchangeRates, {}),
+      visibleCurrencies: parseJsonField(tenant.visibleCurrencies, ['USD']),
+    },
+    message: 'Paramèt ajou avèk siksè.'
+  });
 }));
 
-// ── PATCH /api/v1/tenant/exchange-rate
+// ── PATCH /api/v1/tenant/exchange-rate  (backward compat — HTG/USD sèlman)
 router.patch('/exchange-rate', authorize('admin'), asyncHandler(async (req, res) => {
   const { exchangeRate } = req.body;
   if (!exchangeRate || isNaN(exchangeRate))
@@ -107,6 +149,44 @@ router.patch('/exchange-rate', authorize('admin'), asyncHandler(async (req, res)
   res.json({ success: true, exchangeRate: Number(exchangeRate), message: 'Taux chanj ajou.' });
 }));
 
+// ── PATCH /api/v1/tenant/exchange-rates  ✅ NOUVO — Mete plizye devise anavans
+router.patch('/exchange-rates', authorize('admin'), asyncHandler(async (req, res) => {
+  const { exchangeRates, visibleCurrencies, showExchangeRate } = req.body;
+
+  if (!exchangeRates || typeof exchangeRates !== 'object')
+    return res.status(400).json({ success: false, message: 'exchangeRates dwe se yon objè valid.' });
+
+  // Valide chak valè
+  for (const [currency, rate] of Object.entries(exchangeRates)) {
+    if (isNaN(rate) || Number(rate) <= 0)
+      return res.status(400).json({
+        success: false,
+        message: `Taux chanj pou ${currency} pa valid.`
+      });
+  }
+
+  const updateData = {
+    exchangeRates: JSON.stringify(exchangeRates),
+  };
+  if (visibleCurrencies != null)
+    updateData.visibleCurrencies = JSON.stringify(visibleCurrencies);
+  if (showExchangeRate  != null)
+    updateData.showExchangeRate = Boolean(showExchangeRate);
+
+  await prisma.tenant.update({
+    where: { id: req.tenant.id },
+    data: updateData
+  });
+
+  res.json({
+    success: true,
+    exchangeRates,
+    visibleCurrencies: visibleCurrencies ?? undefined,
+    showExchangeRate:  showExchangeRate  ?? undefined,
+    message: 'Taux chanj ajou pou tout devise.'
+  });
+}));
+
 // ── POST /api/v1/tenant/logo
 router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(async (req, res) => {
   if (!req.file)
@@ -115,7 +195,6 @@ router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(asy
   const logoUrl = `/uploads/logos/${req.file.filename}`;
   await prisma.tenant.update({ where: { id: req.tenant.id }, data: { logoUrl } });
 
-  // ✅ Retounen URL absoli pou frontend ka afiche logo imedyatman
   const absoluteLogoUrl = getAbsoluteLogoUrl(logoUrl);
   res.json({ success: true, logoUrl: absoluteLogoUrl, message: 'Logo chanje avèk siksè.' });
 }));
