@@ -294,8 +294,8 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice])
 
-  // Enprime resi — logo base64, san taux, san zoom
-  const handlePrint = async () => {
+// Enprime resi — logo base64, san taux, san zoom
+const handlePrint = async () => {
   const targetLang = tenant?.defaultLanguage || 'ht'
   const currentLang = i18n.language
 
@@ -311,42 +311,41 @@ export default function InvoiceDetail() {
   const receiptSize = tenant?.receiptSize || '80mm'
   const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
 
-    const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
-    if (!printWindow) {
-      toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
-      return
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Resi ${invoice?.invoiceNumber || ''}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
-          @media print {
-            @page { margin: 0; size: ${receiptSize} auto; }
-            body { margin: 0; }
-          }
-        </style>
-      </head>
-      <body>${receiptHTML}</body>
-      </html>
-    `)
-    printWindow.document.close()
-
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.focus()
-        printWindow.print()
-        setTimeout(() => printWindow.close(), 1000)
-      }, 200)
-    }
+  const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
+  if (!printWindow) {
+    toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
+    return
   }
 
- // Retounen nan lang UI orijinal
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Resi ${invoice?.invoiceNumber || ''}</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
+        @media print {
+          @page { margin: 0; size: ${receiptSize} auto; }
+          body { margin: 0; }
+        }
+      </style>
+    </head>
+    <body>${receiptHTML}</body>
+    </html>
+  `)
+  printWindow.document.close()
+
+  printWindow.onload = () => {
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+      setTimeout(() => printWindow.close(), 1000)
+    }, 200)
+  }
+
+  // Retounen nan lang UI orijinal
   if (targetLang !== currentLang) {
     setTimeout(() => i18n.changeLanguage(currentLang), 800)
   }
