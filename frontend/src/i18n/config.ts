@@ -1,4 +1,4 @@
-// src/i18n/config.ts - KONPLÈ AK QUOTES KEYS
+// src/i18n/config.ts - KONPLÈ AK QUOTES KEYS + INVOICE RECEIPT KEYS
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
@@ -23,7 +23,7 @@ const resources = {
         logout: 'Dekonekte',
       },
       
-      // ── COMMON (← AJOUTE SA SI OU PA GEN L)
+      // ── COMMON
       common: {
         search: 'Chèche',
         save: 'Anrejistre',
@@ -67,66 +67,99 @@ const resources = {
         products: 'pwodui',
       },
       
-      // ── QUOTES (← AJOUTE TOUT SA A!)
+      // ── QUOTES
       quotes: {
-        // Titles
         title: 'Devis',
         newQuote: 'Nouvo Devis',
         editQuote: 'Modifye Devis',
-        
-        // Actions
         createQuote: 'Kreye Devis',
         quoteCreated: 'Devis kreye!',
         quoteUpdated: 'Devis ajou!',
-        
-        // Client section
         clientInfo: 'Enfòmasyon Kliyan',
         client: 'Kliyan',
         searchClient: 'Chèche kliyan...',
-        
-        // Currency
         currency: 'Devise',
         gourde: 'Goud',
         dollar: 'Dola',
-        
-        // Dates
         expiryDate: 'Dat Ekspirasyon',
-        
-        // Items section
         items: 'Atik yo',
         addLine: 'Ajoute yon liy',
         addAnotherItem: 'Ajoute yon atik ankò',
         addAtLeastOneItem: 'Ajoute omwen yon atik.',
-        
-        // Product search
         searchProduct: 'Chèche pwodui...',
         orTypeDescription: 'Ou tape yon deskripsyon...',
         productDescription: 'Pwodui / Deskripsyon',
-        
-        // Table columns
         qty: 'Qte',
         unitPrice: 'Pri U. (HTG)',
         discountPct: 'Remiz %',
-        
-        // Notes section
         notesForClient: 'Nòt pou kliyan',
         notesPlaceholder: 'Remèsiman, kondisyon spesyal...',
         generalTerms: 'Kondisyon jeneral',
         termsPlaceholder: 'Kondisyon peman, livrezon...',
         defaultNotes: 'Mèsi pou konfyans ou. Nenpòt kesyon, kontakte nou.',
         defaultTerms: 'Peman akepte: Kach, MonCash, NatCash. Machandiz vann pa retounen.',
-        
-        // Summary section
         summary: 'Rezime',
         subtotal: 'Sou-total',
         discount: 'Remiz',
         taxVAT: 'Taks TVA',
         valueAmount: 'Valè',
         percentage: 'Pousantaj',
-        
-        // Exchange info
         rate: 'Taux',
         selectedCurrency: 'Devise chwazi',
+      },
+
+      // ── INVOICE (RESI ENPRIME)
+      invoice: {
+        // Titre resi
+        receiptTitle: 'RESI VANT',
+        invoiceNumber: 'Nimewo Fakti',
+        date: 'Dat',
+        cashier: 'Kasye',
+
+        // Kliyan
+        client: 'Kliyan',
+        noClient: 'Kliyan pa rekonèt',
+        phone: 'Telefòn',
+        email: 'Imèl',
+        nif: 'NIF',
+
+        // Tablo atik
+        product: 'Pwodui',
+        qty: 'Qte',
+        unitPrice: 'Pri U.',
+        discount: 'Rem.',
+        total: 'Total',
+
+        // Totaux
+        subtotal: 'Sou-total',
+        discountTotal: 'Remiz',
+        tax: 'TVA',
+        grandTotal: 'TOTAL',
+        paid: 'Montan peye',
+        balance: 'Balans',
+        exchangeRate: 'Taux: 1 USD =',
+
+        // Peman
+        paymentMethod: 'Metòd peman',
+        reference: 'Referans',
+        cash: 'Kach',
+        moncash: 'MonCash',
+        natcash: 'NatCash',
+        card: 'Kat Kredi',
+        transfer: 'Virement',
+        check: 'Chèk',
+
+        // Statut
+        statusPaid: '✓ PEYE KONPLÈ',
+        statusPartial: '⚡ PEMAN PASYAL',
+        statusUnpaid: '⏳ PA PEYE',
+        statusCancelled: '✗ ANILE',
+
+        // Pye paj
+        thankYou: 'Mèsi pou fè konfyans nou!',
+        footerTerms: 'Peman: Kach, MonCash, NatCash. Machandiz vann pa retounen.',
+        scanQR: 'Skane QR pou verifye fakti a',
+        poweredBy: 'Jere pa PlusGroup',
       },
     },
   },
@@ -195,66 +228,99 @@ const resources = {
         products: 'produits',
       },
       
-      // ── QUOTES (← FRANSE!)
+      // ── QUOTES
       quotes: {
-        // Titles
         title: 'Devis',
         newQuote: 'Nouveau Devis',
         editQuote: 'Modifier Devis',
-        
-        // Actions
         createQuote: 'Créer Devis',
         quoteCreated: 'Devis créé!',
         quoteUpdated: 'Devis mis à jour!',
-        
-        // Client section
         clientInfo: 'Informations Client',
         client: 'Client',
         searchClient: 'Rechercher client...',
-        
-        // Currency
         currency: 'Devise',
         gourde: 'Gourde',
         dollar: 'Dollar',
-        
-        // Dates
         expiryDate: 'Date Expiration',
-        
-        // Items section
         items: 'Articles',
         addLine: 'Ajouter une ligne',
         addAnotherItem: 'Ajouter un autre article',
         addAtLeastOneItem: 'Ajoutez au moins un article.',
-        
-        // Product search
         searchProduct: 'Rechercher produit...',
         orTypeDescription: 'Ou tapez une description...',
         productDescription: 'Produit / Description',
-        
-        // Table columns
         qty: 'Qté',
         unitPrice: 'Prix U. (HTG)',
         discountPct: 'Remise %',
-        
-        // Notes section
         notesForClient: 'Notes pour client',
         notesPlaceholder: 'Remerciements, conditions spéciales...',
         generalTerms: 'Conditions générales',
         termsPlaceholder: 'Conditions paiement, livraison...',
         defaultNotes: 'Merci pour votre confiance. Pour toute question, contactez-nous.',
         defaultTerms: 'Paiement accepté: Espèces, MonCash, NatCash. Marchandise vendue non reprise.',
-        
-        // Summary section
         summary: 'Résumé',
         subtotal: 'Sous-total',
         discount: 'Remise',
         taxVAT: 'Taxe TVA',
         valueAmount: 'Valeur',
         percentage: 'Pourcentage',
-        
-        // Exchange info
         rate: 'Taux',
         selectedCurrency: 'Devise choisie',
+      },
+
+      // ── INVOICE (REÇU IMPRIMÉ)
+      invoice: {
+        // Titre reçu
+        receiptTitle: 'REÇU DE VENTE',
+        invoiceNumber: 'N° Facture',
+        date: 'Date',
+        cashier: 'Caissier',
+
+        // Client
+        client: 'Client',
+        noClient: 'Client non identifié',
+        phone: 'Téléphone',
+        email: 'Email',
+        nif: 'NIF',
+
+        // Tableau articles
+        product: 'Produit',
+        qty: 'Qté',
+        unitPrice: 'Prix U.',
+        discount: 'Rem.',
+        total: 'Total',
+
+        // Totaux
+        subtotal: 'Sous-total',
+        discountTotal: 'Remise',
+        tax: 'TVA',
+        grandTotal: 'TOTAL',
+        paid: 'Montant payé',
+        balance: 'Solde',
+        exchangeRate: 'Taux: 1 USD =',
+
+        // Paiement
+        paymentMethod: 'Mode de paiement',
+        reference: 'Référence',
+        cash: 'Espèces',
+        moncash: 'MonCash',
+        natcash: 'NatCash',
+        card: 'Carte Bancaire',
+        transfer: 'Virement',
+        check: 'Chèque',
+
+        // Statut
+        statusPaid: '✓ PAYÉ INTÉGRALEMENT',
+        statusPartial: '⚡ PAIEMENT PARTIEL',
+        statusUnpaid: '⏳ NON PAYÉ',
+        statusCancelled: '✗ ANNULÉ',
+
+        // Pied de page
+        thankYou: 'Merci de votre confiance!',
+        footerTerms: 'Paiement: Espèces, MonCash, NatCash. Marchandise vendue non reprise.',
+        scanQR: 'Scanner le QR pour vérifier la facture',
+        poweredBy: 'Géré par PlusGroup',
       },
     },
   },
@@ -323,66 +389,99 @@ const resources = {
         products: 'products',
       },
       
-      // ── QUOTES (← ANGLE!)
+      // ── QUOTES
       quotes: {
-        // Titles
         title: 'Quotes',
         newQuote: 'New Quote',
         editQuote: 'Edit Quote',
-        
-        // Actions
         createQuote: 'Create Quote',
         quoteCreated: 'Quote created!',
         quoteUpdated: 'Quote updated!',
-        
-        // Client section
         clientInfo: 'Client Information',
         client: 'Client',
         searchClient: 'Search client...',
-        
-        // Currency
         currency: 'Currency',
         gourde: 'Gourde',
         dollar: 'Dollar',
-        
-        // Dates
         expiryDate: 'Expiry Date',
-        
-        // Items section
         items: 'Items',
         addLine: 'Add a line',
         addAnotherItem: 'Add another item',
         addAtLeastOneItem: 'Add at least one item.',
-        
-        // Product search
         searchProduct: 'Search product...',
         orTypeDescription: 'Or type a description...',
         productDescription: 'Product / Description',
-        
-        // Table columns
         qty: 'Qty',
         unitPrice: 'Unit Price (HTG)',
         discountPct: 'Discount %',
-        
-        // Notes section
         notesForClient: 'Notes for client',
         notesPlaceholder: 'Thanks, special conditions...',
         generalTerms: 'General terms',
         termsPlaceholder: 'Payment terms, delivery...',
         defaultNotes: 'Thank you for your trust. Any questions, contact us.',
         defaultTerms: 'Payment accepted: Cash, MonCash, NatCash. Sold goods not returnable.',
-        
-        // Summary section
         summary: 'Summary',
         subtotal: 'Subtotal',
         discount: 'Discount',
         taxVAT: 'VAT Tax',
         valueAmount: 'Value',
         percentage: 'Percentage',
-        
-        // Exchange info
         rate: 'Rate',
         selectedCurrency: 'Selected currency',
+      },
+
+      // ── INVOICE (PRINTED RECEIPT)
+      invoice: {
+        // Receipt title
+        receiptTitle: 'SALES RECEIPT',
+        invoiceNumber: 'Invoice No.',
+        date: 'Date',
+        cashier: 'Cashier',
+
+        // Client
+        client: 'Client',
+        noClient: 'Walk-in Customer',
+        phone: 'Phone',
+        email: 'Email',
+        nif: 'TIN',
+
+        // Items table
+        product: 'Product',
+        qty: 'Qty',
+        unitPrice: 'Unit Price',
+        discount: 'Disc.',
+        total: 'Total',
+
+        // Totals
+        subtotal: 'Subtotal',
+        discountTotal: 'Discount',
+        tax: 'VAT',
+        grandTotal: 'TOTAL',
+        paid: 'Amount paid',
+        balance: 'Balance due',
+        exchangeRate: 'Rate: 1 USD =',
+
+        // Payment
+        paymentMethod: 'Payment method',
+        reference: 'Reference',
+        cash: 'Cash',
+        moncash: 'MonCash',
+        natcash: 'NatCash',
+        card: 'Credit Card',
+        transfer: 'Wire Transfer',
+        check: 'Check',
+
+        // Status
+        statusPaid: '✓ FULLY PAID',
+        statusPartial: '⚡ PARTIAL PAYMENT',
+        statusUnpaid: '⏳ UNPAID',
+        statusCancelled: '✗ CANCELLED',
+
+        // Footer
+        thankYou: 'Thank you for your business!',
+        footerTerms: 'Payment: Cash, MonCash, NatCash. All sales are final.',
+        scanQR: 'Scan QR to verify this invoice',
+        poweredBy: 'Powered by PlusGroup',
       },
     },
   },

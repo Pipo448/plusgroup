@@ -2,9 +2,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinter } from '../../hooks/usePrinter'
+import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
 import { format } from 'date-fns'
@@ -25,25 +27,252 @@ const PDF_SIZES = [
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
 ]
 
+// ── Langages disponib pou resi enprime
+const RECEIPT_LANGS = [
+  { value: 'ht', label: 'Kreyòl',  flag: '🇭🇹' },
+  { value: 'fr', label: 'Français', flag: '🇫🇷' },
+  { value: 'en', label: 'English',  flag: '🇺🇸' },
+]
+
+// ──────────────────────────────────────────────
+// Komponan resi enprime (kaché nan UI, vizib pou print)
+// ──────────────────────────────────────────────
+function PrintableReceipt({ invoice, tenant, t, qrDataUrl }) {
+  if (!invoice) return null
+  const snap    = invoice.clientSnapshot || {}
+  const isPaid  = invoice.status === 'paid'
+  const isCancelled = invoice.status === 'cancelled'
+  const isPartial   = invoice.status === 'partial'
+
+  const statusLabel = isPaid
+    ? t('invoice.statusPaid')
+    : isCancelled
+      ? t('invoice.statusCancelled')
+      : isPartial
+        ? t('invoice.statusPartial')
+        : t('invoice.statusUnpaid')
+
+  const statusColor = isPaid
+    ? '#16a34a'
+    : isCancelled
+      ? '#6b7280'
+      : isPartial
+        ? '#d97706'
+        : '#dc2626'
+
+  // Dènye peman (si genyen)
+  const lastPayment = invoice.payments?.length > 0
+    ? invoice.payments[invoice.payments.length - 1]
+    : null
+
+  return (
+    <div id="printable-receipt" style={{
+      display: 'none',
+      fontFamily: "'Courier New', Courier, monospace",
+      width: '80mm',
+      maxWidth: '80mm',
+      margin: '0 auto',
+      padding: '4mm 4mm',
+      background: '#fff',
+      color: '#1a1a1a',
+      fontSize: '11px',
+      lineHeight: '1.5',
+    }}>
+
+      {/* ── LOGO + NOM BIZNIS */}
+      <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
+        {tenant?.logoUrl && (
+          <img
+            src={tenant.logoUrl}
+            alt="Logo"
+            style={{ height: '40px', objectFit: 'contain', marginBottom: '4px', display: 'block', margin: '0 auto 4px' }}
+          />
+        )}
+        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '14px', letterSpacing: '0.5px', color: '#111' }}>
+          {tenant?.businessName || tenant?.name || 'PlusGroup'}
+        </div>
+        {tenant?.phone && (
+          <div style={{ fontSize: '10px', color: '#555' }}>📞 {tenant.phone}</div>
+        )}
+        {tenant?.address && (
+          <div style={{ fontSize: '10px', color: '#555' }}>{tenant.address}</div>
+        )}
+      </div>
+
+      {/* ── TITRE RESI */}
+      <div style={{ textAlign: 'center', margin: '6px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '13px', letterSpacing: '1.5px', color: '#111' }}>
+        {t('invoice.receiptTitle')}
+      </div>
+
+      {/* ── INFO FAKTI */}
+      <div style={{ marginBottom: '6px', fontSize: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: '#555' }}>{t('invoice.invoiceNumber')}:</span>
+          <span style={{ fontWeight: '700' }}>{invoice.invoiceNumber}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: '#555' }}>{t('invoice.date')}:</span>
+          <span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy HH:mm')}</span>
+        </div>
+        {invoice.exchangeRate && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#555' }}>{t('invoice.exchangeRate')}</span>
+            <span>{Number(invoice.exchangeRate).toFixed(2)} HTG</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── KLIYAN */}
+      {snap.name && (
+        <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#f8f8f8', borderRadius: '4px', fontSize: '10px' }}>
+          <div style={{ fontWeight: '700', fontSize: '11px' }}>👤 {t('invoice.client')}: {snap.name}</div>
+          {snap.phone && <div>{t('invoice.phone')}: {snap.phone}</div>}
+          {snap.email && <div>{t('invoice.email')}: {snap.email}</div>}
+          {snap.nif   && <div>{t('invoice.nif')}: {snap.nif}</div>}
+        </div>
+      )}
+
+      {/* ── SEPATÈ */}
+      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+
+      {/* ── TABLO ATIK */}
+      <div style={{ fontSize: '10px', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '3px', borderBottom: '1px solid #ddd' }}>
+          <span style={{ flex: 3 }}>{t('invoice.product')}</span>
+          <span style={{ flex: 1, textAlign: 'center' }}>{t('invoice.qty')}</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>{t('invoice.unitPrice')}</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>{t('invoice.total')}</span>
+        </div>
+        {invoice.items?.map((item, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
+            <div style={{ flex: 3 }}>
+              <div style={{ fontWeight: '600' }}>{item.product?.name || item.productSnapshot?.name}</div>
+              {Number(item.discountPct) > 0 && (
+                <div style={{ color: '#dc2626', fontSize: '9px' }}>{t('invoice.discount')}: {item.discountPct}%</div>
+              )}
+            </div>
+            <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
+            <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
+            <span style={{ flex: 2, textAlign: 'right', fontWeight: '700' }}>{fmt(item.totalHtg)}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── SEPATÈ */}
+      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+
+      {/* ── TOTAUX */}
+      <div style={{ fontSize: '10px', marginBottom: '6px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+          <span style={{ color: '#555' }}>{t('invoice.subtotal')}:</span>
+          <span>{fmt(invoice.subtotalHtg)} HTG</span>
+        </div>
+        {Number(invoice.discountHtg) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '2px' }}>
+            <span>{t('invoice.discountTotal')}:</span>
+            <span>-{fmt(invoice.discountHtg)} HTG</span>
+          </div>
+        )}
+        {Number(invoice.taxHtg) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+            <span>{t('invoice.tax')}:</span>
+            <span>{fmt(invoice.taxHtg)} HTG</span>
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '14px', fontFamily: 'Arial', paddingTop: '4px', borderTop: '2px solid #111', marginTop: '4px' }}>
+          <span>{t('invoice.grandTotal')}:</span>
+          <span>{fmt(invoice.totalHtg)} HTG</span>
+        </div>
+        {Number(invoice.amountPaidHtg) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', marginTop: '4px' }}>
+            <span>{t('invoice.paid')}:</span>
+            <span style={{ fontWeight: '700' }}>{fmt(invoice.amountPaidHtg)} HTG</span>
+          </div>
+        )}
+        {Number(invoice.balanceDueHtg) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
+            <span>{t('invoice.balance')}:</span>
+            <span style={{ fontWeight: '700' }}>{fmt(invoice.balanceDueHtg)} HTG</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── METÒD PEMAN */}
+      {lastPayment && (
+        <div style={{ fontSize: '10px', marginBottom: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#555' }}>{t('invoice.paymentMethod')}:</span>
+            <span style={{ fontWeight: '600' }}>{t(`invoice.${lastPayment.method}`) || lastPayment.method}</span>
+          </div>
+          {lastPayment.reference && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#555' }}>{t('invoice.reference')}:</span>
+              <span>{lastPayment.reference}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STATUT BADGE */}
+      <div style={{ textAlign: 'center', margin: '8px 0', padding: '6px', background: `${statusColor}15`, border: `1.5px solid ${statusColor}`, borderRadius: '6px' }}>
+        <span style={{ fontWeight: '900', fontSize: '12px', color: statusColor, fontFamily: 'Arial' }}>
+          {statusLabel}
+        </span>
+      </div>
+
+      {/* ── SEPATÈ */}
+      <div style={{ borderTop: '1px dashed #aaa', margin: '8px 0' }} />
+
+      {/* ── QR CODE */}
+      {qrDataUrl && (
+        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+          <img src={qrDataUrl} alt="QR Code" style={{ width: '100px', height: '100px', display: 'block', margin: '0 auto 3px' }} />
+          <div style={{ fontSize: '9px', color: '#888' }}>{t('invoice.scanQR')}</div>
+          <div style={{ fontSize: '9px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
+        </div>
+      )}
+
+      {/* ── PYE PAJ */}
+      <div style={{ textAlign: 'center', fontSize: '10px', borderTop: '1px dashed #ccc', paddingTop: '6px' }}>
+        <div style={{ fontWeight: '700', fontSize: '11px', marginBottom: '3px' }}>{t('invoice.thankYou')}</div>
+        <div style={{ color: '#666', fontSize: '9px', lineHeight: '1.4' }}>{t('invoice.footerTerms')}</div>
+        <div style={{ marginTop: '6px', fontSize: '9px', color: '#bbb' }}>{t('invoice.poweredBy')}</div>
+      </div>
+
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────
+// KOMPONAN PRENSIPAL
+// ──────────────────────────────────────────────
 export default function InvoiceDetail() {
   const { id }      = useParams()
   const navigate    = useNavigate()
   const { hasRole, tenant } = useAuthStore()
   const qc          = useQueryClient()
   const pdfMenuRef  = useRef(null)
+  const { t, i18n } = useTranslation()
 
-  const [showPayment, setShowPayment] = useState(false)
-  const [showPdfMenu, setShowPdfMenu] = useState(false)
+  const [showPayment, setShowPayment]       = useState(false)
+  const [showPdfMenu, setShowPdfMenu]       = useState(false)
+  const [showLangMenu, setShowLangMenu]     = useState(false)
+  const [receiptLang, setReceiptLang]       = useState(i18n.language || 'ht')
+  const [qrDataUrl, setQrDataUrl]           = useState(null)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
+  const langMenuRef = useRef(null)
 
   // ── Bluetooth Printer
   const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
   const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
+  // ── Fèmen menus klike deyò
   useEffect(() => {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target))
         setShowPdfMenu(false)
+      if (langMenuRef.current && !langMenuRef.current.contains(e.target))
+        setShowLangMenu(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -53,6 +282,51 @@ export default function InvoiceDetail() {
     queryKey: ['invoice', id],
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
+
+  // ── Jenere QR code lè fakti chaje
+  useEffect(() => {
+    if (!invoice) return
+    const qrContent = [
+      invoice.invoiceNumber,
+      `Total: ${fmt(invoice.totalHtg)} HTG`,
+      `Status: ${invoice.status}`,
+      `Date: ${format(new Date(invoice.issueDate), 'dd/MM/yyyy')}`,
+      window.location.href,
+    ].join('\n')
+
+    QRCode.toDataURL(qrContent, {
+      width: 200,
+      margin: 1,
+      color: { dark: '#1a1a1a', light: '#ffffff' }
+    })
+      .then(url => setQrDataUrl(url))
+      .catch(err => console.error('QR Code error:', err))
+  }, [invoice])
+
+  // ── Chanje lang pou resi, apre enprime retounen nan lang orijinal
+  const handlePrintWithLang = async () => {
+    const originalLang = i18n.language
+    if (receiptLang !== originalLang) {
+      await i18n.changeLanguage(receiptLang)
+    }
+
+    // Montre seksyon enpresyon an
+    const receiptEl = document.getElementById('printable-receipt')
+    if (receiptEl) {
+      receiptEl.style.display = 'block'
+    }
+
+    // Enprime
+    window.print()
+
+    // Kache ankò epi retounen nan lang orijinal
+    setTimeout(async () => {
+      if (receiptEl) receiptEl.style.display = 'none'
+      if (receiptLang !== originalLang) {
+        await i18n.changeLanguage(originalLang)
+      }
+    }, 500)
+  }
 
   const paymentMutation = useMutation({
     mutationFn: (data) => invoiceAPI.addPayment(id, data),
@@ -101,10 +375,37 @@ export default function InvoiceDetail() {
   const isCancelled = invoice.status === 'cancelled'
   const balance     = Number(invoice.balanceDueHtg || 0)
   const amtNum      = Number(payData.amountHtg || 0)
-  const monnen      = amtNum > balance && balance > 0 ? amtNum - balance : 0  // ✅ Monnen pou remet
+  const monnen      = amtNum > balance && balance > 0 ? amtNum - balance : 0
+
+  const currentLangInfo = RECEIPT_LANGS.find(l => l.value === receiptLang) || RECEIPT_LANGS[0]
 
   return (
     <div className="animate-fade-in max-w-4xl">
+
+      {/* ── Resi Enprime (kaché nan ekran, parèt lè print) */}
+      <PrintableReceipt
+        invoice={invoice}
+        tenant={tenant}
+        t={t}
+        qrDataUrl={qrDataUrl}
+      />
+
+      {/* ── Stil pou enpresyon */}
+      <style>{`
+        @media print {
+          body > * { display: none !important; }
+          #printable-receipt {
+            display: block !important;
+            position: fixed;
+            top: 0; left: 0;
+            width: 80mm;
+            margin: 0;
+            padding: 4mm;
+          }
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+      `}</style>
 
       {/* ── Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -129,6 +430,62 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
+
+          {/* ── Bouton Enprime Resi (Browser Print avèk lang) */}
+          <div className="relative" ref={langMenuRef} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            {/* Bouton prensipal enprime */}
+            <button
+              onClick={handlePrintWithLang}
+              className="btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, borderRadius: '8px 0 0 8px', borderRight: 'none' }}
+            >
+              <Printer size={14} />
+              Enprime Resi
+              <span style={{ fontSize: 11, background: 'rgba(0,0,0,0.08)', padding: '1px 5px', borderRadius: 4 }}>
+                {currentLangInfo.flag}
+              </span>
+            </button>
+            {/* Bouton seleksyon lang */}
+            <button
+              onClick={() => setShowLangMenu(v => !v)}
+              className="btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', borderRadius: '0 8px 8px 0', padding: '0 8px' }}
+              title="Chwazi lang resi"
+            >
+              <ChevronDown size={12} style={{ transition: 'transform 0.2s', transform: showLangMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+
+            {/* Dropdown lang */}
+            {showLangMenu && (
+              <div style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 50, background: '#fff', borderRadius: 12, minWidth: 160, boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ padding: '8px 14px 5px', fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Lang resi
+                </div>
+                {RECEIPT_LANGS.map((lang, i) => (
+                  <button key={lang.value}
+                    onClick={() => { setReceiptLang(lang.value); setShowLangMenu(false) }}
+                    style={{
+                      width: '100%', textAlign: 'left', padding: '10px 14px',
+                      background: receiptLang === lang.value ? '#f0f9ff' : 'none',
+                      border: 'none', cursor: 'pointer',
+                      borderBottom: i < RECEIPT_LANGS.length - 1 ? '1px solid #f1f5f9' : 'none',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = receiptLang === lang.value ? '#f0f9ff' : 'none'}
+                  >
+                    <span style={{ fontSize: 18 }}>{lang.flag}</span>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', fontFamily: 'DM Sans,sans-serif' }}>{lang.label}</div>
+                    </div>
+                    {receiptLang === lang.value && (
+                      <span style={{ marginLeft: 'auto', color: '#2563eb', fontWeight: 800, fontSize: 14 }}>✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* ── Bouton Bluetooth Printer */}
           {hasBluetooth && (
@@ -313,12 +670,22 @@ export default function InvoiceDetail() {
               <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 
+            {/* ── Bouton Bluetooth nan kolòn dwat */}
             {connected && (
               <button onClick={() => print(invoice, tenant)} disabled={printing}
                 className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
                 <Printer size={15}/>
                 {printing ? 'Ap enprime...' : 'Enprime Resi Bluetooth'}
               </button>
+            )}
+
+            {/* ── Aperçu QR Code nan UI */}
+            {qrDataUrl && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
+                <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>QR Verifikasyon</p>
+                <img src={qrDataUrl} alt="QR Code" style={{ width: 90, height: 90, margin: '0 auto', display: 'block', borderRadius: 8, border: '1px solid #e2e8f0' }} />
+                <p style={{ fontSize: 9, color: '#cbd5e1', marginTop: 4 }}>{invoice.invoiceNumber}</p>
+              </div>
             )}
           </div>
         </div>
@@ -356,7 +723,7 @@ export default function InvoiceDetail() {
                 </div>
               </div>
 
-              {/* ✅ Input montan — gwo ak onFocus select */}
+              {/* Input montan */}
               <div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
                   <label className="label mb-0">Montan kliyan bay (HTG) *</label>
@@ -375,7 +742,6 @@ export default function InvoiceDetail() {
                   style={{ fontSize:22, fontWeight:800, textAlign:'center' }}
                 />
 
-                {/* Eta 1: Peman pasyal */}
                 {amtNum > 0 && amtNum < balance && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>⚠ Peman pasyal</span>
@@ -383,7 +749,6 @@ export default function InvoiceDetail() {
                   </div>
                 )}
 
-                {/* Eta 2: Peman egzak */}
                 {amtNum === balance && amtNum > 0 && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>✓ Peman egzak</span>
@@ -391,7 +756,6 @@ export default function InvoiceDetail() {
                   </div>
                 )}
 
-                {/* ✅ Eta 3: Kalkikatè monnen */}
                 {monnen > 0 && (
                   <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
                     <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -435,7 +799,6 @@ export default function InvoiceDetail() {
                 <button type="button"
                   onClick={() => {
                     if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
-                    // ✅ Si kliyan bay plis, anrejistre sèlman balans la — pa lajan total li te bay
                     const amtToRecord = monnen > 0 ? balance : amtNum
                     paymentMutation.mutate({ ...payData, amountHtg: amtToRecord })
                   }}
@@ -458,11 +821,6 @@ export default function InvoiceDetail() {
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
-      `}</style>
     </div>
   )
 }
