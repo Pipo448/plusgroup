@@ -117,11 +117,14 @@ export default function AppLayout() {
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
   // ── Kalkile tou to yo pou afichaj
+  // Estrateji: chèche nan exchangeRates d abò (objè), sinon fallback sou exchangeRate pou USD
   const rateItems = showExchangeRate
     ? visibleCurrencies
         .map(currency => {
-          const rate = exchangeRates[currency]
-            ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : null)
+          const fromMap = (exchangeRates && typeof exchangeRates === 'object')
+            ? exchangeRates[currency]
+            : undefined
+          const rate = fromMap ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : 0)
           if (!rate || Number(rate) <= 0) return null
           return { currency, rate: Number(rate) }
         })

@@ -237,9 +237,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   )
 }
 
-// Zoom selon lang
-const LANG_ZOOM = { ht: '100%', fr: '80%', en: '60%' }
-
 // ──────────────────────────────────────────────
 // KOMPONAN PRENSIPAL
 // ──────────────────────────────────────────────
@@ -297,15 +294,12 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice])
 
-  // Enprime resi — zoom selon lang courant, logo base64, san taux
+  // Enprime resi — logo base64, san taux, san zoom
   const handlePrint = async () => {
     const receiptEl = document.getElementById('printable-receipt')
     if (!receiptEl) { toast.error('Resi pa disponib.'); return }
 
-    const currentLang = i18n.language || 'ht'
-    const zoom = LANG_ZOOM[currentLang] || '100%'
     const receiptSize = tenant?.receiptSize || '80mm'
-
     const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
 
     const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
@@ -322,19 +316,10 @@ export default function InvoiceDetail() {
         <title>Resi ${invoice?.invoiceNumber || ''}</title>
         <style>
           * { box-sizing: border-box; }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #fff;
-            font-family: 'Courier New', Courier, monospace;
-            zoom: ${zoom};
-          }
+          body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
           @media print {
-            @page {
-              margin: 0;
-              size: ${receiptSize} auto;
-            }
-            body { margin: 0; zoom: ${zoom}; }
+            @page { margin: 0; size: ${receiptSize} auto; }
+            body { margin: 0; }
           }
         </style>
       </head>
