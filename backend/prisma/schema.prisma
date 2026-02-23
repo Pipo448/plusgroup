@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // Pooler port 6543 — pou app la
+  directUrl = env("DIRECT_URL")     // Direct port 5432 — pou migrations
 }
 
 // ============================================================
@@ -135,7 +136,7 @@ model Tenant {
   defaultLanguage     DefaultLanguage @default(ht) @map("default_language")
   exchangeRate        Decimal         @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
   taxRate             Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  receiptSize         String          @default("80mm") @map("receipt_size") @db.VarChar(10)  // ✅ "80mm" oswa "57mm"
+  receiptSize         String          @default("80mm") @map("receipt_size") @db.VarChar(10)
   printerConnection   String          @default("usb") @map("printer_connection") @db.VarChar(20)
   planId              String?         @map("plan_id")
   status              TenantStatus    @default(pending)
@@ -207,16 +208,16 @@ model User {
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
-  tenant          Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products        Product[]
-  clients         Client[]
-  quotesCreated   Quote[]         @relation("QuoteCreatedBy")
-  invoicesCreated Invoice[]       @relation("InvoiceCreatedBy")
-  invoicesCancelled Invoice[]     @relation("InvoiceCancelledBy")
-  payments        Payment[]
-  stockMovements  StockMovement[]
-  activityLogs    ActivityLog[]
-  notifications   Notification[]
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products          Product[]
+  clients           Client[]
+  quotesCreated     Quote[]         @relation("QuoteCreatedBy")
+  invoicesCreated   Invoice[]       @relation("InvoiceCreatedBy")
+  invoicesCancelled Invoice[]       @relation("InvoiceCancelledBy")
+  payments          Payment[]
+  stockMovements    StockMovement[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -267,11 +268,11 @@ model Product {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  category      ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  creator       User?           @relation(fields: [createdBy], references: [id])
-  quoteItems    QuoteItem[]
-  invoiceItems  InvoiceItem[]
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category       ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  creator        User?            @relation(fields: [createdBy], references: [id])
+  quoteItems     QuoteItem[]
+  invoiceItems   InvoiceItem[]
   stockMovements StockMovement[]
 
   @@unique([tenantId, code])
@@ -316,34 +317,34 @@ model Client {
 // ============================================================
 
 model Quote {
-  id               String          @id @default(uuid())
-  tenantId         String          @map("tenant_id")
-  quoteNumber      String          @map("quote_number") @db.VarChar(50)
-  clientId         String?         @map("client_id")
-  clientSnapshot   Json            @map("client_snapshot")
-  currency         DefaultCurrency @default(HTG)
-  exchangeRate     Decimal         @map("exchange_rate") @db.Decimal(10, 4)
-  subtotalHtg      Decimal         @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
-  subtotalUsd      Decimal         @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
-  discountType     String          @default("amount") @map("discount_type") @db.VarChar(10)
-  discountValue    Decimal         @default(0) @map("discount_value") @db.Decimal(10, 2)
-  discountHtg      Decimal         @default(0) @map("discount_htg") @db.Decimal(14, 2)
-  discountUsd      Decimal         @default(0) @map("discount_usd") @db.Decimal(14, 2)
-  taxRate          Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  taxHtg           Decimal         @default(0) @map("tax_htg") @db.Decimal(14, 2)
-  taxUsd           Decimal         @default(0) @map("tax_usd") @db.Decimal(14, 2)
-  totalHtg         Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
-  totalUsd         Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
-  status           QuoteStatus     @default(draft)
-  issueDate        DateTime        @default(now()) @map("issue_date") @db.Date
-  expiryDate       DateTime?       @map("expiry_date") @db.Date
-  notes            String?
-  terms            String?
-  createdBy        String?         @map("created_by")
-  convertedToInvoiceId String?     @map("converted_to_invoice_id")
-  convertedAt      DateTime?       @map("converted_at")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
+  id                   String          @id @default(uuid())
+  tenantId             String          @map("tenant_id")
+  quoteNumber          String          @map("quote_number") @db.VarChar(50)
+  clientId             String?         @map("client_id")
+  clientSnapshot       Json            @map("client_snapshot")
+  currency             DefaultCurrency @default(HTG)
+  exchangeRate         Decimal         @map("exchange_rate") @db.Decimal(10, 4)
+  subtotalHtg          Decimal         @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
+  subtotalUsd          Decimal         @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
+  discountType         String          @default("amount") @map("discount_type") @db.VarChar(10)
+  discountValue        Decimal         @default(0) @map("discount_value") @db.Decimal(10, 2)
+  discountHtg          Decimal         @default(0) @map("discount_htg") @db.Decimal(14, 2)
+  discountUsd          Decimal         @default(0) @map("discount_usd") @db.Decimal(14, 2)
+  taxRate              Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxHtg               Decimal         @default(0) @map("tax_htg") @db.Decimal(14, 2)
+  taxUsd               Decimal         @default(0) @map("tax_usd") @db.Decimal(14, 2)
+  totalHtg             Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
+  totalUsd             Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
+  status               QuoteStatus     @default(draft)
+  issueDate            DateTime        @default(now()) @map("issue_date") @db.Date
+  expiryDate           DateTime?       @map("expiry_date") @db.Date
+  notes                String?
+  terms                String?
+  createdBy            String?         @map("created_by")
+  convertedToInvoiceId String?         @map("converted_to_invoice_id")
+  convertedAt          DateTime?       @map("converted_at")
+  createdAt            DateTime        @default(now()) @map("created_at")
+  updatedAt            DateTime        @updatedAt @map("updated_at")
 
   tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   client  Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -383,41 +384,41 @@ model QuoteItem {
 // ============================================================
 
 model Invoice {
-  id               String        @id @default(uuid())
-  tenantId         String        @map("tenant_id")
-  invoiceNumber    String        @map("invoice_number") @db.VarChar(50)
-  quoteId          String        @unique @map("quote_id")
-  clientId         String?       @map("client_id")
-  clientSnapshot   Json          @map("client_snapshot")
+  id               String          @id @default(uuid())
+  tenantId         String          @map("tenant_id")
+  invoiceNumber    String          @map("invoice_number") @db.VarChar(50)
+  quoteId          String          @unique @map("quote_id")
+  clientId         String?         @map("client_id")
+  clientSnapshot   Json            @map("client_snapshot")
   currency         DefaultCurrency @default(HTG)
-  exchangeRate     Decimal       @map("exchange_rate") @db.Decimal(10, 4)
-  subtotalHtg      Decimal       @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
-  subtotalUsd      Decimal       @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
-  discountType     String        @default("amount") @map("discount_type") @db.VarChar(10)
-  discountValue    Decimal       @default(0) @map("discount_value") @db.Decimal(10, 2)
-  discountHtg      Decimal       @default(0) @map("discount_htg") @db.Decimal(14, 2)
-  discountUsd      Decimal       @default(0) @map("discount_usd") @db.Decimal(14, 2)
-  taxRate          Decimal       @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  taxHtg           Decimal       @default(0) @map("tax_htg") @db.Decimal(14, 2)
-  taxUsd           Decimal       @default(0) @map("tax_usd") @db.Decimal(14, 2)
-  totalHtg         Decimal       @default(0) @map("total_htg") @db.Decimal(14, 2)
-  totalUsd         Decimal       @default(0) @map("total_usd") @db.Decimal(14, 2)
-  amountPaidHtg    Decimal       @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
-  amountPaidUsd    Decimal       @default(0) @map("amount_paid_usd") @db.Decimal(14, 2)
-  balanceDueHtg    Decimal       @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
-  balanceDueUsd    Decimal       @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
-  status           InvoiceStatus @default(unpaid)
-  issueDate        DateTime      @default(now()) @map("issue_date") @db.Date
-  dueDate          DateTime?     @map("due_date") @db.Date
+  exchangeRate     Decimal         @map("exchange_rate") @db.Decimal(10, 4)
+  subtotalHtg      Decimal         @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
+  subtotalUsd      Decimal         @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
+  discountType     String          @default("amount") @map("discount_type") @db.VarChar(10)
+  discountValue    Decimal         @default(0) @map("discount_value") @db.Decimal(10, 2)
+  discountHtg      Decimal         @default(0) @map("discount_htg") @db.Decimal(14, 2)
+  discountUsd      Decimal         @default(0) @map("discount_usd") @db.Decimal(14, 2)
+  taxRate          Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  taxHtg           Decimal         @default(0) @map("tax_htg") @db.Decimal(14, 2)
+  taxUsd           Decimal         @default(0) @map("tax_usd") @db.Decimal(14, 2)
+  totalHtg         Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
+  totalUsd         Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
+  amountPaidHtg    Decimal         @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
+  amountPaidUsd    Decimal         @default(0) @map("amount_paid_usd") @db.Decimal(14, 2)
+  balanceDueHtg    Decimal         @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
+  balanceDueUsd    Decimal         @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
+  status           InvoiceStatus   @default(unpaid)
+  issueDate        DateTime        @default(now()) @map("issue_date") @db.Date
+  dueDate          DateTime?       @map("due_date") @db.Date
   notes            String?
   terms            String?
-  stockDecremented Boolean       @default(false) @map("stock_decremented")
-  createdBy        String?       @map("created_by")
-  cancelledBy      String?       @map("cancelled_by")
-  cancelledAt      DateTime?     @map("cancelled_at")
-  cancelReason     String?       @map("cancel_reason")
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
+  stockDecremented Boolean         @default(false) @map("stock_decremented")
+  createdBy        String?         @map("created_by")
+  cancelledBy      String?         @map("cancelled_by")
+  cancelledAt      DateTime?       @map("cancelled_at")
+  cancelReason     String?         @map("cancel_reason")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   quote     Quote         @relation(fields: [quoteId], references: [id])
@@ -461,19 +462,19 @@ model InvoiceItem {
 // ============================================================
 
 model Payment {
-  id          String        @id @default(uuid())
-  tenantId    String        @map("tenant_id")
-  invoiceId   String        @map("invoice_id")
-  amountHtg   Decimal       @default(0) @map("amount_htg") @db.Decimal(14, 2)
-  amountUsd   Decimal       @default(0) @map("amount_usd") @db.Decimal(14, 2)
-  currency    DefaultCurrency @default(HTG)
-  exchangeRate Decimal?     @map("exchange_rate") @db.Decimal(10, 4)
-  method      PaymentMethod @default(cash)
-  reference   String?       @db.VarChar(200)
-  paymentDate DateTime      @default(now()) @map("payment_date") @db.Date
-  notes       String?
-  createdBy   String?       @map("created_by")
-  createdAt   DateTime      @default(now()) @map("created_at")
+  id           String          @id @default(uuid())
+  tenantId     String          @map("tenant_id")
+  invoiceId    String          @map("invoice_id")
+  amountHtg    Decimal         @default(0) @map("amount_htg") @db.Decimal(14, 2)
+  amountUsd    Decimal         @default(0) @map("amount_usd") @db.Decimal(14, 2)
+  currency     DefaultCurrency @default(HTG)
+  exchangeRate Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
+  method       PaymentMethod   @default(cash)
+  reference    String?         @db.VarChar(200)
+  paymentDate  DateTime        @default(now()) @map("payment_date") @db.Date
+  notes        String?
+  createdBy    String?         @map("created_by")
+  createdAt    DateTime        @default(now()) @map("created_at")
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
@@ -487,19 +488,19 @@ model Payment {
 // ============================================================
 
 model StockMovement {
-  id            String            @id @default(uuid())
-  tenantId      String            @map("tenant_id")
-  productId     String            @map("product_id")
-  movementType  StockMovementType @map("movement_type")
-  referenceId   String?           @map("reference_id")
-  referenceType String?           @map("reference_type") @db.VarChar(50)
-  quantityBefore Decimal         @map("quantity_before") @db.Decimal(12, 3)
-  quantityChange Decimal         @map("quantity_change") @db.Decimal(12, 3)
-  quantityAfter  Decimal         @map("quantity_after") @db.Decimal(12, 3)
-  unitCostHtg   Decimal?         @map("unit_cost_htg") @db.Decimal(12, 2)
-  notes         String?
-  createdBy     String?           @map("created_by")
-  createdAt     DateTime          @default(now()) @map("created_at")
+  id             String            @id @default(uuid())
+  tenantId       String            @map("tenant_id")
+  productId      String            @map("product_id")
+  movementType   StockMovementType @map("movement_type")
+  referenceId    String?           @map("reference_id")
+  referenceType  String?           @map("reference_type") @db.VarChar(50)
+  quantityBefore Decimal           @map("quantity_before") @db.Decimal(12, 3)
+  quantityChange Decimal           @map("quantity_change") @db.Decimal(12, 3)
+  quantityAfter  Decimal           @map("quantity_after") @db.Decimal(12, 3)
+  unitCostHtg    Decimal?          @map("unit_cost_htg") @db.Decimal(12, 2)
+  notes          String?
+  createdBy      String?           @map("created_by")
+  createdAt      DateTime          @default(now()) @map("created_at")
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -557,21 +558,21 @@ model ActivityLog {
 // ============================================================
 
 model Notification {
-  id         String   @id @default(uuid())
-  tenantId   String   @map("tenant_id")
-  userId     String?  @map("user_id")
-  type       String   @db.VarChar(50)
-  titleHt    String?  @map("title_ht")
-  titleFr    String?  @map("title_fr")
-  titleEn    String?  @map("title_en")
-  messageHt  String?  @map("message_ht")
-  messageFr  String?  @map("message_fr")
-  messageEn  String?  @map("message_en")
-  entityType String?  @map("entity_type") @db.VarChar(50)
-  entityId   String?  @map("entity_id")
-  isRead     Boolean  @default(false) @map("is_read")
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  userId     String?   @map("user_id")
+  type       String    @db.VarChar(50)
+  titleHt    String?   @map("title_ht")
+  titleFr    String?   @map("title_fr")
+  titleEn    String?   @map("title_en")
+  messageHt  String?   @map("message_ht")
+  messageFr  String?   @map("message_fr")
+  messageEn  String?   @map("message_en")
+  entityType String?   @map("entity_type") @db.VarChar(50)
+  entityId   String?   @map("entity_id")
+  isRead     Boolean   @default(false) @map("is_read")
   readAt     DateTime? @map("read_at")
-  createdAt  DateTime @default(now()) @map("created_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
