@@ -28,10 +28,20 @@ const STATUS_MAP = {
   refunded:  { label:'Remèt',  color:D.blue,    bg:D.blueDim },
 }
 
+// ── Detekte si mobil
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', () => setIsMobile(window.innerWidth < 640))
+  }
+  return isMobile
+}
+
 export default function InvoicesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage]     = useState(1)
+  const isMobile = useIsMobile()
 
   const { data, isLoading } = useQuery({
     queryKey: ['invoices', search, status, page],
@@ -57,14 +67,15 @@ export default function InvoicesPage() {
 
       {/* Filtres */}
       <div style={{ background:D.white, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:16, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', boxShadow:D.shadow }}>
-        <div style={{ position:'relative', flex:1, minWidth:200 }}>
+        <div style={{ position:'relative', flex:1, minWidth:180 }}>
           <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
           <input placeholder="Nimewo oswa kliyan..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}
             style={{ width:'100%', paddingLeft:36, padding:'9px 14px 9px 36px', borderRadius:10, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, color:D.text, background:'#F8F9FF', boxSizing:'border-box', fontFamily:'DM Sans,sans-serif' }}
             onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}
           />
         </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        {/* Filtè statut - scroll horizontal sou mobil */}
+        <div style={{ display:'flex', gap:6, flexWrap: isMobile ? 'nowrap' : 'wrap', overflowX: isMobile ? 'auto' : 'visible', paddingBottom: isMobile ? 4 : 0, width: isMobile ? '100%' : 'auto' }}>
           {[{v:'',l:'Tout'}, ...Object.entries(STATUS_MAP).map(([k,s])=>({v:k,l:s.label}))].map(opt => (
             <button key={opt.v} onClick={()=>{setStatus(opt.v);setPage(1)}}
               style={{
@@ -73,6 +84,7 @@ export default function InvoicesPage() {
                 color: status===opt.v ? '#fff' : D.muted,
                 border:`1.5px solid ${status===opt.v ? D.blue : D.border}`,
                 boxShadow: status===opt.v ? `0 3px 10px ${D.blue}35` : 'none',
+                whiteSpace: 'nowrap', flexShrink: 0,
               }}>
               {opt.l}
             </button>
@@ -80,36 +92,58 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Tablo */}
-      <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
-        {/* Header tablo */}
-        <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1.5fr 1fr 1fr 1fr 90px 80px 50px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
-          {['Nimewo','Kliyan','Total HTG','Peye','Balans','Statut','Dat',''].map((h,i) => (
-            <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i>=2&&i<7 ? 'center' : i===7 ? 'right' : 'left' }}>{h}</span>
-          ))}
+      {/* ── MOBIL: Kat (Cards) ── */}
+      {isMobile ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {isLoading
+            ? Array(4).fill(0).map((_,i) => (
+                <div key={i} style={{ background:D.white, borderRadius:14, padding:16, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+                  {Array(4).fill(0).map((_,j) => (
+                    <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, marginBottom:10, animation:'pulse 1.5s infinite', width: j===0?'60%':j===1?'40%':'80%' }}/>
+                  ))}
+                </div>
+              ))
+            : !data?.invoices?.length
+            ? <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
+                <Receipt size={32} color={D.blue} style={{ marginBottom:12 }}/>
+                <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>Okenn facture jwenn</p>
+              </div>
+            : data.invoices.map((inv) => {
+                const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
+                return <InvCard key={inv.id} inv={inv} s={s} D={D} fmt={fmt}/>
+              })
+          }
         </div>
+      ) : (
+        /* ── DESKTOP: Tablo ── */
+        <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
+          {/* Header tablo */}
+          <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1.5fr 1fr 1fr 1fr 90px 80px 50px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
+            {['Nimewo','Kliyan','Total HTG','Peye','Balans','Statut','Dat',''].map((h,i) => (
+              <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i>=2&&i<7 ? 'center' : i===7 ? 'right' : 'left' }}>{h}</span>
+            ))}
+          </div>
 
-        {isLoading
-          ? Array(6).fill(0).map((_,i) => (
-              <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.5fr 1.5fr 1fr 1fr 1fr 90px 80px 50px', gap:8, alignItems:'center' }}>
-                {Array(8).fill(0).map((_,j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, animation:'pulse 1.5s infinite' }}/>)}
+          {isLoading
+            ? Array(6).fill(0).map((_,i) => (
+                <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.5fr 1.5fr 1fr 1fr 1fr 90px 80px 50px', gap:8, alignItems:'center' }}>
+                  {Array(8).fill(0).map((_,j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, animation:'pulse 1.5s infinite' }}/>)}
+                </div>
+              ))
+            : !data?.invoices?.length
+            ? <div style={{ padding:'60px 20px', textAlign:'center' }}>
+                <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.blueDim, marginBottom:16 }}>
+                  <Receipt size={32} color={D.blue}/>
+                </div>
+                <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>Okenn facture jwenn</p>
               </div>
-            ))
-          : !data?.invoices?.length
-          ? <div style={{ padding:'60px 20px', textAlign:'center' }}>
-              <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.blueDim, marginBottom:16 }}>
-                <Receipt size={32} color={D.blue}/>
-              </div>
-              <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>Okenn facture jwenn</p>
-            </div>
-          : data.invoices.map((inv, idx) => {
-              const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
-              return (
-                <InvRow key={inv.id} inv={inv} idx={idx} s={s} D={D} fmt={fmt}/>
-              )
-            })
-        }
-      </div>
+            : data.invoices.map((inv, idx) => {
+                const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
+                return <InvRow key={inv.id} inv={inv} idx={idx} s={s} D={D} fmt={fmt}/>
+              })
+          }
+        </div>
+      )}
 
       {/* Paginasyon */}
       {data?.pages > 1 && (
@@ -122,11 +156,75 @@ export default function InvoicesPage() {
         </div>
       )}
 
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        ::-webkit-scrollbar{height:4px}
+        ::-webkit-scrollbar-track{background:transparent}
+        ::-webkit-scrollbar-thumb{background:rgba(27,42,143,0.2);border-radius:99px}
+      `}</style>
     </div>
   )
 }
 
+// ── KAT MOBIL ──
+function InvCard({ inv, s, D, fmt }) {
+  return (
+    <div style={{
+      background: D.white,
+      borderRadius: 14,
+      border: `1px solid ${D.border}`,
+      boxShadow: D.shadow,
+      padding: '14px 16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 10,
+    }}>
+      {/* Liy 1: Nimewo + Statut + Bouton wè */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontFamily:'monospace', fontWeight:900, color:D.blue, fontSize:13 }}>{inv.invoiceNumber}</span>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
+          <Link to={`/invoices/${inv.id}`} style={{
+            width:34, height:34, borderRadius:10,
+            display:'inline-flex', alignItems:'center', justifyContent:'center',
+            background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,
+            color:'#fff', textDecoration:'none',
+            boxShadow:`0 3px 10px ${D.blue}40`,
+          }}>
+            <Eye size={15}/>
+          </Link>
+        </div>
+      </div>
+
+      {/* Liy 2: Kliyan + Dat */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontSize:14, fontWeight:700, color:D.text }}>{inv.client?.name||'—'}</span>
+        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{format(new Date(inv.issueDate),'dd/MM/yy')}</span>
+      </div>
+
+      {/* Divider */}
+      <div style={{ height:1, background:D.border }}/>
+
+      {/* Liy 3: Montan yo */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
+        <div style={{ textAlign:'center' }}>
+          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>Total</p>
+          <p style={{ fontFamily:'monospace', fontWeight:800, color:D.text, fontSize:13, margin:0 }}>{fmt(inv.totalHtg)}</p>
+        </div>
+        <div style={{ textAlign:'center', borderLeft:`1px solid ${D.border}`, borderRight:`1px solid ${D.border}` }}>
+          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>Peye</p>
+          <p style={{ fontFamily:'monospace', fontWeight:800, color:D.success, fontSize:13, margin:0 }}>{fmt(inv.amountPaidHtg)}</p>
+        </div>
+        <div style={{ textAlign:'center' }}>
+          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>Balans</p>
+          <p style={{ fontFamily:'monospace', fontWeight:800, color:Number(inv.balanceDueHtg)>0?D.red:D.muted, fontSize:13, margin:0 }}>{fmt(inv.balanceDueHtg)}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── RAN DESKTOP ──
 function InvRow({ inv, idx, s, D, fmt }) {
   const [hov, setHov] = useState(false)
   return (

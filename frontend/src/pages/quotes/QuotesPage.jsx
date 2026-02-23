@@ -29,12 +29,21 @@ const STATUS_MAP = {
   expired:   { label:'Ekspire',  color:D.warning, bg:D.warningBg },
 }
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', () => setIsMobile(window.innerWidth < 640))
+  }
+  return isMobile
+}
+
 export default function QuotesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage]     = useState(1)
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const isMobile = useIsMobile()
 
   const { data, isLoading } = useQuery({
     queryKey: ['quotes', search, status, page],
@@ -73,61 +82,87 @@ export default function QuotesPage() {
           display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, textDecoration:'none',
           background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,
           color:'#fff', fontWeight:800, fontSize:14, boxShadow:`0 4px 16px ${D.blue}45`,
-          transition:'transform 0.15s, box-shadow 0.15s',
-        }}
-        onMouseEnter={e=>{e.currentTarget.style.transform='translateY(-2px)';e.currentTarget.style.boxShadow=`0 8px 24px ${D.blue}50`}}
-        onMouseLeave={e=>{e.currentTarget.style.transform='none';e.currentTarget.style.boxShadow=`0 4px 16px ${D.blue}45`}}
-        >
+        }}>
           <Plus size={16}/> Nouvo Devis
         </Link>
       </div>
 
       {/* Filtres */}
       <div style={{ background:D.white, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:16, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', boxShadow:D.shadow }}>
-        <div style={{ position:'relative', flex:1, minWidth:200 }}>
+        <div style={{ position:'relative', flex:1, minWidth:180 }}>
           <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
           <input placeholder="Nimewo oswa kliyan..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}
             style={{ width:'100%', padding:'9px 14px 9px 36px', borderRadius:10, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, color:D.text, background:'#F8F9FF', boxSizing:'border-box', fontFamily:'DM Sans,sans-serif' }}
             onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}
           />
         </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <div style={{ display:'flex', gap:6, flexWrap:'nowrap', overflowX:'auto', paddingBottom:2, width: isMobile ? '100%' : 'auto' }}>
           {[{v:'',l:'Tout'}, ...Object.entries(STATUS_MAP).map(([k,s])=>({v:k,l:s.label}))].map(opt => (
             <button key={opt.v} onClick={()=>{setStatus(opt.v);setPage(1)}}
-              style={{ padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.15s', background:status===opt.v?D.gold:'#F4F6FF', color:status===opt.v?'#fff':D.muted, border:`1.5px solid ${status===opt.v?D.gold:D.border}`, boxShadow:status===opt.v?`0 3px 10px ${D.gold}40`:'none' }}>
+              style={{ padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.15s', background:status===opt.v?D.gold:'#F4F6FF', color:status===opt.v?'#fff':D.muted, border:`1.5px solid ${status===opt.v?D.gold:D.border}`, whiteSpace:'nowrap', flexShrink:0 }}>
               {opt.l}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Tablo */}
-      <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 100px 90px 90px 100px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
-          {['Nimewo','Kliyan','Total HTG','Statut','Dat','Ekspire','Aksyon'].map((h,i) => (
-            <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign:i>=2&&i<=5?'center':'left' }}>{h}</span>
-          ))}
+      {/* ── MOBIL: Kat ── */}
+      {isMobile ? (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {isLoading
+            ? Array(4).fill(0).map((_,i) => (
+                <div key={i} style={{ background:D.white, borderRadius:14, padding:16, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+                  {Array(4).fill(0).map((_,j) => (
+                    <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, marginBottom:10, animation:'pulse 1.5s infinite' }}/>
+                  ))}
+                </div>
+              ))
+            : !data?.quotes?.length
+            ? <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
+                <FileText size={32} color={D.gold} style={{ marginBottom:12 }}/>
+                <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Okenn devis jwenn</p>
+                <Link to="/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
+                  <Plus size={14}/> Kreye premye devis ou
+                </Link>
+              </div>
+            : data.quotes.map(q => (
+                <QuoteCard key={q.id} q={q} D={D} fmt={fmt} STATUS_MAP={STATUS_MAP}
+                  convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}/>
+              ))
+          }
         </div>
+      ) : (
+        /* ── DESKTOP: Tablo ── */
+        <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 100px 90px 90px 100px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
+            {['Nimewo','Kliyan','Total HTG','Statut','Dat','Ekspire','Aksyon'].map((h,i) => (
+              <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign:i>=2&&i<=5?'center':'left' }}>{h}</span>
+            ))}
+          </div>
 
-        {isLoading
-          ? Array(5).fill(0).map((_,i) => (
-              <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 100px 90px 90px 100px', gap:8 }}>
-                {Array(7).fill(0).map((_,j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6 }}/>)}
+          {isLoading
+            ? Array(5).fill(0).map((_,i) => (
+                <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 100px 90px 90px 100px', gap:8 }}>
+                  {Array(7).fill(0).map((_,j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6 }}/>)}
+                </div>
+              ))
+            : !data?.quotes?.length
+            ? <div style={{ padding:'60px 20px', textAlign:'center' }}>
+                <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.goldDim, marginBottom:16 }}>
+                  <FileText size={32} color={D.gold}/>
+                </div>
+                <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Okenn devis jwenn</p>
+                <Link to="/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
+                  <Plus size={14}/> Kreye premye devis ou
+                </Link>
               </div>
-            ))
-          : !data?.quotes?.length
-          ? <div style={{ padding:'60px 20px', textAlign:'center' }}>
-              <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.goldDim, marginBottom:16 }}>
-                <FileText size={32} color={D.gold}/>
-              </div>
-              <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Okenn devis jwenn</p>
-              <Link to="/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', boxShadow:`0 4px 16px ${D.blue}40` }}>
-                <Plus size={14}/> Kreye premye devis ou
-              </Link>
-            </div>
-          : data.quotes.map((q, idx) => <QuoteRow key={q.id} q={q} idx={idx} D={D} fmt={fmt} STATUS_MAP={STATUS_MAP} convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}/>)
-        }
-      </div>
+            : data.quotes.map((q, idx) => (
+                <QuoteRow key={q.id} q={q} idx={idx} D={D} fmt={fmt} STATUS_MAP={STATUS_MAP}
+                  convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}/>
+              ))
+          }
+        </div>
+      )}
 
       {/* Paginasyon */}
       {data?.pages > 1 && (
@@ -139,24 +174,98 @@ export default function QuotesPage() {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        ::-webkit-scrollbar{height:4px}
+        ::-webkit-scrollbar-thumb{background:rgba(27,42,143,0.2);border-radius:99px}
+      `}</style>
     </div>
   )
 }
 
+// ── KAT MOBIL ──
+function QuoteCard({ q, D, fmt, STATUS_MAP, convertMutation, cancelMutation, sendMutation }) {
+  const s = STATUS_MAP[q.status] || STATUS_MAP.draft
+  const isExpired = q.expiryDate && new Date(q.expiryDate) < new Date()
+
+  return (
+    <div style={{ background:D.white, borderRadius:14, border:`1px solid ${D.border}`, boxShadow:D.shadow, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
+
+      {/* Liy 1: Nimewo + Statut + Wè */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+        <span style={{ fontFamily:'monospace', fontWeight:900, color:D.gold, fontSize:13 }}>{q.quoteNumber}</span>
+        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+          <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, textTransform:'uppercase' }}>{s.label}</span>
+          <Link to={`/quotes/${q.id}`} style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none' }}>
+            <Eye size={15}/>
+          </Link>
+        </div>
+      </div>
+
+      {/* Liy 2: Kliyan + Dat */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontSize:14, fontWeight:700, color:D.text }}>{q.client?.name || <span style={{color:D.muted,fontStyle:'italic'}}>San kliyan</span>}</span>
+        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{format(new Date(q.issueDate),'dd/MM/yy')}</span>
+      </div>
+
+      {/* Divider */}
+      <div style={{ height:1, background:D.border }}/>
+
+      {/* Liy 3: Total + Ekspire */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <div>
+          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>Total</p>
+          <p style={{ fontFamily:'monospace', fontWeight:900, color:D.text, fontSize:15, margin:0 }}>{fmt(q.totalHtg)} HTG</p>
+        </div>
+        {q.expiryDate && (
+          <div style={{ textAlign:'right' }}>
+            <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>Ekspire</p>
+            <p style={{ fontFamily:'monospace', fontSize:12, color: isExpired ? D.red : D.muted, margin:0, fontWeight: isExpired ? 700 : 400 }}>
+              {format(new Date(q.expiryDate),'dd/MM/yy')}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Aksyon bouton yo */}
+      {!['converted','cancelled'].includes(q.status) && (
+        <div style={{ display:'flex', gap:8, borderTop:`1px solid ${D.border}`, paddingTop:10 }}>
+          {['draft','sent'].includes(q.status) && (
+            <Link to={`/quotes/${q.id}/edit`} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, textDecoration:'none', background:D.blueDim, color:D.blue, fontWeight:700, fontSize:12 }}>
+              <Edit2 size={13}/> Modifye
+            </Link>
+          )}
+          {q.status==='draft' && (
+            <button onClick={()=>sendMutation.mutate(q.id)} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:'none', background:'rgba(2,132,199,0.1)', color:'#0284C7', fontWeight:700, fontSize:12, cursor:'pointer' }}>
+              <Send size={13}/> Voye
+            </button>
+          )}
+          {['draft','sent','accepted'].includes(q.status) && (
+            <button onClick={()=>{ if(confirm('Konvèti devis sa an facture?')) convertMutation.mutate(q.id) }}
+              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:'none', background:D.successBg, color:D.success, fontWeight:700, fontSize:12, cursor:'pointer' }}>
+              <CheckCircle size={13}/> Konvèti
+            </button>
+          )}
+          <button onClick={()=>{ if(confirm('Anile devis sa?')) cancelMutation.mutate(q.id) }}
+            style={{ width:36, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:10, border:'none', background:D.redDim, color:D.red, cursor:'pointer' }}>
+            <XCircle size={15}/>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── RAN DESKTOP ──
 function QuoteRow({ q, idx, D, fmt, STATUS_MAP, convertMutation, cancelMutation, sendMutation }) {
   const [hov, setHov] = useState(false)
   const s = STATUS_MAP[q.status] || STATUS_MAP.draft
   const isExpired = q.expiryDate && new Date(q.expiryDate) < new Date()
 
   const actionBtn = (onClick, icon, title, color) => (
-    <button onClick={onClick} title={title} style={{
-      width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, cursor:'pointer',
-      background:hov?`${color}15`:'#F4F6FF', color, display:'flex', alignItems:'center', justifyContent:'center',
-      transition:'all 0.15s', flexShrink:0,
-    }}
-    onMouseEnter={e=>{e.currentTarget.style.background=`${color}25`;e.currentTarget.style.borderColor=`${color}50`}}
-    onMouseLeave={e=>{e.currentTarget.style.background=hov?`${color}15`:'#F4F6FF';e.currentTarget.style.borderColor=D.border}}
-    >{icon}</button>
+    <button onClick={onClick} title={title} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, cursor:'pointer', background:hov?`${color}15`:'#F4F6FF', color, display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s', flexShrink:0 }}
+    onMouseEnter={e=>{e.currentTarget.style.background=`${color}25`}} onMouseLeave={e=>{e.currentTarget.style.background=hov?`${color}15`:'#F4F6FF'}}>{icon}</button>
   )
 
   return (
@@ -166,18 +275,16 @@ function QuoteRow({ q, idx, D, fmt, STATUS_MAP, convertMutation, cancelMutation,
       <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{q.client?.name || <span style={{color:D.muted,fontStyle:'italic'}}>San kliyan</span>}</span>
       <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13, textAlign:'center' }}>{fmt(q.totalHtg)}</span>
       <div style={{ textAlign:'center' }}>
-        <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
+        <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, textTransform:'uppercase' }}>{s.label}</span>
       </div>
       <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{format(new Date(q.issueDate),'dd/MM/yy')}</span>
-      <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired?D.red:D.muted }}>
-        {q.expiryDate ? format(new Date(q.expiryDate),'dd/MM/yy') : '—'}
-      </span>
+      <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired?D.red:D.muted }}>{q.expiryDate ? format(new Date(q.expiryDate),'dd/MM/yy') : '—'}</span>
       <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
-        <Link to={`/quotes/${q.id}`} style={{ width:28,height:28,borderRadius:7,border:`1px solid ${D.border}`,background:hov?D.blueDim:'#F4F6FF',color:D.blue,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none',transition:'all 0.15s' }}><Eye size={13}/></Link>
+        <Link to={`/quotes/${q.id}`} style={{ width:28,height:28,borderRadius:7,border:`1px solid ${D.border}`,background:hov?D.blueDim:'#F4F6FF',color:D.blue,display:'flex',alignItems:'center',justifyContent:'center',textDecoration:'none' }}><Eye size={13}/></Link>
         {['draft','sent'].includes(q.status) && actionBtn(()=>{}, <Edit2 size={12}/>, 'Modifye', D.blue)}
         {q.status==='draft' && actionBtn(()=>sendMutation.mutate(q.id), <Send size={12}/>, 'Voye', '#0284C7')}
-        {['draft','sent','accepted'].includes(q.status) && actionBtn(()=>{ if(confirm('Konvèti devis sa an facture?')) convertMutation.mutate(q.id) }, <CheckCircle size={12}/>, 'Konvèti', D.success)}
-        {!['converted','cancelled'].includes(q.status) && actionBtn(()=>{ if(confirm('Anile devis sa?')) cancelMutation.mutate(q.id) }, <XCircle size={12}/>, 'Anile', D.red)}
+        {['draft','sent','accepted'].includes(q.status) && actionBtn(()=>{ if(confirm('Konvèti?')) convertMutation.mutate(q.id) }, <CheckCircle size={12}/>, 'Konvèti', D.success)}
+        {!['converted','cancelled'].includes(q.status) && actionBtn(()=>{ if(confirm('Anile?')) cancelMutation.mutate(q.id) }, <XCircle size={12}/>, 'Anile', D.red)}
       </div>
     </div>
   )
