@@ -1,4 +1,4 @@
-// src/i18n/config.ts - KONPLÈ AK QUOTES KEYS + INVOICE RECEIPT KEYS
+// src/i18n/config.ts - KONPLÈ AK QUOTES KEYS + INVOICE RECEIPT KEYS + PRODUCTS KEYS
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
@@ -16,13 +16,13 @@ const resources = {
         reports: 'Rapò',
         settings: 'Paramèt',
       },
-      
+
       // ── HEADER
       header: {
         settings: 'Paramèt',
         logout: 'Dekonekte',
       },
-      
+
       // ── COMMON
       common: {
         search: 'Chèche',
@@ -41,7 +41,7 @@ const resources = {
         error: 'Erè',
         success: 'Siksè',
       },
-      
+
       // ── DASHBOARD
       dashboard: {
         greeting: 'Bonswa',
@@ -66,7 +66,7 @@ const resources = {
         stockAlerts: 'Alèt Estòk',
         products: 'pwodui',
       },
-      
+
       // ── QUOTES
       quotes: {
         title: 'Devis',
@@ -110,27 +110,20 @@ const resources = {
 
       // ── INVOICE (RESI ENPRIME)
       invoice: {
-        // Titre resi
         receiptTitle: 'RESI VANT',
         invoiceNumber: 'Nimewo Fakti',
         date: 'Dat',
         cashier: 'Kasye',
-
-        // Kliyan
         client: 'Kliyan',
         noClient: 'Kliyan pa rekonèt',
         phone: 'Telefòn',
         email: 'Imèl',
         nif: 'NIF',
-
-        // Tablo atik
         product: 'Pwodui',
         qty: 'Qte',
         unitPrice: 'Pri U.',
         discount: 'Rem.',
         total: 'Total',
-
-        // Totaux
         subtotal: 'Sou-total',
         discountTotal: 'Remiz',
         tax: 'TVA',
@@ -138,8 +131,6 @@ const resources = {
         paid: 'Montan peye',
         balance: 'Balans',
         exchangeRate: 'Taux: 1 USD =',
-
-        // Peman
         paymentMethod: 'Metòd peman',
         reference: 'Referans',
         cash: 'Kach',
@@ -148,22 +139,84 @@ const resources = {
         card: 'Kat Kredi',
         transfer: 'Virement',
         check: 'Chèk',
-
-        // Statut
         statusPaid: '✓ PEYE KONPLÈ',
         statusPartial: '⚡ PEMAN PASYAL',
         statusUnpaid: '⏳ PA PEYE',
         statusCancelled: '✗ ANILE',
-
-        // Pye paj
         thankYou: 'Mèsi pou fè konfyans nou!',
         footerTerms: 'Peman: Kach, MonCash, NatCash. Machandiz vann pa retounen.',
         scanQR: 'Skane QR pou verifye fakti a',
         poweredBy: 'Jere pa PlusGroup',
       },
+
+      // ── PRODUCTS
+      products: {
+        title: 'Pwodui',
+        newProduct: 'Nouvo Pwodui',
+        editProduct: 'Modifye Pwodui',
+        createProduct: 'Kreye Pwodui',
+        productCreated: 'Pwodui kreye!',
+        productUpdated: 'Pwodui ajou!',
+        productDeleted: 'Pwodui efase!',
+        deleteConfirm: 'Ou sèten ou vle efase pwodui sa?',
+        searchProducts: 'Chèche pwodui...',
+        inCatalog: 'nan katalòg',
+        allCategories: 'Tout kategori',
+        noProducts: 'Pa gen pwodui',
+        productName: 'Non Pwodui *',
+        productNamePlaceholder: 'Egz: Diri nasyonal...',
+        code: 'Kòd',
+        codePlaceholder: 'Egz: PRD-001',
+        category: 'Kategori',
+        selectCategory: 'Chwazi kategori',
+        noCategory: 'Pa gen kategori',
+        createCategoryFirst: 'Kreye yon kategori dabò',
+        unit: 'Inite',
+        units: {
+          unit: 'Inite',
+          piece: 'Pyes',
+          bottle: 'Boutèy',
+          kg: 'Kilogram',
+          liter: 'Lit',
+          box: 'Bwat',
+          pack: 'Pakè',
+        },
+        priceHtg: 'Pri HTG',
+        priceUsd: 'Pri USD',
+        costPrice: 'Pri Kout',
+        automatic: '(otomatik)',
+        stockQuantity: 'Qte Estòk',
+        alertThreshold: 'Sèy Alèt',
+        adjustInStockPage: 'Ajiste nan paj Estòk',
+        description: 'Deskripsyon',
+        descriptionPlaceholder: 'Deskripsyon pwodui...',
+        isService: 'Se yon sèvis',
+        active: 'Aktif',
+        inactive: 'Inaktif',
+        service: 'Sèvis',
+        stock: 'Estòk',
+        status: 'Estati',
+        name: 'Non',
+        page: 'Paj',
+        results: 'rezilta',
+        manageCategories: 'Jere Kategori',
+        newCategory: 'Nouvo Kategori',
+        editCategory: 'Modifye',
+        addCategory: 'Ajoute Kategori',
+        categoryCreated: 'Kategori kreye!',
+        categoryUpdated: 'Kategori ajou!',
+        categoryName: 'Non Kategori',
+        categoryNameRequired: 'Non kategori obligatwa',
+        color: 'Koulè',
+        customColor: 'Koulè pèsonalize',
+        existingCategories: 'Kategori ki egziste',
+        noCategoriesYet: 'Pa gen kategori toujou',
+        useFormToCreate: 'Itilize fòm anlè a pou kreye youn',
+        productsCount: 'pwodui',
+      },
     },
   },
-  
+
   fr: {
     translation: {
       // ── NAV
@@ -177,13 +230,13 @@ const resources = {
         reports: 'Rapports',
         settings: 'Paramètres',
       },
-      
+
       // ── HEADER
       header: {
         settings: 'Paramètres',
         logout: 'Déconnexion',
       },
-      
+
       // ── COMMON
       common: {
         search: 'Rechercher',
@@ -202,7 +255,7 @@ const resources = {
         error: 'Erreur',
         success: 'Succès',
       },
-      
+
       // ── DASHBOARD
       dashboard: {
         greeting: 'Bonjour',
@@ -227,7 +280,7 @@ const resources = {
         stockAlerts: 'Alertes Stock',
         products: 'produits',
       },
-      
+
       // ── QUOTES
       quotes: {
         title: 'Devis',
@@ -271,27 +324,20 @@ const resources = {
 
       // ── INVOICE (REÇU IMPRIMÉ)
       invoice: {
-        // Titre reçu
         receiptTitle: 'REÇU DE VENTE',
         invoiceNumber: 'N° Facture',
         date: 'Date',
         cashier: 'Caissier',
-
-        // Client
         client: 'Client',
         noClient: 'Client non identifié',
         phone: 'Téléphone',
         email: 'Email',
         nif: 'NIF',
-
-        // Tableau articles
         product: 'Produit',
         qty: 'Qté',
         unitPrice: 'Prix U.',
         discount: 'Rem.',
         total: 'Total',
-
-        // Totaux
         subtotal: 'Sous-total',
         discountTotal: 'Remise',
         tax: 'TVA',
@@ -299,8 +345,6 @@ const resources = {
         paid: 'Montant payé',
         balance: 'Solde',
         exchangeRate: 'Taux: 1 USD =',
-
-        // Paiement
         paymentMethod: 'Mode de paiement',
         reference: 'Référence',
         cash: 'Espèces',
@@ -309,22 +353,84 @@ const resources = {
         card: 'Carte Bancaire',
         transfer: 'Virement',
         check: 'Chèque',
-
-        // Statut
         statusPaid: '✓ PAYÉ INTÉGRALEMENT',
         statusPartial: '⚡ PAIEMENT PARTIEL',
         statusUnpaid: '⏳ NON PAYÉ',
         statusCancelled: '✗ ANNULÉ',
-
-        // Pied de page
         thankYou: 'Merci de votre confiance!',
         footerTerms: 'Paiement: Espèces, MonCash, NatCash. Marchandise vendue non reprise.',
         scanQR: 'Scanner le QR pour vérifier la facture',
         poweredBy: 'Géré par PlusGroup',
       },
+
+      // ── PRODUCTS
+      products: {
+        title: 'Produits',
+        newProduct: 'Nouveau Produit',
+        editProduct: 'Modifier Produit',
+        createProduct: 'Créer Produit',
+        productCreated: 'Produit créé!',
+        productUpdated: 'Produit mis à jour!',
+        productDeleted: 'Produit supprimé!',
+        deleteConfirm: 'Vous êtes sûr de vouloir supprimer ce produit?',
+        searchProducts: 'Rechercher produits...',
+        inCatalog: 'dans le catalogue',
+        allCategories: 'Toutes catégories',
+        noProducts: 'Aucun produit',
+        productName: 'Nom Produit *',
+        productNamePlaceholder: 'Ex: Riz national...',
+        code: 'Code',
+        codePlaceholder: 'Ex: PRD-001',
+        category: 'Catégorie',
+        selectCategory: 'Choisir catégorie',
+        noCategory: 'Aucune catégorie',
+        createCategoryFirst: "Créer une catégorie d'abord",
+        unit: 'Unité',
+        units: {
+          unit: 'Unité',
+          piece: 'Pièce',
+          bottle: 'Bouteille',
+          kg: 'Kilogramme',
+          liter: 'Litre',
+          box: 'Boîte',
+          pack: 'Paquet',
+        },
+        priceHtg: 'Prix HTG',
+        priceUsd: 'Prix USD',
+        costPrice: 'Prix Coût',
+        automatic: '(automatique)',
+        stockQuantity: 'Qté Stock',
+        alertThreshold: 'Seuil Alerte',
+        adjustInStockPage: 'Ajuster dans la page Stock',
+        description: 'Description',
+        descriptionPlaceholder: 'Description du produit...',
+        isService: "C'est un service",
+        active: 'Actif',
+        inactive: 'Inactif',
+        service: 'Service',
+        stock: 'Stock',
+        status: 'Statut',
+        name: 'Nom',
+        page: 'Page',
+        results: 'résultats',
+        manageCategories: 'Gérer Catégories',
+        newCategory: 'Nouvelle Catégorie',
+        editCategory: 'Modifier',
+        addCategory: 'Ajouter Catégorie',
+        categoryCreated: 'Catégorie créée!',
+        categoryUpdated: 'Catégorie mise à jour!',
+        categoryName: 'Nom Catégorie',
+        categoryNameRequired: 'Nom catégorie obligatoire',
+        color: 'Couleur',
+        customColor: 'Couleur personnalisée',
+        existingCategories: 'Catégories existantes',
+        noCategoriesYet: 'Aucune catégorie encore',
+        useFormToCreate: 'Utilisez le formulaire ci-dessus pour en créer une',
+        productsCount: 'produits',
+      },
     },
   },
-  
+
   en: {
     translation: {
       // ── NAV
@@ -338,13 +444,13 @@ const resources = {
         reports: 'Reports',
         settings: 'Settings',
       },
-      
+
       // ── HEADER
       header: {
         settings: 'Settings',
         logout: 'Logout',
       },
-      
+
       // ── COMMON
       common: {
         search: 'Search',
@@ -363,7 +469,7 @@ const resources = {
         error: 'Error',
         success: 'Success',
       },
-      
+
       // ── DASHBOARD
       dashboard: {
         greeting: 'Hello',
@@ -388,7 +494,7 @@ const resources = {
         stockAlerts: 'Stock Alerts',
         products: 'products',
       },
-      
+
       // ── QUOTES
       quotes: {
         title: 'Quotes',
@@ -432,27 +538,20 @@ const resources = {
 
       // ── INVOICE (PRINTED RECEIPT)
       invoice: {
-        // Receipt title
         receiptTitle: 'SALES RECEIPT',
         invoiceNumber: 'Invoice No.',
         date: 'Date',
         cashier: 'Cashier',
-
-        // Client
         client: 'Client',
         noClient: 'Walk-in Customer',
         phone: 'Phone',
         email: 'Email',
         nif: 'TIN',
-
-        // Items table
         product: 'Product',
         qty: 'Qty',
         unitPrice: 'Unit Price',
         discount: 'Disc.',
         total: 'Total',
-
-        // Totals
         subtotal: 'Subtotal',
         discountTotal: 'Discount',
         tax: 'VAT',
@@ -460,8 +559,6 @@ const resources = {
         paid: 'Amount paid',
         balance: 'Balance due',
         exchangeRate: 'Rate: 1 USD =',
-
-        // Payment
         paymentMethod: 'Payment method',
         reference: 'Reference',
         cash: 'Cash',
@@ -470,18 +567,80 @@ const resources = {
         card: 'Credit Card',
         transfer: 'Wire Transfer',
         check: 'Check',
-
-        // Status
         statusPaid: '✓ FULLY PAID',
         statusPartial: '⚡ PARTIAL PAYMENT',
         statusUnpaid: '⏳ UNPAID',
         statusCancelled: '✗ CANCELLED',
-
-        // Footer
         thankYou: 'Thank you for your business!',
         footerTerms: 'Payment: Cash, MonCash, NatCash. All sales are final.',
         scanQR: 'Scan QR to verify this invoice',
         poweredBy: 'Powered by PlusGroup',
+      },
+
+      // ── PRODUCTS
+      products: {
+        title: 'Products',
+        newProduct: 'New Product',
+        editProduct: 'Edit Product',
+        createProduct: 'Create Product',
+        productCreated: 'Product created!',
+        productUpdated: 'Product updated!',
+        productDeleted: 'Product deleted!',
+        deleteConfirm: 'Are you sure you want to delete this product?',
+        searchProducts: 'Search products...',
+        inCatalog: 'in catalog',
+        allCategories: 'All categories',
+        noProducts: 'No products',
+        productName: 'Product Name *',
+        productNamePlaceholder: 'Ex: National Rice...',
+        code: 'Code',
+        codePlaceholder: 'Ex: PRD-001',
+        category: 'Category',
+        selectCategory: 'Select category',
+        noCategory: 'No category',
+        createCategoryFirst: 'Create a category first',
+        unit: 'Unit',
+        units: {
+          unit: 'Unit',
+          piece: 'Piece',
+          bottle: 'Bottle',
+          kg: 'Kilogram',
+          liter: 'Liter',
+          box: 'Box',
+          pack: 'Pack',
+        },
+        priceHtg: 'Price HTG',
+        priceUsd: 'Price USD',
+        costPrice: 'Cost Price',
+        automatic: '(automatic)',
+        stockQuantity: 'Stock Qty',
+        alertThreshold: 'Alert Threshold',
+        adjustInStockPage: 'Adjust in Stock page',
+        description: 'Description',
+        descriptionPlaceholder: 'Product description...',
+        isService: 'This is a service',
+        active: 'Active',
+        inactive: 'Inactive',
+        service: 'Service',
+        stock: 'Stock',
+        status: 'Status',
+        name: 'Name',
+        page: 'Page',
+        results: 'results',
+        manageCategories: 'Manage Categories',
+        newCategory: 'New Category',
+        editCategory: 'Edit',
+        addCategory: 'Add Category',
+        categoryCreated: 'Category created!',
+        categoryUpdated: 'Category updated!',
+        categoryName: 'Category Name',
+        categoryNameRequired: 'Category name required',
+        color: 'Color',
+        customColor: 'Custom color',
+        existingCategories: 'Existing categories',
+        noCategoriesYet: 'No categories yet',
+        useFormToCreate: 'Use the form above to create one',
+        productsCount: 'products',
       },
     },
   },
