@@ -38,8 +38,9 @@ const LANGS = [
 
 const logoSrc = (url) => {
   if (!url) return null
-  if (url.startsWith('http')) return url
-  return url.startsWith('/') ? url : `/${url}`
+  if (url.startsWith('data:')) return url  // base64 — itilize dirèk
+  if (url.startsWith('http')) return url   // URL absoli
+  return url.startsWith('/') ? url : `/${url}` // chemen relatif
 }
 
 const parseJson = (val, fallback) => {
