@@ -67,7 +67,7 @@ export default function AppLayout() {
   const [showLang, setShowLang]   = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   // ✅ Pa montre kontni si pa fini verifye token
-  const [authChecked, setAuthChecked] = useState(false)
+  const loading = useAuthStore(s => s.loading)
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
@@ -101,41 +101,26 @@ export default function AppLayout() {
     }
   }, [tenant])
 
-  // ✅ FIX: Verifye token yon sèl fwa — si valid kite, si 401 logout
-  // Pa redirect si token+tenant deja la (evite flash)
+  // ✅ Auth check — sèlman si token la men tenant manke
+  // Pa redirect si pa gen token — kite PrivateRoute/App.jsx jere sa
   useEffect(() => {
-    if (!token) {
-      // Pa gen token — redirect imedyatman
-      navigate('/login', { replace: true })
-      return
-    }
-
-    if (tenant) {
-      // Token + tenant la — tout bon, pa bezwen API call
-      api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
-      setAuthChecked(true)
-      return
-    }
-
-    // Token la men tenant manke — refresh depi API
+    if (!token || tenant) return  // token+tenant OK, oswa pa gen token — pa fè anyen
+    // Token la men tenant manke (apre hard refresh) — reload depi API
     authAPI.me()
       .then(res => {
         if (res.data?.tenant?.slug) {
           api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
           setAuth(token, res.data.user, res.data.tenant)
         }
-        setAuthChecked(true)
       })
       .catch((err) => {
         if (err.response?.status === 401) {
           logout()
           navigate('/login', { replace: true })
-        } else {
-          // Lòt erè rezo — kite user rete
-          setAuthChecked(true)
         }
+        // Lòt erè rezo — kite user rete konekte
       })
-  }, []) // ✅ Run yon sèl fwa sèlman — pa re-run chak fwa tenant chanje
+  }, [token, tenant])
 
   const handleLogout = () => {
     logout()
@@ -166,8 +151,8 @@ export default function AppLayout() {
         .filter(Boolean)
     : []
 
-  // ✅ Montre spinner pandan verifye auth — evite flash app anvan login
-  if (!authChecked && !tenant) {
+  // Montre spinner si Zustand persist poko fini rehydrate
+  if (loading) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
         <div style={{ width:36, height:36, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
