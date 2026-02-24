@@ -56,7 +56,6 @@ const L = {
   reference:     'Referans / Reference / Reference',
   scanQr:        'Skane pou verifye / Scanner pour verifier / Scan to verify',
   thankYou:      'Mesi pou biznis ou! / Merci pour votre confiance! / Thank you for your business!',
-  allSalesFinal: 'Vant final. / Vente finale. / All sales are final.',
   poweredBy:     'Powered by PlusGroup',
   statusPaid:      'PEYE / PAYE / PAID',
   statusPartial:   'PEMAN PASYAL / PAIEMENT PARTIEL / PARTIAL PAYMENT',
@@ -276,15 +275,23 @@ export const printInvoice = async (invoice, tenant) => {
       ...CMD.LINE_FEED,
     ] : []),
 
-    // ── NON BIZNIS
+    // ── NON BIZNIS + ADRES + TELEFON
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
     ...encodeText(trunc(tenant?.businessName || tenant?.name || 'PLUS GROUP', W) + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    ...(tenant?.phone   ? [...encodeText(tenant.phone + '\n')]   : []),
+    // Adres biznis (depi paramet)
     ...(tenant?.address ? [...encodeText(trunc(tenant.address, W) + '\n')] : []),
+    // Telefon biznis (depi paramet) — itilize businessPhone si disponib, sinon phone
+    ...((tenant?.businessPhone || tenant?.phone)
+      ? [...encodeText((tenant.businessPhone || tenant.phone) + '\n')]
+      : []),
+    // Email biznis (opsyonèl)
+    ...(tenant?.businessEmail || tenant?.email
+      ? [...CMD.SMALL_FONT, ...encodeText((tenant.businessEmail || tenant.email) + '\n'), ...CMD.NORMAL_FONT]
+      : []),
     ...CMD.LINE_FEED,
 
     // ── TITRE RESI
@@ -362,15 +369,36 @@ export const printInvoice = async (invoice, tenant) => {
       : []),
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // ✅ TOTAL:
-    // 57mm → DOUBLE_HEIGHT sèlman (evite tèks koupé)
-    // 80mm → DOUBLE_BOTH (gwo + laj)
+    // ✅ TOTAL HTG + konvèsyon monè (USD, DOP, etc.)
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...(is57 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(L.grandTotal + ': ' + fmt(invoice.totalHtg) + ' HTG\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
+    // Konvèsyon selon taux tenant
+    ...(() => {
+      const rates = (() => {
+        if (!tenant?.exchangeRates) return {}
+        if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
+        try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
+      })()
+      const visible = (() => {
+        if (!tenant?.visibleCurrencies) return []
+        if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
+        try { return JSON.parse(tenant.visibleCurrencies) } catch { return [] }
+      })()
+      const symbols = { USD: 'USD', DOP: 'RD$', EUR: 'EUR', CAD: 'CA$' }
+      const lines = visible.map(cur => {
+        const rate = Number(rates[cur] || 0)
+        if (!rate) return null
+        const converted = Number(invoice.totalHtg) / rate
+        const sym = symbols[cur] || cur
+        return encodeText('(' + fmt(converted) + ' ' + sym + ')\n')
+      }).filter(Boolean)
+      if (!lines.length) return []
+      return [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...lines.flat(), ...CMD.NORMAL_FONT]
+    })(),
     ...divider('=', W), ...CMD.LINE_FEED,
 
     // ── PEMAN
@@ -410,9 +438,7 @@ export const printInvoice = async (invoice, tenant) => {
     ...encodeText(L.thankYou + '\n'),
     ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText(L.allSalesFinal + '\n'),
-    ...CMD.LINE_FEED,
-    ...encodeText(L.poweredBy + '\n'),
+    ...encodeText((L.poweredBy + (tenant?.phone ? ' | ' + tenant.phone : '')) + '\n'),
     ...CMD.NORMAL_FONT,
 
     ...CMD.LINE_FEED,

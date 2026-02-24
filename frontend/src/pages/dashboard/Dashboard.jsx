@@ -1,4 +1,9 @@
 // src/pages/dashboard/Dashboard.jsx
+// ✅ Koreksyon:
+//    - Bonjou (minui-midi) / Bonswa (midi-minui)
+//    - Responsive mobil (grid adapte)
+//    - Peso DOP afiche nan StatCard (si vizib)
+
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI, productAPI, reportAPI } from '../../services/api'
@@ -35,6 +40,12 @@ const fmt = (n) => Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:2,
 
 const CURRENCY_SYMBOLS = { USD:'$', DOP:'RD$', EUR:'€', CAD:'CA$' }
 
+// ✅ Bonjou si minui-midi, Bonswa si midi-minui
+const getGreeting = (t) => {
+  const h = new Date().getHours()
+  return h >= 0 && h < 12 ? t('dashboard.goodMorning') : t('dashboard.goodEvening')
+}
+
 const convertFromHTG = (amountHTG, currency, exchangeRates={}) => {
   const rateToHTG = Number(exchangeRates[currency]||0)
   if (!rateToHTG) return null
@@ -68,17 +79,18 @@ const StatCard = ({ label, val, icon, color, sub }) => {
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{
       background: hov?`${color}18`:'rgba(255,255,255,0.06)',
       border:`1px solid ${hov?color+'40':'rgba(255,255,255,0.12)'}`,
-      borderRadius:14, padding:'14px 16px',
+      borderRadius:14, padding:'12px 14px',
       transition:'all 0.25s ease',
       transform: hov?'translateY(-2px)':'none',
       boxShadow: hov?`0 8px 24px ${color}25`:'none',
+      minWidth: 0,
     }}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <span style={{color,filter:hov?`drop-shadow(0 0 6px ${color})`:'none',transition:'filter 0.25s'}}>{icon}</span>
-        <span style={{fontSize:10,fontWeight:800,color,textTransform:'uppercase',letterSpacing:'0.07em',opacity:0.9}}>{label}</span>
+      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+        <span style={{color,filter:hov?`drop-shadow(0 0 6px ${color})`:'none',transition:'filter 0.25s',flexShrink:0}}>{icon}</span>
+        <span style={{fontSize:9,fontWeight:800,color,textTransform:'uppercase',letterSpacing:'0.07em',opacity:0.9,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</span>
       </div>
-      <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:800,color:'#fff',fontSize:13,margin:0}}>{val}</p>
-      {sub&&<p style={{fontSize:10,color:'rgba(255,255,255,0.4)',margin:'3px 0 0'}}>{sub}</p>}
+      <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:800,color:'#fff',fontSize:12,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{val}</p>
+      {sub&&<p style={{fontSize:9,color:'rgba(255,255,255,0.4)',margin:'3px 0 0',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{sub}</p>}
     </div>
   )
 }
@@ -90,15 +102,15 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
       <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{
         background:hov?bg:D.white,
         border:`1px solid ${hov?color+'30':D.border}`,
-        borderRadius:18, padding:'18px 16px',
+        borderRadius:18, padding:'16px 14px',
         transition:'all 0.25s ease',
         transform:hov?'translateY(-3px)':'none',
         boxShadow:hov?`0 12px 32px ${color}25`:D.shadow,
         cursor:'pointer', height:'100%',
       }}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:12}}>
           <div style={{
-            width:44,height:44,borderRadius:12,flexShrink:0,
+            width:40,height:40,borderRadius:12,flexShrink:0,
             background:`linear-gradient(135deg,${color},${color}CC)`,
             display:'flex',alignItems:'center',justifyContent:'center',
             boxShadow:`0 4px 14px ${color}40`,
@@ -109,9 +121,9 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
           </div>
           <ArrowRight size={14} style={{color:D.muted,opacity:hov?0.8:0.3,transform:hov?'translateX(3px)':'none',transition:'all 0.2s'}}/>
         </div>
-        <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.07em',color:D.muted,marginBottom:4}}>{label}</p>
-        <p style={{fontFamily:'monospace',fontWeight:800,fontSize:15,color,margin:0}}>{value}</p>
-        <p style={{fontSize:11,color:D.muted,margin:'3px 0 0',opacity:0.7}}>{count}</p>
+        <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.07em',color:D.muted,marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{label}</p>
+        <p style={{fontFamily:'monospace',fontWeight:800,fontSize:14,color,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{value}</p>
+        <p style={{fontSize:11,color:D.muted,margin:'3px 0 0',opacity:0.7,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{count}</p>
       </div>
     </Link>
   )
@@ -122,8 +134,16 @@ export default function Dashboard() {
   const { user, tenant } = useAuthStore()
 
   const showRate      = tenant?.showExchangeRate !== false
-  const exchangeRates = tenant?.exchangeRates     || {}
-  const visibleCurrs  = tenant?.visibleCurrencies  || []
+  const exchangeRates = (() => {
+    if (!tenant?.exchangeRates) return {}
+    if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
+    try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
+  })()
+  const visibleCurrs  = (() => {
+    if (!tenant?.visibleCurrencies) return []
+    if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
+    try { return JSON.parse(tenant.visibleCurrencies) } catch { return [] }
+  })()
 
   const { data:dashboard }   = useQuery({ queryKey:['dashboard'],       queryFn:()=>invoiceAPI.getDashboard().then(r=>r.data.dashboard) })
   const { data:lowStock }    = useQuery({ queryKey:['low-stock'],        queryFn:()=>productAPI.getLowStock().then(r=>r.data.products) })
@@ -152,8 +172,11 @@ export default function Dashboard() {
     return { expired:daysLeft<0, daysLeft, endsAt }
   })()
 
+  // ✅ Bonjou / Bonswa
+  const greeting = getGreeting(t)
+
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:16,fontFamily:'DM Sans,sans-serif'}}>
 
       {/* ── Alèt abònman */}
       {subBanner && (
@@ -161,16 +184,16 @@ export default function Dashboard() {
           borderRadius:16, padding:'14px 20px', display:'flex', alignItems:'center', gap:14,
           background: subBanner.expired?`linear-gradient(135deg,#8B0000,${D.red})`:`linear-gradient(135deg,${D.goldDk},${D.gold})`,
           boxShadow: subBanner.expired?'0 4px 20px rgba(192,57,43,0.35)':`0 4px 20px ${D.gold}40`,
-          border:'1px solid rgba(255,255,255,0.15)', animation:'slideDown 0.3s ease'
+          border:'1px solid rgba(255,255,255,0.15)',
         }}>
           <span style={{fontSize:24}}>{subBanner.expired?'🔒':'⏰'}</span>
-          <div style={{flex:1}}>
+          <div style={{flex:1,minWidth:0}}>
             <p style={{color:'#fff',fontWeight:800,fontSize:13,margin:'0 0 2px'}}>
               {subBanner.expired ? t('dashboard.subscriptionExpired') : t('dashboard.subscriptionExpiring',{days:subBanner.daysLeft})}
             </p>
             <p style={{color:'rgba(255,255,255,0.8)',fontSize:11,margin:0}}>{t('dashboard.contactAdmin')}</p>
           </div>
-          <div style={{background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'4px 12px',fontSize:11,fontWeight:900,color:'#fff',border:'1px solid rgba(255,255,255,0.2)'}}>
+          <div style={{background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'4px 12px',fontSize:11,fontWeight:900,color:'#fff',border:'1px solid rgba(255,255,255,0.2)',flexShrink:0}}>
             {subBanner.expired ? t('dashboard.blocked') : `J-${subBanner.daysLeft}`}
           </div>
         </div>
@@ -178,7 +201,7 @@ export default function Dashboard() {
 
       {/* ══ HERO BANNER ══ */}
       <div style={{
-        borderRadius:24, padding:'28px', position:'relative', overflow:'hidden',
+        borderRadius:24, padding:'22px 20px', position:'relative', overflow:'hidden',
         background:`linear-gradient(145deg,${D.blueDk} 0%,${D.blue} 50%,${D.blueLt} 100%)`,
         boxShadow:`0 20px 60px rgba(27,42,143,0.35)`,
       }}>
@@ -186,67 +209,69 @@ export default function Dashboard() {
         <div style={{position:'absolute',bottom:-50,left:20,width:200,height:200,borderRadius:'50%',background:`radial-gradient(circle,${D.red}20,transparent 70%)`,pointerEvents:'none'}}/>
         <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,transparent,${D.goldDk} 20%,${D.gold} 45%,${D.goldLt} 55%,${D.gold} 70%,${D.goldDk} 85%,transparent)`,animation:'shimmer 4s linear infinite',backgroundSize:'200% 100%'}}/>
 
-        <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:16,marginBottom:22}}>
-          <div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-              <Crown size={14} style={{color:D.gold,filter:`drop-shadow(0 0 6px ${D.gold})`}}/>
-              <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:D.gold}}>
+        {/* Header row */}
+        <div style={{position:'relative',zIndex:1,display:'flex',alignItems:'flex-start',justifyContent:'space-between',flexWrap:'wrap',gap:12,marginBottom:18}}>
+          <div style={{minWidth:0,flex:1}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <Crown size={13} style={{color:D.gold,filter:`drop-shadow(0 0 6px ${D.gold})`,flexShrink:0}}/>
+              <span style={{fontSize:9,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:D.gold,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {tenant?.name||'PLUS GROUP'} · {t('dashboard.tableBoard')}
               </span>
             </div>
-            <h1 style={{fontSize:28,fontWeight:900,color:'#fff',margin:'0 0 6px'}}>
-              {t('dashboard.greeting')}, {user?.fullName?.split(' ')[0]}! 👋
+            {/* ✅ Bonjou / Bonswa selon lè */}
+            <h1 style={{fontSize:'clamp(18px,4vw,26px)',fontWeight:900,color:'#fff',margin:'0 0 4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              {greeting}, {user?.fullName?.split(' ')[0]}! 👋
             </h1>
-            <p style={{fontSize:12,color:'rgba(255,255,255,0.5)',margin:0,textTransform:'capitalize'}}>
+            <p style={{fontSize:11,color:'rgba(255,255,255,0.5)',margin:0,textTransform:'capitalize'}}>
               {format(new Date(),'EEEE d MMMM yyyy',{locale:fr})}
             </p>
           </div>
-          <Link to="/quotes/new" style={{
-            display:'flex',alignItems:'center',gap:7,padding:'10px 20px',borderRadius:12,textDecoration:'none',
+          <Link to="/app/quotes/new" style={{
+            display:'flex',alignItems:'center',gap:7,padding:'9px 16px',borderRadius:12,textDecoration:'none',flexShrink:0,
             background:`linear-gradient(135deg,${D.gold},${D.goldDk})`,
-            color:'#0F1A5C',fontWeight:800,fontSize:12,letterSpacing:'0.03em',
-            boxShadow:`0 4px 20px ${D.gold}50`,transition:'all 0.2s',
-          }}
-            onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.05)';e.currentTarget.style.boxShadow=`0 8px 28px ${D.gold}70`}}
-            onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 4px 20px ${D.gold}50`}}
-          >
-            <Plus size={14}/> {t('dashboard.newQuote')}
+            color:'#0F1A5C',fontWeight:800,fontSize:12,
+            boxShadow:`0 4px 20px ${D.gold}50`,
+          }}>
+            <Plus size={13}/> {t('dashboard.newQuote')}
           </Link>
         </div>
 
-        <div style={{position:'relative',zIndex:1,display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
-          <StatCard label={t('dashboard.sales30days')} val={`${fmt(totalVentes)} HTG`} icon={<TrendingUp size={15}/>} color={D.gold}  sub={showRate&&fmtConv(totalVentes,exchangeRates,visibleCurrs)}/>
-          <StatCard label={t('dashboard.paid')}        val={`${fmt(totalPaye)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPaye,exchangeRates,visibleCurrs)||`${dashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
-          <StatCard label={t('dashboard.balance')}     val={`${fmt(totalImpaye)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpaye,exchangeRates,visibleCurrs)||`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
-          <StatCard label={t('dashboard.partial')}     val={`${fmt(totalPasyal)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyal,exchangeRates,visibleCurrs)||`${dashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
+        {/* ✅ StatCards — responsive: 2 kolòn sou mobil, 4 sou desktop */}
+        <div style={{
+          position:'relative',zIndex:1,
+          display:'grid',
+          gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))',
+          gap:8,
+        }}>
+          <StatCard label={t('dashboard.sales30days')} val={`${fmt(totalVentes)} HTG`} icon={<TrendingUp size={14}/>} color={D.gold}  sub={showRate&&fmtConv(totalVentes,exchangeRates,visibleCurrs)}/>
+          <StatCard label={t('dashboard.paid')}        val={`${fmt(totalPaye)} HTG`}   icon={<CheckCircle2 size={14}/>} color="#34d399" sub={showRate&&fmtConv(totalPaye,exchangeRates,visibleCurrs)||`${dashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
+          <StatCard label={t('dashboard.balance')}     val={`${fmt(totalImpaye)} HTG`} icon={<Clock size={14}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpaye,exchangeRates,visibleCurrs)||`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
+          <StatCard label={t('dashboard.partial')}     val={`${fmt(totalPasyal)} HTG`} icon={<Receipt size={14}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyal,exchangeRates,visibleCurrs)||`${dashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
         </div>
       </div>
 
-      {/* ══ CHART + STOCK ══ */}
-      <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:16}}>
-        <div style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+      {/* ══ CHART + STOCK — responsive ══ */}
+      <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,280px)',gap:14,flexWrap:'wrap'}}>
+        <div style={{background:D.white,borderRadius:20,padding:'18px 16px 12px',boxShadow:D.shadow,border:`1px solid ${D.border}`,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
             <div>
-              <h3 style={{fontSize:15,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
+              <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
               <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.salesChart')}</p>
             </div>
-            <Link to="/reports" style={{
+            <Link to="/app/reports" style={{
               display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,color:D.blue,
-              textDecoration:'none',padding:'5px 12px',borderRadius:8,background:D.blueDim,border:`1px solid ${D.border}`,transition:'all 0.15s'
-            }}
-              onMouseEnter={e=>e.currentTarget.style.background=D.blueDim2}
-              onMouseLeave={e=>e.currentTarget.style.background=D.blueDim}
-            >
+              textDecoration:'none',padding:'5px 10px',borderRadius:8,background:D.blueDim,border:`1px solid ${D.border}`,
+            }}>
               {t('dashboard.seeReport')} <ArrowRight size={12}/>
             </Link>
           </div>
-          <ResponsiveContainer width="100%" height={195}>
-            <BarChart data={chartData} barSize={28} barCategoryGap="35%">
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={chartData} barSize={24} barCategoryGap="35%">
               <CartesianGrid strokeDasharray="3 3" stroke={D.blueDim} vertical={false}/>
-              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize:11,fill:D.muted,fontFamily:'DM Sans',fontWeight:600}}/>
-              <YAxis axisLine={false} tickLine={false} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
+              <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize:10,fill:D.muted,fontFamily:'DM Sans',fontWeight:600}}/>
+              <YAxis axisLine={false} tickLine={false} tick={{fontSize:9,fill:D.muted}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v}/>
               <Tooltip content={<CustomTooltip/>} cursor={{fill:`${D.blue}06`,radius:6}}/>
-              <Bar dataKey="ventes" radius={[8,8,0,0]}>
+              <Bar dataKey="ventes" radius={[6,6,0,0]}>
                 {chartData.map((entry,i)=>(
                   <Cell key={i} fill={entry.ventes===Math.max(...chartData.map(d=>d.ventes))&&entry.ventes>0?'url(#barGold)':'url(#barBlue)'}/>
                 ))}
@@ -264,40 +289,36 @@ export default function Dashboard() {
         </div>
 
         {/* Stock alèt */}
-        <div style={{background:D.white,borderRadius:20,padding:'20px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <div style={{background:D.white,borderRadius:20,padding:'18px 16px',boxShadow:D.shadow,border:`1px solid ${D.border}`,minWidth:0}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12,flexWrap:'wrap',gap:6}}>
             <div>
-              <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.lowStock')}</h3>
-              <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.needRestock')}</p>
+              <h3 style={{fontSize:13,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.lowStock')}</h3>
+              <p style={{fontSize:10,color:D.muted,margin:0}}>{t('dashboard.needRestock')}</p>
             </div>
-            <Link to="/products" style={{
+            <Link to="/app/products" style={{
               fontSize:11,fontWeight:700,color:D.red,textDecoration:'none',
-              display:'flex',alignItems:'center',gap:3,padding:'4px 10px',borderRadius:8,
-              background:D.redDim,transition:'all 0.15s'
-            }}
-              onMouseEnter={e=>e.currentTarget.style.background='rgba(192,57,43,0.14)'}
-              onMouseLeave={e=>e.currentTarget.style.background=D.redDim}
-            >
+              display:'flex',alignItems:'center',gap:3,padding:'4px 8px',borderRadius:8,background:D.redDim,
+            }}>
               {t('dashboard.seeAll')} <ArrowRight size={12}/>
             </Link>
           </div>
           {!lowStock?.length
-            ? <div style={{textAlign:'center',padding:'24px 0'}}>
-                <div style={{width:44,height:44,borderRadius:14,background:D.successBg,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
-                  <Package size={20} style={{color:D.success}}/>
+            ? <div style={{textAlign:'center',padding:'20px 0'}}>
+                <div style={{width:40,height:40,borderRadius:12,background:D.successBg,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 8px'}}>
+                  <Package size={18} style={{color:D.success}}/>
                 </div>
                 <p style={{fontSize:12,fontWeight:700,color:D.success,margin:'0 0 2px'}}>{t('dashboard.stockOk')}</p>
                 <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.noAlerts')}</p>
               </div>
             : <div style={{display:'flex',flexDirection:'column',gap:6}}>
                 {lowStock.slice(0,5).map(p=>(
-                  <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(192,57,43,0.05)',border:`1px solid ${D.border}`}}>
-                    <AlertTriangle size={13} style={{color:D.red,flexShrink:0}}/>
+                  <div key={p.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:10,background:'rgba(192,57,43,0.05)',border:`1px solid ${D.border}`}}>
+                    <AlertTriangle size={12} style={{color:D.red,flexShrink:0}}/>
                     <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:12,fontWeight:700,color:D.text,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</p>
-                      <p style={{fontSize:10,color:D.muted,margin:0,fontFamily:'monospace'}}>{p.code}</p>
+                      <p style={{fontSize:11,fontWeight:700,color:D.text,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</p>
+                      <p style={{fontSize:9,color:D.muted,margin:0,fontFamily:'monospace'}}>{p.code}</p>
                     </div>
-                    <span style={{fontSize:11,fontFamily:'monospace',fontWeight:800,color:D.red,background:D.redDim,padding:'2px 8px',borderRadius:99,flexShrink:0}}>
+                    <span style={{fontSize:10,fontFamily:'monospace',fontWeight:800,color:D.red,background:D.redDim,padding:'2px 6px',borderRadius:99,flexShrink:0}}>
                       {Number(p.quantity)}/{Number(p.alertThreshold)}
                     </span>
                   </div>
@@ -307,74 +328,68 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ══ 4 KPI CARDS ══ */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:14}}>
-        <KpiCard label={t('dashboard.kpiFaktiImpaye')} value={`${fmt(totalImpaye)} HTG`} count={`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.kpiFakti')}`}  icon={<Receipt size={20}/>}      color={D.red}     bg={D.redDim}               link="/invoices?status=unpaid"/>
-        <KpiCard label={t('dashboard.kpiVantMwa')}     value={`${fmt(totalPaye)} HTG`}   count={`${dashboard?.totalPaid?._count||0} ${t('dashboard.kpiPeye')}`}     icon={<TrendingUp size={20}/>}   color={D.blue}    bg={D.blueDim}              link="/reports"/>
-        <KpiCard label={t('dashboard.kpiPasyal')}      value={`${fmt(totalPasyal)} HTG`} count={`${dashboard?.totalPartial?._count||0} ${t('dashboard.kpiDocs')}`}  icon={<Clock size={20}/>}        color={D.gold}    bg={D.goldDim}              link="/invoices?status=partial"/>
-        <KpiCard label={t('dashboard.kpiStock')}       value={`${lowStock?.length||0} ${t('dashboard.products')}`} count={t('dashboard.kpiRestock')} icon={<AlertTriangle size={20}/>} color={D.warning} bg="rgba(217,119,6,0.08)"   link="/products"/>
+      {/* ══ 4 KPI CARDS — responsive ══ */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:12}}>
+        <KpiCard label={t('dashboard.kpiFaktiImpaye')} value={`${fmt(totalImpaye)} HTG`} count={`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.kpiFakti')}`}  icon={<Receipt size={18}/>}      color={D.red}     bg={D.redDim}             link="/app/invoices?status=unpaid"/>
+        <KpiCard label={t('dashboard.kpiVantMwa')}     value={`${fmt(totalPaye)} HTG`}   count={`${dashboard?.totalPaid?._count||0} ${t('dashboard.kpiPeye')}`}     icon={<TrendingUp size={18}/>}   color={D.blue}    bg={D.blueDim}            link="/app/reports"/>
+        <KpiCard label={t('dashboard.kpiPasyal')}      value={`${fmt(totalPasyal)} HTG`} count={`${dashboard?.totalPartial?._count||0} ${t('dashboard.kpiDocs')}`}  icon={<Clock size={18}/>}        color={D.gold}    bg={D.goldDim}            link="/app/invoices?status=partial"/>
+        <KpiCard label={t('dashboard.kpiStock')}       value={`${lowStock?.length||0} ${t('dashboard.products')}`} count={t('dashboard.kpiRestock')} icon={<AlertTriangle size={18}/>} color={D.warning} bg="rgba(217,119,6,0.08)" link="/app/products"/>
       </div>
 
       {/* ══ DÈNYE FAKTI ══ */}
       <div style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
         <div style={{
-          display:'flex',alignItems:'center',justifyContent:'space-between',
-          padding:'16px 20px',borderBottom:`2px solid ${D.blueDim}`,
+          display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:8,
+          padding:'14px 16px',borderBottom:`2px solid ${D.blueDim}`,
           background:`linear-gradient(135deg,${D.blueDim},${D.goldDim})`,
         }}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${D.blue}40`}}>
-              <Receipt size={16} style={{color:'#fff'}}/>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <div style={{width:34,height:34,borderRadius:10,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${D.blue}40`,flexShrink:0}}>
+              <Receipt size={15} style={{color:'#fff'}}/>
             </div>
             <div>
-              <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 1px'}}>{t('dashboard.lastInvoices')}</h3>
+              <h3 style={{fontSize:13,fontWeight:800,color:D.text,margin:'0 0 1px'}}>{t('dashboard.lastInvoices')}</h3>
               <p style={{fontSize:10,color:D.muted,margin:0}}>{t('dashboard.lastActivity')}</p>
             </div>
           </div>
-          <div style={{display:'flex',gap:8}}>
-            <Link to="/quotes/new" style={{
-              display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:800,
-              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 3px 12px ${D.blue}40`,transition:'all 0.2s'
-            }}
-              onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.04)';e.currentTarget.style.boxShadow=`0 6px 20px ${D.blue}50`}}
-              onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 3px 12px ${D.blue}40`}}
-            >
-              <Plus size={13}/> {t('dashboard.newQuoteBtn')}
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <Link to="/app/quotes/new" style={{
+              display:'flex',alignItems:'center',gap:5,padding:'7px 12px',borderRadius:10,textDecoration:'none',fontSize:11,fontWeight:800,
+              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 3px 12px ${D.blue}40`,
+            }}>
+              <Plus size={12}/> {t('dashboard.newQuoteBtn')}
             </Link>
-            <Link to="/invoices" style={{
-              display:'flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:700,
-              background:D.blueDim,color:D.blue,border:`1px solid ${D.border}`,transition:'all 0.15s'
-            }}
-              onMouseEnter={e=>e.currentTarget.style.background=D.blueDim2}
-              onMouseLeave={e=>e.currentTarget.style.background=D.blueDim}
-            >
+            <Link to="/app/invoices" style={{
+              display:'flex',alignItems:'center',gap:4,padding:'7px 12px',borderRadius:10,textDecoration:'none',fontSize:11,fontWeight:700,
+              background:D.blueDim,color:D.blue,border:`1px solid ${D.border}`,
+            }}>
               {t('dashboard.seeAll')} <ArrowRight size={12}/>
             </Link>
           </div>
         </div>
 
         {!dashboard?.recentInvoices?.length
-          ? <div style={{textAlign:'center',padding:'40px 20px'}}>
-              <div style={{width:56,height:56,borderRadius:18,background:D.blueDim,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}>
-                <Receipt size={24} style={{color:D.blue}}/>
+          ? <div style={{textAlign:'center',padding:'36px 20px'}}>
+              <div style={{width:52,height:52,borderRadius:16,background:D.blueDim,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}>
+                <Receipt size={22} style={{color:D.blue}}/>
               </div>
-              <p style={{fontWeight:800,color:D.text,fontSize:14,margin:'0 0 4px'}}>{t('dashboard.noInvoices')}</p>
-              <p style={{color:D.muted,fontSize:12,margin:'0 0 16px'}}>{t('dashboard.createQuoteToStart')}</p>
-              <Link to="/quotes/new" style={{
-                display:'inline-flex',alignItems:'center',gap:6,padding:'9px 18px',
+              <p style={{fontWeight:800,color:D.text,fontSize:13,margin:'0 0 4px'}}>{t('dashboard.noInvoices')}</p>
+              <p style={{color:D.muted,fontSize:12,margin:'0 0 14px'}}>{t('dashboard.createQuoteToStart')}</p>
+              <Link to="/app/quotes/new" style={{
+                display:'inline-flex',alignItems:'center',gap:6,padding:'9px 16px',
                 borderRadius:12,textDecoration:'none',fontSize:12,fontWeight:800,
                 background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 4px 16px ${D.blue}40`
               }}>
-                <Plus size={14}/> {t('dashboard.createFirstQuote')}
+                <Plus size={13}/> {t('dashboard.createFirstQuote')}
               </Link>
             </div>
           : <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',minWidth:400}}>
                 <thead>
                   <tr style={{background:D.blueDim}}>
                     {[t('dashboard.number'),t('dashboard.client'),t('common.total'),t('dashboard.status'),t('dashboard.date'),''].map((h,i)=>(
                       <th key={i} style={{
-                        padding:'10px 16px',textAlign:i>=2&&i<5?'center':i===5?'right':'left',
+                        padding:'9px 12px',textAlign:i>=2&&i<5?'center':i===5?'right':'left',
                         fontSize:10,fontWeight:800,color:D.blue,textTransform:'uppercase',
                         letterSpacing:'0.07em',borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'
                       }}>{h}</th>
@@ -392,8 +407,10 @@ export default function Dashboard() {
       </div>
 
       <style>{`
-        @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @media (max-width: 640px) {
+          .chart-stock-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
     </div>
   )
@@ -414,37 +431,37 @@ function InvoiceRow({ inv, idx, showRate, exchangeRates, visibleCurrs }) {
   return (
     <tr onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
       style={{background:hov?D.blueDim:idx%2===0?'#fff':'rgba(244,246,255,0.5)',transition:'background 0.15s',borderBottom:`1px solid ${D.border}`,cursor:'pointer'}}>
-      <td style={{padding:'12px 16px'}}>
-        <span style={{fontFamily:'monospace',fontWeight:800,color:D.blue,fontSize:12}}>{inv.invoiceNumber}</span>
+      <td style={{padding:'10px 12px'}}>
+        <span style={{fontFamily:'monospace',fontWeight:800,color:D.blue,fontSize:11,whiteSpace:'nowrap'}}>{inv.invoiceNumber}</span>
       </td>
-      <td style={{padding:'12px 16px',fontSize:13,fontWeight:600,color:D.text}}>
+      <td style={{padding:'10px 12px',fontSize:12,fontWeight:600,color:D.text,maxWidth:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
         {inv.client?.name||'—'}
       </td>
-      <td style={{padding:'12px 16px',textAlign:'center'}}>
+      <td style={{padding:'10px 12px',textAlign:'center'}}>
         <div>
-          <span style={{fontFamily:'monospace',fontWeight:800,color:D.text,fontSize:13}}>
+          <span style={{fontFamily:'monospace',fontWeight:800,color:D.text,fontSize:12}}>
             {Number(inv.totalHtg||0).toLocaleString('fr-HT',{minimumFractionDigits:2})}
           </span>
           <span style={{color:D.muted,fontSize:10,marginLeft:3}}>HTG</span>
         </div>
-        {convStr&&<div style={{fontSize:10,color:D.muted,fontFamily:'monospace',marginTop:2}}>{convStr}</div>}
+        {convStr&&<div style={{fontSize:9,color:D.muted,fontFamily:'monospace',marginTop:1}}>{convStr}</div>}
       </td>
-      <td style={{padding:'12px 16px',textAlign:'center'}}>
+      <td style={{padding:'10px 12px',textAlign:'center'}}>
         {(()=>{
           const s = statusMap[inv.status]||statusMap.unpaid
-          return <span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:99,background:s.bg,color:s.color,letterSpacing:'0.05em',textTransform:'uppercase'}}>{s.label}</span>
+          return <span style={{fontSize:9,fontWeight:800,padding:'3px 8px',borderRadius:99,background:s.bg,color:s.color,letterSpacing:'0.05em',textTransform:'uppercase',whiteSpace:'nowrap'}}>{s.label}</span>
         })()}
       </td>
-      <td style={{padding:'12px 16px',textAlign:'center',fontSize:11,color:D.muted,fontFamily:'monospace'}}>
+      <td style={{padding:'10px 12px',textAlign:'center',fontSize:10,color:D.muted,fontFamily:'monospace',whiteSpace:'nowrap'}}>
         {format(new Date(inv.issueDate),'dd/MM/yy')}
       </td>
-      <td style={{padding:'12px 16px',textAlign:'right'}}>
-        <Link to={`/invoices/${inv.id}`} style={{
-          width:30,height:30,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',
+      <td style={{padding:'10px 12px',textAlign:'right'}}>
+        <Link to={`/app/invoices/${inv.id}`} style={{
+          width:28,height:28,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',
           background:hov?`linear-gradient(135deg,${D.blue},${D.blueLt})`:D.blueDim,
           color:hov?'#fff':D.blue,textDecoration:'none',transition:'all 0.2s',
         }}>
-          <ArrowRight size={13}/>
+          <ArrowRight size={12}/>
         </Link>
       </td>
     </tr>

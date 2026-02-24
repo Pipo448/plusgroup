@@ -1,4 +1,9 @@
 // src/components/layout/AppLayout.jsx
+// ✅ Koreksyon:
+//    - Pa flash app anvan login — verifye token ANVAN mount
+//    - Peso (DOP) + tout lòt monè afiche anlè tankou USD
+//    - Responsive mobil
+
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
@@ -38,15 +43,20 @@ const LANGS = [
 
 const logoSrc = (url) => {
   if (!url) return null
-  if (url.startsWith('data:')) return url  // base64 — itilize dirèk
-  if (url.startsWith('http')) return url   // URL absoli
-  return url.startsWith('/') ? url : `/${url}` // chemen relatif
+  if (url.startsWith('data:')) return url
+  if (url.startsWith('http')) return url
+  return url.startsWith('/') ? url : `/${url}`
 }
 
 const parseJson = (val, fallback) => {
   if (!val) return fallback
   if (typeof val === 'object') return val
   try { return JSON.parse(val) } catch { return fallback }
+}
+
+// Noms monè pou afichaj
+const CURRENCY_LABELS = {
+  USD: 'USD', DOP: 'DOP', EUR: 'EUR', CAD: 'CAD',
 }
 
 export default function AppLayout() {
@@ -56,6 +66,8 @@ export default function AppLayout() {
   const [open, setOpen]           = useState(false)
   const [showLang, setShowLang]   = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
+  // ✅ Pa montre kontni si pa fini verifye token
+  const [authChecked, setAuthChecked] = useState(false)
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
@@ -84,33 +96,46 @@ export default function AppLayout() {
   }, [open, isDesktop])
 
   useEffect(() => {
-    // Set slug header depi localStorage
     if (tenant?.slug) {
       api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
     }
   }, [tenant])
 
+  // ✅ FIX: Verifye token yon sèl fwa — si valid kite, si 401 logout
+  // Pa redirect si token+tenant deja la (evite flash)
   useEffect(() => {
-    // ✅ Sèlman si token egziste men tenant manke — eseye refresh
-    // Pa logout si echèk — ka se yon pwoblèm rezo tanporè
-    if (token && !tenant) {
-      authAPI.me()
-        .then(res => {
-          if (res.data?.tenant?.slug) {
-            api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-            setAuth(token, res.data.user, res.data.tenant)
-          }
-        })
-        .catch((err) => {
-          // ✅ Sèlman logout si 401 (token invalide), pa pou 404 oswa rezo
-          if (err.response?.status === 401) {
-            logout()
-            navigate('/login')
-          }
-          // Lòt erè (404, 500, rezo) — kite user rete konekte
-        })
+    if (!token) {
+      // Pa gen token — redirect imedyatman
+      navigate('/login', { replace: true })
+      return
     }
-  }, [token, tenant])
+
+    if (tenant) {
+      // Token + tenant la — tout bon, pa bezwen API call
+      api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
+      setAuthChecked(true)
+      return
+    }
+
+    // Token la men tenant manke — refresh depi API
+    authAPI.me()
+      .then(res => {
+        if (res.data?.tenant?.slug) {
+          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+          setAuth(token, res.data.user, res.data.tenant)
+        }
+        setAuthChecked(true)
+      })
+      .catch((err) => {
+        if (err.response?.status === 401) {
+          logout()
+          navigate('/login', { replace: true })
+        } else {
+          // Lòt erè rezo — kite user rete
+          setAuthChecked(true)
+        }
+      })
+  }, []) // ✅ Run yon sèl fwa sèlman — pa re-run chak fwa tenant chanje
 
   const handleLogout = () => {
     logout()
@@ -126,16 +151,30 @@ export default function AppLayout() {
 
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
+  // ✅ rateItems — montre TOUT monè vizib (USD, DOP, etc.)
   const rateItems = showExchangeRate
     ? visibleCurrencies
         .map(currency => {
-          const fromMap = (exchangeRates && typeof exchangeRates === 'object') ? exchangeRates[currency] : undefined
-          const rate    = fromMap ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : 0)
+          const fromMap = (exchangeRates && typeof exchangeRates === 'object')
+            ? exchangeRates[currency]
+            : undefined
+          // Fallback pou USD si pa gen rate nan map
+          const rate = fromMap ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : 0)
           if (!rate || Number(rate) <= 0) return null
-          return { currency, rate: Number(rate) }
+          return { currency, rate: Number(rate), label: CURRENCY_LABELS[currency] || currency }
         })
         .filter(Boolean)
     : []
+
+  // ✅ Montre spinner pandan verifye auth — evite flash app anvan login
+  if (!authChecked && !tenant) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
+        <div style={{ width:36, height:36, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    )
+  }
 
   const sidebarStyle = {
     position: isDesktop ? 'relative' : 'fixed',
@@ -256,63 +295,67 @@ export default function AppLayout() {
 
         {/* Header */}
         <header style={{
-          height:58, background:'#fff',
+          minHeight:58, background:'#fff',
           borderBottom:`1px solid rgba(201,168,76,0.2)`,
           boxShadow:'0 2px 20px rgba(0,0,0,0.06)',
-          display:'flex', alignItems:'center', gap:8,
-          padding:'0 20px', flexShrink:0, position:'relative', zIndex:10,
+          display:'flex', alignItems:'center', gap:6,
+          padding:'0 12px 0 16px', flexShrink:0, position:'relative', zIndex:10,
+          flexWrap:'wrap',
         }}>
           <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:'linear-gradient(90deg,transparent,#C0392B 20%,#C9A84C 50%,#C0392B 80%,transparent)' }}/>
 
           {!isDesktop && (
-            <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:C.black, padding:6, borderRadius:8, display:'flex' }}>
+            <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:C.black, padding:6, borderRadius:8, display:'flex', flexShrink:0 }}>
               <Menu size={20}/>
             </button>
           )}
 
-          {rateItems.map(({ currency, rate }) => (
-            <div key={currency} style={{
-              display:'flex', alignItems:'center', gap:5,
-              padding:'4px 10px', borderRadius:8,
-              background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
-              border:'1px solid #F0D080', fontSize:12, flexShrink:0,
-            }}>
-              <span style={{ color:'#8B6914', fontWeight:700 }}>1 {currency}</span>
-              <span style={{ color:C.gold }}>=</span>
-              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
-                {rate.toFixed(2)} HTG
-              </span>
-            </div>
-          ))}
+          {/* ✅ Taux yo — USD, DOP, ak tout lòt monè vizib */}
+          <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+            {rateItems.map(({ currency, rate, label }) => (
+              <div key={currency} style={{
+                display:'flex', alignItems:'center', gap:4,
+                padding:'4px 8px', borderRadius:8,
+                background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
+                border:'1px solid #F0D080', fontSize:11, flexShrink:0,
+              }}>
+                <span style={{ color:'#8B6914', fontWeight:700 }}>1 {label}</span>
+                <span style={{ color:C.gold }}>=</span>
+                <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
+                  {rate.toFixed(2)} HTG
+                </span>
+              </div>
+            ))}
+          </div>
 
           <div style={{ flex:1 }}/>
 
           {/* Lang Switcher */}
-          <div style={{ position:'relative' }} ref={langRef}>
+          <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{
-              display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:10,
+              display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10,
               border:`1px solid ${showLang ? C.gold+'80' : 'rgba(0,0,0,0.1)'}`,
               background: showLang ? `${C.gold}15` : 'transparent',
               color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700,
             }}>
-              <Globe size={16}/>
-              <span style={{ fontSize:16 }}>{currentLang.flag}</span>
-              <span style={{ fontSize:11, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
-              <ChevronDown size={14} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+              <Globe size={15}/>
+              <span style={{ fontSize:15 }}>{currentLang.flag}</span>
+              <span style={{ fontSize:10, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
+              <ChevronDown size={13} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
             </button>
 
             {showLang && (
-              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:180, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:`1px solid ${C.gold}30`, overflow:'hidden', animation:'dropDown 0.2s ease' }}>
+              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:`1px solid ${C.gold}30`, overflow:'hidden', animation:'dropDown 0.2s ease' }}>
                 {LANGS.map(lang => (
                   <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
-                    width:'100%', display:'flex', alignItems:'center', gap:12,
-                    padding:'12px 16px', border:'none', cursor:'pointer',
+                    width:'100%', display:'flex', alignItems:'center', gap:10,
+                    padding:'11px 14px', border:'none', cursor:'pointer',
                     background: i18n.language === lang.code ? `${C.gold}15` : 'transparent',
                     color: i18n.language === lang.code ? C.gold : '#333',
                     fontWeight: i18n.language === lang.code ? 700 : 500,
                     fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)',
                   }}>
-                    <span style={{ fontSize:20 }}>{lang.flag}</span>
+                    <span style={{ fontSize:18 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
                     {i18n.language === lang.code && <span style={{ color:C.gold }}>✓</span>}
                   </button>
@@ -321,20 +364,20 @@ export default function AppLayout() {
             )}
           </div>
 
-          {/* Devise */}
-          <div style={{ fontSize:11, fontWeight:800, padding:'5px 12px', borderRadius:99, background:`linear-gradient(135deg,${C.black},#1a1a28)`, color:C.gold, letterSpacing:'0.08em', border:`1px solid ${C.gold}40` }}>
+          {/* Devise defò */}
+          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,${C.black},#1a1a28)`, color:C.gold, letterSpacing:'0.08em', border:`1px solid ${C.gold}40`, flexShrink:0 }}>
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
           {/* Notif */}
-          <button style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:8, borderRadius:10, display:'flex' }}>
-            <Bell size={19}/>
-            <span style={{ position:'absolute', top:7, right:7, width:8, height:8, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
+          <button style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}>
+            <Bell size={18}/>
+            <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
           </button>
         </header>
 
         <main style={{ flex:1, overflowY:'auto' }}>
-          <div style={{ padding:'24px' }}><Outlet /></div>
+          <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
       </div>
 
@@ -342,6 +385,7 @@ export default function AppLayout() {
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
         @keyframes dropDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)} 50%{box-shadow:0 0 0 5px rgba(192,57,43,0)} }
+        @keyframes spin { to { transform: rotate(360deg) } }
       `}</style>
     </div>
   )

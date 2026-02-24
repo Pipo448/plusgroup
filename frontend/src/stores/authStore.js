@@ -8,14 +8,14 @@ export const useAuthStore = create(
       token:   null,
       user:    null,
       tenant:  null,
-      loading: true,
+      loading: false,  // ✅ false pa defò — pa bloke UI si persist chaje vit
 
       setAuth: (token, user, tenant) => {
         if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
         set({ token, user, tenant, loading: false })
       },
 
-      // ✅ FIX: merge avèk egzistan olye ranplase nèt
+      // ✅ Merge avèk egzistan olye ranplase nèt
       updateTenant: (updates) => set(state => ({
         tenant: { ...state.tenant, ...updates }
       })),
@@ -40,6 +40,7 @@ export const useAuthStore = create(
       partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
       onRehydrateStorage: () => (state) => {
         if (state) {
+          // ✅ Toujou mete loading=false apre rehydration
           state.setLoading(false)
           if (state.tenant?.slug) {
             localStorage.setItem('plusgroup-slug', state.tenant.slug)
