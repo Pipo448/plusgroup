@@ -27,33 +27,26 @@ const PDF_SIZES = [
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
 ]
 
-// ── ✅ FIX: toBase64 amelyore — eseye dirèk, epi proxy si CORS echwe
+// ── ✅ FIX: Logo se base64 dirèk nan DB — pa bezwen konvèsyon
+// Si se yon vye URL HTTP (ansyen logo), eseye konvèti, sinon itilize dirèk
 const toBase64 = (url) => new Promise((resolve) => {
   if (!url) return resolve(null)
-
-  const tryLoad = (src) => new Promise((res) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width  = img.naturalWidth  || img.width
-        canvas.height = img.naturalHeight || img.height
-        canvas.getContext('2d').drawImage(img, 0, 0)
-        res(canvas.toDataURL('image/png'))
-      } catch { res(null) }
-    }
-    img.onerror = () => res(null)
-    img.src = src
-  })
-
-  // Eseye 1: URL dirèk ak cache-bust
-  const cacheBust = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`
-  tryLoad(cacheBust).then(b64 => {
-    if (b64) return resolve(b64)
-    // Eseye 2: URL san cache-bust (pafwa ede)
-    tryLoad(url).then(resolve)
-  })
+  // Si deja base64 data URL — retounen dirèkteman
+  if (url.startsWith('data:')) return resolve(url)
+  // Ansyen logo HTTP — eseye konvèti
+  const img = new Image()
+  img.crossOrigin = 'anonymous'
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width  = img.naturalWidth || img.width
+      canvas.height = img.naturalHeight || img.height
+      canvas.getContext('2d').drawImage(img, 0, 0)
+      resolve(canvas.toDataURL('image/png'))
+    } catch { resolve(url) }
+  }
+  img.onerror = () => resolve(null)
+  img.src = url.includes('?') ? url : `${url}?t=${Date.now()}`
 })
 
 // ──────────────────────────────────────────────

@@ -5,38 +5,19 @@ const { identifyTenant, authenticate, authorize } = require('../../middleware/au
 const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma  = require('../../config/prisma');
 const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
 
-// ── Config upload logo
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, '../../../uploads/logos');
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `tenant-${req.tenant.id}-${Date.now()}${ext}`);
-  }
-});
+// ── ✅ FIX: Sove logo kòm base64 nan DB — pa nan filesystem
+// Render efase fichye upload yo apre chak deploy
+// Base64 nan DB pa janm efase, pa gen pwoblèm CORS non plis
 const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: multer.memoryStorage(), // Nan memwa — pa nan disk
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max (base64 ap ~2.7MB nan DB)
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
     if (allowed.includes(file.mimetype)) cb(null, true);
     else cb(new Error('Sèlman JPEG, PNG, WebP ak SVG aksepte.'));
   }
 });
-
-// ── Helper: konvèti logoUrl relatif → absoli
-const getAbsoluteLogoUrl = (logoUrl) => {
-  if (!logoUrl) return null;
-  if (logoUrl.startsWith('http')) return logoUrl;
-  const BASE = process.env.API_URL || 'https://plusgroup-backend.onrender.com';
-  return `${BASE}${logoUrl}`;
-};
 
 // ── Helper: parse JSON fields ki ka vini kòm string oswa objè
 const parseJsonField = (field, fallback = null) => {
@@ -55,11 +36,10 @@ router.get('/settings', asyncHandler(async (req, res) => {
       id: true, name: true, slug: true, logoUrl: true, primaryColor: true,
       address: true, phone: true, email: true, website: true,
       defaultCurrency: true, defaultLanguage: true,
-      // ✅ Nouvo champs multi-devise
-      exchangeRate:       true,   // Garde pou backward compat (HTG/USD sèlman)
-      exchangeRates:      true,   // JSON: { USD: 132, DOP: 2.28, EUR: 143 }
-      visibleCurrencies:  true,   // JSON array: ['USD', 'DOP']
-      showExchangeRate:   true,   // Boolean toggle
+      exchangeRate:       true,
+      exchangeRates:      true,
+      visibleCurrencies:  true,
+      showExchangeRate:   true,
       taxRate: true,
       receiptSize: true,
       printerConnection: true,
@@ -68,7 +48,6 @@ router.get('/settings', asyncHandler(async (req, res) => {
     }
   });
 
-  // Parse JSON fields (Prisma retounen yo kòm string si se TextField)
   const exchangeRates     = parseJsonField(tenant.exchangeRates, {});
   const visibleCurrencies = parseJsonField(tenant.visibleCurrencies, ['USD']);
 
@@ -76,7 +55,8 @@ router.get('/settings', asyncHandler(async (req, res) => {
     success: true,
     tenant: {
       ...tenant,
-      logoUrl:          getAbsoluteLogoUrl(tenant.logoUrl),
+      // ✅ logoUrl se base64 dirèk — pa bezwen konvèsyon
+      logoUrl: tenant.logoUrl || null,
       exchangeRates,
       visibleCurrencies,
       showExchangeRate: tenant.showExchangeRate ?? false,
@@ -91,7 +71,6 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     defaultCurrency, defaultLanguage,
     exchangeRate, taxRate, primaryColor,
     receiptSize, printerConnection,
-    // ✅ Nouvo champs multi-devise
     exchangeRates,
     visibleCurrencies,
     showExchangeRate,
@@ -102,20 +81,13 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     data: {
       name, address, phone, email, website, primaryColor,
       defaultCurrency, defaultLanguage,
-      exchangeRate:      exchangeRate      ? Number(exchangeRate)    : undefined,
-      taxRate:           taxRate           ? Number(taxRate)         : undefined,
-      receiptSize:       receiptSize       ? String(receiptSize)     : undefined,
+      exchangeRate:      exchangeRate      ? Number(exchangeRate)      : undefined,
+      taxRate:           taxRate           ? Number(taxRate)           : undefined,
+      receiptSize:       receiptSize       ? String(receiptSize)       : undefined,
       printerConnection: printerConnection ? String(printerConnection) : undefined,
-      // ✅ Stoke JSON kòm string si schema se TextField, sinon dirèkteman
-      exchangeRates:      exchangeRates     != null
-                            ? JSON.stringify(exchangeRates)
-                            : undefined,
-      visibleCurrencies:  visibleCurrencies != null
-                            ? JSON.stringify(visibleCurrencies)
-                            : undefined,
-      showExchangeRate:   showExchangeRate  != null
-                            ? Boolean(showExchangeRate)
-                            : undefined,
+      exchangeRates:     exchangeRates     != null ? JSON.stringify(exchangeRates)     : undefined,
+      visibleCurrencies: visibleCurrencies != null ? JSON.stringify(visibleCurrencies) : undefined,
+      showExchangeRate:  showExchangeRate  != null ? Boolean(showExchangeRate)         : undefined,
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
@@ -136,7 +108,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
   });
 }));
 
-// ── PATCH /api/v1/tenant/exchange-rate  (backward compat — HTG/USD sèlman)
+// ── PATCH /api/v1/tenant/exchange-rate
 router.patch('/exchange-rate', authorize('admin'), asyncHandler(async (req, res) => {
   const { exchangeRate } = req.body;
   if (!exchangeRate || isNaN(exchangeRate))
@@ -149,34 +121,23 @@ router.patch('/exchange-rate', authorize('admin'), asyncHandler(async (req, res)
   res.json({ success: true, exchangeRate: Number(exchangeRate), message: 'Taux chanj ajou.' });
 }));
 
-// ── PATCH /api/v1/tenant/exchange-rates  ✅ NOUVO — Mete plizye devise anavans
+// ── PATCH /api/v1/tenant/exchange-rates
 router.patch('/exchange-rates', authorize('admin'), asyncHandler(async (req, res) => {
   const { exchangeRates, visibleCurrencies, showExchangeRate } = req.body;
 
   if (!exchangeRates || typeof exchangeRates !== 'object')
     return res.status(400).json({ success: false, message: 'exchangeRates dwe se yon objè valid.' });
 
-  // Valide chak valè
   for (const [currency, rate] of Object.entries(exchangeRates)) {
     if (isNaN(rate) || Number(rate) <= 0)
-      return res.status(400).json({
-        success: false,
-        message: `Taux chanj pou ${currency} pa valid.`
-      });
+      return res.status(400).json({ success: false, message: `Taux chanj pou ${currency} pa valid.` });
   }
 
-  const updateData = {
-    exchangeRates: JSON.stringify(exchangeRates),
-  };
-  if (visibleCurrencies != null)
-    updateData.visibleCurrencies = JSON.stringify(visibleCurrencies);
-  if (showExchangeRate  != null)
-    updateData.showExchangeRate = Boolean(showExchangeRate);
+  const updateData = { exchangeRates: JSON.stringify(exchangeRates) };
+  if (visibleCurrencies != null) updateData.visibleCurrencies = JSON.stringify(visibleCurrencies);
+  if (showExchangeRate  != null) updateData.showExchangeRate  = Boolean(showExchangeRate);
 
-  await prisma.tenant.update({
-    where: { id: req.tenant.id },
-    data: updateData
-  });
+  await prisma.tenant.update({ where: { id: req.tenant.id }, data: updateData });
 
   res.json({
     success: true,
@@ -188,15 +149,27 @@ router.patch('/exchange-rates', authorize('admin'), asyncHandler(async (req, res
 }));
 
 // ── POST /api/v1/tenant/logo
+// ✅ FIX: Konvèti imaj an base64 epi sove nan DB — pa nan filesystem
 router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(async (req, res) => {
   if (!req.file)
     return res.status(400).json({ success: false, message: 'Fichye logo obligatwa.' });
 
-  const logoUrl = `/uploads/logos/${req.file.filename}`;
-  await prisma.tenant.update({ where: { id: req.tenant.id }, data: { logoUrl } });
+  // Konvèti buffer an base64 data URL
+  const mimeType  = req.file.mimetype;
+  const base64    = req.file.buffer.toString('base64');
+  const logoUrl   = `data:${mimeType};base64,${base64}`;
 
-  const absoluteLogoUrl = getAbsoluteLogoUrl(logoUrl);
-  res.json({ success: true, logoUrl: absoluteLogoUrl, message: 'Logo chanje avèk siksè.' });
+  // Sove base64 nan DB
+  await prisma.tenant.update({
+    where: { id: req.tenant.id },
+    data:  { logoUrl }
+  });
+
+  res.json({
+    success: true,
+    logoUrl,  // Retounen base64 dirèk — frontend ka itilize li tousuit
+    message: 'Logo chanje avèk siksè.'
+  });
 }));
 
 // ── GET /api/v1/tenant/sequences
@@ -216,11 +189,8 @@ router.put('/sequences/:type', authorize('admin'), asyncHandler(async (req, res)
     return res.status(400).json({ success: false, message: 'Type dokiman pa valid.' });
 
   const seq = await prisma.documentSequence.upsert({
-    where: { tenantId_documentType: { tenantId: req.tenant.id, documentType: type } },
-    create: {
-      tenantId: req.tenant.id, documentType: type,
-      prefix, currentYear: new Date().getFullYear()
-    },
+    where:  { tenantId_documentType: { tenantId: req.tenant.id, documentType: type } },
+    create: { tenantId: req.tenant.id, documentType: type, prefix, currentYear: new Date().getFullYear() },
     update: { prefix }
   });
   res.json({ success: true, sequence: seq, message: 'Prefix ajou.' });
