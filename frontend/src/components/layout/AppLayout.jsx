@@ -38,6 +38,7 @@ const LANGS = [
 
 const logoSrc = (url) => {
   if (!url) return null
+  if (url.startsWith('data:')) return url  // ✅ base64
   if (url.startsWith('http')) return url
   return url.startsWith('/') ? url : `/${url}`
 }
@@ -241,12 +242,31 @@ export default function AppLayout() {
           )}
 
           {/* Taux */}
-          <div style={{ display:'flex', alignItems:'center', gap:6, padding:'4px 10px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #F0D080', fontSize:12 }}>
-            <span style={{ color:'#8B6914', fontWeight:700 }}>1 USD</span>
-            <span style={{ color:C.gold }}>=</span>
-            <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>{Number(tenant?.exchangeRate || 132).toFixed(2)} HTG</span>
-          </div>
-
+          {/* Taux — tout monè vizib */}
+{(() => {
+  const rates = (() => {
+    if (!tenant?.exchangeRates) return {}
+    if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
+    try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
+  })()
+  const visible = (() => {
+    if (!tenant?.visibleCurrencies) return ['USD']
+    if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
+    try { return JSON.parse(tenant.visibleCurrencies) } catch { return ['USD'] }
+  })()
+  const items = visible.map(cur => {
+    const rate = Number(rates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
+    if (!rate) return null
+    return { cur, rate }
+  }).filter(Boolean)
+  return items.map(({ cur, rate }) => (
+    <div key={cur} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #F0D080', fontSize:12, flexShrink:0 }}>
+      <span style={{ color:'#8B6914', fontWeight:700 }}>1 {cur}</span>
+      <span style={{ color:C.gold }}>=</span>
+      <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>{rate.toFixed(2)} HTG</span>
+    </div>
+  ))
+})()}
           <div style={{ flex:1 }}/>
 
           {/* Lang Switcher */}
