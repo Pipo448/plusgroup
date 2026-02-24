@@ -186,7 +186,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
         {/* ✅ FIX: yon sèl TOTAL — pa repete */}
         <div style={{ borderTop: '2px solid #111', marginTop: '4px', paddingTop: '4px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '13px', fontFamily: 'Arial' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '11px', fontFamily: 'Arial' }}>
             <span>TOTAL:</span>
             <span>{fmt(invoice.totalHtg)} HTG</span>
           </div>
@@ -287,27 +287,14 @@ export default function InvoiceDetail() {
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
 
-  // ✅ FIX: Konvèti logo an base64 — relanse chak fwa logoUrl chanje
+  // ✅ FIX: Si deja base64 data URL — itilize dirèkteman
   useEffect(() => {
     const url = tenant?.logoUrl
-    if (!url) {
-      setLogoBase64(null)
-      return
-    }
-    // Bati URL konplè si se yon chemen relatif
-    const fullUrl = url.startsWith('http')
-      ? url
-      : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`
-
-    toBase64(fullUrl).then(b64 => {
-      if (b64) {
-        setLogoBase64(b64)
-      } else {
-        // Dènye recours: sèvi ak URL dirèk nan resi a
-        console.warn('Logo base64 echwe, ap itilize URL dirèk')
-        setLogoBase64(url)
-      }
-    })
+    if (!url) { setLogoBase64(null); return }
+    // base64 data URL — pa bezwen konvèsyon ditou
+    if (url.startsWith('data:')) { setLogoBase64(url); return }
+    // URL HTTP — eseye konvèti
+    toBase64(url).then(b64 => setLogoBase64(b64 || null))
   }, [tenant?.logoUrl])
 
   useEffect(() => {
