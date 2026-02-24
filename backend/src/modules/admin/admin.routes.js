@@ -99,17 +99,19 @@ router.delete('/tenants/by-slug/:slug', async (req, res) => {
     }
 
     // Efase tout done lye ak tenant an (ordre enpòtan)
-    await prismaClient.stockMovement.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } });
-    await prismaClient.payment.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.invoice.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.quoteItem.deleteMany({ where: { quote: { tenantId: tenant.id } } });
-    await prismaClient.quote.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.product.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.category.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.client.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.documentSequence.deleteMany({ where: { tenantId: tenant.id } });
-    await prismaClient.user.deleteMany({ where: { tenantId: tenant.id } });
+    const safeDelete = async (fn) => { try { await fn(); } catch(e) { console.warn("Skip:", e.message); } };
+
+    await safeDelete(() => prismaClient.stockMovement.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } }));
+    await safeDelete(() => prismaClient.payment.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.invoice.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.quoteItem.deleteMany({ where: { quote: { tenantId: tenant.id } } }));
+    await safeDelete(() => prismaClient.quote.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.product.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.category.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.client.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.documentSequence.deleteMany({ where: { tenantId: tenant.id } }));
+    await safeDelete(() => prismaClient.user.deleteMany({ where: { tenantId: tenant.id } }));
     await prismaClient.tenant.delete({ where: { id: tenant.id } });
 
     await prismaClient.$disconnect();
