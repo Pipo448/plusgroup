@@ -38,7 +38,7 @@ const LANGS = [
 
 const logoSrc = (url) => {
   if (!url) return null
-  if (url.startsWith('data:')) return url  // ✅ base64
+  if (url.startsWith('data:')) return url
   if (url.startsWith('http')) return url
   return url.startsWith('/') ? url : `/${url}`
 }
@@ -47,19 +47,21 @@ export default function AppLayout() {
   const { user, tenant, token, setAuth, logout } = useAuthStore()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [open, setOpen]         = useState(false)
-  const [showLang, setShowLang] = useState(false)
+  const [open, setOpen]           = useState(false)
+  const [showLang, setShowLang]   = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
+  // Resize
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  // Klik deyò lang dropdown
   useEffect(() => {
     const onDoc = (e) => {
       if (langRef.current && !langRef.current.contains(e.target)) setShowLang(false)
@@ -68,11 +70,13 @@ export default function AppLayout() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  // Bloke scroll mobil
   useEffect(() => {
     if (!isDesktop) document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open, isDesktop])
 
+  // Slug tenant
   useEffect(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('pg-auth') || '{}')
@@ -81,6 +85,7 @@ export default function AppLayout() {
     } catch {}
   }, [])
 
+  // Auth check
   useEffect(() => {
     if (token && !tenant) {
       authAPI.me().then(res => {
@@ -94,9 +99,28 @@ export default function AppLayout() {
     }
   }, [token, tenant])
 
-  const handleLogout = () => { logout(); toast.success('Ou dekonekte.'); navigate('/login') }
+  // ✅ KOREKSYON LANG — Priyorite: localStorage > tenant.defaultLanguage > 'ht'
+  useEffect(() => {
+    const savedLang = localStorage.getItem('plusgroup-lang')
+    if (savedLang) {
+      if (savedLang !== i18n.language) {
+        i18n.changeLanguage(savedLang)
+      }
+    } else if (tenant?.defaultLanguage) {
+      i18n.changeLanguage(tenant.defaultLanguage)
+      localStorage.setItem('plusgroup-lang', tenant.defaultLanguage)
+    } else {
+      i18n.changeLanguage('ht')
+      localStorage.setItem('plusgroup-lang', 'ht')
+    }
+  }, [tenant])
 
-  // ✅ PA RELOAD - sesyon rete aktif
+  const handleLogout = () => {
+    logout()
+    toast.success('Ou dekonekte.')
+    navigate('/login')
+  }
+
   const changeLanguage = (code) => {
     i18n.changeLanguage(code)
     localStorage.setItem('plusgroup-lang', code)
@@ -131,14 +155,12 @@ export default function AppLayout() {
 
       {/* ══ SIDEBAR ══ */}
       <aside style={sidebarStyle}>
-        {/* Barre or animée */}
         <div style={{
           height:3,
           background:'linear-gradient(90deg,transparent,#8B6914 15%,#C9A84C 35%,#F0D080 50%,#C9A84C 65%,#8B6914 85%,transparent)',
           animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%',
         }}/>
 
-        {/* Bouton X mobil */}
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
             position:'absolute', top:12, right:12, zIndex:50,
@@ -149,7 +171,7 @@ export default function AppLayout() {
           </button>
         )}
 
-        {/* Logo zone */}
+        {/* Logo */}
         <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}` }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
@@ -204,7 +226,9 @@ export default function AppLayout() {
               borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
               fontSize:13, fontWeight: isActive ? 700 : 500,
             })}>
-            {({ isActive }) => (<><Settings size={16} style={{ color: isActive ? C.gold : C.muted }}/><span>{t('nav.settings')}</span></>)}
+            {({ isActive }) => (
+              <><Settings size={16} style={{ color: isActive ? C.gold : C.muted }}/><span>{t('nav.settings')}</span></>
+            )}
           </NavLink>
 
           <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`linear-gradient(135deg,${C.gold}10,transparent)`, border:`1px solid ${C.gold}25` }}>
@@ -225,7 +249,6 @@ export default function AppLayout() {
       {/* ══ MAIN ══ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
-        {/* Header */}
         <header style={{
           height:58, background:'#fff',
           borderBottom:`1px solid rgba(201,168,76,0.2)`,
@@ -242,31 +265,31 @@ export default function AppLayout() {
           )}
 
           {/* Taux */}
-          {/* Taux — tout monè vizib */}
-{(() => {
-  const rates = (() => {
-    if (!tenant?.exchangeRates) return {}
-    if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
-    try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
-  })()
-  const visible = (() => {
-    if (!tenant?.visibleCurrencies) return ['USD']
-    if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
-    try { return JSON.parse(tenant.visibleCurrencies) } catch { return ['USD'] }
-  })()
-  const items = visible.map(cur => {
-    const rate = Number(rates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
-    if (!rate) return null
-    return { cur, rate }
-  }).filter(Boolean)
-  return items.map(({ cur, rate }) => (
-    <div key={cur} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #F0D080', fontSize:12, flexShrink:0 }}>
-      <span style={{ color:'#8B6914', fontWeight:700 }}>1 {cur}</span>
-      <span style={{ color:C.gold }}>=</span>
-      <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>{rate.toFixed(2)} HTG</span>
-    </div>
-  ))
-})()}
+          {(() => {
+            const rates = (() => {
+              if (!tenant?.exchangeRates) return {}
+              if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
+              try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
+            })()
+            const visible = (() => {
+              if (!tenant?.visibleCurrencies) return ['USD']
+              if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
+              try { return JSON.parse(tenant.visibleCurrencies) } catch { return ['USD'] }
+            })()
+            const items = visible.map(cur => {
+              const rate = Number(rates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
+              if (!rate) return null
+              return { cur, rate }
+            }).filter(Boolean)
+            return items.map(({ cur, rate }) => (
+              <div key={cur} style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #F0D080', fontSize:12, flexShrink:0 }}>
+                <span style={{ color:'#8B6914', fontWeight:700 }}>1 {cur}</span>
+                <span style={{ color:C.gold }}>=</span>
+                <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>{rate.toFixed(2)} HTG</span>
+              </div>
+            ))
+          })()}
+
           <div style={{ flex:1 }}/>
 
           {/* Lang Switcher */}
@@ -293,6 +316,7 @@ export default function AppLayout() {
                     color: i18n.language === lang.code ? C.gold : '#333',
                     fontWeight: i18n.language === lang.code ? 700 : 500,
                     fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)',
+                    fontFamily:'DM Sans, sans-serif',
                   }}>
                     <span style={{ fontSize:20 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
