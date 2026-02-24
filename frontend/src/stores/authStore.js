@@ -10,16 +10,19 @@ export const useAuthStore = create(
       tenant:  null,
       loading: true, // ✅ true pa default — tann persist fin rehydrate
 
-      setAuth: (token, user, tenant) => set({ token, user, tenant }),
+      setAuth: (token, user, tenant) =>
+  set({ token, user, tenant, loading: false })
+
 
       updateTenant: (tenant) => set({ tenant }),
 
       setLoading: (loading) => set({ loading }), // ✅ nouvo
 
-      logout: () => {
-        set({ token: null, user: null, tenant: null })
-        localStorage.removeItem('pg-auth')
-      },
+     logout: () => {
+  set({ token: null, user: null, tenant: null, loading: false })
+  localStorage.removeItem('pg-auth')
+}
+
 
       isAuthenticated: () => !!get().token,
 
