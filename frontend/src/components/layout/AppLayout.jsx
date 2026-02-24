@@ -21,13 +21,13 @@ const C = {
 }
 
 const NAV = [
-  { to:'/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard' },
-  { to:'/products',  icon:Package,         labelKey:'nav.products'  },
-  { to:'/clients',   icon:Users,           labelKey:'nav.clients'   },
-  { to:'/quotes',    icon:FileText,        labelKey:'nav.quotes'    },
-  { to:'/invoices',  icon:Receipt,         labelKey:'nav.invoices'  },
-  { to:'/stock',     icon:Warehouse,       labelKey:'nav.stock'     },
-  { to:'/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
+  { to:'/app/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard' },
+  { to:'/app/products',  icon:Package,         labelKey:'nav.products'  },
+  { to:'/app/clients',   icon:Users,           labelKey:'nav.clients'   },
+  { to:'/app/quotes',    icon:FileText,        labelKey:'nav.quotes'    },
+  { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices'  },
+  { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock'     },
+  { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
 ]
 
 const LANGS = [
@@ -83,27 +83,39 @@ export default function AppLayout() {
   }, [open, isDesktop])
 
   useEffect(() => {
-    try {
-      const raw  = JSON.parse(localStorage.getItem('pg-auth') || '{}')
-      const auth = raw?.state || raw
-      if (auth?.tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = auth.tenant.slug
-    } catch {}
-  }, [])
+    // Set slug header depi localStorage
+    if (tenant?.slug) {
+      api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
+    }
+  }, [tenant])
 
   useEffect(() => {
+    // ✅ Sèlman si token egziste men tenant manke — eseye refresh
+    // Pa logout si echèk — ka se yon pwoblèm rezo tanporè
     if (token && !tenant) {
-      authAPI.me().then(res => {
-        if (res.data?.tenant?.slug) {
-          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-          setAuth(token, res.data.user, res.data.tenant)
-        }
-      }).catch(() => { logout(); navigate('/login') })
-    } else if (token && tenant?.slug) {
-      api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
+      authAPI.me()
+        .then(res => {
+          if (res.data?.tenant?.slug) {
+            api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+            setAuth(token, res.data.user, res.data.tenant)
+          }
+        })
+        .catch((err) => {
+          // ✅ Sèlman logout si 401 (token invalide), pa pou 404 oswa rezo
+          if (err.response?.status === 401) {
+            logout()
+            navigate('/login')
+          }
+          // Lòt erè (404, 500, rezo) — kite user rete konekte
+        })
     }
   }, [token, tenant])
 
-  const handleLogout = () => { logout(); toast.success('Ou dekonekte.'); navigate('/login') }
+  const handleLogout = () => {
+    logout()
+    toast.success('Ou dekonekte.')
+    navigate('/login')
+  }
 
   const changeLanguage = (code) => {
     i18n.changeLanguage(code)
@@ -211,7 +223,7 @@ export default function AppLayout() {
 
         {/* Settings + User */}
         <div style={{ padding:'10px 8px', borderTop:`1px solid ${C.border}` }}>
-          <NavLink to="/settings" onClick={() => setOpen(false)}
+          <NavLink to="/app/settings" onClick={() => setOpen(false)}
             style={({ isActive }) => ({
               display:'flex', alignItems:'center', gap:10,
               padding:'9px 12px', borderRadius:10, marginBottom:8, textDecoration:'none',

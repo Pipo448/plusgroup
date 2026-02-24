@@ -8,17 +8,22 @@ export const useAuthStore = create(
       token:   null,
       user:    null,
       tenant:  null,
-      loading: true, // ✅ true pa default — tann persist fin rehydrate
+      loading: true,
 
-      setAuth: (token, user, tenant) => set({ token, user, tenant }),
+      setAuth: (token, user, tenant) => {
+        // Sovgade slug nan localStorage pou interceptor api.js
+        if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
+        set({ token, user, tenant, loading: false })
+      },
 
       updateTenant: (tenant) => set({ tenant }),
 
-      setLoading: (loading) => set({ loading }), // ✅ nouvo
+      setLoading: (loading) => set({ loading }),
 
       logout: () => {
-        set({ token: null, user: null, tenant: null })
         localStorage.removeItem('pg-auth')
+        localStorage.removeItem('plusgroup-slug')
+        set({ token: null, user: null, tenant: null, loading: false })
       },
 
       isAuthenticated: () => !!get().token,
@@ -31,9 +36,15 @@ export const useAuthStore = create(
     {
       name: 'pg-auth',
       partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
-      // ✅ Lè persist fin chaje localStorage, mete loading false
       onRehydrateStorage: () => (state) => {
-        if (state) state.setLoading(false)
+        // Lè localStorage fin chaje, mete loading=false tousuit
+        if (state) {
+          state.setLoading(false)
+          // Restore slug pou api interceptor
+          if (state.tenant?.slug) {
+            localStorage.setItem('plusgroup-slug', state.tenant.slug)
+          }
+        }
       },
     }
   )
