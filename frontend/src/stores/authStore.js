@@ -8,21 +8,25 @@ export const useAuthStore = create(
       token:   null,
       user:    null,
       tenant:  null,
-      loading: true, // ✅ true pa default — tann persist fin rehydrate
+      loading: false,  // ✅ false pa defò — pa bloke UI si persist chaje vit
 
-      setAuth: (token, user, tenant) =>
-  set({ token, user, tenant, loading: false })
+      setAuth: (token, user, tenant) => {
+        if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
+        set({ token, user, tenant, loading: false })
+      },
 
+      // ✅ Merge avèk egzistan olye ranplase nèt
+      updateTenant: (updates) => set(state => ({
+        tenant: { ...state.tenant, ...updates }
+      })),
 
-      updateTenant: (tenant) => set({ tenant }),
+      setLoading: (loading) => set({ loading }),
 
-      setLoading: (loading) => set({ loading }), // ✅ nouvo
-
-     logout: () => {
-  set({ token: null, user: null, tenant: null, loading: false })
-  localStorage.removeItem('pg-auth')
-}
-
+      logout: () => {
+        localStorage.removeItem('pg-auth')
+        localStorage.removeItem('plusgroup-slug')
+        set({ token: null, user: null, tenant: null, loading: false })
+      },
 
       isAuthenticated: () => !!get().token,
 
@@ -34,9 +38,14 @@ export const useAuthStore = create(
     {
       name: 'pg-auth',
       partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
-      // ✅ Lè persist fin chaje localStorage, mete loading false
       onRehydrateStorage: () => (state) => {
-        if (state) state.setLoading(false)
+        if (state) {
+          // ✅ Toujou mete loading=false apre rehydration
+          state.setLoading(false)
+          if (state.tenant?.slug) {
+            localStorage.setItem('plusgroup-slug', state.tenant.slug)
+          }
+        }
       },
     }
   )
