@@ -27,23 +27,33 @@ const PDF_SIZES = [
   { value: '57mm', label: '57mm', desc: 'Ti enprimant (57×40)'    },
 ]
 
-// ── Konvèti URL imaj an base64 pou enpresyon
+// ── ✅ FIX: toBase64 amelyore — eseye dirèk, epi proxy si CORS echwe
 const toBase64 = (url) => new Promise((resolve) => {
   if (!url) return resolve(null)
-  const img = new Image()
-  img.crossOrigin = 'anonymous'
-  img.onload = () => {
-    try {
-      const canvas = document.createElement('canvas')
-      canvas.width  = img.naturalWidth
-      canvas.height = img.naturalHeight
-      canvas.getContext('2d').drawImage(img, 0, 0)
-      resolve(canvas.toDataURL('image/png'))
-    } catch { resolve(null) }
-  }
-  img.onerror = () => resolve(null)
-  // Ajoute timestamp pou evite cache CORS
-  img.src = url.includes('?') ? url : `${url}?t=${Date.now()}`
+
+  const tryLoad = (src) => new Promise((res) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width  = img.naturalWidth  || img.width
+        canvas.height = img.naturalHeight || img.height
+        canvas.getContext('2d').drawImage(img, 0, 0)
+        res(canvas.toDataURL('image/png'))
+      } catch { res(null) }
+    }
+    img.onerror = () => res(null)
+    img.src = src
+  })
+
+  // Eseye 1: URL dirèk ak cache-bust
+  const cacheBust = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`
+  tryLoad(cacheBust).then(b64 => {
+    if (b64) return resolve(b64)
+    // Eseye 2: URL san cache-bust (pafwa ede)
+    tryLoad(url).then(resolve)
+  })
 })
 
 // ──────────────────────────────────────────────
@@ -51,18 +61,18 @@ const toBase64 = (url) => new Promise((resolve) => {
 // ──────────────────────────────────────────────
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   if (!invoice) return null
-  const snap    = invoice.clientSnapshot || {}
-  const isPaid  = invoice.status === 'paid'
+  const snap        = invoice.clientSnapshot || {}
+  const isPaid      = invoice.status === 'paid'
   const isCancelled = invoice.status === 'cancelled'
   const isPartial   = invoice.status === 'partial'
 
   const statusLabel = isPaid
-    ? t('invoice.statusPaid')
+    ? 'PEYE / PAYÉ / PAID'
     : isCancelled
-      ? t('invoice.statusCancelled')
+      ? 'ANILE / ANNULÉ / CANCELLED'
       : isPartial
-        ? t('invoice.statusPartial')
-        : t('invoice.statusUnpaid')
+        ? 'PASYAL / PARTIEL / PARTIAL'
+        : 'IMPAYE / NON PAYÉ / UNPAID'
 
   const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
 
@@ -70,82 +80,87 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
     ? invoice.payments[invoice.payments.length - 1]
     : null
 
-  // Sèlman logo base64 — pa URL distant
-  const logoSrc = logoBase64 || null
+  const receiptWidth = tenant?.receiptSize === '57mm' ? '57mm' : '80mm'
 
   return (
     <div id="printable-receipt" style={{
       display: 'none',
       fontFamily: "'Courier New', Courier, monospace",
-      width: '80mm',
-      maxWidth: '80mm',
+      width: receiptWidth,
+      maxWidth: receiptWidth,
       margin: '0 auto',
-      padding: '4mm 4mm',
+      padding: '3mm 3mm',
       background: '#fff',
       color: '#1a1a1a',
-      fontSize: '11px',
-      lineHeight: '1.5',
+      fontSize: '10px',
+      lineHeight: '1.4',
     }}>
 
-      {/* LOGO + NOM BIZNIS */}
-      <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
-        {logoSrc && (
+      {/* ══ LOGO + NOM BIZNIS ══ */}
+      <div style={{ textAlign: 'center', marginBottom: '5px', borderBottom: '1px dashed #ccc', paddingBottom: '5px' }}>
+        {/* ✅ FIX: logoBase64 sèlman — pa URL distant ki ka bloke nan popup */}
+        {logoBase64 && (
           <img
-            src={logoSrc}
+            src={logoBase64}
             alt="Logo"
-            style={{ height: '40px', objectFit: 'contain', marginBottom: '4px', display: 'block', margin: '0 auto 4px' }}
+            style={{ height: '36px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto 4px' }}
           />
         )}
-        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '14px', letterSpacing: '0.5px', color: '#111' }}>
+        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '13px', letterSpacing: '0.5px', color: '#111' }}>
           {tenant?.businessName || tenant?.name || 'PlusGroup'}
         </div>
-        {tenant?.phone && <div style={{ fontSize: '10px', color: '#555' }}>📞 {tenant.phone}</div>}
-        {tenant?.address && <div style={{ fontSize: '10px', color: '#555' }}>{tenant.address}</div>}
+        {tenant?.phone   && <div style={{ fontSize: '9px', color: '#555' }}>📞 {tenant.phone}</div>}
+        {tenant?.address && <div style={{ fontSize: '9px', color: '#555' }}>{tenant.address}</div>}
       </div>
 
-      {/* TITRE RESI */}
-      <div style={{ textAlign: 'center', margin: '6px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '13px', letterSpacing: '1.5px', color: '#111' }}>
-        {t('invoice.receiptTitle')}
+      {/* ══ TITRE TRILINGG ══ */}
+      <div style={{ textAlign: 'center', margin: '5px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '11px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>
+        Resi / Reçu / Receipt
       </div>
 
-      {/* INFO FAKTI — sans taux de change */}
-      <div style={{ marginBottom: '6px', fontSize: '10px' }}>
+      {/* ══ INFO FAKTI ══ */}
+      <div style={{ marginBottom: '5px', fontSize: '9px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: '#555' }}>{t('invoice.invoiceNumber')}:</span>
-          <span style={{ fontWeight: '700' }}>{invoice.invoiceNumber}</span>
+          <span style={{ color: '#555' }}>No. Fakti / Facture / Invoice:</span>
+          <span style={{ fontWeight: '800', fontFamily: 'Arial', fontSize: '10px' }}>{invoice.invoiceNumber}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: '#555' }}>{t('invoice.date')}:</span>
+          <span style={{ color: '#555' }}>Dat / Date / Date:</span>
           <span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy HH:mm')}</span>
         </div>
       </div>
 
-      {/* KLIYAN */}
+      {/* ══ KLIYAN ══ */}
       {snap.name && (
-        <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#f8f8f8', borderRadius: '4px', fontSize: '10px' }}>
-          <div style={{ fontWeight: '700', fontSize: '11px' }}>👤 {t('invoice.client')}: {snap.name}</div>
-          {snap.phone && <div>{t('invoice.phone')}: {snap.phone}</div>}
-          {snap.email && <div>{t('invoice.email')}: {snap.email}</div>}
-          {snap.nif   && <div>{t('invoice.nif')}: {snap.nif}</div>}
+        <div style={{ marginBottom: '5px', padding: '3px 5px', background: '#f8f8f8', borderRadius: '3px', fontSize: '9px', borderLeft: '2px solid #ccc' }}>
+          <div style={{ fontWeight: '700', fontSize: '10px' }}>
+            👤 Kliyan / Client / Client: {snap.name}
+          </div>
+          {snap.phone && <div>Tel: {snap.phone}</div>}
+          {snap.email && <div>{snap.email}</div>}
+          {snap.nif   && <div>NIF: {snap.nif}</div>}
         </div>
       )}
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* TABLO ATIK */}
-      <div style={{ fontSize: '10px', marginBottom: '4px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '3px', borderBottom: '1px solid #ddd' }}>
-          <span style={{ flex: 3 }}>{t('invoice.product')}</span>
-          <span style={{ flex: 1, textAlign: 'center' }}>{t('invoice.qty')}</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>{t('invoice.unitPrice')}</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>{t('invoice.total')}</span>
+      {/* ══ TABLO ATIK ══ */}
+      <div style={{ fontSize: '9px', marginBottom: '4px' }}>
+        {/* Entèt trilingg */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '2px', borderBottom: '1px solid #ddd', fontSize: '8px' }}>
+          <span style={{ flex: 3 }}>Pwodui/Produit/Product</span>
+          <span style={{ flex: 1, textAlign: 'center' }}>Qte</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>Pri/Prix/Price</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>Total</span>
         </div>
         {invoice.items?.map((item, i) => (
           <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
             <div style={{ flex: 3 }}>
               <div style={{ fontWeight: '600' }}>{item.product?.name || item.productSnapshot?.name}</div>
               {Number(item.discountPct) > 0 && (
-                <div style={{ color: '#dc2626', fontSize: '9px' }}>{t('invoice.discount')}: {item.discountPct}%</div>
+                <div style={{ color: '#dc2626', fontSize: '8px' }}>
+                  Remiz/Remise/Disc.: {item.discountPct}%
+                </div>
               )}
             </div>
             <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
@@ -155,83 +170,91 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         ))}
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* TOTAUX */}
-      <div style={{ fontSize: '10px', marginBottom: '6px' }}>
+      {/* ══ TOTAUX ══ */}
+      <div style={{ fontSize: '9px', marginBottom: '5px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-          <span style={{ color: '#555' }}>{t('invoice.subtotal')}:</span>
+          <span style={{ color: '#555' }}>Sou-total / Sous-total / Subtotal:</span>
           <span>{fmt(invoice.subtotalHtg)} HTG</span>
         </div>
         {Number(invoice.discountHtg) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '2px' }}>
-            <span>{t('invoice.discountTotal')}:</span>
+            <span>Remiz / Remise / Discount:</span>
             <span>-{fmt(invoice.discountHtg)} HTG</span>
           </div>
         )}
         {Number(invoice.taxHtg) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>{t('invoice.tax')}:</span>
+            <span>Taks / Taxe / Tax ({Number(invoice.taxRate || 0)}%):</span>
             <span>{fmt(invoice.taxHtg)} HTG</span>
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '14px', fontFamily: 'Arial', paddingTop: '4px', borderTop: '2px solid #111', marginTop: '4px' }}>
-          <span>{t('invoice.grandTotal')}:</span>
-          <span>{fmt(invoice.totalHtg)} HTG</span>
+
+        {/* ✅ FIX: yon sèl TOTAL — pa repete */}
+        <div style={{ borderTop: '2px solid #111', marginTop: '4px', paddingTop: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '13px', fontFamily: 'Arial' }}>
+            <span>TOTAL:</span>
+            <span>{fmt(invoice.totalHtg)} HTG</span>
+          </div>
         </div>
-        {Number(invoice.amountPaidHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#16a34a', marginTop: '4px' }}>
-            <span>{t('invoice.paid')}:</span>
-            <span style={{ fontWeight: '700' }}>{fmt(invoice.amountPaidHtg)} HTG</span>
+      </div>
+
+      {/* ══ PEMAN ══ */}
+      <div style={{ fontSize: '9px', marginBottom: '5px', padding: '4px 6px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+          <span style={{ color: '#555' }}>Peye / Payé / Paid:</span>
+          <span style={{ fontWeight: '700', color: '#16a34a' }}>{fmt(invoice.amountPaidHtg)} HTG</span>
+        </div>
+        {Number(invoice.balanceDueHtg) > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#555' }}>Balans / Solde / Balance:</span>
+            <span style={{ fontWeight: '800', color: '#dc2626' }}>{fmt(invoice.balanceDueHtg)} HTG</span>
           </div>
         )}
-        {Number(invoice.balanceDueHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626' }}>
-            <span>{t('invoice.balance')}:</span>
-            <span style={{ fontWeight: '700' }}>{fmt(invoice.balanceDueHtg)} HTG</span>
+        {lastPayment && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+            <span style={{ color: '#555' }}>Metòd / Mode / Method:</span>
+            <span style={{ fontWeight: '600' }}>{lastPayment.method}</span>
+          </div>
+        )}
+        {lastPayment?.reference && (
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#555' }}>Ref:</span>
+            <span>{lastPayment.reference}</span>
           </div>
         )}
       </div>
 
-      {/* METÒD PEMAN */}
-      {lastPayment && (
-        <div style={{ fontSize: '10px', marginBottom: '6px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#555' }}>{t('invoice.paymentMethod')}:</span>
-            <span style={{ fontWeight: '600' }}>{t(`invoice.${lastPayment.method}`) || lastPayment.method}</span>
-          </div>
-          {lastPayment.reference && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#555' }}>{t('invoice.reference')}:</span>
-              <span>{lastPayment.reference}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* STATUT BADGE */}
-      <div style={{ textAlign: 'center', margin: '8px 0', padding: '6px', background: `${statusColor}15`, border: `1.5px solid ${statusColor}`, borderRadius: '6px' }}>
-        <span style={{ fontWeight: '900', fontSize: '12px', color: statusColor, fontFamily: 'Arial' }}>
+      {/* ══ STATUT BADGE ══ */}
+      <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: `${statusColor}15`, border: `1.5px solid ${statusColor}`, borderRadius: '5px' }}>
+        <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>
           {statusLabel}
         </span>
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '8px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* QR CODE */}
+      {/* ══ QR CODE ══ */}
       {qrDataUrl && (
-        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <img src={qrDataUrl} alt="QR Code" style={{ width: '100px', height: '100px', display: 'block', margin: '0 auto 3px' }} />
-          <div style={{ fontSize: '9px', color: '#888' }}>{t('invoice.scanQR')}</div>
-          <div style={{ fontSize: '9px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
+        <div style={{ textAlign: 'center', marginBottom: '5px' }}>
+          <img src={qrDataUrl} alt="QR Code" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
+          <div style={{ fontSize: '8px', color: '#888' }}>Skane / Scanner / Scan to verify</div>
+          <div style={{ fontSize: '8px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
         </div>
       )}
 
-      {/* PYE PAJ */}
-      <div style={{ textAlign: 'center', fontSize: '10px', borderTop: '1px dashed #ccc', paddingTop: '6px' }}>
-        <div style={{ fontWeight: '700', fontSize: '11px', marginBottom: '3px' }}>{t('invoice.thankYou')}</div>
-        <div style={{ color: '#666', fontSize: '9px', lineHeight: '1.4' }}>{t('invoice.footerTerms')}</div>
-        <div style={{ marginTop: '6px', fontSize: '9px', color: '#bbb' }}>{t('invoice.poweredBy')}</div>
+      {/* ══ PYE PAJ ══ */}
+      <div style={{ textAlign: 'center', fontSize: '9px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
+        <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>
+          Mesi! / Merci! / Thank you!
+        </div>
+        <div style={{ color: '#666', fontSize: '8px', lineHeight: '1.4' }}>
+          Vant final. / Vente finale. / All sales are final.
+        </div>
+        <div style={{ marginTop: '5px', fontSize: '8px', color: '#bbb' }}>
+          Powered by PlusGroup
+        </div>
       </div>
     </div>
   )
@@ -271,12 +294,27 @@ export default function InvoiceDetail() {
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
 
-  // Konvèti logo an base64 yon fwa sèlman
+  // ✅ FIX: Konvèti logo an base64 — relanse chak fwa logoUrl chanje
   useEffect(() => {
     const url = tenant?.logoUrl
-    if (!url) return
-    const fullUrl = url.startsWith('http') ? url : (url.startsWith('/') ? url : `/${url}`)
-    toBase64(fullUrl).then(b64 => setLogoBase64(b64))
+    if (!url) {
+      setLogoBase64(null)
+      return
+    }
+    // Bati URL konplè si se yon chemen relatif
+    const fullUrl = url.startsWith('http')
+      ? url
+      : `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`
+
+    toBase64(fullUrl).then(b64 => {
+      if (b64) {
+        setLogoBase64(b64)
+      } else {
+        // Dènye recours: sèvi ak URL dirèk nan resi a
+        console.warn('Logo base64 echwe, ap itilize URL dirèk')
+        setLogoBase64(url)
+      }
+    })
   }, [tenant?.logoUrl])
 
   useEffect(() => {
@@ -294,62 +332,47 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice])
 
-// Enprime resi — logo base64, san taux, san zoom
-const handlePrint = async () => {
-  const targetLang = tenant?.defaultLanguage || 'ht'
-  const currentLang = i18n.language
+  const handlePrint = async () => {
+    const receiptEl = document.getElementById('printable-receipt')
+    if (!receiptEl) { toast.error('Resi pa disponib.'); return }
 
-  // Chanje lang si nesesè epi tann React rerender
-  if (targetLang !== currentLang) {
-    await i18n.changeLanguage(targetLang)
-    await new Promise(r => setTimeout(r, 350))
+    const receiptSize = tenant?.receiptSize || '80mm'
+    const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
+
+    const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
+    if (!printWindow) {
+      toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
+      return
+    }
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Resi ${invoice?.invoiceNumber || ''}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
+          @media print {
+            @page { margin: 0; size: ${receiptSize} auto; }
+            body { margin: 0; }
+          }
+        </style>
+      </head>
+      <body>${receiptHTML}</body>
+      </html>
+    `)
+    printWindow.document.close()
+
+    printWindow.onload = () => {
+      setTimeout(() => {
+        printWindow.focus()
+        printWindow.print()
+        setTimeout(() => printWindow.close(), 1000)
+      }, 200)
+    }
   }
-
-  const receiptEl = document.getElementById('printable-receipt')
-  if (!receiptEl) { toast.error('Resi pa disponib.'); return }
-
-  const receiptSize = tenant?.receiptSize || '80mm'
-  const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
-
-  const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
-  if (!printWindow) {
-    toast.error('Navigatè bloke popup. Pèmèt popup pou sit sa.')
-    return
-  }
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Resi ${invoice?.invoiceNumber || ''}</title>
-      <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
-        @media print {
-          @page { margin: 0; size: ${receiptSize} auto; }
-          body { margin: 0; }
-        }
-      </style>
-    </head>
-    <body>${receiptHTML}</body>
-    </html>
-  `)
-  printWindow.document.close()
-
-  printWindow.onload = () => {
-    setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
-      setTimeout(() => printWindow.close(), 1000)
-    }, 200)
-  }
-
-  // Retounen nan lang UI orijinal
-  if (targetLang !== currentLang) {
-    setTimeout(() => i18n.changeLanguage(currentLang), 800)
-  }
-}
 
   const paymentMutation = useMutation({
     mutationFn: (data) => invoiceAPI.addPayment(id, data),
@@ -414,7 +437,7 @@ const handlePrint = async () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/invoices')} className="btn-ghost p-2">
+          <button onClick={() => navigate('/app/invoices')} className="btn-ghost p-2">
             <ArrowLeft size={18} />
           </button>
           <div>
@@ -426,7 +449,7 @@ const handlePrint = async () => {
             </div>
             <p className="text-slate-500 text-sm">
               Soti devis:{' '}
-              <Link to={`/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
+              <Link to={`/app/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
                 {invoice.quote?.quoteNumber}
               </Link>
             </p>
@@ -434,8 +457,6 @@ const handlePrint = async () => {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-
-          {/* ── Bouton Enprime Resi — yon sèl bouton, pa gen lang menu */}
           <button
             onClick={handlePrint}
             className="btn-secondary btn-sm"
@@ -445,7 +466,6 @@ const handlePrint = async () => {
             Enprime Resi
           </button>
 
-          {/* Bouton Bluetooth Printer */}
           {hasBluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
@@ -471,7 +491,6 @@ const handlePrint = async () => {
             </div>
           )}
 
-          {/* Bouton PDF */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -514,7 +533,6 @@ const handlePrint = async () => {
         </div>
       </div>
 
-      {/* Bandwòl Bluetooth statut */}
       {connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
@@ -525,7 +543,6 @@ const handlePrint = async () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Kliyan */}
           <div className="card p-5">
             <h3 className="section-title">Kliyan</h3>
             {snap.name
@@ -539,7 +556,6 @@ const handlePrint = async () => {
             }
           </div>
 
-          {/* Atik yo */}
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-slate-100">
               <h3 className="font-display font-bold text-slate-800">Atik yo</h3>
@@ -565,7 +581,6 @@ const handlePrint = async () => {
             </table>
           </div>
 
-          {/* Istwa Peman */}
           {invoice.payments?.length > 0 && (
             <div className="card overflow-hidden">
               <div className="p-4 border-b border-slate-100">
@@ -588,7 +603,6 @@ const handlePrint = async () => {
           )}
         </div>
 
-        {/* Kolòn dwat */}
         <div className="space-y-4">
           <div className="card p-5">
             <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
@@ -647,7 +661,6 @@ const handlePrint = async () => {
         </div>
       </div>
 
-      {/* Modal Peman */}
       {showPayment && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPayment(false)}>
           <div className="modal max-w-md">

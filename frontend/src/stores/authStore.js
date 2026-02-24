@@ -11,12 +11,14 @@ export const useAuthStore = create(
       loading: true,
 
       setAuth: (token, user, tenant) => {
-        // Sovgade slug nan localStorage pou interceptor api.js
         if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
         set({ token, user, tenant, loading: false })
       },
 
-      updateTenant: (tenant) => set({ tenant }),
+      // ✅ FIX: merge avèk egzistan olye ranplase nèt
+      updateTenant: (updates) => set(state => ({
+        tenant: { ...state.tenant, ...updates }
+      })),
 
       setLoading: (loading) => set({ loading }),
 
@@ -37,10 +39,8 @@ export const useAuthStore = create(
       name: 'pg-auth',
       partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
       onRehydrateStorage: () => (state) => {
-        // Lè localStorage fin chaje, mete loading=false tousuit
         if (state) {
           state.setLoading(false)
-          // Restore slug pou api interceptor
           if (state.tenant?.slug) {
             localStorage.setItem('plusgroup-slug', state.tenant.slug)
           }
