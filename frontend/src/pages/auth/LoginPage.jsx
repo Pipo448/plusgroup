@@ -85,6 +85,11 @@ export default function LoginPage() {
   const navigate     = useNavigate()
   const [searchParams] = useSearchParams()
   const setAuth      = useAuthStore(s => s.setAuth)
+  const token = useAuthStore(s => s.token)
+
+useEffect(() => {
+  if (token) navigate('/app/dashboard', { replace: true })
+}, [token, navigate])
   const [show, setShow]         = useState(false)
   const [loading, setLoading]   = useState(false)
   const [showLang, setShowLang] = useState(false)
