@@ -275,23 +275,17 @@ export const printInvoice = async (invoice, tenant) => {
       ...CMD.LINE_FEED,
     ] : []),
 
-    // ── NON BIZNIS + ADRES + TELEFON
+    // ── NON BIZNIS + ADRES + TELEFON (done depi Paramèt → Jeneral)
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
     ...encodeText(trunc(tenant?.businessName || tenant?.name || 'PLUS GROUP', W) + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    // Adres biznis (depi paramet)
+    // Adres (champ 'address' nan Paramèt)
     ...(tenant?.address ? [...encodeText(trunc(tenant.address, W) + '\n')] : []),
-    // Telefon biznis (depi paramet) — itilize businessPhone si disponib, sinon phone
-    ...((tenant?.businessPhone || tenant?.phone)
-      ? [...encodeText((tenant.businessPhone || tenant.phone) + '\n')]
-      : []),
-    // Email biznis (opsyonèl)
-    ...(tenant?.businessEmail || tenant?.email
-      ? [...CMD.SMALL_FONT, ...encodeText((tenant.businessEmail || tenant.email) + '\n'), ...CMD.NORMAL_FONT]
-      : []),
+    // Telefon (champ 'phone' nan Paramèt)
+    ...(tenant?.phone ? [...encodeText(tenant.phone + '\n')] : []),
     ...CMD.LINE_FEED,
 
     // ── TITRE RESI
@@ -318,7 +312,8 @@ export const printInvoice = async (invoice, tenant) => {
 
     // ── DAT + TAUX
     ...makeLine(L.date + ':', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
-    ...(invoice.exchangeRate
+    // ✅ Taux sou resi — sèlman si showExchangeRate !== false (paramèt Jeneral)
+    ...(invoice.exchangeRate && tenant?.showExchangeRate !== false
       ? [...makeLine(L.rate + ': 1 USD =', Number(invoice.exchangeRate).toFixed(2) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
 
