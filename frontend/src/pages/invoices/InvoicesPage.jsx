@@ -221,7 +221,8 @@ function InvCard({ inv, s, D, fmt, t, showRate, exchangeRates, visibleCurrs }) {
         <span style={{ fontFamily:'monospace', fontWeight:900, color:D.blue, fontSize:13 }}>{inv.invoiceNumber}</span>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
-          <Link to={`/invoices/${inv.id}`} style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none', boxShadow:`0 3px 10px ${D.blue}40` }}>
+          {/* ✅ FIX: chanje /invoices/ → /app/invoices/ */}
+          <Link to={`/app/invoices/${inv.id}`} style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none', boxShadow:`0 3px 10px ${D.blue}40` }}>
             <Eye size={15}/>
           </Link>
         </div>
@@ -290,7 +291,8 @@ function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRates, visibleCurrs }) 
       <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{format(new Date(inv.issueDate), 'dd/MM/yy')}</span>
 
       <div style={{ textAlign:'right' }}>
-        <Link to={`/invoices/${inv.id}`} style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:hov ? `linear-gradient(135deg,${D.blue},${D.blueLt})` : D.blueDim, color:hov ? '#fff' : D.blue, textDecoration:'none', transition:'all 0.2s' }}>
+        {/* ✅ FIX: chanje /invoices/ → /app/invoices/ */}
+        <Link to={`/app/invoices/${inv.id}`} style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:hov ? `linear-gradient(135deg,${D.blue},${D.blueLt})` : D.blueDim, color:hov ? '#fff' : D.blue, textDecoration:'none', transition:'all 0.2s' }}>
           <Eye size={13}/>
         </Link>
       </div>
