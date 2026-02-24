@@ -78,7 +78,8 @@ export default function QuotesPage() {
 
   const convertMutation = useMutation({
     mutationFn: (id) => quoteAPI.convert(id),
-    onSuccess:  (res) => { toast.success('Devis konvèti an facture!'); qc.invalidateQueries(['quotes']); navigate(`/invoices/${res.data.invoice.id}`) }
+    // ✅ FIX: chanje /invoices/ → /app/invoices/
+    onSuccess:  (res) => { toast.success('Devis konvèti an facture!'); qc.invalidateQueries(['quotes']); navigate(`/app/invoices/${res.data.invoice.id}`) }
   })
   const cancelMutation = useMutation({
     mutationFn: (id) => quoteAPI.cancel(id),
@@ -103,7 +104,8 @@ export default function QuotesPage() {
             <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{data?.total || 0} devis total</p>
           </div>
         </div>
-        <Link to="/quotes/new" style={{
+        {/* ✅ FIX: chanje /quotes/new → /app/quotes/new */}
+        <Link to="/app/quotes/new" style={{
           display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, textDecoration:'none',
           background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,
           color:'#fff', fontWeight:800, fontSize:14, boxShadow:`0 4px 16px ${D.blue}45`,
@@ -146,7 +148,8 @@ export default function QuotesPage() {
             ? <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
                 <FileText size={32} color={D.gold} style={{ marginBottom:12 }}/>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Okenn devis jwenn</p>
-                <Link to="/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
+                {/* ✅ FIX: chanje /quotes/new → /app/quotes/new */}
+                <Link to="/app/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
                   <Plus size={14}/> Kreye premye devis ou
                 </Link>
               </div>
@@ -178,7 +181,8 @@ export default function QuotesPage() {
                   <FileText size={32} color={D.gold}/>
                 </div>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Okenn devis jwenn</p>
-                <Link to="/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
+                {/* ✅ FIX: chanje /quotes/new → /app/quotes/new */}
+                <Link to="/app/quotes/new" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
                   <Plus size={14}/> Kreye premye devis ou
                 </Link>
               </div>
@@ -225,7 +229,8 @@ function QuoteCard({ q, D, fmt, showRate, exchangeRates, visibleCurrs, convertMu
         <span style={{ fontFamily:'monospace', fontWeight:900, color:D.gold, fontSize:13 }}>{q.quoteNumber}</span>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, textTransform:'uppercase' }}>{s.label}</span>
-          <Link to={`/quotes/${q.id}`} style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none' }}>
+          {/* ✅ FIX: chanje /quotes/ → /app/quotes/ */}
+          <Link to={`/app/quotes/${q.id}`} style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none' }}>
             <Eye size={15}/>
           </Link>
         </div>
@@ -244,7 +249,6 @@ function QuoteCard({ q, D, fmt, showRate, exchangeRates, visibleCurrs, convertMu
         <div>
           <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>Total</p>
           <p style={{ fontFamily:'monospace', fontWeight:900, color:D.text, fontSize:15, margin:0 }}>{fmt(q.totalHtg)} HTG</p>
-          {/* Konvèsyon DOP / USD */}
           {convStr && (
             <p style={{ fontFamily:'monospace', fontSize:11, color:D.muted, margin:'2px 0 0' }}>{convStr}</p>
           )}
@@ -263,7 +267,8 @@ function QuoteCard({ q, D, fmt, showRate, exchangeRates, visibleCurrs, convertMu
       {!['converted', 'cancelled'].includes(q.status) && (
         <div style={{ display:'flex', gap:8, borderTop:`1px solid ${D.border}`, paddingTop:10 }}>
           {['draft', 'sent'].includes(q.status) && (
-            <Link to={`/quotes/${q.id}/edit`} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, textDecoration:'none', background:D.blueDim, color:D.blue, fontWeight:700, fontSize:12 }}>
+            // ✅ FIX: chanje /quotes/ → /app/quotes/
+            <Link to={`/app/quotes/${q.id}/edit`} style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, textDecoration:'none', background:D.blueDim, color:D.blue, fontWeight:700, fontSize:12 }}>
               <Edit2 size={13}/> Modifye
             </Link>
           )}
@@ -311,7 +316,6 @@ function QuoteRow({ q, idx, D, fmt, showRate, exchangeRates, visibleCurrs, conve
         {q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>San kliyan</span>}
       </span>
 
-      {/* Kolòn Total — HTG + konvèsyon DOP/USD anba */}
       <div style={{ textAlign:'center' }}>
         <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(q.totalHtg)} HTG</span>
         {convStr && (
@@ -332,7 +336,8 @@ function QuoteRow({ q, idx, D, fmt, showRate, exchangeRates, visibleCurrs, conve
       </span>
 
       <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
-        <Link to={`/quotes/${q.id}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:hov ? D.blueDim : '#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}><Eye size={13}/></Link>
+        {/* ✅ FIX: chanje /quotes/ → /app/quotes/ */}
+        <Link to={`/app/quotes/${q.id}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:hov ? D.blueDim : '#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}><Eye size={13}/></Link>
         {['draft', 'sent'].includes(q.status) && actionBtn(() => {}, <Edit2 size={12}/>, 'Modifye', D.blue)}
         {q.status === 'draft' && actionBtn(() => sendMutation.mutate(q.id), <Send size={12}/>, 'Voye', '#0284C7')}
         {['draft', 'sent', 'accepted'].includes(q.status) && actionBtn(() => { if (confirm('Konvèti?')) convertMutation.mutate(q.id) }, <CheckCircle size={12}/>, 'Konvèti', D.success)}
