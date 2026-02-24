@@ -235,8 +235,29 @@ export const isPrinterConnected = () => !!_char && !!_device?.gatt?.connected
 export const printInvoice = async (invoice, tenant) => {
   if (!_char) throw new Error('Printer pa konekte')
 
+  // ✅ Parse tout done tenant — ka se string JSON apre persist/rehydrate
+  const safeJson = (val, fallback) => {
+    if (!val) return fallback
+    if (typeof val === 'object') return val
+    try { return JSON.parse(val) } catch { return fallback }
+  }
+
+  // Nòmalize tenant — asire tout champ yo kòrèk
+  const t = {
+    ...tenant,
+    name:             tenant?.businessName || tenant?.name || 'PLUS GROUP',
+    phone:            tenant?.phone        || '',
+    address:          tenant?.address      || '',
+    exchangeRates:    safeJson(tenant?.exchangeRates, {}),
+    visibleCurrencies:safeJson(tenant?.visibleCurrencies, []),
+    showExchangeRate: tenant?.showExchangeRate !== false,  // defò: true
+    receiptSize:      tenant?.receiptSize  || '80mm',
+  }
+
+
+
   const fmt  = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-  const W    = getWidth(tenant)
+  const W    = getWidth(t)
   const snap = invoice.clientSnapshot || {}
   const is57 = W <= 32  // 57mm papye
 
@@ -279,13 +300,13 @@ export const printInvoice = async (invoice, tenant) => {
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
-    ...encodeText(trunc(tenant?.businessName || tenant?.name || 'PLUS GROUP', W) + '\n'),
+    ...encodeText(trunc(t.name, W) + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
     // Adres (champ 'address' nan Paramèt)
-    ...(tenant?.address ? [...encodeText(trunc(tenant.address, W) + '\n')] : []),
+    ...(t.address ? [...encodeText(trunc(t.address, W) + '\n')] : []),
     // Telefon (champ 'phone' nan Paramèt)
-    ...(tenant?.phone ? [...encodeText(tenant.phone + '\n')] : []),
+    ...(t.phone ? [...encodeText(t.phone + '\n')] : []),
     ...CMD.LINE_FEED,
 
     // ── TITRE RESI
@@ -313,7 +334,7 @@ export const printInvoice = async (invoice, tenant) => {
     // ── DAT + TAUX
     ...makeLine(L.date + ':', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
     // ✅ Taux sou resi — sèlman si showExchangeRate !== false (paramèt Jeneral)
-    ...(invoice.exchangeRate && tenant?.showExchangeRate !== false
+    ...(invoice.exchangeRate && t.showExchangeRate
       ? [...makeLine(L.rate + ': 1 USD =', Number(invoice.exchangeRate).toFixed(2) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
 
@@ -375,14 +396,10 @@ export const printInvoice = async (invoice, tenant) => {
     // ✅ Konvèsyon USD + DOP — SMALL_FONT, pa bold, pi piti ke TOTAL HTG
     ...(() => {
       const rates = (() => {
-        if (!tenant?.exchangeRates) return {}
-        if (typeof tenant.exchangeRates === 'object') return tenant.exchangeRates
-        try { return JSON.parse(tenant.exchangeRates) } catch { return {} }
+        return t.exchangeRates
       })()
       const visible = (() => {
-        if (!tenant?.visibleCurrencies) return []
-        if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
-        try { return JSON.parse(tenant.visibleCurrencies) } catch { return [] }
+        return t.visibleCurrencies
       })()
       const symbols = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
       const lines = visible.map(cur => {
@@ -435,7 +452,7 @@ export const printInvoice = async (invoice, tenant) => {
     ...encodeText(L.thankYou + '\n'),
     ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText((L.poweredBy + (tenant?.phone ? ' | ' + tenant.phone : '')) + '\n'),
+    ...encodeText((L.poweredBy + (t.phone ? ' | ' + t.phone : '')) + '\n'),
     ...CMD.NORMAL_FONT,
 
     ...CMD.LINE_FEED,
