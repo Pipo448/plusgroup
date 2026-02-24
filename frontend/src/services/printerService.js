@@ -1,7 +1,5 @@
 // src/services/printerService.js
 // Goojprt PT-210 — ESC/POS via Web Bluetooth (Android Chrome)
-// Resi Trilingg: Kreyòl / Français / English
-// ✅ v2: Logo ESC/POS (GS v 0) + TOTAL adapte 57mm/80mm
 
 const PRINTER_SERVICE_UUID   = '000018f0-0000-1000-8000-00805f9b34fb'
 const PRINTER_CHAR_UUID      = '00002af1-0000-1000-8000-00805f9b34fb'
@@ -11,6 +9,7 @@ const PRINTER_CHAR_UUID_2    = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
 let _device = null
 let _char   = null
 
+// ── ESC/POS kòmand
 const ESC = 0x1B
 const GS  = 0x1D
 const LF  = 0x0A
@@ -23,59 +22,20 @@ const CMD = {
   BOLD_ON:       [ESC, 0x45, 0x01],
   BOLD_OFF:      [ESC, 0x45, 0x00],
   DOUBLE_HEIGHT: [ESC, 0x21, 0x10],
-  DOUBLE_BOTH:   [ESC, 0x21, 0x30],
+  DOUBLE_BOTH:   [ESC, 0x21, 0x30],  // doub lajè + wotè
   NORMAL_SIZE:   [ESC, 0x21, 0x00],
   SMALL_FONT:    [ESC, 0x4D, 0x01],
   NORMAL_FONT:   [ESC, 0x4D, 0x00],
   LINE_FEED:     [LF],
   CUT:           [GS, 0x56, 0x41, 0x03],
-  QR_MODEL:      [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00],
-  QR_SIZE:       [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06],
-  QR_ERROR:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30],
-  QR_PRINT:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30],
+  // QR Code ESC/POS
+  QR_MODEL:      [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00], // model 2
+  QR_SIZE:       [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06],       // size 6
+  QR_ERROR:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30],       // error M
+  QR_PRINT:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30],       // print
 }
 
-const L = {
-  receipt:       'Resi / Recu / Receipt',
-  invoiceNo:     'No. Fakti / No. Facture / Invoice No.',
-  date:          'Dat / Date / Date',
-  rate:          'Taux / Taux / Rate',
-  client:        'Kliyan / Client / Client',
-  phone:         'Tel / Tel / Tel',
-  product:       'Pwodui / Produit / Product',
-  qty:           'Qte / Qte / Qty',
-  unitPrice:     'Pri U. / Prix U. / Unit Price',
-  total:         'Total / Total / Total',
-  discount:      'Remiz / Remise / Discount',
-  subtotal:      'Sou-total / Sous-total / Subtotal',
-  tax:           'Taks / Taxe / Tax',
-  grandTotal:    'TOTAL / TOTAL / TOTAL',
-  paid:          'Peye / Paye / Paid',
-  balance:       'Balans / Solde / Balance',
-  payMethod:     'Metod peman / Mode paiement / Payment method',
-  reference:     'Referans / Reference / Reference',
-  scanQr:        'Skane pou verifye / Scanner pour verifier / Scan to verify',
-  thankYou:      'Mesi pou biznis ou! / Merci pour votre confiance! / Thank you for your business!',
-  poweredBy:     'Powered by PlusGroup',
-  statusPaid:      'PEYE / PAYE / PAID',
-  statusPartial:   'PEMAN PASYAL / PAIEMENT PARTIEL / PARTIAL PAYMENT',
-  statusCancelled: 'ANILE / ANNULE / CANCELLED',
-  statusUnpaid:    'IMPAYE / NON PAYE / UNPAID',
-  item:          'Atik/Art./Item',
-  q:             'Q',
-  pri:           'Pri/Pr./Pr.',
-  tot:           'Tot',
-  paymentMethods: {
-    cash:     'Kach / Cash / Cash',
-    moncash:  'MonCash / MonCash / MonCash',
-    natcash:  'NatCash / NatCash / NatCash',
-    card:     'Kat / Carte / Card',
-    transfer: 'Virement / Virement / Transfer',
-    check:    'Chek / Cheque / Check',
-    other:    'Lot / Autre / Other',
-  }
-}
-
+// ── Retire aksan pou ESC/POS (pa sipòte UTF-8 nòmalman)
 const encodeText = (text) => {
   const clean = String(text)
     .normalize('NFD')
@@ -84,11 +44,13 @@ const encodeText = (text) => {
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
 
+// ── Lajè pou 80mm = 48 karaktè, 58mm = 32 karaktè
 const getWidth = (tenant) => {
   const size = tenant?.receiptSize || '80mm'
   return size === '57mm' ? 32 : 48
 }
 
+// ── Liy avèk goch ak dwat
 const makeLine = (left, right, width) => {
   const l = String(left)
   const r = String(right)
@@ -97,95 +59,27 @@ const makeLine = (left, right, width) => {
   return encodeText(l + ' '.repeat(spaces) + r)
 }
 
-const trunc = (text, maxLen) => String(text || '').substring(0, maxLen)
+// ── Separatè
 const divider = (char, width) => encodeText(char.repeat(width))
 
+// ── QR Code bytes pou yon URL/tèks
 const makeQR = (content) => {
-  const data = encodeText(content)
-  const len  = data.length + 3
-  const lenL = len & 0xFF
-  const lenH = (len >> 8) & 0xFF
+  const data    = encodeText(content)
+  const len     = data.length + 3
+  const lenL    = len & 0xFF
+  const lenH    = (len >> 8) & 0xFF
   return [
     ...CMD.QR_MODEL,
     ...CMD.QR_SIZE,
     ...CMD.QR_ERROR,
+    // Stoke done QR a
     GS, 0x28, 0x6B, lenL, lenH, 0x31, 0x50, 0x30, ...data,
+    // Enprime QR a
     ...CMD.QR_PRINT,
   ]
 }
 
-// ──────────────────────────────────────────
-// ✅ LOGO ESC/POS — GS v 0 (Raster Bit Image)
-// Fonksyone pou 57mm (maxPx=240) ak 80mm (maxPx=384)
-// ──────────────────────────────────────────
-const logoToEscPos = (logoBase64, maxWidthPx) => new Promise((resolve) => {
-  if (!logoBase64) return resolve([])
-  try {
-    const img = new Image()
-    img.onload = () => {
-      try {
-        const MAX_W = maxWidthPx || 240
-        const MAX_H = 100  // limite wotè pou pa gaspiye papye
-
-        let w = img.width
-        let h = img.height
-
-        // Rezize propòsyonèl
-        if (w > MAX_W) { h = Math.round(h * MAX_W / w); w = MAX_W }
-        if (h > MAX_H) { w = Math.round(w * MAX_H / h); h = MAX_H }
-
-        // Lajè DWE miltip de 8 (ESC/POS obligasyon)
-        w = Math.floor(w / 8) * 8
-        if (w < 8 || h < 1) return resolve([])
-
-        const canvas = document.createElement('canvas')
-        canvas.width  = w
-        canvas.height = h
-        const ctx = canvas.getContext('2d')
-
-        // Fon blan — printer thermal pa konprann transparans
-        ctx.fillStyle = '#FFFFFF'
-        ctx.fillRect(0, 0, w, h)
-        ctx.drawImage(img, 0, 0, w, h)
-
-        const imageData   = ctx.getImageData(0, 0, w, h)
-        const pixels      = imageData.data
-        const bytesPerRow = w / 8
-        const bitmap      = []
-
-        // Konvèti chak pixel an 1 bit (noir = enprime, blan = vid)
-        for (let y = 0; y < h; y++) {
-          for (let bx = 0; bx < bytesPerRow; bx++) {
-            let byte = 0
-            for (let bit = 0; bit < 8; bit++) {
-              const x   = bx * 8 + bit
-              const idx = (y * w + x) * 4
-              const lum = 0.299 * pixels[idx] + 0.587 * pixels[idx + 1] + 0.114 * pixels[idx + 2]
-              if (lum < 128) byte |= (0x80 >> bit)
-            }
-            bitmap.push(byte)
-          }
-        }
-
-        // GS v 0 — kòmand raster bit image
-        const xL = bytesPerRow & 0xFF
-        const xH = (bytesPerRow >> 8) & 0xFF
-        const yL = h & 0xFF
-        const yH = (h >> 8) & 0xFF
-
-        resolve([GS, 0x76, 0x30, 0x00, xL, xH, yL, yH, ...bitmap])
-      } catch (e) {
-        console.warn('Logo bitmap echwe:', e)
-        resolve([])
-      }
-    }
-    img.onerror = () => resolve([])
-    img.src = logoBase64
-  } catch (e) {
-    resolve([])
-  }
-})
-
+// ── Voye bytes nan printer (chunk pa chunk)
 const sendBytes = async (bytes) => {
   if (!_char) throw new Error('Printer pa konekte')
   const CHUNK = 100
@@ -195,9 +89,12 @@ const sendBytes = async (bytes) => {
   }
 }
 
+// ──────────────────────────────────────────
+// Koneksyon
+// ──────────────────────────────────────────
 export const connectPrinter = async () => {
   if (!navigator.bluetooth) {
-    throw new Error('Web Bluetooth pa sipote. Itilize Chrome Android.')
+    throw new Error('Web Bluetooth pa sipòte. Itilize Chrome Android.')
   }
   try {
     _device = await navigator.bluetooth.requestDevice({
@@ -232,229 +129,202 @@ export const disconnectPrinter = () => {
 
 export const isPrinterConnected = () => !!_char && !!_device?.gatt?.connected
 
+// ──────────────────────────────────────────
+// Enprime Resi — menm konsepsyon ak HTML popup la
+// ──────────────────────────────────────────
 export const printInvoice = async (invoice, tenant) => {
   if (!_char) throw new Error('Printer pa konekte')
 
-  // ✅ Parse tout done tenant — ka se string JSON apre persist/rehydrate
-  const safeJson = (val, fallback) => {
-    if (!val) return fallback
-    if (typeof val === 'object') return val
-    try { return JSON.parse(val) } catch { return fallback }
-  }
+  const fmt   = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  const W     = getWidth(tenant) // 48 pou 80mm, 32 pou 57mm
+  const snap  = invoice.clientSnapshot || {}
 
-  // Nòmalize tenant — asire tout champ yo kòrèk
-  const t = {
-    ...tenant,
-    name:             tenant?.businessName || tenant?.name || 'PLUS GROUP',
-    phone:            tenant?.phone        || '',
-    address:          tenant?.address      || '',
-    exchangeRates:    safeJson(tenant?.exchangeRates, {}),
-    visibleCurrencies:safeJson(tenant?.visibleCurrencies, []),
-    showExchangeRate: tenant?.showExchangeRate !== false,  // defò: true
-    receiptSize:      tenant?.receiptSize  || '80mm',
-  }
-
-
-
-  const fmt  = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-  const W    = getWidth(t)
-  const snap = invoice.clientSnapshot || {}
-  const is57 = W <= 32  // 57mm papye
-
+  // Dènye peman
   const lastPay = invoice.payments?.length > 0
     ? invoice.payments[invoice.payments.length - 1]
     : null
 
+  const PAYMENT_LABELS = {
+    cash: 'Cash', moncash: 'MonCash', natcash: 'NatCash',
+    card: 'Carte', transfer: 'Virement', check: 'Cheque', other: 'Autre'
+  }
+
   const statusText =
-    invoice.status === 'paid'      ? L.statusPaid :
-    invoice.status === 'partial'   ? L.statusPartial :
-    invoice.status === 'cancelled' ? L.statusCancelled :
-    L.statusUnpaid
+    invoice.status === 'paid'      ? '*** FULLY PAID ***' :
+    invoice.status === 'partial'   ? '--- PEMAN PASYAL ---' :
+    invoice.status === 'cancelled' ? '--- ANILE ---' :
+    '--- IMPAYE ---'
 
-  const qrContent = `${window.location.origin}/app/invoices/${invoice.id}\n${invoice.invoiceNumber}`
+  // QR content = URL fakti + nimewo
+  const qrContent = `${window.location.origin}/invoices/${invoice.id}\n${invoice.invoiceNumber}`
 
-  // ✅ Logo: 57mm = 240px max, 80mm = 384px max
-  const logoBytes = await logoToEscPos(tenant?.logoUrl || null, is57 ? 240 : 384)
-  const hasLogo   = logoBytes.length > 0
-
+  // ── Kolòn atik: Pwodui | Qty | Pri U. | Total
+  // Lajè kolòn selon tay papye
   const isWide = W >= 48
   const C = isWide
-    ? { name: 20, qty: 4, price: 12, total: 12 }
-    : { name: 12, qty: 3, price: 8,  total: 9  }
+    ? { name: 20, qty: 4, price: 10, total: 12 }  // 80mm: 20+4+10+12 = 46 + 2 espas = 48
+    : { name: 12, qty: 3, price: 7, total: 8 }    // 57mm: 12+3+7+8 = 30 + 2 espas = 32
 
-  const itemHdr = isWide
-    ? trunc(L.product, C.name).padEnd(C.name) + trunc(L.qty, C.qty).padStart(C.qty) + trunc(L.unitPrice, C.price).padStart(C.price) + trunc(L.total, C.total).padStart(C.total)
-    : trunc(L.item, C.name).padEnd(C.name) + L.q.padStart(C.qty) + trunc(L.pri, C.price).padStart(C.price) + L.tot.padStart(C.total)
+  const itemHeader = isWide
+    ? 'Pwodui'.padEnd(C.name) + 'Qty'.padStart(C.qty) + 'Pri U.'.padStart(C.price) + 'Total'.padStart(C.total)
+    : 'Atik'.padEnd(C.name) + 'Q'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
 
   const bytes = [
     ...CMD.INIT,
 
-    // ── LOGO (si disponib)
-    ...(hasLogo ? [
-      ...CMD.ALIGN_CENTER,
-      ...logoBytes,
-      ...CMD.LINE_FEED,
-    ] : []),
-
-    // ── NON BIZNIS + ADRES + TELEFON (done depi Paramèt → Jeneral)
+    // ── HEADER: Non biznis
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
-    ...encodeText(trunc(t.name, W) + '\n'),
+    ...encodeText((tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    // Adres (champ 'address' nan Paramèt)
-    ...(t.address ? [...encodeText(trunc(t.address, W) + '\n')] : []),
-    // Telefon (champ 'phone' nan Paramèt)
-    ...(t.phone ? [...encodeText(t.phone + '\n')] : []),
+
+    // Telefòn + Adrès
+    ...(tenant?.phone   ? [...encodeText('\u{1F4DE} ' + tenant.phone + '\n')]   : []),
+    ...(tenant?.address ? [...encodeText(tenant.address + '\n')]               : []),
     ...CMD.LINE_FEED,
 
-    // ── TITRE RESI
-    ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER,
+    // ── TITRE
+    ...divider('-', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_HEIGHT,
-    ...encodeText(L.receipt + '\n'),
+    ...encodeText('SALES RECEIPT\n'),
     ...CMD.NORMAL_SIZE,
-    ...CMD.BOLD_OFF,
-    ...divider('=', W), ...CMD.LINE_FEED,
-
-    // ── NIMEWO FAKTI
-    ...CMD.ALIGN_LEFT,
-    ...CMD.BOLD_ON,
-    ...encodeText(L.invoiceNo + '\n'),
-    ...CMD.BOLD_OFF,
-    ...CMD.ALIGN_CENTER,
-    ...CMD.DOUBLE_HEIGHT,
-    ...encodeText(invoice.invoiceNumber + '\n'),
-    ...CMD.NORMAL_SIZE,
-    ...CMD.ALIGN_LEFT,
-    ...CMD.LINE_FEED,
-
-    // ── DAT + TAUX
-    ...makeLine(L.date + ':', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
-    // ✅ Taux sou resi — sèlman si showExchangeRate !== false (paramèt Jeneral)
-    ...(invoice.exchangeRate && t.showExchangeRate
-      ? [...makeLine(L.rate + ': 1 USD =', Number(invoice.exchangeRate).toFixed(2) + ' HTG', W), ...CMD.LINE_FEED]
-      : []),
-
-    // ── KLIYAN
-    ...(snap.name ? [
-      ...divider('-', W), ...CMD.LINE_FEED,
-      ...CMD.BOLD_ON,
-      ...encodeText(L.client + ':\n'),
-      ...CMD.BOLD_OFF,
-      ...encodeText(trunc(snap.name, W) + '\n'),
-      ...(snap.phone ? [...encodeText(L.phone + ': ' + snap.phone + '\n')] : []),
-      ...(snap.email ? [...CMD.SMALL_FONT, ...encodeText(snap.email + '\n'), ...CMD.NORMAL_FONT] : []),
-      ...(snap.nif   ? [...encodeText('NIF: ' + snap.nif + '\n')] : []),
-    ] : []),
-
-    // ── TABLO ATIK
-    ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.SMALL_FONT,
-    ...CMD.BOLD_ON,
-    ...encodeText(itemHdr.substring(0, W) + '\n'),
     ...CMD.BOLD_OFF,
     ...divider('-', W), ...CMD.LINE_FEED,
 
+    // ── INFO FAKTI
+    ...CMD.ALIGN_LEFT,
+    ...makeLine('Invoice No.:', invoice.invoiceNumber || '', W), ...CMD.LINE_FEED,
+    ...makeLine('Date:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
+    ...(tenant?.exchangeRate
+      ? [...makeLine('Rate: 1 USD =', Number(tenant.exchangeRate).toFixed(2) + ' HTG', W), ...CMD.LINE_FEED]
+      : []),
+
+    // ── KLIYAN
+    ...(snap.name
+      ? [
+          ...divider('-', W), ...CMD.LINE_FEED,
+          ...CMD.BOLD_ON,
+          ...encodeText('Client: ' + snap.name.substring(0, W - 8) + '\n'),
+          ...CMD.BOLD_OFF,
+          ...(snap.phone ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
+        ]
+      : []),
+
+    // ── TABLO ATIK
+    ...divider('-', W), ...CMD.LINE_FEED,
+    ...CMD.SMALL_FONT,
+    ...CMD.BOLD_ON,
+    ...encodeText(itemHeader + '\n'),
+    ...CMD.BOLD_OFF,
+    ...divider('-', W), ...CMD.LINE_FEED,
+
+    // Atik yo (yon pa yon)
     ...(invoice.items || []).flatMap(item => {
-      const nom = trunc(item.product?.name || item.productSnapshot?.name || '?', C.name)
-      const qte = String(Number(item.quantity)).padStart(C.qty)
-      const pri = fmt(item.unitPriceHtg).padStart(C.price)
-      const tot = fmt(item.totalHtg).padStart(C.total)
-      const row = nom.padEnd(C.name) + qte + pri + tot
+      const nom   = (item.product?.name || item.productSnapshot?.name || 'Atik').substring(0, C.name)
+      const qte   = String(Number(item.quantity)).padStart(C.qty)
+      const pri   = fmt(item.unitPriceHtg).padStart(C.price)
+      const tot   = fmt(item.totalHtg).padStart(C.total)
+      const row   = nom.padEnd(C.name) + qte + pri + tot
+
       const result = [...encodeText(row.substring(0, W) + '\n')]
+
+      // Si remiz, afiche li
       if (Number(item.discountPct) > 0) {
-        result.push(...CMD.SMALL_FONT, ...encodeText('  ' + L.discount + ': ' + item.discountPct + '%\n'), ...CMD.NORMAL_FONT)
+        result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
       }
       return result
     }),
 
     ...CMD.NORMAL_FONT,
-    ...divider('=', W), ...CMD.LINE_FEED,
+    ...divider('-', W), ...CMD.LINE_FEED,
 
     // ── TOTAUX
     ...CMD.ALIGN_LEFT,
-    ...makeLine(L.subtotal + ':', fmt(invoice.subtotalHtg) + ' HTG', W), ...CMD.LINE_FEED,
+    ...makeLine('Subtotal:', fmt(invoice.subtotalHtg) + ' HTG', W), ...CMD.LINE_FEED,
     ...(Number(invoice.discountHtg) > 0
-      ? [...makeLine(L.discount + ':', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED]
+      ? [...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
     ...(Number(invoice.taxHtg) > 0
-      ? [...makeLine(L.tax + ' (' + Number(invoice.taxRate || 0) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED]
+      ? [...makeLine('TVA (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
+
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // ✅ TOTAL HTG — DOUBLE_HEIGHT pou 57mm (pa DOUBLE_BOTH ki kase "HTG" sou 2 liy)
-    // Fòma: "TOTAL: 100,00" sou liy 1, "HTG" pa nan menm liy — DOUBLE_HEIGHT evite sa
+    // ── TOTAL (gwo)
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
-    ...CMD.DOUBLE_HEIGHT,
+    ...CMD.DOUBLE_BOTH,
     ...encodeText('TOTAL: ' + fmt(invoice.totalHtg) + ' HTG\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    // ✅ Konvèsyon USD + DOP — SMALL_FONT, pa bold, pi piti ke TOTAL HTG
-    ...(() => {
-      const rates = (() => {
-        return t.exchangeRates
-      })()
-      const visible = (() => {
-        return t.visibleCurrencies
-      })()
-      const symbols = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
-      const lines = visible.map(cur => {
-        const rate = Number(rates[cur] || 0)
-        if (!rate) return null
-        const converted = Number(invoice.totalHtg) / rate
-        const sym = symbols[cur] || cur
-        // Fòma kout: "= $0.74 USD" oswa "= RD$4.37 DOP" — pa bold, SMALL_FONT
-        return encodeText('= ' + sym + fmt(converted) + ' ' + cur + '\n')
-      }).filter(Boolean)
-      if (!lines.length) return []
-      return [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...lines.flat(), ...CMD.NORMAL_FONT]
-    })(),
+
     ...divider('=', W), ...CMD.LINE_FEED,
 
     // ── PEMAN
     ...CMD.ALIGN_LEFT,
-    ...makeLine(L.paid + ':', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
+    ...CMD.BOLD_ON,
+    ...encodeText('Amount paid: '),
+    ...CMD.BOLD_OFF,
+    ...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n'),
+
     ...(Number(invoice.balanceDueHtg) > 0
-      ? [...CMD.BOLD_ON, ...makeLine(L.balance + ':', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.BOLD_OFF]
+      ? [
+          ...CMD.BOLD_ON,
+          ...encodeText('Balance: '),
+          ...CMD.BOLD_OFF,
+          ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'),
+        ]
       : []),
-    ...(lastPay ? [
-      ...makeLine(L.payMethod + ':', L.paymentMethods[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
-      ...(lastPay.reference ? [...makeLine(L.reference + ':', trunc(lastPay.reference, 20), W), ...CMD.LINE_FEED] : []),
-    ] : []),
+
+    // Metòd peman
+    ...(lastPay
+      ? [
+          ...makeLine('Payment method:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
+          ...(lastPay.reference
+            ? [...makeLine('Reference:', lastPay.reference, W), ...CMD.LINE_FEED]
+            : []),
+        ]
+      : []),
+
     ...divider('-', W), ...CMD.LINE_FEED,
 
-    // ── STATUT
+    // ── STATUT BADGE
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_HEIGHT,
-    ...encodeText('[ ' + statusText + ' ]\n'),
+    ...encodeText(statusText + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
+
     ...divider('-', W), ...CMD.LINE_FEED,
 
-    // ── QR CODE
+    // ── QR CODE (ESC/POS natif)
     ...CMD.ALIGN_CENTER,
     ...makeQR(qrContent),
     ...CMD.LINE_FEED,
     ...CMD.SMALL_FONT,
-    ...encodeText(L.scanQr + '\n'),
+    ...encodeText('Scan QR to verify this invoice\n'),
     ...encodeText(invoice.invoiceNumber + '\n'),
     ...CMD.NORMAL_FONT,
+
     ...divider('-', W), ...CMD.LINE_FEED,
 
     // ── PYE PAJ
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
-    ...encodeText(L.thankYou + '\n'),
+    ...encodeText('Thank you for your business!\n'),
     ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText((L.poweredBy + (t.phone ? ' | ' + t.phone : '')) + '\n'),
+    ...encodeText('Payment: Cash, MonCash, NatCash.\n'),
+    ...encodeText('All sales are final.\n'),
+    ...CMD.LINE_FEED,
+    ...encodeText('Powered by PlusGroup\n'),
     ...CMD.NORMAL_FONT,
 
+    // ── Espas + Koupe
     ...CMD.LINE_FEED,
     ...CMD.LINE_FEED,
     ...CMD.LINE_FEED,

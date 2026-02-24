@@ -1,0 +1,26 @@
+﻿feat: add DOP (Peso Dominiken) conversion everywhere USD displays
+
+All amount columns now show HTG + live conversion to all enabled
+currencies (USD, DOP, EUR) based on tenant.exchangeRates and
+tenant.visibleCurrencies set in Settings.
+
+InvoicesPage.jsx
+- InvCard (mobile): Total / Peye / Balans each with conv line below
+- InvRow (desktop): Total / Peye / Balans each with conv line below
+
+QuotesPage.jsx
+- QuoteCard (mobile): Total with conv line below
+- QuoteRow (desktop): Total with conv line below
+
+QuoteDetail.jsx
+- Items table: total per line with conv lines
+- Totals sidebar: sous-total, remiz, TVA, TOTAL all with WithConv helper
+- Removed hardcoded USD - dynamic now
+
+Dashboard.jsx
+- StatCard sub prop now shows conv string
+- InvoiceRow: Total column now shows conv line below the HTG amount
+
+Shared helper (in each file):
+  convertFromHTG(amountHTG, currency, exchangeRates)
+  fmtConv(amountHTG, exchangeRates, visibleCurrencies)
