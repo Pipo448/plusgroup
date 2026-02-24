@@ -364,14 +364,15 @@ export const printInvoice = async (invoice, tenant) => {
       : []),
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // ✅ TOTAL HTG + konvèsyon monè (USD, DOP, etc.)
+    // ✅ TOTAL HTG — DOUBLE_HEIGHT pou 57mm (pa DOUBLE_BOTH ki kase "HTG" sou 2 liy)
+    // Fòma: "TOTAL: 100,00" sou liy 1, "HTG" pa nan menm liy — DOUBLE_HEIGHT evite sa
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
-    ...(is57 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
-    ...encodeText(L.grandTotal + ': ' + fmt(invoice.totalHtg) + ' HTG\n'),
+    ...CMD.DOUBLE_HEIGHT,
+    ...encodeText('TOTAL: ' + fmt(invoice.totalHtg) + ' HTG\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    // Konvèsyon selon taux tenant
+    // ✅ Konvèsyon USD + DOP — SMALL_FONT, pa bold, pi piti ke TOTAL HTG
     ...(() => {
       const rates = (() => {
         if (!tenant?.exchangeRates) return {}
@@ -383,13 +384,14 @@ export const printInvoice = async (invoice, tenant) => {
         if (Array.isArray(tenant.visibleCurrencies)) return tenant.visibleCurrencies
         try { return JSON.parse(tenant.visibleCurrencies) } catch { return [] }
       })()
-      const symbols = { USD: 'USD', DOP: 'RD$', EUR: 'EUR', CAD: 'CA$' }
+      const symbols = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
       const lines = visible.map(cur => {
         const rate = Number(rates[cur] || 0)
         if (!rate) return null
         const converted = Number(invoice.totalHtg) / rate
         const sym = symbols[cur] || cur
-        return encodeText('(' + fmt(converted) + ' ' + sym + ')\n')
+        // Fòma kout: "= $0.74 USD" oswa "= RD$4.37 DOP" — pa bold, SMALL_FONT
+        return encodeText('= ' + sym + fmt(converted) + ' ' + cur + '\n')
       }).filter(Boolean)
       if (!lines.length) return []
       return [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...lines.flat(), ...CMD.NORMAL_FONT]
