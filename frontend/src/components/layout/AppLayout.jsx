@@ -42,7 +42,6 @@ const logoSrc = (url) => {
   return url.startsWith('/') ? url : `/${url}`
 }
 
-// ── Parse JSON fields ki ka vini kòm string oswa objè
 const parseJson = (val, fallback) => {
   if (!val) return fallback
   if (typeof val === 'object') return val
@@ -53,18 +52,15 @@ export default function AppLayout() {
   const { user, tenant, token, setAuth, logout } = useAuthStore()
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [open, setOpen]         = useState(false)
-  const [showLang, setShowLang] = useState(false)
+  const [open, setOpen]           = useState(false)
+  const [showLang, setShowLang]   = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
-  // ── Parse taux chanj tenant
- const exchangeRates = parseJson(tenant?.exchangeRates, {})
-const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
-console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?.exchangeRate })
-  // Toujou montre taux — showExchangeRate pou kontrol nan paramèt
+  const exchangeRates     = parseJson(tenant?.exchangeRates, {})
+  const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
   const showExchangeRate  = tenant?.showExchangeRate !== false
 
   useEffect(() => {
@@ -88,7 +84,7 @@ console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?
 
   useEffect(() => {
     try {
-      const raw = JSON.parse(localStorage.getItem('pg-auth') || '{}')
+      const raw  = JSON.parse(localStorage.getItem('pg-auth') || '{}')
       const auth = raw?.state || raw
       if (auth?.tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = auth.tenant.slug
     } catch {}
@@ -110,21 +106,18 @@ console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?
   const handleLogout = () => { logout(); toast.success('Ou dekonekte.'); navigate('/login') }
 
   const changeLanguage = (code) => {
-  i18n.changeLanguage(code)
-  localStorage.setItem('plusgroup-lang', code)  // ← ou sovgade nan 'plusgroup-lang'
-  setShowLang(false)
-}
+    i18n.changeLanguage(code)
+    localStorage.setItem('plusgroup-lang', code)
+    setShowLang(false)
+  }
+
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
-  // ── Kalkile tou to yo pou afichaj
-  // Estrateji: chèche nan exchangeRates d abò (objè), sinon fallback sou exchangeRate pou USD
   const rateItems = showExchangeRate
     ? visibleCurrencies
         .map(currency => {
-          const fromMap = (exchangeRates && typeof exchangeRates === 'object')
-            ? exchangeRates[currency]
-            : undefined
-          const rate = fromMap ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : 0)
+          const fromMap = (exchangeRates && typeof exchangeRates === 'object') ? exchangeRates[currency] : undefined
+          const rate    = fromMap ?? (currency === 'USD' ? Number(tenant?.exchangeRate || 0) : 0)
           if (!rate || Number(rate) <= 0) return null
           return { currency, rate: Number(rate) }
         })
@@ -147,7 +140,6 @@ console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
 
-      {/* Overlay mobil */}
       {open && !isDesktop && (
         <div onClick={() => setOpen(false)} style={{
           position:'fixed', inset:0, zIndex:35,
@@ -157,14 +149,12 @@ console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?
 
       {/* ══ SIDEBAR ══ */}
       <aside style={sidebarStyle}>
-        {/* Barre or animée */}
         <div style={{
           height:3,
           background:'linear-gradient(90deg,transparent,#8B6914 15%,#C9A84C 35%,#F0D080 50%,#C9A84C 65%,#8B6914 85%,transparent)',
           animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%',
         }}/>
 
-        {/* Bouton X mobil */}
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
             position:'absolute', top:12, right:12, zIndex:50,
@@ -267,7 +257,6 @@ console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?
             </button>
           )}
 
-          {/* ✅ Taux chanj — afiche tout devise ki aktive yo */}
           {rateItems.map(({ currency, rate }) => (
             <div key={currency} style={{
               display:'flex', alignItems:'center', gap:5,
