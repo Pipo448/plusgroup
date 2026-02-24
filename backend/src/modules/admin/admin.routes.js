@@ -39,7 +39,6 @@ router.post('/setup-superadmin', async (req, res) => {
     const bcrypt = require('bcryptjs');
     const prismaClient = new PrismaClient();
 
-    // Check if super admin already exists
     const existing = await prismaClient.superAdmin.findFirst();
     
     if (existing) {
@@ -50,7 +49,6 @@ router.post('/setup-superadmin', async (req, res) => {
       });
     }
 
-    // Create super admin
     const hashedPassword = await bcrypt.hash('SuperAdmin2024!', 12);
     
     const superAdmin = await prismaClient.superAdmin.create({
@@ -62,19 +60,13 @@ router.post('/setup-superadmin', async (req, res) => {
       }
     });
 
-    console.log('✅ Super Admin created:', superAdmin.id);
-
     await prismaClient.$disconnect();
 
     res.json({
       success: true,
       message: 'Super Admin kreye avèk siksè! 🎉',
       data: {
-        superAdmin: {
-          id: superAdmin.id,
-          name: superAdmin.name,
-          email: superAdmin.email
-        },
+        superAdmin: { id: superAdmin.id, name: superAdmin.name, email: superAdmin.email },
         credentials: {
           email: 'admin@plusgroup.ht',
           password: 'SuperAdmin2024!',
@@ -85,136 +77,51 @@ router.post('/setup-superadmin', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Setup Super Admin error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erè pandan kreye super admin',
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: 'Erè pandan kreye super admin', error: error.message });
   }
 });
 
 // ============================================================
-// ✅ SETUP DEMO TENANT - SAN AUTHENTICATION  
-// Run ONCE pou kreye demo tenant (moncoeur-auto-parts)
+// ✅ DELETE TENANT PAR SLUG - SAN AUTHENTICATION
+// Pou netwaye tenant yo pa bezwen
 // ============================================================
-router.post('/setup-demo', async (req, res) => {
+router.delete('/tenants/by-slug/:slug', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
-    const bcrypt = require('bcryptjs');
     const prismaClient = new PrismaClient();
+    const { slug } = req.params;
 
-    // Verifye si tenant deja egziste
-    const existingTenant = await prismaClient.tenant.findUnique({
-      where: { slug: 'moncoeur-auto-parts' }
-    });
+    const tenant = await prismaClient.tenant.findUnique({ where: { slug } });
 
-    if (existingTenant) {
+    if (!tenant) {
       await prismaClient.$disconnect();
-      return res.status(400).json({
-        success: false,
-        message: 'Tenant "moncoeur-auto-parts" deja egziste!'
-      });
+      return res.status(404).json({ success: false, message: `Tenant "${slug}" pa jwenn.` });
     }
 
-    // 1. Kreye Tenant
-    const tenant = await prismaClient.tenant.create({
-      data: {
-        name: 'Moncoeur Auto Parts',
-        slug: 'moncoeur-auto-parts',
-        email: 'moncoeur@gmail.com',
-        phone: '+50942449024',
-        address: 'Ouanaminthe, Haiti',
-        defaultCurrency: 'HTG',
-        defaultLanguage: 'ht',
-        status: 'active'
-      }
-    });
-
-    console.log('✅ Tenant created:', tenant.id);
-
-    // 2. Kreye User Admin
-    const hashedPassword = await bcrypt.hash('Moncoeur2024!', 10);
-    
-    const user = await prismaClient.user.create({
-      data: {
-        tenantId: tenant.id,
-        fullName: 'Moncoeur Admin',
-        email: 'moncoeur@gmail.com',
-        passwordHash: hashedPassword,
-        role: 'admin',
-        isActive: true
-      }
-    });
-
-    console.log('✅ User created:', user.id);
-
-    // 3. Kreye kek categories demo
-    const categories = await prismaClient.category.createMany({
-      data: [
-        { tenantId: tenant.id, name: 'Pièces Moteur', color: '#1B3A6B' },
-        { tenantId: tenant.id, name: 'Freins', color: '#C0392B' },
-        { tenantId: tenant.id, name: 'Huiles & Filtres', color: '#27ae60' },
-        { tenantId: tenant.id, name: 'Électrique', color: '#C9A84C' },
-        { tenantId: tenant.id, name: 'Accessoires', color: '#E8836A' }
-      ]
-    });
-
-    console.log('✅ Categories created:', categories.count);
-
-    // 4. Kreye sekans dokiman
-    await Promise.all([
-      prismaClient.documentSequence.create({
-        data: { 
-          tenantId: tenant.id, 
-          documentType: 'quote', 
-          prefix: 'DEV', 
-          currentYear: new Date().getFullYear() 
-        }
-      }),
-      prismaClient.documentSequence.create({
-        data: { 
-          tenantId: tenant.id, 
-          documentType: 'invoice', 
-          prefix: 'FAC', 
-          currentYear: new Date().getFullYear() 
-        }
-      })
-    ]);
-
-    console.log('✅ Document sequences created');
+    // Efase tout done lye ak tenant an (ordre enpòtan)
+    await prismaClient.stockMovement.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } });
+    await prismaClient.payment.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.invoice.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.quoteItem.deleteMany({ where: { quote: { tenantId: tenant.id } } });
+    await prismaClient.quote.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.product.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.category.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.client.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.documentSequence.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.user.deleteMany({ where: { tenantId: tenant.id } });
+    await prismaClient.tenant.delete({ where: { id: tenant.id } });
 
     await prismaClient.$disconnect();
 
     res.json({
       success: true,
-      message: 'Demo tenant kreye avèk siksè! 🎉',
-      data: {
-        tenant: {
-          id: tenant.id,
-          slug: tenant.slug,
-          name: tenant.name
-        },
-        user: {
-          id: user.id,
-          email: user.email,
-          role: user.role
-        },
-        credentials: {
-          slug: 'moncoeur-auto-parts',
-          email: 'moncoeur@gmail.com',
-          password: 'Moncoeur2024!'
-        },
-        categoriesCreated: categories.count
-      }
+      message: `Tenant "${slug}" efase avèk siksè! 🗑️`
     });
 
   } catch (error) {
-    console.error('❌ Setup error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erè pandan kreye tenant',
-      error: error.message
-    });
+    console.error('❌ Delete tenant error:', error);
+    res.status(500).json({ success: false, message: 'Erè pandan efase tenant', error: error.message });
   }
 });
 
@@ -387,10 +294,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 
   const tenant = await prisma.tenant.update({
     where: { id: req.params.id },
-    data: {
-      subscriptionEndsAt: baseDate,
-      status: 'active'
-    },
+    data: { subscriptionEndsAt: baseDate, status: 'active' },
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   });
 
@@ -411,10 +315,10 @@ router.get('/plans', asyncHandler(async (req, res) => {
   if (plans.length === 0) {
     await prisma.subscriptionPlan.createMany({
       data: [
-        { name: 'Basik',      nameFr: 'Basique',      maxUsers: 3,   maxProducts: 200,  priceMonthly: 1500, features: JSON.stringify(['Fakti', 'Devis', 'Kliyan']) },
-        { name: 'Estanda',    nameFr: 'Standard',     maxUsers: 10,  maxProducts: 1000, priceMonthly: 3500, features: JSON.stringify(['Fakti', 'Devis', 'Kliyan', 'Rapò', 'Stòk']) },
-        { name: 'Biznis',     nameFr: 'Business',     maxUsers: 25,  maxProducts: 5000, priceMonthly: 7500, features: JSON.stringify(['Tout fonksyon', 'Rapò avanse', 'Sipò priorite']) },
-        { name: 'Antrepriz',  nameFr: 'Entreprise',   maxUsers: 100, maxProducts: 99999,priceMonthly: 15000,features: JSON.stringify(['Tout fonksyon', 'Itilizatè entelimite', 'Sipò dedye']) },
+        { name: 'Basik',     nameFr: 'Basique',    maxUsers: 3,   maxProducts: 200,   priceMonthly: 1500,  features: JSON.stringify(['Fakti', 'Devis', 'Kliyan']) },
+        { name: 'Estanda',   nameFr: 'Standard',   maxUsers: 10,  maxProducts: 1000,  priceMonthly: 3500,  features: JSON.stringify(['Fakti', 'Devis', 'Kliyan', 'Rapò', 'Stòk']) },
+        { name: 'Biznis',    nameFr: 'Business',   maxUsers: 25,  maxProducts: 5000,  priceMonthly: 7500,  features: JSON.stringify(['Tout fonksyon', 'Rapò avanse', 'Sipò priorite']) },
+        { name: 'Antrepriz', nameFr: 'Entreprise', maxUsers: 100, maxProducts: 99999, priceMonthly: 15000, features: JSON.stringify(['Tout fonksyon', 'Itilizatè entelimite', 'Sipò dedye']) },
       ]
     });
     plans = await prisma.subscriptionPlan.findMany({
@@ -453,10 +357,7 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
   const expiring = await prisma.tenant.findMany({
     where: {
       status: 'active',
-      subscriptionEndsAt: {
-        lte: fiveDaysFromNow,
-        gte: new Date()
-      }
+      subscriptionEndsAt: { lte: fiveDaysFromNow, gte: new Date() }
     },
     select: {
       id: true, name: true, email: true, subscriptionEndsAt: true,
