@@ -35,17 +35,19 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARES GLOBAUX
 // ============================================================
 
+// Sécurité
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
+// ✅ CORS KORIJE - Aksepte frontend production
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://plusgroup-frontend.onrender.com',
-    'https://app.plusgroupe.com',
-    /\.onrender\.com$/
+    'https://plusgroup-frontend.onrender.com',  // ← PRODUCTION FRONTEND
+    /\.plusinnovation\.ht$/,
+    /\.onrender\.com$/  // ← Tous apps Render
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -59,25 +61,26 @@ app.use(rateLimit({
   message: { success: false, message: 'Twòp demann. Tanpri tann yon ti tan.' }
 }));
 
-// ✅ Rate limiting auth - 50 tantativ / 15 min (te 10 avan)
+// Rate limiting strict pour auth
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
-  message: { success: false, message: 'Twòp tantativ. Tann 15 minit.' },
-  standardHeaders: true,
-  legacyHeaders: false,
+  max: 10,
+  message: { success: false, message: 'Twòp tantativ. Tann 15 minit.' }
 });
 
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
+// Logging
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', {
     stream: { write: (msg) => logger.info(msg.trim()) }
   }));
 }
 
+// Fichiers statiques (logos, images)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // ============================================================
@@ -86,6 +89,24 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 const API = '/api/v1';
 
+// ✅ ROOT ROUTE
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    app: 'PLUS GROUP — Innov@tion & Tech SaaS API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: '/health',
+      setupSuperAdmin: '/api/v1/admin/setup-superadmin',
+      setupDemo: '/api/v1/admin/setup-demo',
+      admin: '/api/v1/admin/*',
+      auth: '/api/v1/auth/*'
+    }
+  });
+});
+
+// Health check
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -96,23 +117,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    app: 'PLUS GROUP SaaS API',
-    version: '1.0.0',
-    status: 'running',
-    endpoints: {
-      health: '/health',
-      admin: '/api/v1/admin',
-      auth: '/api/v1/auth',
-      setup: '/api/v1/admin/setup-demo'
-    }
-  });
-});
-
+// Super Admin
 app.use(`${API}/admin`, adminRoutes);
+
+// Auth (avec rate limiting)
 app.use(`${API}/auth`, authLimiter, authRoutes);
+
+// Routes protégées (nécessitent tenant + user auth)
 app.use(`${API}/tenant`, tenantRoutes);
 app.use(`${API}/users`, userRoutes);
 app.use(`${API}/products`, productRoutes);
@@ -123,6 +134,7 @@ app.use(`${API}/payments`, paymentRoutes);
 app.use(`${API}/stock`, stockRoutes);
 app.use(`${API}/reports`, reportRoutes);
 
+// 404 & Error handlers
 app.use(notFound);
 app.use(errorHandler);
 
@@ -134,7 +146,7 @@ app.listen(PORT, () => {
   logger.info(`🚀 PLUS GROUP SaaS API démarré sur le port ${PORT}`);
   logger.info(`📦 Environnement: ${process.env.NODE_ENV}`);
   logger.info(`🌐 URL: ${process.env.API_URL}`);
-  logger.info(`✅ CORS aktivé pou: localhost:3000, localhost:5173`);
+  logger.info(`✅ CORS aktivé pou: localhost:3000, localhost:5173, plusgroup-frontend.onrender.com`);
 });
 
 module.exports = app;

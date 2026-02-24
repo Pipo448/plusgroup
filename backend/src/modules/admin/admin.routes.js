@@ -30,58 +30,100 @@ router.post('/login', asyncHandler(async (req, res) => {
 }));
 
 // ============================================================
-// ✅ SETUP ENDPOINT - SAN AUTHENTICATION
-// ✅ MOVE ANVAN router.use(superAdminAuth) POU PA GEN PROTECTION!
+// ✅ SETUP SUPER ADMIN - SAN AUTHENTICATION
+// Run ONCE pou kreye initial super admin
 // ============================================================
-router.get('/setup-demo', async (req, res) => {
+router.post('/setup-superadmin', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
     const bcrypt = require('bcryptjs');
     const prismaClient = new PrismaClient();
 
-    // ✅ KOREKSYON: Si tenant deja egziste, retounen done li yo olye bloke
+    // Check if super admin already exists
+    const existing = await prismaClient.superAdmin.findFirst();
+    
+    if (existing) {
+      await prismaClient.$disconnect();
+      return res.json({
+        success: false,
+        message: 'Super Admin deja egziste! Pa ka kreye yon lòt.'
+      });
+    }
+
+    // Create super admin
+    const hashedPassword = await bcrypt.hash('SuperAdmin2024!', 12);
+    
+    const superAdmin = await prismaClient.superAdmin.create({
+      data: {
+        name: 'PLUS GROUP Admin',
+        email: 'admin@plusgroup.ht',
+        passwordHash: hashedPassword,
+        isActive: true
+      }
+    });
+
+    console.log('✅ Super Admin created:', superAdmin.id);
+
+    await prismaClient.$disconnect();
+
+    res.json({
+      success: true,
+      message: 'Super Admin kreye avèk siksè! 🎉',
+      data: {
+        superAdmin: {
+          id: superAdmin.id,
+          name: superAdmin.name,
+          email: superAdmin.email
+        },
+        credentials: {
+          email: 'admin@plusgroup.ht',
+          password: 'SuperAdmin2024!',
+          loginUrl: '/admin/login'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('❌ Setup Super Admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erè pandan kreye super admin',
+      error: error.message
+    });
+  }
+});
+
+// ============================================================
+// ✅ SETUP DEMO TENANT - SAN AUTHENTICATION  
+// Run ONCE pou kreye demo tenant (moncoeur-auto-parts)
+// ============================================================
+router.post('/setup-demo', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const bcrypt = require('bcryptjs');
+    const prismaClient = new PrismaClient();
+
+    // Verifye si tenant deja egziste
     const existingTenant = await prismaClient.tenant.findUnique({
-      where: { slug: 'plus-store' }
+      where: { slug: 'moncoeur-auto-parts' }
     });
 
     if (existingTenant) {
-      // Jwenn user admin ki asosye ak tenant an
-      const existingUser = await prismaClient.user.findFirst({
-        where: { tenantId: existingTenant.id, role: 'admin' }
-      });
-
       await prismaClient.$disconnect();
-      return res.status(200).json({
-        success: true,
-        message: 'Tenant deja konfigire — done retounen. ✅',
-        data: {
-          tenant: {
-            id: existingTenant.id,
-            slug: existingTenant.slug,
-            name: existingTenant.name
-          },
-          user: existingUser ? {
-            id: existingUser.id,
-            email: existingUser.email,
-            role: existingUser.role
-          } : null,
-          credentials: {
-            slug: 'plus-store',
-            email: 'admin@plusstore.ht',
-            password: 'PlusStore2024!'
-          }
-        }
+      return res.status(400).json({
+        success: false,
+        message: 'Tenant "moncoeur-auto-parts" deja egziste!'
       });
     }
 
     // 1. Kreye Tenant
     const tenant = await prismaClient.tenant.create({
       data: {
-        name: 'Plus Store',
-        slug: 'plus-store',
-        email: 'admin@plusstore.ht',
+        name: 'Moncoeur Auto Parts',
+        slug: 'moncoeur-auto-parts',
+        email: 'moncoeur@gmail.com',
         phone: '+50942449024',
-        address: 'Port-au-Prince, Haiti',
+        address: 'Ouanaminthe, Haiti',
         defaultCurrency: 'HTG',
         defaultLanguage: 'ht',
         status: 'active'
@@ -91,13 +133,13 @@ router.get('/setup-demo', async (req, res) => {
     console.log('✅ Tenant created:', tenant.id);
 
     // 2. Kreye User Admin
-    const hashedPassword = await bcrypt.hash('PlusStore2024!', 10);
+    const hashedPassword = await bcrypt.hash('Moncoeur2024!', 10);
     
     const user = await prismaClient.user.create({
       data: {
         tenantId: tenant.id,
-        fullName: 'Plus Store Admin',
-        email: 'admin@plusstore.ht',
+        fullName: 'Moncoeur Admin',
+        email: 'moncoeur@gmail.com',
         passwordHash: hashedPassword,
         role: 'admin',
         isActive: true
@@ -106,7 +148,20 @@ router.get('/setup-demo', async (req, res) => {
 
     console.log('✅ User created:', user.id);
 
-    // 3. Kreye sekans dokiman
+    // 3. Kreye kek categories demo
+    const categories = await prismaClient.category.createMany({
+      data: [
+        { tenantId: tenant.id, name: 'Pièces Moteur', color: '#1B3A6B' },
+        { tenantId: tenant.id, name: 'Freins', color: '#C0392B' },
+        { tenantId: tenant.id, name: 'Huiles & Filtres', color: '#27ae60' },
+        { tenantId: tenant.id, name: 'Électrique', color: '#C9A84C' },
+        { tenantId: tenant.id, name: 'Accessoires', color: '#E8836A' }
+      ]
+    });
+
+    console.log('✅ Categories created:', categories.count);
+
+    // 4. Kreye sekans dokiman
     await Promise.all([
       prismaClient.documentSequence.create({
         data: { 
@@ -145,10 +200,11 @@ router.get('/setup-demo', async (req, res) => {
           role: user.role
         },
         credentials: {
-          slug: 'plus-store',
-          email: 'admin@plusstore.ht',
-          password: 'PlusStore2024!'
-        }
+          slug: 'moncoeur-auto-parts',
+          email: 'moncoeur@gmail.com',
+          password: 'Moncoeur2024!'
+        },
+        categoriesCreated: categories.count
       }
     });
 
