@@ -71,10 +71,10 @@ const resources = {
         scanQR: 'Skane QR pou verifye fakti a', poweredBy: 'Jere pa PlusGroup',
       },
       invoices: {
-        title: 'Faktir', total: 'faktir total', searchPlaceholder: 'Nimewo oswa kliyan...',
+        title: 'Fakti', total: 'fakti total', searchPlaceholder: 'Nimewo oswa kliyan...',
         all: 'Tout', unpaid: 'Impaye', partial: 'Pasyal', paid: 'Peye', cancelled: 'Anile', refunded: 'Remèt',
         colNumber: 'Nimewo', colClient: 'Kliyan', colTotal: 'Total', colPaid: 'Peye',
-        colBalance: 'Balans', colStatus: 'Statut', colDate: 'Dat', noInvoices: 'Okenn faktir jwenn', page: 'Paj',
+        colBalance: 'Balans', colStatus: 'Statut', colDate: 'Dat', noInvoices: 'Okenn fakti jwenn', page: 'Paj',
       },
       products: {
         title: 'Pwodui', newProduct: 'Nouvo Pwodui', editProduct: 'Modifye Pwodui', createProduct: 'Kreye Pwodui',

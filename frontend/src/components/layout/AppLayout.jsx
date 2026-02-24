@@ -61,8 +61,9 @@ export default function AppLayout() {
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
   // ── Parse taux chanj tenant
-  const exchangeRates     = parseJson(tenant?.exchangeRates, {})
-  const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
+ const exchangeRates = parseJson(tenant?.exchangeRates, {})
+const visibleCurrencies = parseJson(tenant?.visibleCurrencies, ['USD'])
+console.log('[DEBUG rates]', { exchangeRates, visibleCurrencies, tenant: tenant?.exchangeRate })
   // Toujou montre taux — showExchangeRate pou kontrol nan paramèt
   const showExchangeRate  = tenant?.showExchangeRate !== false
 
@@ -109,11 +110,10 @@ export default function AppLayout() {
   const handleLogout = () => { logout(); toast.success('Ou dekonekte.'); navigate('/login') }
 
   const changeLanguage = (code) => {
-    i18n.changeLanguage(code)
-    localStorage.setItem('plusgroup-lang', code)
-    setShowLang(false)
-  }
-
+  i18n.changeLanguage(code)
+  localStorage.setItem('plusgroup-lang', code)  // ← ou sovgade nan 'plusgroup-lang'
+  setShowLang(false)
+}
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
   // ── Kalkile tou to yo pou afichaj
