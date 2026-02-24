@@ -45,9 +45,12 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://plusgroup-frontend.onrender.com',  // ← PRODUCTION FRONTEND
-    /\.plusinnovation\.ht$/,
-    /\.onrender\.com$/  // ← Tous apps Render
+    'https://plusgroup-frontend.onrender.com',  // Render frontend
+    'https://app.plusgroupe.com',               // ← AJOUTE: Custom domain
+    'https://plusgroupe.com',                   // ← AJOUTE: Root domain
+    /\.plusgroupe\.com$/,                       // ← AJOUTE: Tout sous-domèn plusgroupe.com
+    /\.plusinnovation\.ht$/,                    // Sous-domèn .ht
+    /\.onrender\.com$/                          // Tout apps Render
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -146,7 +149,7 @@ app.listen(PORT, () => {
   logger.info(`🚀 PLUS GROUP SaaS API démarré sur le port ${PORT}`);
   logger.info(`📦 Environnement: ${process.env.NODE_ENV}`);
   logger.info(`🌐 URL: ${process.env.API_URL}`);
-  logger.info(`✅ CORS aktivé pou: localhost:3000, localhost:5173, plusgroup-frontend.onrender.com`);
+  logger.info(`✅ CORS aktivé pou: localhost, plusgroup-frontend.onrender.com, app.plusgroupe.com`);
 });
 
 module.exports = app;
