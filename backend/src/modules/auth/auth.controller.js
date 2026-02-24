@@ -12,8 +12,6 @@ const login = asyncHandler(async (req, res) => {
 });
 
 const logout = asyncHandler(async (req, res) => {
-  // Avec JWT stateless, le logout est côté client
-  // On log juste l'action
   res.json({ success: true, message: 'Ou dekonekte avèk siksè.' });
 });
 
@@ -38,17 +36,23 @@ const getMe = asyncHandler(async (req, res) => {
     success: true,
     user: req.user,
     tenant: {
-      id: req.tenant.id,
-      name: req.tenant.name,
-      slug: req.tenant.slug,
-      logoUrl: req.tenant.logoUrl,
-      primaryColor: req.tenant.primaryColor,
-      defaultCurrency: req.tenant.defaultCurrency,
-      defaultLanguage: req.tenant.defaultLanguage,
-      exchangeRate: req.tenant.exchangeRate,
-      taxRate: req.tenant.taxRate,
-      receiptSize: req.tenant.receiptSize,                  // ✅ Ajoute
-      subscriptionEndsAt: req.tenant.subscriptionEndsAt,    // ✅ Ajoute — pou konte jou
+      id:                  req.tenant.id,
+      name:                req.tenant.name,
+      slug:                req.tenant.slug,
+      logoUrl:             req.tenant.logoUrl,
+      primaryColor:        req.tenant.primaryColor,
+      defaultCurrency:     req.tenant.defaultCurrency,
+      defaultLanguage:     req.tenant.defaultLanguage,
+      // ✅ Champ ki te manke — pou resi + header
+      phone:               req.tenant.phone,
+      address:             req.tenant.address,
+      exchangeRate:        req.tenant.exchangeRate,
+      exchangeRates:       req.tenant.exchangeRates,
+      visibleCurrencies:   req.tenant.visibleCurrencies,
+      showExchangeRate:    req.tenant.showExchangeRate,
+      taxRate:             req.tenant.taxRate,
+      receiptSize:         req.tenant.receiptSize,
+      subscriptionEndsAt:  req.tenant.subscriptionEndsAt,
     }
   });
 });
