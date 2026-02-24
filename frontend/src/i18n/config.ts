@@ -1,4 +1,4 @@
-// src/i18n/config.ts - KONPLÈ: nav, header, common, dashboard, quotes, invoice, invoices, products
+// src/i18n/config.ts
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 
@@ -6,14 +6,8 @@ const resources = {
   ht: {
     translation: {
       nav: {
-        dashboard: 'Tablo bò',
-        products: 'Pwodui',
-        clients: 'Kliyan',
-        quotes: 'Devis',
-        invoices: 'Fakti',
-        stock: 'Estòk',
-        reports: 'Rapò',
-        settings: 'Paramèt',
+        dashboard: 'Tablo bò', products: 'Pwodui', clients: 'Kliyan', quotes: 'Devis',
+        invoices: 'Fakti', stock: 'Estòk', reports: 'Rapò', settings: 'Paramèt',
       },
       header: { settings: 'Paramèt', logout: 'Dekonekte' },
       common: {
@@ -22,6 +16,8 @@ const resources = {
         confirm: 'Konfime', back: 'Retounen', total: 'Total', loading: 'Ap chaje...', error: 'Erè', success: 'Siksè',
       },
       dashboard: {
+        goodMorning: 'Bonjou',
+        goodEvening: 'Bonswa',
         greeting: 'Bonswa', sales30days: 'Vant 30 jou', totalSales: 'Total vant',
         paid: 'Peye', unpaid: 'Impaye', partial: 'Pasyal', balance: 'Balans',
         invoices: 'fakti', documents: 'dokiman', lowStock: 'Estòk ba', needRestock: 'Bezwen restock',
@@ -112,6 +108,8 @@ const resources = {
         confirm: 'Confirmer', back: 'Retour', total: 'Total', loading: 'Chargement...', error: 'Erreur', success: 'Succès',
       },
       dashboard: {
+        goodMorning: 'Bonjour',
+        goodEvening: 'Bonsoir',
         greeting: 'Bonjour', sales30days: 'Ventes 30 jours', totalSales: 'Total ventes',
         paid: 'Payé', unpaid: 'Impayé', partial: 'Partiel', balance: 'Solde',
         invoices: 'factures', documents: 'documents', lowStock: 'Stock bas', needRestock: 'Besoin réappro',
@@ -202,6 +200,8 @@ const resources = {
         confirm: 'Confirm', back: 'Back', total: 'Total', loading: 'Loading...', error: 'Error', success: 'Success',
       },
       dashboard: {
+        goodMorning: 'Good morning',
+        goodEvening: 'Good evening',
         greeting: 'Hello', sales30days: 'Sales 30 days', totalSales: 'Total sales',
         paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', balance: 'Balance',
         invoices: 'invoices', documents: 'documents', lowStock: 'Low stock', needRestock: 'Needs restock',
