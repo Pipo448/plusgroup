@@ -334,12 +334,28 @@ export default function AppLayout() {
           </div>
 
           {/* Notif */}
-          <button style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}>
-            <Bell size={18}/>
-            <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
-          </button>
-        </header>
+<div style={{ position:'relative' }}>
+  <button
+    onClick={() => setShowNotif(!showNotif)}
+    style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}
+  >
+    <Bell size={18}/>
+    <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
+  </button>
 
+  {showNotif && (
+    <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:320, background:'#fff', borderRadius:16, boxShadow:'0 16px 48px rgba(0,0,0,0.15)', border:'1px solid rgba(0,0,0,0.08)', zIndex:999, overflow:'hidden' }}>
+      <div style={{ padding:'14px 16px', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        <span style={{ fontWeight:700, fontSize:14 }}>Notifikasyon</span>
+        <button onClick={() => setShowNotif(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#999' }}>✕</button>
+      </div>
+      <div style={{ padding:24, textAlign:'center', color:'#aaa', fontSize:13 }}>
+        <Bell size={32} style={{ marginBottom:8, opacity:0.3 }}/>
+        <p>Pa gen notifikasyon pou kounye a</p>
+      </div>
+    </div>
+  )}
+</div>
         <main style={{ flex:1, overflowY:'auto' }}>
           <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
