@@ -52,20 +52,22 @@ const toBase64 = (url) => new Promise((resolve) => {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Komponan resi enprime
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeRates }) {
+function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   if (!invoice) return null
   const snap        = invoice.clientSnapshot || {}
-  const exchangeRates = (() => {
-    try {
-      const er = tenant?.exchangeRates
-      if (!er) return {}
-      if (typeof er === 'object') return er
-      return JSON.parse(er)
-    } catch(e) { return {} }
-  })()
   const isPaid      = invoice.status === 'paid'
   const isCancelled = invoice.status === 'cancelled'
   const isPartial   = invoice.status === 'partial'
+
+  // Parse exchangeRates depi tenant dirèkteman
+  const exchangeRates = (() => {
+    try {
+      const er = tenant && tenant.exchangeRates
+      if (!er) return {}
+      if (typeof er === 'object') return er
+      return JSON.parse(String(er))
+    } catch(e) { return {} }
+  })()
 
   // Trileng statut
   const statusLabel = isPaid
@@ -78,19 +80,19 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
 
   const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
 
-  const lastPayment = invoice.payments?.length > 0
+  const lastPayment = invoice.payments && invoice.payments.length > 0
     ? invoice.payments[invoice.payments.length - 1]
     : null
 
-  const receiptWidth = tenant?.receiptSize === '57mm' ? '57mm' : '80mm'
+  const receiptWidth = tenant && tenant.receiptSize === '57mm' ? '57mm' : '80mm'
 
   // 3 deviz: HTG, USD, DOP
   const totalHtg = Number(invoice.totalHtg || 0)
   const paidHtg  = Number(invoice.amountPaidHtg || 0)
   const balHtg   = Number(invoice.balanceDueHtg || 0)
 
-  const rateUSD = Number(exchangeRates?.USD || invoice.exchangeRate || 132)
-  const rateDOP = Number(exchangeRates?.DOP || 0)
+  const rateUSD = Number(exchangeRates.USD || invoice.exchangeRate || 132)
+  const rateDOP = Number(exchangeRates.DOP || 0)
 
   const toUSD = (htg) => rateUSD > 0 ? (htg / rateUSD).toFixed(2) : null
   const toDOP = (htg) => rateDOP > 0 ? (htg / rateDOP).toFixed(2) : null
@@ -109,28 +111,26 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
       lineHeight: '1.4',
     }}>
 
-      {/* ══ LOGO + NOM BIZNIS ══ */}
+      {/* LOGO + NOM BIZNIS */}
       <div style={{ textAlign: 'center', marginBottom: '5px', borderBottom: '1px dashed #ccc', paddingBottom: '5px' }}>
         {logoBase64 && (
-          <img
-            src={logoBase64}
-            alt="Logo"
+          <img src={logoBase64} alt="Logo"
             style={{ height: '36px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto 4px' }}
           />
         )}
         <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '13px', letterSpacing: '0.5px', color: '#111' }}>
-          {tenant?.businessName || tenant?.name || 'PlusGroup'}
+          {(tenant && (tenant.businessName || tenant.name)) || 'PlusGroup'}
         </div>
-        {tenant?.phone   && <div style={{ fontSize: '9px', color: '#555' }}>📞 {tenant.phone}</div>}
-        {tenant?.address && <div style={{ fontSize: '9px', color: '#555' }}>{tenant.address}</div>}
+        {tenant && tenant.phone   && <div style={{ fontSize: '9px', color: '#555' }}>Tel: {tenant.phone}</div>}
+        {tenant && tenant.address && <div style={{ fontSize: '9px', color: '#555' }}>{tenant.address}</div>}
       </div>
 
-      {/* ══ TITRE TRILENG ══ */}
+      {/* TITRE TRILENG */}
       <div style={{ textAlign: 'center', margin: '5px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '11px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>
-        Resi / Reçu / Receipt
+        Resi / Recu / Receipt
       </div>
 
-      {/* ══ INFO FAKTI ══ */}
+      {/* INFO FAKTI */}
       <div style={{ marginBottom: '5px', fontSize: '9px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>No. Fakti / Facture / Invoice:</span>
@@ -142,11 +142,11 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
         </div>
       </div>
 
-      {/* ══ KLIYAN ══ */}
+      {/* KLIYAN */}
       {snap.name && (
         <div style={{ marginBottom: '5px', padding: '3px 5px', background: '#f8f8f8', borderRadius: '3px', fontSize: '9px', borderLeft: '2px solid #ccc' }}>
           <div style={{ fontWeight: '700', fontSize: '10px' }}>
-            👤 Kliyan / Client: {snap.name}
+            Kliyan / Client: {snap.name}
           </div>
           {snap.phone && <div>Tel: {snap.phone}</div>}
           {snap.email && <div>{snap.email}</div>}
@@ -156,34 +156,34 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* ══ TABLO ATIK ══ */}
+      {/* TABLO ATIK */}
       <div style={{ fontSize: '9px', marginBottom: '4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '2px', borderBottom: '1px solid #ddd', fontSize: '8px' }}>
           <span style={{ flex: 3 }}>Pwodui / Produit / Product</span>
           <span style={{ flex: 1, textAlign: 'center' }}>Qte</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>Pri/Prix (HTG)</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>Pri (HTG)</span>
           <span style={{ flex: 2, textAlign: 'right' }}>Total HTG</span>
         </div>
-        {invoice.items?.map((item, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
-            <div style={{ flex: 3 }}>
-              <div style={{ fontWeight: '600' }}>{item.product?.name || item.productSnapshot?.name}</div>
-              {Number(item.discountPct) > 0 && (
-                <div style={{ color: '#dc2626', fontSize: '8px' }}>
-                  Remiz/Remise/Disc.: {item.discountPct}%
-                </div>
-              )}
+        {invoice.items && invoice.items.map(function(item, i) {
+          return (
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
+              <div style={{ flex: 3 }}>
+                <div style={{ fontWeight: '600' }}>{(item.product && item.product.name) || (item.productSnapshot && item.productSnapshot.name)}</div>
+                {Number(item.discountPct) > 0 && (
+                  <div style={{ color: '#dc2626', fontSize: '8px' }}>Remiz: {item.discountPct}%</div>
+                )}
+              </div>
+              <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
+              <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
+              <span style={{ flex: 2, textAlign: 'right', fontWeight: '700' }}>{fmt(item.totalHtg)}</span>
             </div>
-            <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
-            <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
-            <span style={{ flex: 2, textAlign: 'right', fontWeight: '700' }}>{fmt(item.totalHtg)}</span>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* ══ TOTAUX ══ */}
+      {/* TOTAUX */}
       <div style={{ fontSize: '9px', marginBottom: '5px' }}>
         {Number(invoice.discountHtg) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '2px' }}>
@@ -198,7 +198,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
           </div>
         )}
 
-        {/* TOTAL nan 3 deviz */}
         <div style={{ borderTop: '2px solid #111', marginTop: '4px', paddingTop: '5px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '12px', fontFamily: 'Arial' }}>
             <span>TOTAL:</span>
@@ -206,23 +205,23 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
           </div>
           {toUSD(totalHtg) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '2px' }}>
-              <span>≈ USD:</span>
-              <span>{toUSD(totalHtg)} $</span>
+              <span>aprox. USD:</span>
+              <span>${toUSD(totalHtg)}</span>
             </div>
           )}
           {toDOP(totalHtg) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '1px' }}>
-              <span>≈ DOP:</span>
-              <span>RD$ {toDOP(totalHtg)}</span>
+              <span>aprox. DOP:</span>
+              <span>RD${toDOP(totalHtg)}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* ══ PEMAN ══ */}
+      {/* PEMAN */}
       <div style={{ fontSize: '9px', marginBottom: '5px', padding: '4px 6px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-          <span style={{ color: '#555' }}>Peye / Payé / Paid:</span>
+          <span style={{ color: '#555' }}>Peye / Paye / Paid:</span>
           <span style={{ fontWeight: '700', color: '#16a34a' }}>{fmt(paidHtg)} HTG</span>
         </div>
         {balHtg > 0 && (
@@ -233,11 +232,11 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
         )}
         {lastPayment && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-            <span style={{ color: '#555' }}>Metòd / Mode / Method:</span>
+            <span style={{ color: '#555' }}>Metod / Mode / Method:</span>
             <span style={{ fontWeight: '600', textTransform: 'uppercase' }}>{lastPayment.method}</span>
           </div>
         )}
-        {lastPayment?.reference && (
+        {lastPayment && lastPayment.reference && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: '#555' }}>Ref:</span>
             <span>{lastPayment.reference}</span>
@@ -245,8 +244,8 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
         )}
       </div>
 
-      {/* ══ STATUT BADGE ══ */}
-      <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: `${statusColor}15`, border: `1.5px solid ${statusColor}`, borderRadius: '5px' }}>
+      {/* STATUT BADGE */}
+      <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
         <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>
           {statusLabel}
         </span>
@@ -254,16 +253,16 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* ══ QR CODE ══ */}
+      {/* QR CODE */}
       {qrDataUrl && (
         <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-          <img src={qrDataUrl} alt="QR Code" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
+          <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
           <div style={{ fontSize: '8px', color: '#888' }}>Skane / Scanner / Scan to verify</div>
           <div style={{ fontSize: '8px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
         </div>
       )}
 
-      {/* ══ PYE PAJ ══ */}
+      {/* PYE PAJ */}
       <div style={{ textAlign: 'center', fontSize: '9px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
         <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>
           Mesi! / Merci! / Thank you!
@@ -271,13 +270,14 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
         <div style={{ color: '#666', fontSize: '8px', lineHeight: '1.4' }}>
           Vant final. / Vente finale. / All sales are final.
         </div>
-        <div style={{ marginTop: '5px', fontSize: '8px', color: '#bbb' }}>
-          Powered by PlusGroup Tél: +50942449024
+        <div style={{ marginTop: '5px', fontSize: '8px', color: '#555', fontWeight: '600' }}>
+          Tel: +50942449024
         </div>
       </div>
     </div>
   )
 }
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // KOMPONAN PRENSIPAL
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -432,7 +432,7 @@ export default function InvoiceDetail() {
     <div className="animate-fade-in max-w-4xl">
 
       {/* Resi Enprime (kachÃ© nan ekran) */}
-      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} logoBase64={logoBase64} exchangeRates={exchangeRates} />
+      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} logoBase64={logoBase64} />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -644,6 +644,7 @@ export default function InvoiceDetail() {
             )}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
               <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy')}</span></div>
+              <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 
             {connected && (
