@@ -2,11 +2,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { stockAPI, productAPI } from '../../services/api'
+import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
-import { Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, ArrowUpCircle, ArrowDownCircle, RefreshCw } from 'lucide-react'
+import { Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 
-// ── Koule PLUS GROUP
 const S = {
   blue:     '#1B2A8F',
   blueLt:   '#2D3FBF',
@@ -26,13 +26,13 @@ const S = {
   dangerBg: 'rgba(220,38,38,0.08)',
 }
 
-const MOVEMENT_LABELS = {
-  sale:        'Vant',
-  purchase:    'Achte',
-  adjustment:  'Ajisteman',
-  return_item: 'Retou',
-  loss:        'Pèt',
-  transfer:    'Transfè',
+const MOVEMENT_KEYS = {
+  sale:        'stock.sale',
+  purchase:    'stock.purchase',
+  adjustment:  'stock.adjustment',
+  return_item: 'stock.return',
+  loss:        'stock.loss',
+  transfer:    'stock.transfer',
 }
 
 const MOVEMENT_STYLES = {
@@ -44,8 +44,8 @@ const MOVEMENT_STYLES = {
   transfer:    { color:'#0284C7', bg:'rgba(2,132,199,0.08)',   icon:'⇄' },
 }
 
-// ── Modal Ajisteman
 const AdjustModal = ({ onClose }) => {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [search, setSearch]   = useState('')
   const [selected, setSelected] = useState(null)
@@ -59,19 +59,19 @@ const AdjustModal = ({ onClose }) => {
 
   const mutation = useMutation({
     mutationFn: (data) => stockAPI.adjust(data),
-    onSuccess: () => { toast.success('Stock ajiste!'); qc.invalidateQueries(['stock-movements']); qc.invalidateQueries(['products']); onClose() },
+    onSuccess: () => { toast.success(t('stock.adjusted')); qc.invalidateQueries(['stock-movements']); qc.invalidateQueries(['products']); onClose() },
   })
 
   const purchaseMutation = useMutation({
     mutationFn: (data) => stockAPI.purchase(data),
-    onSuccess: () => { toast.success('Stock ajoute!'); qc.invalidateQueries(['stock-movements']); qc.invalidateQueries(['products']); onClose() },
+    onSuccess: () => { toast.success(t('stock.added')); qc.invalidateQueries(['stock-movements']); qc.invalidateQueries(['products']); onClose() },
   })
 
   const TYPES = [
-    { v:'add',      l:'Ajoute',  icon:'＋', color:S.success },
-    { v:'remove',   l:'Retire',  icon:'－', color:S.danger  },
-    { v:'purchase', l:'Achte',   icon:'🛒', color:S.blue    },
-    { v:'loss',     l:'Pèt',     icon:'⚠', color:S.orange  },
+    { v:'add',      lKey:'stock.add',      icon:'＋', color:S.success },
+    { v:'remove',   lKey:'stock.remove',   icon:'－', color:S.danger  },
+    { v:'purchase', lKey:'stock.purchase', icon:'🛒', color:S.blue    },
+    { v:'loss',     lKey:'stock.loss',     icon:'⚠', color:S.orange  },
   ]
 
   return (
@@ -86,7 +86,6 @@ const AdjustModal = ({ onClose }) => {
         border:`1px solid ${S.border}`, overflow:'hidden',
         animation:'slideUp 0.25s ease',
       }}>
-        {/* Header modal */}
         <div style={{
           display:'flex', alignItems:'center', justifyContent:'space-between',
           padding:'18px 24px', borderBottom:`1px solid ${S.border}`,
@@ -96,27 +95,26 @@ const AdjustModal = ({ onClose }) => {
             <div style={{ background:'rgba(255,255,255,0.2)', borderRadius:10, padding:8, display:'flex' }}>
               <RefreshCw size={18} color="#fff"/>
             </div>
-            <h2 style={{ color:'#fff', fontWeight:800, fontSize:16, margin:0 }}>Ajisteman Stock</h2>
+            <h2 style={{ color:'#fff', fontWeight:800, fontSize:16, margin:0 }}>{t('stock.adjustTitle')}</h2>
           </div>
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.15)', border:'none', borderRadius:8, width:32, height:32, cursor:'pointer', color:'#fff', fontSize:18, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
         </div>
 
         <div style={{ padding:24, display:'flex', flexDirection:'column', gap:18 }}>
-          {/* Pwodui */}
           <div>
-            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>Pwodui</label>
+            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>{t('stock.product')}</label>
             {selected
               ? <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', background:S.blueDim, border:`1.5px solid ${S.blue}40`, borderRadius:12 }}>
                   <div>
                     <p style={{ color:S.blue, fontWeight:700, fontSize:14, margin:0 }}>{selected.name}</p>
-                    <p style={{ color:S.muted, fontSize:11, fontFamily:'monospace', margin:'3px 0 0' }}>Stock aktyèl: {Number(selected.quantity)}</p>
+                    <p style={{ color:S.muted, fontSize:11, fontFamily:'monospace', margin:'3px 0 0' }}>{t('stock.currentStock')}: {Number(selected.quantity)}</p>
                   </div>
                   <button onClick={() => setSelected(null)} style={{ background:`${S.blue}20`, border:'none', borderRadius:8, width:28, height:28, cursor:'pointer', color:S.blue, fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
                 </div>
               : <>
                   <div style={{ position:'relative' }}>
                     <Search size={14} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:S.muted }}/>
-                    <input placeholder="Chèche pwodui..." value={search} onChange={e => setSearch(e.target.value)}
+                    <input placeholder={t('stock.searchProduct')} value={search} onChange={e => setSearch(e.target.value)}
                       style={{ width:'100%', paddingLeft:36, padding:'10px 14px 10px 36px', borderRadius:10, border:`1.5px solid ${S.border}`, outline:'none', fontSize:14, color:S.text, background:'#F8F9FF', boxSizing:'border-box' }}
                       onFocus={e => e.target.style.borderColor=S.blue}
                       onBlur={e => e.target.style.borderColor=S.border}
@@ -136,9 +134,8 @@ const AdjustModal = ({ onClose }) => {
             }
           </div>
 
-          {/* Tip */}
           <div>
-            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>Tip mouvman</label>
+            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>{t('stock.movementType')}</label>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
               {TYPES.map(opt => (
                 <button key={opt.v} type="button" onClick={() => setForm({...form, type:opt.v})}
@@ -150,15 +147,14 @@ const AdjustModal = ({ onClose }) => {
                     border: `1.5px solid ${form.type === opt.v ? opt.color : S.border}`,
                     boxShadow: form.type === opt.v ? `0 4px 12px ${opt.color}40` : 'none',
                   }}>
-                  <span style={{ fontSize:16 }}>{opt.icon}</span>{opt.l}
+                  <span style={{ fontSize:16 }}>{opt.icon}</span>{t(opt.lKey)}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Kantite */}
           <div>
-            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>Kantite</label>
+            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>{t('stock.quantity')}</label>
             <input type="number" step="0.001" min="0.001" placeholder="0"
               value={form.quantity} onChange={e => setForm({...form, quantity:e.target.value})}
               style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1.5px solid ${S.border}`, outline:'none', fontSize:15, fontWeight:700, color:S.text, background:'#F8F9FF', boxSizing:'border-box', fontFamily:'monospace' }}
@@ -167,24 +163,22 @@ const AdjustModal = ({ onClose }) => {
             />
           </div>
 
-          {/* Nòt */}
           <div>
-            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>Nòt <span style={{ color:S.muted, fontWeight:400 }}>(opsyonèl)</span></label>
-            <input placeholder="Rezon ajisteman..." value={form.notes} onChange={e => setForm({...form, notes:e.target.value})}
+            <label style={{ display:'block', color:S.text, fontSize:13, fontWeight:700, marginBottom:8 }}>{t('stock.notes')} <span style={{ color:S.muted, fontWeight:400 }}>({t('common.optional')})</span></label>
+            <input placeholder={t('stock.notesPlaceholder')} value={form.notes} onChange={e => setForm({...form, notes:e.target.value})}
               style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:`1.5px solid ${S.border}`, outline:'none', fontSize:13, color:S.text, background:'#F8F9FF', boxSizing:'border-box' }}
               onFocus={e => e.target.style.borderColor=S.blue}
               onBlur={e => e.target.style.borderColor=S.border}
             />
           </div>
 
-          {/* Bouton */}
           <div style={{ display:'flex', gap:10, paddingTop:4, borderTop:`1px solid ${S.border}` }}>
             <button onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:10, background:'#F4F6FF', border:`1px solid ${S.border}`, color:S.muted, fontWeight:700, cursor:'pointer', fontSize:14 }}>
-              Anile
+              {t('common.cancel')}
             </button>
             <button onClick={() => {
-              if (!selected) return toast.error('Chwazi yon pwodui.')
-              if (!form.quantity || Number(form.quantity) <= 0) return toast.error('Kantite obligatwa.')
+              if (!selected) return toast.error(t('stock.selectProduct'))
+              if (!form.quantity || Number(form.quantity) <= 0) return toast.error(t('stock.quantityRequired'))
               if (form.type === 'purchase') purchaseMutation.mutate({ productId:selected.id, quantity:Number(form.quantity), notes:form.notes })
               else mutation.mutate({ productId:selected.id, quantity:Number(form.quantity), type:form.type === 'add' ? 'add' : 'remove', notes:form.notes })
             }} style={{
@@ -193,7 +187,7 @@ const AdjustModal = ({ onClose }) => {
               border:'none', color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14,
               boxShadow:`0 4px 16px ${S.orange}50`,
             }}>
-              Konfime Ajisteman
+              {t('stock.confirmAdjust')}
             </button>
           </div>
         </div>
@@ -202,8 +196,8 @@ const AdjustModal = ({ onClose }) => {
   )
 }
 
-// ══ PAGE PWINSIPÀL ══
 export default function StockPage() {
+  const { t } = useTranslation()
   const [showAdjust, setShowAdjust] = useState(false)
   const [typeFilter, setTypeFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -214,27 +208,32 @@ export default function StockPage() {
     keepPreviousData: true,
   })
 
+  const FILTER_OPTIONS = [
+    { v:'', lKey:'stock.allTypes' },
+    { v:'sale',        lKey:'stock.sale' },
+    { v:'purchase',    lKey:'stock.purchase' },
+    { v:'adjustment',  lKey:'stock.adjustment' },
+    { v:'return_item', lKey:'stock.return' },
+    { v:'loss',        lKey:'stock.loss' },
+    { v:'transfer',    lKey:'stock.transfer' },
+  ]
+
+  const COL_HEADERS = [
+    t('stock.colProduct'), t('stock.colType'), t('stock.colBefore'),
+    t('stock.colChange'), t('stock.colAfter'), t('stock.colBy'), t('stock.colDate')
+  ]
+
   return (
     <div style={{ fontFamily:'DM Sans, sans-serif', minHeight:'100%' }}>
-
-      {/* ── Header ── */}
-      <div style={{
-        display:'flex', alignItems:'center', justifyContent:'space-between',
-        marginBottom:24, flexWrap:'wrap', gap:12,
-      }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{
-            width:48, height:48, borderRadius:14,
-            background:`linear-gradient(135deg, ${S.blue}, ${S.blueLt})`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 4px 16px ${S.blue}40`,
-          }}>
+          <div style={{ width:48, height:48, borderRadius:14, background:`linear-gradient(135deg, ${S.blue}, ${S.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${S.blue}40` }}>
             <Warehouse size={22} color="#fff"/>
           </div>
           <div>
-            <h1 style={{ color:S.text, fontSize:22, fontWeight:900, margin:0 }}>Jesyon Stock</h1>
+            <h1 style={{ color:S.text, fontSize:22, fontWeight:900, margin:0 }}>{t('stock.title')}</h1>
             <p style={{ color:S.muted, fontSize:13, margin:'2px 0 0' }}>
-              {data?.total || 0} mouvman anrejistre
+              {data?.total || 0} {t('stock.movements')}
             </p>
           </div>
         </div>
@@ -247,19 +246,18 @@ export default function StockPage() {
         onMouseEnter={e => e.currentTarget.style.transform='translateY(-2px)'}
         onMouseLeave={e => e.currentTarget.style.transform='none'}
         >
-          <Plus size={16}/> Ajiste Stock
+          <Plus size={16}/> {t('stock.adjustBtn')}
         </button>
       </div>
 
-      {/* ── Filtre ── */}
       <div style={{
         background:S.card, borderRadius:14, padding:'14px 18px',
         border:`1px solid ${S.border}`, marginBottom:16,
         display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
         boxShadow:'0 2px 8px rgba(27,42,143,0.06)',
       }}>
-        <span style={{ color:S.muted, fontSize:13, fontWeight:600 }}>Filtre:</span>
-        {[{v:'', l:'Tout tip'}, ...Object.entries(MOVEMENT_LABELS).map(([k,v]) => ({v:k, l:v}))].map(opt => (
+        <span style={{ color:S.muted, fontSize:13, fontWeight:600 }}>{t('stock.filter')}:</span>
+        {FILTER_OPTIONS.map(opt => (
           <button key={opt.v} onClick={() => { setTypeFilter(opt.v); setPage(1) }}
             style={{
               padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer', transition:'all 0.15s',
@@ -268,31 +266,18 @@ export default function StockPage() {
               border: `1.5px solid ${typeFilter === opt.v ? S.blue : S.border}`,
               boxShadow: typeFilter === opt.v ? `0 3px 10px ${S.blue}35` : 'none',
             }}>
-            {opt.l}
+            {t(opt.lKey)}
           </button>
         ))}
       </div>
 
-      {/* ── Tablo ── */}
-      <div style={{
-        background:S.card, borderRadius:16,
-        border:`1px solid ${S.border}`,
-        boxShadow:'0 4px 20px rgba(27,42,143,0.08)',
-        overflow:'hidden',
-      }}>
-        {/* Header tablo */}
-        <div style={{
-          display:'grid', gridTemplateColumns:'2fr 1fr 80px 90px 80px 1fr 100px',
-          padding:'12px 20px',
-          background:`linear-gradient(135deg, ${S.blue}08, ${S.blueDim})`,
-          borderBottom:`1px solid ${S.border}`,
-        }}>
-          {['Pwodui','Tip','Avan','Chanjman','Apre','Pa','Dat'].map(h => (
+      <div style={{ background:S.card, borderRadius:16, border:`1px solid ${S.border}`, boxShadow:'0 4px 20px rgba(27,42,143,0.08)', overflow:'hidden' }}>
+        <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 80px 90px 80px 1fr 100px', padding:'12px 20px', background:`linear-gradient(135deg, ${S.blue}08, ${S.blueDim})`, borderBottom:`1px solid ${S.border}` }}>
+          {COL_HEADERS.map(h => (
             <span key={h} style={{ color:S.blue, fontSize:11, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em' }}>{h}</span>
           ))}
         </div>
 
-        {/* Rows */}
         {isLoading
           ? Array(6).fill(0).map((_,i) => (
               <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${S.border}`, display:'grid', gridTemplateColumns:'2fr 1fr 80px 90px 80px 1fr 100px', gap:8, alignItems:'center' }}>
@@ -305,8 +290,8 @@ export default function StockPage() {
                 <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:S.blueDim, marginBottom:16 }}>
                   <Warehouse size={32} color={S.blue}/>
                 </div>
-                <p style={{ color:S.muted, fontSize:15, fontWeight:600, margin:0 }}>Okenn mouvman stock</p>
-                <p style={{ color:`${S.muted}80`, fontSize:13, margin:'6px 0 0' }}>Klike "Ajiste Stock" pou kòmanse</p>
+                <p style={{ color:S.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('stock.noMovements')}</p>
+                <p style={{ color:`${S.muted}80`, fontSize:13, margin:'6px 0 0' }}>{t('stock.clickToStart')}</p>
               </div>
             )
           : data.movements.map((m, idx) => {
@@ -314,16 +299,10 @@ export default function StockPage() {
               const change  = Number(m.quantityChange)
               return (
                 <div key={m.id}
-                  style={{
-                    display:'grid', gridTemplateColumns:'2fr 1fr 80px 90px 80px 1fr 100px',
-                    padding:'13px 20px', alignItems:'center',
-                    borderBottom: idx < data.movements.length - 1 ? `1px solid ${S.border}` : 'none',
-                    transition:'background 0.15s',
-                  }}
+                  style={{ display:'grid', gridTemplateColumns:'2fr 1fr 80px 90px 80px 1fr 100px', padding:'13px 20px', alignItems:'center', borderBottom: idx < data.movements.length - 1 ? `1px solid ${S.border}` : 'none', transition:'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background=S.blueDim}
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}
                 >
-                  {/* Pwodui */}
                   <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                     <div style={{ width:34, height:34, borderRadius:10, background:`linear-gradient(135deg,${S.blue}15,${S.blue}08)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                       <Package size={15} color={S.blue}/>
@@ -333,77 +312,36 @@ export default function StockPage() {
                       <p style={{ color:S.muted, fontSize:11, fontFamily:'monospace', margin:'2px 0 0' }}>{m.product?.code || '—'}</p>
                     </div>
                   </div>
-
-                  {/* Tip */}
-                  <span style={{
-                    display:'inline-flex', alignItems:'center', gap:5,
-                    padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700,
-                    background: mvStyle.bg, color: mvStyle.color,
-                    width:'fit-content',
-                  }}>
+                  <span style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:700, background: mvStyle.bg, color: mvStyle.color, width:'fit-content' }}>
                     <span>{mvStyle.icon}</span>
-                    {MOVEMENT_LABELS[m.movementType]}
+                    {t(MOVEMENT_KEYS[m.movementType] || 'stock.adjustment')}
                   </span>
-
-                  {/* Avan */}
-                  <span style={{ color:S.muted, fontFamily:'monospace', fontSize:13, fontWeight:600 }}>
-                    {Number(m.quantityBefore)}
-                  </span>
-
-                  {/* Chanjman */}
-                  <span style={{
-                    fontFamily:'monospace', fontSize:14, fontWeight:800,
-                    color: change > 0 ? S.success : S.danger,
-                    background: change > 0 ? S.successBg : S.dangerBg,
-                    padding:'3px 10px', borderRadius:8, width:'fit-content',
-                  }}>
+                  <span style={{ color:S.muted, fontFamily:'monospace', fontSize:13, fontWeight:600 }}>{Number(m.quantityBefore)}</span>
+                  <span style={{ fontFamily:'monospace', fontSize:14, fontWeight:800, color: change > 0 ? S.success : S.danger, background: change > 0 ? S.successBg : S.dangerBg, padding:'3px 10px', borderRadius:8, width:'fit-content' }}>
                     {change > 0 ? '+' : ''}{change}
                   </span>
-
-                  {/* Apre */}
-                  <span style={{ color:S.text, fontFamily:'monospace', fontSize:13, fontWeight:800 }}>
-                    {Number(m.quantityAfter)}
-                  </span>
-
-                  {/* Pa */}
+                  <span style={{ color:S.text, fontFamily:'monospace', fontSize:13, fontWeight:800 }}>{Number(m.quantityAfter)}</span>
                   <span style={{ color:S.muted, fontSize:12 }}>{m.creator?.fullName || '—'}</span>
-
-                  {/* Dat */}
-                  <span style={{ color:S.muted, fontSize:11, fontFamily:'monospace' }}>
-                    {format(new Date(m.createdAt), 'dd/MM/yy HH:mm')}
-                  </span>
+                  <span style={{ color:S.muted, fontSize:11, fontFamily:'monospace' }}>{format(new Date(m.createdAt), 'dd/MM/yy HH:mm')}</span>
                 </div>
               )
             })
         }
       </div>
 
-      {/* ── Paginasyon ── */}
       {data?.pages > 1 && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:16 }}>
           <p style={{ color:S.muted, fontSize:13 }}>
-            Paj <strong style={{ color:S.text }}>{page}</strong> / {data.pages}
-            {' · '}<strong style={{ color:S.text }}>{data.total}</strong> mouvman total
+            {t('stock.page')} <strong style={{ color:S.text }}>{page}</strong> / {data.pages}
+            {' · '}<strong style={{ color:S.text }}>{data.total}</strong> {t('stock.movementsTotal')}
           </p>
           <div style={{ display:'flex', gap:6 }}>
             <button disabled={page<=1} onClick={() => setPage(p=>p-1)}
-              style={{
-                display:'flex', alignItems:'center', justifyContent:'center',
-                width:36, height:36, borderRadius:10, cursor: page<=1 ? 'not-allowed' : 'pointer',
-                background: page<=1 ? '#F4F6FF' : S.blue,
-                border:`1px solid ${page<=1 ? S.border : S.blue}`,
-                color: page<=1 ? S.muted : '#fff', transition:'all 0.15s',
-              }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, cursor: page<=1 ? 'not-allowed' : 'pointer', background: page<=1 ? '#F4F6FF' : S.blue, border:`1px solid ${page<=1 ? S.border : S.blue}`, color: page<=1 ? S.muted : '#fff', transition:'all 0.15s' }}>
               <ChevronLeft size={16}/>
             </button>
             <button disabled={page>=data.pages} onClick={() => setPage(p=>p+1)}
-              style={{
-                display:'flex', alignItems:'center', justifyContent:'center',
-                width:36, height:36, borderRadius:10, cursor: page>=data.pages ? 'not-allowed' : 'pointer',
-                background: page>=data.pages ? '#F4F6FF' : S.blue,
-                border:`1px solid ${page>=data.pages ? S.border : S.blue}`,
-                color: page>=data.pages ? S.muted : '#fff', transition:'all 0.15s',
-              }}>
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, cursor: page>=data.pages ? 'not-allowed' : 'pointer', background: page>=data.pages ? '#F4F6FF' : S.blue, border:`1px solid ${page>=data.pages ? S.border : S.blue}`, color: page>=data.pages ? S.muted : '#fff', transition:'all 0.15s' }}>
               <ChevronRight size={16}/>
             </button>
           </div>
