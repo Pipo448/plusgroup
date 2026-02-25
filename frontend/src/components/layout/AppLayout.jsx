@@ -355,11 +355,14 @@ export default function AppLayout() {
       </div>
     </div>
   )}
-</div>
+          </div>
+        {/* ← AJOUTE 2 LIY SA YO: */}
+        </header>
+      </div>
+
         <main style={{ flex:1, overflowY:'auto' }}>
           <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
-      </div>
 
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
