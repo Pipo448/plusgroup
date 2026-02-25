@@ -56,7 +56,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
   if (!invoice) return null
   const snap        = invoice.clientSnapshot || {}
   const exchangeRates = (() => {
-    try { return typeof tenant?.exchangeRates === 'string' ? JSON.parse(tenant.exchangeRates) : (tenant?.exchangeRates || {}) } catch { return {} }
+    try {
+      const er = tenant?.exchangeRates
+      if (!er) return {}
+      if (typeof er === 'object') return er
+      return JSON.parse(er)
+    } catch(e) { return {} }
   })()
   const isPaid      = invoice.status === 'paid'
   const isCancelled = invoice.status === 'cancelled'
@@ -267,7 +272,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, exchangeR
           Vant final. / Vente finale. / All sales are final.
         </div>
         <div style={{ marginTop: '5px', fontSize: '8px', color: '#bbb' }}>
-          Powered by PlusGroup
+          Powered by PlusGroup Tél: +50942449024
         </div>
       </div>
     </div>
