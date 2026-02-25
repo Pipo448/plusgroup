@@ -13,11 +13,11 @@ import { authAPI } from '../../services/api'
 import api from '../../services/api'
 
 const C = {
-  black:'#0A0A0F', darkBg:'#111118', navBg:'#13131C',
-  gold:'#C9A84C', goldLt:'#F0D080',
+  black:'#1a0533', darkBg:'#2d0a4e', navBg:'#1f0a3a',
+  gold:'#f5680c', goldLt:'#ff8534',
   red:'#C0392B', redBrt:'#E74C3C',
-  white:'#FFFFFF', muted:'rgba(255,255,255,0.45)',
-  border:'rgba(201,168,76,0.12)',
+  white:'#FFFFFF', muted:'rgba(255,255,255,0.55)',
+  border:'rgba(245,104,12,0.15)',
 }
 
 const NAV = [
@@ -132,8 +132,8 @@ export default function AppLayout() {
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
-      <div style={{ width:36, height:36, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#1a0533' }}>
+      <div style={{ width:36, height:36, border:'3px solid rgba(245,104,12,0.3)', borderTop:'3px solid #f5680c', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
@@ -142,7 +142,7 @@ export default function AppLayout() {
     position: isDesktop ? 'relative' : 'fixed',
     inset: isDesktop ? 'auto' : '0 auto 0 0',
     zIndex: 40, width: 252,
-    background: `linear-gradient(180deg, ${C.black} 0%, ${C.darkBg} 40%, ${C.navBg} 100%)`,
+    background: `linear-gradient(160deg, ${C.black} 0%, ${C.darkBg} 45%, ${C.navBg} 100%)`,
     display: 'flex', flexDirection: 'column',
     transform: isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
     transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
@@ -163,10 +163,18 @@ export default function AppLayout() {
 
       {/* ══ SIDEBAR ══ */}
       <aside style={sidebarStyle}>
+        {/* Bann oreanj anlè */}
         <div style={{
           height:3,
-          background:'linear-gradient(90deg,transparent,#8B6914 15%,#C9A84C 35%,#F0D080 50%,#C9A84C 65%,#8B6914 85%,transparent)',
+          background:'linear-gradient(90deg,transparent,#b34200 10%,#f5680c 35%,#ff8534 50%,#f5680c 65%,#b34200 90%,transparent)',
           animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%',
+        }}/>
+
+        {/* Efè limyè oreanj anlè */}
+        <div style={{
+          position:'absolute', top:-60, left:-40, width:220, height:220,
+          background:'radial-gradient(circle, rgba(245,104,12,0.15) 0%, transparent 70%)',
+          pointerEvents:'none',
         }}/>
 
         {!isDesktop && (
@@ -180,11 +188,11 @@ export default function AppLayout() {
         )}
 
         {/* Logo zone */}
-        <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
-              ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'#fff', padding:5, boxShadow:`0 0 0 2px ${C.gold}40`, flexShrink:0 }}/>
-              : <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${C.gold},${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:C.black, boxShadow:`0 4px 20px ${C.gold}50` }}>
+              ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.08)', padding:5, boxShadow:`0 0 0 2px rgba(245,104,12,0.35)`, flexShrink:0 }}/>
+              : <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${C.gold},${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff', boxShadow:`0 4px 20px rgba(245,104,12,0.4)` }}>
                   {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </div>
             }
@@ -200,21 +208,23 @@ export default function AppLayout() {
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px' }}>
+        <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
           {NAV.map(({ to, icon:Icon, labelKey }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}
               style={({ isActive }) => ({
                 display:'flex', alignItems:'center', gap:10,
                 padding:'9px 12px', borderRadius:10, marginBottom:2,
                 textDecoration:'none', transition:'all 0.2s',
-                background: isActive ? `linear-gradient(135deg,${C.gold}22,${C.gold}0C)` : 'transparent',
-                color: isActive ? C.goldLt : C.muted,
+                background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.22),rgba(245,104,12,0.06))` : 'transparent',
+                color: isActive ? '#ffffff' : C.muted,
                 borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
                 fontWeight: isActive ? 700 : 500, fontSize:13,
+                border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
+                boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
               })}>
               {({ isActive }) => (
                 <>
-                  <Icon size={16} style={{ flexShrink:0, color: isActive ? C.gold : C.muted }}/>
+                  <Icon size={16} style={{ flexShrink:0, color: isActive ? C.gold : C.muted, filter: isActive ? 'drop-shadow(0 0 4px rgba(245,104,12,0.6))' : 'none' }}/>
                   <span>{t(labelKey)}</span>
                   {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}` }}/>}
                 </>
@@ -224,20 +234,21 @@ export default function AppLayout() {
         </nav>
 
         {/* Settings + User */}
-        <div style={{ padding:'10px 8px', borderTop:`1px solid ${C.border}` }}>
+        <div style={{ padding:'10px 8px', borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <NavLink to="/app/settings" onClick={() => setOpen(false)}
             style={({ isActive }) => ({
               display:'flex', alignItems:'center', gap:10,
               padding:'9px 12px', borderRadius:10, marginBottom:8, textDecoration:'none',
-              background: isActive ? `${C.gold}15` : 'transparent',
-              color: isActive ? C.goldLt : C.muted,
+              background: isActive ? `rgba(245,104,12,0.15)` : 'transparent',
+              color: isActive ? '#ffffff' : C.muted,
               borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
               fontSize:13, fontWeight: isActive ? 700 : 500,
+              border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
             })}>
             {({ isActive }) => (<><Settings size={16} style={{ color: isActive ? C.gold : C.muted }}/><span>{t('nav.settings')}</span></>)}
           </NavLink>
 
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`linear-gradient(135deg,${C.gold}10,transparent)`, border:`1px solid ${C.gold}25` }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`linear-gradient(135deg,rgba(245,104,12,0.12),transparent)`, border:`1px solid rgba(245,104,12,0.2)` }}>
             <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg,${C.red},${C.redBrt})`, display:'flex', alignItems:'center', justifyContent:'center', color:C.white, fontWeight:800, fontSize:14 }}>
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
@@ -258,16 +269,16 @@ export default function AppLayout() {
         {/* Header */}
         <header style={{
           minHeight:58, background:'#fff',
-          borderBottom:`1px solid rgba(201,168,76,0.2)`,
+          borderBottom:`1px solid rgba(245,104,12,0.15)`,
           boxShadow:'0 2px 20px rgba(0,0,0,0.06)',
           display:'flex', alignItems:'center', gap:6,
           padding:'0 12px', flexShrink:0, position:'relative', zIndex:10,
           flexWrap:'wrap',
         }}>
-          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:'linear-gradient(90deg,transparent,#C0392B 20%,#C9A84C 50%,#C0392B 80%,transparent)' }}/>
+          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:'linear-gradient(90deg,transparent,#C0392B 20%,#f5680c 50%,#C0392B 80%,transparent)' }}/>
 
           {!isDesktop && (
-            <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:C.black, padding:6, borderRadius:8, display:'flex', flexShrink:0 }}>
+            <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:'#1a0533', padding:6, borderRadius:8, display:'flex', flexShrink:0 }}>
               <Menu size={20}/>
             </button>
           )}
@@ -277,11 +288,11 @@ export default function AppLayout() {
               display:'flex', alignItems:'center', gap:4,
               padding:'4px 8px', borderRadius:8,
               background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
-              border:'1px solid #F0D080', fontSize:11, flexShrink:0,
+              border:'1px solid #f5680c40', fontSize:11, flexShrink:0,
             }}>
-              <span style={{ color:'#8B6914', fontWeight:700 }}>1 {cur}</span>
-              <span style={{ color:C.gold }}>=</span>
-              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:C.black }}>
+              <span style={{ color:'#b34200', fontWeight:700 }}>1 {cur}</span>
+              <span style={{ color:'#f5680c' }}>=</span>
+              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>
                 {rate.toFixed(2)} HTG
               </span>
             </div>
@@ -293,9 +304,9 @@ export default function AppLayout() {
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{
               display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10,
-              border:`1px solid ${showLang ? C.gold+'80' : 'rgba(0,0,0,0.1)'}`,
-              background: showLang ? `${C.gold}15` : 'transparent',
-              color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700,
+              border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`,
+              background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent',
+              color: showLang ? '#f5680c' : '#555', cursor:'pointer', fontSize:12, fontWeight:700,
             }}>
               <Globe size={15}/>
               <span style={{ fontSize:15 }}>{currentLang.flag}</span>
@@ -304,19 +315,19 @@ export default function AppLayout() {
             </button>
 
             {showLang && (
-              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:`1px solid ${C.gold}30`, overflow:'hidden' }}>
+              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:'1px solid rgba(245,104,12,0.2)', overflow:'hidden' }}>
                 {LANGS.map(lang => (
                   <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
                     width:'100%', display:'flex', alignItems:'center', gap:10,
                     padding:'11px 14px', border:'none', cursor:'pointer',
-                    background: i18n.language === lang.code ? `${C.gold}15` : 'transparent',
-                    color: i18n.language === lang.code ? C.gold : '#333',
+                    background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent',
+                    color: i18n.language === lang.code ? '#f5680c' : '#333',
                     fontWeight: i18n.language === lang.code ? 700 : 500,
                     fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)',
                   }}>
                     <span style={{ fontSize:18 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
-                    {i18n.language === lang.code && <span style={{ color:C.gold }}>✓</span>}
+                    {i18n.language === lang.code && <span style={{ color:'#f5680c' }}>✓</span>}
                   </button>
                 ))}
               </div>
@@ -324,7 +335,7 @@ export default function AppLayout() {
           </div>
 
           {/* Devise */}
-          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,${C.black},#1a1a28)`, color:C.gold, letterSpacing:'0.08em', border:`1px solid ${C.gold}40`, flexShrink:0 }}>
+          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,#1a0533,#2d0a4e)`, color:'#f5680c', letterSpacing:'0.08em', border:'1px solid rgba(245,104,12,0.3)', flexShrink:0 }}>
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
@@ -353,12 +364,11 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* ✅ KOREKSYON: main ANNDAN div flex:1 la */}
         <main style={{ flex:1, overflowY:'auto' }}>
           <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
 
-      </div>{/* ← fèmeture div flex:1 */}
+      </div>
 
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
