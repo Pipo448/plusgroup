@@ -33,7 +33,7 @@ const CMD = {
   QR_PRINT:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30],
 }
 
-// Retire aksan — ESC/POS pa sipote UTF-8
+// ── Retire aksan — ESC/POS pa sipote UTF-8
 const encodeText = (text) => {
   const clean = String(text)
     .normalize('NFD')
@@ -43,7 +43,7 @@ const encodeText = (text) => {
 }
 
 const getWidth = (tenant) => {
-  const size = tenant && tenant.receiptSize || '80mm'
+  const size = (tenant && tenant.receiptSize) || '80mm'
   return size === '57mm' ? 32 : 48
 }
 
@@ -69,6 +69,78 @@ const makeQR = (content) => {
     GS, 0x28, 0x6B, lenL, lenH, 0x31, 0x50, 0x30, ...data,
     ...CMD.QR_PRINT,
   ]
+}
+
+// ── Konvèti logo base64 an bitmap ESC/POS (GS v 0)
+const logoToEscPos = async (base64url, targetWidth) => {
+  try {
+    // Kreye canvas pou dessine logo a
+    const canvas = document.createElement('canvas')
+    const ctx    = canvas.getContext('2d')
+    const img    = new Image()
+
+    await new Promise((resolve, reject) => {
+      img.onload  = resolve
+      img.onerror = reject
+      img.src     = base64url
+    })
+
+    // Kalkile wotè pwoposyonèl — max 80px wotè
+    const maxH  = 80
+    const ratio = Math.min(targetWidth / img.width, maxH / img.height)
+    const w     = Math.floor(img.width  * ratio)
+    const h     = Math.floor(img.height * ratio)
+
+    // Lajè dwe miltip de 8 pou ESC/POS
+    const pw = Math.ceil(w / 8) * 8
+    canvas.width  = pw
+    canvas.height = h
+
+    // Fon blan
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, pw, h)
+    ctx.drawImage(img, 0, 0, w, h)
+
+    // Konvèti an noir/blan (threshold)
+    const imgData = ctx.getImageData(0, 0, pw, h)
+    const pixels  = imgData.data
+    const bytesPerRow = pw / 8
+    const bitmapBytes = []
+
+    for (let row = 0; row < h; row++) {
+      for (let byteIdx = 0; byteIdx < bytesPerRow; byteIdx++) {
+        let byte = 0
+        for (let bit = 0; bit < 8; bit++) {
+          const x   = byteIdx * 8 + bit
+          const idx = (row * pw + x) * 4
+          const r   = pixels[idx]
+          const g   = pixels[idx + 1]
+          const b   = pixels[idx + 2]
+          const a   = pixels[idx + 3]
+          // Noir si fonce (luminosity < 128) epi pa transparan
+          const lum = (r * 0.299 + g * 0.587 + b * 0.114)
+          const isBlack = a > 128 && lum < 160
+          if (isBlack) byte |= (0x80 >> bit)
+        }
+        bitmapBytes.push(byte)
+      }
+    }
+
+    // GS v 0 — enprime bitmap raster
+    const widthBytes = bytesPerRow
+    const wL = widthBytes & 0xFF
+    const wH = (widthBytes >> 8) & 0xFF
+    const hL = h & 0xFF
+    const hH = (h >> 8) & 0xFF
+
+    return [
+      GS, 0x76, 0x30, 0x00, wL, wH, hL, hH,
+      ...bitmapBytes
+    ]
+  } catch (e) {
+    console.warn('Logo bitmap error:', e)
+    return []
+  }
 }
 
 const sendBytes = async (bytes) => {
@@ -134,8 +206,8 @@ export const printInvoice = async (invoice, tenant) => {
     } catch(e) { return {} }
   })()
 
-  const rateUSD = Number(exchangeRates.USD || (tenant && tenant.exchangeRate) || 0)
-  const rateDOP = Number(exchangeRates.DOP || 0)
+  const rateUSD  = Number(exchangeRates.USD || (tenant && tenant.exchangeRate) || 0)
+  const rateDOP  = Number(exchangeRates.DOP || 0)
   const totalHtg = Number(invoice.totalHtg || 0)
 
   const lastPay = invoice.payments && invoice.payments.length > 0
@@ -147,7 +219,6 @@ export const printInvoice = async (invoice, tenant) => {
     card: 'Kat/Carte', transfer: 'Virement', check: 'Chek/Cheque', other: 'Lot/Autre'
   }
 
-  // Statut trileng
   const statusText =
     invoice.status === 'paid'      ? 'PEYE / PAYE / PAID' :
     invoice.status === 'partial'   ? 'PASYAL / PARTIEL / PARTIAL' :
@@ -165,10 +236,21 @@ export const printInvoice = async (invoice, tenant) => {
     ? 'Pwodui/Product'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri/Prix'.padStart(C.price) + 'Total'.padStart(C.total)
     : 'Atik'.padEnd(C.name) + 'Q'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
 
+  // ── Logo bitmap (si disponib)
+  const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
+  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 140) : []
+
   const bytes = [
     ...CMD.INIT,
 
-    // HEADER: Non biznis
+    // LOGO (si disponib)
+    ...(logoBytes.length > 0 ? [
+      ...CMD.ALIGN_CENTER,
+      ...logoBytes,
+      ...CMD.LINE_FEED,
+    ] : []),
+
+    // NOM BIZNIS
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
@@ -176,19 +258,20 @@ export const printInvoice = async (invoice, tenant) => {
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
 
-    // Telefon + Adres (san emoji)
+    // Telefon + Adres
     ...(tenant && tenant.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
     ...(tenant && tenant.address ? [...encodeText(tenant.address + '\n')]           : []),
     ...CMD.LINE_FEED,
 
     // TITRE TRILENG
-    ...divider('-', W), ...CMD.LINE_FEED,
+    ...divider('=', W), ...CMD.LINE_FEED,
+    ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_HEIGHT,
     ...encodeText('Resi / Recu / Receipt\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    ...divider('-', W), ...CMD.LINE_FEED,
+    ...divider('=', W), ...CMD.LINE_FEED,
 
     // INFO FAKTI
     ...CMD.ALIGN_LEFT,
@@ -196,15 +279,13 @@ export const printInvoice = async (invoice, tenant) => {
     ...makeLine('Dat/Date:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
 
     // KLIYAN
-    ...(snap.name
-      ? [
-          ...divider('-', W), ...CMD.LINE_FEED,
-          ...CMD.BOLD_ON,
-          ...encodeText('Kliyan/Client: ' + snap.name.substring(0, W - 15) + '\n'),
-          ...CMD.BOLD_OFF,
-          ...(snap.phone ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
-        ]
-      : []),
+    ...(snap.name ? [
+      ...divider('-', W), ...CMD.LINE_FEED,
+      ...CMD.BOLD_ON,
+      ...encodeText('Kliyan/Client: ' + snap.name.substring(0, W - 15) + '\n'),
+      ...CMD.BOLD_OFF,
+      ...(snap.phone ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
+    ] : []),
 
     // TABLO ATIK
     ...divider('-', W), ...CMD.LINE_FEED,
@@ -236,12 +317,12 @@ export const printInvoice = async (invoice, tenant) => {
       ? [...makeLine('Remiz/Remise/Disc.:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
     ...(Number(invoice.taxHtg) > 0
-      ? [...makeLine('Taks/Taxe/Tax (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED]
+      ? [...makeLine('Taks/Tax (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED]
       : []),
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // TOTAL gwo + 3 deviz
+    // TOTAL GWO + 3 deviz
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_BOTH,
@@ -249,14 +330,8 @@ export const printInvoice = async (invoice, tenant) => {
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
 
-    // USD
-    ...(rateUSD > 0
-      ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. USD: $' + (totalHtg / rateUSD).toFixed(2) + '\n'), ...CMD.NORMAL_FONT]
-      : []),
-    // DOP
-    ...(rateDOP > 0
-      ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. DOP: RD$' + (totalHtg / rateDOP).toFixed(2) + '\n'), ...CMD.NORMAL_FONT]
-      : []),
+    ...(rateUSD > 0 ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. USD: $' + (totalHtg / rateUSD).toFixed(2) + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(rateDOP > 0 ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. DOP: RD$' + (totalHtg / rateDOP).toFixed(2) + '\n'), ...CMD.NORMAL_FONT] : []),
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
@@ -267,23 +342,17 @@ export const printInvoice = async (invoice, tenant) => {
     ...CMD.BOLD_OFF,
     ...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n'),
 
-    ...(Number(invoice.balanceDueHtg) > 0
-      ? [
-          ...CMD.BOLD_ON,
-          ...encodeText('Balans/Solde/Balance: '),
-          ...CMD.BOLD_OFF,
-          ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'),
-        ]
-      : []),
+    ...(Number(invoice.balanceDueHtg) > 0 ? [
+      ...CMD.BOLD_ON,
+      ...encodeText('Balans/Solde/Balance: '),
+      ...CMD.BOLD_OFF,
+      ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'),
+    ] : []),
 
-    ...(lastPay
-      ? [
-          ...makeLine('Metod/Mode/Method:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
-          ...(lastPay.reference
-            ? [...makeLine('Ref:', lastPay.reference, W), ...CMD.LINE_FEED]
-            : []),
-        ]
-      : []),
+    ...(lastPay ? [
+      ...makeLine('Metod/Mode/Method:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
+      ...(lastPay.reference ? [...makeLine('Ref:', lastPay.reference, W), ...CMD.LINE_FEED] : []),
+    ] : []),
 
     ...divider('-', W), ...CMD.LINE_FEED,
 
@@ -306,16 +375,18 @@ export const printInvoice = async (invoice, tenant) => {
     ...encodeText(invoice.invoiceNumber + '\n'),
     ...CMD.NORMAL_FONT,
 
-    ...divider('-', W), ...CMD.LINE_FEED,
+    ...divider('=', W), ...CMD.LINE_FEED,
 
-    // PYE PAJ TRILENG
+    // PYE PAJ
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...encodeText('Mesi! / Merci! / Thank you!\n'),
     ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText('Vant final. / Vente finale. / All sales final.\n'),
-    ...CMD.LINE_FEED,
+    ...encodeText('Pwodwi pa / Propulse par / Powered by\n'),
+    ...CMD.BOLD_ON,
+    ...encodeText('PlusGroup\n'),
+    ...CMD.BOLD_OFF,
     ...encodeText('Tel: +50942449024\n'),
     ...CMD.NORMAL_FONT,
 
