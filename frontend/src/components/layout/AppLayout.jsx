@@ -58,6 +58,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const [open, setOpen]           = useState(false)
   const [showLang, setShowLang]   = useState(false)
+  const [showNotif, setShowNotif] = useState(false)  // ← ESKE SA LA?
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const langRef = useRef(null)
 
