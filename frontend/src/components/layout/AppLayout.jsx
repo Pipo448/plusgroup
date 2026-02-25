@@ -20,7 +20,6 @@ const C = {
   border:'rgba(201,168,76,0.12)',
 }
 
-// ✅ Routes kòrèk — /app/... pou evite redirect loop
 const NAV = [
   { to:'/app/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard' },
   { to:'/app/products',  icon:Package,         labelKey:'nav.products'  },
@@ -37,7 +36,6 @@ const LANGS = [
   { code:'en', name:'English',  flag:'🇺🇸' },
 ]
 
-// ✅ jere data: base64, http, ak chemen relatif
 const logoSrc = (url) => {
   if (!url) return null
   if (url.startsWith('data:')) return url
@@ -58,7 +56,7 @@ export default function AppLayout() {
   const navigate = useNavigate()
   const [open, setOpen]           = useState(false)
   const [showLang, setShowLang]   = useState(false)
-  const [showNotif, setShowNotif] = useState(false)  // ← ESKE SA LA?
+  const [showNotif, setShowNotif] = useState(false)
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
   const langRef = useRef(null)
 
@@ -89,7 +87,6 @@ export default function AppLayout() {
     }
   }, [tenant?.slug])
 
-  // Sèlman si token la men tenant manke — reload depi API
   useEffect(() => {
     if (!token || tenant) return
     authAPI.me()
@@ -119,7 +116,6 @@ export default function AppLayout() {
     setShowLang(false)
   }
 
-  // ✅ Taux pou header — USD + DOP + tout lòt monè vizib
   const exchangeRates     = safeJson(tenant?.exchangeRates, {})
   const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
 
@@ -135,7 +131,6 @@ export default function AppLayout() {
 
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
-  // Spinner pandan Zustand persist rehydrate
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
       <div style={{ width:36, height:36, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -257,7 +252,7 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* ══ MAIN ══ */}
+      {/* ══ MAIN CONTENT AREA ══ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
         {/* Header */}
@@ -277,7 +272,6 @@ export default function AppLayout() {
             </button>
           )}
 
-          {/* ✅ Taux — USD + DOP + tout monè vizib */}
           {rateItems.map(({ cur, rate }) => (
             <div key={cur} style={{
               display:'flex', alignItems:'center', gap:4,
@@ -335,35 +329,36 @@ export default function AppLayout() {
           </div>
 
           {/* Notif */}
-<div style={{ position:'relative' }}>
-  <button
-    onClick={() => setShowNotif(!showNotif)}
-    style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}
-  >
-    <Bell size={18}/>
-    <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
-  </button>
+          <div style={{ position:'relative' }}>
+            <button
+              onClick={() => setShowNotif(!showNotif)}
+              style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}
+            >
+              <Bell size={18}/>
+              <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
+            </button>
 
-  {showNotif && (
-    <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:320, background:'#fff', borderRadius:16, boxShadow:'0 16px 48px rgba(0,0,0,0.15)', border:'1px solid rgba(0,0,0,0.08)', zIndex:999, overflow:'hidden' }}>
-      <div style={{ padding:'14px 16px', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontWeight:700, fontSize:14 }}>Notifikasyon</span>
-        <button onClick={() => setShowNotif(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#999' }}>✕</button>
-      </div>
-      <div style={{ padding:24, textAlign:'center', color:'#aaa', fontSize:13 }}>
-        <Bell size={32} style={{ marginBottom:8, opacity:0.3 }}/>
-        <p>Pa gen notifikasyon pou kounye a</p>
-      </div>
-    </div>
-  )}
+            {showNotif && (
+              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:320, background:'#fff', borderRadius:16, boxShadow:'0 16px 48px rgba(0,0,0,0.15)', border:'1px solid rgba(0,0,0,0.08)', zIndex:999, overflow:'hidden' }}>
+                <div style={{ padding:'14px 16px', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontWeight:700, fontSize:14 }}>Notifikasyon</span>
+                  <button onClick={() => setShowNotif(false)} style={{ background:'none', border:'none', cursor:'pointer', color:'#999' }}>✕</button>
+                </div>
+                <div style={{ padding:24, textAlign:'center', color:'#aaa', fontSize:13 }}>
+                  <Bell size={32} style={{ marginBottom:8, opacity:0.3 }}/>
+                  <p>Pa gen notifikasyon pou kounye a</p>
+                </div>
+              </div>
+            )}
           </div>
-        {/* ← AJOUTE 2 LIY SA YO: */}
         </header>
-      </div>
 
+        {/* ✅ KOREKSYON: main ANNDAN div flex:1 la */}
         <main style={{ flex:1, overflowY:'auto' }}>
           <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
+
+      </div>{/* ← fèmeture div flex:1 */}
 
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
