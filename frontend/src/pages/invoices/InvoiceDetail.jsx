@@ -19,21 +19,17 @@ const PAYMENT_METHODS = [
   { value:'natcash',  label:'NatCash'   },
   { value:'card',     label:'Kat Kredi' },
   { value:'transfer', label:'Virement'  },
-  { value:'check',    label:'ChÃ¨k'      },
+  { value:'check',    label:'Chek'      },
 ]
 
 const PDF_SIZES = [
-  { value: '80mm', label: '80mm', desc: 'Enprimant nÃ²mal (80Ã—80)' },
-  { value: '57mm', label: '57mm', desc: 'Ti enprimant (57Ã—40)'    },
+  { value: '80mm', label: '80mm', desc: 'Enprimant normal (80x80)' },
+  { value: '57mm', label: '57mm', desc: 'Ti enprimant (57x40)'    },
 ]
 
-// â”€â”€ âœ… FIX: Logo se base64 dirÃ¨k nan DB â€” pa bezwen konvÃ¨syon
-// Si se yon vye URL HTTP (ansyen logo), eseye konvÃ¨ti, sinon itilize dirÃ¨k
 const toBase64 = (url) => new Promise((resolve) => {
   if (!url) return resolve(null)
-  // Si deja base64 data URL â€” retounen dirÃ¨kteman
   if (url.startsWith('data:')) return resolve(url)
-  // Ansyen logo HTTP â€” eseye konvÃ¨ti
   const img = new Image()
   img.crossOrigin = 'anonymous'
   img.onload = () => {
@@ -49,9 +45,15 @@ const toBase64 = (url) => new Promise((resolve) => {
   img.src = url.includes('?') ? url : `${url}?t=${Date.now()}`
 })
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Komponan resi enprime
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const toHaitiDate = (dateStr, fmt2) => {
+  try {
+    return format(
+      new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
+      fmt2
+    )
+  } catch { return '' }
+}
+
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   if (!invoice) return null
   const snap        = invoice.clientSnapshot || {}
@@ -59,7 +61,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   const isCancelled = invoice.status === 'cancelled'
   const isPartial   = invoice.status === 'partial'
 
-  // Parse exchangeRates depi tenant dirèkteman
   const exchangeRates = (() => {
     try {
       const er = tenant && tenant.exchangeRates
@@ -69,14 +70,13 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
     } catch(e) { return {} }
   })()
 
-  // Trileng statut
   const statusLabel = isPaid
-    ? 'PEYE / PAYÉ / PAID'
+    ? 'PEYE / PAYE / PAID'
     : isCancelled
-      ? 'ANILE / ANNULÉ / CANCELLED'
+      ? 'ANILE / ANNULE / CANCELLED'
       : isPartial
         ? 'PASYAL / PARTIEL / PARTIAL'
-        : 'IMPAYE / NON PAYÉ / UNPAID'
+        : 'IMPAYE / NON PAYE / UNPAID'
 
   const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
 
@@ -86,7 +86,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
   const receiptWidth = tenant && tenant.receiptSize === '57mm' ? '57mm' : '80mm'
 
-  // 3 deviz: HTG, USD, DOP
   const totalHtg = Number(invoice.totalHtg || 0)
   const paidHtg  = Number(invoice.amountPaidHtg || 0)
   const balHtg   = Number(invoice.balanceDueHtg || 0)
@@ -110,8 +109,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
       fontSize: '10px',
       lineHeight: '1.4',
     }}>
-
-      {/* LOGO + NOM BIZNIS */}
       <div style={{ textAlign: 'center', marginBottom: '5px', borderBottom: '1px dashed #ccc', paddingBottom: '5px' }}>
         {logoBase64 && (
           <img src={logoBase64} alt="Logo"
@@ -125,12 +122,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         {tenant && tenant.address && <div style={{ fontSize: '9px', color: '#555' }}>{tenant.address}</div>}
       </div>
 
-      {/* TITRE TRILENG */}
       <div style={{ textAlign: 'center', margin: '5px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '11px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>
         Resi / Recu / Receipt
       </div>
 
-      {/* INFO FAKTI */}
       <div style={{ marginBottom: '5px', fontSize: '9px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>No. Fakti / Facture / Invoice:</span>
@@ -138,11 +133,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>Dat / Date:</span>
-          <span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy HH:mm')}</span>
+          <span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy HH:mm')}</span>
         </div>
       </div>
 
-      {/* KLIYAN */}
       {snap.name && (
         <div style={{ marginBottom: '5px', padding: '3px 5px', background: '#f8f8f8', borderRadius: '3px', fontSize: '9px', borderLeft: '2px solid #ccc' }}>
           <div style={{ fontWeight: '700', fontSize: '10px' }}>
@@ -156,7 +150,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* TABLO ATIK */}
       <div style={{ fontSize: '9px', marginBottom: '4px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '2px', borderBottom: '1px solid #ddd', fontSize: '8px' }}>
           <span style={{ flex: 3 }}>Pwodui / Produit / Product</span>
@@ -183,7 +176,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
 
-      {/* TOTAUX */}
       <div style={{ fontSize: '9px', marginBottom: '5px' }}>
         {Number(invoice.discountHtg) > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '2px' }}>
@@ -197,7 +189,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
             <span>{fmt(invoice.taxHtg)} HTG</span>
           </div>
         )}
-
         <div style={{ borderTop: '2px solid #111', marginTop: '4px', paddingTop: '5px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '12px', fontFamily: 'Arial' }}>
             <span>TOTAL:</span>
@@ -218,7 +209,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         </div>
       </div>
 
-      {/* PEMAN */}
       <div style={{ fontSize: '9px', marginBottom: '5px', padding: '4px 6px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
           <span style={{ color: '#555' }}>Peye / Paye / Paid:</span>
@@ -244,7 +234,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         )}
       </div>
 
-      {/* STATUT BADGE */}
       <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
         <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>
           {statusLabel}
@@ -253,7 +242,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* QR CODE */}
       {qrDataUrl && (
         <div style={{ textAlign: 'center', marginBottom: '5px' }}>
           <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
@@ -262,7 +250,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         </div>
       )}
 
-      {/* PYE PAJ */}
       <div style={{ textAlign: 'center', fontSize: '9px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
         <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>
           Mesi! / Merci! / Thank you!
@@ -278,9 +265,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
   )
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// KOMPONAN PRENSIPAL
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export default function InvoiceDetail() {
   const { id }      = useParams()
   const navigate    = useNavigate()
@@ -312,13 +296,10 @@ export default function InvoiceDetail() {
     queryFn:  () => invoiceAPI.getOne(id).then(r => r.data.invoice)
   })
 
-  // âœ… FIX: Si deja base64 data URL â€” itilize dirÃ¨kteman
   useEffect(() => {
     const url = tenant?.logoUrl
     if (!url) { setLogoBase64(null); return }
-    // base64 data URL â€” pa bezwen konvÃ¨syon ditou
     if (url.startsWith('data:')) { setLogoBase64(url); return }
-    // URL HTTP â€” eseye konvÃ¨ti
     toBase64(url).then(b64 => setLogoBase64(b64 || null))
   }, [tenant?.logoUrl])
 
@@ -328,7 +309,7 @@ export default function InvoiceDetail() {
       invoice.invoiceNumber,
       `Total: ${fmt(invoice.totalHtg)} HTG`,
       `Status: ${invoice.status}`,
-     `Date: ${format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}`,
+      `Date: ${toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}`,
       window.location.href,
     ].join('\n')
 
@@ -346,7 +327,7 @@ export default function InvoiceDetail() {
 
     const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
     if (!printWindow) {
-      toast.error('NavigatÃ¨ bloke popup. PÃ¨mÃ¨t popup pou sit sa.')
+      toast.error('Navigate bloke popup. Pemit popup pou sit sa.')
       return
     }
 
@@ -387,7 +368,7 @@ export default function InvoiceDetail() {
       setShowPayment(false)
       setPayData({ amountHtg: '', method: 'cash', reference: '' })
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'ErÃ¨ pandan peman.')
+    onError: (e) => toast.error(e.response?.data?.message || 'Ere pandan peman.')
   })
 
   const cancelMutation = useMutation({
@@ -414,7 +395,7 @@ export default function InvoiceDetail() {
       URL.revokeObjectURL(url)
       toast.success(`PDF ${size} telechaje!`, { id: toastId })
     } catch {
-      toast.error('ErÃ¨ pandan telechajman PDF.', { id: toastId })
+      toast.error('Ere pandan telechajman PDF.', { id: toastId })
     }
   }
 
@@ -431,7 +412,6 @@ export default function InvoiceDetail() {
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      {/* Resi Enprime (kachÃ© nan ekran) */}
       <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} logoBase64={logoBase64} />
 
       <style>{`
@@ -439,7 +419,6 @@ export default function InvoiceDetail() {
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
       `}</style>
 
-      {/* Header */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/app/invoices')} className="btn-ghost p-2">
@@ -449,7 +428,7 @@ export default function InvoiceDetail() {
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-2xl font-display font-bold">{invoice.invoiceNumber}</h1>
               <span className={`badge ${isPaid ? 'badge-green' : isCancelled ? 'badge-gray' : invoice.status === 'partial' ? 'badge-yellow' : 'badge-red'}`}>
-                {isPaid ? 'âœ“ Peye' : isCancelled ? 'Anile' : invoice.status === 'partial' ? 'Pasyal' : 'Impaye'}
+                {isPaid ? 'Peye' : isCancelled ? 'Anile' : invoice.status === 'partial' ? 'Pasyal' : 'Impaye'}
               </span>
             </div>
             <p className="text-slate-500 text-sm">
@@ -462,11 +441,7 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={handlePrint}
-            className="btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-          >
+          <button onClick={handlePrint} className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <Printer size={14} />
             Enprime Resi
           </button>
@@ -507,14 +482,14 @@ export default function InvoiceDetail() {
             {showPdfMenu && (
               <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:50, background:'#fff', borderRadius:12, minWidth:210, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0', overflow:'hidden' }}>
                 <div style={{ padding:'8px 14px 5px', fontSize:10, fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-                  FÃ²ma enprimant
+                  Foma enprimant
                 </div>
                 {PDF_SIZES.map((s, i) => (
                   <button key={s.value} onClick={() => downloadPdf(s.value)}
                     style={{ width:'100%', textAlign:'left', padding:'10px 14px', background:'none', border:'none', cursor:'pointer', borderBottom: i < PDF_SIZES.length - 1 ? '1px solid #f1f5f9' : 'none' }}
                     onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
                     onMouseLeave={e => e.currentTarget.style.background='none'}>
-                    <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', fontFamily:'DM Sans,sans-serif' }}>ðŸ–¨ {s.label}</div>
+                    <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', fontFamily:'DM Sans,sans-serif' }}>🖨 {s.label}</div>
                     <div style={{ fontSize:11, color:'#94a3b8', marginTop:1 }}>{s.desc}</div>
                   </button>
                 ))}
@@ -541,7 +516,7 @@ export default function InvoiceDetail() {
       {connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Goojprt PT-210 konekte via Bluetooth â€” Klike "Enprime BT" pou voye resi bay printer a
+          Goojprt PT-210 konekte via Bluetooth - Klike "Enprime BT" pou voye resi bay printer a
         </div>
       )}
 
@@ -578,7 +553,7 @@ export default function InvoiceDetail() {
                     </td>
                     <td className="text-center font-mono">{Number(item.quantity)}</td>
                     <td className="text-right font-mono">{fmt(item.unitPriceHtg)}</td>
-                    <td className="text-center text-slate-500">{Number(item.discountPct) > 0 ? `${item.discountPct}%` : 'â€”'}</td>
+                    <td className="text-center text-slate-500">{Number(item.discountPct) > 0 ? `${item.discountPct}%` : '-'}</td>
                     <td className="text-right font-mono font-semibold">{fmt(item.totalHtg)}</td>
                   </tr>
                 ))}
@@ -592,13 +567,13 @@ export default function InvoiceDetail() {
                 <h3 className="font-display font-bold text-slate-800">Istwa Peman ({invoice.payments.length})</h3>
               </div>
               <table className="table">
-                <thead><tr><th>Dat</th><th>MetÃ²d</th><th>Referans</th><th className="text-right">Montan HTG</th></tr></thead>
+                <thead><tr><th>Dat</th><th>Metod</th><th>Referans</th><th className="text-right">Montan HTG</th></tr></thead>
                 <tbody>
                   {invoice.payments.map(p => (
                     <tr key={p.id}>
-                      <td className="text-xs text-slate-500">{format(new Date(p.paymentDate), 'dd/MM/yyyy')}</td>
+                      <td className="text-xs text-slate-500">{toHaitiDate(p.paymentDate, 'dd/MM/yyyy')}</td>
                       <td><span className="badge-blue">{PAYMENT_METHODS.find(m=>m.value===p.method)?.label || p.method}</span></td>
-                      <td className="text-xs text-slate-400 font-mono">{p.reference || 'â€”'}</td>
+                      <td className="text-xs text-slate-400 font-mono">{p.reference || '-'}</td>
                       <td className="text-right font-mono font-semibold text-emerald-600">{fmt(p.amountHtg)}</td>
                     </tr>
                   ))}
@@ -643,8 +618,14 @@ export default function InvoiceDetail() {
               </div>
             )}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-              <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}</span></div>
-             <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
+              <div className="flex justify-between">
+                <span>Dat:</span>
+                <span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Taux:</span>
+                <span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span>
+              </div>
             </div>
 
             {connected && (
@@ -674,7 +655,7 @@ export default function InvoiceDetail() {
                 <h2 className="text-lg font-display font-bold">Anrejistre Peman</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{invoice.invoiceNumber}</p>
               </div>
-              <button onClick={() => setShowPayment(false)} className="text-slate-400 hover:text-slate-600 p-1 text-xl leading-none">âœ•</button>
+              <button onClick={() => setShowPayment(false)} className="text-slate-400 hover:text-slate-600 p-1 text-xl leading-none">x</button>
             </div>
 
             <div className="p-5 space-y-4">
@@ -702,7 +683,7 @@ export default function InvoiceDetail() {
                     <button type="button"
                       onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}
                       style={{ fontSize:10, color:'#2563eb', fontWeight:700, background:'#eff6ff', border:'none', cursor:'pointer', padding:'2px 8px', borderRadius:4 }}>
-                      Ranpli tout â†‘
+                      Ranpli tout
                     </button>
                   )}
                 </div>
@@ -715,14 +696,14 @@ export default function InvoiceDetail() {
 
                 {amtNum > 0 && amtNum < balance && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>âš  Peman pasyal</span>
+                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>Peman pasyal</span>
                     <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG ap rete</span>
                   </div>
                 )}
 
                 {amtNum === balance && amtNum > 0 && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>âœ“ Peman egzak</span>
+                    <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>Peman egzak</span>
                     <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
                   </div>
                 )}
@@ -731,10 +712,10 @@ export default function InvoiceDetail() {
                   <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
                     <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                       <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-                        ðŸ’µ Monnen pou remet
+                        Monnen pou remet
                       </span>
                       <span style={{ fontSize:11, color:'rgba(255,255,255,0.7)', fontFamily:'monospace' }}>
-                        {fmt(amtNum)} âˆ’ {fmt(balance)}
+                        {fmt(amtNum)} - {fmt(balance)}
                       </span>
                     </div>
                     <div style={{ background:'#f0fdf4', padding:'14px', textAlign:'center' }}>
@@ -747,14 +728,14 @@ export default function InvoiceDetail() {
               </div>
 
               <div>
-                <label className="label">MetÃ²d peman</label>
+                <label className="label">Metod peman</label>
                 <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
                   {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="label">Referans (opsyonÃ¨l)</label>
+                <label className="label">Referans (opsyonel)</label>
                 <input className="input" placeholder="ex: MCash #12345"
                   value={payData.reference}
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
@@ -780,8 +761,8 @@ export default function InvoiceDetail() {
                         Ap anrejistre...
                       </span>
                     : monnen > 0
-                      ? `âœ“ Konfime ${fmt(balance)} HTG`
-                      : `âœ“ Konfime ${fmt(amtNum)} HTG`
+                      ? `Konfime ${fmt(balance)} HTG`
+                      : `Konfime ${fmt(amtNum)} HTG`
                   }
                 </button>
               </div>

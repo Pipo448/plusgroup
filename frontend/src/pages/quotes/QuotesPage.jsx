@@ -39,6 +39,15 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
   return parts.length ? parts.join('  ') : null
 }
 
+const toHaitiDate = (dateStr, fmt2) => {
+  try {
+    return format(
+      new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
+      fmt2
+    )
+  } catch { return '' }
+}
+
 const STATUS_KEYS = {
   draft:     'quotes.statusDraft',
   sent:      'quotes.statusSent',
@@ -218,11 +227,7 @@ function QuoteCard({ q, D, fmt, t, showRate, exchangeRates, visibleCurrs, conver
       </div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <span style={{ fontSize:14, fontWeight:700, color:D.text }}>{q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}</span>
-        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{format(new Date(new Date(quote.createdAt).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
-  'dd MMMM yyyy',
-  { locale: fr }
-)}
-</span>
+        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{toHaitiDate(q.issueDate || q.createdAt, 'dd/MM/yy')}</span>
       </div>
       <div style={{ height:1, background:D.border }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
@@ -234,7 +239,7 @@ function QuoteCard({ q, D, fmt, t, showRate, exchangeRates, visibleCurrs, conver
         {q.expiryDate && (
           <div style={{ textAlign:'right' }}>
             <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>{t('quotes.colExpiry')}</p>
-            <p style={{ fontFamily:'monospace', fontSize:12, color: isExpired ? D.red : D.muted, margin:0 }}>{format(new Date(q.expiryDate), 'dd/MM/yy')}</p>
+            <p style={{ fontFamily:'monospace', fontSize:12, color: isExpired ? D.red : D.muted, margin:0 }}>{toHaitiDate(q.expiryDate, 'dd/MM/yy')}</p>
           </div>
         )}
       </div>
@@ -288,11 +293,11 @@ function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeRates, visibleCurrs, co
       <div style={{ textAlign:'center' }}>
         <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:sc.bg, color:sc.color, textTransform:'uppercase' }}>{t(STATUS_KEYS[q.status] || STATUS_KEYS.draft)}</span>
       </div>
-      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{format(new Date(q.issueDate), 'dd/MM/yy')}</span>
-      <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired ? D.red : D.muted }}>{q.expiryDate ? format(new Date(q.expiryDate), 'dd/MM/yy') : '—'}</span>
+      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{toHaitiDate(q.issueDate || q.createdAt, 'dd/MM/yy')}</span>
+      <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired ? D.red : D.muted }}>{q.expiryDate ? toHaitiDate(q.expiryDate, 'dd/MM/yy') : '-'}</span>
       <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
         <Link to={`/app/quotes/${q.id}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}><Eye size={13}/></Link>
-        {['draft','sent'].includes(q.status) && actionBtn(()=>{}, <Edit2 size={12}/>, t('common.edit'), D.blue)}
+        {['draft','sent'].includes(q.status) && actionBtn(() => navigate(`/app/quotes/${q.id}/edit`), <Edit2 size={12}/>, t('common.edit'), D.blue)}
         {q.status==='draft' && actionBtn(()=>sendMutation.mutate(q.id), <Send size={12}/>, t('quotes.send'), '#0284C7')}
         {['draft','sent','accepted'].includes(q.status) && actionBtn(()=>{ if(confirm(t('quotes.convertConfirm'))) convertMutation.mutate(q.id) }, <CheckCircle size={12}/>, t('quotes.convert'), D.success)}
         {!['converted','cancelled'].includes(q.status) && actionBtn(()=>{ if(confirm(t('quotes.cancelConfirm'))) cancelMutation.mutate(q.id) }, <XCircle size={12}/>, t('common.cancel'), D.red)}
