@@ -466,25 +466,25 @@ const PaymentModal = ({ tenant, onClose }) => {
 }
 
 // ══════════════════════════════════════════════════
-// STICKY PAYMENT BUTTON — Aliye ak bàr topbar la
+// STICKY PAYMENT BUTTON — Anba topbar, pa kouvri l
 // ══════════════════════════════════════════════════
 const StickyPaymentButton = ({ onClick }) => (
   <div style={{
-    position:'fixed', top:0, right:0, zIndex:998,
-    height:46,
+    position:'fixed',
+    top: 60,      /* jis anba topbar (wotè topbar ou ~56-64px) */
+    right: 16,
+    zIndex: 400,  /* anba topbar ki ~900 */
     display:'flex', alignItems:'center',
-    paddingRight:16,
   }}>
     <button
       onClick={onClick}
       style={{
         display:'inline-flex', alignItems:'center', gap:7,
-        padding:'7px 16px', borderRadius:8,
+        padding:'8px 16px', borderRadius:10,
         background:'linear-gradient(135deg, #8B0000, #C0392B 55%, #C9A84C)',
-        color:'#fff', border:'none',
+        color:'#fff', border:'2px solid rgba(255,255,255,0.15)',
         cursor:'pointer', fontSize:12, fontWeight:800,
         fontFamily:'DM Sans, sans-serif',
-        boxShadow:'0 4px 18px rgba(139,0,0,0.45), 0 0 0 2px rgba(201,168,76,0.25)',
         animation:'pulseBtn 2.5s ease-in-out infinite',
         whiteSpace:'nowrap', letterSpacing:'0.02em'
       }}
@@ -494,8 +494,8 @@ const StickyPaymentButton = ({ onClick }) => (
     </button>
     <style>{`
       @keyframes pulseBtn {
-        0%, 100% { box-shadow: 0 4px 18px rgba(139,0,0,0.45), 0 0 0 2px rgba(201,168,76,0.25); }
-        50%       { box-shadow: 0 6px 26px rgba(139,0,0,0.65), 0 0 0 4px rgba(201,168,76,0.4); }
+        0%, 100% { box-shadow: 0 4px 18px rgba(139,0,0,0.5), 0 0 0 2px rgba(201,168,76,0.2); }
+        50%       { box-shadow: 0 6px 26px rgba(139,0,0,0.7), 0 0 0 5px rgba(201,168,76,0.38); }
       }
     `}</style>
   </div>
