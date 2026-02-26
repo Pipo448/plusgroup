@@ -51,6 +51,43 @@ const getOne = async (tenantId, id) => {
 
 // ── CREATE
 const create = async (tenantId, userId, data) => {
+  // ── Verifye limit plan (maxProducts) ──────────────────────────────
+  // Konte sèlman pwodui ki gen stock aktif (quantity > 0 ak isActive: true)
+  // Lojik: yon fwa pwodui a vann (quantity = 0), li libere yon plas
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: { plan: { select: { maxProducts: true, name: true } } }
+  });
+
+  if (tenant?.plan?.maxProducts != null) {
+    const maxProducts = tenant.plan.maxProducts;
+
+    // Konte pwodui ki nan stock kounye a (quantity > 0 + isActive)
+    const activeStockCount = await prisma.product.count({
+      where: {
+        tenantId,
+        isActive: true,
+        isService: false,      // sèvis pa konte nan stock limit
+        quantity: { gt: 0 }    // sèlman sa ki gen stock reyèl
+      }
+    });
+
+    // Verifye si nouvo pwodui sa ap depase limit lan
+    const newProductQty = Number(data.quantity) || 0;
+    const isService     = data.isService || false;
+
+    if (!isService && newProductQty > 0 && activeStockCount >= maxProducts) {
+      throw Object.assign(
+        new Error(
+          `Ou rive nan limit plan "${tenant.plan.name}" ou a (${maxProducts} pwodui nan stock). ` +
+          `Vann kèk pwodui pou libere plas, oswa ogmante plan ou.`
+        ),
+        { statusCode: 403 }
+      );
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────
+
   // Vérifier code unique si fourni
   if (data.code) {
     const exists = await prisma.product.findUnique({ where: { tenantId_code: { tenantId, code: data.code } } });

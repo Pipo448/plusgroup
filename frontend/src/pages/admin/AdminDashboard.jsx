@@ -51,11 +51,11 @@ const STATUS_STYLES = {
   cancelled: { bg:'rgba(100,116,139,0.12)', color:'#64748b', border:'rgba(100,116,139,0.3)', label:'Anile' },
 }
 
-// ── PLANS DEFINI (3 plan mensuel)
 const FIXED_PLANS = [
-  { id:'plan-2000', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2000, icon:<Zap size={16}/>,   color:'#1B3A6B', features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
-  { id:'plan-2500', name:'Biznis',    nameFr:'Biznis',    priceMonthly:2500, icon:<Star size={16}/>,  color:'#C9A84C', features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè'] },
-  { id:'plan-3000', name:'Premyum',   nameFr:'Premyum',   priceMonthly:3000, icon:<Crown size={16}/>, color:'#8B0000', features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite'] },
+  { id:'plan-2500', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2500, icon:<Zap size={16}/>,    color:'#1B3A6B', features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
+  { id:'plan-3000', name:'Biznis',    nameFr:'Biznis',    priceMonthly:3000, icon:<Star size={16}/>,   color:'#C9A84C', features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè'] },
+  { id:'plan-4000', name:'Premyum',   nameFr:'Premyum',   priceMonthly:4000, icon:<Crown size={16}/>,  color:'#8B0000', features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite'] },
+  { id:'plan-5000', name:'Antrepriz', nameFr:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#6B21A8', features:['Tout nan Premyum','Paj Sabotay MonCash/NatCash','Ti Kanè Kès','Sipò VIP 24/7'] },
 ]
 
 // ── Modal kreye tenant REDESIGN
@@ -134,7 +134,7 @@ const CreateTenantModal = ({ plans, onClose, onCreated }) => {
             <p style={{ color:'rgba(201,168,76,0.8)', fontSize:11, fontWeight:700,
               textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 12px',
               fontFamily:'DM Sans' }}>Chwazi Plan Mensuel</p>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10 }}>
               {FIXED_PLANS.map(plan => (
                 <div key={plan.id}
                   onClick={() => setSelectedPlan(plan.id)}

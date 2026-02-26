@@ -29,9 +29,7 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({ success: true, token, admin: { id: admin.id, name: admin.name, email: admin.email } });
 }));
 
-// ============================================================
-// SETUP SUPER ADMIN
-// ============================================================
+// ── POST /api/v1/admin/setup-superadmin
 router.post('/setup-superadmin', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
@@ -63,9 +61,7 @@ router.post('/setup-superadmin', async (req, res) => {
   }
 });
 
-// ============================================================
-// DELETE TENANT PAR SLUG
-// ============================================================
+// ── DELETE /api/v1/admin/tenants/by-slug/:slug
 router.delete('/tenants/by-slug/:slug', async (req, res) => {
   try {
     const { PrismaClient } = require('@prisma/client');
@@ -211,11 +207,11 @@ router.patch('/tenants/:id/status', asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Statut pa valid.' });
 
   const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data: { status } });
-  const msg = status === 'active' ? 'aktive' : status === 'suspended' ? 'suspann' : status;
+  const msg = status === 'active' ? 'aktive' : status === 'suspended' ? 'sipann' : status;
   res.json({ success: true, tenant, message: `Entreprise ${msg}.` });
 }));
 
-// ── PATCH /api/v1/admin/tenants/:id/plan  ✅ NOUVO
+// ── PATCH /api/v1/admin/tenants/:id/plan
 router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
   const { planId } = req.body;
 
@@ -265,7 +261,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 }));
 
 // ── GET /api/v1/admin/plans
-// ✅ Kreye oswa mete ajou plan yo pou matche 3 plan Plus Group
+// ✅ 4 plan Plus Group — 2500 / 3000 / 4000 / 5000 HTG
 router.get('/plans', asyncHandler(async (req, res) => {
   const PLANS = [
     {
@@ -273,24 +269,32 @@ router.get('/plans', asyncHandler(async (req, res) => {
       nameFr: 'Standard',
       maxUsers: 5,
       maxProducts: 500,
-      priceMonthly: 2000,
-      features: JSON.stringify(['Fakti', 'Devis', 'Kliyan', 'Stòk'])
+      priceMonthly: 2500,
+      features: JSON.stringify(['Jesyon Stòk', 'Fakti & Devis', 'Jiska 5 itilizatè'])
     },
     {
       name: 'Biznis',
       nameFr: 'Business',
       maxUsers: 15,
       maxProducts: 2000,
-      priceMonthly: 2500,
-      features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Fiska 15 itilizatè'])
+      priceMonthly: 3000,
+      features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Jiska 15 itilizatè'])
     },
     {
       name: 'Premyum',
       nameFr: 'Premium',
       maxUsers: 100,
       maxProducts: 99999,
-      priceMonthly: 3000,
-      features: JSON.stringify(['Tout nan Biznis', 'services', 'Sipò priorite', 'Itilizatè entelimite'])
+      priceMonthly: 4000,
+      features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite'])
+    },
+    {
+      name: 'Antepriz',
+      nameFr: 'Entreprise',
+      maxUsers: 999,
+      maxProducts: 999999,
+      priceMonthly: 5000,
+      features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', 'Sipò VIP 24/7'])
     },
   ];
 
@@ -314,7 +318,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
   res.json({ success: true, plans });
 }));
 
-// ── GET /api/v1/admin/stats  ✅ KORIJE — matche frontend stats.tenants.total / stats.users.total
+// ── GET /api/v1/admin/stats
 router.get('/stats', asyncHandler(async (req, res) => {
   const [total, active, pending, suspended, totalUsers] = await Promise.all([
     prisma.tenant.count(),
