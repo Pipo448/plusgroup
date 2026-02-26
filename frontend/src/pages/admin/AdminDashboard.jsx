@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import { adminAPI } from '../../services/api'
 import {
   Shield, Plus, Building2, Users, LogOut,
   CheckCircle, XCircle, Clock, X, Star, Crown, Zap, CreditCard
@@ -370,10 +371,10 @@ const PaymentModal = ({ tenant, onClose }) => {
 }
 
 const FIXED_PLANS = [
-  { id:'plan-2500', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2500, icon:<Zap size={16}/>,    color:'#8B0000', features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
-  { id:'plan-3000', name:'Biznis',    nameFr:'Biznis',    priceMonthly:3000, icon:<Star size={16}/>,   color:'#1B3A6B', features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè'] },
-  { id:'plan-4000', name:'Premyum',   nameFr:'Premyum',   priceMonthly:4000, icon:<Crown size={16}/>,  color:'#9E9E9E', features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite'] },
-  { id:'plan-5000', name:'Antrepriz', nameFr:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', features:['Tout nan Premyum','Paj Sabotay MonCash/NatCash','Ti Kanè Kès','Sipò VIP 24/7'] },
+  { id:'5ec2d3ed-2613-4692-bc02-fa884ba861b3', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2500, icon:<Zap size={16}/>,    color:'#8B0000', features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
+  { id:'e13de13b-5638-43fa-9fc3-3c2da8b50d82', name:'Biznis',    nameFr:'Biznis',    priceMonthly:3000, icon:<Star size={16}/>,   color:'#1B3A6B', features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè'] },
+  { id:'613e0786-43cd-487e-aa2c-000158b508db', name:'Premyum',   nameFr:'Premyum',   priceMonthly:4000, icon:<Crown size={16}/>,  color:'#9E9E9E', features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite'] },
+  { id:'96ff3a9d-2b6a-4ef5-9d89-4d7077382d46', name:'Antrepriz', nameFr:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', features:['Tout nan Premyum','Paj Sabotay MonCash/NatCash','Ti Kanè Kès','Sipò VIP 24/7'] },
 ]
 
 // ── Modal kreye tenant REDESIGN
@@ -384,7 +385,7 @@ const CreateTenantModal = ({ plans, onClose, onCreated }) => {
   const [selectedPlan, setSelectedPlan] = useState(null)
 
   const mutation = useMutation({
-    mutationFn: (data) => adminApi.post('/admin/tenants', data),
+    mutationFn: (data) => adminAPI.createTenant(data),
     onSuccess: (res) => {
       toast.success(`Entreprise "${res.data.tenant.name}" kreye avèk siksè!`)
       onCreated?.()
