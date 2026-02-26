@@ -138,7 +138,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>Dat / Date:</span>
-          <span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy HH:mm')}</span>
+          <span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy HH:mm')}</span>
         </div>
       </div>
 
@@ -328,7 +328,7 @@ export default function InvoiceDetail() {
       invoice.invoiceNumber,
       `Total: ${fmt(invoice.totalHtg)} HTG`,
       `Status: ${invoice.status}`,
-      `Date: ${format(new Date(invoice.issueDate), 'dd/MM/yyyy')}`,
+     `Date: ${format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}`,
       window.location.href,
     ].join('\n')
 
@@ -643,7 +643,7 @@ export default function InvoiceDetail() {
               </div>
             )}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-              <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(invoice.issueDate), 'dd/MM/yyyy')}</span></div>
+              <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}</span>
               <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 

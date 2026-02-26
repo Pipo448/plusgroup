@@ -218,7 +218,11 @@ function QuoteCard({ q, D, fmt, t, showRate, exchangeRates, visibleCurrs, conver
       </div>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <span style={{ fontSize:14, fontWeight:700, color:D.text }}>{q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}</span>
-        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{format(new Date(q.issueDate), 'dd/MM/yy')}</span>
+        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{format(new Date(new Date(quote.createdAt).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
+  'dd MMMM yyyy',
+  { locale: fr }
+)}
+</span>
       </div>
       <div style={{ height:1, background:D.border }}/>
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
