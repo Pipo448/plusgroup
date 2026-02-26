@@ -74,7 +74,6 @@ const makeQR = (content) => {
 // ── Konvèti logo base64 an bitmap ESC/POS (GS v 0)
 const logoToEscPos = async (base64url, targetWidth) => {
   try {
-    // Kreye canvas pou dessine logo a
     const canvas = document.createElement('canvas')
     const ctx    = canvas.getContext('2d')
     const img    = new Image()
@@ -85,23 +84,19 @@ const logoToEscPos = async (base64url, targetWidth) => {
       img.src     = base64url
     })
 
-    // Kalkile wotè pwoposyonèl — max 80px wotè
     const maxH  = 80
     const ratio = Math.min(targetWidth / img.width, maxH / img.height)
     const w     = Math.floor(img.width  * ratio)
     const h     = Math.floor(img.height * ratio)
 
-    // Lajè dwe miltip de 8 pou ESC/POS
     const pw = Math.ceil(w / 8) * 8
     canvas.width  = pw
     canvas.height = h
 
-    // Fon blan
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, pw, h)
     ctx.drawImage(img, 0, 0, w, h)
 
-    // Konvèti an noir/blan (threshold)
     const imgData = ctx.getImageData(0, 0, pw, h)
     const pixels  = imgData.data
     const bytesPerRow = pw / 8
@@ -117,7 +112,6 @@ const logoToEscPos = async (base64url, targetWidth) => {
           const g   = pixels[idx + 1]
           const b   = pixels[idx + 2]
           const a   = pixels[idx + 3]
-          // Noir si fonce (luminosity < 128) epi pa transparan
           const lum = (r * 0.299 + g * 0.587 + b * 0.114)
           const isBlack = a > 128 && lum < 160
           if (isBlack) byte |= (0x80 >> bit)
@@ -126,7 +120,6 @@ const logoToEscPos = async (base64url, targetWidth) => {
       }
     }
 
-    // GS v 0 — enprime bitmap raster
     const widthBytes = bytesPerRow
     const wL = widthBytes & 0xFF
     const wH = (widthBytes >> 8) & 0xFF
@@ -322,10 +315,10 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // TOTAL GWO + 3 deviz
+    // TOTAL GWO + 3 deviz — FIX: redui font si montan long
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
-    ...CMD.DOUBLE_BOTH,
+    ...(fmt(totalHtg).length > 10 ? [...CMD.DOUBLE_HEIGHT] : [...CMD.DOUBLE_BOTH]),
     ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
@@ -335,18 +328,25 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // PEMAN
+    // PEMAN — FIX: redui font si montan long
     ...CMD.ALIGN_LEFT,
     ...CMD.BOLD_ON,
     ...encodeText('Peye/Paye/Paid: '),
     ...CMD.BOLD_OFF,
-    ...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n'),
+    ...(fmt(invoice.amountPaidHtg).length > 10
+      ? [...CMD.SMALL_FONT, ...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n'), ...CMD.NORMAL_FONT]
+      : [...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n')]
+    ),
 
+    // BALANS — FIX: redui font si montan long
     ...(Number(invoice.balanceDueHtg) > 0 ? [
       ...CMD.BOLD_ON,
       ...encodeText('Balans/Solde/Balance: '),
       ...CMD.BOLD_OFF,
-      ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'),
+      ...(fmt(invoice.balanceDueHtg).length > 10
+        ? [...CMD.SMALL_FONT, ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'), ...CMD.NORMAL_FONT]
+        : [...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n')]
+      ),
     ] : []),
 
     ...(lastPay ? [
