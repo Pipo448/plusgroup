@@ -343,6 +343,7 @@ export default function AdminDashboard() {
   const navigate    = useNavigate()
   const qc          = useQueryClient()
   const [showCreate, setShowCreate] = useState(false)
+  const [editPlanTenant, setEditPlanTenant] = useState(null) // { id, name }
   const { admin }   = getAdmin()
 
   if (!localStorage.getItem('pg-admin')) {
@@ -374,6 +375,12 @@ export default function AdminDashboard() {
     onSuccess: (res) => { toast.success(res.data.message); qc.invalidateQueries(['admin-tenants']); qc.invalidateQueries(['admin-expiring']) },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
   })
+
+  const changePlanMutation = useMutation({
+  mutationFn: ({id, planId}) => adminApi.patch(`/admin/tenants/${id}/plan`, {planId}),
+  onSuccess: () => { toast.success('Plan chanje!'); qc.invalidateQueries(['admin-tenants']) },
+  onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+})
 
   const handleLogout = () => { localStorage.removeItem('pg-admin'); navigate('/admin/login'); toast.success('Ou dekonekte.') }
 
@@ -662,6 +669,14 @@ export default function AdminDashboard() {
                                 color:'#27ae60', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                               ↻ +1 Mwa
                             </button>
+
+                            <button onClick={() => setEditPlanTenant(t)}
+                              style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6,
+                                background:'rgba(201,168,76,0.1)', border:'1px solid rgba(201,168,76,0.25)',
+                                color:'#C9A84C', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                              <Crown size={11}/> Plan
+                            </button>
+
                             {t.status === 'active'
                               ? <button onClick={() => { if(confirm(`Sipann "${t.name}"?`)) statusMutation.mutate({id:t.id,status:'suspended'}) }}
                                   style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6,
@@ -697,7 +712,83 @@ export default function AdminDashboard() {
             © 2025 PLUS GROUP — Innov@tion & Tech · Ouanaminthe, Haïti
           </p>
         </div>
+
       </main>
+
+      {/* ── MODAL CHANJE PLAN ── */}
+      {editPlanTenant && (
+        <div style={{
+          position:'fixed', inset:0, background:'rgba(0,0,0,0.75)',
+          backdropFilter:'blur(6px)', zIndex:50,
+          display:'flex', alignItems:'center', justifyContent:'center', padding:16
+        }} onClick={e => e.target === e.currentTarget && setEditPlanTenant(null)}>
+          <div style={{
+            background:'linear-gradient(160deg, #0f1923 0%, #111827 100%)',
+            borderRadius:20, width:'100%', maxWidth:440, padding:28,
+            border:'1px solid rgba(201,168,76,0.2)',
+            boxShadow:'0 30px 80px rgba(0,0,0,0.7)',
+            position:'relative'
+          }}>
+            <div style={{ position:'absolute', top:0, left:0, right:0, height:2,
+              background:'linear-gradient(90deg, transparent, #C9A84C 40%, #8B0000 70%, transparent)',
+              borderRadius:'20px 20px 0 0' }}/>
+
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <div>
+                <h3 style={{ color:'#fff', margin:0, fontSize:16, fontFamily:"'Playfair Display'" }}>
+                  Chanje Plan
+                </h3>
+                <p style={{ color:'rgba(201,168,76,0.6)', fontSize:11, margin:0 }}>
+                  {editPlanTenant.name}
+                </p>
+              </div>
+              <button onClick={() => setEditPlanTenant(null)} style={{
+                background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
+                borderRadius:8, width:30, height:30, display:'flex', alignItems:'center',
+                justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.5)'
+              }}><X size={14}/></button>
+            </div>
+
+            <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:20 }}>
+              {plans.map(p => (
+                <button key={p.id}
+                  onClick={() => {
+                    changePlanMutation.mutate({id: editPlanTenant.id, planId: p.id})
+                    setEditPlanTenant(null)
+                  }}
+                  style={{
+                    padding:'14px 16px', borderRadius:12, cursor:'pointer',
+                    background:'rgba(255,255,255,0.03)',
+                    border: editPlanTenant.plan?.id === p.id
+                      ? '1px solid rgba(201,168,76,0.5)'
+                      : '1px solid rgba(255,255,255,0.08)',
+                    color:'#fff', textAlign:'left', transition:'all 0.15s',
+                    display:'flex', justifyContent:'space-between', alignItems:'center'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background='rgba(201,168,76,0.08)'; e.currentTarget.style.borderColor='rgba(201,168,76,0.4)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background='rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor= editPlanTenant.plan?.id === p.id ? 'rgba(201,168,76,0.5)' : 'rgba(255,255,255,0.08)' }}
+                >
+                  <div>
+                    <span style={{ fontWeight:700, fontSize:14, fontFamily:'DM Sans' }}>{p.name}</span>
+                    {editPlanTenant.plan?.id === p.id && (
+                      <span style={{ marginLeft:8, fontSize:10, color:'#C9A84C', fontWeight:700 }}>✓ Kounye a</span>
+                    )}
+                  </div>
+                  <span style={{ color:'#C9A84C', fontWeight:800, fontSize:15, fontFamily:"'Playfair Display'" }}>
+                    {Number(p.priceMonthly).toLocaleString()} HTG/mwa
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <button onClick={() => setEditPlanTenant(null)} style={{
+              width:'100%', padding:'10px', borderRadius:10,
+              background:'transparent', border:'1px solid rgba(255,255,255,0.08)',
+              color:'rgba(255,255,255,0.4)', cursor:'pointer', fontSize:13, fontFamily:'DM Sans'
+            }}>Anile</button>
+          </div>
+        </div>
+      )}
 
       {showCreate && (
         <CreateTenantModal

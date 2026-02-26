@@ -111,7 +111,7 @@ router.get('/tenants', asyncHandler(async (req, res) => {
     prisma.tenant.findMany({
       where,
       include: {
-        plan: { select: { name: true } },
+        plan: { select: { id: true, name: true, features: true, priceMonthly: true } },
         _count: { select: { users: true, products: true, invoices: true } }
       },
       orderBy: { createdAt: 'desc' },
@@ -215,6 +215,30 @@ router.patch('/tenants/:id/status', asyncHandler(async (req, res) => {
   res.json({ success: true, tenant, message: `Entreprise ${msg}.` });
 }));
 
+// ── PATCH /api/v1/admin/tenants/:id/plan  ✅ NOUVO
+router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
+  const { planId } = req.body;
+
+  if (!planId)
+    return res.status(400).json({ success: false, message: 'planId obligatwa.' });
+
+  const planExists = await prisma.subscriptionPlan.findUnique({ where: { id: planId } });
+  if (!planExists)
+    return res.status(404).json({ success: false, message: 'Plan pa jwenn.' });
+
+  const tenant = await prisma.tenant.update({
+    where: { id: req.params.id },
+    data: { planId },
+    include: { plan: { select: { id: true, name: true, features: true, priceMonthly: true } } }
+  });
+
+  res.json({
+    success: true,
+    tenant,
+    message: `Plan "${planExists.name}" asiye bay ${tenant.name}.`
+  });
+}));
+
 // ── POST /api/v1/admin/tenants/:id/renew
 router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   const { months = 1 } = req.body;
@@ -243,7 +267,6 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 // ── GET /api/v1/admin/plans
 // ✅ Kreye oswa mete ajou plan yo pou matche 3 plan Plus Group
 router.get('/plans', asyncHandler(async (req, res) => {
-  // Definisyon 3 plan ofisyèl Plus Group
   const PLANS = [
     {
       name: 'Estanda',
@@ -271,25 +294,14 @@ router.get('/plans', asyncHandler(async (req, res) => {
     },
   ];
 
-  // Mete ajou chak plan (upsert pa non) — fonksyone menmsi plan deja egziste
   for (const plan of PLANS) {
-    const existing = await prisma.subscriptionPlan.findFirst({
-      where: { name: plan.name }
-    });
+    const existing = await prisma.subscriptionPlan.findFirst({ where: { name: plan.name } });
     if (existing) {
-      // Mete ajou features ak pri si plan deja egziste
       await prisma.subscriptionPlan.update({
         where: { id: existing.id },
-        data: {
-          features: plan.features,
-          priceMonthly: plan.priceMonthly,
-          maxUsers: plan.maxUsers,
-          maxProducts: plan.maxProducts,
-          isActive: true,
-        }
+        data: { features: plan.features, priceMonthly: plan.priceMonthly, maxUsers: plan.maxUsers, maxProducts: plan.maxProducts, isActive: true }
       });
     } else {
-      // Kreye si pa egziste
       await prisma.subscriptionPlan.create({ data: plan });
     }
   }
@@ -302,19 +314,22 @@ router.get('/plans', asyncHandler(async (req, res) => {
   res.json({ success: true, plans });
 }));
 
-// ── GET /api/v1/admin/stats
+// ── GET /api/v1/admin/stats  ✅ KORIJE — matche frontend stats.tenants.total / stats.users.total
 router.get('/stats', asyncHandler(async (req, res) => {
-  const [totalTenants, activeTenants, pendingTenants, totalInvoices, totalRevenue] = await Promise.all([
+  const [total, active, pending, suspended, totalUsers] = await Promise.all([
     prisma.tenant.count(),
     prisma.tenant.count({ where: { status: 'active' } }),
     prisma.tenant.count({ where: { status: 'pending' } }),
-    prisma.invoice.count(),
-    prisma.invoice.aggregate({ where: { status: 'paid' }, _sum: { totalHtg: true, totalUsd: true } })
+    prisma.tenant.count({ where: { status: 'suspended' } }),
+    prisma.user.count()
   ]);
 
   res.json({
     success: true,
-    stats: { totalTenants, activeTenants, pendingTenants, totalInvoices, totalRevenue: totalRevenue._sum }
+    stats: {
+      tenants: { total, active, pending, suspended },
+      users:   { total: totalUsers }
+    }
   });
 }));
 
