@@ -6,7 +6,8 @@ import { useAuthStore } from '../../stores/authStore'
 import { Link } from 'react-router-dom'
 import {
   Receipt, Package, AlertTriangle, TrendingUp,
-  ArrowRight, CheckCircle2, Clock, Plus, Crown
+  ArrowRight, CheckCircle2, Clock, Plus, Crown,
+  CreditCard, X, ChevronRight, Bell
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -31,6 +32,15 @@ const D = {
   shadowLg:'0 8px 32px rgba(27,42,143,0.16)',
 }
 
+// ── Konstant peman ──
+const WHATSAPP_NUMBER = '50942449024'
+const PAYMENT_METHODS = [
+  { id:'moncash',     label:'MonCash',     color:'#E53935', logo:'📱', info:'Voye lajan sou nimewo MonCash nou an' },
+  { id:'natcash',     label:'NatCash',     color:'#1B5E20', logo:'📲', info:'Voye lajan sou nimewo NatCash nou an' },
+  { id:'sogebanking', label:'Sogebanking', color:'#0D47A1', logo:'🏦', info:'Virement bancaire Sogebank' },
+  { id:'buh',         label:'BUH',         color:'#4A148C', logo:'🏛️', info:'Virement bancaire BUH' },
+]
+
 const fmt = (n) => Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:2,maximumFractionDigits:2})
 
 const CURRENCY_SYMBOLS = { USD:'$', DOP:'RD$', EUR:'€', CAD:'CA$' }
@@ -50,6 +60,448 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
   return parts.length ? parts.join('  ') : null
 }
 
+// ══════════════════════════════════════════════════
+// TICKER — Mesaj ki defile anba
+// ══════════════════════════════════════════════════
+const TickerBanner = () => {
+  const msg = "💳 Pou renouvle abònman ou — Voye peman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre peman an, pran yon screenshot epi voye l nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè peman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
+  return (
+    <div style={{
+      position:'fixed', bottom:0, left:0, right:0, zIndex:1000,
+      background:'linear-gradient(90deg, #0F1A5C, #1B2A8F 30%, #8B0000 70%, #0F1A5C)',
+      borderTop:'1px solid rgba(201,168,76,0.35)',
+      height:30, overflow:'hidden', display:'flex', alignItems:'center',
+      boxShadow:'0 -4px 20px rgba(0,0,0,0.25)'
+    }}>
+      <div style={{
+        display:'flex', alignItems:'center',
+        whiteSpace:'nowrap',
+        animation:'ticker 40s linear infinite',
+        willChange:'transform'
+      }}>
+        {[msg, msg, msg].map((m, i) => (
+          <span key={i} style={{
+            color:'#C9A84C', fontSize:11, fontWeight:600,
+            letterSpacing:'0.05em', fontFamily:'DM Sans, sans-serif',
+            paddingRight:60, flexShrink:0
+          }}>{m}</span>
+        ))}
+      </div>
+      <style>{`
+        @keyframes ticker {
+          0%   { transform: translateX(0) }
+          100% { transform: translateX(-33.333%) }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════
+// MODAL PEMAN ABÒNMAN
+// ══════════════════════════════════════════════════
+const PaymentModal = ({ tenant, onClose }) => {
+  const [step, setStep]       = useState(1)
+  const [method, setMethod]   = useState(null)
+  const [form, setForm]       = useState({ accountNumber:'', fullName:'', screenshot:null })
+  const [preview, setPreview] = useState(null)
+  const [sending, setSending] = useState(false)
+
+  const handleFile = (e) => {
+    const f = e.target.files[0]
+    if (!f) return
+    setForm(p => ({ ...p, screenshot: f }))
+    const reader = new FileReader()
+    reader.onload = ev => setPreview(ev.target.result)
+    reader.readAsDataURL(f)
+  }
+
+  const handleSend = async () => {
+    if (!form.accountNumber.trim() || !form.fullName.trim()) {
+      alert('Tanpri ranpli tout chan obligatwa yo!')
+      return
+    }
+    setSending(true)
+
+    const planName = tenant?.plan?.name || tenant?.planName || 'Plan'
+    const msg = encodeURIComponent(
+      `🏢 *PLUS GROUP — Demann Renouvèlman Abònman*\n\n` +
+      `📋 *Entreprise:* ${tenant?.name || 'N/A'}\n` +
+      `📦 *Plan:* ${planName}\n` +
+      `💳 *Metòd Peman:* ${method?.label}\n` +
+      `👤 *Non Konplè:* ${form.fullName}\n` +
+      `📞 *Nimewo / Kont:* ${form.accountNumber}\n` +
+      `📅 *Dat Demann:* ${new Date().toLocaleDateString('fr-FR')}\n\n` +
+      `📸 *Screenshot tranzaksyon an ap swiv nan pwochen mesaj la.*\n\n` +
+      `✅ Mèsi pou konfyans nou nan PLUS GROUP!`
+    )
+
+    await new Promise(r => setTimeout(r, 1400))
+    setSending(false)
+    setStep(3)
+
+    setTimeout(() => {
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank')
+    }, 1200)
+  }
+
+  return (
+    <div style={{
+      position:'fixed', inset:0,
+      background:'rgba(15,26,92,0.85)',
+      backdropFilter:'blur(8px)',
+      zIndex:9999,
+      display:'flex', alignItems:'center', justifyContent:'center', padding:16
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+
+      <div style={{
+        background:'linear-gradient(160deg, #0f1923 0%, #0d1117 100%)',
+        borderRadius:24, width:'100%', maxWidth:460,
+        border:'1px solid rgba(201,168,76,0.25)',
+        boxShadow:'0 40px 120px rgba(0,0,0,0.8)',
+        position:'relative', overflow:'hidden',
+        maxHeight:'94vh', overflowY:'auto'
+      }}>
+        {/* Bò lò anlè */}
+        <div style={{ position:'absolute', top:0, left:0, right:0, height:2,
+          background:'linear-gradient(90deg, transparent, #C9A84C 35%, #8B0000 65%, transparent)',
+          borderRadius:'24px 24px 0 0' }}/>
+
+        {/* Header modal */}
+        <div style={{
+          padding:'22px 24px 18px',
+          borderBottom:'1px solid rgba(201,168,76,0.08)',
+          display:'flex', justifyContent:'space-between', alignItems:'center',
+          background:'rgba(0,0,0,0.2)'
+        }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{
+              width:40, height:40, borderRadius:12,
+              background:'linear-gradient(135deg, #C9A84C, #8B0000)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              boxShadow:'0 4px 14px rgba(201,168,76,0.35)'
+            }}>
+              <CreditCard size={18} color="#fff"/>
+            </div>
+            <div>
+              <h3 style={{ color:'#fff', margin:0, fontSize:15,
+                fontFamily:"'Playfair Display', 'Georgia', serif", fontWeight:700 }}>
+                Renouvle Abònman
+              </h3>
+              <p style={{ color:'rgba(201,168,76,0.55)', fontSize:10, margin:0, letterSpacing:'0.05em' }}>
+                {step === 1 ? 'Chwazi metòd peman ou' : step === 2 ? `Peman via ${method?.label}` : '✓ Demann voye avèk siksè'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
+            borderRadius:8, width:30, height:30,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            cursor:'pointer', color:'rgba(255,255,255,0.4)', flexShrink:0
+          }}><X size={14}/></button>
+        </div>
+
+        <div style={{ padding:24 }}>
+
+          {/* ── STEP 1: Chwazi metòd ── */}
+          {step === 1 && (
+            <div>
+              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12, margin:'0 0 18px', lineHeight:1.65 }}>
+                Chwazi metòd peman pou renouvle abònman{' '}
+                <strong style={{ color:'#C9A84C' }}>
+                  {tenant?.plan?.name || tenant?.planName || 'ou a'}
+                </strong>.
+                Apre peman an, ou pral voye yon screenshot konfirmasyon.
+              </p>
+
+              <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:18 }}>
+                {PAYMENT_METHODS.map(m => (
+                  <button key={m.id}
+                    onClick={() => { setMethod(m); setStep(2) }}
+                    style={{
+                      padding:'14px 18px', borderRadius:14, cursor:'pointer',
+                      background:'rgba(255,255,255,0.03)',
+                      border:'1px solid rgba(255,255,255,0.08)',
+                      color:'#fff', textAlign:'left', transition:'all 0.18s',
+                      display:'flex', alignItems:'center', gap:14,
+                      fontFamily:'DM Sans, sans-serif'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = `${m.color}15`
+                      e.currentTarget.style.borderColor = `${m.color}55`
+                      e.currentTarget.style.transform = 'translateX(4px)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'
+                      e.currentTarget.style.transform = 'translateX(0)'
+                    }}
+                  >
+                    <div style={{
+                      width:44, height:44, borderRadius:12,
+                      background:`${m.color}22`, border:`1px solid ${m.color}44`,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:22, flexShrink:0
+                    }}>{m.logo}</div>
+                    <div style={{ flex:1 }}>
+                      <p style={{ fontWeight:700, fontSize:14, margin:'0 0 3px' }}>{m.label}</p>
+                      <p style={{ fontSize:11, color:'rgba(255,255,255,0.35)', margin:0 }}>{m.info}</p>
+                    </div>
+                    <ChevronRight size={16} color="rgba(255,255,255,0.25)"/>
+                  </button>
+                ))}
+              </div>
+
+              {/* Ti nòt konsèy */}
+              <div style={{
+                padding:'13px 16px', borderRadius:12,
+                background:'rgba(201,168,76,0.06)',
+                border:'1px solid rgba(201,168,76,0.15)'
+              }}>
+                <p style={{ color:'rgba(201,168,76,0.75)', fontSize:11, margin:0, lineHeight:1.65 }}>
+                  💡 <strong>Si ou pa kapab fè peman an sou entènèt:</strong> Vizite biwo
+                  PLUS GROUP nan Ouanaminthe oswa kontakte nou dirèkteman sou WhatsApp{' '}
+                  <strong style={{ color:'#C9A84C' }}>+509 4244 9024</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ── STEP 2: Fòmilè ── */}
+          {step === 2 && (
+            <div>
+              {/* Bouton retounen */}
+              <button onClick={() => setStep(1)} style={{
+                background:'transparent', border:'none',
+                color:'rgba(201,168,76,0.7)', cursor:'pointer',
+                fontSize:12, padding:0, marginBottom:18,
+                display:'flex', alignItems:'center', gap:5,
+                fontFamily:'DM Sans, sans-serif', fontWeight:600
+              }}>
+                ← Tounen
+              </button>
+
+              {/* Badge metòd chwazi */}
+              <div style={{
+                display:'flex', alignItems:'center', gap:12, marginBottom:20,
+                padding:'12px 16px', borderRadius:12,
+                background:`${method?.color}18`, border:`1px solid ${method?.color}35`
+              }}>
+                <span style={{ fontSize:28 }}>{method?.logo}</span>
+                <div>
+                  <p style={{ color:'#fff', fontWeight:700, margin:'0 0 2px', fontFamily:'DM Sans, sans-serif', fontSize:14 }}>
+                    {method?.label}
+                  </p>
+                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:0 }}>
+                    Ranpli enfòmasyon peman an epi voye screenshot
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display:'flex', flexDirection:'column', gap:15 }}>
+
+                {/* Non Konplè */}
+                <div>
+                  <label style={{
+                    display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700,
+                    marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'DM Sans, sans-serif'
+                  }}>Non Konplè *</label>
+                  <input
+                    placeholder="Jean Pierre Baptiste"
+                    value={form.fullName}
+                    onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))}
+                    style={{
+                      width:'100%', padding:'11px 14px', borderRadius:10, boxSizing:'border-box',
+                      background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+                      color:'#fff', fontSize:13, fontFamily:'DM Sans, sans-serif', outline:'none'
+                    }}
+                    onFocus={e  => e.target.style.border = '1px solid rgba(201,168,76,0.55)'}
+                    onBlur={e   => e.target.style.border = '1px solid rgba(255,255,255,0.1)'}
+                  />
+                </div>
+
+                {/* Nimewo / Kont */}
+                <div>
+                  <label style={{
+                    display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700,
+                    marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'DM Sans, sans-serif'
+                  }}>
+                    {method?.id === 'moncash' || method?.id === 'natcash'
+                      ? 'Nimewo Telefòn *'
+                      : 'Nimewo Kont Bancaire *'}
+                  </label>
+                  <input
+                    placeholder={method?.id === 'moncash' || method?.id === 'natcash' ? '509-XXXX-XXXX' : 'XXXX-XXXX-XXXX'}
+                    value={form.accountNumber}
+                    onChange={e => setForm(p => ({ ...p, accountNumber: e.target.value }))}
+                    style={{
+                      width:'100%', padding:'11px 14px', borderRadius:10, boxSizing:'border-box',
+                      background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)',
+                      color:'#fff', fontSize:13, fontFamily:'monospace', outline:'none', letterSpacing:'0.05em'
+                    }}
+                    onFocus={e  => e.target.style.border = '1px solid rgba(201,168,76,0.55)'}
+                    onBlur={e   => e.target.style.border = '1px solid rgba(255,255,255,0.1)'}
+                  />
+                </div>
+
+                {/* Upload Screenshot */}
+                <div>
+                  <label style={{
+                    display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700,
+                    marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'DM Sans, sans-serif'
+                  }}>Screenshot Konfirmasyon *</label>
+                  <label style={{
+                    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                    padding: preview ? '8px' : '24px 16px',
+                    borderRadius:12, cursor:'pointer',
+                    background: preview ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.03)',
+                    border:`2px dashed ${preview ? 'rgba(201,168,76,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                    transition:'all 0.2s', position:'relative',
+                    overflow:'hidden', minHeight: preview ? 'auto' : 100
+                  }}>
+                    <input type="file" accept="image/*" onChange={handleFile} style={{ display:'none' }}/>
+                    {preview ? (
+                      <div style={{ width:'100%', position:'relative' }}>
+                        <img src={preview} alt="screenshot"
+                          style={{ width:'100%', maxHeight:200, objectFit:'contain', borderRadius:8, display:'block' }}/>
+                        <div style={{
+                          position:'absolute', bottom:6, right:6,
+                          background:'rgba(201,168,76,0.85)', borderRadius:6,
+                          padding:'3px 10px', fontSize:10, fontWeight:700, color:'#0f1923'
+                        }}>✓ Screenshot chwazi · Klike pou chanje</div>
+                      </div>
+                    ) : (
+                      <>
+                        <span style={{ fontSize:36, marginBottom:10 }}>📸</span>
+                        <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12, margin:0, textAlign:'center', fontFamily:'DM Sans, sans-serif' }}>
+                          Klike pou chwazi screenshot tranzaksyon an
+                        </p>
+                        <p style={{ color:'rgba(255,255,255,0.2)', fontSize:10, margin:'5px 0 0', fontFamily:'DM Sans, sans-serif' }}>
+                          PNG · JPG · WEBP
+                        </p>
+                      </>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Bouton voye */}
+              <button
+                onClick={handleSend}
+                disabled={sending}
+                style={{
+                  width:'100%', marginTop:20, padding:'13px',
+                  borderRadius:12, border:'none',
+                  cursor: sending ? 'not-allowed' : 'pointer',
+                  background: sending
+                    ? 'rgba(201,168,76,0.25)'
+                    : 'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)',
+                  color:'#fff', fontSize:14, fontWeight:700,
+                  fontFamily:'DM Sans, sans-serif',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                  boxShadow: sending ? 'none' : '0 4px 20px rgba(139,0,0,0.4)',
+                  transition:'all 0.2s'
+                }}
+                onMouseEnter={e => { if (!sending) e.currentTarget.style.boxShadow = '0 6px 28px rgba(139,0,0,0.6)' }}
+                onMouseLeave={e => { if (!sending) e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,0,0,0.4)' }}
+              >
+                {sending ? (
+                  <>
+                    <div style={{
+                      width:16, height:16, border:'2px solid rgba(255,255,255,0.3)',
+                      borderTopColor:'#fff', borderRadius:'50%',
+                      animation:'spin 0.8s linear infinite'
+                    }}/>
+                    Ap prepare mesaj...
+                  </>
+                ) : (
+                  <>📤 Voye sou WhatsApp</>
+                )}
+              </button>
+
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          )}
+
+          {/* ── STEP 3: Siksè ── */}
+          {step === 3 && (
+            <div style={{ textAlign:'center', padding:'10px 0 6px' }}>
+              <div style={{ fontSize:60, marginBottom:14, animation:'popIn 0.4s ease' }}>✅</div>
+              <h3 style={{
+                color:'#34d399', margin:'0 0 10px',
+                fontFamily:"'Playfair Display', Georgia, serif", fontSize:18
+              }}>
+                Demann Voye!
+              </h3>
+              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12, lineHeight:1.7, margin:'0 0 20px' }}>
+                WhatsApp t ap ouvri otomatikman ak mesaj konfirmasyon an.<br/>
+                Si li pa ouvri, kontakte nou dirèkteman sou:<br/>
+                <strong style={{ color:'#C9A84C', fontSize:14 }}>+509 4244 9024</strong>
+              </p>
+
+              <div style={{
+                padding:'14px 18px', borderRadius:12, marginBottom:20,
+                background:'rgba(52,211,153,0.07)', border:'1px solid rgba(52,211,153,0.2)'
+              }}>
+                <p style={{ color:'rgba(52,211,153,0.85)', fontSize:12, margin:0, lineHeight:1.65 }}>
+                  ⏱ Ekip PLUS GROUP ap konfime epi aktive abònman ou nan{' '}
+                  <strong>24 è</strong> apre yo resevwa peman an.
+                </p>
+              </div>
+
+              <button onClick={onClose} style={{
+                padding:'10px 32px', borderRadius:10,
+                background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)',
+                color:'rgba(255,255,255,0.5)', cursor:'pointer',
+                fontSize:13, fontFamily:'DM Sans, sans-serif', fontWeight:600
+              }}>Fèmen</button>
+
+              <style>{`@keyframes popIn { 0%{transform:scale(0.5);opacity:0} 80%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }`}</style>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════
+// STICKY PAYMENT BUTTON — Toujou vizib anlè dwa
+// ══════════════════════════════════════════════════
+const StickyPaymentButton = ({ onClick }) => (
+  <div style={{
+    position:'fixed', top:16, right:16, zIndex:998,
+    display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6
+  }}>
+    <button
+      onClick={onClick}
+      style={{
+        display:'inline-flex', alignItems:'center', gap:8,
+        padding:'10px 18px', borderRadius:50,
+        background:'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)',
+        color:'#fff', border:'2px solid rgba(255,255,255,0.2)',
+        cursor:'pointer', fontSize:13, fontWeight:800,
+        fontFamily:'DM Sans, sans-serif',
+        boxShadow:'0 6px 24px rgba(139,0,0,0.5), 0 0 0 3px rgba(201,168,76,0.2)',
+        animation:'pulseBtn 2.5s ease-in-out infinite',
+        whiteSpace:'nowrap'
+      }}
+    >
+      <CreditCard size={15}/>
+      Peye Abònman
+    </button>
+    <style>{`
+      @keyframes pulseBtn {
+        0%, 100% { box-shadow: 0 6px 24px rgba(139,0,0,0.5), 0 0 0 3px rgba(201,168,76,0.2); }
+        50%       { box-shadow: 0 8px 32px rgba(139,0,0,0.7), 0 0 0 6px rgba(201,168,76,0.35); }
+      }
+    `}</style>
+  </div>
+)
+
+// ══════════════════════════════════════════════════
+// COMPOSANTS ENTÈN (pa chanje)
+// ══════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active||!payload?.length) return null
   return (
@@ -117,9 +569,15 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
   )
 }
 
+// ══════════════════════════════════════════════════
+// MAIN DASHBOARD
+// ══════════════════════════════════════════════════
 export default function Dashboard() {
   const { t } = useTranslation()
   const { user, tenant } = useAuthStore()
+
+  // État modal peman
+  const [showPayment, setShowPayment] = useState(false)
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates     || {}
@@ -144,6 +602,7 @@ export default function Dashboard() {
   const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.totalHtg||0)
   const totalPasyal = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
+  // Kalkile si abònman prèt ekspire
   const subBanner = (()=>{
     if (!tenant?.subscriptionEndsAt) return null
     const endsAt   = new Date(tenant.subscriptionEndsAt)
@@ -153,26 +612,49 @@ export default function Dashboard() {
   })()
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif'}}>
+    <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif',paddingBottom:40}}>
 
-      {/* ── Alèt abònman */}
+      {/* ── BOUTON PEMAN STICKY (toujou vizib) ── */}
+      <StickyPaymentButton onClick={() => setShowPayment(true)} />
+
+      {/* ── BANNER ALÈT ABÒNMAN (sèlman si <5 jou) ── */}
       {subBanner && (
         <div style={{
-          borderRadius:16, padding:'14px 20px', display:'flex', alignItems:'center', gap:14,
-          background: subBanner.expired?`linear-gradient(135deg,#8B0000,${D.red})`:`linear-gradient(135deg,${D.goldDk},${D.gold})`,
-          boxShadow: subBanner.expired?'0 4px 20px rgba(192,57,43,0.35)':`0 4px 20px ${D.gold}40`,
-          border:'1px solid rgba(255,255,255,0.15)', animation:'slideDown 0.3s ease'
+          borderRadius:16, padding:'14px 20px',
+          display:'flex', alignItems:'center', gap:14, flexWrap:'wrap',
+          background: subBanner.expired
+            ? 'linear-gradient(135deg,#8B0000,#C0392B)'
+            : 'linear-gradient(135deg,#8B6914,#C9A84C)',
+          boxShadow: subBanner.expired
+            ? '0 4px 20px rgba(192,57,43,0.35)'
+            : '0 4px 20px rgba(201,168,76,0.35)',
+          border:'1px solid rgba(255,255,255,0.15)',
+          animation:'slideDown 0.3s ease'
         }}>
-          <span style={{fontSize:24}}>{subBanner.expired?'🔒':'⏰'}</span>
+          <span style={{fontSize:24}}>{subBanner.expired ? '🔒' : '⏰'}</span>
           <div style={{flex:1}}>
             <p style={{color:'#fff',fontWeight:800,fontSize:13,margin:'0 0 2px'}}>
-              {subBanner.expired ? t('dashboard.subscriptionExpired') : t('dashboard.subscriptionExpiring',{days:subBanner.daysLeft})}
+              {subBanner.expired
+                ? t('dashboard.subscriptionExpired')
+                : t('dashboard.subscriptionExpiring',{days:subBanner.daysLeft})}
             </p>
-            <p style={{color:'rgba(255,255,255,0.8)',fontSize:11,margin:0}}>{t('dashboard.contactAdmin')}</p>
+            <p style={{color:'rgba(255,255,255,0.75)',fontSize:11,margin:0}}>
+              {t('dashboard.contactAdmin')}
+            </p>
           </div>
-          <div style={{background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'4px 12px',fontSize:11,fontWeight:900,color:'#fff',border:'1px solid rgba(255,255,255,0.2)'}}>
-            {subBanner.expired ? t('dashboard.blocked') : `J-${subBanner.daysLeft}`}
-          </div>
+          <button
+            onClick={() => setShowPayment(true)}
+            style={{
+              display:'inline-flex', alignItems:'center', gap:6,
+              padding:'8px 18px', borderRadius:10,
+              background:'rgba(255,255,255,0.95)', color:'#8B0000',
+              border:'none', cursor:'pointer',
+              fontSize:12, fontWeight:800, fontFamily:'DM Sans, sans-serif',
+              boxShadow:'0 2px 12px rgba(0,0,0,0.2)', flexShrink:0
+            }}
+          >
+            <CreditCard size={13}/> Renouvle Kounye a
+          </button>
         </div>
       )}
 
@@ -391,9 +873,20 @@ export default function Dashboard() {
         }
       </div>
 
+      {/* ── TICKER (mesaj ki defile anba) ── */}
+      <TickerBanner />
+
+      {/* ── MODAL PEMAN ── */}
+      {showPayment && (
+        <PaymentModal
+          tenant={tenant}
+          onClose={() => setShowPayment(false)}
+        />
+      )}
+
       <style>{`
-        @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
       `}</style>
     </div>
   )
