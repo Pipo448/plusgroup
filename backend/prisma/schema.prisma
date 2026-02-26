@@ -337,8 +337,8 @@ model Quote {
   totalHtg             Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
   totalUsd             Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
   status               QuoteStatus     @default(draft)
-  issueDate            DateTime        @default(now()) @map("issue_date") @db.Date
-  expiryDate           DateTime?       @map("expiry_date") @db.Date
+  issueDate   DateTime  @default(now()) @map("issue_date") @db.Timestamptz
+  expiryDate  DateTime? @map("expiry_date") @db.Timestamptz
   notes                String?
   terms                String?
   createdBy            String?         @map("created_by")
@@ -409,8 +409,8 @@ model Invoice {
   balanceDueHtg    Decimal         @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
   balanceDueUsd    Decimal         @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
   status           InvoiceStatus   @default(unpaid)
-  issueDate        DateTime        @default(now()) @map("issue_date") @db.Date
-  dueDate          DateTime?       @map("due_date") @db.Date
+  issueDate  DateTime  @default(now()) @map("issue_date") @db.Timestamptz
+  dueDate    DateTime? @map("due_date") @db.Timestamptz
   notes            String?
   terms            String?
   stockDecremented Boolean         @default(false) @map("stock_decremented")
@@ -472,7 +472,7 @@ model Payment {
   exchangeRate Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
   method       PaymentMethod   @default(cash)
   reference    String?         @db.VarChar(200)
-  paymentDate  DateTime        @default(now()) @map("payment_date") @db.Date
+  paymentDate  DateTime        @default(now()) @map("payment_date") @db.Timestamptz
   notes        String?
   createdBy    String?         @map("created_by")
   createdAt    DateTime        @default(now()) @map("created_at")
