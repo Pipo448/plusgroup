@@ -670,15 +670,14 @@ export default function AdminDashboard() {
     navigate('/admin/login')
     return null
   }
-
-  const { data: statsData }   = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data) })
-  const { data: tenantsData } = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data) })
-  const { data: plansData }   = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminApi.get('/admin/plans').then(r=>r.data) })
-  const { data: expiringData }= useQuery({
-    queryKey:['admin-expiring'],
-    queryFn:() => adminApi.get('/admin/expiring-soon').then(r=>r.data),
-    refetchInterval: 5*60*1000
-  })
+const { data: statsData }   = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminAPI.getStats().then(r=>r.data) })
+const { data: tenantsData } = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminAPI.getTenants().then(r=>r.data) })
+const { data: plansData }   = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminAPI.getPlans().then(r=>r.data) })
+const { data: expiringData }= useQuery({
+  queryKey:['admin-expiring'],
+  queryFn:() => adminAPI.getExpiring().then(r=>r.data),
+  refetchInterval: 5*60*1000
+})
 
   const tenants  = tenantsData?.tenants  || []
   const plans    = plansData?.plans      || []
