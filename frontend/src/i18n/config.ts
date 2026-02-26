@@ -127,7 +127,10 @@ const resources = {
         invoices: 'fakti', quotes: 'devis',
       },
       dashboard: {
-        greeting: 'Bonswa', sales30days: 'Vant 30 jou', totalSales: 'Total vant',
+        greeting: 'Bonswa',
+        greetingMorning: 'Bonjou',
+        greetingAfternoon: 'Bonswa',
+        greetingEvening: 'Bonswa aswè',sales30days: 'Vant 30 jou', totalSales: 'Total vant',
         paid: 'Peye', unpaid: 'Pa peye', partial: 'Pasyal', balance: 'Balans',
         invoices: 'fakti', documents: 'dokiman', lowStock: 'Estòk ba', needRestock: 'Bezwen restòk',
         sales7days: 'Vant 7 dènye jou yo', salesChart: 'Chif vant an HTG',
@@ -334,7 +337,9 @@ const resources = {
         invoices: 'factures', quotes: 'devis',
       },
       dashboard: {
-        greeting: 'Bonjour', sales30days: 'Ventes 30 jours', totalSales: 'Total ventes',
+        greetingMorning: 'Bonjour',
+        greetingAfternoon: 'Bonsoir',
+        greetingEvening: 'Bonsoir', sales30days: 'Ventes 30 jours', totalSales: 'Total ventes',
         paid: 'Payé', unpaid: 'Impayé', partial: 'Partiel', balance: 'Solde',
         invoices: 'factures', documents: 'documents', lowStock: 'Stock bas', needRestock: 'Besoin réappro',
         sales7days: 'Ventes 7 derniers jours', salesChart: 'Chiffre ventes HTG',
@@ -545,7 +550,9 @@ const resources = {
         invoices: 'invoices', quotes: 'quotes',
       },
       dashboard: {
-        greeting: 'Hello', sales30days: 'Sales 30 days', totalSales: 'Total sales',
+        greetingMorning: 'Good morning',
+        greetingAfternoon: 'Good afternoon',
+        greetingEvening: 'Good evening', sales30days: 'Sales 30 days', totalSales: 'Total sales',
         paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', balance: 'Balance',
         invoices: 'invoices', documents: 'documents', lowStock: 'Low stock', needRestock: 'Needs restock',
         sales7days: 'Sales last 7 days', salesChart: 'Sales figures HTG',

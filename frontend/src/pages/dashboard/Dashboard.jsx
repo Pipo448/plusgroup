@@ -679,10 +679,14 @@ export default function Dashboard() {
               </span>
             </div>
             <h1 style={{fontSize:28,fontWeight:900,color:'#fff',margin:'0 0 6px'}}>
-              {t('dashboard.greeting')}, {user?.fullName?.split(' ')[0]}! 👋
+              {(() => {
+  const h = parseInt(new Date().toLocaleString('en-US', { timeZone:'America/Port-au-Prince', hour:'numeric', hour12:false }))
+  const greet = h < 12 ? t('dashboard.greetingMorning') : h < 18 ? t('dashboard.greetingAfternoon') : t('dashboard.greetingEvening')
+  return <>{greet}, {user?.fullName?.split(' ')[0]}! 👋</>
+})()}
             </h1>
             <p style={{fontSize:12,color:'rgba(255,255,255,0.5)',margin:0,textTransform:'capitalize'}}>
-              {format(new Date(),'EEEE d MMMM yyyy',{locale:fr})}
+              {format(new Date(new Date().toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'EEEE d MMMM yyyy', { locale:fr })}
             </p>
           </div>
           <Link to="/quotes/new" style={{
