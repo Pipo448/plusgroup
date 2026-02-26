@@ -38,7 +38,16 @@ router.get('/sales', asyncHandler(async (req, res) => {
     })
   ]);
 
-  res.json({ success: true, report: { totals, byStatus, recentInvoices } });
+  // ── Calcul vant pa jou (pou grafik)
+  const daily = recentInvoices.reduce((acc, inv) => {
+    const day = String(inv.issueDate).substring(0, 10);
+    if (!acc[day]) acc[day] = { date: day, total_htg: 0, count: 0 };
+    acc[day].total_htg += Number(inv.totalHtg || 0);
+    acc[day].count     += 1;
+    return acc;
+  }, {});
+
+  res.json({ success: true, report: { totals, byStatus, recentInvoices, daily: Object.values(daily) } });
 }));
 
 // ── GET /api/v1/reports/stock
@@ -67,13 +76,7 @@ router.get('/stock', asyncHandler(async (req, res) => {
 
   res.json({
     success: true,
-    report: {
-      totalProducts: products.length,
-      lowStockCount,
-      outOfStockCount,
-      stockValue,
-      products
-    }
+    report: { totalProducts: products.length, lowStockCount, outOfStockCount, stockValue, products }
   });
 }));
 
@@ -116,11 +119,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   const today    = new Date();
   const startMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
-  const [
-    invoiceStats, paidThisMonth,
-    lowStockCount, productCount,
-    recentInvoices
-  ] = await Promise.all([
+  const [invoiceStats, paidThisMonth, lowStockCount, productCount, recentInvoices] = await Promise.all([
     prisma.invoice.groupBy({
       by: ['status'],
       where: { tenantId },
@@ -145,6 +144,130 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   res.json({
     success: true,
     dashboard: { invoiceStats, paidThisMonth, lowStockCount, productCount, recentInvoices }
+  });
+}));
+
+// ══════════════════════════════════════════════════════════════
+// ── GET /api/v1/reports/profit  (ADMIN SÈLMAN)
+// ── Rapò Benefis: vant vs kout, benefis pa pwodui, maj %
+// ══════════════════════════════════════════════════════════════
+router.get('/profit', asyncHandler(async (req, res) => {
+  const { dateFrom, dateTo, categoryId, createdBy } = req.query;
+  const tenantId = req.tenant.id;
+
+  // Sèlman admin ki ka wè rapò benefis
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ success: false, message: 'Aksè refize. Admin sèlman.' });
+  }
+
+  const dateFilter = dateFrom && dateTo
+    ? { gte: new Date(dateFrom), lte: new Date(dateTo) }
+    : undefined;
+
+  // Filtè pou InvoiceItem
+  const itemWhere = {
+    tenantId,
+    invoice: {
+      status: { not: 'cancelled' },
+      ...(dateFilter && { issueDate: dateFilter }),
+      ...(createdBy && { createdBy }),
+    },
+    ...(categoryId && {
+      product: { categoryId }
+    }),
+  };
+
+  // 1. Rekipere tout InvoiceItem ak snapshot pwodui
+  const items = await prisma.invoiceItem.findMany({
+    where: itemWhere,
+    include: {
+      product: {
+        select: {
+          id: true, name: true, code: true, unit: true,
+          costPriceHtg: true,
+          category: { select: { id: true, name: true, color: true } }
+        }
+      },
+      invoice: {
+        select: { issueDate: true, createdBy: true, invoiceNumber: true }
+      }
+    }
+  });
+
+  // 2. Agrege pa pwodui
+  const productMap = {};
+  for (const item of items) {
+    const pid  = item.productId || 'unknown';
+    const name = item.productSnapshot?.name || item.product?.name || 'Pwodui Siprime';
+    const code = item.product?.code || '—';
+    const unit = item.product?.unit || '';
+    const cat  = item.product?.category?.name || '—';
+    const catColor = item.product?.category?.color || '#6B7AAB';
+
+    // Pri kout — itilize costPriceHtg pwodui aktyèl la
+    const costPriceHtg = Number(item.product?.costPriceHtg || item.productSnapshot?.costPriceHtg || 0);
+    const qty          = Number(item.quantity || 0);
+    const vantTotal    = Number(item.totalHtg || 0);
+    const koutTotal    = costPriceHtg * qty;
+    const benefis      = vantTotal - koutTotal;
+
+    if (!productMap[pid]) {
+      productMap[pid] = {
+        productId: pid, name, code, unit, category: cat, categoryColor: catColor,
+        qteVann: 0, vantHtg: 0, koutHtg: 0, benefisHtg: 0, nbTransaksyon: 0
+      };
+    }
+
+    productMap[pid].qteVann       += qty;
+    productMap[pid].vantHtg       += vantTotal;
+    productMap[pid].koutHtg       += koutTotal;
+    productMap[pid].benefisHtg    += benefis;
+    productMap[pid].nbTransaksyon += 1;
+  }
+
+  // 3. Konvèti an array epi kalkile maj %
+  const byProduct = Object.values(productMap)
+    .map(p => ({
+      ...p,
+      majPct: p.vantHtg > 0 ? ((p.benefisHtg / p.vantHtg) * 100).toFixed(1) : '0.0'
+    }))
+    .sort((a, b) => b.benefisHtg - a.benefisHtg);
+
+  // 4. Totaux jeneral
+  const totaux = byProduct.reduce((acc, p) => {
+    acc.vantHtg    += p.vantHtg;
+    acc.koutHtg    += p.koutHtg;
+    acc.benefisHtg += p.benefisHtg;
+    return acc;
+  }, { vantHtg: 0, koutHtg: 0, benefisHtg: 0 });
+
+  totaux.majPct = totaux.vantHtg > 0
+    ? ((totaux.benefisHtg / totaux.vantHtg) * 100).toFixed(1)
+    : '0.0';
+
+  // 5. Top 5 pwodui pwofitab
+  const top5 = [...byProduct].slice(0, 5);
+
+  // 6. Grafik pa jou (benefis chak jou)
+  const dailyMap = {};
+  for (const item of items) {
+    const day          = String(item.invoice.issueDate).substring(0, 10);
+    const costPrice    = Number(item.product?.costPriceHtg || 0);
+    const qty          = Number(item.quantity || 0);
+    const vant         = Number(item.totalHtg || 0);
+    const kout         = costPrice * qty;
+
+    if (!dailyMap[day]) dailyMap[day] = { date: day, vant: 0, kout: 0, benefis: 0 };
+    dailyMap[day].vant    += vant;
+    dailyMap[day].kout    += kout;
+    dailyMap[day].benefis += vant - kout;
+  }
+
+  const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
+
+  res.json({
+    success: true,
+    profit: { totaux, byProduct, top5, daily }
   });
 }));
 

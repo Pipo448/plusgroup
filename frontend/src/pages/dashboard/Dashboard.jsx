@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI, productAPI, reportAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
+import ProfitSection from './ProfitSection'
 import { Link } from 'react-router-dom'
 import {
   Receipt, Package, AlertTriangle, TrendingUp,
@@ -880,6 +881,9 @@ export default function Dashboard() {
       </div>
 
       {/* ── TICKER (mesaj ki defile anba) ── */}
+
+{user?.role === 'admin' && <ProfitSection />}
+
       <TickerBanner />
 
       {/* ── MODAL PEMAN ── */}

@@ -131,6 +131,7 @@ export const reportAPI = {
   getSales:       (p) => api.get('/reports/sales', { params: p }),
   getStock:       ()  => api.get('/reports/stock'),
   getTopProducts: (p) => api.get('/reports/top-products', { params: p }),
+  getProfit: (p) => api.get('/reports/profit', { params: p }),
 }
 
 // ── Super Admin (instance separe — pa bezwen X-Tenant-Slug)
