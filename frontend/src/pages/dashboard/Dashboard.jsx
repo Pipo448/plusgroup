@@ -466,34 +466,36 @@ const PaymentModal = ({ tenant, onClose }) => {
 }
 
 // ══════════════════════════════════════════════════
-// STICKY PAYMENT BUTTON — Toujou vizib anlè dwa
+// STICKY PAYMENT BUTTON — Aliye ak bàr topbar la
 // ══════════════════════════════════════════════════
 const StickyPaymentButton = ({ onClick }) => (
   <div style={{
-    position:'fixed', top:16, right:16, zIndex:998,
-    display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6
+    position:'fixed', top:0, right:0, zIndex:998,
+    height:46,
+    display:'flex', alignItems:'center',
+    paddingRight:16,
   }}>
     <button
       onClick={onClick}
       style={{
-        display:'inline-flex', alignItems:'center', gap:8,
-        padding:'10px 18px', borderRadius:50,
-        background:'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)',
-        color:'#fff', border:'2px solid rgba(255,255,255,0.2)',
-        cursor:'pointer', fontSize:13, fontWeight:800,
+        display:'inline-flex', alignItems:'center', gap:7,
+        padding:'7px 16px', borderRadius:8,
+        background:'linear-gradient(135deg, #8B0000, #C0392B 55%, #C9A84C)',
+        color:'#fff', border:'none',
+        cursor:'pointer', fontSize:12, fontWeight:800,
         fontFamily:'DM Sans, sans-serif',
-        boxShadow:'0 6px 24px rgba(139,0,0,0.5), 0 0 0 3px rgba(201,168,76,0.2)',
+        boxShadow:'0 4px 18px rgba(139,0,0,0.45), 0 0 0 2px rgba(201,168,76,0.25)',
         animation:'pulseBtn 2.5s ease-in-out infinite',
-        whiteSpace:'nowrap'
+        whiteSpace:'nowrap', letterSpacing:'0.02em'
       }}
     >
-      <CreditCard size={15}/>
+      <CreditCard size={14}/>
       Peye Abònman
     </button>
     <style>{`
       @keyframes pulseBtn {
-        0%, 100% { box-shadow: 0 6px 24px rgba(139,0,0,0.5), 0 0 0 3px rgba(201,168,76,0.2); }
-        50%       { box-shadow: 0 8px 32px rgba(139,0,0,0.7), 0 0 0 6px rgba(201,168,76,0.35); }
+        0%, 100% { box-shadow: 0 4px 18px rgba(139,0,0,0.45), 0 0 0 2px rgba(201,168,76,0.25); }
+        50%       { box-shadow: 0 6px 26px rgba(139,0,0,0.65), 0 0 0 4px rgba(201,168,76,0.4); }
       }
     `}</style>
   </div>
