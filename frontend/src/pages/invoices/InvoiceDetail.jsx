@@ -643,8 +643,8 @@ export default function InvoiceDetail() {
               </div>
             )}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-              <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}</span>
-              <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
+              <div className="flex justify-between"><span>Dat:</span><span>{format(new Date(new Date(invoice.issueDate).toLocaleString('en-US', { timeZone:'America/Port-au-Prince' })), 'dd/MM/yyyy')}</span></div>
+             <div className="flex justify-between"><span>Taux:</span><span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span></div>
             </div>
 
             {connected && (
