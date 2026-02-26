@@ -185,7 +185,10 @@ export const isPrinterConnected = () => !!_char && !!(_device && _device.gatt &&
 export const printInvoice = async (invoice, tenant) => {
   if (!_char) throw new Error('Printer pa konekte')
 
-  const fmt  = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+ const fmt = (n) => Number(n || 0)
+  .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  .replace(/\u00A0/g, ' ')   // ← retire espace insécable
+  .replace(/\u202F/g, ' ')   // ← retire narrow no-break space tou
   const W    = getWidth(tenant)
   const snap = invoice.clientSnapshot || {}
 
