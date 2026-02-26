@@ -30,8 +30,7 @@ router.post('/login', asyncHandler(async (req, res) => {
 }));
 
 // ============================================================
-// ✅ SETUP SUPER ADMIN - SAN AUTHENTICATION
-// Run ONCE pou kreye initial super admin
+// SETUP SUPER ADMIN
 // ============================================================
 router.post('/setup-superadmin', async (req, res) => {
   try {
@@ -40,50 +39,32 @@ router.post('/setup-superadmin', async (req, res) => {
     const prismaClient = new PrismaClient();
 
     const existing = await prismaClient.superAdmin.findFirst();
-    
     if (existing) {
       await prismaClient.$disconnect();
-      return res.json({
-        success: false,
-        message: 'Super Admin deja egziste! Pa ka kreye yon lòt.'
-      });
+      return res.json({ success: false, message: 'Super Admin deja egziste!' });
     }
 
     const hashedPassword = await bcrypt.hash('SuperAdmin2024!', 12);
-    
     const superAdmin = await prismaClient.superAdmin.create({
-      data: {
-        name: 'PLUS GROUP Admin',
-        email: 'admin@plusgroup.ht',
-        passwordHash: hashedPassword,
-        isActive: true
-      }
+      data: { name: 'PLUS GROUP Admin', email: 'admin@plusgroup.ht', passwordHash: hashedPassword, isActive: true }
     });
-
     await prismaClient.$disconnect();
 
     res.json({
       success: true,
-      message: 'Super Admin kreye avèk siksè! 🎉',
+      message: 'Super Admin kreye avèk siksè!',
       data: {
         superAdmin: { id: superAdmin.id, name: superAdmin.name, email: superAdmin.email },
-        credentials: {
-          email: 'admin@plusgroup.ht',
-          password: 'SuperAdmin2024!',
-          loginUrl: '/admin/login'
-        }
+        credentials: { email: 'admin@plusgroup.ht', password: 'SuperAdmin2024!', loginUrl: '/admin/login' }
       }
     });
-
   } catch (error) {
-    console.error('❌ Setup Super Admin error:', error);
     res.status(500).json({ success: false, message: 'Erè pandan kreye super admin', error: error.message });
   }
 });
 
 // ============================================================
-// ✅ DELETE TENANT PAR SLUG - SAN AUTHENTICATION
-// Pou netwaye tenant yo pa bezwen
+// DELETE TENANT PAR SLUG
 // ============================================================
 router.delete('/tenants/by-slug/:slug', async (req, res) => {
   try {
@@ -92,15 +73,12 @@ router.delete('/tenants/by-slug/:slug', async (req, res) => {
     const { slug } = req.params;
 
     const tenant = await prismaClient.tenant.findUnique({ where: { slug } });
-
     if (!tenant) {
       await prismaClient.$disconnect();
       return res.status(404).json({ success: false, message: `Tenant "${slug}" pa jwenn.` });
     }
 
-    // Efase tout done lye ak tenant an (ordre enpòtan)
     const safeDelete = async (fn) => { try { await fn(); } catch(e) { console.warn("Skip:", e.message); } };
-
     await safeDelete(() => prismaClient.stockMovement.deleteMany({ where: { tenantId: tenant.id } }));
     await safeDelete(() => prismaClient.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } }));
     await safeDelete(() => prismaClient.payment.deleteMany({ where: { tenantId: tenant.id } }));
@@ -113,16 +91,10 @@ router.delete('/tenants/by-slug/:slug', async (req, res) => {
     await safeDelete(() => prismaClient.documentSequence.deleteMany({ where: { tenantId: tenant.id } }));
     await safeDelete(() => prismaClient.user.deleteMany({ where: { tenantId: tenant.id } }));
     await prismaClient.tenant.delete({ where: { id: tenant.id } });
-
     await prismaClient.$disconnect();
 
-    res.json({
-      success: true,
-      message: `Tenant "${slug}" efase avèk siksè! 🗑️`
-    });
-
+    res.json({ success: true, message: `Tenant "${slug}" efase avèk siksè!` });
   } catch (error) {
-    console.error('❌ Delete tenant error:', error);
     res.status(500).json({ success: false, message: 'Erè pandan efase tenant', error: error.message });
   }
 });
@@ -155,11 +127,7 @@ router.get('/tenants', asyncHandler(async (req, res) => {
 router.get('/tenants/:id', asyncHandler(async (req, res) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: req.params.id },
-    include: {
-      plan: true,
-      subscriptions: true,
-      _count: { select: { users: true, products: true, invoices: true } }
-    }
+    include: { plan: true, subscriptions: true, _count: { select: { users: true, products: true, invoices: true } } }
   });
   if (!tenant)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' });
@@ -168,11 +136,7 @@ router.get('/tenants/:id', asyncHandler(async (req, res) => {
 
 // ── POST /api/v1/admin/tenants
 router.post('/tenants', asyncHandler(async (req, res) => {
-  const {
-    name, slug, email, phone, address,
-    planId, adminEmail, adminPassword, adminName,
-    subscriptionMonths, defaultCurrency, defaultLanguage
-  } = req.body;
+  const { name, slug, email, phone, address, planId, adminEmail, adminPassword, adminName, subscriptionMonths, defaultCurrency, defaultLanguage } = req.body;
 
   if (!name || !slug)
     return res.status(400).json({ success: false, message: 'Non ak slug obligatwa.' });
@@ -200,46 +164,23 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       try {
         const planExists = await prisma.subscriptionPlan.findUnique({ where: { id: trimmedId } });
         if (planExists) cleanPlanId = trimmedId;
-        else console.warn(`Plan ${trimmedId} pa jwenn nan baz done`);
-      } catch (e) {
-        console.warn(`Erè rechèch plan: ${e.message}`);
-      }
+      } catch (e) { console.warn(`Erè rechèch plan: ${e.message}`); }
     }
   }
 
   const cleanCurrency = ['HTG', 'USD'].includes(defaultCurrency) ? defaultCurrency : 'HTG';
-  const cleanLanguage  = ['ht', 'fr', 'en'].includes(defaultLanguage)  ? defaultLanguage  : 'ht';
+  const cleanLanguage  = ['ht', 'fr', 'en'].includes(defaultLanguage) ? defaultLanguage : 'ht';
 
   const tenant = await prisma.tenant.create({
-    data: {
-      name:            name.trim(),
-      slug:            cleanSlug,
-      email:           email   || null,
-      phone:           phone   || null,
-      address:         address || null,
-      planId:          cleanPlanId,
-      defaultCurrency: cleanCurrency,
-      defaultLanguage: cleanLanguage,
-      status:          'active',
-      subscriptionEndsAt
-    }
+    data: { name: name.trim(), slug: cleanSlug, email: email || null, phone: phone || null, address: address || null, planId: cleanPlanId, defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage, status: 'active', subscriptionEndsAt }
   });
 
   if (adminEmail && adminPassword) {
-    const emailExists = await prisma.user.findFirst({
-      where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id }
-    });
+    const emailExists = await prisma.user.findFirst({ where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id } });
     if (!emailExists) {
       const hash = await bcrypt.hash(adminPassword, 12);
       await prisma.user.create({
-        data: {
-          tenantId:     tenant.id,
-          fullName:     (adminName || 'Administrateur').trim(),
-          email:        adminEmail.toLowerCase().trim(),
-          passwordHash: hash,
-          role:         'admin',
-          isActive:     true
-        }
+        data: { tenantId: tenant.id, fullName: (adminName || 'Administrateur').trim(), email: adminEmail.toLowerCase().trim(), passwordHash: hash, role: 'admin', isActive: true }
       });
     }
   }
@@ -249,7 +190,7 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       prisma.documentSequence.upsert({
         where:  { tenantId_documentType: { tenantId: tenant.id, documentType: 'quote' } },
         update: {},
-        create: { tenantId: tenant.id, documentType: 'quote',   prefix: 'DEV', currentYear: new Date().getFullYear() }
+        create: { tenantId: tenant.id, documentType: 'quote', prefix: 'DEV', currentYear: new Date().getFullYear() }
       }),
       prisma.documentSequence.upsert({
         where:  { tenantId_documentType: { tenantId: tenant.id, documentType: 'invoice' } },
@@ -257,9 +198,7 @@ router.post('/tenants', asyncHandler(async (req, res) => {
         create: { tenantId: tenant.id, documentType: 'invoice', prefix: 'FAC', currentYear: new Date().getFullYear() }
       })
     ]);
-  } catch (seqErr) {
-    console.warn('Sekans dokiman:', seqErr.message);
-  }
+  } catch (seqErr) { console.warn('Sekans dokiman:', seqErr.message); }
 
   res.status(201).json({ success: true, tenant, message: `Entreprise "${tenant.name}" kreye avèk siksè.` });
 }));
@@ -289,9 +228,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' });
 
   const baseDate = (existing.subscriptionEndsAt && new Date(existing.subscriptionEndsAt) > new Date())
-    ? new Date(existing.subscriptionEndsAt)
-    : new Date();
-
+    ? new Date(existing.subscriptionEndsAt) : new Date();
   baseDate.setMonth(baseDate.getMonth() + numMonths);
 
   const tenant = await prisma.tenant.update({
@@ -300,34 +237,67 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   });
 
-  res.json({
-    success: true,
-    tenant,
-    message: `Abònman ${existing.name} renouvle pou ${numMonths} mwa. Nouvo dat: ${baseDate.toLocaleDateString('fr-FR')}.`
-  });
+  res.json({ success: true, tenant, message: `Abònman ${existing.name} renouvle pou ${numMonths} mwa.` });
 }));
 
 // ── GET /api/v1/admin/plans
+// ✅ Kreye oswa mete ajou plan yo pou matche 3 plan Plus Group
 router.get('/plans', asyncHandler(async (req, res) => {
-  let plans = await prisma.subscriptionPlan.findMany({
+  // Definisyon 3 plan ofisyèl Plus Group
+  const PLANS = [
+    {
+      name: 'Estanda',
+      nameFr: 'Standard',
+      maxUsers: 5,
+      maxProducts: 500,
+      priceMonthly: 2000,
+      features: JSON.stringify(['Fakti', 'Devis', 'Kliyan', 'Stòk'])
+    },
+    {
+      name: 'Biznis',
+      nameFr: 'Business',
+      maxUsers: 15,
+      maxProducts: 2000,
+      priceMonthly: 2500,
+      features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Fiska 15 itilizatè'])
+    },
+    {
+      name: 'Premyum',
+      nameFr: 'Premium',
+      maxUsers: 100,
+      maxProducts: 99999,
+      priceMonthly: 3000,
+      features: JSON.stringify(['Tout nan Biznis', 'services', 'Sipò priorite', 'Itilizatè entelimite'])
+    },
+  ];
+
+  // Mete ajou chak plan (upsert pa non) — fonksyone menmsi plan deja egziste
+  for (const plan of PLANS) {
+    const existing = await prisma.subscriptionPlan.findFirst({
+      where: { name: plan.name }
+    });
+    if (existing) {
+      // Mete ajou features ak pri si plan deja egziste
+      await prisma.subscriptionPlan.update({
+        where: { id: existing.id },
+        data: {
+          features: plan.features,
+          priceMonthly: plan.priceMonthly,
+          maxUsers: plan.maxUsers,
+          maxProducts: plan.maxProducts,
+          isActive: true,
+        }
+      });
+    } else {
+      // Kreye si pa egziste
+      await prisma.subscriptionPlan.create({ data: plan });
+    }
+  }
+
+  const plans = await prisma.subscriptionPlan.findMany({
     where: { isActive: true },
     orderBy: { priceMonthly: 'asc' }
   });
-
-  if (plans.length === 0) {
-    await prisma.subscriptionPlan.createMany({
-      data: [
-        { name: 'Basik',     nameFr: 'Basique',    maxUsers: 3,   maxProducts: 200,   priceMonthly: 1500,  features: JSON.stringify(['Fakti', 'Devis', 'Kliyan']) },
-        { name: 'Estanda',   nameFr: 'Standard',   maxUsers: 10,  maxProducts: 1000,  priceMonthly: 3500,  features: JSON.stringify(['Fakti', 'Devis', 'Kliyan', 'Rapò', 'Stòk']) },
-        { name: 'Biznis',    nameFr: 'Business',   maxUsers: 25,  maxProducts: 5000,  priceMonthly: 7500,  features: JSON.stringify(['Tout fonksyon', 'Rapò avanse', 'Sipò priorite']) },
-        { name: 'Antrepriz', nameFr: 'Entreprise', maxUsers: 100, maxProducts: 99999, priceMonthly: 15000, features: JSON.stringify(['Tout fonksyon', 'Itilizatè entelimite', 'Sipò dedye']) },
-      ]
-    });
-    plans = await prisma.subscriptionPlan.findMany({
-      where: { isActive: true },
-      orderBy: { priceMonthly: 'asc' }
-    });
-  }
 
   res.json({ success: true, plans });
 }));
@@ -339,10 +309,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
     prisma.tenant.count({ where: { status: 'active' } }),
     prisma.tenant.count({ where: { status: 'pending' } }),
     prisma.invoice.count(),
-    prisma.invoice.aggregate({
-      where: { status: 'paid' },
-      _sum: { totalHtg: true, totalUsd: true }
-    })
+    prisma.invoice.aggregate({ where: { status: 'paid' }, _sum: { totalHtg: true, totalUsd: true } })
   ]);
 
   res.json({
@@ -357,14 +324,8 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
   fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
 
   const expiring = await prisma.tenant.findMany({
-    where: {
-      status: 'active',
-      subscriptionEndsAt: { lte: fiveDaysFromNow, gte: new Date() }
-    },
-    select: {
-      id: true, name: true, email: true, subscriptionEndsAt: true,
-      plan: { select: { name: true } }
-    },
+    where: { status: 'active', subscriptionEndsAt: { lte: fiveDaysFromNow, gte: new Date() } },
+    select: { id: true, name: true, email: true, subscriptionEndsAt: true, plan: { select: { name: true } } },
     orderBy: { subscriptionEndsAt: 'asc' }
   });
 

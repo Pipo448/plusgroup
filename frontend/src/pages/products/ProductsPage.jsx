@@ -1,4 +1,4 @@
-// src/pages/products/ProductsPage.jsx - WITH FULL i18n
+// src/pages/products/ProductsPage.jsx - WITH FULL i18n + Plan Feature Guard
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI } from '../../services/api'
@@ -8,16 +8,30 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import {
   Plus, Search, Filter, Edit2, Trash2, Package,
-  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Layers, Check
+  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Layers, Check, Lock
 } from 'lucide-react'
 
-// ── Modal Kategori ──────────────────────────────────────────
 const COLORS = ['#1B3A6B','#C0392B','#27ae60','#C9A84C','#E8836A','#8e44ad','#16a085','#2980b9','#d35400','#7f8c8d']
 
+// ── Helper: verifye si plan an gen yon feature
+const planHasFeature = (tenant, featureName) => {
+  try {
+    const f = tenant?.plan?.features
+    if (!f) return false
+    const features = Array.isArray(f) ? f : JSON.parse(String(f))
+    return features.some(feat =>
+      String(feat).toLowerCase().includes(featureName.toLowerCase()) ||
+      String(feat).toLowerCase().includes('tout nan biznis') ||
+      String(feat).toLowerCase().includes('tout fonksyon')
+    )
+  } catch { return false }
+}
+
+// ── Modal Kategori
 const CategoryModal = ({ categories, onClose }) => {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [editItem, setEditItem] = useState(null)  // null = kreye nouvo
+  const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState({ name: '', color: '#1B3A6B' })
 
   const createMut = useMutation({
@@ -63,7 +77,6 @@ const CategoryModal = ({ categories, onClose }) => {
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal max-w-lg w-full">
-        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <Tag size={18} className="text-brand-600"/>
@@ -75,35 +88,26 @@ const CategoryModal = ({ categories, onClose }) => {
         </div>
 
         <div className="p-5 space-y-5">
-
-          {/* Fòm kreye / modifye */}
           <div style={{
             background: editItem ? 'rgba(201,168,76,0.06)' : 'rgba(26,58,107,0.04)',
             border: editItem ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(26,58,107,0.1)',
             borderRadius: 14, padding: 16
           }}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase',
-              letterSpacing: '0.07em', marginBottom: 12, fontFamily: 'DM Sans' }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
               {editItem ? `${t('products.editCategory')}: ${editItem.name}` : t('products.newCategory')}
             </p>
 
             <div className="flex gap-3 mb-3">
-              <input
-                className="input flex-1"
-                placeholder={t('products.categoryName')}
-                value={form.name}
-                onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleSave()}
-              />
+              <input className="input flex-1" placeholder={t('products.categoryName')}
+                value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && handleSave()} />
             </div>
 
-            {/* Chwazi koulè */}
             <div>
               <p className="label mb-2">{t('products.color')}</p>
               <div className="flex gap-2 flex-wrap">
                 {COLORS.map(c => (
-                  <button key={c} type="button"
-                    onClick={() => setForm(f => ({ ...f, color: c }))}
+                  <button key={c} type="button" onClick={() => setForm(f => ({ ...f, color: c }))}
                     style={{
                       width: 28, height: 28, borderRadius: 8, background: c,
                       border: form.color === c ? '3px solid #1B3A6B' : '2px solid transparent',
@@ -114,14 +118,9 @@ const CategoryModal = ({ categories, onClose }) => {
                     {form.color === c && <Check size={12} color="#fff" strokeWidth={3}/>}
                   </button>
                 ))}
-                {/* Koulè pèsonalize */}
-                <label style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden',
-                  border: '2px dashed #cbd5e1', cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', position: 'relative' }} 
-                  title={t('products.customColor')}>
+                <label style={{ width: 28, height: 28, borderRadius: 8, overflow: 'hidden', border: '2px dashed #cbd5e1', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                   <span style={{ fontSize: 9, color: '#94a3b8', fontWeight: 700, pointerEvents: 'none' }}>+</span>
-                  <input type="color" value={form.color}
-                    onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
+                  <input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
                     style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%', height: '100%' }}/>
                 </label>
               </div>
@@ -137,18 +136,12 @@ const CategoryModal = ({ categories, onClose }) => {
                   {t('common.cancel')}
                 </button>
               )}
-              <button type="button" onClick={handleSave}
-                disabled={createMut.isPending || updateMut.isPending}
-                className="btn-primary btn-sm flex-1">
-                {(createMut.isPending || updateMut.isPending)
-                  ? t('common.saving')
-                  : editItem ? t('common.update') : t('products.addCategory')
-                }
+              <button type="button" onClick={handleSave} disabled={createMut.isPending || updateMut.isPending} className="btn-primary btn-sm flex-1">
+                {(createMut.isPending || updateMut.isPending) ? t('common.saving') : editItem ? t('common.update') : t('products.addCategory')}
               </button>
             </div>
           </div>
 
-          {/* Lis kategori yo */}
           <div>
             <p className="label mb-3">{t('products.existingCategories')} ({categories?.length || 0})</p>
             {!categories?.length
@@ -164,30 +157,17 @@ const CategoryModal = ({ categories, onClose }) => {
                       padding: '10px 14px', borderRadius: 12,
                       background: editItem?.id === cat.id ? 'rgba(201,168,76,0.08)' : '#fafaf8',
                       border: editItem?.id === cat.id ? '1px solid rgba(201,168,76,0.3)' : '1px solid #f0e8d8',
-                      transition: 'all 0.15s'
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 10, height: 10, borderRadius: '50%',
-                          background: cat.color || '#1B3A6B', flexShrink: 0
-                        }}/>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: cat.color || '#1B3A6B', flexShrink: 0 }}/>
                         <span style={{ fontSize: 13, fontWeight: 600, color: '#1e293b' }}>{cat.name}</span>
                         {cat._count?.products !== undefined && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99,
-                            background: 'rgba(26,58,107,0.08)', color: '#1B3A6B'
-                          }}>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 99, background: 'rgba(26,58,107,0.08)', color: '#1B3A6B' }}>
                             {cat._count.products} {t('products.productsCount')}
                           </span>
                         )}
                       </div>
-                      <button onClick={() => startEdit(cat)}
-                        style={{
-                          background: 'rgba(26,58,107,0.07)', border: 'none', borderRadius: 7,
-                          padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                          gap: 4, fontSize: 11, fontWeight: 600, color: '#1B3A6B',
-                          fontFamily: 'DM Sans, sans-serif'
-                        }}>
+                      <button onClick={() => startEdit(cat)} style={{ background: 'rgba(26,58,107,0.07)', border: 'none', borderRadius: 7, padding: '5px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#1B3A6B' }}>
                         <Edit2 size={11}/> {t('common.edit')}
                       </button>
                     </div>
@@ -205,11 +185,15 @@ const CategoryModal = ({ categories, onClose }) => {
   )
 }
 
-// Modal Produit
+// ── Modal Produit
 const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) => {
   const { t } = useTranslation()
+  const tenant = useAuthStore(s => s.tenant)
   const isEdit = !!product
   const rate = Number(exchangeRate || 132)
+
+  // ✅ Verifye si plan an gen feature "services"
+  const hasServiceFeature = planHasFeature(tenant, 'service')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: product
@@ -218,29 +202,20 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   })
   const qc = useQueryClient()
 
-  // ✅ Konvèsyon otomatik HTG → USD
-  const priceHtgVal = watch('priceHtg')
   const handlePriceHtgChange = (e) => {
     const htg = Number(e.target.value)
     setValue('priceHtg', e.target.value)
-    if (htg > 0) {
-      setValue('priceUsd', (htg / rate).toFixed(2))
-    }
+    if (htg > 0) setValue('priceUsd', (htg / rate).toFixed(2))
   }
 
-  // ✅ Konvèsyon otomatik USD → HTG
   const handlePriceUsdChange = (e) => {
     const usd = Number(e.target.value)
     setValue('priceUsd', e.target.value)
-    if (usd > 0) {
-      setValue('priceHtg', (usd * rate).toFixed(2))
-    }
+    if (usd > 0) setValue('priceHtg', (usd * rate).toFixed(2))
   }
 
   const mutation = useMutation({
-    mutationFn: (data) => isEdit
-      ? productAPI.update(product.id, data)
-      : productAPI.create(data),
+    mutationFn: (data) => isEdit ? productAPI.update(product.id, data) : productAPI.create(data),
     onSuccess: () => {
       toast.success(isEdit ? t('products.productUpdated') : t('products.productCreated'))
       qc.invalidateQueries(['products'])
@@ -252,7 +227,6 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal max-w-2xl w-full">
-        {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <h2 className="text-lg font-display font-bold">
             {isEdit ? t('products.editProduct') : t('products.newProduct')}
@@ -303,7 +277,6 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             </div>
           </div>
 
-          {/* ✅ Pri ak konvèsyon otomatik */}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">{t('products.priceHtg')} *</label>
@@ -312,8 +285,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                   className={`input pr-12 ${errors.priceHtg ? 'input-error' : ''}`}
                   placeholder="0.00"
                   {...register('priceHtg', { required: true, min: 0 })}
-                  onChange={handlePriceHtgChange}
-                />
+                  onChange={handlePriceHtgChange} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
               </div>
             </div>
@@ -323,26 +295,17 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                 <span className="text-xs text-brand-500 font-normal ml-1">{t('products.automatic')}</span>
               </label>
               <div className="relative">
-                <input type="number" step="0.01" min="0"
-                  className="input pr-12"
-                  placeholder="0.00"
-                  {...register('priceUsd', { min: 0 })}
-                  onChange={handlePriceUsdChange}
-                />
+                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
+                  {...register('priceUsd', { min: 0 })} onChange={handlePriceUsdChange} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">USD</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1 font-mono">
-                1 USD = {rate.toFixed(2)} HTG
-              </p>
+              <p className="text-xs text-slate-400 mt-1 font-mono">1 USD = {rate.toFixed(2)} HTG</p>
             </div>
             <div>
               <label className="label">{t('products.costPrice')}</label>
               <div className="relative">
-                <input type="number" step="0.01" min="0"
-                  className="input pr-12"
-                  placeholder="0.00"
-                  {...register('costPriceHtg', { min: 0 })}
-                />
+                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
+                  {...register('costPriceHtg', { min: 0 })} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
               </div>
             </div>
@@ -352,8 +315,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             <div>
               <label className="label">{t('products.stockQuantity')}</label>
               <input type="number" step="0.001" min="0" className="input"
-                placeholder="0" {...register('quantity', { min: 0 })}
-                disabled={isEdit} />
+                placeholder="0" {...register('quantity', { min: 0 })} disabled={isEdit} />
               {isEdit && <p className="text-xs text-slate-400 mt-1">{t('products.adjustInStockPage')}</p>}
             </div>
             <div>
@@ -369,12 +331,28 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
               placeholder={t('products.descriptionPlaceholder')} {...register('description')} />
           </div>
 
+          {/* ✅ Checkbox isService — kache si plan pa gen feature "services" */}
           <div className="flex items-center gap-6">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" {...register('isService')}
-                className="w-4 h-4 rounded text-brand-600" />
-              <span className="text-sm text-slate-600">{t('products.isService')}</span>
-            </label>
+            {hasServiceFeature ? (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" {...register('isService')}
+                  className="w-4 h-4 rounded text-brand-600" />
+                <span className="text-sm text-slate-600">{t('products.isService')}</span>
+              </label>
+            ) : (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 14px', borderRadius: 10,
+                background: 'rgba(245,104,12,0.05)',
+                border: '1px dashed rgba(245,104,12,0.25)',
+              }}>
+                <Lock size={13} style={{ color: '#f5680c', flexShrink: 0 }} />
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                  Sèvis disponib sèlman nan{' '}
+                  <strong style={{ color: '#f5680c' }}>Plan Premyum (3 000 HTG/mwa)</strong>
+                </span>
+              </div>
+            )}
             {isEdit && (
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" {...register('isActive')}
@@ -396,16 +374,15 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   )
 }
 
-// Main Products Page
+// ── Main Products Page
 export default function ProductsPage() {
   const { t } = useTranslation()
-  const [modal, setModal] = useState(null)  // null | 'create' | product
+  const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [page, setPage] = useState(1)
   const qc = useQueryClient()
 
-  // ✅ Exchange rate depuis le store
   const tenant = useAuthStore(s => s.tenant)
   const exchangeRate = Number(tenant?.exchangeRate || 132)
 
@@ -415,7 +392,6 @@ export default function ProductsPage() {
     keepPreviousData: true
   })
 
-  // ✅ Categories avec gestion d'erreur robuste
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
@@ -435,7 +411,6 @@ export default function ProductsPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Header */}
       <div className="page-header">
         <div>
           <h1 className="page-title">{t('products.title')}</h1>
@@ -451,21 +426,18 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="input pl-9" placeholder={t('products.searchProducts')}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
         </div>
-        <select className="input w-48"
-          value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}>
+        <select className="input w-48" value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}>
           <option value="">{t('products.allCategories')}</option>
           {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
-      {/* Table */}
       <div className="table-container">
         <table className="table">
           <thead>
@@ -513,10 +485,7 @@ export default function ProductsPage() {
                     <td className="font-mono font-medium">{fmt(p.priceHtg)} HTG</td>
                     <td className="font-mono text-slate-500">{fmt(p.priceUsd)} USD</td>
                     <td>
-                      <span className={`font-mono font-bold text-sm ${
-                        Number(p.quantity) <= Number(p.alertThreshold)
-                          ? 'text-orange-600' : 'text-slate-700'
-                      }`}>
+                      <span className={`font-mono font-bold text-sm ${Number(p.quantity) <= Number(p.alertThreshold) ? 'text-orange-600' : 'text-slate-700'}`}>
                         {Number(p.quantity).toLocaleString()} {p.unit}
                       </span>
                       {Number(p.quantity) <= Number(p.alertThreshold) && !p.isService && (
@@ -530,8 +499,7 @@ export default function ProductsPage() {
                     </td>
                     <td>
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setModal({ type: 'edit', product: p })}
-                          className="btn-ghost btn-sm p-2">
+                        <button onClick={() => setModal({ type: 'edit', product: p })} className="btn-ghost btn-sm p-2">
                           <Edit2 size={14} />
                         </button>
                         <button onClick={() => {
@@ -548,7 +516,6 @@ export default function ProductsPage() {
         </table>
       </div>
 
-      {/* Pagination */}
       {data?.pages > 1 && (
         <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-slate-500">
@@ -565,22 +532,16 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* Modals */}
       {modal?.type === 'category' && (
-        <CategoryModal
-          categories={categories}
-          onClose={() => setModal(null)}
-        />
+        <CategoryModal categories={categories} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'create' && (
         <ProductModal categories={categories} exchangeRate={exchangeRate}
-          onClose={() => setModal(null)}
-          onSaved={() => setModal(null)} />
+          onClose={() => setModal(null)} onSaved={() => setModal(null)} />
       )}
       {modal?.type === 'edit' && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate}
-          onClose={() => setModal(null)}
-          onSaved={() => setModal(null)} />
+          onClose={() => setModal(null)} onSaved={() => setModal(null)} />
       )}
     </div>
   )
