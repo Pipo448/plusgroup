@@ -72,20 +72,34 @@ const ClientSearch = ({ value, onChange }) => {
 }
 
 // ── Atik — vèsyon MOBIL (kat)
+// ✅ Autocomplete depi 1 lèt + bouton ↑ + klavye navigation
 const ItemCard = ({ item, index, onChange, onRemove }) => {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
 
   const { data: productResults } = useQuery({
-    queryKey: ['product-search', search],
-    queryFn: () => productAPI.getAll({ search, limit: 6 }).then(r => r.data.products),
-    enabled: search.length > 0
+    queryKey: ['product-search-card', search],
+    queryFn: () => productAPI.getAll({ search, limit: 8 }).then(r => r.data.products),
+    enabled: search.length >= 1   // ✅ depi 1 premye lèt
   })
 
   const selectProduct = (p) => {
-    onChange(index, { ...item, productId: p.id, productName: p.name, productCode: p.code, unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd) })
-    setSearch(''); setOpen(false)
+    onChange(index, {
+      ...item,
+      productId: p.id, productName: p.name, productCode: p.code,
+      unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd)
+    })
+    setSearch(''); setOpen(false); setActiveIdx(-1)
+  }
+
+  const handleKey = (e) => {
+    if (!productResults?.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, productResults.length - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)) }
+    if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); selectProduct(productResults[activeIdx]) }
+    if (e.key === 'Escape') { setOpen(false); setActiveIdx(-1) }
   }
 
   const update = (field, val) => onChange(index, { ...item, [field]: val })
@@ -104,7 +118,7 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
       </div>
 
       {/* Rechèch pwodui */}
-      <div className="relative">
+      <div style={{ position:'relative' }}>
         {item.productName
           ? <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'white', borderRadius:10, border:'1.5px solid rgba(27,42,143,0.15)' }}>
               <Package size={14} color="#1B2A8F"/>
@@ -112,30 +126,76 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
                 <p style={{ fontSize:13, fontWeight:700, color:'#0F1A5C', margin:0 }}>{item.productName}</p>
                 <p style={{ fontSize:11, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{item.productCode}</p>
               </div>
-              <button type="button" onClick={() => update('productName', '')} style={{ color:'#94a3b8', background:'none', border:'none', cursor:'pointer', padding:2 }}>
+              <button type="button" onClick={() => { update('productName', ''); update('productId', null); setSearch('') }}
+                style={{ color:'#94a3b8', background:'none', border:'none', cursor:'pointer', padding:2 }}>
                 <ChevronDown size={14}/>
               </button>
             </div>
           : <div>
-              <div className="relative">
-                <Package size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-                <input className="input pl-8 text-sm" placeholder={t('quotes.searchProduct')}
-                  value={search} onChange={e => { setSearch(e.target.value); setOpen(true) }}/>
+              <div style={{ position:'relative' }}>
+                <Package size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'#94a3b8', pointerEvents:'none' }}/>
+                <input
+                  style={{ width:'100%', padding:'8px 12px 8px 32px', borderRadius:10, border:'1.5px solid rgba(27,42,143,0.15)', fontSize:13, outline:'none', boxSizing:'border-box', background:'white' }}
+                  placeholder={t('quotes.searchProduct')}
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setOpen(true); setActiveIdx(-1) }}
+                  onFocus={() => { if (search.length >= 1) setOpen(true) }}
+                  onBlur={() => setTimeout(() => setOpen(false), 180)}
+                  onKeyDown={handleKey}
+                />
               </div>
+
+              {/* ✅ DROPDOWN AUTOCOMPLETE */}
               {open && productResults?.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
-                  {productResults.map(p => (
-                    <button key={p.id} type="button" onClick={() => selectProduct(p)}
-                      className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 text-left">
-                      <div>
-                        <p className="text-sm font-medium">{p.name}</p>
-                        <p className="text-xs text-slate-400">{p.code} · {p.unit}</p>
+                <div style={{
+                  position:'absolute', top:'100%', left:0, right:0, marginTop:4,
+                  background:'white', border:'1.5px solid rgba(27,42,143,0.15)',
+                  borderRadius:12, boxShadow:'0 8px 24px rgba(27,42,143,0.15)',
+                  zIndex:50, overflow:'hidden'
+                }}>
+                  {productResults.map((p, i) => (
+                    <button key={p.id} type="button"
+                      onMouseDown={() => selectProduct(p)}
+                      style={{
+                        width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+                        padding:'9px 12px', border:'none', cursor:'pointer', textAlign:'left',
+                        background: i === activeIdx ? 'rgba(27,42,143,0.07)' : 'white',
+                        borderBottom: i < productResults.length - 1 ? '1px solid rgba(27,42,143,0.06)' : 'none',
+                        transition:'background 0.1s'
+                      }}
+                    >
+                      <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                        <div style={{
+                          width:30, height:30, borderRadius:8, flexShrink:0,
+                          background:'rgba(27,42,143,0.07)',
+                          display:'flex', alignItems:'center', justifyContent:'center'
+                        }}>
+                          <Package size={13} color="#1B2A8F"/>
+                        </div>
+                        <div>
+                          <p style={{ fontSize:13, fontWeight:700, color:'#0F1A5C', margin:0 }}>{p.name}</p>
+                          <p style={{ fontSize:10, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{p.code} · {p.unit}</p>
+                        </div>
                       </div>
-                      <p className="text-sm font-mono text-brand-700">{Number(p.priceHtg).toLocaleString()} HTG</p>
+                      {/* Pri + Bouton ↑ */}
+                      <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+                        <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:700, color:'#1B2A8F' }}>
+                          {Number(p.priceHtg).toLocaleString('fr-HT', { minimumFractionDigits:2 })} HTG
+                        </span>
+                        <div style={{
+                          width:26, height:26, borderRadius:7,
+                          background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                          boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0
+                        }}>
+                          <span style={{ color:'white', fontSize:14, lineHeight:1, fontWeight:900 }}>↑</span>
+                        </div>
+                      </div>
                     </button>
                   ))}
                 </div>
               )}
+
               <input className="input text-sm mt-1" placeholder={t('quotes.orTypeDescription')}
                 value={item.description || ''} onChange={e => update('description', e.target.value)}/>
             </div>
@@ -181,20 +241,35 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
 }
 
 // ── Atik — vèsyon DESKTOP (tablo)
+// ✅ Autocomplete depi 1 lèt + bouton ↑ + klavye navigation
 const ItemRow = ({ item, index, onChange, onRemove }) => {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(-1)
 
   const { data: productResults } = useQuery({
-    queryKey: ['product-search', search],
-    queryFn: () => productAPI.getAll({ search, limit: 6 }).then(r => r.data.products),
-    enabled: search.length > 0
+    queryKey: ['product-search-row', search],
+    queryFn: () => productAPI.getAll({ search, limit: 8 }).then(r => r.data.products),
+    enabled: search.length >= 1   // ✅ depi 1 premye lèt
   })
 
   const selectProduct = (p) => {
-    onChange(index, { ...item, productId: p.id, productName: p.name, productCode: p.code, unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd) })
-    setSearch(''); setOpen(false)
+    onChange(index, {
+      ...item,
+      productId: p.id, productName: p.name, productCode: p.code,
+      unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd)
+    })
+    setSearch(''); setOpen(false); setActiveIdx(-1)
+  }
+
+  // ✅ Navigasyon klavye: ↑ ↓ Enter Escape
+  const handleKey = (e) => {
+    if (!productResults?.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, productResults.length - 1)) }
+    if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)) }
+    if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); selectProduct(productResults[activeIdx]) }
+    if (e.key === 'Escape') { setOpen(false); setActiveIdx(-1) }
   }
 
   const update = (field, val) => onChange(index, { ...item, [field]: val })
@@ -203,14 +278,15 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
   return (
     <tr>
       <td className="p-2 min-w-[200px]">
-        <div className="relative">
+        <div style={{ position:'relative' }}>
           {item.productName
             ? <div className="flex items-center gap-2">
                 <div>
                   <p className="text-sm font-medium text-slate-800">{item.productName}</p>
                   <p className="text-xs text-slate-400 font-mono">{item.productCode}</p>
                 </div>
-                <button type="button" onClick={() => update('productName', '')} className="text-slate-300 hover:text-slate-500">
+                <button type="button" onClick={() => { update('productName', ''); update('productId', null); setSearch('') }}
+                  className="text-slate-300 hover:text-slate-500">
                   <ChevronDown size={14} />
                 </button>
               </div>
@@ -218,18 +294,63 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
                 <div className="relative">
                   <Package size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input className="input pl-8 text-sm py-2" placeholder={t('quotes.searchProduct')}
-                    value={search} onChange={e => { setSearch(e.target.value); setOpen(true) }} />
+                    value={search}
+                    onChange={e => { setSearch(e.target.value); setOpen(true); setActiveIdx(-1) }}
+                    onFocus={() => { if (search.length >= 1) setOpen(true) }}
+                    onBlur={() => setTimeout(() => setOpen(false), 180)}
+                    onKeyDown={handleKey}
+                  />
                 </div>
+
+                {/* ✅ DROPDOWN AUTOCOMPLETE DESKTOP */}
                 {open && productResults?.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-30 overflow-hidden">
-                    {productResults.map(p => (
-                      <button key={p.id} type="button" onClick={() => selectProduct(p)}
-                        className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 text-left">
-                        <div>
-                          <p className="text-sm font-medium">{p.name}</p>
-                          <p className="text-xs text-slate-400">{p.code} · {p.unit}</p>
+                  <div style={{
+                    position:'absolute', top:'100%', left:0, right:0, marginTop:4,
+                    background:'white', border:'1.5px solid rgba(27,42,143,0.15)',
+                    borderRadius:12, boxShadow:'0 12px 32px rgba(27,42,143,0.18)',
+                    zIndex:50, overflow:'hidden', minWidth:340
+                  }}>
+                    {productResults.map((p, i) => (
+                      <button key={p.id} type="button"
+                        onMouseDown={() => selectProduct(p)}
+                        style={{
+                          width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between',
+                          padding:'9px 14px', border:'none', cursor:'pointer', textAlign:'left',
+                          background: i === activeIdx ? 'rgba(27,42,143,0.07)' : 'white',
+                          borderBottom: i < productResults.length - 1 ? '1px solid rgba(27,42,143,0.06)' : 'none',
+                          transition:'background 0.1s'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = i === activeIdx ? 'rgba(27,42,143,0.07)' : 'rgba(27,42,143,0.04)' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = i === activeIdx ? 'rgba(27,42,143,0.07)' : 'white' }}
+                      >
+                        {/* Enfòmasyon pwodui */}
+                        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                          <div style={{
+                            width:32, height:32, borderRadius:9, flexShrink:0,
+                            background:'rgba(27,42,143,0.07)',
+                            display:'flex', alignItems:'center', justifyContent:'center'
+                          }}>
+                            <Package size={14} color="#1B2A8F"/>
+                          </div>
+                          <div>
+                            <p style={{ fontSize:13, fontWeight:700, color:'#0F1A5C', margin:0 }}>{p.name}</p>
+                            <p style={{ fontSize:10, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{p.code} · {p.unit}</p>
+                          </div>
                         </div>
-                        <p className="text-sm font-mono text-brand-700">{Number(p.priceHtg).toLocaleString()} HTG</p>
+                        {/* Pri + ✅ Bouton ↑ pou monte nan tablo */}
+                        <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+                          <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:700, color:'#1B2A8F' }}>
+                            {Number(p.priceHtg).toLocaleString('fr-HT', { minimumFractionDigits:2 })} HTG
+                          </span>
+                          <div style={{
+                            width:28, height:28, borderRadius:8,
+                            background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)',
+                            display:'flex', alignItems:'center', justifyContent:'center',
+                            boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0
+                          }}>
+                            <span style={{ color:'white', fontSize:15, lineHeight:1, fontWeight:900 }}>↑</span>
+                          </div>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -274,7 +395,7 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
   )
 }
 
-// ── Main QuoteForm
+// ── Main QuoteForm (pa chanje)
 export default function QuoteForm() {
   const { t } = useTranslation()
   const navigate  = useNavigate()
