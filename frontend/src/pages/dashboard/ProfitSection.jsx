@@ -1,11 +1,11 @@
 // ══════════════════════════════════════════════════════════════
 // ProfitSection.jsx — Seksyon Rapò Benefis pou Dashboard
 // Mete nan: frontend/src/pages/dashboard/ProfitSection.jsx
-// ✅ KOREKSYON: Tradiksyon lang + Responsive mobil
+
 // ══════════════════════════════════════════════════════════════
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'  // ✅ AJOUTE
+import { useTranslation } from 'react-i18next'
 import { reportAPI } from '../../services/api'
 import { format, subDays, startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import {
@@ -102,13 +102,13 @@ const SummaryCard = ({ label, value, icon, color, sub, trend }) => {
 }
 
 export default function ProfitSection() {
-  const { t } = useTranslation()  // ✅ ITILIZE TRADIKSYON
+  const { t } = useTranslation()
 
   const [period, setPeriod]           = useState('month')
   const [showAllProducts, setShowAll] = useState(false)
   const [expandedChart, setExpanded]  = useState(false)
 
-  // ✅ Peryòd yo tradui dinamikman
+
   const PERIODS = [
     { label: t('dashboard.profitPeriodToday'),  value: 'today' },
     { label: t('dashboard.profitPeriod7days'),  value: '7days' },
@@ -243,7 +243,7 @@ export default function ProfitSection() {
             <TrendingUp size={18} color="#fff" />
           </div>
           <div>
-            {/* ✅ Tradiksyon */}
+          
             <h3 style={{ fontSize: 15, fontWeight: 800, color: D.text, margin: '0 0 2px' }}>
               📊 {t('dashboard.profitReport')}
             </h3>
@@ -253,7 +253,7 @@ export default function ProfitSection() {
           </div>
         </div>
 
-        {/* ✅ Bouton peryòd tradui */}
+        
         <div className="profit-periods">
           {PERIODS.map(p => (
             <button
@@ -290,7 +290,7 @@ export default function ProfitSection() {
               borderTopColor: D.blue, borderRadius: '50%',
               animation: 'spin 0.8s linear infinite', margin: '0 auto 12px'
             }} />
-            {/* ✅ Tradiksyon */}
+          
             <p style={{ fontSize: 13 }}>{t('dashboard.loadingReport')}</p>
           </div>
         ) : (
@@ -298,29 +298,29 @@ export default function ProfitSection() {
             {/* ── 4 KART REZIME — 2x2 sou mobil ── */}
             <div className="profit-summary-grid">
               <SummaryCard
-                label={t('dashboard.totalSalesLabel')}  {/* ✅ */}
+                label={t('dashboard.totalSalesLabel')}
                 value={`${fmt(totaux.vantHtg)} HTG`}
                 icon={<ShoppingCart size={17} />}
                 color={D.blue}
               />
               <SummaryCard
-                label={t('dashboard.totalCostLabel')}   {/* ✅ */}
+                label={t('dashboard.totalCostLabel')}
                 value={`${fmt(totaux.koutHtg)} HTG`}
                 icon={<DollarSign size={17} />}
                 color={D.red}
               />
               <SummaryCard
-                label={t('dashboard.netProfit')}        {/* ✅ */}
+                label={t('dashboard.netProfit')}
                 value={`${fmt(totaux.benefisHtg)} HTG`}
                 icon={<TrendingUp size={17} />}
                 color={Number(totaux.benefisHtg) >= 0 ? D.success : D.red}
               />
               <SummaryCard
-                label={t('dashboard.profitMargin')}     {/* ✅ */}
+                label={t('dashboard.profitMargin')}
                 value={`${totaux.majPct}%`}
                 icon={<Award size={17} />}
                 color={D.gold}
-                sub={`${byProduct.length} ${t('dashboard.analyzed')}`}  {/* ✅ */}
+                sub={`${byProduct.length} ${t('dashboard.analyzed')}`}
               />
             </div>
 
@@ -328,7 +328,7 @@ export default function ProfitSection() {
             {daily.length > 0 && (
               <div className="chart-area">
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
-                  {/* ✅ Tradiksyon */}
+                
                   <h4 style={{ fontSize: 13, fontWeight: 800, color: D.text, margin: 0 }}>
                     {t('dashboard.dailyEvolution')}
                   </h4>
@@ -341,7 +341,7 @@ export default function ProfitSection() {
                     }}
                   >
                     {expandedChart ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {/* ✅ Tradiksyon */}
+                  
                     {expandedChart ? t('dashboard.collapse') : t('dashboard.expand')}
                   </button>
                 </div>
@@ -366,7 +366,7 @@ export default function ProfitSection() {
             {/* ── TOP 5 PWODUI ── */}
             {top5.length > 0 && (
               <div>
-                {/* ✅ Tradiksyon */}
+              
                 <h4 style={{ fontSize: 13, fontWeight: 800, color: D.text, margin: '0 0 12px' }}>
                   {t('dashboard.top5Products')}
                 </h4>
@@ -422,7 +422,7 @@ export default function ProfitSection() {
             {byProduct.length > 0 && (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-                  {/* ✅ Tradiksyon */}
+                
                   <h4 style={{ fontSize: 13, fontWeight: 800, color: D.text, margin: 0 }}>
                     {t('dashboard.productDetail')}
                   </h4>
@@ -431,7 +431,7 @@ export default function ProfitSection() {
                   </span>
                 </div>
 
-                {/* ✅ Scroll horizontal sou mobil */}
+                
                 <div className="profit-table-wrap">
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 560 }}>
                     <thead>
@@ -526,7 +526,7 @@ export default function ProfitSection() {
             {byProduct.length === 0 && !isLoading && (
               <div style={{ textAlign: 'center', padding: '32px 0' }}>
                 <p style={{ fontSize: 36, margin: '0 0 10px' }}>📊</p>
-                {/* ✅ Tradiksyon */}
+              
                 <p style={{ fontWeight: 800, color: D.text, fontSize: 14, margin: '0 0 4px' }}>
                   {t('dashboard.noDataPeriod')}
                 </p>
