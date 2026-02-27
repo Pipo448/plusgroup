@@ -18,7 +18,6 @@ const resources = {
         email: 'Email', phone: 'Telefòn', address: 'Adrès',
       },
 
-      // ══ SETTINGS ══
       settings: {
         title: 'Paramèt',
         saved: 'Paramèt sovgade!',
@@ -28,7 +27,6 @@ const resources = {
           currency: 'Taux & Devise',
           users: 'Itilizatè',
         },
-        // Jeneral
         companyInfo: 'Enfòmasyon Entreprise',
         companyName: 'Non Entreprise',
         taxRate: 'Taks TVA (%)',
@@ -45,7 +43,6 @@ const resources = {
         chooseLogo: 'Chwazi Logo',
         logoUpdated: 'Logo ajou!',
         logoError: 'Erè upload logo.',
-        // Printer
         printerConnectionType: 'Tip Koneksyon Printer Thermal',
         printerDesc: 'Chwazi kijan printer ou a konekte pou sistèm lan ka voye resi dirèkteman.',
         saveConnection: 'Sovgade Koneksyon',
@@ -77,7 +74,6 @@ const resources = {
           step3: 'Antre adrès IP a nan paramèt printer nan navigatè ou a',
           step4: 'Asire firewall pa bloke koneksyon nan port 9100',
         },
-        // Taux & Devise
         exchangeRateTitle: 'Taux Chanje pa Devise',
         exchangeRateDesc: 'Antre taux pou chak devise sou baz HTG. Chwazi ki taux ou vle montre sou resi yo.',
         showOnReceipt: 'Montre sou resi',
@@ -88,7 +84,6 @@ const resources = {
         autoConversion: 'Konvèsyon Otomatik',
         noRates: 'Antre omwen yon taux pou wè egzanp konvèsyon yo.',
         eg: 'Egz',
-        // Itilizatè
         userManagement: 'Jesyon Itilizatè',
         manageUsers: 'Jere itilizatè',
         usersDesc: 'Ajoute, modifye oswa siprime itilizatè ki gen aksè nan sistèm nan.',
@@ -130,7 +125,8 @@ const resources = {
         greeting: 'Bonswa',
         greetingMorning: 'Bonjou',
         greetingAfternoon: 'Bonswa',
-        greetingEvening: 'Bonswa aswè',sales30days: 'Vant 30 jou', totalSales: 'Total vant',
+        greetingEvening: 'Bonswa aswè',
+        sales30days: 'Vant 30 jou', totalSales: 'Total vant',
         paid: 'Peye', unpaid: 'Pa peye', partial: 'Pasyal', balance: 'Balans',
         invoices: 'fakti', documents: 'dokiman', lowStock: 'Estòk ba', needRestock: 'Bezwen restòk',
         sales7days: 'Vant 7 dènye jou yo', salesChart: 'Chif vant an HTG',
@@ -148,6 +144,28 @@ const resources = {
         kpiRestock: 'Bezwen restòk', subscriptionExpired: 'Abònman ekspire — Sistèm bloke!',
         subscriptionExpiring: 'Abònman ap ekspire nan {{days}} jou!',
         contactAdmin: 'Kontakte administrasyon pou renouvle.', blocked: 'BLOKE',
+        // ── PROFIT SECTION ──
+        profitReport: 'Rapò Benefis',
+        profitSubtitle: 'Vant vs Kout · Admin sèlman',
+        totalSalesLabel: 'Vant Total',
+        totalCostLabel: 'Kout Total',
+        netProfit: 'Benefis Net',
+        profitMargin: 'Maj Benefis',
+        dailyEvolution: 'Evolisyon Chak Jou',
+        top5Products: '🏆 Top 5 Pwodui Pwofitab',
+        productDetail: 'Detay pa Pwodui',
+        noDataPeriod: 'Pa gen done pou peryòd sa',
+        noDataHint: 'Chwazi yon peryòd diferan oswa verifye si pwodui yo gen pri kout (costPriceHtg)',
+        loadingReport: 'Ap chaje rapò...',
+        expand: 'Agrandi',
+        collapse: 'Rédui',
+        showLess: 'Montre mwens',
+        analyzed: 'pwodui analyze',
+        profitPeriodToday: 'Jodi a',
+        profitPeriod7days: '7 jou',
+        profitPeriodMonth: 'Mwa sa',
+        profitPeriodWeek: 'Semèn sa',
+        profitPeriod30days: '30 jou',
       },
       quotes: {
         title: 'Devi', newQuote: 'Nouvo Devi', editQuote: 'Modifye Devi',
@@ -232,7 +250,6 @@ const resources = {
         email: 'Email', phone: 'Téléphone', address: 'Adresse',
       },
 
-      // ══ SETTINGS ══
       settings: {
         title: 'Paramètres',
         saved: 'Paramètres enregistrés!',
@@ -339,7 +356,8 @@ const resources = {
       dashboard: {
         greetingMorning: 'Bonjour',
         greetingAfternoon: 'Bonsoir',
-        greetingEvening: 'Bonsoir', sales30days: 'Ventes 30 jours', totalSales: 'Total ventes',
+        greetingEvening: 'Bonsoir',
+        sales30days: 'Ventes 30 jours', totalSales: 'Total ventes',
         paid: 'Payé', unpaid: 'Impayé', partial: 'Partiel', balance: 'Solde',
         invoices: 'factures', documents: 'documents', lowStock: 'Stock bas', needRestock: 'Besoin réappro',
         sales7days: 'Ventes 7 derniers jours', salesChart: 'Chiffre ventes HTG',
@@ -357,6 +375,28 @@ const resources = {
         kpiRestock: 'Besoin réappro', subscriptionExpired: 'Abonnement expiré — Système bloqué!',
         subscriptionExpiring: "Abonnement expire dans {{days}} jours!",
         contactAdmin: "Contacter l'administration pour renouveler.", blocked: 'BLOQUÉ',
+        // ── PROFIT SECTION ──
+        profitReport: 'Rapport Bénéfices',
+        profitSubtitle: 'Ventes vs Coûts · Admin seulement',
+        totalSalesLabel: 'Ventes Totales',
+        totalCostLabel: 'Coût Total',
+        netProfit: 'Bénéfice Net',
+        profitMargin: 'Marge Bénéfice',
+        dailyEvolution: 'Évolution Journalière',
+        top5Products: '🏆 Top 5 Produits Rentables',
+        productDetail: 'Détail par Produit',
+        noDataPeriod: 'Pas de données pour cette période',
+        noDataHint: 'Choisissez une période différente ou vérifiez que les produits ont un prix de revient',
+        loadingReport: 'Chargement du rapport...',
+        expand: 'Agrandir',
+        collapse: 'Réduire',
+        showLess: 'Afficher moins',
+        analyzed: 'produits analysés',
+        profitPeriodToday: "Aujourd'hui",
+        profitPeriod7days: '7 jours',
+        profitPeriodMonth: 'Ce mois',
+        profitPeriodWeek: 'Cette semaine',
+        profitPeriod30days: '30 jours',
       },
       quotes: {
         title: 'Devis', newQuote: 'Nouveau Devis', editQuote: 'Modifier Devis',
@@ -445,7 +485,6 @@ const resources = {
         email: 'Email', phone: 'Phone', address: 'Address',
       },
 
-      // ══ SETTINGS ══
       settings: {
         title: 'Settings',
         saved: 'Settings saved!',
@@ -552,7 +591,8 @@ const resources = {
       dashboard: {
         greetingMorning: 'Good morning',
         greetingAfternoon: 'Good afternoon',
-        greetingEvening: 'Good evening', sales30days: 'Sales 30 days', totalSales: 'Total sales',
+        greetingEvening: 'Good evening',
+        sales30days: 'Sales 30 days', totalSales: 'Total sales',
         paid: 'Paid', unpaid: 'Unpaid', partial: 'Partial', balance: 'Balance',
         invoices: 'invoices', documents: 'documents', lowStock: 'Low stock', needRestock: 'Needs restock',
         sales7days: 'Sales last 7 days', salesChart: 'Sales figures HTG',
@@ -570,6 +610,28 @@ const resources = {
         kpiRestock: 'Needs restock', subscriptionExpired: 'Subscription expired — System locked!',
         subscriptionExpiring: 'Subscription expires in {{days}} days!',
         contactAdmin: 'Contact administration to renew.', blocked: 'LOCKED',
+        // ── PROFIT SECTION ──
+        profitReport: 'Profit Report',
+        profitSubtitle: 'Sales vs Costs · Admin only',
+        totalSalesLabel: 'Total Sales',
+        totalCostLabel: 'Total Cost',
+        netProfit: 'Net Profit',
+        profitMargin: 'Profit Margin',
+        dailyEvolution: 'Daily Evolution',
+        top5Products: '🏆 Top 5 Profitable Products',
+        productDetail: 'Detail by Product',
+        noDataPeriod: 'No data for this period',
+        noDataHint: 'Choose a different period or verify products have a cost price (costPriceHtg)',
+        loadingReport: 'Loading report...',
+        expand: 'Expand',
+        collapse: 'Collapse',
+        showLess: 'Show less',
+        analyzed: 'products analyzed',
+        profitPeriodToday: 'Today',
+        profitPeriod7days: '7 days',
+        profitPeriodMonth: 'This month',
+        profitPeriodWeek: 'This week',
+        profitPeriod30days: '30 days',
       },
       quotes: {
         title: 'Quotes', newQuote: 'New Quote', editQuote: 'Edit Quote',
