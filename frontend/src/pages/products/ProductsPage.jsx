@@ -20,10 +20,12 @@ const planHasFeature = (tenant, featureName) => {
     const f = tenant?.plan?.features
     if (!f) return false
     const features = Array.isArray(f) ? f : JSON.parse(String(f))
+    const normalize = (s) => String(s).toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     return features.some(feat =>
-      String(feat).toLowerCase().includes(featureName.toLowerCase()) ||
-      String(feat).toLowerCase().includes('tout nan biznis') ||
-      String(feat).toLowerCase().includes('tout fonksyon')
+      normalize(feat).includes(normalize(featureName)) ||
+      normalize(feat).includes('tout nan biznis') ||
+      normalize(feat).includes('tout fonksyon')
     )
   } catch { return false }
 }
