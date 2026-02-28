@@ -114,35 +114,35 @@ export default function LoginPage() {
     if (emailParam) setValue('email', emailParam)
   }, [searchParams, setValue])
 
-  const onSubmit = async (data) => {
-    setLoading(true)
-    try {
-      const slug = data.slug.trim().toLowerCase()
-      api.defaults.headers.common['X-Tenant-Slug'] = slug
-      const res   = await authAPI.login({ slug, email: data.email, password: data.password })
-      const { token, user } = res.data
-      api.defaults.headers.common['Authorization'] = 'Bearer ' + token
-      const meRes = await authAPI.me()
-      const tenant = meRes.data.tenant
-      setAuth(token, meRes.data.user, tenant)
-      try {
-        const stored = JSON.parse(localStorage.getItem('pg-auth') || '{}')
-        const authState = stored?.state || stored
-        authState.token = token; authState.user = meRes.data.user; authState.tenant = tenant
-        localStorage.setItem('pg-auth', JSON.stringify({ state: authState, version: 0 }))
-      } catch {}
-      toast.success('Byenveni, ' + user.fullName + '! 🎉')
-      navigate('/dashboard')
-    } catch (e) {
-      api.defaults.headers.common['X-Tenant-Slug'] = ''
-      const status = e.response?.status
-      const msg    = e.response?.data?.message
-      if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
-      else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
-      else if (status === 404) toast.error('Slug entreprise pa jwenn.')
-      else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
-    } finally { setLoading(false) }
-  }
+ const onSubmit = async (data) => {
+  setLoading(true)
+  try {
+    const slug = data.slug.trim().toLowerCase()
+    
+    // ✅ Mete slug tousuit — anvan TOUT request
+    localStorage.setItem('plusgroup-slug', slug)
+    api.defaults.headers.common['X-Tenant-Slug'] = slug
+
+    const res = await authAPI.login({ slug, email: data.email, password: data.password })
+    const { token, user } = res.data
+    
+    localStorage.setItem('plusgroup-token', token)
+    api.defaults.headers.common['Authorization'] = 'Bearer ' + token
+
+    const meRes = await authAPI.me()
+    const tenant = meRes.data.tenant
+
+    setAuth(token, meRes.data.user, tenant)
+    toast.success('Byenveni, ' + user.fullName + '! 🎉')
+    navigate('/dashboard')
+  } catch (e) {
+    // Netwaye si login echwe
+    localStorage.removeItem('plusgroup-slug')
+    localStorage.removeItem('plusgroup-token')
+    api.defaults.headers.common['X-Tenant-Slug'] = ''
+    // ... rès error handling
+  } finally { setLoading(false) }
+}
 
   const inp = {
     width:'100%', padding:'11px 14px', borderRadius:10,
