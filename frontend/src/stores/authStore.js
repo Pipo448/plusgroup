@@ -8,17 +8,14 @@ export const useAuthStore = create(
       token:   null,
       user:    null,
       tenant:  null,
-      loading: false,  // ✅ false pa defò — pa bloke UI si persist chaje vit
+      loading: false,
 
-     setAuth: (token, user, tenant) => {
-  // ✅ Netwaye localStorage nèt anvan mete nouvo done
-  localStorage.removeItem('pg-auth')
-  
-  if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
-  set({ token, user, tenant, loading: false })
-},
+      setAuth: (token, user, tenant) => {
+        // ✅ Mete slug nouvo a sèlman — pa touche pg-auth (zustand jere li)
+        if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
+        set({ token, user, tenant, loading: false })
+      },
 
-      // ✅ Merge avèk egzistan olye ranplase nèt
       updateTenant: (updates) => set(state => ({
         tenant: { ...state.tenant, ...updates }
       })),
@@ -28,6 +25,9 @@ export const useAuthStore = create(
       logout: () => {
         localStorage.removeItem('pg-auth')
         localStorage.removeItem('plusgroup-slug')
+        localStorage.removeItem('plusgroup-token')
+        localStorage.removeItem('plusgroup-user')
+        localStorage.removeItem('plusgroup-tenant')
         set({ token: null, user: null, tenant: null, loading: false })
       },
 
@@ -43,7 +43,6 @@ export const useAuthStore = create(
       partialize: (s) => ({ token: s.token, user: s.user, tenant: s.tenant }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          // ✅ Toujou mete loading=false apre rehydration
           state.setLoading(false)
           if (state.tenant?.slug) {
             localStorage.setItem('plusgroup-slug', state.tenant.slug)
