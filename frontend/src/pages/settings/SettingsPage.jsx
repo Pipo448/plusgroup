@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -81,6 +81,7 @@ export default function SettingsPage() {
         receiptSize:       settings.receiptSize       || '80mm',
         printerConnection: settings.printerConnection || 'usb',
         showExchangeRate:  settings.showExchangeRate  !== false,
+        showQrCode:        settings.showQrCode        !== false, // ← defò: true
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -96,7 +97,6 @@ export default function SettingsPage() {
     }
   }, [settings, reset])
 
-  // ── Chanje lang IMEDYATMAN — san tann bouton Sovgade
   const handleLangChange = (e) => {
     const lang = e.target.value
     setValue('defaultLanguage', lang)
@@ -156,7 +156,6 @@ export default function SettingsPage() {
     visibilityMutation.mutate(Object.entries(updated).filter(([, v]) => v).map(([k]) => k))
   }
 
-  // ── Tabs ak Printer options — recalcule chak fwa lang chanje
   const TABS = [
     { key:'general',  label:t('settings.tabs.general'),  icon:<Building2 size={15}/> },
     { key:'printer',  label:t('settings.tabs.printer'),  icon:<Printer size={15}/> },
@@ -178,6 +177,7 @@ export default function SettingsPage() {
 
   const primaryColor = watch('primaryColor') || D.blue
   const showExchangeRate = watch('showExchangeRate')
+  const showQrCode = watch('showQrCode')
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760 }}>
@@ -246,7 +246,6 @@ export default function SettingsPage() {
                 <input type="number" step="0.5" min="0" max="100" style={inp} {...register('taxRate')} onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border} />
               </div>
 
-              {/* ── Lang — chanje UI imedyatman */}
               <div>
                 <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>{t('settings.defaultLanguage')}</label>
                 <select style={inp} {...register('defaultLanguage')} onChange={handleLangChange}>
@@ -273,7 +272,7 @@ export default function SettingsPage() {
                 </select>
               </div>
 
-              {/* Toggle: Montre Taux sou Resi */}
+              {/* ── Toggle: Montre Taux sou Resi */}
               <div style={{ gridColumn:'1/-1' }}>
                 <div style={{
                   display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -296,6 +295,33 @@ export default function SettingsPage() {
                   <Toggle checked={!!showExchangeRate} onChange={val => setValue('showExchangeRate', val)} color={D.blue} />
                 </div>
               </div>
+
+              {/* ── Toggle: Afiche QR Code sou Resi ── */}
+              <div style={{ gridColumn:'1/-1' }}>
+                <div style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'14px 18px', borderRadius:12,
+                  background: showQrCode ? 'rgba(27,42,143,0.06)' : '#f8f9ff',
+                  border:`1.5px solid ${showQrCode ? D.border : '#e2e8f0'}`,
+                  transition:'all 0.2s',
+                }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:36, height:36, borderRadius:10, background:showQrCode?D.blueDim2:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <QrCode size={16} color={showQrCode ? D.blue : D.muted}/>
+                    </div>
+                    <div>
+                      <p style={{ fontWeight:800, fontSize:13, color:showQrCode?D.text:D.muted, margin:'0 0 2px' }}>
+                        {t('settings.showQrCode')}
+                      </p>
+                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>
+                        {showQrCode ? t('settings.showQrCodeOn') : t('settings.showQrCodeOff')}
+                      </p>
+                    </div>
+                  </div>
+                  <Toggle checked={!!showQrCode} onChange={val => setValue('showQrCode', val)} color={D.blue} />
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -407,7 +433,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Enstwiksyon */}
           <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('settings.printerHowTo')}</h3>
             {printerConn === 'bluetooth' && (
@@ -522,7 +547,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Egzanp konvèsyon */}
           <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('settings.autoConversion')}</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>

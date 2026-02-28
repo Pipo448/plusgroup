@@ -54,7 +54,8 @@ const toHaitiDate = (dateStr, fmt2) => {
   } catch { return '' }
 }
 
-function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
+// ── showQrCode prop: kontwole si QR parèt sou resi ──
+function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode }) {
   if (!invoice) return null
   const snap        = invoice.clientSnapshot || {}
   const isPaid      = invoice.status === 'paid'
@@ -242,7 +243,8 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64 }) {
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {qrDataUrl && (
+      {/* ── QR Code sou resi — parèt sèlman si showQrCode aktive ── */}
+      {showQrCode && qrDataUrl && (
         <div style={{ textAlign: 'center', marginBottom: '5px' }}>
           <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
           <div style={{ fontSize: '8px', color: '#888' }}>Skane / Scanner / Scan to verify</div>
@@ -282,6 +284,9 @@ export default function InvoiceDetail() {
   const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
   const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
+  // ── Detèmine si QR Code dwe afiche (defò: true si pa konfigire) ──
+  const showQrCode = tenant?.showQrCode !== false
+
   useEffect(() => {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target))
@@ -303,8 +308,9 @@ export default function InvoiceDetail() {
     toBase64(url).then(b64 => setLogoBase64(b64 || null))
   }, [tenant?.logoUrl])
 
+  // ── Jenere QR sèlman si showQrCode aktive — ekonomize resous ──
   useEffect(() => {
-    if (!invoice) return
+    if (!invoice || !showQrCode) { setQrDataUrl(null); return }
     const qrContent = [
       invoice.invoiceNumber,
       `Total: ${fmt(invoice.totalHtg)} HTG`,
@@ -316,7 +322,7 @@ export default function InvoiceDetail() {
     QRCode.toDataURL(qrContent, { width: 200, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } })
       .then(url => setQrDataUrl(url))
       .catch(err => console.error('QR Code error:', err))
-  }, [invoice])
+  }, [invoice, showQrCode])
 
   const handlePrint = async () => {
     const receiptEl = document.getElementById('printable-receipt')
@@ -412,7 +418,15 @@ export default function InvoiceDetail() {
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      <PrintableReceipt invoice={invoice} tenant={tenant} t={t} qrDataUrl={qrDataUrl} logoBase64={logoBase64} />
+      {/* ── Pase showQrCode bay PrintableReceipt ── */}
+      <PrintableReceipt
+        invoice={invoice}
+        tenant={tenant}
+        t={t}
+        qrDataUrl={qrDataUrl}
+        logoBase64={logoBase64}
+        showQrCode={showQrCode}
+      />
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
@@ -636,7 +650,8 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {qrDataUrl && (
+            {/* ── QR Code nan sidebar — kache si showQrCode désaktive ── */}
+            {showQrCode && qrDataUrl && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
                 <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>QR Verifikasyon</p>
                 <img src={qrDataUrl} alt="QR Code" style={{ width: 90, height: 90, margin: '0 auto', display: 'block', borderRadius: 8, border: '1px solid #e2e8f0' }} />
