@@ -7,6 +7,43 @@ const bcrypt  = require('bcryptjs');
 const jwt     = require('jsonwebtoken');
 const prisma  = require('../../config/prisma');
 
+// ══════════════════════════════════════════════
+// LOJIK ABÒNMAN — MWA KALANDRIYE
+// ══════════════════════════════════════════════
+
+/**
+ * Kalkile dat ekspirasyon selon fen mwa kalandriye
+ * Eks: konekte 14 mas + 1 mwa → ekspire 31 mas 23:59:59
+ *      konekte 14 mas + 2 mwa → ekspire 30 avril 23:59:59
+ */
+function calcSubscriptionEnd(startDate, months) {
+  const start       = new Date(startDate);
+  const targetMonth = start.getMonth() + (months - 1);
+  const targetYear  = start.getFullYear() + Math.floor(targetMonth / 12);
+  const normMonth   = ((targetMonth % 12) + 12) % 12;
+  // Jou 0 nan mwa+1 = dènye jou mwa kouwè a
+  const lastDay     = new Date(targetYear, normMonth + 1, 0);
+  lastDay.setHours(23, 59, 59, 999);
+  return lastDay;
+}
+
+/**
+ * Renouvle: ajoute N mwa sou ekspirasyon kouwè a
+ * Si deja ekspire → pati de jodi a
+ */
+function renewSubscription(currentEnd, months) {
+  const now  = new Date();
+  const base = (currentEnd && new Date(currentEnd) > now)
+    ? new Date(currentEnd)
+    : now;
+  const targetMonth = base.getMonth() + months;
+  const targetYear  = base.getFullYear() + Math.floor(targetMonth / 12);
+  const normMonth   = ((targetMonth % 12) + 12) % 12;
+  const lastDay     = new Date(targetYear, normMonth + 1, 0);
+  lastDay.setHours(23, 59, 59, 999);
+  return lastDay;
+}
+
 // ── POST /api/v1/admin/login
 router.post('/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -132,7 +169,11 @@ router.get('/tenants/:id', asyncHandler(async (req, res) => {
 
 // ── POST /api/v1/admin/tenants
 router.post('/tenants', asyncHandler(async (req, res) => {
-  const { name, slug, email, phone, address, planId, adminEmail, adminPassword, adminName, subscriptionMonths, defaultCurrency, defaultLanguage } = req.body;
+  const {
+    name, slug, email, phone, address, planId,
+    adminEmail, adminPassword, adminName,
+    subscriptionMonths, defaultCurrency, defaultLanguage
+  } = req.body;
 
   if (!name || !slug)
     return res.status(400).json({ success: false, message: 'Non ak slug obligatwa.' });
@@ -145,12 +186,11 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   if (existing)
     return res.status(409).json({ success: false, message: `Slug "${cleanSlug}" deja egziste.` });
 
+  // ✅ NOUVO: Kalkile fen mwa kalandriye a olye +30 jou
   let subscriptionEndsAt = null;
-  const months = Number(subscriptionMonths);
-  if (months > 0) {
-    const now = new Date();
-    subscriptionEndsAt = new Date(now.setMonth(now.getMonth() + months));
-  }
+  const months = Math.max(1, Math.min(36, Number(subscriptionMonths) || 1));
+  subscriptionEndsAt = calcSubscriptionEnd(new Date(), months);
+  // Eks: konekte 14 mas, 1 mwa → 31 mas | 12 mwa → 28 fev lane pwochen
 
   let cleanPlanId = null;
   if (planId && typeof planId === 'string' && planId.trim() !== '') {
@@ -168,15 +208,29 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   const cleanLanguage  = ['ht', 'fr', 'en'].includes(defaultLanguage) ? defaultLanguage : 'ht';
 
   const tenant = await prisma.tenant.create({
-    data: { name: name.trim(), slug: cleanSlug, email: email || null, phone: phone || null, address: address || null, planId: cleanPlanId, defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage, status: 'active', subscriptionEndsAt }
+    data: {
+      name: name.trim(), slug: cleanSlug,
+      email: email || null, phone: phone || null, address: address || null,
+      planId: cleanPlanId,
+      defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage,
+      status: 'active',
+      subscriptionEndsAt   // ← fen mwa kalandriye
+    }
   });
 
   if (adminEmail && adminPassword) {
-    const emailExists = await prisma.user.findFirst({ where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id } });
+    const emailExists = await prisma.user.findFirst({
+      where: { email: adminEmail.toLowerCase().trim(), tenantId: tenant.id }
+    });
     if (!emailExists) {
       const hash = await bcrypt.hash(adminPassword, 12);
       await prisma.user.create({
-        data: { tenantId: tenant.id, fullName: (adminName || 'Administrateur').trim(), email: adminEmail.toLowerCase().trim(), passwordHash: hash, role: 'admin', isActive: true }
+        data: {
+          tenantId: tenant.id,
+          fullName: (adminName || 'Administrateur').trim(),
+          email: adminEmail.toLowerCase().trim(),
+          passwordHash: hash, role: 'admin', isActive: true
+        }
       });
     }
   }
@@ -196,7 +250,10 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     ]);
   } catch (seqErr) { console.warn('Sekans dokiman:', seqErr.message); }
 
-  res.status(201).json({ success: true, tenant, message: `Entreprise "${tenant.name}" kreye avèk siksè.` });
+  res.status(201).json({
+    success: true, tenant,
+    message: `Entreprise "${tenant.name}" kreye. Abònman ekspire ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`
+  });
 }));
 
 // ── PATCH /api/v1/admin/tenants/:id/status
@@ -214,7 +271,6 @@ router.patch('/tenants/:id/status', asyncHandler(async (req, res) => {
 // ── PATCH /api/v1/admin/tenants/:id/plan
 router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
   const { planId } = req.body;
-
   if (!planId)
     return res.status(400).json({ success: false, message: 'planId obligatwa.' });
 
@@ -228,11 +284,7 @@ router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
     include: { plan: { select: { id: true, name: true, features: true, priceMonthly: true } } }
   });
 
-  res.json({
-    success: true,
-    tenant,
-    message: `Plan "${planExists.name}" asiye bay ${tenant.name}.`
-  });
+  res.json({ success: true, tenant, message: `Plan "${planExists.name}" asiye bay ${tenant.name}.` });
 }));
 
 // ── POST /api/v1/admin/tenants/:id/renew
@@ -247,55 +299,31 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   if (!existing)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' });
 
-  const baseDate = (existing.subscriptionEndsAt && new Date(existing.subscriptionEndsAt) > new Date())
-    ? new Date(existing.subscriptionEndsAt) : new Date();
-  baseDate.setMonth(baseDate.getMonth() + numMonths);
+  // ✅ NOUVO: Renouvèlman selon mwa kalandriye
+  const newEndsAt = renewSubscription(existing.subscriptionEndsAt, numMonths);
+  // Eks: ekspire 31 mas + 1 mwa → 30 avril
+  //      ekspire 30 avril + 1 mwa → 31 mai
+  //      deja ekspire + 1 mwa → fen mwa kouwè a
 
   const tenant = await prisma.tenant.update({
     where: { id: req.params.id },
-    data: { subscriptionEndsAt: baseDate, status: 'active' },
+    data: { subscriptionEndsAt: newEndsAt, status: 'active' },
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   });
 
-  res.json({ success: true, tenant, message: `Abònman ${existing.name} renouvle pou ${numMonths} mwa.` });
+  res.json({
+    success: true, tenant,
+    message: `Abònman ${existing.name} renouvle pou ${numMonths} mwa. Nouvo ekspirasyon: ${newEndsAt.toLocaleDateString('fr-FR')}.`
+  });
 }));
 
 // ── GET /api/v1/admin/plans
-// ✅ 4 plan Plus Group — 2500 / 3000 / 4000 / 5000 HTG
 router.get('/plans', asyncHandler(async (req, res) => {
   const PLANS = [
-    {
-      name: 'Estanda',
-      nameFr: 'Standard',
-      maxUsers: 5,
-      maxProducts: 500,
-      priceMonthly: 2500,
-      features: JSON.stringify(['Jesyon Stòk', 'Fakti & Devis', 'Jiska 5 itilizatè'])
-    },
-    {
-      name: 'Biznis',
-      nameFr: 'Business',
-      maxUsers: 15,
-      maxProducts: 2000,
-      priceMonthly: 3000,
-      features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Jiska 15 itilizatè'])
-    },
-    {
-      name: 'Premyum',
-      nameFr: 'Premium',
-      maxUsers: 100,
-      maxProducts: 99999,
-      priceMonthly: 4000,
-      features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite'])
-    },
-    {
-      name: 'Antepriz',
-      nameFr: 'Entreprise',
-      maxUsers: 999,
-      maxProducts: 999999,
-      priceMonthly: 5000,
-      features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', 'Sipò VIP 24/7'])
-    },
+    { name: 'Estanda',  nameFr: 'Standard',   maxUsers: 5,   maxProducts: 500,   priceMonthly: 2500, features: JSON.stringify(['Jesyon Stòk', 'Fakti & Devis', 'Jiska 5 itilizatè']) },
+    { name: 'Biznis',   nameFr: 'Business',   maxUsers: 15,  maxProducts: 2000,  priceMonthly: 3000, features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Jiska 15 itilizatè']) },
+    { name: 'Premyum',  nameFr: 'Premium',    maxUsers: 100, maxProducts: 99999, priceMonthly: 4000, features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite']) },
+    { name: 'Antepriz', nameFr: 'Entreprise', maxUsers: 999, maxProducts: 999999,priceMonthly: 5000, features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', 'Sipò VIP 24/7']) },
   ];
 
   for (const plan of PLANS) {
