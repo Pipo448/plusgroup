@@ -371,10 +371,10 @@ const PaymentModal = ({ tenant, onClose }) => {
 }
 
 const FIXED_PLANS = [
-  { id:'5ec2d3ed-2613-4692-bc02-fa884ba861b3', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2500, icon:<Zap size={16}/>,    color:'#8B0000', features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
-  { id:'e13de13b-5638-43fa-9fc3-3c2da8b50d82', name:'Biznis',    nameFr:'Biznis',    priceMonthly:3000, icon:<Star size={16}/>,   color:'#1B3A6B', features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè'] },
-  { id:'613e0786-43cd-487e-aa2c-000158b508db', name:'Premyum',   nameFr:'Premyum',   priceMonthly:4000, icon:<Crown size={16}/>,  color:'#9E9E9E', features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite'] },
-  { id:'96ff3a9d-2b6a-4ef5-9d89-4d7077382d46', name:'Antrepriz', nameFr:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', features:['Tout nan Premyum','Paj Sabotay MonCash/NatCash','Ti Kanè Kès','Sipò VIP 24/7'] },
+  { id:'5ec2d3ed-2613-4692-bc02-fa884ba861b3', name:'Estanda',   nameFr:'Estanda',   priceMonthly:2500, icon:<Zap size={16}/>,    color:'#8B0000', maxProducts:'10,000',   features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
+  { id:'e13de13b-5638-43fa-9fc3-3c2da8b50d82', name:'Biznis',    nameFr:'Biznis',    priceMonthly:3000, icon:<Star size={16}/>,   color:'#1B3A6B', maxProducts:'50,000',   features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè','Sèvis'] },
+  { id:'613e0786-43cd-487e-aa2c-000158b508db', name:'Premyum',   nameFr:'Premyum',   priceMonthly:4000, icon:<Crown size={16}/>,  color:'#9E9E9E', maxProducts:'100,000',  features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite','Sèvis'] },
+  { id:'96ff3a9d-2b6a-4ef5-9d89-4d7077382d46', name:'Antrepriz', nameFr:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', maxProducts:'Ilimite ∞',features:['Tout nan Premyum','Paj Sabotay MonCash/NatCash','Ti Kanè Kès','Sipò VIP 24/7','Sèvis'] },
 ]
 
 // ── Modal kreye tenant REDESIGN
@@ -481,7 +481,11 @@ const CreateTenantModal = ({ plans, onClose, onCreated }) => {
                     {plan.priceMonthly.toLocaleString()} <span style={{ fontSize:10, fontWeight:500 }}>HTG/mwa</span>
                   </p>
                   {plan.features.map((f,i) => (
-                    <p key={i} style={{ color:'rgba(255,255,255,0.4)', fontSize:9, margin:'2px 0', fontFamily:'DM Sans' }}>• {f}</p>
+  <p key={i} style={{ color:'rgba(255,255,255,0.4)', fontSize:9, margin:'2px 0', fontFamily:'DM Sans' }}>• {f}</p>
+))}
+<p style={{ color:'rgba(255,255,255,0.25)', fontSize:9, margin:'6px 0 0', fontFamily:'DM Sans' }}>
+  📦 {plan.maxProducts} pwodui
+</p>
                   ))}
                 </div>
               ))}
