@@ -10,6 +10,7 @@ import {
   Plus, Search, Filter, Edit2, Trash2, Package,
   AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Layers, Check, Lock
 } from 'lucide-react'
+import HelpModal from '../../components/HelpModal'
 
 const COLORS = ['#1B3A6B','#C0392B','#27ae60','#C9A84C','#E8836A','#8e44ad','#16a085','#2980b9','#d35400','#7f8c8d']
 
@@ -192,7 +193,6 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   const isEdit = !!product
   const rate = Number(exchangeRate || 132)
 
-  // ✅ Verifye si plan an gen feature "services"
   const hasServiceFeature = planHasFeature(tenant, 'service')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
@@ -331,7 +331,6 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
               placeholder={t('products.descriptionPlaceholder')} {...register('description')} />
           </div>
 
-          {/* ✅ Checkbox isService — kache si plan pa gen feature "services" */}
           <div className="flex items-center gap-6">
             {hasServiceFeature ? (
               <label className="flex items-center gap-2 cursor-pointer">
@@ -413,7 +412,11 @@ export default function ProductsPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div>
-          <h1 className="page-title">{t('products.title')}</h1>
+          {/* ── Tit paj + bouton '?' ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 className="page-title">{t('products.title')}</h1>
+            <HelpModal page="products" />
+          </div>
           <p className="text-slate-500 text-sm mt-0.5">{data?.total || 0} {t('products.inCatalog')}</p>
         </div>
         <div className="flex gap-2">
