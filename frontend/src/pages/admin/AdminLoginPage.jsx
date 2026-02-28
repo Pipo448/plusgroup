@@ -1,5 +1,5 @@
 // src/pages/admin/AdminLoginPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -13,9 +13,20 @@ const setAdminSession = (token, admin) => {
   localStorage.setItem('pg-admin', JSON.stringify({ token, admin }))
 }
 
+const useIsMobile = () => {
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return isMobile
+}
+
 export default function AdminLoginPage() {
-  const navigate = useNavigate()
-  const [show, setShow] = useState(false)
+  const navigate  = useNavigate()
+  const isMobile  = useIsMobile()
+  const [show, setShow]       = useState(false)
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm()
 
@@ -37,7 +48,9 @@ export default function AdminLoginPage() {
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(160deg, #0a0a0f 0%, #0d1b2a 35%, #1a0a00 70%, #0f0f0f 100%)',
-      display: 'flex', alignItems: 'stretch',
+      display: 'flex',
+      flexDirection: isMobile ? 'column' : 'row',
+      alignItems: isMobile ? 'stretch' : 'stretch',
       fontFamily: "'Playfair Display', Georgia, serif",
       position: 'relative', overflow: 'hidden'
     }}>
@@ -61,126 +74,169 @@ export default function AdminLoginPage() {
       </div>
 
       {/* ── PANNEAU GAUCHE — PDG ── */}
-      <div style={{
-        flex: 1, minWidth: 0,
-        display: 'flex', flexDirection:'column',
-        alignItems:'center', justifyContent:'center',
-        padding: '60px 40px',
-        position:'relative',
-        background:'linear-gradient(160deg, rgba(201,168,76,0.04) 0%, transparent 60%)',
-        borderRight:'1px solid rgba(201,168,76,0.08)'
-      }}>
-
-        {/* Logo top-left */}
-        <div style={{ position:'absolute', top:32, left:32, display:'flex', alignItems:'center', gap:10 }}>
-          <img src={`data:image/png;base64,${PLUS_LOGO}`} alt="Plus Group" style={{ width:44, height:44, objectFit:'contain' }}/>
-          <div>
-            <p style={{ color:'#C9A84C', fontSize:13, fontWeight:700, margin:0, letterSpacing:'0.12em', textTransform:'uppercase' }}>Plus Group</p>
-            <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, margin:0, letterSpacing:'0.08em' }}>INNOV@TION & TECH</p>
+      {/* Desktop: full left panel | Mobile: compact banner anwo */}
+      {isMobile ? (
+        // ── MOBIL: Banner konpak anwo ──
+        <div style={{
+          padding: '32px 24px 24px',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          background: 'linear-gradient(160deg, rgba(201,168,76,0.06) 0%, rgba(139,0,0,0.04) 100%)',
+          borderBottom: '1px solid rgba(201,168,76,0.12)',
+          position: 'relative', zIndex: 1
+        }}>
+          {/* Logo */}
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20 }}>
+            <img src={`data:image/png;base64,${PLUS_LOGO}`} alt="Plus Group"
+              style={{ width:36, height:36, objectFit:'contain' }}/>
+            <div>
+              <p style={{ color:'#C9A84C', fontSize:13, fontWeight:700, margin:0, letterSpacing:'0.12em', textTransform:'uppercase' }}>Plus Group</p>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, margin:0, letterSpacing:'0.08em' }}>INNOV@TION & TECH</p>
+            </div>
           </div>
-        </div>
 
-        {/* Photo PDG avec effets */}
-        <div style={{ position:'relative', marginBottom:28 }}>
-          {/* Glow ring or */}
-          <div style={{
-            position:'absolute', inset:-12,
-            borderRadius:'50%',
-            background:'conic-gradient(from 0deg, #C9A84C, #8B0000, #C9A84C, #E8836A, #C9A84C)',
-            animation:'rotateBorder 6s linear infinite',
-            zIndex:0
-          }}/>
-          <div style={{
-            position:'absolute', inset:-8,
-            borderRadius:'50%',
-            background:'#0d1b2a',
-            zIndex:1
-          }}/>
-          {/* Photo */}
-          <div style={{
-            width:180, height:180, borderRadius:'50%',
-            overflow:'hidden', position:'relative', zIndex:2,
-            border:'3px solid rgba(201,168,76,0.4)',
-            boxShadow:'0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(139,0,0,0.15), inset 0 0 30px rgba(0,0,0,0.3)'
-          }}>
-            <img
-              src={`data:image/jpeg;base64,${PDG_PHOTO}`}
-              alt="PDG — PLUS GROUP"
-              style={{ width:'100%', height:'100%', objectFit:'cover', filter:'brightness(1.05) contrast(1.05)' }}
-            />
+          {/* Photo PDG — pi piti sou mobil */}
+          <div style={{ position:'relative', marginBottom:16 }}>
+            <div style={{
+              position:'absolute', inset:-8, borderRadius:'50%',
+              background:'conic-gradient(from 0deg, #C9A84C, #8B0000, #C9A84C, #E8836A, #C9A84C)',
+              animation:'rotateBorder 6s linear infinite', zIndex:0
+            }}/>
+            <div style={{ position:'absolute', inset:-5, borderRadius:'50%', background:'#0d1b2a', zIndex:1 }}/>
+            <div style={{
+              width:90, height:90, borderRadius:'50%',
+              overflow:'hidden', position:'relative', zIndex:2,
+              border:'2px solid rgba(201,168,76,0.4)',
+              boxShadow:'0 0 40px rgba(201,168,76,0.2), 0 0 80px rgba(139,0,0,0.15)'
+            }}>
+              <img src={`data:image/jpeg;base64,${PDG_PHOTO}`} alt="PDG"
+                style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+            </div>
+            {/* Badge PDG */}
+            <div style={{
+              position:'absolute', bottom:-5, left:'50%', transform:'translateX(-50%)',
+              background:'linear-gradient(135deg, #8B0000, #C0392B)',
+              border:'2px solid rgba(201,168,76,0.5)',
+              borderRadius:20, padding:'3px 10px', zIndex:3,
+              display:'flex', alignItems:'center', gap:4,
+              boxShadow:'0 4px 16px rgba(139,0,0,0.4)'
+            }}>
+              <Star size={8} color="#C9A84C" fill="#C9A84C"/>
+              <span style={{ color:'#C9A84C', fontSize:9, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Sans, sans-serif' }}>PDG</span>
+              <Star size={8} color="#C9A84C" fill="#C9A84C"/>
+            </div>
           </div>
-          {/* Badge PDG */}
-          <div style={{
-            position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)',
-            background:'linear-gradient(135deg, #8B0000, #C0392B)',
-            border:'2px solid rgba(201,168,76,0.5)',
-            borderRadius:20, padding:'4px 14px', zIndex:3,
-            display:'flex', alignItems:'center', gap:5,
-            boxShadow:'0 4px 20px rgba(139,0,0,0.4)'
-          }}>
-            <Star size={10} color="#C9A84C" fill="#C9A84C"/>
-            <span style={{ color:'#C9A84C', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Sans, sans-serif' }}>PDG</span>
-            <Star size={10} color="#C9A84C" fill="#C9A84C"/>
-          </div>
-        </div>
 
-        {/* Nom & titre */}
-        <div style={{ textAlign:'center', maxWidth:280 }}>
-          <h2 style={{
-            color:'#fff', fontSize:22, fontWeight:700,
-            margin:'0 0 6px', fontFamily:"'Playfair Display', serif",
-            textShadow:'0 2px 20px rgba(201,168,76,0.3)'
-          }}>PLUS GROUP</h2>
-          <p style={{
-            color:'#C9A84C', fontSize:11, letterSpacing:'0.25em',
-            textTransform:'uppercase', margin:'0 0 16px', fontFamily:'DM Sans, sans-serif', fontWeight:600
-          }}>PANNEAU DIREKSYON</p>
-          <div style={{
-            width:60, height:1,
-            background:'linear-gradient(90deg, transparent, #C9A84C, transparent)',
-            margin:'0 auto 16px'
-          }}/>
-          <p style={{
-            color:'rgba(255,255,255,0.35)', fontSize:12, lineHeight:1.7,
-            fontFamily:'DM Sans, sans-serif', margin:0
-          }}>
-            Platfòm jesyon antrepriz<br/>
-            <span style={{ color:'rgba(201,168,76,0.6)' }}>pou kliyan SaaS yo</span>
+          <h2 style={{ color:'#fff', fontSize:18, fontWeight:700, margin:'4px 0 2px', fontFamily:"'Playfair Display', serif", textAlign:'center' }}>
+            PLUS GROUP
+          </h2>
+          <p style={{ color:'#C9A84C', fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', margin:0, fontFamily:'DM Sans, sans-serif', fontWeight:600 }}>
+            PANNEAU DIREKSYON
           </p>
         </div>
 
-        {/* Déco bottom */}
-        <div style={{ position:'absolute', bottom:32, left:0, right:0, display:'flex', justifyContent:'center', gap:6 }}>
-          {['#C9A84C','#8B0000','#E8836A'].map((c,i) => (
-            <div key={i} style={{ width: i===1?40:20, height:2, borderRadius:1, background:c, opacity:0.5 }}/>
-          ))}
+      ) : (
+        // ── DESKTOP: Full left panel ──
+        <div style={{
+          flex: 1, minWidth: 0,
+          display: 'flex', flexDirection:'column',
+          alignItems:'center', justifyContent:'center',
+          padding: '60px 40px',
+          position:'relative',
+          background:'linear-gradient(160deg, rgba(201,168,76,0.04) 0%, transparent 60%)',
+          borderRight:'1px solid rgba(201,168,76,0.08)'
+        }}>
+          {/* Logo top-left */}
+          <div style={{ position:'absolute', top:32, left:32, display:'flex', alignItems:'center', gap:10 }}>
+            <img src={`data:image/png;base64,${PLUS_LOGO}`} alt="Plus Group"
+              style={{ width:44, height:44, objectFit:'contain' }}/>
+            <div>
+              <p style={{ color:'#C9A84C', fontSize:13, fontWeight:700, margin:0, letterSpacing:'0.12em', textTransform:'uppercase' }}>Plus Group</p>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, margin:0, letterSpacing:'0.08em' }}>INNOV@TION & TECH</p>
+            </div>
+          </div>
+
+          {/* Photo PDG */}
+          <div style={{ position:'relative', marginBottom:28 }}>
+            <div style={{
+              position:'absolute', inset:-12, borderRadius:'50%',
+              background:'conic-gradient(from 0deg, #C9A84C, #8B0000, #C9A84C, #E8836A, #C9A84C)',
+              animation:'rotateBorder 6s linear infinite', zIndex:0
+            }}/>
+            <div style={{ position:'absolute', inset:-8, borderRadius:'50%', background:'#0d1b2a', zIndex:1 }}/>
+            <div style={{
+              width:180, height:180, borderRadius:'50%',
+              overflow:'hidden', position:'relative', zIndex:2,
+              border:'3px solid rgba(201,168,76,0.4)',
+              boxShadow:'0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(139,0,0,0.15), inset 0 0 30px rgba(0,0,0,0.3)'
+            }}>
+              <img src={`data:image/jpeg;base64,${PDG_PHOTO}`} alt="PDG — PLUS GROUP"
+                style={{ width:'100%', height:'100%', objectFit:'cover', filter:'brightness(1.05) contrast(1.05)' }}/>
+            </div>
+            <div style={{
+              position:'absolute', bottom:-6, left:'50%', transform:'translateX(-50%)',
+              background:'linear-gradient(135deg, #8B0000, #C0392B)',
+              border:'2px solid rgba(201,168,76,0.5)',
+              borderRadius:20, padding:'4px 14px', zIndex:3,
+              display:'flex', alignItems:'center', gap:5,
+              boxShadow:'0 4px 20px rgba(139,0,0,0.4)'
+            }}>
+              <Star size={10} color="#C9A84C" fill="#C9A84C"/>
+              <span style={{ color:'#C9A84C', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase', fontFamily:'DM Sans, sans-serif' }}>PDG</span>
+              <Star size={10} color="#C9A84C" fill="#C9A84C"/>
+            </div>
+          </div>
+
+          <div style={{ textAlign:'center', maxWidth:280 }}>
+            <h2 style={{ color:'#fff', fontSize:22, fontWeight:700, margin:'0 0 6px', fontFamily:"'Playfair Display', serif", textShadow:'0 2px 20px rgba(201,168,76,0.3)' }}>
+              PLUS GROUP
+            </h2>
+            <p style={{ color:'#C9A84C', fontSize:11, letterSpacing:'0.25em', textTransform:'uppercase', margin:'0 0 16px', fontFamily:'DM Sans, sans-serif', fontWeight:600 }}>
+              PANNEAU DIREKSYON
+            </p>
+            <div style={{ width:60, height:1, background:'linear-gradient(90deg, transparent, #C9A84C, transparent)', margin:'0 auto 16px' }}/>
+            <p style={{ color:'rgba(255,255,255,0.35)', fontSize:12, lineHeight:1.7, fontFamily:'DM Sans, sans-serif', margin:0 }}>
+              Platfòm jesyon antrepriz<br/>
+              <span style={{ color:'rgba(201,168,76,0.6)' }}>pou kliyan SaaS yo</span>
+            </p>
+          </div>
+
+          <div style={{ position:'absolute', bottom:32, left:0, right:0, display:'flex', justifyContent:'center', gap:6 }}>
+            {['#C9A84C','#8B0000','#E8836A'].map((c,i) => (
+              <div key={i} style={{ width: i===1?40:20, height:2, borderRadius:1, background:c, opacity:0.5 }}/>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── PANNEAU DROIT — FORMULAIRE ── */}
       <div style={{
-        width: 420, flexShrink:0,
+        width: isMobile ? '100%' : 420,
+        flexShrink: 0,
         display:'flex', alignItems:'center', justifyContent:'center',
-        padding:'40px 36px',
-        background:'rgba(0,0,0,0.4)',
-        backdropFilter:'blur(30px)',
-        position:'relative'
+        padding: isMobile ? '28px 20px 40px' : '40px 36px',
+        background: isMobile ? 'transparent' : 'rgba(0,0,0,0.4)',
+        backdropFilter: isMobile ? 'none' : 'blur(30px)',
+        position:'relative',
+        flex: isMobile ? '1' : 'none'
       }}>
-        {/* Ligne décor gauche */}
-        <div style={{
-          position:'absolute', left:0, top:'10%', bottom:'10%', width:2,
-          background:'linear-gradient(180deg, transparent, #C9A84C 40%, #8B0000 60%, transparent)'
-        }}/>
+        {/* Ligne décor gauche — desktop sèlman */}
+        {!isMobile && (
+          <div style={{
+            position:'absolute', left:0, top:'10%', bottom:'10%', width:2,
+            background:'linear-gradient(180deg, transparent, #C9A84C 40%, #8B0000 60%, transparent)'
+          }}/>
+        )}
 
-        <div style={{ width:'100%' }}>
+        <div style={{ width:'100%', maxWidth: isMobile ? 440 : '100%' }}>
+
           {/* Header formulaire */}
-          <div style={{ marginBottom:32 }}>
+          <div style={{ marginBottom: isMobile ? 24 : 32 }}>
             <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
               <div style={{
                 width:42, height:42, borderRadius:12,
                 background:'linear-gradient(135deg, #C9A84C, #f0d080)',
                 display:'flex', alignItems:'center', justifyContent:'center',
-                boxShadow:'0 0 24px rgba(201,168,76,0.5)'
+                boxShadow:'0 0 24px rgba(201,168,76,0.5)', flexShrink:0
               }}>
                 <Shield size={20} color="#0a0a0f"/>
               </div>
@@ -222,7 +278,7 @@ export default function AdminLoginPage() {
                   width:'100%', padding:'13px 16px', borderRadius:10, boxSizing:'border-box',
                   background:'rgba(255,255,255,0.04)',
                   border: errors.email ? '1px solid rgba(192,57,43,0.6)' : '1px solid rgba(255,255,255,0.08)',
-                  color:'#fff', fontSize:14, fontFamily:'DM Sans, sans-serif',
+                  color:'#fff', fontSize:16, fontFamily:'DM Sans, sans-serif',
                   outline:'none', transition:'all 0.2s'
                 }}
                 onFocus={e => { e.target.style.border='1px solid rgba(201,168,76,0.5)'; e.target.style.background='rgba(255,255,255,0.07)' }}
@@ -247,7 +303,7 @@ export default function AdminLoginPage() {
                     width:'100%', padding:'13px 48px 13px 16px', borderRadius:10, boxSizing:'border-box',
                     background:'rgba(255,255,255,0.04)',
                     border: errors.password ? '1px solid rgba(192,57,43,0.6)' : '1px solid rgba(255,255,255,0.08)',
-                    color:'#fff', fontSize:14, fontFamily:'DM Sans, sans-serif',
+                    color:'#fff', fontSize:16, fontFamily:'DM Sans, sans-serif',
                     outline:'none', transition:'all 0.2s'
                   }}
                   onFocus={e => { e.target.style.border='1px solid rgba(201,168,76,0.5)'; e.target.style.background='rgba(255,255,255,0.07)' }}
@@ -256,11 +312,8 @@ export default function AdminLoginPage() {
                 <button type="button" onClick={() => setShow(!show)} style={{
                   position:'absolute', right:14, top:'50%', transform:'translateY(-50%)',
                   background:'none', border:'none', cursor:'pointer',
-                  color:'rgba(255,255,255,0.3)', padding:0, display:'flex', transition:'color 0.2s'
-                }}
-                  onMouseEnter={e=>e.currentTarget.style.color='#C9A84C'}
-                  onMouseLeave={e=>e.currentTarget.style.color='rgba(255,255,255,0.3)'}
-                >
+                  color:'rgba(255,255,255,0.3)', padding:0, display:'flex'
+                }}>
                   {show ? <EyeOff size={18}/> : <Eye size={18}/>}
                 </button>
               </div>
@@ -275,15 +328,12 @@ export default function AdminLoginPage() {
                 : 'linear-gradient(135deg, #8B0000 0%, #C0392B 40%, #C9A84C 100%)',
               border:'none', borderRadius:10,
               cursor: loading ? 'not-allowed' : 'pointer',
-              color:'#fff', fontSize:14, fontWeight:700,
+              color:'#fff', fontSize:15, fontWeight:700,
               display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               boxShadow: loading ? 'none' : '0 6px 30px rgba(139,0,0,0.4)',
               transition:'all 0.25s', marginTop:4,
               fontFamily:'DM Sans, sans-serif', letterSpacing:'0.04em'
-            }}
-              onMouseEnter={e=>{ if(!loading) e.currentTarget.style.transform='translateY(-1px)'; e.currentTarget.style.boxShadow='0 8px 36px rgba(139,0,0,0.55)' }}
-              onMouseLeave={e=>{ e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow=loading?'none':'0 6px 30px rgba(139,0,0,0.4)' }}
-            >
+            }}>
               {loading
                 ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Verifikasyon...</>
                 : <><Shield size={16}/> Antre nan Sistèm</>
@@ -310,6 +360,7 @@ export default function AdminLoginPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes twinkle { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.8; transform:scale(1.2); } }
         @keyframes rotateBorder { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        * { -webkit-tap-highlight-color: transparent; }
       `}</style>
     </div>
   )
