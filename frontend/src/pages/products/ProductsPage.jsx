@@ -348,7 +348,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                 <Lock size={13} style={{ color: '#f5680c', flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>
                   Sèvis disponib sèlman nan{' '}
-                  <strong style={{ color: '#f5680c' }}>Plan Premyum (3 000 HTG/mwa)</strong>
+                <strong style={{ color: '#f5680c' }}>Plan Biznis, Premyum oswa Antrepriz</strong>
                 </span>
               </div>
             )}
