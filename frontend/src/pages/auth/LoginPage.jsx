@@ -139,7 +139,7 @@ export default function LoginPage() {
         authState.token = token; authState.user = meRes.data.user; authState.tenant = tenant
         localStorage.setItem('pg-auth', JSON.stringify({ state: authState, version: 0 }))
       } catch {}
-      toast.success('Byenveni, ' + user.fullName + '! 🎉')
+      toast.success('Byenveni, ' + meRes.data.user.fullName + '! 🎉')
       navigate('/dashboard')
     } catch (e) {
       api.defaults.headers.common['X-Tenant-Slug'] = ''
