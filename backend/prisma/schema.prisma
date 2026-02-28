@@ -134,6 +134,7 @@ model Tenant {
   exchangeRates       String?         @default("{}")
   visibleCurrencies   String?         @default("[\"USD\"]")
   showExchangeRate    Boolean         @default(false)
+  showQrCode          Boolean         @default(true) @map("show_qr_code")
   defaultLanguage     DefaultLanguage @default(ht) @map("default_language")
   exchangeRate        Decimal         @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
   taxRate             Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)

@@ -6,12 +6,9 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma  = require('../../config/prisma');
 const multer  = require('multer');
 
-// ── ✅ FIX: Sove logo kòm base64 nan DB — pa nan filesystem
-// Render efase fichye upload yo apre chak deploy
-// Base64 nan DB pa janm efase, pa gen pwoblèm CORS non plis
 const upload = multer({
-  storage: multer.memoryStorage(), // Nan memwa — pa nan disk
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max (base64 ap ~2.7MB nan DB)
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
     if (allowed.includes(file.mimetype)) cb(null, true);
@@ -19,7 +16,6 @@ const upload = multer({
   }
 });
 
-// ── Helper: parse JSON fields ki ka vini kòm string oswa objè
 const parseJsonField = (field, fallback = null) => {
   if (!field) return fallback;
   if (typeof field === 'object') return field;
@@ -40,6 +36,7 @@ router.get('/settings', asyncHandler(async (req, res) => {
       exchangeRates:      true,
       visibleCurrencies:  true,
       showExchangeRate:   true,
+      showQrCode:         true,  // ← ajoute
       taxRate: true,
       receiptSize: true,
       printerConnection: true,
@@ -55,11 +52,11 @@ router.get('/settings', asyncHandler(async (req, res) => {
     success: true,
     tenant: {
       ...tenant,
-      // ✅ logoUrl se base64 dirèk — pa bezwen konvèsyon
       logoUrl: tenant.logoUrl || null,
       exchangeRates,
       visibleCurrencies,
       showExchangeRate: tenant.showExchangeRate ?? false,
+      showQrCode:       tenant.showQrCode       ?? true,   // ← ajoute
     }
   });
 }));
@@ -74,6 +71,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     exchangeRates,
     visibleCurrencies,
     showExchangeRate,
+    showQrCode,        // ← ajoute
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -88,12 +86,15 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       exchangeRates:     exchangeRates     != null ? JSON.stringify(exchangeRates)     : undefined,
       visibleCurrencies: visibleCurrencies != null ? JSON.stringify(visibleCurrencies) : undefined,
       showExchangeRate:  showExchangeRate  != null ? Boolean(showExchangeRate)         : undefined,
+      showQrCode:        showQrCode        != null ? Boolean(showQrCode)               : undefined,  // ← ajoute
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
       exchangeRate: true, taxRate: true, primaryColor: true,
       receiptSize: true, printerConnection: true,
-      exchangeRates: true, visibleCurrencies: true, showExchangeRate: true,
+      exchangeRates: true, visibleCurrencies: true,
+      showExchangeRate: true,
+      showQrCode:       true,  // ← ajoute
     }
   });
 
@@ -103,6 +104,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       ...tenant,
       exchangeRates:     parseJsonField(tenant.exchangeRates, {}),
       visibleCurrencies: parseJsonField(tenant.visibleCurrencies, ['USD']),
+      showQrCode:        tenant.showQrCode ?? true,  // ← ajoute
     },
     message: 'Paramèt ajou avèk siksè.'
   });
@@ -149,17 +151,14 @@ router.patch('/exchange-rates', authorize('admin'), asyncHandler(async (req, res
 }));
 
 // ── POST /api/v1/tenant/logo
-// ✅ FIX: Konvèti imaj an base64 epi sove nan DB — pa nan filesystem
 router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(async (req, res) => {
   if (!req.file)
     return res.status(400).json({ success: false, message: 'Fichye logo obligatwa.' });
 
-  // Konvèti buffer an base64 data URL
   const mimeType  = req.file.mimetype;
   const base64    = req.file.buffer.toString('base64');
   const logoUrl   = `data:${mimeType};base64,${base64}`;
 
-  // Sove base64 nan DB
   await prisma.tenant.update({
     where: { id: req.tenant.id },
     data:  { logoUrl }
@@ -167,7 +166,7 @@ router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(asy
 
   res.json({
     success: true,
-    logoUrl,  // Retounen base64 dirèk — frontend ka itilize li tousuit
+    logoUrl,
     message: 'Logo chanje avèk siksè.'
   });
 }));
