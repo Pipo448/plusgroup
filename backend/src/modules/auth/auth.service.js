@@ -28,10 +28,25 @@ const login = async (tenantId, email, password) => {
     throw Object.assign(new Error('Email oswa modpas pa kòrèk.'), { statusCode: 401 });
   }
 
-  // Mettre à jour last_login
   await prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() }
+  });
+
+  // ← NOUVO: chèche tenant ak plan
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    include: {
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          features: true,
+          maxProducts: true,
+          priceMonthly: true
+        }
+      }
+    }
   });
 
   const token = generateToken(user.id, tenantId, user.role);
@@ -46,10 +61,10 @@ const login = async (tenantId, email, password) => {
       permissions: user.permissions,
       preferredLang: user.preferredLang,
       avatarUrl: user.avatarUrl
-    }
+    },
+    tenant  // ← NOUVO: tenant + plan nan response
   };
 };
-
 // ── Forgot Password
 const forgotPassword = async (tenantId, email) => {
   const user = await prisma.user.findFirst({

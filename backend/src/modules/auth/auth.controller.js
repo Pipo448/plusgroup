@@ -43,7 +43,6 @@ const getMe = asyncHandler(async (req, res) => {
       primaryColor:        req.tenant.primaryColor,
       defaultCurrency:     req.tenant.defaultCurrency,
       defaultLanguage:     req.tenant.defaultLanguage,
-      // ✅ Champ ki te manke — pou resi + header
       phone:               req.tenant.phone,
       address:             req.tenant.address,
       exchangeRate:        req.tenant.exchangeRate,
@@ -53,6 +52,8 @@ const getMe = asyncHandler(async (req, res) => {
       taxRate:             req.tenant.taxRate,
       receiptSize:         req.tenant.receiptSize,
       subscriptionEndsAt:  req.tenant.subscriptionEndsAt,
+      showQrCode:          req.tenant.showQrCode,
+      plan:                req.tenant.plan,  // ← AJOUTE SA
     }
   });
 });
