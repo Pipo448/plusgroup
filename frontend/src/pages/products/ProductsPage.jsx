@@ -22,11 +22,16 @@ const planHasFeature = (tenant, featureName) => {
     const features = Array.isArray(f) ? f : JSON.parse(String(f))
     const normalize = (s) => String(s).toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    return features.some(feat =>
-      normalize(feat).includes(normalize(featureName)) ||
-      normalize(feat).includes('tout nan biznis') ||
-      normalize(feat).includes('tout fonksyon')
-    )
+    const target = normalize(featureName) // ex: 'sevis'
+    return features.some(feat => {
+      const n = normalize(feat)
+      return (
+        n.includes(target) ||
+        n.includes('tout nan biznis') ||   // Premyum gen Sèvis via Biznis
+        n.includes('tout nan premyum') ||  // Antrepriz gen Sèvis via Premyum
+        n.includes('tout fonksyon')
+      )
+    })
   } catch { return false }
 }
 
@@ -195,7 +200,8 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   const isEdit = !!product
   const rate = Number(exchangeRate || 132)
 
-  const hasServiceFeature = planHasFeature(tenant, 'service')
+  // ✅ FIX: 'sevis' olye 'service' — match 'Sèvis' nan baz done a apre nòmalizasyon
+  const hasServiceFeature = planHasFeature(tenant, 'sevis')
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: product
@@ -335,12 +341,14 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 
           <div className="flex items-center gap-6">
             {hasServiceFeature ? (
+              // ✅ Plan Biznis / Premyum / Antrepriz — checkbox lib
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" {...register('isService')}
                   className="w-4 h-4 rounded text-brand-600" />
                 <span className="text-sm text-slate-600">{t('products.isService')}</span>
               </label>
             ) : (
+              // 🔒 Plan Estanda sèlman — montre kadna
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8,
                 padding: '8px 14px', borderRadius: 10,
@@ -350,7 +358,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                 <Lock size={13} style={{ color: '#f5680c', flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: '#94a3b8' }}>
                   Sèvis disponib sèlman nan{' '}
-                <strong style={{ color: '#f5680c' }}>Plan Biznis, Premyum oswa Antrepriz</strong>
+                  <strong style={{ color: '#f5680c' }}>Plan Biznis, Premyum oswa Antrepriz</strong>
                 </span>
               </div>
             )}
@@ -414,7 +422,6 @@ export default function ProductsPage() {
     <div className="animate-fade-in">
       <div className="page-header">
         <div>
-          {/* ── Tit paj + bouton '?' ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 className="page-title">{t('products.title')}</h1>
             <HelpModal page="products" />
