@@ -90,8 +90,8 @@ export default function App() {
         <Route path="/invoices/*"  element={<Navigate to="/app/invoices"  replace />} />
         <Route path="/stock"       element={<Navigate to="/app/stock"     replace />} />
         <Route path="/reports"     element={<Navigate to="/app/reports"   replace />} />
-        <Route path="/settings/*"  element={<Navigate to="/app/settings"  replace />} />
-
+       <Route path="/settings/users" element={<Navigate to="/app/settings/users" replace />} />
+       <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 

@@ -580,7 +580,7 @@ export default function SettingsPage() {
               <Users size={16} color={D.blue} />
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.userManagement')}</h3>
             </div>
-            <Link to="/settings/users" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:12, boxShadow:`0 3px 12px ${D.blue}35` }}>
+            <Link to="/app/settings/users" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:12, boxShadow:`0 3px 12px ${D.blue}35` }}>
               <Users size={13}/> {t('settings.manageUsers')}
             </Link>
           </div>
