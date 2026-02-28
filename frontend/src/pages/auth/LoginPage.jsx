@@ -154,8 +154,7 @@ export default function LoginPage() {
     backdropFilter:'blur(8px)', transition:'border-color 0.2s',
     caretColor:'#FF6600',
   }
-
- const onSubmit = async (data) => {
+const onSubmit = async (data) => {
   setLoading(true)
   try {
     const slug = data.slug.trim().toLowerCase()
