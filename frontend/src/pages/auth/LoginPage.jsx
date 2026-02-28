@@ -155,43 +155,50 @@ export default function LoginPage() {
     caretColor:'#FF6600',
   }
 
-  const onSubmit = async (data) => {
-    if (!hasSlug) return
-    setLoading(true)
-    try {
-      const slug = slugFromUrl
+ const onSubmit = async (data) => {
+  setLoading(true)
+  try {
+    const slug = data.slug.trim().toLowerCase()
 
-      // ✅ Mete slug ANVAN tout request
-      localStorage.setItem('plusgroup-slug', slug)
-      api.defaults.headers.common['X-Tenant-Slug'] = slug
+    // ✅ Netwaye TOUT ansyen done anvan login nouvo
+    localStorage.removeItem('pg-auth')
+    localStorage.removeItem('plusgroup-slug')
+    localStorage.removeItem('plusgroup-token')
+    localStorage.removeItem('plusgroup-user')
+    localStorage.removeItem('plusgroup-tenant')
+    api.defaults.headers.common['X-Tenant-Slug'] = ''
+    api.defaults.headers.common['Authorization'] = ''
 
-      const res = await authAPI.login({ slug, email: data.email, password: data.password })
-      const { token, user } = res.data
+    // ✅ Mete nouvo slug tousuit
+    localStorage.setItem('plusgroup-slug', slug)
+    api.defaults.headers.common['X-Tenant-Slug'] = slug
 
-      localStorage.setItem('plusgroup-token', token)
-      api.defaults.headers.common['Authorization'] = 'Bearer ' + token
+    const res = await authAPI.login({ slug, email: data.email, password: data.password })
+    const { token, user } = res.data
 
-      const meRes  = await authAPI.me()
-      const tenant = meRes.data.tenant
+    localStorage.setItem('plusgroup-token', token)
+    api.defaults.headers.common['Authorization'] = 'Bearer ' + token
 
-      setAuth(token, meRes.data.user, tenant)
-      toast.success('Byenveni, ' + user.fullName + '! 🎉')
-      navigate('/app/dashboard')
-    } catch (e) {
-      // Netwaye si echwe
-      localStorage.removeItem('plusgroup-slug')
-      localStorage.removeItem('plusgroup-token')
-      api.defaults.headers.common['X-Tenant-Slug'] = ''
-      api.defaults.headers.common['Authorization'] = ''
+    const meRes  = await authAPI.me()
+    const tenant = meRes.data.tenant
 
-      const status = e.response?.status
-      const msg    = e.response?.data?.message
-      if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
-      else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
-      else if (status === 404) toast.error('Entreprise pa jwenn.')
-      else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
-    } finally { setLoading(false) }
-  }
+    setAuth(token, meRes.data.user, tenant)
+    toast.success('Byenveni, ' + user.fullName + '! 🎉')
+    navigate('/dashboard')
+  } catch (e) {
+    localStorage.removeItem('plusgroup-slug')
+    localStorage.removeItem('plusgroup-token')
+    api.defaults.headers.common['X-Tenant-Slug'] = ''
+    api.defaults.headers.common['Authorization'] = ''
+
+    const status = e.response?.status
+    const msg    = e.response?.data?.message
+    if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
+    else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
+    else if (status === 404) toast.error('Slug entreprise pa jwenn.')
+    else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
+  } finally { setLoading(false) }
+}
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
