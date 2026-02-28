@@ -10,10 +10,13 @@ export const useAuthStore = create(
       tenant:  null,
       loading: false,  // ✅ false pa defò — pa bloke UI si persist chaje vit
 
-      setAuth: (token, user, tenant) => {
-        if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
-        set({ token, user, tenant, loading: false })
-      },
+     setAuth: (token, user, tenant) => {
+  // ✅ Netwaye localStorage nèt anvan mete nouvo done
+  localStorage.removeItem('pg-auth')
+  
+  if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
+  set({ token, user, tenant, loading: false })
+},
 
       // ✅ Merge avèk egzistan olye ranplase nèt
       updateTenant: (updates) => set(state => ({
