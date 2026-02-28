@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, LogIn, Globe, ChevronDown, AlertTriangle } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
@@ -19,47 +19,12 @@ const LANGS = [
 ]
 
 const TEXTS = {
-  ht: {
-    title:'Konekte nan kont ou',
-    email:'Email',
-    password:'Modpas',
-    submit:'Konekte',
-    loading:'Koneksyon...',
-    forgot:'Ou bliye modpas ou?',
-    reset:'Reyinisyalize',
-    emailRequired:'Email obligatwa',
-    emailInvalid:'Email pa valid',
-    passRequired:'Modpas obligatwa',
-    invalidLink:'Lyen koneksyon pa valid. Kontakte administrasyon ou.',
-  },
-  fr: {
-    title:'Connectez-vous',
-    email:'Email',
-    password:'Mot de passe',
-    submit:'Connexion',
-    loading:'Connexion...',
-    forgot:'Mot de passe oublié?',
-    reset:'Réinitialiser',
-    emailRequired:'Email obligatoire',
-    emailInvalid:'Email invalide',
-    passRequired:'Mot de passe obligatoire',
-    invalidLink:'Lien de connexion invalide. Contactez votre administrateur.',
-  },
-  en: {
-    title:'Sign in',
-    email:'Email',
-    password:'Password',
-    submit:'Sign In',
-    loading:'Signing in...',
-    forgot:'Forgot password?',
-    reset:'Reset',
-    emailRequired:'Email required',
-    emailInvalid:'Invalid email',
-    passRequired:'Password required',
-    invalidLink:'Invalid login link. Contact your administrator.',
-  },
+  ht: { title:'Konekte nan kont ou', slug:'Non Entreprise (slug)', email:'Email', password:'Modpas', submit:'Konekte', loading:'Koneksyon...', forgot:'Ou bliye modpas ou?', reset:'Reyinisyalize', example:'Egzanp', demo:'Demo', slugRequired:'Slug obligatwa', emailRequired:'Email obligatwa', emailInvalid:'Email pa valid', passRequired:'Modpas obligatwa' },
+  fr: { title:'Connectez-vous', slug:'Nom Entreprise (slug)', email:'Email', password:'Mot de passe', submit:'Connexion', loading:'Connexion...', forgot:'Mot de passe oublié?', reset:'Réinitialiser', example:'Exemple', demo:'Démo', slugRequired:'Slug obligatoire', emailRequired:'Email obligatoire', emailInvalid:'Email invalide', passRequired:'Mot de passe obligatoire' },
+  en: { title:'Sign in', slug:'Company Name (slug)', email:'Email', password:'Password', submit:'Sign In', loading:'Signing in...', forgot:'Forgot password?', reset:'Reset', example:'Example', demo:'Demo', slugRequired:'Slug required', emailRequired:'Email required', emailInvalid:'Invalid email', passRequired:'Password required' },
 }
 
+// Particle component
 function Particles() {
   const canvasRef = useRef(null)
   useEffect(() => {
@@ -89,6 +54,7 @@ function Particles() {
         ctx.globalAlpha = p.opacity
         ctx.fill()
       })
+      // Lines between close particles
       ctx.globalAlpha = 1
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
@@ -116,22 +82,18 @@ function Particles() {
 }
 
 export default function LoginPage() {
-  const navigate       = useNavigate()
+  const navigate     = useNavigate()
   const [searchParams] = useSearchParams()
-  const setAuth        = useAuthStore(s => s.setAuth)
+  const setAuth      = useAuthStore(s => s.setAuth)
   const [show, setShow]         = useState(false)
   const [loading, setLoading]   = useState(false)
   const [showLang, setShowLang] = useState(false)
-  const { i18n } = useTranslation()
+  const { i18n }     = useTranslation()
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
   const tx = TEXTS[i18n.language] || TEXTS.ht
 
-  // ✅ Slug pran nan URL sèlman
-  const slugFromUrl = searchParams.get('slug')?.trim().toLowerCase() || ''
-  const hasSlug = !!slugFromUrl
-
-  const { register, handleSubmit, formState:{ errors } } = useForm()
+  const { register, handleSubmit, formState:{ errors }, setValue } = useForm()
 
   const changeLanguage = (code) => {
     i18n.changeLanguage(code)
@@ -145,6 +107,51 @@ export default function LoginPage() {
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
+  useEffect(() => {
+    const slugParam  = searchParams.get('slug')
+    const emailParam = searchParams.get('email')
+    if (slugParam)  setValue('slug', slugParam)
+    if (emailParam) setValue('email', emailParam)
+  }, [searchParams, setValue])
+
+ const onSubmit = async (data) => {
+  setLoading(true)
+  try {
+    const slug = data.slug.trim().toLowerCase()
+    
+    // ✅ Mete slug ANVAN nenpòt request
+    api.defaults.headers.common['X-Tenant-Slug'] = slug
+    localStorage.setItem('plusgroup-slug', slug)  // ← AJOUTE SA
+    
+    const res = await authAPI.login({ slug, email: data.email, password: data.password })
+    const { token, user } = res.data
+    
+    api.defaults.headers.common['Authorization'] = 'Bearer ' + token
+    localStorage.setItem('plusgroup-token', token)  // ← AJOUTE SA
+    
+    const meRes = await authAPI.me()
+    const tenant = meRes.data.tenant
+    
+    setAuth(token, meRes.data.user, tenant)
+      try {
+        const stored = JSON.parse(localStorage.getItem('pg-auth') || '{}')
+        const authState = stored?.state || stored
+        authState.token = token; authState.user = meRes.data.user; authState.tenant = tenant
+        localStorage.setItem('pg-auth', JSON.stringify({ state: authState, version: 0 }))
+      } catch {}
+      toast.success('Byenveni, ' + user.fullName + '! 🎉')
+      navigate('/dashboard')
+    } catch (e) {
+      api.defaults.headers.common['X-Tenant-Slug'] = ''
+      const status = e.response?.status
+      const msg    = e.response?.data?.message
+      if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
+      else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
+      else if (status === 404) toast.error('Slug entreprise pa jwenn.')
+      else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
+    } finally { setLoading(false) }
+  }
+
   const inp = {
     width:'100%', padding:'11px 14px', borderRadius:10,
     border:'1.5px solid rgba(255,255,255,0.25)', outline:'none',
@@ -154,50 +161,6 @@ export default function LoginPage() {
     backdropFilter:'blur(8px)', transition:'border-color 0.2s',
     caretColor:'#FF6600',
   }
-const onSubmit = async (data) => {
-  setLoading(true)
-  try {
-    const slug = data.slug.trim().toLowerCase()
-
-    // ✅ Netwaye TOUT ansyen done anvan login nouvo
-    localStorage.removeItem('pg-auth')
-    localStorage.removeItem('plusgroup-slug')
-    localStorage.removeItem('plusgroup-token')
-    localStorage.removeItem('plusgroup-user')
-    localStorage.removeItem('plusgroup-tenant')
-    api.defaults.headers.common['X-Tenant-Slug'] = ''
-    api.defaults.headers.common['Authorization'] = ''
-
-    // ✅ Mete nouvo slug tousuit
-    localStorage.setItem('plusgroup-slug', slug)
-    api.defaults.headers.common['X-Tenant-Slug'] = slug
-
-    const res = await authAPI.login({ slug, email: data.email, password: data.password })
-    const { token, user } = res.data
-
-    localStorage.setItem('plusgroup-token', token)
-    api.defaults.headers.common['Authorization'] = 'Bearer ' + token
-
-    const meRes  = await authAPI.me()
-    const tenant = meRes.data.tenant
-
-    setAuth(token, meRes.data.user, tenant)
-    toast.success('Byenveni, ' + user.fullName + '! 🎉')
-    navigate('/dashboard')
-  } catch (e) {
-    localStorage.removeItem('plusgroup-slug')
-    localStorage.removeItem('plusgroup-token')
-    api.defaults.headers.common['X-Tenant-Slug'] = ''
-    api.defaults.headers.common['Authorization'] = ''
-
-    const status = e.response?.status
-    const msg    = e.response?.data?.message
-    if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
-    else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
-    else if (status === 404) toast.error('Slug entreprise pa jwenn.')
-    else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
-  } finally { setLoading(false) }
-}
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
@@ -205,7 +168,7 @@ const onSubmit = async (data) => {
       {/* Background Banner */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
-        backgroundImage: BANNER_B64 ? 'url(' + BANNER_B64 + ')' : 'none',
+        backgroundImage: 'url(' + BANNER_B64 + ')',
         backgroundSize:'cover', backgroundPosition:'center',
         filter:'brightness(0.45)',
       }}/>
@@ -216,9 +179,10 @@ const onSubmit = async (data) => {
         background:'linear-gradient(135deg, rgba(26,20,100,0.75) 0%, rgba(180,60,0,0.55) 100%)',
       }}/>
 
+      {/* Particles */}
       <Particles/>
 
-      {/* Top shimmer line */}
+      {/* Top line animée */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)', animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%' }}/>
 
       {/* Lang switcher */}
@@ -256,11 +220,9 @@ const onSubmit = async (data) => {
 
         {/* Logo + Brand */}
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          {LOGO_B64 && (
-            <img src={LOGO_B64} alt="PLUS GROUP Logo"
-              style={{ height:90, width:'auto', marginBottom:12, filter:'drop-shadow(0 4px 20px rgba(255,102,0,0.5))' }}
-            />
-          )}
+          <img src={LOGO_B64} alt="PLUS GROUP Logo"
+            style={{ height:90, width:'auto', marginBottom:12, filter:'drop-shadow(0 4px 20px rgba(255,102,0,0.5))' }}
+          />
           <h1 style={{ color:'#fff', fontSize:32, fontWeight:900, margin:'0 0 4px', textShadow:'0 2px 12px rgba(0,0,0,0.5)' }}>PLUS GROUP</h1>
           <p style={{ color:'#FF6600', fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', margin:0, textShadow:'0 1px 6px rgba(0,0,0,0.4)' }}>
             Innov@tion & Tech — SaaS
@@ -279,72 +241,87 @@ const onSubmit = async (data) => {
             {tx.title}
           </h2>
 
-          {/* Si pa gen slug nan URL — montre erè */}
-          {!hasSlug ? (
-            <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16, padding:'24px 0' }}>
-              <div style={{ width:56, height:56, borderRadius:'50%', background:'rgba(255,102,0,0.15)', border:'2px solid rgba(255,102,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <AlertTriangle size={28} color="#FF6600"/>
-              </div>
-              <p style={{ color:'rgba(255,255,255,0.8)', fontSize:14, textAlign:'center', margin:0, lineHeight:1.6 }}>
-                {tx.invalidLink}
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+          <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
-              {/* Email */}
-              <div>
-                <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.email}</label>
-                <input type="email" placeholder="ou@entreprise.ht"
-                  {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
-                  style={inp}
+            {/* Slug */}
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7, letterSpacing:'0.03em' }}>{tx.slug}</label>
+              <div style={{ position:'relative' }}>
+                <Building2 size={16} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'#FF6600', pointerEvents:'none' }}/>
+                <input type="text" placeholder="plus-store"
+                  {...register('slug', { required: tx.slugRequired })}
+                  style={{ ...inp, paddingLeft:40 }}
                   onFocus={e => e.target.style.borderColor='#FF6600'}
                   onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
                 />
-                {errors.email && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.email.message}</p>}
               </div>
-
-              {/* Password */}
-              <div>
-                <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.password}</label>
-                <div style={{ position:'relative' }}>
-                  <input type={show ? 'text' : 'password'} placeholder="••••••••"
-                    {...register('password', { required: tx.passRequired })}
-                    style={{ ...inp, paddingRight:44 }}
-                    onFocus={e => e.target.style.borderColor='#FF6600'}
-                    onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
-                  />
-                  <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0 }}>
-                    {show ? <EyeOff size={16}/> : <Eye size={16}/>}
-                  </button>
-                </div>
-                {errors.password && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.password.message}</p>}
-              </div>
-
-              {/* Submit */}
-              <button type="submit" disabled={loading} style={{
-                width:'100%', padding:'13px', borderRadius:12, marginTop:6,
-                background: loading ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg,#FF6600,#FF8C33)',
-                color:'#fff', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
-                fontWeight:900, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                boxShadow: loading ? 'none' : '0 6px 24px rgba(255,102,0,0.5)',
-                transition:'transform 0.15s, box-shadow 0.15s',
-              }}
-              onMouseEnter={e => { if(!loading) { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 10px 32px rgba(255,102,0,0.6)' }}}
-              onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow=loading?'none':'0 6px 24px rgba(255,102,0,0.5)' }}
-              >
-                {loading
-                  ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>{tx.loading}</>
-                  : <><LogIn size={18}/>{tx.submit}</>
-                }
-              </button>
-
-              <p style={{ textAlign:'center', fontSize:12, color:'rgba(255,255,255,0.4)', margin:'6px 0 0' }}>
-                {tx.forgot}{' '}
-                <button type="button" style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6600', textDecoration:'underline', fontSize:12, padding:0 }}>{tx.reset}</button>
+              {errors.slug && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.slug.message}</p>}
+              <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>
+                {tx.example}: <span style={{ color:'#FF6600', fontFamily:'monospace' }}>plus-store</span>
               </p>
-            </form>
-          )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.email}</label>
+              <input type="email" placeholder="ou@entreprise.ht"
+                {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
+                style={inp}
+                onFocus={e => e.target.style.borderColor='#FF6600'}
+                onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
+              />
+              {errors.email && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.email.message}</p>}
+            </div>
+
+            {/* Password */}
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.password}</label>
+              <div style={{ position:'relative' }}>
+                <input type={show ? 'text' : 'password'} placeholder="••••••••"
+                  {...register('password', { required: tx.passRequired })}
+                  style={{ ...inp, paddingRight:44 }}
+                  onFocus={e => e.target.style.borderColor='#FF6600'}
+                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
+                />
+                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0 }}>
+                  {show ? <EyeOff size={16}/> : <Eye size={16}/>}
+                </button>
+              </div>
+              {errors.password && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.password.message}</p>}
+            </div>
+
+            {/* Submit */}
+            <button type="submit" disabled={loading} style={{
+              width:'100%', padding:'13px', borderRadius:12, marginTop:6,
+              background: loading ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg,#FF6600,#FF8C33)',
+              color:'#fff', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight:900, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              boxShadow: loading ? 'none' : '0 6px 24px rgba(255,102,0,0.5)',
+              transition:'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={e => { if(!loading) { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 10px 32px rgba(255,102,0,0.6)' }}}
+            onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow=loading?'none':'0 6px 24px rgba(255,102,0,0.5)' }}
+            >
+              {loading
+                ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>{tx.loading}</>
+                : <><LogIn size={18}/>{tx.submit}</>
+              }
+            </button>
+          </form>
+
+          {/* Demo hint */}
+          <div style={{ marginTop:18, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)' }}>
+            <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, textAlign:'center', margin:0, fontFamily:'monospace', lineHeight:1.7 }}>
+              {tx.demo} → slug: <span style={{ color:'#FF6600' }}>plus-store</span>{' · '}
+              email: <span style={{ color:'#FF6600' }}>admin@plusstore.ht</span>{' · '}
+              mdp: <span style={{ color:'#FF6600' }}>PlusStore2024!</span>
+            </p>
+          </div>
+
+          <p style={{ textAlign:'center', fontSize:12, color:'rgba(255,255,255,0.4)', margin:'14px 0 0' }}>
+            {tx.forgot}{' '}
+            <button style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6600', textDecoration:'underline', fontSize:12, padding:0 }}>{tx.reset}</button>
+          </p>
         </div>
 
         <p style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.3)', margin:'18px 0 0' }}>
@@ -359,8 +336,8 @@ const onSubmit = async (data) => {
         ::placeholder { color:rgba(255,255,255,0.35) !important }
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus {
-          -webkit-box-shadow:0 0 0 30px rgba(20,15,60,0.8) inset !important;
+        input:-webkit-autofill:focus { 
+          -webkit-box-shadow:0 0 0 30px rgba(20,15,60,0.8) inset !important; 
           -webkit-text-fill-color:#FFFFFF !important;
           caret-color:#FF6600 !important;
         }
