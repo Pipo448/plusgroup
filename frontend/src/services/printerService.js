@@ -369,14 +369,16 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('-', W), ...CMD.LINE_FEED,
 
-    // QR CODE
-    ...CMD.ALIGN_CENTER,
-    ...makeQR(qrContent),
-    ...CMD.LINE_FEED,
-    ...CMD.SMALL_FONT,
-    ...encodeText('Skane/Scanner/Scan to verify\n'),
-    ...encodeText(invoice.invoiceNumber + '\n'),
-    ...CMD.NORMAL_FONT,
+    // ── QR CODE (sèlman si tenant.showQrCode !== false)
+...(tenant?.showQrCode !== false ? [
+  ...CMD.ALIGN_CENTER,
+  ...makeQR(qrContent),
+  ...CMD.LINE_FEED,
+  ...CMD.SMALL_FONT,
+  ...encodeText('Skane/Scanner/Scan to verify\n'),
+  ...encodeText(invoice.invoiceNumber + '\n'),
+  ...CMD.NORMAL_FONT,
+] : []),
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
