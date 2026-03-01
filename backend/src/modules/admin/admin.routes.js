@@ -8,27 +8,30 @@ const jwt     = require('jsonwebtoken');
 const prisma  = require('../../config/prisma');
 
 // ══════════════════════════════════════════════
-// LOJIK ABÒNMAN — MWA KALANDRIYE
+// LOJIK ABÒNMAN — JOU 5 MWA KAP VINI
 // ══════════════════════════════════════════════
 
 /**
- * Kalkile dat ekspirasyon selon fen mwa kalandriye
- * Eks: konekte 14 mas + 1 mwa → ekspire 31 mas 23:59:59
- *      konekte 14 mas + 2 mwa → ekspire 30 avril 23:59:59
+ * Kalkile dat ekspirasyon: jou 5 nan mwa (N+months)
+ * Eks: aktive 14 Fevriye + 1 mwa → ekspire 5 Mas 23:59:59
+ *      aktive 14 Mas + 2 mwa     → ekspire 5 Me 23:59:59
+ *      aktive 28 Desanm + 1 mwa  → ekspire 5 Janvye (lane pwochen) 23:59:59
  */
 function calcSubscriptionEnd(startDate, months) {
   const start       = new Date(startDate);
-  const targetMonth = start.getMonth() + (months - 1);
+  // Mwa target = mwa kouwè + months (pa months-1, nou vle mwa KAP VINI)
+  const targetMonth = start.getMonth() + months;
   const targetYear  = start.getFullYear() + Math.floor(targetMonth / 12);
   const normMonth   = ((targetMonth % 12) + 12) % 12;
-  // Jou 0 nan mwa+1 = dènye jou mwa kouwè a
-  const lastDay     = new Date(targetYear, normMonth + 1, 0);
-  lastDay.setHours(23, 59, 59, 999);
-  return lastDay;
+  // Jou 5 nan mwa kap vini an
+  const expireDate  = new Date(targetYear, normMonth, 5);
+  expireDate.setHours(23, 59, 59, 999);
+  return expireDate;
 }
 
 /**
  * Renouvle: ajoute N mwa sou ekspirasyon kouwè a
+ * → nouvo ekspirasyon = jou 5 nan mwa (base + N mwa)
  * Si deja ekspire → pati de jodi a
  */
 function renewSubscription(currentEnd, months) {
@@ -39,9 +42,10 @@ function renewSubscription(currentEnd, months) {
   const targetMonth = base.getMonth() + months;
   const targetYear  = base.getFullYear() + Math.floor(targetMonth / 12);
   const normMonth   = ((targetMonth % 12) + 12) % 12;
-  const lastDay     = new Date(targetYear, normMonth + 1, 0);
-  lastDay.setHours(23, 59, 59, 999);
-  return lastDay;
+  // Jou 5 nan mwa kap vini apre base a
+  const expireDate  = new Date(targetYear, normMonth, 5);
+  expireDate.setHours(23, 59, 59, 999);
+  return expireDate;
 }
 
 // ── POST /api/v1/admin/login
@@ -186,11 +190,10 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   if (existing)
     return res.status(409).json({ success: false, message: `Slug "${cleanSlug}" deja egziste.` });
 
-  // ✅ NOUVO: Kalkile fen mwa kalandriye a olye +30 jou
-  let subscriptionEndsAt = null;
+  // ✅ NOUVO: ekspire jou 5 nan mwa (N+months) — pa fen mwa kouwè
+  // Eks: aktive 28 Fevriye + 1 mwa → ekspire 5 Mas 23:59:59
   const months = Math.max(1, Math.min(36, Number(subscriptionMonths) || 1));
-  subscriptionEndsAt = calcSubscriptionEnd(new Date(), months);
-  // Eks: konekte 14 mas, 1 mwa → 31 mas | 12 mwa → 28 fev lane pwochen
+  const subscriptionEndsAt = calcSubscriptionEnd(new Date(), months);
 
   let cleanPlanId = null;
   if (planId && typeof planId === 'string' && planId.trim() !== '') {
@@ -214,7 +217,7 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       planId: cleanPlanId,
       defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage,
       status: 'active',
-      subscriptionEndsAt   // ← fen mwa kalandriye
+      subscriptionEndsAt  // ← jou 5 mwa kap vini
     }
   });
 
@@ -299,11 +302,11 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   if (!existing)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' });
 
-  // ✅ NOUVO: Renouvèlman selon mwa kalandriye
+  // ✅ NOUVO: renouvèlman → jou 5 nan mwa kap vini apre ekspirasyon kouwè
+  // Eks: ekspire 5 Mas + 1 mwa → 5 Avril
+  //      ekspire 5 Avril + 1 mwa → 5 Me
+  //      deja ekspire (28 Fevriye) + 1 mwa → 5 Avril (pati de jodi a)
   const newEndsAt = renewSubscription(existing.subscriptionEndsAt, numMonths);
-  // Eks: ekspire 31 mas + 1 mwa → 30 avril
-  //      ekspire 30 avril + 1 mwa → 31 mai
-  //      deja ekspire + 1 mwa → fen mwa kouwè a
 
   const tenant = await prisma.tenant.update({
     where: { id: req.params.id },
@@ -320,10 +323,10 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 // ── GET /api/v1/admin/plans
 router.get('/plans', asyncHandler(async (req, res) => {
   const PLANS = [
-    { name: 'Estanda',  nameFr: 'Standard',   maxUsers: 5,   maxProducts: 500,   priceMonthly: 2500, features: JSON.stringify(['Jesyon Stòk', 'Fakti & Devis', 'Jiska 5 itilizatè']) },
-    { name: 'Biznis',   nameFr: 'Business',   maxUsers: 15,  maxProducts: 2000,  priceMonthly: 3000, features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Jiska 15 itilizatè']) },
-    { name: 'Premyum',  nameFr: 'Premium',    maxUsers: 100, maxProducts: 99999, priceMonthly: 4000, features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite']) },
-    { name: 'Antepriz', nameFr: 'Entreprise', maxUsers: 999, maxProducts: 999999,priceMonthly: 5000, features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', 'Sipò VIP 24/7']) },
+    { name: 'Estanda',  nameFr: 'Standard',   maxUsers: 5,   maxProducts: 10000,  priceMonthly: 2500, features: JSON.stringify(['Jesyon Stòk', 'Fakti & Devis', 'Jiska 5 itilizatè']) },
+    { name: 'Biznis',   nameFr: 'Business',   maxUsers: 15,  maxProducts: 50000,  priceMonthly: 3000, features: JSON.stringify(['Tout nan Estanda', 'Rapò avanse', 'Jiska 15 itilizatè', 'Sèvis']) },
+    { name: 'Premyum',  nameFr: 'Premium',    maxUsers: 100, maxProducts: 100000, priceMonthly: 4000, features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite', 'Sèvis']) },
+    { name: 'Antepriz', nameFr: 'Entreprise', maxUsers: 999, maxProducts: 999999999, priceMonthly: 5000, features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', 'Sipò VIP 24/7', 'Sèvis']) },
   ];
 
   for (const plan of PLANS) {
@@ -365,7 +368,21 @@ router.get('/stats', asyncHandler(async (req, res) => {
   });
 }));
 
-// ── GET /api/v1/admin/expiring-soon
+// ── GET /api/v1/admin/expiring (ancien: expiring-soon)
+router.get('/expiring', asyncHandler(async (req, res) => {
+  const fiveDaysFromNow = new Date();
+  fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
+
+  const expiring = await prisma.tenant.findMany({
+    where: { status: 'active', subscriptionEndsAt: { lte: fiveDaysFromNow, gte: new Date() } },
+    select: { id: true, name: true, email: true, subscriptionEndsAt: true, plan: { select: { name: true } } },
+    orderBy: { subscriptionEndsAt: 'asc' }
+  });
+
+  res.json({ success: true, expiring, count: expiring.length });
+}));
+
+// ── GET /api/v1/admin/expiring-soon (backward compat)
 router.get('/expiring-soon', asyncHandler(async (req, res) => {
   const fiveDaysFromNow = new Date();
   fiveDaysFromNow.setDate(fiveDaysFromNow.getDate() + 5);
