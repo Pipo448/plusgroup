@@ -36,7 +36,12 @@ const identifyTenant = asyncHandler(async (req, res, next) => {
       receiptSize: true,
       subscriptionEndsAt: true,
       planId: true,
-      plan: { select: { maxUsers: true, maxProducts: true, features: true } }
+      plan: {
+        select: {
+          id: true, name: true,
+          maxUsers: true, maxProducts: true, features: true
+        }
+      }
     }
   });
 
@@ -171,10 +176,25 @@ const hasPermission = (permission) => (req, res, next) => {
   });
 };
 
+// ✅ NOUVO — Verifye si tenant an sou plan Antepriz
+const requireEnterprise = (req, res, next) => {
+  const planName = req.tenant?.plan?.name || ''
+  if (planName !== 'Antepriz') {
+    return res.status(403).json({
+      success: false,
+      message: 'Fonksyon sa rezerve pou plan Antepriz sèlman. Monte plan ou pou gen aksè.',
+      requiredPlan: 'Antepriz',
+      currentPlan: planName || 'Okenn'
+    })
+  }
+  next()
+}
+
 module.exports = {
   identifyTenant,
   authenticate,
   authorize,
   superAdminAuth,
-  hasPermission
+  hasPermission,
+  requireEnterprise,   // ✅ AJOUTE
 };
