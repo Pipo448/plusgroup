@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -51,14 +51,242 @@ function Toggle({ checked, onChange, color = D.blue }) {
   )
 }
 
+// ══════════════════════════════════════════════
+// Seksyon Chanje Modpas Ou Menm
+// ══════════════════════════════════════════════
+function ChangeMyPassword({ t }) {
+  const [showOld, setShowOld] = useState(false)
+  const [showNew, setShowNew] = useState(false)
+  const [showCon, setShowCon] = useState(false)
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm()
+  const newPwd = watch('newPassword', '')
+
+  const mutation = useMutation({
+    mutationFn: (data) => tenantAPI.changeMyPassword(data),
+    onSuccess: () => { toast.success(t('settings.passwordChanged')); reset() },
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error'))
+  })
+
+  const strength = newPwd.length === 0 ? 0 : newPwd.length < 6 ? 1 : newPwd.length < 10 ? 2 : newPwd.length < 14 ? 3 : 4
+  const strengthColors = ['#e2e8f0', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e']
+  const strengthLabels = ['', t('settings.pwd.weak'), t('settings.pwd.medium'), t('settings.pwd.good'), t('settings.pwd.strong')]
+
+  const pwdInp = (show) => ({ ...inp, paddingRight: 44 })
+
+  return (
+    <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
+        <div style={{ width:32, height:32, borderRadius:9, background:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <KeyRound size={16} color={D.blue} />
+        </div>
+        <div>
+          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.changeMyPassword')}</h3>
+          <p style={{ color:D.muted, fontSize:11, margin:0 }}>{t('settings.changeMyPasswordDesc')}</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
+        {/* Ansyen modpas */}
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {t('settings.oldPassword')} *
+          </label>
+          <div style={{ position:'relative' }}>
+            <input type={showOld ? 'text' : 'password'} style={{ ...pwdInp(showOld) }}
+              {...register('oldPassword', { required: true })}
+              onFocus={e=>e.target.style.borderColor=D.blue}
+              onBlur={e=>e.target.style.borderColor=D.border}
+            />
+            <button type="button" onClick={() => setShowOld(p=>!p)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
+              {showOld ? <EyeOff size={15}/> : <Eye size={15}/>}
+            </button>
+          </div>
+        </div>
+
+        {/* Nouvo modpas */}
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {t('settings.newPassword')} *
+          </label>
+          <div style={{ position:'relative' }}>
+            <input type={showNew ? 'text' : 'password'} style={{ ...pwdInp(showNew) }}
+              {...register('newPassword', { required: true, minLength: 6 })}
+              onFocus={e=>e.target.style.borderColor=D.blue}
+              onBlur={e=>e.target.style.borderColor=D.border}
+            />
+            <button type="button" onClick={() => setShowNew(p=>!p)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
+              {showNew ? <EyeOff size={15}/> : <Eye size={15}/>}
+            </button>
+          </div>
+          {/* Fòs modpas */}
+          {newPwd.length > 0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ display:'flex', gap:4, marginBottom:4 }}>
+                {[1,2,3,4].map(i => (
+                  <div key={i} style={{ flex:1, height:3, borderRadius:99, background: strength >= i ? strengthColors[strength] : '#e2e8f0', transition:'background 0.3s' }}/>
+                ))}
+              </div>
+              <span style={{ fontSize:11, color: strengthColors[strength], fontWeight:700 }}>{strengthLabels[strength]}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Konfime modpas */}
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {t('settings.confirmPassword')} *
+          </label>
+          <div style={{ position:'relative' }}>
+            <input type={showCon ? 'text' : 'password'} style={{ ...pwdInp(showCon), borderColor: errors.confirmPassword ? '#ef4444' : D.border }}
+              {...register('confirmPassword', {
+                required: true,
+                validate: val => val === newPwd || t('settings.passwordMismatch')
+              })}
+              onFocus={e=>e.target.style.borderColor=D.blue}
+              onBlur={e=>e.target.style.borderColor= errors.confirmPassword ? '#ef4444' : D.border}
+            />
+            <button type="button" onClick={() => setShowCon(p=>!p)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
+              {showCon ? <EyeOff size={15}/> : <Eye size={15}/>}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p style={{ color:'#ef4444', fontSize:11, marginTop:4 }}>{errors.confirmPassword.message}</p>
+          )}
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+          <button type="submit" disabled={mutation.isPending}
+            style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
+              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff',
+              border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
+              opacity: mutation.isPending ? 0.7 : 1, fontFamily:'DM Sans,sans-serif' }}>
+            <KeyRound size={14}/>
+            {mutation.isPending ? t('common.saving') : t('settings.changePassword')}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════
+// Seksyon Chanje Modpas Yon Itilizatè (Admin)
+// ══════════════════════════════════════════════
+function ChangeUserPassword({ t }) {
+  const [showNew, setShowNew] = useState(false)
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm()
+  const newPwd = watch('newPassword', '')
+
+  // Chaje lis itilizatè yo
+  const { data: usersData } = useQuery({
+    queryKey: ['tenant-users'],
+    queryFn: () => tenantAPI.getUsers().then(r => r.data.users || r.data)
+  })
+  const users = usersData || []
+
+  const mutation = useMutation({
+    mutationFn: (data) => tenantAPI.resetUserPassword(data),
+    onSuccess: () => { toast.success(t('settings.userPasswordChanged')); reset() },
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error'))
+  })
+
+  const strength = newPwd.length === 0 ? 0 : newPwd.length < 6 ? 1 : newPwd.length < 10 ? 2 : newPwd.length < 14 ? 3 : 4
+  const strengthColors = ['#e2e8f0', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e']
+  const strengthLabels = ['', t('settings.pwd.weak'), t('settings.pwd.medium'), t('settings.pwd.good'), t('settings.pwd.strong')]
+
+  return (
+    <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
+        <div style={{ width:32, height:32, borderRadius:9, background:'rgba(201,168,76,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Shield size={16} color={D.gold} />
+        </div>
+        <div>
+          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.changeUserPassword')}</h3>
+          <p style={{ color:D.muted, fontSize:11, margin:0 }}>{t('settings.changeUserPasswordDesc')}</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
+        {/* Chwazi itilizatè */}
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {t('settings.selectUser')} *
+          </label>
+          <select style={inp} {...register('userId', { required: true })}
+            onFocus={e=>e.target.style.borderColor=D.blue}
+            onBlur={e=>e.target.style.borderColor=D.border}>
+            <option value="">{t('settings.chooseUser')}</option>
+            {users.map(u => (
+              <option key={u.id} value={u.id}>
+                {u.name} — {u.email} {u.role === 'admin' ? '(Admin)' : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Nouvo modpas */}
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            {t('settings.newPassword')} *
+          </label>
+          <div style={{ position:'relative' }}>
+            <input type={showNew ? 'text' : 'password'} style={{ ...inp, paddingRight:44 }}
+              {...register('newPassword', { required: true, minLength: 6 })}
+              onFocus={e=>e.target.style.borderColor=D.blue}
+              onBlur={e=>e.target.style.borderColor=D.border}
+            />
+            <button type="button" onClick={() => setShowNew(p=>!p)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
+              {showNew ? <EyeOff size={15}/> : <Eye size={15}/>}
+            </button>
+          </div>
+          {newPwd.length > 0 && (
+            <div style={{ marginTop:8 }}>
+              <div style={{ display:'flex', gap:4, marginBottom:4 }}>
+                {[1,2,3,4].map(i => (
+                  <div key={i} style={{ flex:1, height:3, borderRadius:99, background: strength >= i ? strengthColors[strength] : '#e2e8f0', transition:'background 0.3s' }}/>
+                ))}
+              </div>
+              <span style={{ fontSize:11, color: strengthColors[strength], fontWeight:700 }}>{strengthLabels[strength]}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Avètisman */}
+        <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.2)' }}>
+          <p style={{ color:'#92701a', fontSize:12, margin:0, lineHeight:1.6 }}>
+            ⚠ {t('settings.userPasswordWarning')}
+          </p>
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+          <button type="submit" disabled={mutation.isPending}
+            style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
+              background:`linear-gradient(135deg,${D.gold},${D.goldDk})`, color:'#fff',
+              border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
+              opacity: mutation.isPending ? 0.7 : 1, fontFamily:'DM Sans,sans-serif' }}>
+            <Shield size={14}/>
+            {mutation.isPending ? t('common.saving') : t('settings.changePassword')}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { t, i18n } = useTranslation()
-  const { updateTenant } = useAuthStore()
+  const { updateTenant, user } = useAuthStore()
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState('general')
   const [printerConn, setPrinterConn] = useState('usb')
   const [rates, setRates] = useState({ USD:'', DOP:'', EUR:'', CAD:'' })
   const [showRates, setShowRates] = useState({ USD:true, DOP:false, EUR:false, CAD:false })
+
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['tenant-settings'],
@@ -81,7 +309,7 @@ export default function SettingsPage() {
         receiptSize:       settings.receiptSize       || '80mm',
         printerConnection: settings.printerConnection || 'usb',
         showExchangeRate:  settings.showExchangeRate  !== false,
-        showQrCode:        settings.showQrCode        !== false, // ← defò: true
+        showQrCode:        settings.showQrCode        !== false,
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -272,56 +500,37 @@ export default function SettingsPage() {
                 </select>
               </div>
 
-              {/* ── Toggle: Montre Taux sou Resi */}
+              {/* Toggle: Montre Taux sou Resi */}
               <div style={{ gridColumn:'1/-1' }}>
-                <div style={{
-                  display:'flex', alignItems:'center', justifyContent:'space-between',
-                  padding:'14px 18px', borderRadius:12,
-                  background: showExchangeRate ? 'rgba(27,42,143,0.06)' : '#f8f9ff',
-                  border:`1.5px solid ${showExchangeRate ? D.border : '#e2e8f0'}`,
-                  transition:'all 0.2s',
-                }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:12, background: showExchangeRate ? 'rgba(27,42,143,0.06)' : '#f8f9ff', border:`1.5px solid ${showExchangeRate ? D.border : '#e2e8f0'}`, transition:'all 0.2s' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                     <div style={{ width:36, height:36, borderRadius:10, background:showExchangeRate?D.blueDim2:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       {showExchangeRate ? <Eye size={16} color={D.blue}/> : <EyeOff size={16} color={D.muted}/>}
                     </div>
                     <div>
                       <p style={{ fontWeight:800, fontSize:13, color:showExchangeRate?D.text:D.muted, margin:'0 0 2px' }}>{t('settings.showExchangeRate')}</p>
-                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>
-                        {showExchangeRate ? t('settings.showExchangeRateOn') : t('settings.showExchangeRateOff')}
-                      </p>
+                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>{showExchangeRate ? t('settings.showExchangeRateOn') : t('settings.showExchangeRateOff')}</p>
                     </div>
                   </div>
                   <Toggle checked={!!showExchangeRate} onChange={val => setValue('showExchangeRate', val)} color={D.blue} />
                 </div>
               </div>
 
-              {/* ── Toggle: Afiche QR Code sou Resi ── */}
+              {/* Toggle: Afiche QR Code sou Resi */}
               <div style={{ gridColumn:'1/-1' }}>
-                <div style={{
-                  display:'flex', alignItems:'center', justifyContent:'space-between',
-                  padding:'14px 18px', borderRadius:12,
-                  background: showQrCode ? 'rgba(27,42,143,0.06)' : '#f8f9ff',
-                  border:`1.5px solid ${showQrCode ? D.border : '#e2e8f0'}`,
-                  transition:'all 0.2s',
-                }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:12, background: showQrCode ? 'rgba(27,42,143,0.06)' : '#f8f9ff', border:`1.5px solid ${showQrCode ? D.border : '#e2e8f0'}`, transition:'all 0.2s' }}>
                   <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                     <div style={{ width:36, height:36, borderRadius:10, background:showQrCode?D.blueDim2:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
                       <QrCode size={16} color={showQrCode ? D.blue : D.muted}/>
                     </div>
                     <div>
-                      <p style={{ fontWeight:800, fontSize:13, color:showQrCode?D.text:D.muted, margin:'0 0 2px' }}>
-                        {t('settings.showQrCode')}
-                      </p>
-                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>
-                        {showQrCode ? t('settings.showQrCodeOn') : t('settings.showQrCodeOff')}
-                      </p>
+                      <p style={{ fontWeight:800, fontSize:13, color:showQrCode?D.text:D.muted, margin:'0 0 2px' }}>{t('settings.showQrCode')}</p>
+                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>{showQrCode ? t('settings.showQrCodeOn') : t('settings.showQrCodeOff')}</p>
                     </div>
                   </div>
                   <Toggle checked={!!showQrCode} onChange={val => setValue('showQrCode', val)} color={D.blue} />
                 </div>
               </div>
-
             </div>
           </div>
 
@@ -394,7 +603,6 @@ export default function SettingsPage() {
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.printerConnectionType')}</h3>
             </div>
             <p style={{ color:D.muted, fontSize:12, marginBottom:20 }}>{t('settings.printerDesc')}</p>
-
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {PRINTER_OPTIONS.map(opt => (
                 <button key={opt.value} type="button" onClick={() => setPrinterConn(opt.value)} style={{
@@ -403,9 +611,7 @@ export default function SettingsPage() {
                   background: printerConn===opt.value ? opt.bg : '#F8F9FF',
                   transition:'all 0.2s', textAlign:'left', width:'100%', fontFamily:'DM Sans,sans-serif',
                 }}>
-                  <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:printerConn===opt.value?opt.color:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center', color:printerConn===opt.value?'#fff':D.muted, transition:'all 0.2s' }}>
-                    {opt.icon}
-                  </div>
+                  <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:printerConn===opt.value?opt.color:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center', color:printerConn===opt.value?'#fff':D.muted, transition:'all 0.2s' }}>{opt.icon}</div>
                   <div style={{ flex:1 }}>
                     <p style={{ fontWeight:800, fontSize:14, color:printerConn===opt.value?opt.color:D.text, margin:'0 0 3px' }}>{opt.label}</p>
                     <p style={{ fontSize:12, color:D.muted, margin:0 }}>{opt.desc}</p>
@@ -416,23 +622,13 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
-
             <div style={{ marginTop:20, display:'flex', justifyContent:'flex-end' }}>
-              <button type="button"
-                disabled={printerMutation.isPending || printerConn===settings?.printerConnection}
-                onClick={() => printerMutation.mutate(printerConn)}
-                style={{
-                  display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:12,
-                  background:(printerMutation.isPending||printerConn===settings?.printerConnection)?'#ccc':`linear-gradient(135deg,${D.blue},${D.blueLt})`,
-                  color:'#fff', border:'none', fontWeight:800, fontSize:14,
-                  cursor:(printerMutation.isPending||printerConn===settings?.printerConnection)?'not-allowed':'pointer',
-                  fontFamily:'DM Sans,sans-serif',
-                }}>
+              <button type="button" disabled={printerMutation.isPending || printerConn===settings?.printerConnection} onClick={() => printerMutation.mutate(printerConn)}
+                style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 24px', borderRadius:12, background:(printerMutation.isPending||printerConn===settings?.printerConnection)?'#ccc':`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', border:'none', fontWeight:800, fontSize:14, cursor:(printerMutation.isPending||printerConn===settings?.printerConnection)?'not-allowed':'pointer', fontFamily:'DM Sans,sans-serif' }}>
                 <Save size={16}/>{printerMutation.isPending ? t('common.saving') : t('settings.saveConnection')}
               </button>
             </div>
           </div>
-
           <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('settings.printerHowTo')}</h3>
             {printerConn === 'bluetooth' && (
@@ -478,7 +674,6 @@ export default function SettingsPage() {
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.exchangeRateTitle')}</h3>
             </div>
             <p style={{ color:D.muted, fontSize:12, marginBottom:20 }}>{t('settings.exchangeRateDesc')}</p>
-
             <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
               {CURRENCIES.map(cur => {
                 const currentRate = Number(rates[cur.value] || 0)
@@ -501,20 +696,15 @@ export default function SettingsPage() {
                       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                           {isVisible ? <Eye size={14} color={D.blue}/> : <EyeOff size={14} color={D.muted}/>}
-                          <span style={{ fontSize:11, fontWeight:700, color:isVisible?D.blue:D.muted }}>
-                            {isVisible ? t('settings.showOnReceipt') : t('settings.hideOnReceipt')}
-                          </span>
+                          <span style={{ fontSize:11, fontWeight:700, color:isVisible?D.blue:D.muted }}>{isVisible ? t('settings.showOnReceipt') : t('settings.hideOnReceipt')}</span>
                         </div>
                         <Toggle checked={isVisible} onChange={val => handleToggleVisibility(cur.value, val)} color={D.blue} />
                       </div>
                     </div>
                     <div style={{ padding:'14px 18px', display:'flex', gap:10, alignItems:'flex-end' }}>
                       <div style={{ flex:1 }}>
-                        <label style={{ display:'block', color:D.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-                          1 {cur.value} = ? HTG
-                        </label>
-                        <input
-                          type="number" step="0.01" min="0.01"
+                        <label style={{ display:'block', color:D.muted, fontSize:11, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>1 {cur.value} = ? HTG</label>
+                        <input type="number" step="0.01" min="0.01"
                           placeholder={currentRate>0 ? currentRate.toFixed(2) : `${t('settings.eg')}: ${cur.value==='USD'?'132.00':cur.value==='DOP'?'2.28':cur.value==='EUR'?'143.00':'96.00'}`}
                           value={rates[cur.value] || ''}
                           onChange={e => setRates(r => ({ ...r, [cur.value]: e.target.value }))}
@@ -523,21 +713,9 @@ export default function SettingsPage() {
                           onBlur={e=>e.target.style.borderColor=D.border}
                         />
                       </div>
-                      <button type="button"
-                        disabled={!rates[cur.value] || rateMutation.isPending}
-                        onClick={() => {
-                          const r = Number(rates[cur.value])
-                          if (!r || r <= 0) return toast.error(t('settings.invalidRate'))
-                          rateMutation.mutate({ currency: cur.value, rate: r })
-                        }}
-                        style={{
-                          display:'flex', alignItems:'center', gap:6, padding:'10px 18px', borderRadius:10,
-                          background:!rates[cur.value]?'#e2e8f0':`linear-gradient(135deg,${D.gold},${D.goldDk})`,
-                          color:!rates[cur.value]?D.muted:'#fff',
-                          border:'none', fontWeight:800, fontSize:12,
-                          cursor:!rates[cur.value]?'not-allowed':'pointer',
-                          fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap', height:42, transition:'all 0.2s',
-                        }}>
+                      <button type="button" disabled={!rates[cur.value] || rateMutation.isPending}
+                        onClick={() => { const r = Number(rates[cur.value]); if (!r || r <= 0) return toast.error(t('settings.invalidRate')); rateMutation.mutate({ currency: cur.value, rate: r }) }}
+                        style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', borderRadius:10, background:!rates[cur.value]?'#e2e8f0':`linear-gradient(135deg,${D.gold},${D.goldDk})`, color:!rates[cur.value]?D.muted:'#fff', border:'none', fontWeight:800, fontSize:12, cursor:!rates[cur.value]?'not-allowed':'pointer', fontFamily:'DM Sans,sans-serif', whiteSpace:'nowrap', height:42, transition:'all 0.2s' }}>
                         <RefreshCw size={13}/>{t('common.update')}
                       </button>
                     </div>
@@ -546,7 +724,6 @@ export default function SettingsPage() {
               })}
             </div>
           </div>
-
           <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('settings.autoConversion')}</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
@@ -557,9 +734,7 @@ export default function SettingsPage() {
                     <div style={{ width:36, height:36, borderRadius:10, background:D.blue, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:900, fontSize:10, flexShrink:0 }}>{cur.value}</div>
                     <div>
                       <p style={{ fontWeight:700, color:D.blue, fontSize:13, margin:'0 0 4px' }}>{cur.flag} {cur.label}</p>
-                      <p style={{ fontSize:12, color:D.muted, margin:0 }}>
-                        100 {cur.value} = {(100*rate).toLocaleString('fr-HT',{minimumFractionDigits:2})} HTG &nbsp;|&nbsp; 10,000 HTG = {(10000/rate).toFixed(2)} {cur.value}
-                      </p>
+                      <p style={{ fontSize:12, color:D.muted, margin:0 }}>100 {cur.value} = {(100*rate).toLocaleString('fr-HT',{minimumFractionDigits:2})} HTG &nbsp;|&nbsp; 10,000 HTG = {(10000/rate).toFixed(2)} {cur.value}</p>
                     </div>
                   </div>
                 )
@@ -574,22 +749,33 @@ export default function SettingsPage() {
 
       {/* ══ ITILIZATÈ ══ */}
       {activeTab === 'users' && (
-        <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <Users size={16} color={D.blue} />
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.userManagement')}</h3>
+        <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+          {/* Jesyon Itilizatè */}
+          <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <Users size={16} color={D.blue} />
+                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.userManagement')}</h3>
+              </div>
+              <Link to="/app/settings/users" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:12, boxShadow:`0 3px 12px ${D.blue}35` }}>
+                <Users size={13}/> {t('settings.manageUsers')}
+              </Link>
             </div>
-            <Link to="/app/settings/users" style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:12, boxShadow:`0 3px 12px ${D.blue}35` }}>
-              <Users size={13}/> {t('settings.manageUsers')}
-            </Link>
+            <p style={{ color:D.muted, fontSize:13, marginBottom:16 }}>{t('settings.usersDesc')}</p>
+            {settings?.plan && (
+              <div style={{ padding:'12px 16px', background:D.blueDim, border:`1px solid ${D.border}`, borderRadius:12, fontSize:13, color:D.blue, fontWeight:600 }}>
+                {t('settings.planAllows', { plan: settings.plan.name, max: settings.plan.maxUsers })}
+              </div>
+            )}
           </div>
-          <p style={{ color:D.muted, fontSize:13, marginBottom:16 }}>{t('settings.usersDesc')}</p>
-          {settings?.plan && (
-            <div style={{ padding:'12px 16px', background:D.blueDim, border:`1px solid ${D.border}`, borderRadius:12, fontSize:13, color:D.blue, fontWeight:600 }}>
-              {t('settings.planAllows', { plan: settings.plan.name, max: settings.plan.maxUsers })}
-            </div>
-          )}
+
+          {/* Chanje Modpas Ou Menm */}
+          <ChangeMyPassword t={t} />
+
+          {/* Chanje Modpas Yon Itilizatè — Admin sèlman */}
+          {isAdmin && <ChangeUserPassword t={t} />}
+
         </div>
       )}
 
