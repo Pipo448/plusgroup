@@ -102,6 +102,7 @@ model SubscriptionPlan {
   nameEn       String?  @map("name_en") @db.VarChar(100)
   maxUsers     Int      @default(5) @map("max_users")
   maxProducts  Int      @default(500) @map("max_products")
+  maxBranches  Int      @default(1) @map("max_branches")
   priceMonthly Decimal  @map("price_monthly") @db.Decimal(10, 2)
   priceAnnual  Decimal? @map("price_annual") @db.Decimal(10, 2)
   features     Json     @default("[]")
@@ -123,7 +124,6 @@ model Tenant {
   id                  String          @id @default(uuid())
   name                String          @db.VarChar(200)
   slug                String          @unique @db.VarChar(100)
-  // ✅ FIX: @db.Text — aksepte base64 ki ka 500KB+
   logoUrl             String?         @map("logo_url") @db.Text
   primaryColor        String?         @default("#1E40AF") @map("primary_color") @db.VarChar(7)
   address             String?
@@ -152,6 +152,7 @@ model Tenant {
   creator           SuperAdmin?          @relation(fields: [createdBy], references: [id])
   subscriptions     TenantSubscription[]
   users             User[]
+  branches          Branch[]
   productCategories ProductCategory[]
   products          Product[]
   clients           Client[]
@@ -188,6 +189,52 @@ model TenantSubscription {
 }
 
 // ============================================================
+// BRANCHES (BIZNIS / ZÒN) — NOUVO
+// ============================================================
+
+model Branch {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String   @db.VarChar(200)
+  slug        String   @db.VarChar(100)
+  description String?
+  address     String?
+  phone       String?  @db.VarChar(50)
+  email       String?  @db.VarChar(150)
+  isActive    Boolean  @default(false) @map("is_active")
+  // isActive = false → bloke (pou debloke, admin peye)
+  unlockedAt  DateTime? @map("unlocked_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchUsers    BranchUser[]
+  products       Product[]
+  clients        Client[]
+  quotes         Quote[]
+  invoices       Invoice[]
+  stockMovements StockMovement[]
+
+  @@unique([tenantId, slug])
+  @@map("branches")
+}
+
+model BranchUser {
+  id        String    @id @default(uuid())
+  branchId  String    @map("branch_id")
+  userId    String    @map("user_id")
+  role      UserRole  @default(cashier)
+  isAdmin   Boolean   @default(false) @map("is_admin")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, userId])
+  @@map("branch_users")
+}
+
+// ============================================================
 // USERS
 // ============================================================
 
@@ -206,11 +253,13 @@ model User {
   lastLoginAt          DateTime?       @map("last_login_at")
   passwordResetToken   String?         @map("password_reset_token")
   passwordResetExpires DateTime?       @map("password_reset_expires")
+  passwordChangedAt    DateTime?       @map("password_changed_at")
   createdBy            String?         @map("created_by")
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchUsers       BranchUser[]
   products          Product[]
   clients           Client[]
   quotesCreated     Quote[]         @relation("QuoteCreatedBy")
@@ -251,6 +300,7 @@ model ProductCategory {
 model Product {
   id             String   @id @default(uuid())
   tenantId       String   @map("tenant_id")
+  branchId       String?  @map("branch_id")
   categoryId     String?  @map("category_id")
   code           String?  @db.VarChar(100)
   name           String   @db.VarChar(200)
@@ -271,6 +321,7 @@ model Product {
   updatedAt      DateTime @updatedAt @map("updated_at")
 
   tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch         Branch?          @relation(fields: [branchId], references: [id], onDelete: SetNull)
   category       ProductCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   creator        User?            @relation(fields: [createdBy], references: [id])
   quoteItems     QuoteItem[]
@@ -288,6 +339,7 @@ model Product {
 model Client {
   id                String          @id @default(uuid())
   tenantId          String          @map("tenant_id")
+  branchId          String?         @map("branch_id")
   clientType        String          @default("individual") @map("client_type") @db.VarChar(20)
   name              String          @db.VarChar(200)
   companyName       String?         @map("company_name") @db.VarChar(200)
@@ -307,6 +359,7 @@ model Client {
   updatedAt         DateTime        @updatedAt @map("updated_at")
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch   Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
   creator  User?     @relation(fields: [createdBy], references: [id])
   quotes   Quote[]
   invoices Invoice[]
@@ -321,6 +374,7 @@ model Client {
 model Quote {
   id                   String          @id @default(uuid())
   tenantId             String          @map("tenant_id")
+  branchId             String?         @map("branch_id")
   quoteNumber          String          @map("quote_number") @db.VarChar(50)
   clientId             String?         @map("client_id")
   clientSnapshot       Json            @map("client_snapshot")
@@ -349,6 +403,7 @@ model Quote {
   updatedAt            DateTime        @updatedAt @map("updated_at")
 
   tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch?     @relation(fields: [branchId], references: [id], onDelete: SetNull)
   client  Client?     @relation(fields: [clientId], references: [id], onDelete: SetNull)
   creator User?       @relation("QuoteCreatedBy", fields: [createdBy], references: [id])
   items   QuoteItem[]
@@ -388,6 +443,7 @@ model QuoteItem {
 model Invoice {
   id               String          @id @default(uuid())
   tenantId         String          @map("tenant_id")
+  branchId         String?         @map("branch_id")
   invoiceNumber    String          @map("invoice_number") @db.VarChar(50)
   quoteId          String          @unique @map("quote_id")
   clientId         String?         @map("client_id")
@@ -423,6 +479,7 @@ model Invoice {
   updatedAt        DateTime        @updatedAt @map("updated_at")
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
   quote     Quote         @relation(fields: [quoteId], references: [id])
   client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   creator   User?         @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
@@ -492,6 +549,7 @@ model Payment {
 model StockMovement {
   id             String            @id @default(uuid())
   tenantId       String            @map("tenant_id")
+  branchId       String?           @map("branch_id")
   productId      String            @map("product_id")
   movementType   StockMovementType @map("movement_type")
   referenceId    String?           @map("reference_id")
@@ -505,6 +563,7 @@ model StockMovement {
   createdAt      DateTime          @default(now()) @map("created_at")
 
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch  Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   creator User?   @relation(fields: [createdBy], references: [id])
 

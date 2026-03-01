@@ -27,6 +27,7 @@ const invoiceRoutes = require('./modules/invoices/invoice.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
 const reportRoutes  = require('./modules/reports/report.routes');
+const branchRoutes = require('./modules/branches/branch.routes')
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -144,6 +145,7 @@ app.use(`${API}/invoices`, invoiceRoutes);
 app.use(`${API}/payments`, paymentRoutes);
 app.use(`${API}/stock`, stockRoutes);
 app.use(`${API}/reports`, reportRoutes);
+app.use(`${API}/branches`, branchRoutes);
 
 // 404 & Error handlers
 app.use(notFound);
