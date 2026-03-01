@@ -11,6 +11,11 @@ import {
   BarChart3,
   Settings,
   ChevronRight,
+  GitBranch,
+  CreditCard,
+  Smartphone,
+  Phone,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
@@ -20,15 +25,22 @@ const BASE_URL = (import.meta.env.VITE_API_URL || '').replace('/api/v1', '');
 
 const Sidebar = () => {
   const { t } = useTranslation();
-  const { tenant } = useAuth();
+  const { tenant, user } = useAuth();
   const location = useLocation();
 
   // ✅ Fonction pou konstwi URL logo a kòrèkteman
   const getLogoUrl = (logoUrl) => {
     if (!logoUrl) return null;
-    if (logoUrl.startsWith('http')) return logoUrl; // deja yon URL konplè
-    return `${BASE_URL}${logoUrl}`;                 // ajoute base URL devan
+    if (logoUrl.startsWith('http')) return logoUrl;
+    return `${BASE_URL}${logoUrl}`;
   };
+
+  // Verifye si itilizatè a se admin
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true;
+
+  // Verifye si plan se Antepriz
+  const planName = tenant?.plan?.name || '';
+  const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(planName);
 
   const menuItems = [
     {
@@ -81,6 +93,36 @@ const Sidebar = () => {
     },
   ];
 
+  // Seksyon Branch — admin sèlman
+  const branchItem = {
+    path: '/branches',
+    icon: GitBranch,
+    label: t('nav.branches') || 'Branches',
+    color: '#C9A84C',
+  };
+
+  // Seksyon Antepriz — tout plan wè yo (lock si pa Antepriz)
+  const enterpriseItems = [
+    {
+      path: '/kane',
+      icon: CreditCard,
+      label: t('nav.kane') || 'Ti Kanè Kès',
+      color: '#C9A84C',
+    },
+    {
+      path: '/sabotay',
+      icon: Smartphone,
+      label: t('nav.sabotay') || 'Sabotay',
+      color: '#38bdf8',
+    },
+    {
+      path: '/mobilpay',
+      icon: Phone,
+      label: t('nav.mobilpay') || 'MonCash / NatCash',
+      color: '#a78bfa',
+    },
+  ];
+
   return (
     <aside className="sidebar">
       {/* Logo */}
@@ -91,13 +133,11 @@ const Sidebar = () => {
             alt={tenant.name}
             className="sidebar-logo"
             onError={(e) => {
-              // ✅ Si imaj la pa chaje, montre placeholder a
               e.currentTarget.style.display = 'none';
               e.currentTarget.nextSibling.style.display = 'flex';
             }}
           />
         ) : null}
-        {/* Placeholder — parèt si logo pa chaje oswa pa egziste */}
         <div
           className="sidebar-logo-placeholder"
           style={{ display: tenant?.logoUrl ? 'none' : 'flex' }}
@@ -110,7 +150,7 @@ const Sidebar = () => {
         </div>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation prensipal */}
       <nav className="sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
@@ -121,19 +161,69 @@ const Sidebar = () => {
               key={item.path}
               to={item.path}
               className={`sidebar-link ${isActive ? 'active' : ''}`}
-              style={
-                {
-                  '--item-color': item.color,
-                } as React.CSSProperties
-              }
+              style={{ '--item-color': item.color } as React.CSSProperties}
             >
               <div className="sidebar-link-icon">
                 <Icon size={20} />
               </div>
               <span className="sidebar-link-label">{item.label}</span>
-              {isActive && (
-                <ChevronRight className="sidebar-link-arrow" size={16} />
+              {isActive && <ChevronRight className="sidebar-link-arrow" size={16} />}
+              {isActive && <div className="sidebar-link-active-bar" />}
+            </NavLink>
+          );
+        })}
+
+        {/* ── Branch (admin sèlman) */}
+        {isAdmin && (() => {
+          const isActive = location.pathname === branchItem.path;
+          const Icon = branchItem.icon;
+          return (
+            <NavLink
+              to={branchItem.path}
+              className={`sidebar-link ${isActive ? 'active' : ''}`}
+              style={{ '--item-color': branchItem.color } as React.CSSProperties}
+            >
+              <div className="sidebar-link-icon">
+                <Icon size={20} />
+              </div>
+              <span className="sidebar-link-label">{branchItem.label}</span>
+              {isActive && <ChevronRight className="sidebar-link-arrow" size={16} />}
+              {isActive && <div className="sidebar-link-active-bar" />}
+            </NavLink>
+          );
+        })()}
+
+        {/* ── Seksyon Antepriz */}
+        <div className="sidebar-section-divider">
+          <span className="sidebar-section-label">
+            {isEnterprise ? '✦ ANTEPRIZ' : '✦ ANTEPRIZ'}
+          </span>
+        </div>
+
+        {enterpriseItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = location.pathname === item.path;
+          const locked = !isEnterprise;
+
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              className={`sidebar-link ${isActive ? 'active' : ''} ${locked ? 'sidebar-link-locked' : ''}`}
+              style={{ '--item-color': locked ? '#334155' : item.color } as React.CSSProperties}
+            >
+              <div className="sidebar-link-icon">
+                <Icon size={20} />
+              </div>
+              <span className="sidebar-link-label">{item.label}</span>
+              {/* Montre kle si pa Antepriz */}
+              {locked && (
+                <Lock
+                  size={12}
+                  style={{ marginLeft: 'auto', color: '#475569', flexShrink: 0 }}
+                />
               )}
+              {isActive && !locked && <ChevronRight className="sidebar-link-arrow" size={16} />}
               {isActive && <div className="sidebar-link-active-bar" />}
             </NavLink>
           );
@@ -142,8 +232,31 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className="sidebar-footer">
+        {/* Badge plan aktyèl */}
+        <div style={{
+          padding: '6px 10px',
+          borderRadius: 8,
+          background: isEnterprise ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${isEnterprise ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.08)'}`,
+          marginBottom: 8,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 11, color: isEnterprise ? '#C9A84C' : '#475569', fontWeight: 600 }}>
+            {planName || 'Free'}
+          </span>
+          {!isEnterprise && (
+            <NavLink
+              to="/settings/billing"
+              style={{ fontSize: 10, color: '#C9A84C', textDecoration: 'none', fontWeight: 700 }}
+            >
+              Upgrade →
+            </NavLink>
+          )}
+        </div>
         <div className="sidebar-version">
-          <span>v1.0.0</span>
+          <span>v2.0.0</span>
         </div>
       </div>
     </aside>
