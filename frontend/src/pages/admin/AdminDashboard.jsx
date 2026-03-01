@@ -80,7 +80,8 @@ const STATUS_STYLES = {
 // ══════════════════════════════════════════════
 // AXIOS — ✅ ENPÒTAN: adminApi LOCAL (Bearer pg-admin token)
 // ══════════════════════════════════════════════
-const adminApi = axios.create({ baseURL: '/api/v1', timeout: 15000 })
+// ✅ FIX — URL konplè backend
+const adminApi = axios.create({ baseURL: 'https://plusgroup-backend.onrender.com/api/v1', timeout: 15000 })
 adminApi.interceptors.request.use((config) => {
   try {
     const { token } = JSON.parse(localStorage.getItem('pg-admin') || '{}')
