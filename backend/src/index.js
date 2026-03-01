@@ -58,7 +58,6 @@ app.use(cors({
 }));
 
 // ✅ FIX CLOUDFLARE CACHE — Tout /api/* routes pa dwe cache
-// Rezoud pwoblèm kote Cloudflare retounen HTML olye JSON
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
   res.set('Pragma', 'no-cache')
@@ -73,11 +72,12 @@ app.use(rateLimit({
   message: { success: false, message: 'Twòp demann. Tanpri tann yon ti tan.' }
 }));
 
-// Rate limiting strict pour auth
+// ✅ FIX — Rate limiting auth: max 20, sèlman echèk konte
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { success: false, message: 'Twòp tantativ. Tann 15 minit.' }
+  max: 20,                       // ← te 10, kounye a 20
+  skipSuccessfulRequests: true,  // ← NOUVO: login reyisi pa konte
+  message: { success: false, message: 'Twòp tantativ echèk. Tann 15 minit.' }
 });
 
 // Body parsing
