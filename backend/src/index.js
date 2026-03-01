@@ -40,22 +40,31 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
-// ✅ CORS KORIJE - Aksepte frontend production
+// ✅ CORS — Aksepte frontend production
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://localhost:5173',
-    'https://plusgroup-frontend.onrender.com',  // Render frontend
-    'https://app.plusgroupe.com',               // ← AJOUTE: Custom domain
-    'https://plusgroupe.com',                   // ← AJOUTE: Root domain
-    /\.plusgroupe\.com$/,                       // ← AJOUTE: Tout sous-domèn plusgroupe.com
-    /\.plusinnovation\.ht$/,                    // Sous-domèn .ht
-    /\.onrender\.com$/                          // Tout apps Render
+    'https://plusgroup-frontend.onrender.com',
+    'https://app.plusgroupe.com',
+    'https://plusgroupe.com',
+    /\.plusgroupe\.com$/,
+    /\.plusinnovation\.ht$/,
+    /\.onrender\.com$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug']
 }));
+
+// ✅ FIX CLOUDFLARE CACHE — Tout /api/* routes pa dwe cache
+// Rezoud pwoblèm kote Cloudflare retounen HTML olye JSON
+app.use('/api', (req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+  res.set('Pragma', 'no-cache')
+  res.set('Expires', '0')
+  next()
+})
 
 // Rate limiting global
 app.use(rateLimit({
@@ -102,7 +111,6 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       setupSuperAdmin: '/api/v1/admin/setup-superadmin',
-      setupDemo: '/api/v1/admin/setup-demo',
       admin: '/api/v1/admin/*',
       auth: '/api/v1/auth/*'
     }
