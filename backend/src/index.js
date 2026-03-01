@@ -27,7 +27,10 @@ const invoiceRoutes = require('./modules/invoices/invoice.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
 const reportRoutes  = require('./modules/reports/report.routes');
-const branchRoutes = require('./modules/branches/branch.routes')
+const branchRoutes  = require('./modules/branches/branch.routes');
+
+// ✅ Enterprise routes (Plan Antepriz sèlman)
+const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
@@ -107,13 +110,18 @@ app.get('/', (req, res) => {
   res.json({
     success: true,
     app: 'PLUS GROUP — Innov@tion & Tech SaaS API',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
     endpoints: {
-      health: '/health',
+      health:          '/health',
       setupSuperAdmin: '/api/v1/admin/setup-superadmin',
-      admin: '/api/v1/admin/*',
-      auth: '/api/v1/auth/*'
+      admin:           '/api/v1/admin/*',
+      auth:            '/api/v1/auth/*',
+      branches:        '/api/v1/branches/*',
+      kane:            '/api/v1/kane/*',
+      sabotay:         '/api/v1/sabotay/*',
+      moncash:         '/api/v1/moncash/*',
+      natcash:         '/api/v1/natcash/*',
     }
   });
 });
@@ -123,7 +131,7 @@ app.get('/health', (req, res) => {
   res.json({
     success: true,
     app: 'PLUS GROUP — Innov@tion & Tech SaaS API',
-    version: process.env.APP_VERSION || '1.0.0',
+    version: process.env.APP_VERSION || '2.0.0',
     status: 'running',
     timestamp: new Date().toISOString()
   });
@@ -136,16 +144,22 @@ app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/auth`, authLimiter, authRoutes);
 
 // Routes protégées (nécessitent tenant + user auth)
-app.use(`${API}/tenant`, tenantRoutes);
-app.use(`${API}/users`, userRoutes);
+app.use(`${API}/tenant`,   tenantRoutes);
+app.use(`${API}/users`,    userRoutes);
 app.use(`${API}/products`, productRoutes);
-app.use(`${API}/clients`, clientRoutes);
-app.use(`${API}/quotes`, quoteRoutes);
+app.use(`${API}/clients`,  clientRoutes);
+app.use(`${API}/quotes`,   quoteRoutes);
 app.use(`${API}/invoices`, invoiceRoutes);
 app.use(`${API}/payments`, paymentRoutes);
-app.use(`${API}/stock`, stockRoutes);
-app.use(`${API}/reports`, reportRoutes);
+app.use(`${API}/stock`,    stockRoutes);
+app.use(`${API}/reports`,  reportRoutes);
 app.use(`${API}/branches`, branchRoutes);
+
+// ✅ Enterprise routes (Plan Antepriz sèlman — pwoteje pa requireEnterprise)
+app.use(`${API}/kane`,    kaneRouter);
+app.use(`${API}/sabotay`, sabotayRouter);
+app.use(`${API}/moncash`, moncashRouter);
+app.use(`${API}/natcash`, natcashRouter);
 
 // 404 & Error handlers
 app.use(notFound);
