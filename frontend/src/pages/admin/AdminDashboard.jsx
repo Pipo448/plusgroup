@@ -113,109 +113,6 @@ const TickerBanner = () => {
 }
 
 // ══════════════════════════════════════════════
-// MODAL PEMAN
-// ══════════════════════════════════════════════
-const PaymentModal = ({ tenant, onClose }) => {
-  const isMobile = useIsMobile()
-  const [step, setStep]       = useState(1)
-  const [method, setMethod]   = useState(null)
-  const [form, setForm]       = useState({ accountNumber:'', fullName:'' })
-  const [preview, setPreview] = useState(null)
-  const [sending, setSending] = useState(false)
-
-  const handleFile = (e) => {
-    const f = e.target.files[0]; if (!f) return
-    const reader = new FileReader()
-    reader.onload = ev => setPreview(ev.target.result)
-    reader.readAsDataURL(f)
-  }
-
-  const handleSend = async () => {
-    if (!form.accountNumber || !form.fullName) { alert('Ranpli tout chan yo!'); return }
-    setSending(true)
-    const msg = encodeURIComponent(`🏢 *PLUS GROUP — Demann Renouvèlman*\n\n📋 *Entreprise:* ${tenant?.name||'N/A'}\n💳 *Metòd:* ${method?.label}\n👤 *Non:* ${form.fullName}\n📞 *Kont:* ${form.accountNumber}\n📅 *Dat:* ${new Date().toLocaleDateString('fr-FR')}\n\n📸 Screenshot a ap swiv.\n✅ Mèsi!`)
-    await new Promise(r => setTimeout(r, 1200))
-    setSending(false); setStep(3)
-    setTimeout(() => window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank'), 1500)
-  }
-
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)', zIndex:200,
-      display:'flex', alignItems: isMobile?'flex-end':'center', justifyContent:'center', padding: isMobile?0:16
-    }} onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:'linear-gradient(160deg, #0f1923, #0d1117)', borderRadius: isMobile?'20px 20px 0 0':24,
-        width:'100%', maxWidth: isMobile?'100%':460, maxHeight:'92vh', overflowY:'auto',
-        border:'1px solid rgba(201,168,76,0.25)', position:'relative' }}>
-        <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background:'linear-gradient(90deg, transparent, #C9A84C 40%, #8B0000 70%, transparent)' }}/>
-        <div style={{ padding:'22px 24px 18px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <div style={{ width:38, height:38, borderRadius:10, background:'linear-gradient(135deg, #C9A84C, #8B0000)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <CreditCard size={18} color="#fff"/>
-            </div>
-            <div>
-              <h3 style={{ color:'#fff', margin:0, fontSize:15, fontFamily:"'Playfair Display'", fontWeight:700 }}>Renouvle Abònman</h3>
-              <p style={{ color:'rgba(201,168,76,0.5)', fontSize:10, margin:0 }}>{step===1?'Chwazi metòd':step===2?`Via ${method?.label}`:'Voye!'}</p>
-            </div>
-          </div>
-          <button onClick={onClose} style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.4)' }}><X size={14}/></button>
-        </div>
-        <div style={{ padding:24 }}>
-          {step===1 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {PAYMENT_METHODS.map(m => (
-                <button key={m.id} onClick={() => { setMethod(m); setStep(2) }}
-                  style={{ padding:'14px 18px', borderRadius:14, cursor:'pointer', background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', color:'#fff', textAlign:'left', display:'flex', alignItems:'center', gap:14 }}>
-                  <div style={{ width:42, height:42, borderRadius:12, background:`${m.color}22`, border:`1px solid ${m.color}44`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:22, flexShrink:0 }}>{m.logo}</div>
-                  <div style={{ flex:1 }}>
-                    <p style={{ fontWeight:700, fontSize:14, margin:'0 0 2px', fontFamily:'DM Sans' }}>{m.label}</p>
-                    <p style={{ fontSize:11, color:'rgba(255,255,255,0.35)', margin:0 }}>{m.info}</p>
-                  </div>
-                  <ChevronRight size={16} color="rgba(255,255,255,0.3)"/>
-                </button>
-              ))}
-            </div>
-          )}
-          {step===2 && (
-            <div>
-              <button onClick={() => setStep(1)} style={{ background:'transparent', border:'none', color:'rgba(201,168,76,0.7)', cursor:'pointer', fontSize:12, padding:0, marginBottom:16, display:'flex', alignItems:'center', gap:4 }}>← Tounen</button>
-              <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-                {['fullName','accountNumber'].map(f => (
-                  <div key={f}>
-                    <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em' }}>{f==='fullName'?'Non Konplè *':'Nimewo Kont *'}</label>
-                    <input value={form[f]} onChange={e => setForm(p => ({ ...p, [f]:e.target.value }))}
-                      placeholder={f==='fullName'?'Jean Pierre Baptiste':'509-XXXX-XXXX'}
-                      style={{ width:'100%', padding:'11px 14px', borderRadius:10, boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', color:'#fff', fontSize:16, fontFamily:'DM Sans', outline:'none' }}/>
-                  </div>
-                ))}
-                <div>
-                  <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em' }}>Screenshot *</label>
-                  <label style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:'20px', borderRadius:12, cursor:'pointer', background: preview?'transparent':'rgba(255,255,255,0.03)', border:`2px dashed ${preview?'rgba(201,168,76,0.5)':'rgba(255,255,255,0.12)'}`, minHeight:100 }}>
-                    <input type="file" accept="image/*" onChange={handleFile} style={{ display:'none' }}/>
-                    {preview ? <img src={preview} alt="preview" style={{ width:'100%', maxHeight:180, objectFit:'contain', borderRadius:8 }}/> : <><span style={{ fontSize:32, marginBottom:8 }}>📸</span><p style={{ color:'rgba(255,255,255,0.4)', fontSize:12, margin:0 }}>Klike pou chwazi</p></>}
-                  </label>
-                </div>
-              </div>
-              <button onClick={handleSend} disabled={sending}
-                style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', cursor:sending?'not-allowed':'pointer', background:sending?'rgba(201,168,76,0.3)':'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)', color:'#fff', fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-                {sending?<><div style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Ap voye...</>:<>📤 Voye sou WhatsApp</>}
-              </button>
-            </div>
-          )}
-          {step===3 && (
-            <div style={{ textAlign:'center', padding:'10px 0' }}>
-              <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
-              <h3 style={{ color:'#27ae60', fontFamily:"'Playfair Display'", margin:'0 0 8px' }}>Demann Voye!</h3>
-              <p style={{ color:'rgba(255,255,255,0.5)', fontSize:13, lineHeight:1.6, margin:'0 0 20px' }}>Kontakte nou sou <strong style={{ color:'#C9A84C' }}>+509 4244 9024</strong></p>
-              <button onClick={onClose} style={{ padding:'10px 28px', borderRadius:10, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:13 }}>Fèmen</button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ══════════════════════════════════════════════
 // MODAL KREYE TENANT
 // ══════════════════════════════════════════════
 const CreateTenantModal = ({ plans, onClose, onCreated }) => {
@@ -569,7 +466,6 @@ export default function AdminDashboard() {
   const [showCreate,  setShowCreate]  = useState(false)
   const [changePlanT, setChangePlanT] = useState(null)
   const [deleteT,     setDeleteT]     = useState(null)
-  const [showPayment, setShowPayment] = useState(false)
   const { admin } = getAdmin()
 
   if (!localStorage.getItem('pg-admin')) { navigate('/admin/login'); return null }
@@ -636,11 +532,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-          {isMobile && (
-            <button onClick={() => setShowPayment(true)} style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, background:'linear-gradient(135deg, #C9A84C, #f0d080)', color:'#0a0a0f', border:'none', cursor:'pointer', fontSize:11, fontWeight:800 }}>
-              <CreditCard size={12}/> Peye
-            </button>
-          )}
+          
           <button onClick={handleLogout} style={{ background:'rgba(139,0,0,0.15)', border:'1px solid rgba(139,0,0,0.3)', borderRadius:10, padding: isMobile?'7px 10px':'8px 16px', cursor:'pointer', color:'rgba(232,131,106,0.8)', display:'flex', alignItems:'center', gap: isMobile?0:6, fontSize:12, fontWeight:600 }}>
             <LogOut size={14}/>{!isMobile&&' Dekonekte'}
           </button>
@@ -794,7 +686,6 @@ export default function AdminDashboard() {
       </main>
 
       {/* MODALS */}
-      {showPayment  && <PaymentModal tenant={tenantsData?.tenants?.[0]} onClose={() => setShowPayment(false)}/>}
       {showCreate   && <CreateTenantModal plans={plans} onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); invalidateAll() }}/>}
       {changePlanT  && <ChangePlanModal tenant={changePlanT} plans={plans} onClose={() => setChangePlanT(null)} onChanged={invalidateAll}/>}
       {deleteT      && <DeleteModal tenant={deleteT} onClose={() => setDeleteT(null)} onDeleted={() => { setDeleteT(null); invalidateAll() }}/>}
