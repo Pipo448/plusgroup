@@ -26,7 +26,6 @@ const identifyTenant = asyncHandler(async (req, res, next) => {
       id: true, name: true, slug: true, status: true,
       logoUrl: true, primaryColor: true,
       defaultCurrency: true, defaultLanguage: true,
-      // ✅ Champ ki te manke yo — pou resi + header
       phone: true,
       address: true,
       exchangeRate: true,
@@ -106,7 +105,8 @@ const authenticate = asyncHandler(async (req, res, next) => {
     select: {
       id: true, tenantId: true, fullName: true,
       email: true, role: true, permissions: true,
-      preferredLang: true, avatarUrl: true
+      preferredLang: true, avatarUrl: true,
+      passwordChangedAt: true   // ✅ Bezwen pou verifye si token la toujou valid
     }
   });
 
@@ -117,7 +117,25 @@ const authenticate = asyncHandler(async (req, res, next) => {
     });
   }
 
-  req.user = user;
+  // ✅ VERIFYE: Si admin chanje modpas APRE token la te kreye → dekonekte
+  // decoded.iat = timestamp kreye token (an segond)
+  // passwordChangedAt = dat dènye chanjman modpas
+  if (user.passwordChangedAt) {
+    const tokenIssuedAt = decoded.iat * 1000; // konvèti an milisegond
+    const pwChangedAt   = new Date(user.passwordChangedAt).getTime();
+
+    if (pwChangedAt > tokenIssuedAt) {
+      return res.status(401).json({
+        success: false,
+        message: 'Modpas chanje. Konekte ankò ak nouvo modpas ou.',
+        passwordChanged: true   // ← frontend ka detekte sa espesyalman
+      });
+    }
+  }
+
+  // Retire passwordChangedAt anvan pase user nan req (pa voye bay client)
+  const { passwordChangedAt, ...safeUser } = user;
+  req.user = safeUser;
   next();
 });
 
