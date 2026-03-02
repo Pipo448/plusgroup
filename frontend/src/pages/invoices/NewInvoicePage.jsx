@@ -207,21 +207,53 @@ export default function NewInvoicePage() {
       toast.error(t('invoice.addAtLeastOneItem') || 'Ajoute omwen yon atik.')
       return
     }
+
+    // Kalkile chak liy
+    const mappedItems = validItems.map(it => {
+      const qty         = Number(it.qty)
+      const unitPrice   = Number(it.unitPrice)
+      const discPct     = Number(it.discount || 0)
+      const lineTotal   = qty * unitPrice * (1 - discPct / 100)
+      return {
+        description:  it.description,
+        productId:    it.productId || null,
+        quantity:     qty,                  // ✅ backend atann "quantity"
+        unitPriceHtg: unitPrice,
+        unitPriceUsd: 0,
+        discountPct:  discPct,
+        totalHtg:     lineTotal,
+        totalUsd:     0,
+        productSnapshot: {},
+      }
+    })
+
+    // Kalkile totò
+    const sub      = mappedItems.reduce((a, it) => a + it.totalHtg, 0)
+    const discAmt  = sub * (Number(discountGlobal) / 100)
+    const afterDis = sub - discAmt
+    const taxAmt   = afterDis * (Number(taxRate) / 100)
+    const total    = afterDis + taxAmt
+
     mutation.mutate({
-      clientId:    selectedClient?.id || null,
-      issueDate:   invoiceDate,
-      dueDate:     dueDate || null,
-      taxRate:     Number(taxRate),
-      discount:    Number(discountGlobal),
+      clientId:      selectedClient?.id || null,
+      issueDate:     invoiceDate,
+      dueDate:       dueDate || null,
+      currency:      'HTG',
+      exchangeRate:  0,
+      subtotalHtg:   sub,
+      subtotalUsd:   0,
+      discountType:  'percent',
+      discountValue: Number(discountGlobal),
+      discountHtg:   discAmt,
+      discountUsd:   0,
+      taxRate:       Number(taxRate),
+      taxHtg:        taxAmt,
+      taxUsd:        0,
+      totalHtg:      total,
+      totalUsd:      0,
       notes,
       terms,
-      items: validItems.map(it => ({
-        description: it.description,
-        productId:   it.productId || null,
-        qty:         Number(it.qty),
-        unitPriceHtg: Number(it.unitPrice),
-        discountPct: Number(it.discount || 0),
-      })),
+      items: mappedItems,
     })
   }
 
