@@ -119,7 +119,12 @@ export const invoiceAPI = {
 // ── Stock
 export const stockAPI = {
   getMovements: (p)    => api.get('/stock/movements', { params: p }),
-  addMovement:  (data) => api.post('/stock/movements', data),
+  addMovement:  (data) => {
+    if (data.type === 'purchase') {
+      return api.post('/stock/purchase', data)
+    }
+    return api.post('/stock/adjust', data)
+  },
 }
 
 // ── Reports
