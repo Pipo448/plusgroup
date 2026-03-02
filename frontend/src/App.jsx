@@ -24,6 +24,9 @@ import KanePage        from './pages/enterprise/KanePage'
 import SabotayPage     from './pages/enterprise/SabotayPage'
 import MobilPayPage    from './pages/enterprise/MobilPayPage'
 
+// ✅ Plans Page
+import PlansPage from './pages/plans/PlansPage'
+
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
     <div style={{ width:40, height:40, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -85,6 +88,9 @@ export default function App() {
           <Route path="settings"         element={<SettingsPage />} />
           <Route path="settings/users"   element={<UsersPage />} />
 
+          {/* ✅ Plans */}
+          <Route path="plans"            element={<PlansPage />} />
+
           {/* ✅ Branch Management */}
           <Route path="branches"         element={<BranchAdminPage />} />
 
@@ -108,6 +114,7 @@ export default function App() {
         <Route path="/kane"           element={<Navigate to="/app/kane"      replace />} />
         <Route path="/sabotay"        element={<Navigate to="/app/sabotay"   replace />} />
         <Route path="/mobilpay"       element={<Navigate to="/app/mobilpay"  replace />} />
+        <Route path="/plans"          element={<Navigate to="/app/plans"     replace />} />
 
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
