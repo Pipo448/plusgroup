@@ -17,6 +17,7 @@ import SettingsPage   from './pages/settings/SettingsPage'
 import UsersPage      from './pages/settings/UsersPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import NewInvoicePage from './pages/invoices/NewInvoicePage'
 
 // ✅ Paj Enterprise + Branch
 import BranchAdminPage from './pages/branches/BranchAdminPage'
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="reports"          element={<ReportsPage />} />
           <Route path="settings"         element={<SettingsPage />} />
           <Route path="settings/users"   element={<UsersPage />} />
+          <Route path="/app/invoices/new" element={<NewInvoicePage />} />
 
           {/* ✅ Plans */}
           <Route path="plans"            element={<PlansPage />} />
