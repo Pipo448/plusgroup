@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { Search, Receipt, Eye, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Receipt, Eye, ChevronLeft, ChevronRight, Plus, FileText } from 'lucide-react'
 import { format } from 'date-fns'
 
 const D = {
@@ -18,6 +18,7 @@ const D = {
   text:'#0F1A5C', muted:'#6B7AAB',
   success:'#059669', successBg:'rgba(5,150,105,0.08)',
   warning:'#D97706', warningBg:'rgba(217,119,6,0.10)',
+  orange:'#FF6B00', orangeLt:'#FF8C33',
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -58,8 +59,9 @@ export default function InvoicesPage() {
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates     || {}
   const visibleCurrs  = tenant?.visibleCurrencies  || []
+  // ✅ Si requireQuote = false → biznis ka kreye fakti direk
+  const requireQuote  = tenant?.requireQuote === true
 
-  // STATUS_MAP itilize traduksyon dinamik
   const STATUS_MAP = {
     unpaid:    { label: t('invoices.unpaid'),    color: D.red,     bg: D.redDim },
     partial:   { label: t('invoices.partial'),   color: D.warning, bg: D.warningBg },
@@ -88,6 +90,40 @@ export default function InvoicesPage() {
             <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{data?.total || 0} {t('invoices.total')}</p>
           </div>
         </div>
+
+        {/* ✅ Bouton Nouvo Fakti — sèlman si requireQuote = false */}
+        {!requireQuote && (
+          <Link
+            to="/app/invoices/new"
+            style={{
+              display:'flex', alignItems:'center', gap:8,
+              padding:'10px 20px', borderRadius:12,
+              background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`,
+              color:'#fff', fontWeight:800, fontSize:14,
+              textDecoration:'none',
+              boxShadow:`0 4px 16px ${D.orange}45`,
+              transition:'transform 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+          >
+            <Plus size={16}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
+          </Link>
+        )}
+
+        {/* ✅ Si requireQuote = true → montre yon ti mesaj eksplika */}
+        {requireQuote && (
+          <div style={{
+            display:'flex', alignItems:'center', gap:8,
+            padding:'10px 16px', borderRadius:12,
+            background:'rgba(27,42,143,0.06)',
+            border:`1px dashed ${D.border}`,
+            color:D.muted, fontSize:12, fontWeight:600,
+          }}>
+            <FileText size={14} color={D.muted}/>
+            {t('invoices.requireQuoteHint') || 'Pase pa Devi → Konvèti pou kreye fakti'}
+          </div>
+        )}
       </div>
 
       {/* Filtres */}
@@ -142,6 +178,12 @@ export default function InvoicesPage() {
             ? <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
                 <Receipt size={32} color={D.blue} style={{ marginBottom:12 }}/>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('invoices.noInvoices')}</p>
+                {/* ✅ Bouton nan empty state tou */}
+                {!requireQuote && (
+                  <Link to="/app/invoices/new" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:16, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
+                    <Plus size={14}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
+                  </Link>
+                )}
               </div>
             : data.invoices.map(inv => {
                 const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
@@ -174,6 +216,12 @@ export default function InvoicesPage() {
                   <Receipt size={32} color={D.blue}/>
                 </div>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('invoices.noInvoices')}</p>
+                {/* ✅ Bouton nan empty state desktop tou */}
+                {!requireQuote && (
+                  <Link to="/app/invoices/new" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:16, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
+                    <Plus size={14}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
+                  </Link>
+                )}
               </div>
             : data.invoices.map((inv, idx) => {
                 const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
