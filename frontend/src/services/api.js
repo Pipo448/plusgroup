@@ -112,7 +112,7 @@ export const quoteAPI = {
 export const invoiceAPI = {
   getAll:     (p)        => api.get('/invoices', { params: p }),
   getOne:     (id)       => api.get(`/invoices/${id}`),
-  addPayment: (id, data) => api.post(`/invoices/${id}/payments`, data),
+  addPayment: (id, data) => api.post(`/invoices/${id}/payment`, data),
   cancel:     (id, data) => api.patch(`/invoices/${id}/cancel`, data),
 }
 
