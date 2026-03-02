@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Warehouse, TrendingUp, Settings, LogOut, Bell,
-  Menu, X, Globe, ChevronDown
+  Menu, X, Globe, ChevronDown,
+  GitBranch, CreditCard, Smartphone, Phone, Lock,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
@@ -18,6 +19,7 @@ const C = {
   red:'#C0392B', redBrt:'#E74C3C',
   white:'#FFFFFF', muted:'rgba(255,255,255,0.55)',
   border:'rgba(245,104,12,0.15)',
+  enterprise: '#C9A84C',
 }
 
 const NAV = [
@@ -28,6 +30,12 @@ const NAV = [
   { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices'  },
   { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock'     },
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
+]
+
+const ENTERPRISE_ITEMS = [
+  { to:'/app/kane',     icon:CreditCard,  label:'Ti Kanè Kès'      },
+  { to:'/app/sabotay',  icon:Smartphone,  label:'Sabotay'           },
+  { to:'/app/mobilpay', icon:Phone,       label:'MonCash / NatCash' },
 ]
 
 const LANGS = [
@@ -49,6 +57,30 @@ const safeJson = (val, fallback) => {
   try { return JSON.parse(val) } catch { return fallback }
 }
 
+// ── Style pou nav link nòmal
+const navLinkStyle = (isActive) => ({
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 12px', borderRadius:10, marginBottom:2,
+  textDecoration:'none', transition:'all 0.2s',
+  background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.22),rgba(245,104,12,0.06))` : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
+  fontWeight: isActive ? 700 : 500, fontSize:13,
+  boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
+})
+
+// ── Style pou nav link Enterprise
+const enterpriseLinkStyle = (isActive, locked) => ({
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 12px', borderRadius:10, marginBottom:2,
+  textDecoration:'none', transition:'all 0.2s',
+  background: isActive && !locked ? `rgba(201,168,76,0.18)` : 'transparent',
+  color: locked ? 'rgba(255,255,255,0.3)' : (isActive ? '#ffffff' : C.muted),
+  border: isActive && !locked ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
+  fontWeight: isActive && !locked ? 700 : 500, fontSize:13,
+  cursor: locked ? 'not-allowed' : 'pointer',
+})
+
 export default function AppLayout() {
   const { user, tenant, token, setAuth, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
@@ -61,6 +93,12 @@ export default function AppLayout() {
   const langRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+
+  // ── Kalkile dwa itilizatè
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true
+  const planName = tenant?.plan?.name || ''
+  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+    .includes(planName.toLowerCase().trim())
 
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
@@ -205,23 +243,32 @@ export default function AppLayout() {
               </p>
             </div>
           </div>
+
+          {/* Badge plan */}
+          <div style={{
+            marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'5px 10px', borderRadius:8,
+            background: isEnterprise ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${isEnterprise ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.08)'}`,
+          }}>
+            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : '#475569', fontWeight:700 }}>
+              {planName || 'Free'}
+            </span>
+            {!isEnterprise && (
+              <NavLink to="/app/settings" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>
+                Upgrade →
+              </NavLink>
+            )}
+          </div>
         </div>
 
-        {/* Navigation */}
+        {/* ══ Navigation ══ */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
+
+          {/* Menu prensipal */}
           {NAV.map(({ to, icon:Icon, labelKey }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}
-              style={({ isActive }) => ({
-                display:'flex', alignItems:'center', gap:10,
-                padding:'9px 12px', borderRadius:10, marginBottom:2,
-                textDecoration:'none', transition:'all 0.2s',
-                background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.22),rgba(245,104,12,0.06))` : 'transparent',
-                color: isActive ? '#ffffff' : C.muted,
-                borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
-                fontWeight: isActive ? 700 : 500, fontSize:13,
-                border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
-                boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
-              })}>
+              style={({ isActive }) => navLinkStyle(isActive)}>
               {({ isActive }) => (
                 <>
                   <Icon size={16} style={{ flexShrink:0, color: isActive ? C.gold : C.muted, filter: isActive ? 'drop-shadow(0 0 4px rgba(245,104,12,0.6))' : 'none' }}/>
@@ -231,9 +278,71 @@ export default function AppLayout() {
               )}
             </NavLink>
           ))}
+
+          {/* ── Branches (admin sèlman) */}
+          {isAdmin && (
+            <NavLink to="/app/branches" onClick={() => setOpen(false)}
+              style={({ isActive }) => ({
+                ...navLinkStyle(isActive),
+                background: isActive ? `rgba(201,168,76,0.18)` : 'transparent',
+                border: isActive ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
+              })}>
+              {({ isActive }) => (
+                <>
+                  <GitBranch size={16} style={{ flexShrink:0, color: isActive ? C.enterprise : C.muted }}/>
+                  <span>{t('nav.branches') || 'Branches'}</span>
+                  {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
+                </>
+              )}
+            </NavLink>
+          )}
+
+          {/* ── Divider Antepriz */}
+          <div style={{
+            margin:'10px 4px 6px', paddingTop:10,
+            borderTop:`1px solid rgba(201,168,76,0.18)`,
+            display:'flex', alignItems:'center', gap:8,
+          }}>
+            <span style={{ color: isEnterprise ? C.enterprise : '#334155', fontSize:10, fontWeight:700, letterSpacing:'0.1em' }}>
+              ✦ ANTEPRIZ
+            </span>
+            {isEnterprise && (
+              <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
+            )}
+          </div>
+
+          {/* ── Enterprise Items */}
+          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label }) => {
+            const locked = !isEnterprise
+            return (
+              <NavLink
+                key={to}
+                to={locked ? '#' : to}
+                onClick={(e) => {
+                  if (locked) { e.preventDefault(); return }
+                  setOpen(false)
+                }}
+                style={({ isActive }) => enterpriseLinkStyle(isActive, locked)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <Icon size={16} style={{
+                      flexShrink:0,
+                      color: locked ? '#334155' : (isActive ? C.enterprise : C.muted),
+                    }}/>
+                    <span style={{ color: locked ? '#334155' : undefined }}>{label}</span>
+                    {locked
+                      ? <Lock size={11} style={{ marginLeft:'auto', color:'#334155', flexShrink:0 }}/>
+                      : isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>
+                    }
+                  </>
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
 
-        {/* Settings + User */}
+        {/* ══ Settings + User ══ */}
         <div style={{ padding:'10px 8px', borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <NavLink to="/app/settings" onClick={() => setOpen(false)}
             style={({ isActive }) => ({
@@ -241,9 +350,8 @@ export default function AppLayout() {
               padding:'9px 12px', borderRadius:10, marginBottom:8, textDecoration:'none',
               background: isActive ? `rgba(245,104,12,0.15)` : 'transparent',
               color: isActive ? '#ffffff' : C.muted,
-              borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
-              fontSize:13, fontWeight: isActive ? 700 : 500,
               border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
+              fontSize:13, fontWeight: isActive ? 700 : 500,
             })}>
             {({ isActive }) => (<><Settings size={16} style={{ color: isActive ? C.gold : C.muted }}/><span>{t('nav.settings')}</span></>)}
           </NavLink>
