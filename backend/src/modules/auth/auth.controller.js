@@ -8,7 +8,17 @@ const login = asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email ak modpas obligatwa.' });
   }
   const result = await authService.login(req.tenant.id, email, password);
-  res.json({ success: true, ...result });
+
+  // ✅ KORIJE — Asire tenant nan login response gen plan ladan l
+  res.json({
+    success: true,
+    ...result,
+    tenant: {
+      ...(result.tenant || {}),
+      // Si authService pa retounen plan, pran l nan req.tenant
+      plan: result.tenant?.plan || req.tenant?.plan || null,
+    }
+  });
 });
 
 const logout = asyncHandler(async (req, res) => {
@@ -36,24 +46,24 @@ const getMe = asyncHandler(async (req, res) => {
     success: true,
     user: req.user,
     tenant: {
-      id:                  req.tenant.id,
-      name:                req.tenant.name,
-      slug:                req.tenant.slug,
-      logoUrl:             req.tenant.logoUrl,
-      primaryColor:        req.tenant.primaryColor,
-      defaultCurrency:     req.tenant.defaultCurrency,
-      defaultLanguage:     req.tenant.defaultLanguage,
-      phone:               req.tenant.phone,
-      address:             req.tenant.address,
-      exchangeRate:        req.tenant.exchangeRate,
-      exchangeRates:       req.tenant.exchangeRates,
-      visibleCurrencies:   req.tenant.visibleCurrencies,
-      showExchangeRate:    req.tenant.showExchangeRate,
-      taxRate:             req.tenant.taxRate,
-      receiptSize:         req.tenant.receiptSize,
-      subscriptionEndsAt:  req.tenant.subscriptionEndsAt,
-      showQrCode:          req.tenant.showQrCode,
-      plan:                req.tenant.plan,  // ← AJOUTE SA
+      id:                 req.tenant.id,
+      name:               req.tenant.name,
+      slug:               req.tenant.slug,
+      logoUrl:            req.tenant.logoUrl,
+      primaryColor:       req.tenant.primaryColor,
+      defaultCurrency:    req.tenant.defaultCurrency,
+      defaultLanguage:    req.tenant.defaultLanguage,
+      phone:              req.tenant.phone,
+      address:            req.tenant.address,
+      exchangeRate:       req.tenant.exchangeRate,
+      exchangeRates:      req.tenant.exchangeRates,
+      visibleCurrencies:  req.tenant.visibleCurrencies,
+      showExchangeRate:   req.tenant.showExchangeRate,
+      showQrCode:         req.tenant.showQrCode,
+      taxRate:            req.tenant.taxRate,
+      receiptSize:        req.tenant.receiptSize,
+      subscriptionEndsAt: req.tenant.subscriptionEndsAt,
+      plan:               req.tenant.plan,  // ✅ plan toujou la
     }
   });
 });

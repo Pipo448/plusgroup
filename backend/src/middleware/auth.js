@@ -32,8 +32,10 @@ const identifyTenant = asyncHandler(async (req, res, next) => {
       exchangeRates: true,
       visibleCurrencies: true,
       showExchangeRate: true,
+      showQrCode: true,
       taxRate: true,
       receiptSize: true,
+      printerConnection: true,
       subscriptionEndsAt: true,
       planId: true,
       plan: {
@@ -176,19 +178,22 @@ const hasPermission = (permission) => (req, res, next) => {
   });
 };
 
-// ✅ NOUVO — Verifye si tenant an sou plan Antepriz
+// ✅ KORIJE — Verifye plan Antepriz (case-insensitive + plizyè non posib)
+const ENTERPRISE_PLAN_NAMES = ['antepriz', 'enterprise', 'entreprise'];
+
 const requireEnterprise = (req, res, next) => {
-  const planName = req.tenant?.plan?.name || ''
-  if (planName !== 'Antepriz') {
+  const planName = (req.tenant?.plan?.name || '').toLowerCase().trim();
+
+  if (!ENTERPRISE_PLAN_NAMES.includes(planName)) {
     return res.status(403).json({
       success: false,
       message: 'Fonksyon sa rezerve pou plan Antepriz sèlman. Monte plan ou pou gen aksè.',
       requiredPlan: 'Antepriz',
-      currentPlan: planName || 'Okenn'
-    })
+      currentPlan: req.tenant?.plan?.name || 'Okenn'
+    });
   }
-  next()
-}
+  next();
+};
 
 module.exports = {
   identifyTenant,
@@ -196,5 +201,5 @@ module.exports = {
   authorize,
   superAdminAuth,
   hasPermission,
-  requireEnterprise,   // ✅ AJOUTE
+  requireEnterprise,
 };
