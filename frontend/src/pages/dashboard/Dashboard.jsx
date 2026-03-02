@@ -558,7 +558,8 @@ export default function Dashboard() {
         }
       </div>
 
-      {user?.role === 'admin' && <ProfitSection />}
+      {/* ✅ KOREKSYON BUG #2 — ProfitSection vizib pou TT itilizatè, pa sèlman admin */}
+      <ProfitSection />
 
       <TickerBanner />
     </div>

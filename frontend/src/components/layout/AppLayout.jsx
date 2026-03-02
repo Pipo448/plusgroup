@@ -87,11 +87,11 @@ export default function AppLayout() {
   const [open, setOpen]               = useState(false)
   const [showLang, setShowLang]       = useState(false)
   const [showNotif, setShowNotif]     = useState(false)
-  const [showBranches, setShowBranches] = useState(false)  // ⚠️ NOUVO
-  const [branches, setBranches]       = useState([])        // ⚠️ NOUVO
+  const [showBranches, setShowBranches] = useState(false)
+  const [branches, setBranches]       = useState([])
   const [isDesktop, setIsDesktop]     = useState(window.innerWidth >= 1024)
   const langRef    = useRef(null)
-  const branchRef  = useRef(null)                           // ⚠️ NOUVO
+  const branchRef  = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
@@ -100,7 +100,6 @@ export default function AppLayout() {
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
 
-  // ⚠️ NOUVO — Chaje branch yo pou switcher (admin sèlman)
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll()
@@ -108,7 +107,6 @@ export default function AppLayout() {
       .catch(() => {})
   }, [isAdmin, token])
 
-  // ⚠️ NOUVO — Fèmen dropdown branch si klike deyò
   useEffect(() => {
     const onDoc = (e) => {
       if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
@@ -166,7 +164,6 @@ export default function AppLayout() {
     setShowLang(false)
   }
 
-  // ⚠️ NOUVO — Chanje branch: mete slug branch nan header epi navige
   const handleSwitchBranch = (branch) => {
     if (!branch.isActive) {
       toast.error('Branch sa a bloke.')
@@ -246,7 +243,6 @@ export default function AppLayout() {
         {/* ══ LOGO ZONE ak Branch Switcher ══ */}
         <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
 
-          {/* Logo + Nom + Flèch Branch Switcher */}
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.08)', padding:5, boxShadow:`0 0 0 2px rgba(245,104,12,0.35)`, flexShrink:0 }}/>
@@ -263,7 +259,7 @@ export default function AppLayout() {
               </p>
             </div>
 
-            {/* ⚠️ NOUVO — Flèch Branch Switcher (admin + gen branch) */}
+            {/* Branch Switcher (admin + gen branch) */}
             {isAdmin && branches.length > 0 && (
               <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
                 <button
@@ -285,7 +281,6 @@ export default function AppLayout() {
                   }} />
                 </button>
 
-                {/* Dropdown Branch yo */}
                 {showBranches && (
                   <div style={{
                     position: 'absolute', top: 'calc(100% + 8px)', right: 0,
@@ -296,7 +291,6 @@ export default function AppLayout() {
                     boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
                     overflow: 'hidden',
                   }}>
-                    {/* Tit */}
                     <div style={{
                       padding: '10px 14px 8px',
                       borderBottom: `1px solid rgba(245,104,12,0.12)`,
@@ -308,7 +302,6 @@ export default function AppLayout() {
                       </span>
                     </div>
 
-                    {/* Lis Branch */}
                     {branches.map(branch => {
                       const isCurrent = branch.slug === tenant?.slug ||
                         branch.slug === localStorage.getItem('plusgroup-slug')
@@ -327,14 +320,11 @@ export default function AppLayout() {
                           onMouseEnter={e => { if (branch.isActive && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                           onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
                         >
-                          {/* Statut dot */}
                           <div style={{
                             width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
                             background: branch.isActive ? '#27ae60' : '#C0392B',
                             boxShadow: branch.isActive ? '0 0 6px #27ae60' : 'none',
                           }} />
-
-                          {/* Non branch */}
                           <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
                             <div style={{
                               color: branch.isActive ? '#fff' : '#475569',
@@ -347,8 +337,6 @@ export default function AppLayout() {
                               /{branch.slug}
                             </div>
                           </div>
-
-                          {/* Endikasyon */}
                           {isCurrent
                             ? <span style={{ fontSize: 10, color: C.gold, fontWeight: 700, flexShrink: 0 }}>✓</span>
                             : !branch.isActive
@@ -359,7 +347,6 @@ export default function AppLayout() {
                       )
                     })}
 
-                    {/* Lyen Jere Branch yo */}
                     <button
                       onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
                       style={{
@@ -389,8 +376,9 @@ export default function AppLayout() {
             <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : '#475569', fontWeight:700 }}>
               {planName || 'Free'}
             </span>
+            {/* ✅ KOREKSYON BUG #1 — Voye nan /app/plans olye /app/settings */}
             {!isEnterprise && (
-              <NavLink to="/app/settings" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>
+              <NavLink to="/app/plans" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>
                 Upgrade →
               </NavLink>
             )}
