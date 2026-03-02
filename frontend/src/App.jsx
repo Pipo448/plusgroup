@@ -18,6 +18,12 @@ import UsersPage      from './pages/settings/UsersPage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 
+// ✅ Paj Enterprise + Branch
+import BranchAdminPage from './pages/branches/BranchAdminPage'
+import KanePage        from './pages/enterprise/KanePage'
+import SabotayPage     from './pages/enterprise/SabotayPage'
+import MobilPayPage    from './pages/enterprise/MobilPayPage'
+
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
     <div style={{ width:40, height:40, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -25,7 +31,6 @@ const Spinner = () => (
   </div>
 )
 
-// ✅ Guard — tann loading anvan deside
 const PrivateRoute = ({ children }) => {
   const token   = useAuthStore(s => s.token)
   const loading = useAuthStore(s => s.loading)
@@ -38,7 +43,6 @@ const AdminRoute = ({ children }) => {
   return session ? children : <Navigate to="/admin/login" replace />
 }
 
-// ✅ Root redirect — /app/dashboard pa /dashboard
 const RootRedirect = () => {
   const token   = useAuthStore(s => s.token)
   const loading = useAuthStore(s => s.loading)
@@ -80,18 +84,31 @@ export default function App() {
           <Route path="reports"          element={<ReportsPage />} />
           <Route path="settings"         element={<SettingsPage />} />
           <Route path="settings/users"   element={<UsersPage />} />
+
+          {/* ✅ Branch Management */}
+          <Route path="branches"         element={<BranchAdminPage />} />
+
+          {/* ✅ Enterprise */}
+          <Route path="kane"             element={<KanePage />} />
+          <Route path="sabotay"          element={<SabotayPage />} />
+          <Route path="mobilpay"         element={<MobilPayPage />} />
         </Route>
 
         {/* Legacy redirects */}
-        <Route path="/dashboard"   element={<Navigate to="/app/dashboard" replace />} />
-        <Route path="/products"    element={<Navigate to="/app/products"  replace />} />
-        <Route path="/clients"     element={<Navigate to="/app/clients"   replace />} />
-        <Route path="/quotes/*"    element={<Navigate to="/app/quotes"    replace />} />
-        <Route path="/invoices/*"  element={<Navigate to="/app/invoices"  replace />} />
-        <Route path="/stock"       element={<Navigate to="/app/stock"     replace />} />
-        <Route path="/reports"     element={<Navigate to="/app/reports"   replace />} />
-       <Route path="/settings/users" element={<Navigate to="/app/settings/users" replace />} />
-       <Route path="/settings" element={<Navigate to="/app/settings" replace />} />
+        <Route path="/dashboard"      element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="/products"       element={<Navigate to="/app/products"  replace />} />
+        <Route path="/clients"        element={<Navigate to="/app/clients"   replace />} />
+        <Route path="/quotes/*"       element={<Navigate to="/app/quotes"    replace />} />
+        <Route path="/invoices/*"     element={<Navigate to="/app/invoices"  replace />} />
+        <Route path="/stock"          element={<Navigate to="/app/stock"     replace />} />
+        <Route path="/reports"        element={<Navigate to="/app/reports"   replace />} />
+        <Route path="/settings/users" element={<Navigate to="/app/settings/users" replace />} />
+        <Route path="/settings"       element={<Navigate to="/app/settings"  replace />} />
+        <Route path="/branches"       element={<Navigate to="/app/branches"  replace />} />
+        <Route path="/kane"           element={<Navigate to="/app/kane"      replace />} />
+        <Route path="/sabotay"        element={<Navigate to="/app/sabotay"   replace />} />
+        <Route path="/mobilpay"       element={<Navigate to="/app/mobilpay"  replace />} />
+
         {/* Catch all */}
         <Route path="*" element={<Navigate to="/login" replace />} />
 
