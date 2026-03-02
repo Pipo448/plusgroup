@@ -38,11 +38,12 @@ const Sidebar = () => {
   // Verifye si itilizatè a se admin
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true;
 
-  // Verifye si plan se Antepriz
+  // ✅ KORIJE — Ajoute 'Antrepriz' (ak r) + case-insensitive pou evite pwoblèm sa ankò
   const planName: string = tenant?.plan?.name || '';
-  const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(planName);
+  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise'].includes(
+    planName.toLowerCase().trim()
+  );
 
-  // ✅ FIX: paths korije pou /app/ prefix
   const menuItems = [
     {
       path: '/app/dashboard',
@@ -94,7 +95,6 @@ const Sidebar = () => {
     },
   ];
 
-  // ✅ FIX: Branch path korije
   const branchItem = {
     path: '/app/branches',
     icon: GitBranch,
@@ -102,7 +102,6 @@ const Sidebar = () => {
     color: '#C9A84C',
   };
 
-  // ✅ FIX: Enterprise paths korije
   const enterpriseItems = [
     {
       path: '/app/kane',
@@ -156,7 +155,6 @@ const Sidebar = () => {
       <nav className="sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          // ✅ FIX: startsWith pou sub-routes (ex: /app/quotes/new) mache tou
           const isActive = location.pathname.startsWith(item.path);
 
           return (
