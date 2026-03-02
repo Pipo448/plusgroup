@@ -187,7 +187,7 @@ export default function Dashboard() {
 
   const totalVentes = Number(salesReport?.totals?._sum?.totalHtg||0)
   const totalPaye   = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
-  const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.totalHtg||0)
+  const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
   const totalPasyal = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
   const subBanner = (()=>{
