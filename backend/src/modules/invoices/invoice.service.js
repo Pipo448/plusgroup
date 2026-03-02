@@ -85,7 +85,6 @@ const getOne = async (tenantId, id) => {
 };
 
 // ── CREATE DIRECT (san devi — pou biznis ki pa bezwen requireQuote)
-// ✅ NOUVO: Pèmèt kreye fakti direk san pase pa devi
 const createDirect = async (tenantId, userId, data) => {
   const {
     clientId, clientSnapshot, currency, exchangeRate,
@@ -124,7 +123,7 @@ const createDirect = async (tenantId, userId, data) => {
         tenantId,
         branchId:      branchId || null,
         invoiceNumber,
-        quoteId:       null,   // ✅ Pa gen devi
+        quoteId:       null,
         clientId:      clientId || null,
         clientSnapshot: clientSnapshot || {},
         currency:      currency || 'HTG',
@@ -153,7 +152,6 @@ const createDirect = async (tenantId, userId, data) => {
       let stockBefore = null;
       let stockAfter  = null;
 
-      // Dekremente stock si se yon pwodui (pa yon sèvis)
       if (item.productId) {
         const product = await tx.product.findFirst({
           where: { id: item.productId, tenantId }
@@ -204,7 +202,6 @@ const createDirect = async (tenantId, userId, data) => {
       });
     }
 
-    // Mak stock kòm dekremente
     await tx.invoice.update({
       where: { id: inv.id },
       data:  { stockDecremented: true }
@@ -217,21 +214,22 @@ const createDirect = async (tenantId, userId, data) => {
 };
 
 // ── DASHBOARD (résumé rapide)
+// ✅ FIX: Retire filtre startOfMonth — totalPaid afiche TT fakti peye, pa sèlman mwa aktyèl
 const getDashboard = async (tenantId) => {
-  const today = new Date();
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
+    // Fakti ki pa peye — balans total ki dwe
     prisma.invoice.aggregate({
       where: { tenantId, status: 'unpaid' },
       _sum: { balanceDueHtg: true, balanceDueUsd: true },
       _count: true
     }),
+    // ✅ FIX: Retire { issueDate: { gte: startOfMonth } } — kounye a li konte TT fakti peye
     prisma.invoice.aggregate({
-      where: { tenantId, status: 'paid', issueDate: { gte: startOfMonth } },
+      where: { tenantId, status: 'paid' },
       _sum: { totalHtg: true, totalUsd: true },
       _count: true
     }),
+    // Fakti pasyal — balans ki rete pou peye
     prisma.invoice.aggregate({
       where: { tenantId, status: 'partial' },
       _sum: { balanceDueHtg: true },
