@@ -168,6 +168,7 @@ export const branchAPI = {
   removeUser:     (branchId, userId)  => api.delete(`/branches/${branchId}/users/${userId}`),
   getReport:      (branchId, params)  => api.get(`/branches/${branchId}/reports`, { params }),
   getGlobalReport:(params)            => api.get('/branches/reports/global', { params }),
+  getTenantUsers:  ()                  => api.get('/auth/users'),
 }
 
 // ── Enterprise Services ✅ AJOUTE
