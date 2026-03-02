@@ -1,6 +1,27 @@
 // src/modules/invoices/invoice.service.js
 const prisma = require('../../config/prisma');
 
+// ── Jwenn nimewo fakti nextval
+const getNextInvoiceNumber = async (tenantId) => {
+  const year = new Date().getFullYear();
+  const seq = await prisma.documentSequence.upsert({
+    where:  { tenantId_documentType: { tenantId, documentType: 'invoice' } },
+    create: { tenantId, documentType: 'invoice', prefix: 'FAC', lastNumber: 0, currentYear: year },
+    update: {}
+  });
+
+  // Reset si nouvo ane
+  const lastNumber = seq.currentYear < year ? 0 : seq.lastNumber;
+  const nextNumber = lastNumber + 1;
+
+  await prisma.documentSequence.update({
+    where: { tenantId_documentType: { tenantId, documentType: 'invoice' } },
+    data: { lastNumber: nextNumber, currentYear: year }
+  });
+
+  return `${seq.prefix}-${year}-${String(nextNumber).padStart(4, '0')}`;
+};
+
 // ── GET ALL
 const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, dateFrom, dateTo }) => {
   const where = {
@@ -56,11 +77,143 @@ const getOne = async (tenantId, id) => {
 
   if (!invoice) throw Object.assign(new Error('Facture pa jwenn.'), { statusCode: 404 });
 
-  // ✅ Si invoice pa gen notes/terms, pran yo nan devis orijinal la
+  // Si invoice pa gen notes/terms, pran yo nan devis orijinal la (si gen youn)
   if (!invoice.notes && invoice.quote?.notes) invoice.notes = invoice.quote.notes;
   if (!invoice.terms && invoice.quote?.terms) invoice.terms = invoice.quote.terms;
 
   return invoice;
+};
+
+// ── CREATE DIRECT (san devi — pou biznis ki pa bezwen requireQuote)
+// ✅ NOUVO: Pèmèt kreye fakti direk san pase pa devi
+const createDirect = async (tenantId, userId, data) => {
+  const {
+    clientId, clientSnapshot, currency, exchangeRate,
+    subtotalHtg, subtotalUsd,
+    discountType, discountValue, discountHtg, discountUsd,
+    taxRate, taxHtg, taxUsd,
+    totalHtg, totalUsd,
+    dueDate, notes, terms, branchId,
+    items = []
+  } = data;
+
+  if (!items.length) {
+    throw Object.assign(new Error('Fakti dwe gen omwen yon pwodui.'), { statusCode: 400 });
+  }
+
+  // Verifye si tenant autorize kreye fakti direk
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { requireQuote: true, exchangeRate: true, taxRate: true }
+  });
+
+  if (tenant.requireQuote) {
+    throw Object.assign(
+      new Error('Biznis ou obligе pase pa yon devi avan li ka fè fakti.'),
+      { statusCode: 403 }
+    );
+  }
+
+  const invoiceNumber = await getNextInvoiceNumber(tenantId);
+  const rate = exchangeRate || Number(tenant.exchangeRate);
+
+  const invoice = await prisma.$transaction(async (tx) => {
+    // Kreye fakti (san quoteId)
+    const inv = await tx.invoice.create({
+      data: {
+        tenantId,
+        branchId:      branchId || null,
+        invoiceNumber,
+        quoteId:       null,   // ✅ Pa gen devi
+        clientId:      clientId || null,
+        clientSnapshot: clientSnapshot || {},
+        currency:      currency || 'HTG',
+        exchangeRate:  rate,
+        subtotalHtg:   Number(subtotalHtg || 0),
+        subtotalUsd:   Number(subtotalUsd || 0),
+        discountType:  discountType || 'amount',
+        discountValue: Number(discountValue || 0),
+        discountHtg:   Number(discountHtg || 0),
+        discountUsd:   Number(discountUsd || 0),
+        taxRate:       Number(taxRate || tenant.taxRate || 0),
+        taxHtg:        Number(taxHtg || 0),
+        taxUsd:        Number(taxUsd || 0),
+        totalHtg:      Number(totalHtg || 0),
+        totalUsd:      Number(totalUsd || 0),
+        balanceDueHtg: Number(totalHtg || 0),
+        balanceDueUsd: Number(totalUsd || 0),
+        dueDate:       dueDate ? new Date(dueDate) : null,
+        notes, terms,
+        createdBy: userId
+      }
+    });
+
+    // Kreye items + dekremente stock
+    for (const [idx, item] of items.entries()) {
+      let stockBefore = null;
+      let stockAfter  = null;
+
+      // Dekremente stock si se yon pwodui (pa yon sèvis)
+      if (item.productId) {
+        const product = await tx.product.findFirst({
+          where: { id: item.productId, tenantId }
+        });
+
+        if (product && !product.isService) {
+          stockBefore = Number(product.quantity);
+          stockAfter  = stockBefore - Number(item.quantity);
+
+          await tx.product.update({
+            where: { id: item.productId },
+            data:  { quantity: Math.max(0, stockAfter) }
+          });
+
+          await tx.stockMovement.create({
+            data: {
+              tenantId, branchId: branchId || null,
+              productId: item.productId,
+              movementType:   'sale',
+              referenceId:    inv.id,
+              referenceType:  'invoice_direct',
+              quantityBefore: stockBefore,
+              quantityChange: -Number(item.quantity),
+              quantityAfter:  Math.max(0, stockAfter),
+              notes: `Fakti dirèk ${invoiceNumber}`,
+              createdBy: userId
+            }
+          });
+        }
+      }
+
+      await tx.invoiceItem.create({
+        data: {
+          tenantId,
+          invoiceId:       inv.id,
+          productId:       item.productId || null,
+          productSnapshot: item.productSnapshot || {},
+          quantity:        Number(item.quantity),
+          unitPriceHtg:    Number(item.unitPriceHtg || 0),
+          unitPriceUsd:    Number(item.unitPriceUsd || 0),
+          discountPct:     Number(item.discountPct || 0),
+          totalHtg:        Number(item.totalHtg || 0),
+          totalUsd:        Number(item.totalUsd || 0),
+          stockBefore, stockAfter,
+          sortOrder: idx,
+          notes: item.notes || null
+        }
+      });
+    }
+
+    // Mak stock kòm dekremente
+    await tx.invoice.update({
+      where: { id: inv.id },
+      data:  { stockDecremented: true }
+    });
+
+    return inv;
+  });
+
+  return getOne(tenantId, invoice.id);
 };
 
 // ── DASHBOARD (résumé rapide)
@@ -69,32 +222,27 @@ const getDashboard = async (tenantId) => {
   const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
 
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
-    // Total impayé
     prisma.invoice.aggregate({
       where: { tenantId, status: 'unpaid' },
       _sum: { balanceDueHtg: true, balanceDueUsd: true },
       _count: true
     }),
-    // Total payé ce mois
     prisma.invoice.aggregate({
       where: { tenantId, status: 'paid', issueDate: { gte: startOfMonth } },
       _sum: { totalHtg: true, totalUsd: true },
       _count: true
     }),
-    // Partiellement payé
     prisma.invoice.aggregate({
       where: { tenantId, status: 'partial' },
       _sum: { balanceDueHtg: true },
       _count: true
     }),
-    // 5 dernières factures
     prisma.invoice.findMany({
       where: { tenantId },
       include: { client: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 5
     }),
-    // Top clients
     prisma.invoice.groupBy({
       by: ['clientId'],
       where: { tenantId, status: { not: 'cancelled' } },
@@ -158,11 +306,9 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   const amountHtg = Number(data.amountHtg || 0);
   const amountUsd = Number(data.amountUsd || 0);
 
-  // Créer paiement
   const payment = await prisma.payment.create({
     data: {
-      tenantId,
-      invoiceId,
+      tenantId, invoiceId,
       amountHtg, amountUsd,
       currency: data.currency || invoice.currency,
       exchangeRate: data.exchangeRate || invoice.exchangeRate,
@@ -174,14 +320,13 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
     }
   });
 
-  // Recalculer totaux payés
   const allPayments = await prisma.payment.aggregate({
     where: { invoiceId },
     _sum: { amountHtg: true, amountUsd: true }
   });
 
-  const totalPaidHtg = Number(allPayments._sum.amountHtg || 0);
-  const totalPaidUsd = Number(allPayments._sum.amountUsd || 0);
+  const totalPaidHtg  = Number(allPayments._sum.amountHtg || 0);
+  const totalPaidUsd  = Number(allPayments._sum.amountUsd || 0);
   const balanceDueHtg = Number(invoice.totalHtg) - totalPaidHtg;
   const balanceDueUsd = Number(invoice.totalUsd) - totalPaidUsd;
 
@@ -203,9 +348,4 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   return { payment, newStatus, balanceDueHtg: Math.max(0, balanceDueHtg) };
 };
 
-module.exports = { getAll, getOne, getDashboard, cancel, addPayment };
-
-// ============================================================
-// src/modules/invoices/invoice.controller.js
-// ============================================================
-// NOTE: fichier séparé en production, inline ici pour concision
+module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect };

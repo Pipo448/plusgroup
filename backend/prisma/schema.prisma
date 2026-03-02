@@ -1,5 +1,6 @@
 // ============================================================
 // PLUS GROUP — Innov@tion & Tech | Prisma Schema
+// CHANJMAN: requireQuote nan Tenant + quoteId nullable nan Invoice
 // ============================================================
 
 generator client {
@@ -140,6 +141,8 @@ model Tenant {
   taxRate             Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
   receiptSize         String          @default("80mm") @map("receipt_size") @db.VarChar(10)
   printerConnection   String          @default("usb") @map("printer_connection") @db.VarChar(20)
+  // ✅ NOUVO: Toggle workflow devi → fakti
+  requireQuote        Boolean         @default(false) @map("require_quote")
   planId              String?         @map("plan_id")
   status              TenantStatus    @default(pending)
   trialEndsAt         DateTime?       @map("trial_ends_at")
@@ -189,23 +192,22 @@ model TenantSubscription {
 }
 
 // ============================================================
-// BRANCHES (BIZNIS / ZÒN) — NOUVO
+// BRANCHES (BIZNIS / ZÒN)
 // ============================================================
 
 model Branch {
-  id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
-  name        String   @db.VarChar(200)
-  slug        String   @db.VarChar(100)
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  name        String    @db.VarChar(200)
+  slug        String    @db.VarChar(100)
   description String?
   address     String?
-  phone       String?  @db.VarChar(50)
-  email       String?  @db.VarChar(150)
-  isActive    Boolean  @default(false) @map("is_active")
-  // isActive = false → bloke (pou debloke, admin peye)
+  phone       String?   @db.VarChar(50)
+  email       String?   @db.VarChar(150)
+  isActive    Boolean   @default(false) @map("is_active")
   unlockedAt  DateTime? @map("unlocked_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branchUsers    BranchUser[]
@@ -220,12 +222,12 @@ model Branch {
 }
 
 model BranchUser {
-  id        String    @id @default(uuid())
-  branchId  String    @map("branch_id")
-  userId    String    @map("user_id")
-  role      UserRole  @default(cashier)
-  isAdmin   Boolean   @default(false) @map("is_admin")
-  createdAt DateTime  @default(now()) @map("created_at")
+  id        String   @id @default(uuid())
+  branchId  String   @map("branch_id")
+  userId    String   @map("user_id")
+  role      UserRole @default(cashier)
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  createdAt DateTime @default(now()) @map("created_at")
 
   branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -392,8 +394,8 @@ model Quote {
   totalHtg             Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
   totalUsd             Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
   status               QuoteStatus     @default(draft)
-  issueDate   DateTime  @default(now()) @map("issue_date") @db.Timestamptz
-  expiryDate  DateTime? @map("expiry_date") @db.Timestamptz
+  issueDate            DateTime        @default(now()) @map("issue_date") @db.Timestamptz
+  expiryDate           DateTime?       @map("expiry_date") @db.Timestamptz
   notes                String?
   terms                String?
   createdBy            String?         @map("created_by")
@@ -445,7 +447,8 @@ model Invoice {
   tenantId         String          @map("tenant_id")
   branchId         String?         @map("branch_id")
   invoiceNumber    String          @map("invoice_number") @db.VarChar(50)
-  quoteId          String          @unique @map("quote_id")
+  // ✅ NOUVO: quoteId opsyonèl — fakti direk pa bezwen devi
+  quoteId          String?         @unique @map("quote_id")
   clientId         String?         @map("client_id")
   clientSnapshot   Json            @map("client_snapshot")
   currency         DefaultCurrency @default(HTG)
@@ -466,8 +469,8 @@ model Invoice {
   balanceDueHtg    Decimal         @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
   balanceDueUsd    Decimal         @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
   status           InvoiceStatus   @default(unpaid)
-  issueDate  DateTime  @default(now()) @map("issue_date") @db.Timestamptz
-  dueDate    DateTime? @map("due_date") @db.Timestamptz
+  issueDate        DateTime        @default(now()) @map("issue_date") @db.Timestamptz
+  dueDate          DateTime?       @map("due_date") @db.Timestamptz
   notes            String?
   terms            String?
   stockDecremented Boolean         @default(false) @map("stock_decremented")
@@ -480,7 +483,7 @@ model Invoice {
 
   tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch    Branch?       @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  quote     Quote         @relation(fields: [quoteId], references: [id])
+  quote     Quote?        @relation(fields: [quoteId], references: [id])
   client    Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
   creator   User?         @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
   canceller User?         @relation("InvoiceCancelledBy", fields: [cancelledBy], references: [id])

@@ -36,10 +36,12 @@ router.get('/settings', asyncHandler(async (req, res) => {
       exchangeRates:      true,
       visibleCurrencies:  true,
       showExchangeRate:   true,
-      showQrCode:         true,  // ← ajoute
+      showQrCode:         true,
       taxRate: true,
       receiptSize: true,
       printerConnection: true,
+      // ✅ NOUVO
+      requireQuote: true,
       status: true, subscriptionEndsAt: true,
       plan: { select: { name: true, maxUsers: true, maxProducts: true, features: true } }
     }
@@ -56,7 +58,9 @@ router.get('/settings', asyncHandler(async (req, res) => {
       exchangeRates,
       visibleCurrencies,
       showExchangeRate: tenant.showExchangeRate ?? false,
-      showQrCode:       tenant.showQrCode       ?? true,   // ← ajoute
+      showQrCode:       tenant.showQrCode       ?? true,
+      // ✅ NOUVO
+      requireQuote:     tenant.requireQuote      ?? false,
     }
   });
 }));
@@ -71,7 +75,9 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     exchangeRates,
     visibleCurrencies,
     showExchangeRate,
-    showQrCode,        // ← ajoute
+    showQrCode,
+    // ✅ NOUVO
+    requireQuote,
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -86,7 +92,9 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       exchangeRates:     exchangeRates     != null ? JSON.stringify(exchangeRates)     : undefined,
       visibleCurrencies: visibleCurrencies != null ? JSON.stringify(visibleCurrencies) : undefined,
       showExchangeRate:  showExchangeRate  != null ? Boolean(showExchangeRate)         : undefined,
-      showQrCode:        showQrCode        != null ? Boolean(showQrCode)               : undefined,  // ← ajoute
+      showQrCode:        showQrCode        != null ? Boolean(showQrCode)               : undefined,
+      // ✅ NOUVO
+      requireQuote:      requireQuote      != null ? Boolean(requireQuote)             : undefined,
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
@@ -94,7 +102,9 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       receiptSize: true, printerConnection: true,
       exchangeRates: true, visibleCurrencies: true,
       showExchangeRate: true,
-      showQrCode:       true,  // ← ajoute
+      showQrCode:       true,
+      // ✅ NOUVO
+      requireQuote:     true,
     }
   });
 
@@ -104,7 +114,9 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       ...tenant,
       exchangeRates:     parseJsonField(tenant.exchangeRates, {}),
       visibleCurrencies: parseJsonField(tenant.visibleCurrencies, ['USD']),
-      showQrCode:        tenant.showQrCode ?? true,  // ← ajoute
+      showQrCode:        tenant.showQrCode   ?? true,
+      // ✅ NOUVO
+      requireQuote:      tenant.requireQuote ?? false,
     },
     message: 'Paramèt ajou avèk siksè.'
   });
