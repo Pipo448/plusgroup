@@ -489,10 +489,9 @@ export default function MobilPayPage() {
   const [filter, setFilter] = useState('all')
   const [period, setPeriod] = useState('today')
 
-  const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(tenant?.plan?.name)
-  if (!isEnterprise) return (
-    <EnterpriseLock lang={lang} page="mobilpay" currentPlanName={tenant?.plan?.name} />
-  )
+  const planName = tenant?.plan?.name || ''
+const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+  .includes(planName.toLowerCase().trim())
 
   const endpoint = provider === 'MonCash' ? 'moncash' : 'natcash'
   const pc = PROVIDER_COLORS[provider]

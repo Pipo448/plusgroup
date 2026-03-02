@@ -368,10 +368,9 @@ export default function SabotayPage() {
   const [search, setSearch] = useState('')
   const [period, setPeriod] = useState('today')
 
-  const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(tenant?.plan?.name)
-  if (!isEnterprise) return (
-    <EnterpriseLock lang={lang} page="sabotay" currentPlanName={tenant?.plan?.name} />
-  )
+  const planName = tenant?.plan?.name || ''
+const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+  .includes(planName.toLowerCase().trim())
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['sabotay-sales', filter, period],

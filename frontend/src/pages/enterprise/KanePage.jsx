@@ -302,10 +302,9 @@ export default function KanePage() {
   const [search, setSearch] = useState('')
 
   // Verifye plan Antepriz
-  const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(tenant?.plan?.name)
-  if (!isEnterprise) {
-    return <EnterpriseLock lang={lang} page="kane" currentPlanName={tenant?.plan?.name} />
-  }
+ const planName = tenant?.plan?.name || ''
+const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+  .includes(planName.toLowerCase().trim())
 
   // Chaje kanè yo (API endpoint /api/v1/kane)
   const { data, isLoading, refetch } = useQuery({
