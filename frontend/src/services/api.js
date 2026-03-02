@@ -114,7 +114,6 @@ export const invoiceAPI = {
   getOne:       (id)       => api.get(`/invoices/${id}`),
   addPayment:   (id, data) => api.post(`/invoices/${id}/payment`, data),
   cancel:       (id, data) => api.patch(`/invoices/${id}/cancel`, data),
-  // ✅ FIX: Fonksyon sa yo te manke — Dashboard te toujou afiche 0
   getDashboard: ()         => api.get('/invoices/dashboard'),
   createDirect: (data)     => api.post('/invoices/direct', data),
 }
@@ -133,9 +132,11 @@ export const stockAPI = {
 // ── Reports
 export const reportAPI = {
   getSummary: (p) => api.get('/reports/summary', { params: p }),
-  getSales:   (p) => api.get('/reports/sales', { params: p }),
-  getStock:   (p) => api.get('/reports/stock', { params: p }),
+  getSales:   (p) => api.get('/reports/sales',   { params: p }),
+  getStock:   (p) => api.get('/reports/stock',   { params: p }),
   getClients: (p) => api.get('/reports/clients', { params: p }),
+  // ✅ FIX: Te manke — ProfitSection pa t ka chaje done benefis
+  getProfit:  (p) => api.get('/reports/profit',  { params: p }),
 }
 
 // ── Users (Admin sèlman)
@@ -164,24 +165,24 @@ export const adminAPI = {
 
 // ── BRANCHES — Multi-Branch System
 export const branchAPI = {
-  getAll:         ()             => api.get('/branches'),
-  getOne:         (id)           => api.get(`/branches/${id}`),
-  create:         (data)         => api.post('/branches', data),
-  update:         (id, data)     => api.put(`/branches/${id}`, data),
-  toggle:         (id)           => api.patch(`/branches/${id}/toggle`),
-  delete:         (id)           => api.delete(`/branches/${id}`),
-  addUser:        (branchId, data)    => api.post(`/branches/${branchId}/users`, data),
-  removeUser:     (branchId, userId)  => api.delete(`/branches/${branchId}/users/${userId}`),
-  getReport:      (branchId, params)  => api.get(`/branches/${branchId}/reports`, { params }),
-  getGlobalReport:(params)            => api.get('/branches/reports/global', { params }),
+  getAll:          ()                  => api.get('/branches'),
+  getOne:          (id)                => api.get(`/branches/${id}`),
+  create:          (data)              => api.post('/branches', data),
+  update:          (id, data)          => api.put(`/branches/${id}`, data),
+  toggle:          (id)                => api.patch(`/branches/${id}/toggle`),
+  delete:          (id)                => api.delete(`/branches/${id}`),
+  addUser:         (branchId, data)    => api.post(`/branches/${branchId}/users`, data),
+  removeUser:      (branchId, userId)  => api.delete(`/branches/${branchId}/users/${userId}`),
+  getReport:       (branchId, params)  => api.get(`/branches/${branchId}/reports`, { params }),
+  getGlobalReport: (params)            => api.get('/branches/reports/global', { params }),
   getTenantUsers:  ()                  => api.get('/auth/users'),
 }
 
 // ── Enterprise Services
 export const kaneAPI = {
-  getBalance:    ()     => api.get('/kane/balance'),
-  transfer:      (data) => api.post('/kane/transfer', data),
-  getTransactions: ()   => api.get('/kane/transactions'),
+  getBalance:      ()     => api.get('/kane/balance'),
+  transfer:        (data) => api.post('/kane/transfer', data),
+  getTransactions: ()     => api.get('/kane/transactions'),
 }
 
 export const sabotayAPI = {
@@ -191,12 +192,12 @@ export const sabotayAPI = {
 }
 
 export const mobilPayAPI = {
-  getMoncashBalance:    ()     => api.get('/moncash/balance'),
-  moncashPayment:       (data) => api.post('/moncash/payment', data),
-  getMoncashTransactions: ()   => api.get('/moncash/transactions'),
-  getNatcashBalance:    ()     => api.get('/natcash/balance'),
-  natcashPayment:       (data) => api.post('/natcash/payment', data),
-  getNatcashTransactions: ()   => api.get('/natcash/transactions'),
+  getMoncashBalance:      ()     => api.get('/moncash/balance'),
+  moncashPayment:         (data) => api.post('/moncash/payment', data),
+  getMoncashTransactions: ()     => api.get('/moncash/transactions'),
+  getNatcashBalance:      ()     => api.get('/natcash/balance'),
+  natcashPayment:         (data) => api.post('/natcash/payment', data),
+  getNatcashTransactions: ()     => api.get('/natcash/transactions'),
 }
 
 export default api
