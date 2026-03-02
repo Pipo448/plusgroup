@@ -42,81 +42,82 @@ const Sidebar = () => {
   const planName = tenant?.plan?.name || '';
   const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(planName);
 
+  // ✅ FIX: paths korije pou /app/ prefix
   const menuItems = [
     {
-      path: '/dashboard',
+      path: '/app/dashboard',
       icon: LayoutDashboard,
       label: t('nav.dashboard'),
       color: '#6366f1',
     },
     {
-      path: '/products',
+      path: '/app/products',
       icon: Package,
       label: t('nav.products'),
       color: '#8b5cf6',
     },
     {
-      path: '/clients',
+      path: '/app/clients',
       icon: Users,
       label: t('nav.clients'),
       color: '#ec4899',
     },
     {
-      path: '/quotes',
+      path: '/app/quotes',
       icon: FileText,
       label: t('nav.quotes'),
       color: '#f59e0b',
     },
     {
-      path: '/invoices',
+      path: '/app/invoices',
       icon: Receipt,
       label: t('nav.invoices'),
       color: '#10b981',
     },
     {
-      path: '/stock',
+      path: '/app/stock',
       icon: Archive,
       label: t('nav.stock'),
       color: '#06b6d4',
     },
     {
-      path: '/reports',
+      path: '/app/reports',
       icon: BarChart3,
       label: t('nav.reports'),
       color: '#f97316',
     },
     {
-      path: '/settings',
+      path: '/app/settings',
       icon: Settings,
       label: t('nav.settings'),
       color: '#64748b',
     },
   ];
 
-  // Seksyon Branch — admin sèlman
+  // ✅ FIX: Branch path korije
   const branchItem = {
-    path: '/branches',
+    path: '/app/branches',
     icon: GitBranch,
     label: t('nav.branches') || 'Branches',
     color: '#C9A84C',
   };
 
-  // Seksyon Antepriz — tout plan wè yo (lock si pa Antepriz)
+  // ✅ FIX: Enterprise paths korije
   const enterpriseItems = [
     {
-      path: '/kane',
+      path: '/app/kane',
       icon: CreditCard,
       label: t('nav.kane') || 'Ti Kanè Kès',
       color: '#C9A84C',
     },
     {
-      path: '/sabotay',
+      path: '/app/sabotay',
       icon: Smartphone,
       label: t('nav.sabotay') || 'Sabotay',
       color: '#38bdf8',
     },
     {
-      path: '/mobilpay',
+      path: '/app/mobilpay',
       icon: Phone,
       label: t('nav.mobilpay') || 'MonCash / NatCash',
       color: '#a78bfa',
@@ -154,7 +155,8 @@ const Sidebar = () => {
       <nav className="sidebar-nav">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          // ✅ FIX: startsWith pou sub-routes (ex: /app/quotes/new) mache tou
+          const isActive = location.pathname.startsWith(item.path);
 
           return (
             <NavLink
@@ -175,7 +177,8 @@ const Sidebar = () => {
 
         {/* ── Branch (admin sèlman) */}
         {isAdmin && (() => {
-          const isActive = location.pathname === branchItem.path;
+          // ✅ FIX: startsWith pou branch tou
+          const isActive = location.pathname.startsWith(branchItem.path);
           const Icon = branchItem.icon;
           return (
             <NavLink
@@ -202,7 +205,8 @@ const Sidebar = () => {
 
         {enterpriseItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          // ✅ FIX: startsWith pou enterprise items tou
+          const isActive = location.pathname.startsWith(item.path);
           const locked = !isEnterprise;
 
           return (
