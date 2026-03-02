@@ -103,9 +103,18 @@ const authenticate = asyncHandler(async (req, res, next) => {
     });
   }
 
+  // ✅ KORIJE — Si req.tenant undefined (identifyTenant pa pase),
+  //    evite crash "Cannot read properties of undefined (reading 'id')"
+  if (!req.tenant || !req.tenant.id) {
+    return res.status(400).json({
+      success: false,
+      message: 'Tenant pa idantifye. Asire X-Tenant-Slug header la prezan.'
+    });
+  }
+
   const user = await prisma.user.findFirst({
     where: {
-      id: decoded.userId,
+      id:       decoded.userId,
       tenantId: req.tenant.id,
       isActive: true
     },
@@ -178,10 +187,18 @@ const hasPermission = (permission) => (req, res, next) => {
   });
 };
 
-// ✅ KORIJE — Verifye plan Antepriz (case-insensitive + plizyè non posib)
-const ENTERPRISE_PLAN_NAMES = ['antepriz', 'enterprise', 'entreprise'];
+// ✅ KORIJE — Ajoute 'antrepriz' (ak r) + verifye req.tenant egziste
+const ENTERPRISE_PLAN_NAMES = ['antepriz', 'antrepriz', 'enterprise', 'entreprise'];
 
 const requireEnterprise = (req, res, next) => {
+  // ✅ Pwoteksyon — si req.tenant undefined, pa krase
+  if (!req.tenant) {
+    return res.status(400).json({
+      success: false,
+      message: 'Tenant pa idantifye. Verifye X-Tenant-Slug header la.'
+    });
+  }
+
   const planName = (req.tenant?.plan?.name || '').toLowerCase().trim();
 
   if (!ENTERPRISE_PLAN_NAMES.includes(planName)) {
