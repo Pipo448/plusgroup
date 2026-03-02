@@ -13,7 +13,7 @@ const errorHandler = (err, req, res, next) => {
   let statusCode = err.statusCode || 500;
   let message    = err.message || 'Erè entèn sèvè';
 
-  // Prisma errors
+  // ── Prisma errors (kode espesifik)
   if (err.code === 'P2002') {
     statusCode = 409;
     const field = err.meta?.target?.[0] || 'field';
@@ -28,19 +28,54 @@ const errorHandler = (err, req, res, next) => {
     message = 'Referans done pa valid.';
   }
 
-  // JWT errors
+  // ── Prisma validation/invocation errors (mesaj teknik — kache yo!)
+  // PrismaClientValidationError, PrismaClientKnownRequestError, etc.
+  if (
+    err.name === 'PrismaClientValidationError' ||
+    err.name === 'PrismaClientKnownRequestError' ||
+    err.name === 'PrismaClientUnknownRequestError' ||
+    err.name === 'PrismaClientRustPanicError' ||
+    err.name === 'PrismaClientInitializationError'
+  ) {
+    statusCode = 500;
+    message = 'Erè trete done. Kontakte sipò teknik.';
+    // Log reyèl erè a côté sèvè sèlman
+    logger.error({
+      type: err.name,
+      message: err.message,
+      stack: err.stack,
+      url: req.originalUrl,
+      body: req.body
+    });
+    return res.status(statusCode).json({ success: false, message });
+  }
+
+  // ── JWT errors
   if (err.name === 'JsonWebTokenError')  { statusCode = 401; message = 'Token pa valid.'; }
   if (err.name === 'TokenExpiredError')  { statusCode = 401; message = 'Token ekspire. Konekte ankò.'; }
 
-  // Log server errors
+  // ── Validation errors (Joi, express-validator, etc.)
+  if (err.name === 'ValidationError') {
+    statusCode = 400;
+    message = err.message || 'Done ou voye yo pa valid.';
+  }
+
+  // ── Log tout 500+ errors côté sèvè
   if (statusCode >= 500) {
-    logger.error({ message: err.message, stack: err.stack, url: req.originalUrl });
+    logger.error({
+      message: err.message,
+      stack: err.stack,
+      url: req.originalUrl
+    });
+    // ✅ Pa janm retounen detay teknik bay kliyan an — menm nan development
+    message = message.includes('Erè') ? message : 'Erè entèn sèvè. Kontakte sipò teknik.';
   }
 
   res.status(statusCode).json({
     success: false,
     message,
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    // ✅ Retire stack trace menm nan development — Prisma messages trò detaye
+    // ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 };
 
