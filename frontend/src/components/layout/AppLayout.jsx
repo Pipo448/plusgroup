@@ -6,11 +6,11 @@ import {
   LayoutDashboard, Package, Users, FileText, Receipt,
   Warehouse, TrendingUp, Settings, LogOut, Bell,
   Menu, X, Globe, ChevronDown,
-  GitBranch, CreditCard, Smartphone, Phone, Lock,
+  GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
-import { authAPI } from '../../services/api'
+import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
 
 const C = {
@@ -57,7 +57,6 @@ const safeJson = (val, fallback) => {
   try { return JSON.parse(val) } catch { return fallback }
 }
 
-// ── Style pou nav link nòmal
 const navLinkStyle = (isActive) => ({
   display:'flex', alignItems:'center', gap:10,
   padding:'9px 12px', borderRadius:10, marginBottom:2,
@@ -69,7 +68,6 @@ const navLinkStyle = (isActive) => ({
   boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
 })
 
-// ── Style pou nav link Enterprise
 const enterpriseLinkStyle = (isActive, locked) => ({
   display:'flex', alignItems:'center', gap:10,
   padding:'9px 12px', borderRadius:10, marginBottom:2,
@@ -86,19 +84,38 @@ export default function AppLayout() {
   const loading = useAuthStore(s => s.loading)
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [open, setOpen]           = useState(false)
-  const [showLang, setShowLang]   = useState(false)
-  const [showNotif, setShowNotif] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
-  const langRef = useRef(null)
+  const [open, setOpen]               = useState(false)
+  const [showLang, setShowLang]       = useState(false)
+  const [showNotif, setShowNotif]     = useState(false)
+  const [showBranches, setShowBranches] = useState(false)  // ⚠️ NOUVO
+  const [branches, setBranches]       = useState([])        // ⚠️ NOUVO
+  const [isDesktop, setIsDesktop]     = useState(window.innerWidth >= 1024)
+  const langRef    = useRef(null)
+  const branchRef  = useRef(null)                           // ⚠️ NOUVO
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
-  // ── Kalkile dwa itilizatè
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true
   const planName = tenant?.plan?.name || ''
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
+
+  // ⚠️ NOUVO — Chaje branch yo pou switcher (admin sèlman)
+  useEffect(() => {
+    if (!isAdmin || !token) return
+    branchAPI.getAll()
+      .then(r => setBranches(r.data?.branches || []))
+      .catch(() => {})
+  }, [isAdmin, token])
+
+  // ⚠️ NOUVO — Fèmen dropdown branch si klike deyò
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
 
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
@@ -120,9 +137,7 @@ export default function AppLayout() {
   }, [open, isDesktop])
 
   useEffect(() => {
-    if (tenant?.slug) {
-      api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
-    }
+    if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
   }, [tenant?.slug])
 
   useEffect(() => {
@@ -135,10 +150,7 @@ export default function AppLayout() {
         }
       })
       .catch(err => {
-        if (err.response?.status === 401) {
-          logout()
-          navigate('/login', { replace: true })
-        }
+        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
       })
   }, [token, tenant])
 
@@ -154,15 +166,24 @@ export default function AppLayout() {
     setShowLang(false)
   }
 
+  // ⚠️ NOUVO — Chanje branch: mete slug branch nan header epi navige
+  const handleSwitchBranch = (branch) => {
+    if (!branch.isActive) {
+      toast.error('Branch sa a bloke.')
+      return
+    }
+    api.defaults.headers.common['X-Tenant-Slug'] = branch.slug
+    localStorage.setItem('plusgroup-slug', branch.slug)
+    setShowBranches(false)
+    navigate('/app/dashboard')
+    toast.success(`Chanje branch: ${branch.name}`)
+  }
+
   const exchangeRates     = safeJson(tenant?.exchangeRates, {})
   const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
 
   const rateItems = visibleCurrencies.map(cur => {
-    const rate = Number(
-      exchangeRates[cur] ||
-      (cur === 'USD' ? tenant?.exchangeRate : 0) ||
-      0
-    )
+    const rate = Number(exchangeRates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
     if (!rate) return null
     return { cur, rate }
   }).filter(Boolean)
@@ -201,14 +222,11 @@ export default function AppLayout() {
 
       {/* ══ SIDEBAR ══ */}
       <aside style={sidebarStyle}>
-        {/* Bann oreanj anlè */}
         <div style={{
           height:3,
           background:'linear-gradient(90deg,transparent,#b34200 10%,#f5680c 35%,#ff8534 50%,#f5680c 65%,#b34200 90%,transparent)',
           animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%',
         }}/>
-
-        {/* Efè limyè oreanj anlè */}
         <div style={{
           position:'absolute', top:-60, left:-40, width:220, height:220,
           background:'radial-gradient(circle, rgba(245,104,12,0.15) 0%, transparent 70%)',
@@ -225,8 +243,10 @@ export default function AppLayout() {
           </button>
         )}
 
-        {/* Logo zone */}
+        {/* ══ LOGO ZONE ak Branch Switcher ══ */}
         <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
+
+          {/* Logo + Nom + Flèch Branch Switcher */}
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.08)', padding:5, boxShadow:`0 0 0 2px rgba(245,104,12,0.35)`, flexShrink:0 }}/>
@@ -242,6 +262,121 @@ export default function AppLayout() {
                 Innov@tion & Tech
               </p>
             </div>
+
+            {/* ⚠️ NOUVO — Flèch Branch Switcher (admin + gen branch) */}
+            {isAdmin && branches.length > 0 && (
+              <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
+                <button
+                  onClick={() => setShowBranches(!showBranches)}
+                  title="Chanje branch"
+                  style={{
+                    background: showBranches ? 'rgba(245,104,12,0.2)' : 'rgba(255,255,255,0.07)',
+                    border: `1px solid ${showBranches ? 'rgba(245,104,12,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                    borderRadius: 8, padding: '5px 7px', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <GitBranch size={12} style={{ color: showBranches ? C.gold : C.muted }} />
+                  <ChevronDown size={11} style={{
+                    color: showBranches ? C.gold : C.muted,
+                    transform: showBranches ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.2s'
+                  }} />
+                </button>
+
+                {/* Dropdown Branch yo */}
+                {showBranches && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                    minWidth: 210, zIndex: 200,
+                    background: '#0f0a1e',
+                    border: `1px solid rgba(245,104,12,0.25)`,
+                    borderRadius: 12,
+                    boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                    overflow: 'hidden',
+                  }}>
+                    {/* Tit */}
+                    <div style={{
+                      padding: '10px 14px 8px',
+                      borderBottom: `1px solid rgba(245,104,12,0.12)`,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <GitBranch size={12} style={{ color: C.gold }} />
+                      <span style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                        Chanje Branch
+                      </span>
+                    </div>
+
+                    {/* Lis Branch */}
+                    {branches.map(branch => {
+                      const isCurrent = branch.slug === tenant?.slug ||
+                        branch.slug === localStorage.getItem('plusgroup-slug')
+                      return (
+                        <button
+                          key={branch.id}
+                          onClick={() => handleSwitchBranch(branch)}
+                          disabled={!branch.isActive}
+                          style={{
+                            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '10px 14px', border: 'none', cursor: branch.isActive ? 'pointer' : 'not-allowed',
+                            background: isCurrent ? 'rgba(245,104,12,0.12)' : 'transparent',
+                            borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                            transition: 'background 0.15s',
+                          }}
+                          onMouseEnter={e => { if (branch.isActive && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                          onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
+                        >
+                          {/* Statut dot */}
+                          <div style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: branch.isActive ? '#27ae60' : '#C0392B',
+                            boxShadow: branch.isActive ? '0 0 6px #27ae60' : 'none',
+                          }} />
+
+                          {/* Non branch */}
+                          <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
+                            <div style={{
+                              color: branch.isActive ? '#fff' : '#475569',
+                              fontWeight: isCurrent ? 700 : 500, fontSize: 13,
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {branch.name}
+                            </div>
+                            <div style={{ color: '#475569', fontSize: 10, fontFamily: 'monospace' }}>
+                              /{branch.slug}
+                            </div>
+                          </div>
+
+                          {/* Endikasyon */}
+                          {isCurrent
+                            ? <span style={{ fontSize: 10, color: C.gold, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                            : !branch.isActive
+                              ? <Lock size={10} style={{ color: '#475569', flexShrink: 0 }} />
+                              : <ChevronRight size={12} style={{ color: '#475569', flexShrink: 0 }} />
+                          }
+                        </button>
+                      )
+                    })}
+
+                    {/* Lyen Jere Branch yo */}
+                    <button
+                      onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
+                      style={{
+                        width: '100%', padding: '9px 14px', border: 'none',
+                        borderTop: `1px solid rgba(245,104,12,0.12)`,
+                        background: 'transparent', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        color: C.gold, fontSize: 11, fontWeight: 700,
+                      }}
+                    >
+                      <GitBranch size={11} />
+                      Jere Branch yo →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Badge plan */}
@@ -264,8 +399,6 @@ export default function AppLayout() {
 
         {/* ══ Navigation ══ */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
-
-          {/* Menu prensipal */}
           {NAV.map(({ to, icon:Icon, labelKey }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}
               style={({ isActive }) => navLinkStyle(isActive)}>
@@ -279,7 +412,6 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {/* ── Branches (admin sèlman) */}
           {isAdmin && (
             <NavLink to="/app/branches" onClick={() => setOpen(false)}
               style={({ isActive }) => ({
@@ -297,7 +429,6 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          {/* ── Divider Antepriz */}
           <div style={{
             margin:'10px 4px 6px', paddingTop:10,
             borderTop:`1px solid rgba(201,168,76,0.18)`,
@@ -311,25 +442,16 @@ export default function AppLayout() {
             )}
           </div>
 
-          {/* ── Enterprise Items */}
           {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label }) => {
             const locked = !isEnterprise
             return (
-              <NavLink
-                key={to}
-                to={locked ? '#' : to}
-                onClick={(e) => {
-                  if (locked) { e.preventDefault(); return }
-                  setOpen(false)
-                }}
+              <NavLink key={to} to={locked ? '#' : to}
+                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
                 style={({ isActive }) => enterpriseLinkStyle(isActive, locked)}
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={16} style={{
-                      flexShrink:0,
-                      color: locked ? '#334155' : (isActive ? C.enterprise : C.muted),
-                    }}/>
+                    <Icon size={16} style={{ flexShrink:0, color: locked ? '#334155' : (isActive ? C.enterprise : C.muted) }}/>
                     <span style={{ color: locked ? '#334155' : undefined }}>{label}</span>
                     {locked
                       ? <Lock size={11} style={{ marginLeft:'auto', color:'#334155', flexShrink:0 }}/>
@@ -373,8 +495,6 @@ export default function AppLayout() {
 
       {/* ══ MAIN CONTENT AREA ══ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
-
-        {/* Header */}
         <header style={{
           minHeight:58, background:'#fff',
           borderBottom:`1px solid rgba(245,104,12,0.15)`,
@@ -421,7 +541,6 @@ export default function AppLayout() {
               <span style={{ fontSize:10, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
               <ChevronDown size={13} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
             </button>
-
             {showLang && (
               <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:'1px solid rgba(245,104,12,0.2)', overflow:'hidden' }}>
                 {LANGS.map(lang => (
@@ -442,21 +561,15 @@ export default function AppLayout() {
             )}
           </div>
 
-          {/* Devise */}
           <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,#1a0533,#2d0a4e)`, color:'#f5680c', letterSpacing:'0.08em', border:'1px solid rgba(245,104,12,0.3)', flexShrink:0 }}>
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
-          {/* Notif */}
           <div style={{ position:'relative' }}>
-            <button
-              onClick={() => setShowNotif(!showNotif)}
-              style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}
-            >
+            <button onClick={() => setShowNotif(!showNotif)} style={{ position:'relative', background:'none', border:'none', cursor:'pointer', color:'#555', padding:7, borderRadius:10, display:'flex', flexShrink:0 }}>
               <Bell size={18}/>
               <span style={{ position:'absolute', top:7, right:7, width:7, height:7, borderRadius:'50%', background:C.red, border:'2px solid #fff', animation:'pulse 2s infinite' }}/>
             </button>
-
             {showNotif && (
               <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, width:320, background:'#fff', borderRadius:16, boxShadow:'0 16px 48px rgba(0,0,0,0.15)', border:'1px solid rgba(0,0,0,0.08)', zIndex:999, overflow:'hidden' }}>
                 <div style={{ padding:'14px 16px', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -475,7 +588,6 @@ export default function AppLayout() {
         <main style={{ flex:1, overflowY:'auto' }}>
           <div style={{ padding:'16px' }}><Outlet /></div>
         </main>
-
       </div>
 
       <style>{`
