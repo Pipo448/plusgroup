@@ -8,9 +8,8 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  CreditCard, Plus, Printer, Search, Filter,
-  CheckCircle, XCircle, Clock, DollarSign,
-  FileText, X, ChevronDown, Download, RefreshCw
+  CreditCard, Plus, Printer, Search,
+  CheckCircle, XCircle, RefreshCw, X,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
@@ -53,6 +52,7 @@ const T = {
     receiptCashier: 'Kasye',
     receiptTotal: 'TOTAL',
     receiptThanks: 'Mèsi pou achte ou!',
+    apiError: 'Erè koneksyon ak sèvè a.',
   },
   fr: {
     title: 'Petit Bon de Caisse',
@@ -89,6 +89,7 @@ const T = {
     receiptCashier: 'Caissier',
     receiptTotal: 'TOTAL',
     receiptThanks: 'Merci pour votre achat!',
+    apiError: 'Erreur de connexion au serveur.',
   },
   en: {
     title: 'Cash Voucher',
@@ -125,6 +126,7 @@ const T = {
     receiptCashier: 'Cashier',
     receiptTotal: 'TOTAL',
     receiptThanks: 'Thank you for your purchase!',
+    apiError: 'Server connection error.',
   }
 }
 
@@ -142,10 +144,13 @@ const STATUS_STYLE = {
 
 // ── Fonksyon enprime reçu
 function printKane(kane, tenant, t) {
+  if (!kane) return
   const w = window.open('', '_blank', 'width=320,height=500')
-  const date = new Date(kane.createdAt).toLocaleDateString('fr-FR')
-  const time = new Date(kane.createdAt).toLocaleTimeString('fr-FR')
-  const amount = Number(kane.amount).toLocaleString('fr-HT')
+  if (!w) return
+  const createdAt = kane.createdAt ? new Date(kane.createdAt) : new Date()
+  const date = createdAt.toLocaleDateString('fr-FR')
+  const time = createdAt.toLocaleTimeString('fr-FR')
+  const amount = Number(kane.amount || 0).toLocaleString('fr-HT')
   const currency = kane.currency || 'HTG'
 
   w.document.write(`
@@ -163,13 +168,13 @@ function printKane(kane, tenant, t) {
     <div class="center" style="font-size:11px">${tenant?.phone || ''}</div>
     <div class="line"></div>
     <div class="center bold">${t.receiptTitle}</div>
-    <div class="center" style="font-size:11px">#${kane.kaneNumber}</div>
+    <div class="center" style="font-size:11px">#${kane.kaneNumber || '—'}</div>
     <div class="center" style="font-size:11px">${date} ${time}</div>
     <div class="line"></div>
     <div class="row"><span>${t.clientName}:</span><span>${kane.clientName || '—'}</span></div>
     <div class="row"><span>${t.clientPhone}:</span><span>${kane.clientPhone || '—'}</span></div>
     <div class="line"></div>
-    <div class="row"><span class="bold">${kane.description}</span></div>
+    <div class="row"><span class="bold">${kane.description || ''}</span></div>
     <div class="line"></div>
     <div class="row"><span class="bold total">${t.receiptTotal}:</span><span class="bold total">${amount} ${currency}</span></div>
     <div class="line"></div>
@@ -212,7 +217,6 @@ function KaneModal({ lang, tenant, onClose, onSave }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {/* Deskripsyon */}
           <div>
             <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.description} *</label>
             <input value={form.description} onChange={e => set('description', e.target.value)}
@@ -221,7 +225,6 @@ function KaneModal({ lang, tenant, onClose, onSave }) {
             />
           </div>
 
-          {/* Montan + Monè */}
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
             <div>
               <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.amount} *</label>
@@ -241,7 +244,6 @@ function KaneModal({ lang, tenant, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Kliyan */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
               <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.clientName}</label>
@@ -259,7 +261,6 @@ function KaneModal({ lang, tenant, onClose, onSave }) {
             </div>
           </div>
 
-          {/* Nòt */}
           <div>
             <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.notes}</label>
             <textarea value={form.notes} onChange={e => set('notes', e.target.value)} rows={2}
@@ -301,25 +302,37 @@ export default function KanePage() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
 
-  // Verifye plan Antepriz
- const planName = tenant?.plan?.name || ''
-const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-  .includes(planName.toLowerCase().trim())
+  // ✅ KORIJE — case-insensitive, sipòte tout variante
+  const planName = tenant?.plan?.name || ''
+  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+    .includes(planName.toLowerCase().trim())
 
-  // Chaje kanè yo (API endpoint /api/v1/kane)
-  const { data, isLoading, refetch } = useQuery({
+  // ✅ Si pa Enterprise, montre paj lock la
+  if (!isEnterprise) return (
+    <EnterpriseLock lang={lang} page="kane" currentPlanName={planName} />
+  )
+
+  // ✅ KORIJE — retire onError (pa sipòte nan React Query v5)
+  //    Itilize isError + error olye a
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['kane', filter],
-    queryFn: () => api.get('/kane', { params: { status: filter !== 'all' ? filter : undefined } })
-      .then(r => r.data),
-    // Si endpoint pa egziste yet, retounen done vide
-    onError: () => ({ kanes: [], stats: { totalToday: 0, totalPaid: 0, totalPending: 0 } })
+    queryFn: () =>
+      api.get('/kane', { params: { status: filter !== 'all' ? filter : undefined } })
+        .then(r => r.data),
+    retry: 1,
+    // Retounen done vide si API echwe (evite crash)
+    placeholderData: { kanes: [], stats: { totalToday: 0, totalPaid: 0, totalPending: 0 } },
   })
 
-  const kanes = (data?.kanes || []).filter(k =>
-    !search || k.description?.toLowerCase().includes(search.toLowerCase()) ||
-    k.clientName?.toLowerCase().includes(search.toLowerCase()) ||
-    k.kaneNumber?.toLowerCase().includes(search.toLowerCase())
-  )
+  // ✅ Pwoteksyon null — toujou retounen yon tableau/objè
+  const kanes = Array.isArray(data?.kanes)
+    ? data.kanes.filter(k =>
+        !search ||
+        k?.description?.toLowerCase().includes(search.toLowerCase()) ||
+        k?.clientName?.toLowerCase().includes(search.toLowerCase()) ||
+        k?.kaneNumber?.toLowerCase().includes(search.toLowerCase())
+      )
+    : []
 
   const stats = data?.stats || { totalToday: 0, totalPaid: 0, totalPending: 0 }
 
@@ -328,25 +341,36 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     mutationFn: (form) => api.post('/kane', form),
     onSuccess: (res) => {
       toast.success('Kanè kreye!')
-      qc.invalidateQueries(['kane'])
+      qc.invalidateQueries({ queryKey: ['kane'] })
       setShowModal(false)
-      // Enprime dirèkteman
-      if (res.data?.kane) printKane(res.data.kane, tenant, t)
+      // ✅ Pwoteksyon null anvan enprime
+      if (res?.data?.kane) printKane(res.data.kane, tenant, t)
     },
-    onError: err => toast.error(err.response?.data?.message || 'Erè kreye kanè')
+    onError: err => toast.error(err?.response?.data?.message || 'Erè kreye kanè')
   })
 
   // Chanje statut
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }) => api.patch(`/kane/${id}/status`, { status }),
-    onSuccess: () => { qc.invalidateQueries(['kane']); toast.success('Statut ajou!') },
-    onError: err => toast.error(err.response?.data?.message || 'Erè')
+    mutationFn: ({ id, status }) => {
+      // ✅ Pwoteksyon — pa voye request si id undefined
+      if (!id) throw new Error('ID manke')
+      return api.patch(`/kane/${id}/status`, { status })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['kane'] })
+      toast.success('Statut ajou!')
+    },
+    onError: err => toast.error(err?.response?.data?.message || err?.message || 'Erè')
   })
 
+  // ✅ Pwoteksyon — verifye kane ak kane.id egziste
   const handleMarkPaid = (kane) => {
+    if (!kane?.id) return toast.error('ID kanè manke')
     if (window.confirm(t.confirmPaid)) statusMutation.mutate({ id: kane.id, status: 'paid' })
   }
+
   const handleCancel = (kane) => {
+    if (!kane?.id) return toast.error('ID kanè manke')
     if (window.confirm(t.confirmCancel)) statusMutation.mutate({ id: kane.id, status: 'cancelled' })
   }
 
@@ -376,12 +400,23 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
         </div>
       </div>
 
+      {/* ✅ Montre erè API si gen pwoblèm backend */}
+      {isError && (
+        <div style={{
+          marginBottom: 16, padding: '12px 16px', borderRadius: 10,
+          background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)',
+          color: '#C0392B', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8
+        }}>
+          ⚠️ {t.apiError} — {error?.response?.data?.message || error?.message || 'Sèvè a retounen yon erè 500'}
+        </div>
+      )}
+
       {/* Statistik */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: t.totalToday, val: `${Number(stats.totalToday || 0).toLocaleString('fr-HT')} HTG`, color: COLORS.gold },
-          { label: t.totalPaid, val: `${Number(stats.totalPaid || 0).toLocaleString('fr-HT')} HTG`, color: '#27ae60' },
-          { label: t.totalPending, val: `${Number(stats.totalPending || 0).toLocaleString('fr-HT')} HTG`, color: '#C9A84C' },
+          { label: t.totalToday,   val: `${Number(stats.totalToday   || 0).toLocaleString('fr-HT')} HTG`, color: COLORS.gold   },
+          { label: t.totalPaid,    val: `${Number(stats.totalPaid    || 0).toLocaleString('fr-HT')} HTG`, color: '#27ae60'     },
+          { label: t.totalPending, val: `${Number(stats.totalPending || 0).toLocaleString('fr-HT')} HTG`, color: '#C9A84C'     },
         ].map(({ label, val, color }) => (
           <div key={label} style={{
             background: COLORS.card, border: `1px solid ${COLORS.border}`,
@@ -404,7 +439,8 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
         </div>
         {['all', 'pending', 'paid', 'cancelled'].map(s => (
           <button key={s} onClick={() => setFilter(s)} style={{
-            padding: '8px 14px', borderRadius: 8, border: `1px solid ${filter === s ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
+            padding: '8px 14px', borderRadius: 8,
+            border: `1px solid ${filter === s ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
             background: filter === s ? 'rgba(201,168,76,0.15)' : 'transparent',
             color: filter === s ? COLORS.gold : '#64748b',
             cursor: 'pointer', fontSize: 12, fontWeight: filter === s ? 700 : 400
@@ -414,7 +450,7 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
         ))}
       </div>
 
-      {/* Tablo / Lis */}
+      {/* Lis Kanè */}
       {isLoading ? (
         <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>Chajman...</div>
       ) : kanes.length === 0 ? (
@@ -427,10 +463,14 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {kanes.map(kane => {
+          {kanes.map((kane, idx) => {
+            // ✅ Skip si kane undefined/null
+            if (!kane) return null
             const ss = STATUS_STYLE[kane.status] || STATUS_STYLE.pending
+            // ✅ Kle sekirize — itilize id si disponib, sinon idx
+            const key = kane.id ?? `kane-${idx}`
             return (
-              <div key={kane.id} style={{
+              <div key={key} style={{
                 background: COLORS.card, border: `1px solid ${COLORS.border}`,
                 borderRadius: 10, padding: '14px 16px',
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
@@ -445,16 +485,18 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
 
                 {/* Deskripsyon */}
                 <div style={{ flex: 1, minWidth: 140 }}>
-                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{kane.description}</div>
+                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{kane.description || '—'}</div>
                   {kane.clientName && (
-                    <div style={{ color: '#94a3b8', fontSize: 12 }}>{kane.clientName} {kane.clientPhone ? `· ${kane.clientPhone}` : ''}</div>
+                    <div style={{ color: '#94a3b8', fontSize: 12 }}>
+                      {kane.clientName} {kane.clientPhone ? `· ${kane.clientPhone}` : ''}
+                    </div>
                   )}
                 </div>
 
                 {/* Montan */}
                 <div style={{ minWidth: 100, textAlign: 'right' }}>
                   <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>
-                    {Number(kane.amount).toLocaleString('fr-HT')}
+                    {Number(kane.amount || 0).toLocaleString('fr-HT')}
                   </div>
                   <div style={{ color: '#64748b', fontSize: 11 }}>{kane.currency || 'HTG'}</div>
                 </div>
@@ -464,12 +506,15 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
                   padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                   background: ss.bg, color: ss.color, minWidth: 70, textAlign: 'center'
                 }}>
-                  {ss.label} {t[kane.status]}
+                  {ss.label} {t[kane.status] || kane.status}
                 </span>
 
                 {/* Dat */}
                 <div style={{ color: '#64748b', fontSize: 11, minWidth: 80, textAlign: 'right' }}>
-                  {new Date(kane.createdAt || Date.now()).toLocaleDateString('fr-FR')}
+                  {kane.createdAt
+                    ? new Date(kane.createdAt).toLocaleDateString('fr-FR')
+                    : new Date().toLocaleDateString('fr-FR')
+                  }
                 </div>
 
                 {/* Aksyon */}
@@ -480,14 +525,18 @@ const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
                   }}><Printer size={13} /></button>
                   {kane.status === 'pending' && (
                     <>
-                      <button onClick={() => handleMarkPaid(kane)} title={t.markPaid} style={{
-                        padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                        background: 'rgba(39,174,96,0.15)', color: '#27ae60', fontWeight: 700, fontSize: 11
-                      }}><CheckCircle size={13} /></button>
-                      <button onClick={() => handleCancel(kane)} title={t.markCancelled} style={{
-                        padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                        background: 'rgba(192,57,43,0.12)', color: '#C0392B'
-                      }}><XCircle size={13} /></button>
+                      <button onClick={() => handleMarkPaid(kane)} title={t.markPaid}
+                        disabled={statusMutation.isPending}
+                        style={{
+                          padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: 'rgba(39,174,96,0.15)', color: '#27ae60', fontWeight: 700, fontSize: 11
+                        }}><CheckCircle size={13} /></button>
+                      <button onClick={() => handleCancel(kane)} title={t.markCancelled}
+                        disabled={statusMutation.isPending}
+                        style={{
+                          padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+                          background: 'rgba(192,57,43,0.12)', color: '#C0392B'
+                        }}><XCircle size={13} /></button>
                     </>
                   )}
                 </div>
