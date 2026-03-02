@@ -21,15 +21,15 @@ import { useAuth } from '../contexts/AuthContext';
 import './Sidebar.css';
 
 // ✅ Retire "/api/v1" pou jwenn base URL pou uploads
-const BASE_URL = (import.meta.env.VITE_API_URL || '').replace('/api/v1', '');
+const BASE_URL = ((import.meta as any).env?.VITE_API_URL || '').replace('/api/v1', '');
 
 const Sidebar = () => {
   const { t } = useTranslation();
-  const { tenant, user } = useAuth();
+  const { tenant, user } = useAuth() as any;
   const location = useLocation();
 
   // ✅ Fonction pou konstwi URL logo a kòrèkteman
-  const getLogoUrl = (logoUrl) => {
+  const getLogoUrl = (logoUrl: string): string | null => {
     if (!logoUrl) return null;
     if (logoUrl.startsWith('http')) return logoUrl;
     return `${BASE_URL}${logoUrl}`;
@@ -39,7 +39,7 @@ const Sidebar = () => {
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true;
 
   // Verifye si plan se Antepriz
-  const planName = tenant?.plan?.name || '';
+  const planName: string = tenant?.plan?.name || '';
   const isEnterprise = ['Antepriz', 'Entreprise', 'Enterprise'].includes(planName);
 
   // ✅ FIX: paths korije pou /app/ prefix
@@ -130,12 +130,13 @@ const Sidebar = () => {
       <div className="sidebar-brand">
         {tenant?.logoUrl ? (
           <img
-            src={getLogoUrl(tenant.logoUrl)}
+            src={getLogoUrl(tenant.logoUrl) ?? undefined}
             alt={tenant.name}
             className="sidebar-logo"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
-              e.currentTarget.nextSibling.style.display = 'flex';
+              const sibling = e.currentTarget.nextSibling as HTMLElement | null;
+              if (sibling) sibling.style.display = 'flex';
             }}
           />
         ) : null}
@@ -177,7 +178,6 @@ const Sidebar = () => {
 
         {/* ── Branch (admin sèlman) */}
         {isAdmin && (() => {
-          // ✅ FIX: startsWith pou branch tou
           const isActive = location.pathname.startsWith(branchItem.path);
           const Icon = branchItem.icon;
           return (
@@ -198,14 +198,11 @@ const Sidebar = () => {
 
         {/* ── Seksyon Antepriz */}
         <div className="sidebar-section-divider">
-          <span className="sidebar-section-label">
-            {isEnterprise ? '✦ ANTEPRIZ' : '✦ ANTEPRIZ'}
-          </span>
+          <span className="sidebar-section-label">✦ ANTEPRIZ</span>
         </div>
 
         {enterpriseItems.map((item) => {
           const Icon = item.icon;
-          // ✅ FIX: startsWith pou enterprise items tou
           const isActive = location.pathname.startsWith(item.path);
           const locked = !isEnterprise;
 
@@ -220,7 +217,6 @@ const Sidebar = () => {
                 <Icon size={20} />
               </div>
               <span className="sidebar-link-label">{item.label}</span>
-              {/* Montre kle si pa Antepriz */}
               {locked && (
                 <Lock
                   size={12}
@@ -236,7 +232,6 @@ const Sidebar = () => {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        {/* Badge plan aktyèl */}
         <div style={{
           padding: '6px 10px',
           borderRadius: 8,
