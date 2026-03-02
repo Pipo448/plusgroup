@@ -110,10 +110,13 @@ export const quoteAPI = {
 
 // ── Invoices
 export const invoiceAPI = {
-  getAll:     (p)        => api.get('/invoices', { params: p }),
-  getOne:     (id)       => api.get(`/invoices/${id}`),
-  addPayment: (id, data) => api.post(`/invoices/${id}/payment`, data),
-  cancel:     (id, data) => api.patch(`/invoices/${id}/cancel`, data),
+  getAll:       (p)        => api.get('/invoices', { params: p }),
+  getOne:       (id)       => api.get(`/invoices/${id}`),
+  addPayment:   (id, data) => api.post(`/invoices/${id}/payment`, data),
+  cancel:       (id, data) => api.patch(`/invoices/${id}/cancel`, data),
+  // ✅ FIX: Fonksyon sa yo te manke — Dashboard te toujou afiche 0
+  getDashboard: ()         => api.get('/invoices/dashboard'),
+  createDirect: (data)     => api.post('/invoices/direct', data),
 }
 
 // ── Stock
@@ -144,7 +147,7 @@ export const userAPI = {
   toggle:  (id)       => api.patch(`/auth/users/${id}/toggle`),
 }
 
-// ── Super Admin API ✅ AJOUTE
+// ── Super Admin API
 export const adminAPI = {
   login:         (data) => api.post('/admin/login', data),
   getStats:      ()     => api.get('/admin/stats'),
@@ -159,9 +162,7 @@ export const adminAPI = {
   updatePlan:    (id, data) => api.put(`/admin/plans/${id}`, data),
 }
 
-// ══════════════════════════════════════════════════════
 // ── BRANCHES — Multi-Branch System
-// ══════════════════════════════════════════════════════
 export const branchAPI = {
   getAll:         ()             => api.get('/branches'),
   getOne:         (id)           => api.get(`/branches/${id}`),
@@ -176,7 +177,7 @@ export const branchAPI = {
   getTenantUsers:  ()                  => api.get('/auth/users'),
 }
 
-// ── Enterprise Services ✅ AJOUTE
+// ── Enterprise Services
 export const kaneAPI = {
   getBalance:    ()     => api.get('/kane/balance'),
   transfer:      (data) => api.post('/kane/transfer', data),
