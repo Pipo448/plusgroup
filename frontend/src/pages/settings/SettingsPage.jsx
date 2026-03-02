@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield, FileText } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -16,6 +16,7 @@ const D = {
   white:'#FFFFFF', bg:'#F4F6FF', border:'rgba(27,42,143,0.10)',
   text:'#0F1A5C', muted:'#6B7AAB',
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
+  orange:'#FF6B00', orangeLt:'#FF8C33',
 }
 
 const inp = {
@@ -71,8 +72,6 @@ function ChangeMyPassword({ t }) {
   const strengthColors = ['#e2e8f0', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e']
   const strengthLabels = ['', t('settings.pwd.weak'), t('settings.pwd.medium'), t('settings.pwd.good'), t('settings.pwd.strong')]
 
-  const pwdInp = (show) => ({ ...inp, paddingRight: 44 })
-
   return (
     <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
       <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
@@ -86,13 +85,12 @@ function ChangeMyPassword({ t }) {
       </div>
 
       <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
-        {/* Ansyen modpas */}
         <div>
           <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {t('settings.oldPassword')} *
           </label>
           <div style={{ position:'relative' }}>
-            <input type={showOld ? 'text' : 'password'} style={{ ...pwdInp(showOld) }}
+            <input type={showOld ? 'text' : 'password'} style={{ ...inp, paddingRight:44 }}
               {...register('oldPassword', { required: true })}
               onFocus={e=>e.target.style.borderColor=D.blue}
               onBlur={e=>e.target.style.borderColor=D.border}
@@ -104,13 +102,12 @@ function ChangeMyPassword({ t }) {
           </div>
         </div>
 
-        {/* Nouvo modpas */}
         <div>
           <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {t('settings.newPassword')} *
           </label>
           <div style={{ position:'relative' }}>
-            <input type={showNew ? 'text' : 'password'} style={{ ...pwdInp(showNew) }}
+            <input type={showNew ? 'text' : 'password'} style={{ ...inp, paddingRight:44 }}
               {...register('newPassword', { required: true, minLength: 6 })}
               onFocus={e=>e.target.style.borderColor=D.blue}
               onBlur={e=>e.target.style.borderColor=D.border}
@@ -120,7 +117,6 @@ function ChangeMyPassword({ t }) {
               {showNew ? <EyeOff size={15}/> : <Eye size={15}/>}
             </button>
           </div>
-          {/* Fòs modpas */}
           {newPwd.length > 0 && (
             <div style={{ marginTop:8 }}>
               <div style={{ display:'flex', gap:4, marginBottom:4 }}>
@@ -133,13 +129,12 @@ function ChangeMyPassword({ t }) {
           )}
         </div>
 
-        {/* Konfime modpas */}
         <div>
           <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {t('settings.confirmPassword')} *
           </label>
           <div style={{ position:'relative' }}>
-            <input type={showCon ? 'text' : 'password'} style={{ ...pwdInp(showCon), borderColor: errors.confirmPassword ? '#ef4444' : D.border }}
+            <input type={showCon ? 'text' : 'password'} style={{ ...inp, paddingRight:44, borderColor: errors.confirmPassword ? '#ef4444' : D.border }}
               {...register('confirmPassword', {
                 required: true,
                 validate: val => val === newPwd || t('settings.passwordMismatch')
@@ -180,7 +175,6 @@ function ChangeUserPassword({ t }) {
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm()
   const newPwd = watch('newPassword', '')
 
-  // Chaje lis itilizatè yo
   const { data: usersData } = useQuery({
     queryKey: ['tenant-users'],
     queryFn: () => tenantAPI.getUsers().then(r => r.data.users || r.data)
@@ -210,7 +204,6 @@ function ChangeUserPassword({ t }) {
       </div>
 
       <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
-        {/* Chwazi itilizatè */}
         <div>
           <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {t('settings.selectUser')} *
@@ -227,7 +220,6 @@ function ChangeUserPassword({ t }) {
           </select>
         </div>
 
-        {/* Nouvo modpas */}
         <div>
           <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
             {t('settings.newPassword')} *
@@ -255,7 +247,6 @@ function ChangeUserPassword({ t }) {
           )}
         </div>
 
-        {/* Avètisman */}
         <div style={{ padding:'10px 14px', borderRadius:10, background:'rgba(201,168,76,0.08)', border:'1px solid rgba(201,168,76,0.2)' }}>
           <p style={{ color:'#92701a', fontSize:12, margin:0, lineHeight:1.6 }}>
             ⚠ {t('settings.userPasswordWarning')}
@@ -310,6 +301,8 @@ export default function SettingsPage() {
         printerConnection: settings.printerConnection || 'usb',
         showExchangeRate:  settings.showExchangeRate  !== false,
         showQrCode:        settings.showQrCode        !== false,
+        // ✅ NOUVO
+        requireQuote:      settings.requireQuote      === true,
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -403,9 +396,11 @@ export default function SettingsPage() {
     </div>
   )
 
-  const primaryColor = watch('primaryColor') || D.blue
+  const primaryColor    = watch('primaryColor') || D.blue
   const showExchangeRate = watch('showExchangeRate')
-  const showQrCode = watch('showQrCode')
+  const showQrCode      = watch('showQrCode')
+  // ✅ NOUVO
+  const requireQuote    = watch('requireQuote')
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760 }}>
@@ -531,6 +526,50 @@ export default function SettingsPage() {
                   <Toggle checked={!!showQrCode} onChange={val => setValue('showQrCode', val)} color={D.blue} />
                 </div>
               </div>
+
+              {/* ✅ NOUVO — Toggle: Flou Travay Devi → Fakti */}
+              <div style={{ gridColumn:'1/-1' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:12, background: requireQuote ? 'rgba(255,107,0,0.05)' : '#f8f9ff', border:`1.5px solid ${requireQuote ? 'rgba(255,107,0,0.3)' : '#e2e8f0'}`, transition:'all 0.2s' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ width:36, height:36, borderRadius:10, background: requireQuote ? 'rgba(255,107,0,0.1)' : '#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <FileText size={16} color={requireQuote ? D.orange : D.muted}/>
+                    </div>
+                    <div>
+                      <p style={{ fontWeight:800, fontSize:13, color:requireQuote?D.text:D.muted, margin:'0 0 2px' }}>
+                        {t('settings.requireQuote') || 'Obligye Devi avan Fakti'}
+                      </p>
+                      <p style={{ fontSize:11, color:D.muted, margin:0 }}>
+                        {requireQuote
+                          ? (t('settings.requireQuoteOn')  || '✅ Devi → Fakti (flou konplè)')
+                          : (t('settings.requireQuoteOff') || '⚡ Fakti direk san devi')
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Toggle checked={!!requireQuote} onChange={val => setValue('requireQuote', val)} color={D.orange} />
+                </div>
+
+                {/* Eksplikasyon vizyal */}
+                <div style={{ marginTop:10, padding:'12px 16px', borderRadius:10, background: requireQuote ? 'rgba(255,107,0,0.05)' : 'rgba(27,42,143,0.04)', border:`1px dashed ${requireQuote ? 'rgba(255,107,0,0.25)' : D.border}` }}>
+                  {requireQuote ? (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.orange, padding:'3px 10px', borderRadius:20, background:'rgba(255,107,0,0.1)', border:'1px solid rgba(255,107,0,0.2)' }}>📋 Devi</span>
+                      <span style={{ fontSize:14, color:D.muted }}>→</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:'#059669', padding:'3px 10px', borderRadius:20, background:'rgba(5,150,105,0.08)', border:'1px solid rgba(5,150,105,0.2)' }}>✅ Aksepte</span>
+                      <span style={{ fontSize:14, color:D.muted }}>→</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.blue, padding:'3px 10px', borderRadius:20, background:D.blueDim2, border:`1px solid ${D.border}` }}>🧾 Fakti</span>
+                      <span style={{ fontSize:11, color:D.muted, marginLeft:4 }}>— Flou konplè obligatwa</span>
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.blue, padding:'3px 10px', borderRadius:20, background:D.blueDim2, border:`1px solid ${D.border}` }}>🧾 Fakti Direk</span>
+                      <span style={{ fontSize:11, color:D.muted }}>— Kreye fakti san bezwen pase pa devi</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.muted, padding:'3px 10px', borderRadius:20, background:'#f1f5f9', border:'1px solid #e2e8f0', textDecoration:'line-through', opacity:0.6 }}>📋 Devi opsyonèl</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -750,8 +789,6 @@ export default function SettingsPage() {
       {/* ══ ITILIZATÈ ══ */}
       {activeTab === 'users' && (
         <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-
-          {/* Jesyon Itilizatè */}
           <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -770,12 +807,8 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* Chanje Modpas Ou Menm */}
           <ChangeMyPassword t={t} />
-
-          {/* Chanje Modpas Yon Itilizatè — Admin sèlman */}
           {isAdmin && <ChangeUserPassword t={t} />}
-
         </div>
       )}
 
