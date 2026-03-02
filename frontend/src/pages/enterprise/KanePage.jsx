@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
-import EnterpriseLock from '../../components/EnterpriseLock'
+import EnterpriseLock from './EnterpriseLock'
 
 // ── Tradiksyon
 const T = {
