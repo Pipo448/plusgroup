@@ -9,15 +9,15 @@ const login = asyncHandler(async (req, res) => {
   }
   const result = await authService.login(req.tenant.id, email, password);
 
-  // ✅ KORIJE — Asire tenant nan login response gen plan ladan l
   res.json({
     success: true,
     ...result,
     tenant: {
       ...(result.tenant || {}),
-      // Si authService pa retounen plan, pran l nan req.tenant
       plan: result.tenant?.plan || req.tenant?.plan || null,
-    }
+    },
+    // ✅ AJOUTE — branches itilizatè a gen aksè, pou frontend ka autoSetBranch
+    branches: result.branches || result.user?.branches || [],
   });
 });
 
@@ -63,7 +63,7 @@ const getMe = asyncHandler(async (req, res) => {
       taxRate:            req.tenant.taxRate,
       receiptSize:        req.tenant.receiptSize,
       subscriptionEndsAt: req.tenant.subscriptionEndsAt,
-      plan:               req.tenant.plan,  // ✅ plan toujou la
+      plan:               req.tenant.plan,
     }
   });
 });
