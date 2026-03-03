@@ -2,32 +2,63 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./product.service');
 
-// ⚠️ KORIJE — pase req.branchId bay svc.getAll
 const getAll = asyncHandler(async (req, res) => {
   const data = await svc.getAll(req.tenant.id, {
     ...req.query,
-    branchId: req.branchId || undefined  // ⚠️ NOUVO
+    branchId: req.branchId || undefined
   });
   res.json({ success: true, ...data });
 });
 
-const getLowStock    = asyncHandler(async (req, res) => { const data = await svc.getLowStock(req.tenant.id); res.json({ success: true, products: data }); });
-const getOne         = asyncHandler(async (req, res) => { const data = await svc.getOne(req.tenant.id, req.params.id); res.json({ success: true, product: data }); });
+const getLowStock = asyncHandler(async (req, res) => {
+  // ✅ KORIJE — pase branchId pou filtre alertes pa branch
+  const data = await svc.getLowStock(req.tenant.id, req.branchId || undefined);
+  res.json({ success: true, products: data });
+});
 
-// ⚠️ KORIJE — ajoute branchId nan create otomatikman
+const getOne = asyncHandler(async (req, res) => {
+  const data = await svc.getOne(req.tenant.id, req.params.id);
+  res.json({ success: true, product: data });
+});
+
 const create = asyncHandler(async (req, res) => {
   const data = await svc.create(req.tenant.id, req.user.id, {
     ...req.body,
-    branchId: req.body.branchId || req.branchId || null  // ⚠️ NOUVO
+    branchId: req.body.branchId || req.branchId || null
   });
   res.status(201).json({ success: true, product: data });
 });
 
-const update         = asyncHandler(async (req, res) => { const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body); res.json({ success: true, product: data }); });
-const remove         = asyncHandler(async (req, res) => { await svc.remove(req.tenant.id, req.params.id); res.json({ success: true, message: 'Pwodui siprime avèk siksè.' }); });
-const getCategories  = asyncHandler(async (req, res) => { const data = await svc.getCategories(req.tenant.id); res.json({ success: true, categories: data }); });
-const createCategory = asyncHandler(async (req, res) => { const data = await svc.createCategory(req.tenant.id, req.body); res.status(201).json({ success: true, category: data }); });
-const updateCategory = asyncHandler(async (req, res) => { const data = await svc.updateCategory(req.tenant.id, req.params.id, req.body); res.json({ success: true, category: data }); });
-const deleteCategory = asyncHandler(async (req, res) => { await svc.deleteCategory(req.tenant.id, req.params.id); res.json({ success: true, message: 'Kategori siprime.' }); });
+const update = asyncHandler(async (req, res) => {
+  const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body);
+  res.json({ success: true, product: data });
+});
+
+const remove = asyncHandler(async (req, res) => {
+  await svc.remove(req.tenant.id, req.params.id);
+  res.json({ success: true, message: 'Pwodui siprime avèk siksè.' });
+});
+
+// ✅ KORIJE — pase branchId nan getCategories
+const getCategories = asyncHandler(async (req, res) => {
+  const data = await svc.getCategories(req.tenant.id, req.branchId || undefined);
+  res.json({ success: true, categories: data });
+});
+
+// ✅ KORIJE — pase branchId nan createCategory
+const createCategory = asyncHandler(async (req, res) => {
+  const data = await svc.createCategory(req.tenant.id, req.branchId || null, req.body);
+  res.status(201).json({ success: true, category: data });
+});
+
+const updateCategory = asyncHandler(async (req, res) => {
+  const data = await svc.updateCategory(req.tenant.id, req.params.id, req.body);
+  res.json({ success: true, category: data });
+});
+
+const deleteCategory = asyncHandler(async (req, res) => {
+  await svc.deleteCategory(req.tenant.id, req.params.id);
+  res.json({ success: true, message: 'Kategori siprime.' });
+});
 
 module.exports = { getAll, getLowStock, getOne, create, update, remove, getCategories, createCategory, updateCategory, deleteCategory };
