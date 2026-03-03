@@ -1,21 +1,23 @@
 // src/modules/stock/stock.routes.js
-// Référence: Voir la section stock dans report.routes.js
-// Ce fichier est le point d'entrée pour les routes stock
-
 const express = require('express');
 const router  = express.Router();
 const { identifyTenant, authenticate, authorize } = require('../../middleware/auth');
+const { extractBranch } = require('../../middleware/branch');
 const { asyncHandler } = require('../../middleware/errorHandler');
-const prisma  = require('../../config/prisma');
+const prisma     = require('../../config/prisma');
 const svcProduct = require('../products/product.service');
 
 router.use(identifyTenant, authenticate);
 
 // GET mouvements de stock
-router.get('/movements', asyncHandler(async (req, res) => {
+// ⚠️ KORIJE — ajoute extractBranch + filtre branchId opsyonèl
+router.get('/movements', extractBranch, asyncHandler(async (req, res) => {
   const { productId, type, page = 1, limit = 20 } = req.query;
+  const branchId = req.branchId || null;
+
   const where = {
     tenantId: req.tenant.id,
+    ...(branchId && { branchId }),   // ⚠️ NOUVO
     ...(productId && { productId }),
     ...(type && { movementType: type })
   };
@@ -38,17 +40,21 @@ router.get('/movements', asyncHandler(async (req, res) => {
 }));
 
 // Ajustement manuel
-router.post('/adjust', authorize('admin', 'stock_manager'), asyncHandler(async (req, res) => {
+// branchId deja jere nan svcProduct.adjustStock via req.branchId
+router.post('/adjust', authorize('admin', 'stock_manager'), extractBranch, asyncHandler(async (req, res) => {
   const { productId, quantity, type, notes } = req.body;
   if (!productId || !quantity || !type) {
     return res.status(400).json({ success: false, message: 'productId, quantity ak type obligatwa.' });
   }
-  const product = await svcProduct.adjustStock(req.tenant.id, productId, req.user.id, { quantity, type, notes });
+  const product = await svcProduct.adjustStock(req.tenant.id, productId, req.user.id, {
+    quantity, type, notes,
+    branchId: req.branchId || null   // ⚠️ NOUVO
+  });
   res.json({ success: true, product, message: `Stock ajiste. Nouvo kantite: ${product.quantity}` });
 }));
 
 // Réapprovisionnement
-router.post('/purchase', authorize('admin', 'stock_manager'), asyncHandler(async (req, res) => {
+router.post('/purchase', authorize('admin', 'stock_manager'), extractBranch, asyncHandler(async (req, res) => {
   const { productId, quantity, unitCostHtg, notes } = req.body;
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId: req.tenant.id } });
   if (!product) return res.status(404).json({ success: false, message: 'Pwodui pa jwenn.' });
@@ -60,11 +66,16 @@ router.post('/purchase', authorize('admin', 'stock_manager'), asyncHandler(async
     prisma.product.update({ where: { id: productId }, data: { quantity: qtyAfter } }),
     prisma.stockMovement.create({
       data: {
-        tenantId: req.tenant.id, productId,
+        tenantId: req.tenant.id,
+        branchId: req.branchId || null,   // ⚠️ NOUVO
+        productId,
         movementType: 'purchase',
-        quantityBefore: qtyBefore, quantityChange: Number(quantity), quantityAfter: qtyAfter,
+        quantityBefore: qtyBefore,
+        quantityChange: Number(quantity),
+        quantityAfter: qtyAfter,
         unitCostHtg: unitCostHtg ? Number(unitCostHtg) : undefined,
-        notes, createdBy: req.user.id
+        notes,
+        createdBy: req.user.id
       }
     })
   ]);
