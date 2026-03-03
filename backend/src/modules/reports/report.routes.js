@@ -2,21 +2,30 @@
 const express = require('express');
 const router  = express.Router();
 const { identifyTenant, authenticate } = require('../../middleware/auth');
+const { extractBranch } = require('../../middleware/branch');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma  = require('../../config/prisma');
 
 router.use(identifyTenant, authenticate);
 
 // ── GET /api/v1/reports/sales
-router.get('/sales', asyncHandler(async (req, res) => {
+// ⚠️ KORIJE — ajoute extractBranch + filtre branchId
+router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
   const { dateFrom, dateTo } = req.query;
   const tenantId = req.tenant.id;
+  const branchId = req.branchId || null;
 
   const dateFilter = dateFrom && dateTo
     ? { issueDate: { gte: new Date(dateFrom), lte: new Date(dateTo) } }
     : {};
 
-  const where = { tenantId, status: { not: 'cancelled' }, ...dateFilter };
+  // ⚠️ NOUVO — filtre pa branch si branchId prezan
+  const where = {
+    tenantId,
+    status: { not: 'cancelled' },
+    ...(branchId && { branchId }),
+    ...dateFilter
+  };
 
   const [totals, byStatus, recentInvoices] = await Promise.all([
     prisma.invoice.aggregate({
@@ -155,7 +164,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, categoryId, createdBy } = req.query;
   const tenantId = req.tenant.id;
 
-  // Sèlman admin ki ka wè rapò benefis
   if (req.user.role !== 'admin') {
     return res.status(403).json({ success: false, message: 'Aksè refize. Admin sèlman.' });
   }
@@ -164,7 +172,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     ? { gte: new Date(dateFrom), lte: new Date(dateTo) }
     : undefined;
 
-  // Filtè pou InvoiceItem
   const itemWhere = {
     tenantId,
     invoice: {
@@ -177,7 +184,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     }),
   };
 
-  // 1. Rekipere tout InvoiceItem ak snapshot pwodui
   const items = await prisma.invoiceItem.findMany({
     where: itemWhere,
     include: {
@@ -194,7 +200,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     }
   });
 
-  // 2. Agrege pa pwodui
   const productMap = {};
   for (const item of items) {
     const pid  = item.productId || 'unknown';
@@ -204,7 +209,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     const cat  = item.product?.category?.name || '—';
     const catColor = item.product?.category?.color || '#6B7AAB';
 
-    // Pri kout — itilize costPriceHtg pwodui aktyèl la
     const costPriceHtg = Number(item.product?.costPriceHtg || item.productSnapshot?.costPriceHtg || 0);
     const qty          = Number(item.quantity || 0);
     const vantTotal    = Number(item.totalHtg || 0);
@@ -225,7 +229,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     productMap[pid].nbTransaksyon += 1;
   }
 
-  // 3. Konvèti an array epi kalkile maj %
   const byProduct = Object.values(productMap)
     .map(p => ({
       ...p,
@@ -233,7 +236,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     }))
     .sort((a, b) => b.benefisHtg - a.benefisHtg);
 
-  // 4. Totaux jeneral
   const totaux = byProduct.reduce((acc, p) => {
     acc.vantHtg    += p.vantHtg;
     acc.koutHtg    += p.koutHtg;
@@ -245,10 +247,8 @@ router.get('/profit', asyncHandler(async (req, res) => {
     ? ((totaux.benefisHtg / totaux.vantHtg) * 100).toFixed(1)
     : '0.0';
 
-  // 5. Top 5 pwodui pwofitab
   const top5 = [...byProduct].slice(0, 5);
 
-  // 6. Grafik pa jou (benefis chak jou)
   const dailyMap = {};
   for (const item of items) {
     const day          = String(item.invoice.issueDate).substring(0, 10);
