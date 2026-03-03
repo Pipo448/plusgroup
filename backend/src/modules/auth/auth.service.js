@@ -4,7 +4,6 @@ const jwt     = require('jsonwebtoken');
 const crypto  = require('crypto');
 const prisma  = require('../../config/prisma');
 
-// Générer token JWT
 const generateToken = (userId, tenantId, role) => {
   return jwt.sign(
     { userId, tenantId, role },
@@ -28,64 +27,81 @@ const login = async (tenantId, email, password) => {
     throw Object.assign(new Error('Email oswa modpas pa kòrèk.'), { statusCode: 401 });
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() }
-  });
+  // ✅ Fè tou 3 query an paralèl — pi rapid
+  const [, tenant, branchUsers] = await Promise.all([
+    // 1. Update lastLoginAt
+    prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() }
+    }),
 
-  // ← NOUVO: chèche tenant ak plan
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    include: {
-      plan: {
-        select: {
-          id: true,
-          name: true,
-          features: true,
-          maxProducts: true,
-          priceMonthly: true
+    // 2. Chèche tenant + plan
+    prisma.tenant.findUnique({
+      where: { id: tenantId },
+      include: {
+        plan: {
+          select: {
+            id: true, name: true, features: true,
+            maxProducts: true, priceMonthly: true
+          }
         }
       }
-    }
-  });
+    }),
+
+    // ✅ NOUVO — 3. Chèche branch itilizatè a gen aksè
+    prisma.branchUser.findMany({
+      where: { userId: user.id },
+      select: {
+        branchId: true,
+        branch: {
+          select: { id: true, name: true, slug: true }
+        }
+      }
+    })
+  ]);
 
   const token = generateToken(user.id, tenantId, user.role);
+
+  // ✅ Nòmalize branches — tab senp pou frontend ka itilize dirèkteman
+  const branches = branchUsers.map(bu => ({
+    id:   bu.branch.id,
+    name: bu.branch.name,
+    slug: bu.branch.slug,
+  }))
 
   return {
     token,
     user: {
-      id: user.id,
-      fullName: user.fullName,
-      email: user.email,
-      role: user.role,
-      permissions: user.permissions,
+      id:            user.id,
+      fullName:      user.fullName,
+      email:         user.email,
+      role:          user.role,
+      permissions:   user.permissions,
       preferredLang: user.preferredLang,
-      avatarUrl: user.avatarUrl
+      avatarUrl:     user.avatarUrl,
     },
-    tenant  // ← NOUVO: tenant + plan nan response
+    tenant,
+    branches, // ✅ [ { id, name, slug }, ... ]
   };
 };
+
 // ── Forgot Password
 const forgotPassword = async (tenantId, email) => {
   const user = await prisma.user.findFirst({
     where: { tenantId, email: email.toLowerCase().trim(), isActive: true }
   });
 
-  if (!user) return; // Ne pas révéler si l'email existe
+  if (!user) return; // Pa revele si email la egziste
 
   const token   = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 heure
+  const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 èdtan
 
   await prisma.user.update({
     where: { id: user.id },
-    data: {
-      passwordResetToken: token,
-      passwordResetExpires: expires
-    }
+    data: { passwordResetToken: token, passwordResetExpires: expires }
   });
 
-  // TODO: Envoyer email avec lien reset
-  // await sendEmail({ to: user.email, template: 'reset-password', data: { token } })
+  // TODO: Voye email ak lyen reset
   console.log(`[DEV] Reset token pou ${email}: ${token}`);
 };
 
@@ -104,14 +120,9 @@ const resetPassword = async (tenantId, token, newPassword) => {
   }
 
   const hash = await bcrypt.hash(newPassword, 12);
-
   await prisma.user.update({
     where: { id: user.id },
-    data: {
-      passwordHash: hash,
-      passwordResetToken: null,
-      passwordResetExpires: null
-    }
+    data: { passwordHash: hash, passwordResetToken: null, passwordResetExpires: null }
   });
 };
 
