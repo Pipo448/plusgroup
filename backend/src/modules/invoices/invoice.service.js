@@ -27,7 +27,6 @@ const getNextInvoiceNumber = async (tenantId) => {
 const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, dateFrom, dateTo, branchId }) => {
   const where = {
     tenantId,
-    // ⚠️ NOUVO — filtre pa branch si branchId prezan
     ...(branchId && { branchId }),
     ...(status && { status }),
     ...(clientId && { clientId }),
@@ -214,32 +213,36 @@ const createDirect = async (tenantId, userId, data) => {
 
 // ── DASHBOARD
 // ✅ FIX: Retire filtre startOfMonth — totalPaid afiche TT fakti peye, pa sèlman mwa aktyèl
-const getDashboard = async (tenantId) => {
+// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
+const getDashboard = async (tenantId, branchId) => {
+  // ⚠️ NOUVO — filtre pa branch si branchId prezan
+  const bf = branchId ? { branchId } : {}
+
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
     prisma.invoice.aggregate({
-      where: { tenantId, status: 'unpaid' },
+      where: { tenantId, ...bf, status: 'unpaid' },
       _sum: { balanceDueHtg: true, balanceDueUsd: true },
       _count: true
     }),
     prisma.invoice.aggregate({
-      where: { tenantId, status: 'paid' },
+      where: { tenantId, ...bf, status: 'paid' },
       _sum: { totalHtg: true, totalUsd: true },
       _count: true
     }),
     prisma.invoice.aggregate({
-      where: { tenantId, status: 'partial' },
+      where: { tenantId, ...bf, status: 'partial' },
       _sum: { balanceDueHtg: true },
       _count: true
     }),
     prisma.invoice.findMany({
-      where: { tenantId },
+      where: { tenantId, ...bf },
       include: { client: { select: { name: true } } },
       orderBy: { createdAt: 'desc' },
       take: 5
     }),
     prisma.invoice.groupBy({
       by: ['clientId'],
-      where: { tenantId, status: { not: 'cancelled' } },
+      where: { tenantId, ...bf, status: { not: 'cancelled' } },
       _sum: { totalHtg: true },
       _count: true,
       orderBy: { _sum: { totalHtg: 'desc' } },
