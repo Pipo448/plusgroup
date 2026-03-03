@@ -2,8 +2,9 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./client.service');
 
+// ⚠️ KORIJE — pase branchId bay svc.getAll ak svc.create
 const getAll = asyncHandler(async (req, res) => {
-  const data = await svc.getAll(req.tenant.id, req.query);
+  const data = await svc.getAll(req.tenant.id, { ...req.query, branchId: req.branchId || undefined });
   res.json({ success: true, ...data });
 });
 
@@ -13,7 +14,10 @@ const getOne = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const data = await svc.create(req.tenant.id, req.user.id, req.body);
+  const data = await svc.create(req.tenant.id, req.user.id, {
+    ...req.body,
+    branchId: req.body.branchId || req.branchId || null  // ⚠️ NOUVO
+  });
   res.status(201).json({ success: true, client: data });
 });
 

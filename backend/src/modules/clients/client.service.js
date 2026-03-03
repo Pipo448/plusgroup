@@ -1,10 +1,12 @@
 // src/modules/clients/client.service.js
 const prisma = require('../../config/prisma');
 
-const getAll = async (tenantId, { search, page = 1, limit = 20 }) => {
+// KORIJE - ajoute filtre branchId opsyonel
+const getAll = async (tenantId, { search, page = 1, limit = 20, branchId }) => {
   const where = {
     tenantId,
     isActive: true,
+    ...(branchId && { branchId }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -49,11 +51,13 @@ const getOne = async (tenantId, id) => {
   return client;
 };
 
+// KORIJE - ajoute branchId nan create
 const create = async (tenantId, userId, data) => {
   return prisma.client.create({
     data: {
       tenantId,
       createdBy: userId,
+      branchId: data.branchId || null,
       name: data.name,
       clientType: data.clientType || 'individual',
       companyName: data.companyName,
