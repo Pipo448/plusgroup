@@ -28,7 +28,6 @@ const T = {
     reports: 'Rapò',
     globalReport: 'Rapò Global',
     name: 'Non Branch',
-    slug: 'Slug (URL)',
     description: 'Deskripsyon',
     address: 'Adrès',
     phone: 'Telefòn',
@@ -68,7 +67,6 @@ const T = {
     reports: 'Rapports',
     globalReport: 'Rapport Global',
     name: 'Nom de la Branch',
-    slug: 'Slug (URL)',
     description: 'Description',
     address: 'Adresse',
     phone: 'Téléphone',
@@ -108,7 +106,6 @@ const T = {
     reports: 'Reports',
     globalReport: 'Global Report',
     name: 'Branch Name',
-    slug: 'Slug (URL)',
     description: 'Description',
     address: 'Address',
     phone: 'Phone',
@@ -143,7 +140,7 @@ const COLORS = {
 }
 
 // ══════════════════════════════════════════════════════
-// MODAL ITILIZATÈ BRANCH — NOUVO
+// MODAL ITILIZATÈ BRANCH
 // ══════════════════════════════════════════════════════
 const BranchUsersModal = ({ branch, lang, onClose }) => {
   const t = T[lang] || T.ht
@@ -152,13 +149,11 @@ const BranchUsersModal = ({ branch, lang, onClose }) => {
   const [selectedRole, setSelectedRole] = useState('cashier')
   const [selectedIsAdmin, setSelectedIsAdmin] = useState(false)
 
-  // Chaje detay branch (ak itilizatè yo)
   const { data: branchDetail, isLoading } = useQuery({
     queryKey: ['branch-detail', branch.id],
     queryFn: () => branchAPI.getOne(branch.id).then(r => r.data.branch)
   })
 
-  // Chaje tout itilizatè tenant an pou dropdown
   const { data: allUsersData } = useQuery({
     queryKey: ['tenant-users'],
     queryFn: () => branchAPI.getTenantUsers().then(r => r.data.users)
@@ -167,25 +162,19 @@ const BranchUsersModal = ({ branch, lang, onClose }) => {
   const branchUserIds = branchDetail?.branchUsers?.map(bu => bu.userId) || []
   const availableUsers = (allUsersData || []).filter(u => !branchUserIds.includes(u.id))
 
-  // Ajoute itilizatè
   const addMutation = useMutation({
     mutationFn: () => branchAPI.addUser(branch.id, {
-      userId: selectedUserId,
-      role: selectedRole,
-      isAdmin: selectedIsAdmin
+      userId: selectedUserId, role: selectedRole, isAdmin: selectedIsAdmin
     }),
     onSuccess: () => {
       toast.success('Itilizatè ajoute!')
       qc.invalidateQueries(['branch-detail', branch.id])
       qc.invalidateQueries(['branches'])
-      setSelectedUserId('')
-      setSelectedRole('cashier')
-      setSelectedIsAdmin(false)
+      setSelectedUserId(''); setSelectedRole('cashier'); setSelectedIsAdmin(false)
     },
     onError: err => toast.error(err.response?.data?.message || 'Erè ajoute')
   })
 
-  // Retire itilizatè
   const removeMutation = useMutation({
     mutationFn: (userId) => branchAPI.removeUser(branch.id, userId),
     onSuccess: () => {
@@ -197,158 +186,72 @@ const BranchUsersModal = ({ branch, lang, onClose }) => {
   })
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, padding: 16
-    }}>
-      <div style={{
-        background: '#0f172a', border: `1px solid ${COLORS.border}`,
-        borderRadius: 16, padding: 28, width: '100%', maxWidth: 560,
-        maxHeight: '85vh', display: 'flex', flexDirection: 'column'
-      }}>
-        {/* Header */}
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+      <div style={{ background: '#0f172a', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ color: COLORS.gold, margin: 0, fontSize: 17, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Users size={17} /> {t.manageBranchUsers}: <span style={{ color: '#fff' }}>{branch.name}</span>
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}>
-            <X size={20} />
-          </button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
         </div>
 
-        {/* Fòm Ajoute Itilizatè */}
-        <div style={{
-          background: 'rgba(201,168,76,0.06)', border: `1px solid ${COLORS.border}`,
-          borderRadius: 10, padding: 16, marginBottom: 20
-        }}>
+        <div style={{ background: 'rgba(201,168,76,0.06)', border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, marginBottom: 20 }}>
           <p style={{ color: COLORS.gold, fontSize: 12, fontWeight: 700, margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-            <UserPlus size={12} style={{ marginRight: 6, verticalAlign: 'middle' }} />
-            {t.addUser}
+            <UserPlus size={12} style={{ marginRight: 6, verticalAlign: 'middle' }} />{t.addUser}
           </p>
-
-          {/* Dropdown itilizatè */}
-          <select
-            value={selectedUserId}
-            onChange={e => setSelectedUserId(e.target.value)}
-            style={{
-              width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`,
-              color: selectedUserId ? '#fff' : '#64748b', marginBottom: 10,
-              boxSizing: 'border-box'
-            }}
-          >
+          <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}
+            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: selectedUserId ? '#fff' : '#64748b', marginBottom: 10, boxSizing: 'border-box' }}>
             <option value="" style={{ background: '#0f172a' }}>{t.selectUser}</option>
             {availableUsers.map(u => (
-              <option key={u.id} value={u.id} style={{ background: '#0f172a' }}>
-                {u.fullName} — {u.email}
-              </option>
+              <option key={u.id} value={u.id} style={{ background: '#0f172a' }}>{u.fullName} — {u.email}</option>
             ))}
           </select>
-
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            {/* Wòl */}
-            <select
-              value={selectedRole}
-              onChange={e => setSelectedRole(e.target.value)}
-              style={{
-                flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 12,
-                background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`,
-                color: '#fff', boxSizing: 'border-box'
-              }}
-            >
+            <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
+              style={{ flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 12, background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }}>
               <option value="cashier" style={{ background: '#0f172a' }}>Kasye</option>
               <option value="manager" style={{ background: '#0f172a' }}>Manadjè</option>
               <option value="accountant" style={{ background: '#0f172a' }}>Kontab</option>
               <option value="viewer" style={{ background: '#0f172a' }}>Wè sèlman</option>
             </select>
-
-            {/* Admin branch toggle */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
-              <input
-                type="checkbox"
-                checked={selectedIsAdmin}
-                onChange={e => setSelectedIsAdmin(e.target.checked)}
-                style={{ accentColor: COLORS.gold, width: 14, height: 14 }}
-              />
+              <input type="checkbox" checked={selectedIsAdmin} onChange={e => setSelectedIsAdmin(e.target.checked)} style={{ accentColor: COLORS.gold, width: 14, height: 14 }} />
               <span style={{ color: '#94a3b8', fontSize: 12 }}>{t.isAdmin}</span>
             </label>
-
-            {/* Bouton Ajoute */}
-            <button
-              onClick={() => selectedUserId && addMutation.mutate()}
-              disabled={!selectedUserId || addMutation.isPending}
-              style={{
-                padding: '7px 14px', borderRadius: 8, border: 'none',
-                background: selectedUserId ? `linear-gradient(135deg, ${COLORS.gold}, #a07830)` : '#1e293b',
-                color: selectedUserId ? '#000' : '#64748b',
-                fontWeight: 700, fontSize: 12, cursor: selectedUserId ? 'pointer' : 'not-allowed',
-                whiteSpace: 'nowrap'
-              }}
-            >
+            <button onClick={() => selectedUserId && addMutation.mutate()} disabled={!selectedUserId || addMutation.isPending}
+              style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: selectedUserId ? `linear-gradient(135deg, ${COLORS.gold}, #a07830)` : '#1e293b', color: selectedUserId ? '#000' : '#64748b', fontWeight: 700, fontSize: 12, cursor: selectedUserId ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
               {addMutation.isPending ? '...' : '+ ' + t.addUser}
             </button>
           </div>
         </div>
 
-        {/* Lis Itilizatè Aktyèl */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {isLoading ? (
             <div style={{ textAlign: 'center', color: '#64748b', padding: 30 }}>Chajman...</div>
           ) : !branchDetail?.branchUsers?.length ? (
             <div style={{ textAlign: 'center', color: '#64748b', padding: 30, fontSize: 13 }}>
-              <Users size={28} style={{ opacity: 0.3, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
-              {t.noUsers}
+              <Users size={28} style={{ opacity: 0.3, marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />{t.noUsers}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {branchDetail.branchUsers.map(bu => (
-                <div key={bu.userId} style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  padding: '10px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.06)`
-                }}>
-                  {/* Avatar */}
-                  <div style={{
-                    width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-                    background: `linear-gradient(135deg, #8B0000, #C0392B)`,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontWeight: 800, fontSize: 13
-                  }}>
+                <div key={bu.userId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid rgba(255,255,255,0.06)` }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0, background: `linear-gradient(135deg, #8B0000, #C0392B)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 13 }}>
                     {bu.user.fullName?.charAt(0)?.toUpperCase() || 'U'}
                   </div>
-
-                  {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{bu.user.fullName}</span>
                       {bu.isAdmin && (
-                        <span style={{
-                          padding: '1px 7px', borderRadius: 10, fontSize: 10,
-                          background: 'rgba(201,168,76,0.15)', color: COLORS.gold, fontWeight: 700
-                        }}>
-                          <ShieldCheck size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />
-                          Admin
+                        <span style={{ padding: '1px 7px', borderRadius: 10, fontSize: 10, background: 'rgba(201,168,76,0.15)', color: COLORS.gold, fontWeight: 700 }}>
+                          <ShieldCheck size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />Admin
                         </span>
                       )}
                     </div>
-                    <div style={{ color: '#64748b', fontSize: 11 }}>
-                      {bu.user.email} · <span style={{ textTransform: 'capitalize' }}>{bu.role}</span>
-                    </div>
+                    <div style={{ color: '#64748b', fontSize: 11 }}>{bu.user.email} · <span style={{ textTransform: 'capitalize' }}>{bu.role}</span></div>
                   </div>
-
-                  {/* Bouton Retire */}
-                  <button
-                    onClick={() => {
-                      if (window.confirm(t.confirmRemove)) removeMutation.mutate(bu.userId)
-                    }}
-                    disabled={removeMutation.isPending}
-                    style={{
-                      padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                      background: 'rgba(192,57,43,0.15)', color: '#C0392B',
-                      fontSize: 11, fontWeight: 600, flexShrink: 0
-                    }}
-                  >
+                  <button onClick={() => { if (window.confirm(t.confirmRemove)) removeMutation.mutate(bu.userId) }} disabled={removeMutation.isPending}
+                    style={{ padding: '5px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(192,57,43,0.15)', color: '#C0392B', fontSize: 11, fontWeight: 600, flexShrink: 0 }}>
                     {t.removeUser}
                   </button>
                 </div>
@@ -357,13 +260,8 @@ const BranchUsersModal = ({ branch, lang, onClose }) => {
           )}
         </div>
 
-        {/* Bouton Fèmen */}
         <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${COLORS.border}` }}>
-          <button onClick={onClose} style={{
-            width: '100%', padding: '10px', borderRadius: 8,
-            border: `1px solid ${COLORS.border}`, background: 'transparent',
-            color: '#94a3b8', cursor: 'pointer', fontWeight: 600, fontSize: 13
-          }}>{t.close}</button>
+          <button onClick={onClose} style={{ width: '100%', padding: '10px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>{t.close}</button>
         </div>
       </div>
     </div>
@@ -376,20 +274,10 @@ const BranchCard = ({ branch, lang, onToggle, onEdit, onDelete, onUsers, onRepor
   const color = branch.isActive ? '#27ae60' : '#C0392B'
 
   return (
-    <div style={{
-      background: COLORS.card,
-      border: `1px solid ${branch.isActive ? 'rgba(39,174,96,0.3)' : 'rgba(192,57,43,0.3)'}`,
-      borderRadius: 12, padding: 20,
-      display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s'
-    }}>
-      {/* Header */}
+    <div style={{ background: COLORS.card, border: `1px solid ${branch.isActive ? 'rgba(39,174,96,0.3)' : 'rgba(192,57,43,0.3)'}`, borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', gap: 12, transition: 'all 0.2s' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 8,
-            background: branch.isActive ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center'
-          }}>
+          <div style={{ width: 36, height: 36, borderRadius: 8, background: branch.isActive ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {branch.isActive ? <Unlock size={16} color="#27ae60" /> : <Lock size={16} color="#C0392B" />}
           </div>
           <div>
@@ -397,30 +285,17 @@ const BranchCard = ({ branch, lang, onToggle, onEdit, onDelete, onUsers, onRepor
             <div style={{ color: '#64748b', fontSize: 11, fontFamily: 'monospace' }}>/{branch.slug}</div>
           </div>
         </div>
-        <span style={{
-          padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-          background: branch.isActive ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.15)', color
-        }}>
+        <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: branch.isActive ? 'rgba(39,174,96,0.15)' : 'rgba(192,57,43,0.15)', color }}>
           {branch.isActive ? t.active : t.locked}
         </span>
       </div>
 
-      {/* Infos */}
       {branch.description && <p style={{ color: '#94a3b8', fontSize: 12, margin: 0 }}>{branch.description}</p>}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {branch.address && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 11 }}>
-            <MapPin size={10} />{branch.address}
-          </span>
-        )}
-        {branch.phone && (
-          <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 11 }}>
-            <Phone size={10} />{branch.phone}
-          </span>
-        )}
+        {branch.address && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 11 }}><MapPin size={10} />{branch.address}</span>}
+        {branch.phone && <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#64748b', fontSize: 11 }}><Phone size={10} />{branch.phone}</span>}
       </div>
 
-      {/* Statistik */}
       {branch._count && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
           {[
@@ -437,61 +312,27 @@ const BranchCard = ({ branch, lang, onToggle, onEdit, onDelete, onUsers, onRepor
         </div>
       )}
 
-      {/* Aksyon */}
       {isAdmin && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, borderTop: `1px solid ${COLORS.border}`, paddingTop: 12 }}>
-
-          {/* ⚠️ Toggle — Super Admin sèlman */}
           {isSuperAdmin ? (
-            <button onClick={() => onToggle(branch)} style={{
-              flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              background: branch.isActive ? 'rgba(192,57,43,0.15)' : 'rgba(39,174,96,0.15)',
-              color: branch.isActive ? '#C0392B' : '#27ae60',
-              fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-            }}>
+            <button onClick={() => onToggle(branch)} style={{ flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: branch.isActive ? 'rgba(192,57,43,0.15)' : 'rgba(39,174,96,0.15)', color: branch.isActive ? '#C0392B' : '#27ae60', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
               {branch.isActive ? <><PowerOff size={12}/>{t.lock}</> : <><Power size={12}/>{t.activate}</>}
             </button>
           ) : (
-            // Admin biznis — wè bouton men bloke
-            <div title={t.superAdminOnly} style={{
-              flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6,
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-              color: '#334155', fontSize: 12, display: 'flex', alignItems: 'center',
-              justifyContent: 'center', gap: 4, cursor: 'not-allowed'
-            }}>
+            <div title={t.superAdminOnly} style={{ flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#334155', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'not-allowed' }}>
               <Lock size={12} />{branch.isActive ? t.lock : t.activate}
             </div>
           )}
-
-          <button onClick={() => onUsers(branch)} style={{
-            flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'rgba(201,168,76,0.12)', color: COLORS.gold,
-            fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-          }}>
+          <button onClick={() => onUsers(branch)} style={{ flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(201,168,76,0.12)', color: COLORS.gold, fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <Users size={12}/>{t.users}
           </button>
-
-          <button onClick={() => onReport(branch)} style={{
-            flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'rgba(26,58,107,0.15)', color: '#60a5fa',
-            fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4
-          }}>
+          <button onClick={() => onReport(branch)} style={{ flex: 1, minWidth: 90, padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(26,58,107,0.15)', color: '#60a5fa', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
             <BarChart2 size={12}/>{t.reports}
           </button>
-
-          <button onClick={() => onEdit(branch)} style={{
-            padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'rgba(255,255,255,0.06)', color: '#94a3b8',
-            fontSize: 12, display: 'flex', alignItems: 'center', gap: 4
-          }}>
+          <button onClick={() => onEdit(branch)} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(255,255,255,0.06)', color: '#94a3b8', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Edit3 size={12}/>{t.edit}
           </button>
-
-          <button onClick={() => onDelete(branch)} style={{
-            padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-            background: 'rgba(192,57,43,0.1)', color: '#C0392B',
-            fontSize: 12, display: 'flex', alignItems: 'center', gap: 4
-          }}>
+          <button onClick={() => onDelete(branch)} style={{ padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(192,57,43,0.1)', color: '#C0392B', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Trash2 size={12}/>
           </button>
         </div>
@@ -501,19 +342,17 @@ const BranchCard = ({ branch, lang, onToggle, onEdit, onDelete, onUsers, onRepor
 }
 
 // ── Modal Formulè
+// ⚠️ KORIJE — retire champ slug, jenere otomatikman nan backend
 const BranchModal = ({ branch, lang, onClose, onSave }) => {
   const t = T[lang] || T.ht
   const [form, setForm] = useState({
-    name: branch?.name || '', slug: branch?.slug || '',
-    description: branch?.description || '', address: branch?.address || '',
-    phone: branch?.phone || '', email: branch?.email || '',
+    name: branch?.name || '',
+    description: branch?.description || '',
+    address: branch?.address || '',
+    phone: branch?.phone || '',
+    email: branch?.email || '',
   })
   const isEdit = !!branch?.id
-
-  const handleNameChange = (val) => {
-    const slug = val.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/^-+|-+$/g, '')
-    setForm(f => ({ ...f, name: val, ...(isEdit ? {} : { slug }) }))
-  }
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
@@ -524,19 +363,18 @@ const BranchModal = ({ branch, lang, onClose, onSave }) => {
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {[
-            { key: 'name', label: t.name, onChange: handleNameChange },
-            { key: 'slug', label: t.slug, disabled: isEdit },
+            { key: 'name',        label: t.name        },
             { key: 'description', label: t.description },
-            { key: 'address', label: t.address },
-            { key: 'phone', label: t.phone },
-            { key: 'email', label: t.email, type: 'email' },
-          ].map(({ key, label, disabled, type, onChange }) => (
+            { key: 'address',     label: t.address     },
+            { key: 'phone',       label: t.phone       },
+            { key: 'email',       label: t.email, type: 'email' },
+          ].map(({ key, label, type }) => (
             <div key={key}>
               <label style={{ color: '#94a3b8', fontSize: 12, display: 'block', marginBottom: 4 }}>{label}</label>
               <input
-                type={type || 'text'} value={form[key]} disabled={disabled}
-                onChange={e => onChange ? onChange(e.target.value) : setForm(f => ({ ...f, [key]: e.target.value }))}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, background: disabled ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: disabled ? '#64748b' : '#fff', boxSizing: 'border-box' }}
+                type={type || 'text'} value={form[key]}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }}
               />
             </div>
           ))}
@@ -562,8 +400,7 @@ const BranchReportModal = ({ branch, lang, onClose }) => {
       <div style={{ background: '#0f172a', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 560 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ color: COLORS.gold, margin: 0 }}>
-            <BarChart2 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />
-            {t.reports}: {branch.name}
+            <BarChart2 size={16} style={{ marginRight: 8, verticalAlign: 'middle' }} />{t.reports}: {branch.name}
           </h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
         </div>
@@ -601,12 +438,11 @@ export default function BranchAdminPage() {
   const qc = useQueryClient()
 
   const isAdmin = user?.role === 'admin'
-  // ⚠️ NOUVO — verifye isSuperAdmin
   const isSuperAdmin = user?.isSuperAdmin === true
 
-  const [showModal, setShowModal]     = useState(false)
-  const [editBranch, setEditBranch]   = useState(null)
-  const [usersBranch, setUsersBranch] = useState(null)
+  const [showModal, setShowModal]       = useState(false)
+  const [editBranch, setEditBranch]     = useState(null)
+  const [usersBranch, setUsersBranch]   = useState(null)
   const [reportBranch, setReportBranch] = useState(null)
 
   const { data: branchesData, isLoading } = useQuery({
@@ -618,7 +454,17 @@ export default function BranchAdminPage() {
   const plan = tenant?.plan
 
   const saveMutation = useMutation({
-    mutationFn: ({ form, id }) => id ? branchAPI.update(id, form) : branchAPI.create(form),
+    mutationFn: ({ form, id }) => {
+      // ⚠️ KORIJE — jenere slug otomatikman si pa gen youn (kreye sèlman)
+      const payload = { ...form }
+      if (!id) {
+        payload.slug = form.name.toLowerCase().trim()
+          .replace(/\s+/g, '-')
+          .replace(/[^a-z0-9-]/g, '')
+          .replace(/^-+|-+$/g, '')
+      }
+      return id ? branchAPI.update(id, payload) : branchAPI.create(payload)
+    },
     onSuccess: (_, { id }) => {
       toast.success(id ? 'Branch modifye!' : 'Branch kreye!')
       qc.invalidateQueries(['branches'])
@@ -649,7 +495,6 @@ export default function BranchAdminPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: '0 auto' }}>
-      {/* En-tête */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ color: COLORS.gold, margin: 0, fontSize: 22, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -662,8 +507,7 @@ export default function BranchAdminPage() {
               {' · '}{branches.length}/{maxBranches} branch
               {isSuperAdmin && (
                 <span style={{ marginLeft: 8, padding: '1px 8px', borderRadius: 10, fontSize: 10, background: 'rgba(201,168,76,0.15)', color: COLORS.gold, fontWeight: 700 }}>
-                  <ShieldCheck size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />
-                  Super Admin
+                  <ShieldCheck size={9} style={{ marginRight: 3, verticalAlign: 'middle' }} />Super Admin
                 </span>
               )}
             </div>
@@ -671,20 +515,15 @@ export default function BranchAdminPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {isAdmin && (
-            <button
-              onClick={() => branchAPI.getGlobalReport().then(r => {
-                const d = r.data
-                alert(`Rapò Global:\nRevni Total: ${d.global?.revenue?.htg?.toLocaleString()} HTG\nFakti: ${d.global?.invoicesCount}\nDevis: ${d.global?.quotesCount}`)
-              })}
-              style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#60a5fa', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
+            <button onClick={() => branchAPI.getGlobalReport().then(r => {
+              const d = r.data
+              alert(`Rapò Global:\nRevni Total: ${d.global?.revenue?.htg?.toLocaleString()} HTG\nFakti: ${d.global?.invoicesCount}\nDevis: ${d.global?.quotesCount}`)
+            })} style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#60a5fa', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
               <BarChart2 size={14} />{t.globalReport}
             </button>
           )}
           {isAdmin && (
-            <button
-              onClick={() => { setEditBranch(null); setShowModal(true) }}
-              disabled={!canCreate}
-              title={!canCreate ? t.limitReached : ''}
+            <button onClick={() => { setEditBranch(null); setShowModal(true) }} disabled={!canCreate} title={!canCreate ? t.limitReached : ''}
               style={{ padding: '8px 16px', borderRadius: 8, border: 'none', cursor: canCreate ? 'pointer' : 'not-allowed', background: canCreate ? `linear-gradient(135deg, ${COLORS.gold}, #a07830)` : '#1e293b', color: canCreate ? '#000' : '#64748b', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
               <Plus size={15} />{t.createBranch}
             </button>
@@ -708,12 +547,7 @@ export default function BranchAdminPage() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {branches.map(branch => (
-            <BranchCard
-              key={branch.id}
-              branch={branch}
-              lang={lang}
-              isAdmin={isAdmin}
-              isSuperAdmin={isSuperAdmin}
+            <BranchCard key={branch.id} branch={branch} lang={lang} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin}
               onToggle={(b) => toggleMutation.mutate(b)}
               onEdit={(b) => { setEditBranch(b); setShowModal(true) }}
               onDelete={handleDelete}
@@ -728,7 +562,6 @@ export default function BranchAdminPage() {
         <BranchModal branch={editBranch} lang={lang} onClose={() => { setShowModal(false); setEditBranch(null) }} onSave={(form, id) => saveMutation.mutate({ form, id })} />
       )}
 
-      {/* ⚠️ NOUVO — Modal Itilizatè */}
       {usersBranch && (
         <BranchUsersModal branch={usersBranch} lang={lang} onClose={() => setUsersBranch(null)} />
       )}
