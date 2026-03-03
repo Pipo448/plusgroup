@@ -63,26 +63,26 @@ export const authAPI = {
 
 // ── Tenant
 export const tenantAPI = {
-  getSettings:          ()     => api.get('/tenant/settings'),
-  updateSettings:       (data) => api.put('/tenant/settings', data),
-  updateRate:           (rate) => api.patch('/tenant/exchange-rate', { exchangeRate: rate }),
-  uploadLogo:           (fd)   => api.post('/tenant/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
-  getSequences:         ()     => api.get('/tenant/sequences'),
-  changeMyPassword:     (data) => api.post('/users/change-password', data),
-  resetUserPassword:    (data) => api.post('/users/reset-password', data),
+  getSettings:       ()     => api.get('/tenant/settings'),
+  updateSettings:    (data) => api.put('/tenant/settings', data),
+  updateRate:        (rate) => api.patch('/tenant/exchange-rate', { exchangeRate: rate }),
+  uploadLogo:        (fd)   => api.post('/tenant/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  getSequences:      ()     => api.get('/tenant/sequences'),
+  changeMyPassword:  (data) => api.post('/users/change-password', data),
+  resetUserPassword: (data) => api.post('/users/reset-password', data),
 }
 
 // ── Products
 export const productAPI = {
-  getAll:         (p)    => api.get('/products', { params: p }),
-  getLowStock:    ()     => api.get('/products/low-stock'),
-  getOne:         (id)   => api.get(`/products/${id}`),
-  create:         (data) => api.post('/products', data),
+  getAll:         (p)        => api.get('/products', { params: p }),
+  getLowStock:    ()         => api.get('/products/low-stock'),
+  getOne:         (id)       => api.get(`/products/${id}`),
+  create:         (data)     => api.post('/products', data),
   update:         (id, data) => api.put(`/products/${id}`, data),
-  delete:         (id)   => api.delete(`/products/${id}`),
-  import:         (data) => api.post('/products/import', data),
-  getCategories:  ()     => api.get('/products/categories'),
-  createCategory: (data) => api.post('/products/categories', data),
+  delete:         (id)       => api.delete(`/products/${id}`),
+  import:         (data)     => api.post('/products/import', data),
+  getCategories:  ()         => api.get('/products/categories'),
+  createCategory: (data)     => api.post('/products/categories', data),
   adjustStock:    (id, data) => api.patch(`/products/${id}/stock`, data),
 }
 
@@ -97,15 +97,15 @@ export const clientAPI = {
 
 // ── Quotes
 export const quoteAPI = {
-  getAll:    (p)        => api.get('/quotes', { params: p }),
-  getOne:    (id)       => api.get(`/quotes/${id}`),
-  create:    (data)     => api.post('/quotes', data),
-  update:    (id, data) => api.put(`/quotes/${id}`, data),
-  delete:    (id)       => api.delete(`/quotes/${id}`),
-  send:      (id)       => api.patch(`/quotes/${id}/send`),
-  accept:    (id)       => api.patch(`/quotes/${id}/accept`),
-  convert:   (id)       => api.post(`/quotes/${id}/convert`),
-  cancel:    (id)       => api.patch(`/quotes/${id}/cancel`),
+  getAll:  (p)        => api.get('/quotes', { params: p }),
+  getOne:  (id)       => api.get(`/quotes/${id}`),
+  create:  (data)     => api.post('/quotes', data),
+  update:  (id, data) => api.put(`/quotes/${id}`, data),
+  delete:  (id)       => api.delete(`/quotes/${id}`),
+  send:    (id)       => api.patch(`/quotes/${id}/send`),
+  accept:  (id)       => api.patch(`/quotes/${id}/accept`),
+  convert: (id)       => api.post(`/quotes/${id}/convert`),
+  cancel:  (id)       => api.patch(`/quotes/${id}/cancel`),
 }
 
 // ── Invoices
@@ -140,42 +140,44 @@ export const reportAPI = {
 }
 
 // ── Users (Admin sèlman)
+// ⚠️ KORIJE: /auth/users → /users (wout reyèl la nan user.routes.js)
 export const userAPI = {
-  getAll:  ()         => api.get('/auth/users'),
-  create:  (data)     => api.post('/auth/users', data),
-  update:  (id, data) => api.put(`/auth/users/${id}`, data),
-  delete:  (id)       => api.delete(`/auth/users/${id}`),
-  toggle:  (id)       => api.patch(`/auth/users/${id}/toggle`),
+  getAll:  ()         => api.get('/users'),
+  create:  (data)     => api.post('/users', data),
+  update:  (id, data) => api.put(`/users/${id}`, data),
+  delete:  (id)       => api.delete(`/users/${id}`),
+  toggle:  (id)       => api.patch(`/users/${id}/toggle`),
 }
 
 // ── Super Admin API
 export const adminAPI = {
-  login:         (data) => api.post('/admin/login', data),
-  getStats:      ()     => api.get('/admin/stats'),
-  getTenants:    (p)    => api.get('/admin/tenants', { params: p }),
-  getTenant:     (id)   => api.get(`/admin/tenants/${id}`),
-  createTenant:  (data) => api.post('/admin/tenants', data),
-  updateTenant:  (id, data) => api.put(`/admin/tenants/${id}`, data),
-  toggleTenant:  (id)   => api.patch(`/admin/tenants/${id}/toggle`),
-  deleteTenant:  (id)   => api.delete(`/admin/tenants/${id}`),
-  getPlans:      ()     => api.get('/admin/plans'),
-  createPlan:    (data) => api.post('/admin/plans', data),
-  updatePlan:    (id, data) => api.put(`/admin/plans/${id}`, data),
+  login:          (data)     => api.post('/admin/login', data),
+  getStats:       ()         => api.get('/admin/stats'),
+  getTenants:     (p)        => api.get('/admin/tenants', { params: p }),
+  getTenant:      (id)       => api.get(`/admin/tenants/${id}`),
+  createTenant:   (data)     => api.post('/admin/tenants', data),
+  updateTenant:   (id, data) => api.put(`/admin/tenants/${id}`, data),
+  toggleTenant:   (id)       => api.patch(`/admin/tenants/${id}/toggle`),
+  deleteTenant:   (id)       => api.delete(`/admin/tenants/${id}`),
+  getPlans:       ()         => api.get('/admin/plans'),
+  createPlan:     (data)     => api.post('/admin/plans', data),
+  updatePlan:     (id, data) => api.put(`/admin/plans/${id}`, data),
 }
 
 // ── BRANCHES — Multi-Branch System
 export const branchAPI = {
-  getAll:          ()                  => api.get('/branches'),
-  getOne:          (id)                => api.get(`/branches/${id}`),
-  create:          (data)              => api.post('/branches', data),
-  update:          (id, data)          => api.put(`/branches/${id}`, data),
-  toggle:          (id)                => api.patch(`/branches/${id}/toggle`),
-  delete:          (id)                => api.delete(`/branches/${id}`),
-  addUser:         (branchId, data)    => api.post(`/branches/${branchId}/users`, data),
-  removeUser:      (branchId, userId)  => api.delete(`/branches/${branchId}/users/${userId}`),
-  getReport:       (branchId, params)  => api.get(`/branches/${branchId}/reports`, { params }),
-  getGlobalReport: (params)            => api.get('/branches/reports/global', { params }),
-  getTenantUsers:  ()                  => api.get('/auth/users'),
+  getAll:          ()                 => api.get('/branches'),
+  getOne:          (id)               => api.get(`/branches/${id}`),
+  create:          (data)             => api.post('/branches', data),
+  update:          (id, data)         => api.put(`/branches/${id}`, data),
+  toggle:          (id)               => api.patch(`/branches/${id}/toggle`),
+  delete:          (id)               => api.delete(`/branches/${id}`),
+  addUser:         (branchId, data)   => api.post(`/branches/${branchId}/users`, data),
+  removeUser:      (branchId, userId) => api.delete(`/branches/${branchId}/users/${userId}`),
+  getReport:       (branchId, params) => api.get(`/branches/${branchId}/reports`, { params }),
+  getGlobalReport: (params)           => api.get('/branches/reports/global', { params }),
+  // ⚠️ KORIJE: /auth/users → /users (menm wout ke userAPI.getAll)
+  getTenantUsers:  ()                 => api.get('/users'),
 }
 
 // ── Enterprise Services
