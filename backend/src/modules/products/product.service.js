@@ -1,10 +1,13 @@
 // src/modules/products/product.service.js
 const prisma = require('../../config/prisma');
 
-// ── GET ALL (avec filtre, tri, pagination)
-const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc' }) => {
+// ── GET ALL
+// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
+const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId }) => {
   const where = {
     tenantId,
+    // ⚠️ NOUVO — filtre pa branch si branchId prezan
+    ...(branchId && { branchId }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -51,9 +54,6 @@ const getOne = async (tenantId, id) => {
 
 // ── CREATE
 const create = async (tenantId, userId, data) => {
-  // ── Verifye limit plan (maxProducts) ──────────────────────────────
-  // Konte sèlman pwodui ki gen stock aktif (quantity > 0 ak isActive: true)
-  // Lojik: yon fwa pwodui a vann (quantity = 0), li libere yon plas
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: { plan: { select: { maxProducts: true, name: true } } }
@@ -61,18 +61,15 @@ const create = async (tenantId, userId, data) => {
 
   if (tenant?.plan?.maxProducts != null) {
     const maxProducts = tenant.plan.maxProducts;
-
-    // Konte pwodui ki nan stock kounye a (quantity > 0 + isActive)
     const activeStockCount = await prisma.product.count({
       where: {
         tenantId,
         isActive: true,
-        isService: false,      // sèvis pa konte nan stock limit
-        quantity: { gt: 0 }    // sèlman sa ki gen stock reyèl
+        isService: false,
+        quantity: { gt: 0 }
       }
     });
 
-    // Verifye si nouvo pwodui sa ap depase limit lan
     const newProductQty = Number(data.quantity) || 0;
     const isService     = data.isService || false;
 
@@ -86,9 +83,7 @@ const create = async (tenantId, userId, data) => {
       );
     }
   }
-  // ─────────────────────────────────────────────────────────────────
 
-  // Vérifier code unique si fourni
   if (data.code) {
     const exists = await prisma.product.findUnique({ where: { tenantId_code: { tenantId, code: data.code } } });
     if (exists) throw Object.assign(new Error('Kòd pwodui sa deja egziste.'), { statusCode: 409 });
@@ -98,6 +93,8 @@ const create = async (tenantId, userId, data) => {
     data: {
       tenantId,
       createdBy: userId,
+      // ⚠️ NOUVO — asosye pwodui ak branch si branchId voye
+      branchId: data.branchId || null,
       name: data.name,
       nameFr: data.nameFr,
       nameEn: data.nameEn,
@@ -116,11 +113,12 @@ const create = async (tenantId, userId, data) => {
     include: { category: { select: { id: true, name: true } } }
   });
 
-  // Enregistrer mouvement stock initial si quantité > 0
   if (Number(data.quantity) > 0) {
     await prisma.stockMovement.create({
       data: {
         tenantId,
+        // ⚠️ NOUVO — mouvman stock lye ak branch tou
+        branchId: data.branchId || null,
         productId: product.id,
         movementType: 'purchase',
         quantityBefore: 0,
@@ -140,7 +138,6 @@ const update = async (tenantId, id, userId, data) => {
   const existing = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!existing) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
 
-  // Vérifier code unique si modifié
   if (data.code && data.code !== existing.code) {
     const dup = await prisma.product.findFirst({ where: { tenantId, code: data.code, NOT: { id } } });
     if (dup) throw Object.assign(new Error('Kòd sa deja itilize.'), { statusCode: 409 });
@@ -171,7 +168,8 @@ const update = async (tenantId, id, userId, data) => {
 };
 
 // ── ADJUST STOCK (manuel)
-const adjustStock = async (tenantId, productId, userId, { quantity, type, notes }) => {
+// ⚠️ KORIJE — ajoute branchId nan stockMovement
+const adjustStock = async (tenantId, productId, userId, { quantity, type, notes, branchId }) => {
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
 
@@ -188,7 +186,10 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes 
     }),
     prisma.stockMovement.create({
       data: {
-        tenantId, productId,
+        tenantId,
+        // ⚠️ NOUVO — mouvman lye ak branch
+        branchId: branchId || null,
+        productId,
         movementType: 'adjustment',
         quantityBefore: qtyBefore,
         quantityChange: qtyChange,
@@ -206,7 +207,6 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes 
 const remove = async (tenantId, id) => {
   const product = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
-
   await prisma.product.update({ where: { id }, data: { isActive: false } });
 };
 

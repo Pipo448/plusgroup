@@ -23,9 +23,12 @@ const getNextInvoiceNumber = async (tenantId) => {
 };
 
 // ── GET ALL
-const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, dateFrom, dateTo }) => {
+// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
+const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, dateFrom, dateTo, branchId }) => {
   const where = {
     tenantId,
+    // ⚠️ NOUVO — filtre pa branch si branchId prezan
+    ...(branchId && { branchId }),
     ...(status && { status }),
     ...(clientId && { clientId }),
     ...(search && {
@@ -77,14 +80,13 @@ const getOne = async (tenantId, id) => {
 
   if (!invoice) throw Object.assign(new Error('Facture pa jwenn.'), { statusCode: 404 });
 
-  // Si invoice pa gen notes/terms, pran yo nan devis orijinal la (si gen youn)
   if (!invoice.notes && invoice.quote?.notes) invoice.notes = invoice.quote.notes;
   if (!invoice.terms && invoice.quote?.terms) invoice.terms = invoice.quote.terms;
 
   return invoice;
 };
 
-// ── CREATE DIRECT (san devi — pou biznis ki pa bezwen requireQuote)
+// ── CREATE DIRECT
 const createDirect = async (tenantId, userId, data) => {
   const {
     clientId, clientSnapshot, currency, exchangeRate,
@@ -100,7 +102,6 @@ const createDirect = async (tenantId, userId, data) => {
     throw Object.assign(new Error('Fakti dwe gen omwen yon pwodui.'), { statusCode: 400 });
   }
 
-  // Verifye si tenant autorize kreye fakti direk
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     select: { requireQuote: true, exchangeRate: true, taxRate: true }
@@ -117,7 +118,6 @@ const createDirect = async (tenantId, userId, data) => {
   const rate = exchangeRate || Number(tenant.exchangeRate);
 
   const invoice = await prisma.$transaction(async (tx) => {
-    // Kreye fakti (san quoteId)
     const inv = await tx.invoice.create({
       data: {
         tenantId,
@@ -147,7 +147,6 @@ const createDirect = async (tenantId, userId, data) => {
       }
     });
 
-    // Kreye items + dekremente stock
     for (const [idx, item] of items.entries()) {
       let stockBefore = null;
       let stockAfter  = null;
@@ -213,23 +212,20 @@ const createDirect = async (tenantId, userId, data) => {
   return getOne(tenantId, invoice.id);
 };
 
-// ── DASHBOARD (résumé rapide)
+// ── DASHBOARD
 // ✅ FIX: Retire filtre startOfMonth — totalPaid afiche TT fakti peye, pa sèlman mwa aktyèl
 const getDashboard = async (tenantId) => {
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
-    // Fakti ki pa peye — balans total ki dwe
     prisma.invoice.aggregate({
       where: { tenantId, status: 'unpaid' },
       _sum: { balanceDueHtg: true, balanceDueUsd: true },
       _count: true
     }),
-    // ✅ FIX: Retire { issueDate: { gte: startOfMonth } } — kounye a li konte TT fakti peye
     prisma.invoice.aggregate({
       where: { tenantId, status: 'paid' },
       _sum: { totalHtg: true, totalUsd: true },
       _count: true
     }),
-    // Fakti pasyal — balans ki rete pou peye
     prisma.invoice.aggregate({
       where: { tenantId, status: 'partial' },
       _sum: { balanceDueHtg: true },
@@ -260,7 +256,6 @@ const cancel = async (tenantId, id, userId, reason) => {
   if (!invoice) throw Object.assign(new Error('Facture pa jwenn.'), { statusCode: 404 });
   if (invoice.status === 'cancelled') throw Object.assign(new Error('Facture deja anile.'), { statusCode: 400 });
 
-  // Restaurer stock si déjà décrémenté
   if (invoice.stockDecremented) {
     const items = await prisma.invoiceItem.findMany({
       where: { invoiceId: id },

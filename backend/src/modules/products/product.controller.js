@@ -2,10 +2,27 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./product.service');
 
-const getAll         = asyncHandler(async (req, res) => { const data = await svc.getAll(req.tenant.id, req.query); res.json({ success: true, ...data }); });
+// ⚠️ KORIJE — pase req.branchId bay svc.getAll
+const getAll = asyncHandler(async (req, res) => {
+  const data = await svc.getAll(req.tenant.id, {
+    ...req.query,
+    branchId: req.branchId || undefined  // ⚠️ NOUVO
+  });
+  res.json({ success: true, ...data });
+});
+
 const getLowStock    = asyncHandler(async (req, res) => { const data = await svc.getLowStock(req.tenant.id); res.json({ success: true, products: data }); });
 const getOne         = asyncHandler(async (req, res) => { const data = await svc.getOne(req.tenant.id, req.params.id); res.json({ success: true, product: data }); });
-const create         = asyncHandler(async (req, res) => { const data = await svc.create(req.tenant.id, req.user.id, req.body); res.status(201).json({ success: true, product: data }); });
+
+// ⚠️ KORIJE — ajoute branchId nan create otomatikman
+const create = asyncHandler(async (req, res) => {
+  const data = await svc.create(req.tenant.id, req.user.id, {
+    ...req.body,
+    branchId: req.body.branchId || req.branchId || null  // ⚠️ NOUVO
+  });
+  res.status(201).json({ success: true, product: data });
+});
+
 const update         = asyncHandler(async (req, res) => { const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body); res.json({ success: true, product: data }); });
 const remove         = asyncHandler(async (req, res) => { await svc.remove(req.tenant.id, req.params.id); res.json({ success: true, message: 'Pwodui siprime avèk siksè.' }); });
 const getCategories  = asyncHandler(async (req, res) => { const data = await svc.getCategories(req.tenant.id); res.json({ success: true, categories: data }); });
