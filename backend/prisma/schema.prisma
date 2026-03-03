@@ -1,6 +1,6 @@
 // ============================================================
 // PLUS GROUP — Innov@tion & Tech | Prisma Schema
-// CHANJMAN: requireQuote nan Tenant + quoteId nullable nan Invoice
+// CHANJMAN: branchId nan ProductCategory pou evite data leakage
 // ============================================================
 
 generator client {
@@ -9,8 +9,8 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("DATABASE_URL")   // Pooler port 6543 — pou app la
-  directUrl = env("DIRECT_URL")     // Direct port 5432 — pou migrations
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================
@@ -122,34 +122,33 @@ model SubscriptionPlan {
 // ============================================================
 
 model Tenant {
-  id                  String          @id @default(uuid())
-  name                String          @db.VarChar(200)
-  slug                String          @unique @db.VarChar(100)
-  logoUrl             String?         @map("logo_url") @db.Text
-  primaryColor        String?         @default("#1E40AF") @map("primary_color") @db.VarChar(7)
-  address             String?
-  phone               String?         @db.VarChar(50)
-  email               String?         @db.VarChar(150)
-  website             String?         @db.VarChar(200)
-  defaultCurrency     DefaultCurrency @default(HTG) @map("default_currency")
-  exchangeRates       String?         @default("{}")
-  visibleCurrencies   String?         @default("[\"USD\"]")
-  showExchangeRate    Boolean         @default(false)
-  showQrCode          Boolean         @default(true) @map("show_qr_code")
-  defaultLanguage     DefaultLanguage @default(ht) @map("default_language")
-  exchangeRate        Decimal         @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
-  taxRate             Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  receiptSize         String          @default("80mm") @map("receipt_size") @db.VarChar(10)
-  printerConnection   String          @default("usb") @map("printer_connection") @db.VarChar(20)
-  // ✅ NOUVO: Toggle workflow devi → fakti
-  requireQuote        Boolean         @default(false) @map("require_quote")
-  planId              String?         @map("plan_id")
-  status              TenantStatus    @default(pending)
-  trialEndsAt         DateTime?       @map("trial_ends_at")
-  subscriptionEndsAt  DateTime?       @map("subscription_ends_at")
-  createdBy           String?         @map("created_by")
-  createdAt           DateTime        @default(now()) @map("created_at")
-  updatedAt           DateTime        @updatedAt @map("updated_at")
+  id                 String          @id @default(uuid())
+  name               String          @db.VarChar(200)
+  slug               String          @unique @db.VarChar(100)
+  logoUrl            String?         @map("logo_url") @db.Text
+  primaryColor       String?         @default("#1E40AF") @map("primary_color") @db.VarChar(7)
+  address            String?
+  phone              String?         @db.VarChar(50)
+  email              String?         @db.VarChar(150)
+  website            String?         @db.VarChar(200)
+  defaultCurrency    DefaultCurrency @default(HTG) @map("default_currency")
+  exchangeRates      String?         @default("{}")
+  visibleCurrencies  String?         @default("[\"USD\"]")
+  showExchangeRate   Boolean         @default(false)
+  showQrCode         Boolean         @default(true) @map("show_qr_code")
+  defaultLanguage    DefaultLanguage @default(ht) @map("default_language")
+  exchangeRate       Decimal         @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
+  taxRate            Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  receiptSize        String          @default("80mm") @map("receipt_size") @db.VarChar(10)
+  printerConnection  String          @default("usb") @map("printer_connection") @db.VarChar(20)
+  requireQuote       Boolean         @default(false) @map("require_quote")
+  planId             String?         @map("plan_id")
+  status             TenantStatus    @default(pending)
+  trialEndsAt        DateTime?       @map("trial_ends_at")
+  subscriptionEndsAt DateTime?       @map("subscription_ends_at")
+  createdBy          String?         @map("created_by")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
 
   plan              SubscriptionPlan?    @relation(fields: [planId], references: [id])
   creator           SuperAdmin?          @relation(fields: [createdBy], references: [id])
@@ -209,13 +208,15 @@ model Branch {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  tenant         Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branchUsers    BranchUser[]
-  products       Product[]
-  clients        Client[]
-  quotes         Quote[]
-  invoices       Invoice[]
-  stockMovements StockMovement[]
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchUsers       BranchUser[]
+  // ✅ NOUVO — kategori lye ak branch
+  productCategories ProductCategory[]
+  products          Product[]
+  clients           Client[]
+  quotes            Quote[]
+  invoices          Invoice[]
+  stockMovements    StockMovement[]
 
   @@unique([tenantId, slug])
   @@map("branches")
@@ -280,9 +281,11 @@ model User {
 // PRODUCTS & CATEGORIES
 // ============================================================
 
+// ✅ KORIJE — ajoute branchId pou evite kategori branch A monte nan branch B
 model ProductCategory {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
+  branchId    String?  @map("branch_id")
   name        String   @db.VarChar(100)
   nameFr      String?  @map("name_fr") @db.VarChar(100)
   nameEn      String?  @map("name_en") @db.VarChar(100)
@@ -293,9 +296,13 @@ model ProductCategory {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // ✅ NOUVO relasyon ak Branch
+  branch   Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
   products Product[]
 
-  @@unique([tenantId, name])
+  // ✅ CHANJE — unique pa tenantId + branchId + name
+  // Pèmèt menm non kategori nan 2 branch diferan
+  @@unique([tenantId, branchId, name])
   @@map("product_categories")
 }
 
@@ -447,7 +454,6 @@ model Invoice {
   tenantId         String          @map("tenant_id")
   branchId         String?         @map("branch_id")
   invoiceNumber    String          @map("invoice_number") @db.VarChar(50)
-  // ✅ NOUVO: quoteId opsyonèl — fakti direk pa bezwen devi
   quoteId          String?         @unique @map("quote_id")
   clientId         String?         @map("client_id")
   clientSnapshot   Json            @map("client_snapshot")
