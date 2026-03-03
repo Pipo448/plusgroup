@@ -51,10 +51,8 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
   return parts.length ? parts.join('  ') : null
 }
 
-// ══════════════════════════════════════════════════
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
-// TICKER
-// ══════════════════════════════════════════════════
+
 const TickerBanner = () => {
   return (
     <div style={{
@@ -88,9 +86,6 @@ const TickerBanner = () => {
   )
 }
 
-// ══════════════════════════════════════════════════
-// COMPOSANTS ENTÈN
-// ══════════════════════════════════════════════════
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active||!payload?.length) return null
   return (
@@ -160,9 +155,6 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
   )
 }
 
-// ══════════════════════════════════════════════════
-// MAIN DASHBOARD
-// ══════════════════════════════════════════════════
 export default function Dashboard() {
   const { t } = useTranslation()
   const { user, tenant } = useAuthStore()
@@ -171,11 +163,14 @@ export default function Dashboard() {
   const exchangeRates = tenant?.exchangeRates     || {}
   const visibleCurrs  = tenant?.visibleCurrencies  || []
 
-  const { data:dashboard }   = useQuery({ queryKey:['dashboard'],       queryFn:()=>invoiceAPI.getDashboard().then(r=>r.data.dashboard) })
-  const { data:lowStock }    = useQuery({ queryKey:['low-stock'],        queryFn:()=>productAPI.getLowStock().then(r=>r.data.products) })
+  // ⚠️ KORIJE — li branchId nan localStorage pou filtre done pa branch
+  const branchId = localStorage.getItem('plusgroup-branch-id') || undefined
+
+  const { data:dashboard }   = useQuery({ queryKey:['dashboard', branchId],       queryFn:()=>invoiceAPI.getDashboard().then(r=>r.data.dashboard) })
+  const { data:lowStock }    = useQuery({ queryKey:['low-stock', branchId],        queryFn:()=>productAPI.getLowStock().then(r=>r.data.products) })
   const { data:salesReport } = useQuery({
-    queryKey:['sales-report-dash'],
-    queryFn:()=>reportAPI.getSales({ dateFrom:format(subDays(new Date(),30),'yyyy-MM-dd'), dateTo:format(new Date(),'yyyy-MM-dd') }).then(r=>r.data.report)
+    queryKey:['sales-report-dash', branchId],
+    queryFn:()=>reportAPI.getSales({ dateFrom:format(subDays(new Date(),30),'yyyy-MM-dd'), dateTo:format(new Date(),'yyyy-MM-dd'), ...(branchId && { branchId }) }).then(r=>r.data.report)
   })
 
   const chartData = Array.from({length:7},(_,i)=>{
@@ -201,7 +196,6 @@ export default function Dashboard() {
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif',paddingBottom:40}}>
 
-      {/* ── RESPONSIVE GLOBAL STYLES ── */}
       <style>{`
         @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
@@ -294,7 +288,6 @@ export default function Dashboard() {
         }
       `}</style>
 
-      {/* ── BANNER ALÈT ABÒNMAN (sèlman si 5 jou oswa mwens rete) ── */}
       {subBanner && (
         <div style={{
           borderRadius:16, padding:'14px 20px',
@@ -334,7 +327,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ══ HERO BANNER ══ */}
       <div className="hero-banner" style={{
         borderRadius:24, padding:'28px', position:'relative', overflow:'hidden',
         background:`linear-gradient(145deg,${D.blueDk} 0%,${D.blue} 50%,${D.blueLt} 100%)`,
@@ -376,7 +368,6 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* STAT CARDS */}
         <div className="hero-stats-scroll" style={{position:'relative',zIndex:1}}>
           <div className="hero-stats-inner">
             <StatCard label={t('dashboard.sales30days')} val={`${fmt(totalVentes)} HTG`} icon={<TrendingUp size={15}/>} color={D.gold}  sub={showRate&&fmtConv(totalVentes,exchangeRates,visibleCurrs)}/>
@@ -387,7 +378,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ══ CHART + STOCK ══ */}
       <div className="chart-stock-grid">
         <div style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:8}}>
@@ -428,7 +418,6 @@ export default function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Stock alèt */}
         <div style={{background:D.white,borderRadius:20,padding:'20px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
             <div>
@@ -472,7 +461,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ══ 4 KPI CARDS ══ */}
       <div className="kpi-scroll">
         <div className="kpi-inner">
           <KpiCard label={t('dashboard.kpiFaktirImpaye')} value={`${fmt(totalImpaye)} HTG`} count={`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.kpiFakti')}`}  icon={<Receipt size={20}/>}      color={D.red}     bg={D.redDim}               link="/invoices?status=unpaid"/>
@@ -482,7 +470,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ══ DÈNYE FAKTI ══ */}
       <div style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
         <div className="dash-section-header" style={{
           display:'flex',alignItems:'center',justifyContent:'space-between',
