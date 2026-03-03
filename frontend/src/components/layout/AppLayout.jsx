@@ -332,8 +332,8 @@ export default function AppLayout() {
 
                 {showBranches && (
                   <div style={{
-                    position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                    minWidth: 215, zIndex: 200,
+                    position: 'fixed', top: 70, left: 258,
+                    minWidth: 220, zIndex: 9999,
                     background: '#0f0a1e',
                     border: `1px solid rgba(245,104,12,0.25)`,
                     borderRadius: 12,
