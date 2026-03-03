@@ -8,15 +8,22 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// ✅ Request: ajoute token + slug automatiquement
+// ✅ Request: ajoute token + slug + branchId automatiquement
 api.interceptors.request.use((config) => {
   try {
-    const token = localStorage.getItem('plusgroup-token')
-    const slug  = localStorage.getItem('plusgroup-slug')
+    const token    = localStorage.getItem('plusgroup-token')
+    const slug     = localStorage.getItem('plusgroup-slug')
+    const branchId = localStorage.getItem('plusgroup-branch-id') // ⚠️ NOUVO
 
     if (token) config.headers.Authorization = `Bearer ${token}`
     if (!config.headers['X-Tenant-Slug'] && slug) {
       config.headers['X-Tenant-Slug'] = slug
+    }
+    // ⚠️ NOUVO — voye branchId si itilizatè nan yon branch espesifik
+    if (branchId) {
+      config.headers['X-Branch-Id'] = branchId
+    } else {
+      delete config.headers['X-Branch-Id']
     }
   } catch {}
   return config
@@ -32,7 +39,8 @@ api.interceptors.response.use(
     if (isLoginRoute) return Promise.reject(err)
 
     if (status === 401) {
-      ['plusgroup-token','plusgroup-user','plusgroup-tenant','plusgroup-slug','plusgroup-lang']
+      ['plusgroup-token','plusgroup-user','plusgroup-tenant','plusgroup-slug','plusgroup-lang',
+       'plusgroup-branch-id','plusgroup-branch-name']
         .forEach(k => localStorage.removeItem(k))
       window.location.href = '/login'
       return Promise.reject(err)
@@ -135,12 +143,10 @@ export const reportAPI = {
   getSales:   (p) => api.get('/reports/sales',   { params: p }),
   getStock:   (p) => api.get('/reports/stock',   { params: p }),
   getClients: (p) => api.get('/reports/clients', { params: p }),
-  // ✅ FIX: Te manke — ProfitSection pa t ka chaje done benefis
   getProfit:  (p) => api.get('/reports/profit',  { params: p }),
 }
 
 // ── Users (Admin sèlman)
-// ⚠️ KORIJE: /auth/users → /users (wout reyèl la nan user.routes.js)
 export const userAPI = {
   getAll:  ()         => api.get('/users'),
   create:  (data)     => api.post('/users', data),
@@ -176,7 +182,6 @@ export const branchAPI = {
   removeUser:      (branchId, userId) => api.delete(`/branches/${branchId}/users/${userId}`),
   getReport:       (branchId, params) => api.get(`/branches/${branchId}/reports`, { params }),
   getGlobalReport: (params)           => api.get('/branches/reports/global', { params }),
-  // ⚠️ KORIJE: /auth/users → /users (menm wout ke userAPI.getAll)
   getTenantUsers:  ()                 => api.get('/users'),
 }
 

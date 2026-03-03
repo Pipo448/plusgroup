@@ -85,27 +85,42 @@ export default function AppLayout() {
   const loading = useAuthStore(s => s.loading)
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const [open, setOpen]               = useState(false)
-  const [showLang, setShowLang]       = useState(false)
+  const [open, setOpen]                 = useState(false)
+  const [showLang, setShowLang]         = useState(false)
   const [showBranches, setShowBranches] = useState(false)
-  const [branches, setBranches]       = useState([])
-  const [isDesktop, setIsDesktop]     = useState(window.innerWidth >= 1024)
-  const langRef    = useRef(null)
-  const branchRef  = useRef(null)
+  const [branches, setBranches]         = useState([])
+  const [isDesktop, setIsDesktop]       = useState(window.innerWidth >= 1024)
+  const langRef   = useRef(null)
+  const branchRef = useRef(null)
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
 
-  const isAdmin = user?.role === 'admin' || user?.isAdmin === true
-  const planName = tenant?.plan?.name || ''
+  const isAdmin      = user?.role === 'admin' || user?.isAdmin === true
+  const planName     = tenant?.plan?.name || ''
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
 
+  // ⚠️ KORIJE — sove branchId (pa slug) — branch pa gen slug pwòp
+  const currentBranchId = localStorage.getItem('plusgroup-branch-id')
+  const currentBranchName = localStorage.getItem('plusgroup-branch-name')
+
+  // Chaje branch yo pou switcher
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll()
       .then(r => setBranches(r.data?.branches || []))
       .catch(() => {})
   }, [isAdmin, token])
+
+  // ⚠️ NOUVO — Sinkronize X-Branch-Id header au demaraj
+  useEffect(() => {
+    const branchId = localStorage.getItem('plusgroup-branch-id')
+    if (branchId) {
+      api.defaults.headers.common['X-Branch-Id'] = branchId
+    } else {
+      delete api.defaults.headers.common['X-Branch-Id']
+    }
+  }, [])
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -153,6 +168,10 @@ export default function AppLayout() {
   }, [token, tenant])
 
   const handleLogout = () => {
+    // ⚠️ Efase branchId tou lè logout
+    localStorage.removeItem('plusgroup-branch-id')
+    localStorage.removeItem('plusgroup-branch-name')
+    delete api.defaults.headers.common['X-Branch-Id']
     logout()
     toast.success('Ou dekonekte.')
     navigate('/login')
@@ -164,16 +183,40 @@ export default function AppLayout() {
     setShowLang(false)
   }
 
+  // ⚠️ KORIJE — sove branchId + mete header X-Branch-Id dirèkteman
   const handleSwitchBranch = (branch) => {
     if (!branch.isActive) {
       toast.error('Branch sa a bloke.')
       return
     }
-    api.defaults.headers.common['X-Tenant-Slug'] = branch.slug
-    localStorage.setItem('plusgroup-slug', branch.slug)
+
+    if (branch.id === currentBranchId) {
+      setShowBranches(false)
+      return
+    }
+
+    // Sove branchId nan localStorage
+    localStorage.setItem('plusgroup-branch-id', branch.id)
+    localStorage.setItem('plusgroup-branch-name', branch.name)
+
+    // Mete header pou tout pwochen demann API yo
+    api.defaults.headers.common['X-Branch-Id'] = branch.id
+
     setShowBranches(false)
-    navigate('/app/dashboard')
-    toast.success(`Chanje branch: ${branch.name}`)
+    toast.success(`Branch: ${branch.name}`)
+
+    // Recharge paj la pou tout done refresh
+    window.location.href = '/app/dashboard'
+  }
+
+  // ⚠️ NOUVO — Retire filtre branch (retounen wè tout done)
+  const handleClearBranch = () => {
+    localStorage.removeItem('plusgroup-branch-id')
+    localStorage.removeItem('plusgroup-branch-name')
+    delete api.defaults.headers.common['X-Branch-Id']
+    setShowBranches(false)
+    toast.success('Wè tout branch yo')
+    window.location.href = '/app/dashboard'
   }
 
   const exchangeRates     = safeJson(tenant?.exchangeRates, {})
@@ -254,9 +297,15 @@ export default function AppLayout() {
               <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {tenant?.name || 'PLUS GROUP'}
               </p>
-              <p style={{ color:C.gold, fontSize:9, fontWeight:700, letterSpacing:'0.1em', margin:'3px 0 0', textTransform:'uppercase' }}>
-                Innov@tion & Tech
-              </p>
+              {/* ⚠️ NOUVO — Montre non branch aktif si gen youn */}
+              {currentBranchName
+                ? <p style={{ color:'#27ae60', fontSize:9, fontWeight:700, letterSpacing:'0.08em', margin:'3px 0 0', textTransform:'uppercase' }}>
+                    📍 {currentBranchName}
+                  </p>
+                : <p style={{ color:C.gold, fontSize:9, fontWeight:700, letterSpacing:'0.1em', margin:'3px 0 0', textTransform:'uppercase' }}>
+                    Innov@tion & Tech
+                  </p>
+              }
             </div>
 
             {/* Branch Switcher (admin + gen branch) */}
@@ -266,16 +315,16 @@ export default function AppLayout() {
                   onClick={() => setShowBranches(!showBranches)}
                   title="Chanje branch"
                   style={{
-                    background: showBranches ? 'rgba(245,104,12,0.2)' : 'rgba(255,255,255,0.07)',
-                    border: `1px solid ${showBranches ? 'rgba(245,104,12,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                    background: showBranches ? 'rgba(245,104,12,0.2)' : currentBranchId ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.07)',
+                    border: `1px solid ${showBranches ? 'rgba(245,104,12,0.4)' : currentBranchId ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}`,
                     borderRadius: 8, padding: '5px 7px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 3,
                     transition: 'all 0.2s',
                   }}
                 >
-                  <GitBranch size={12} style={{ color: showBranches ? C.gold : C.muted }} />
+                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? '#27ae60' : C.muted }} />
                   <ChevronDown size={11} style={{
-                    color: showBranches ? C.gold : C.muted,
+                    color: showBranches ? C.gold : currentBranchId ? '#27ae60' : C.muted,
                     transform: showBranches ? 'rotate(180deg)' : 'none',
                     transition: 'transform 0.2s'
                   }} />
@@ -284,13 +333,14 @@ export default function AppLayout() {
                 {showBranches && (
                   <div style={{
                     position: 'absolute', top: 'calc(100% + 8px)', right: 0,
-                    minWidth: 210, zIndex: 200,
+                    minWidth: 215, zIndex: 200,
                     background: '#0f0a1e',
                     border: `1px solid rgba(245,104,12,0.25)`,
                     borderRadius: 12,
                     boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
                     overflow: 'hidden',
                   }}>
+                    {/* Tit */}
                     <div style={{
                       padding: '10px 14px 8px',
                       borderBottom: `1px solid rgba(245,104,12,0.12)`,
@@ -302,9 +352,32 @@ export default function AppLayout() {
                       </span>
                     </div>
 
+                    {/* ⚠️ NOUVO — Opsyon "Tout Branch" (efase filtre) */}
+                    <button
+                      onClick={handleClearBranch}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 14px', border: 'none', cursor: 'pointer',
+                        background: !currentBranchId ? 'rgba(245,104,12,0.12)' : 'transparent',
+                        borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (currentBranchId) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      onMouseLeave={e => { if (currentBranchId) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: C.gold, boxShadow:`0 0 6px ${C.gold}` }} />
+                      <div style={{ flex:1, textAlign:'left' }}>
+                        <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>
+                          Tout branch yo
+                        </div>
+                        <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
+                      </div>
+                      {!currentBranchId && <span style={{ fontSize:10, color:C.gold, fontWeight:700, flexShrink:0 }}>✓</span>}
+                    </button>
+
+                    {/* Lis Branch yo */}
                     {branches.map(branch => {
-                      const isCurrent = branch.slug === tenant?.slug ||
-                        branch.slug === localStorage.getItem('plusgroup-slug')
+                      const isCurrent = branch.id === currentBranchId
                       return (
                         <button
                           key={branch.id}
@@ -313,7 +386,7 @@ export default function AppLayout() {
                           style={{
                             width: '100%', display: 'flex', alignItems: 'center', gap: 10,
                             padding: '10px 14px', border: 'none', cursor: branch.isActive ? 'pointer' : 'not-allowed',
-                            background: isCurrent ? 'rgba(245,104,12,0.12)' : 'transparent',
+                            background: isCurrent ? 'rgba(39,174,96,0.12)' : 'transparent',
                             borderBottom: `1px solid rgba(255,255,255,0.04)`,
                             transition: 'background 0.15s',
                           }}
@@ -333,12 +406,12 @@ export default function AppLayout() {
                             }}>
                               {branch.name}
                             </div>
-                            <div style={{ color: '#475569', fontSize: 10, fontFamily: 'monospace' }}>
-                              /{branch.slug}
+                            <div style={{ color: '#475569', fontSize: 10 }}>
+                              {branch.isActive ? 'Aktif' : 'Bloke'}
                             </div>
                           </div>
                           {isCurrent
-                            ? <span style={{ fontSize: 10, color: C.gold, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                            ? <span style={{ fontSize: 10, color: '#27ae60', fontWeight: 700, flexShrink: 0 }}>✓</span>
                             : !branch.isActive
                               ? <Lock size={10} style={{ color: '#475569', flexShrink: 0 }} />
                               : <ChevronRight size={12} style={{ color: '#475569', flexShrink: 0 }} />
@@ -347,6 +420,7 @@ export default function AppLayout() {
                       )
                     })}
 
+                    {/* Lyen Jere Branch yo */}
                     <button
                       onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
                       style={{
@@ -552,7 +626,7 @@ export default function AppLayout() {
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
-          {/* ✅ NotificationBell — ranplase ansyen klòch ki pa t fonksyonèl */}
+          {/* ✅ NotificationBell */}
           <NotificationBell lang={i18n.language} />
 
         </header>
