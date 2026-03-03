@@ -59,7 +59,7 @@ app.use(cors({
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'X-Branch-Id']
 }));
 
 // ✅ FIX CLOUDFLARE CACHE — Tout /api/* routes pa dwe cache
