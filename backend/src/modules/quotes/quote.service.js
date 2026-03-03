@@ -1,22 +1,14 @@
 // src/modules/quotes/quote.service.js
 const prisma = require('../../config/prisma');
 
-// ── Générer numéro devis (par entreprise)
 const generateQuoteNumber = async (tenantId) => {
   const year = new Date().getFullYear();
-
   const seq = await prisma.documentSequence.upsert({
     where: { tenantId_documentType: { tenantId, documentType: 'quote' } },
     create: { tenantId, documentType: 'quote', prefix: 'DEV', lastNumber: 1, currentYear: year },
-    update: {
-      lastNumber: {
-        increment: 1
-      },
-      currentYear: year
-    }
+    update: { lastNumber: { increment: 1 }, currentYear: year }
   });
 
-  // Reset si nouvelle année
   if (seq.yearReset && seq.currentYear < year) {
     await prisma.documentSequence.update({
       where: { tenantId_documentType: { tenantId, documentType: 'quote' } },
@@ -28,7 +20,6 @@ const generateQuoteNumber = async (tenantId) => {
   return `${seq.prefix}-${year}-${String(seq.lastNumber).padStart(4, '0')}`;
 };
 
-// ── Calculer totaux
 const calculateTotals = (items, discountType, discountValue, taxRate, exchangeRate) => {
   let subtotalHtg = 0;
   let subtotalUsd = 0;
@@ -42,7 +33,6 @@ const calculateTotals = (items, discountType, discountValue, taxRate, exchangeRa
     subtotalUsd += lineUsd;
   }
 
-  // Remise globale
   let discountHtg = 0, discountUsd = 0;
   if (discountType === 'percent') {
     discountHtg = subtotalHtg * Number(discountValue) / 100;
@@ -54,7 +44,6 @@ const calculateTotals = (items, discountType, discountValue, taxRate, exchangeRa
 
   const afterDiscHtg = subtotalHtg - discountHtg;
   const afterDiscUsd = subtotalUsd - discountUsd;
-
   const taxHtg = afterDiscHtg * Number(taxRate) / 100;
   const taxUsd = afterDiscUsd * Number(taxRate) / 100;
 
@@ -71,9 +60,11 @@ const calculateTotals = (items, discountType, discountValue, taxRate, exchangeRa
 };
 
 // ── GET ALL
-const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20 }) => {
+// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
+const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, branchId }) => {
   const where = {
     tenantId,
+    ...(branchId && { branchId }),   // ⚠️ NOUVO
     ...(status && { status }),
     ...(clientId && { clientId }),
     ...(search && {
@@ -122,12 +113,12 @@ const getOne = async (tenantId, id) => {
 };
 
 // ── CREATE
+// ⚠️ KORIJE — ajoute branchId nan quote
 const create = async (tenantId, userId, data) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   const quoteNumber = await generateQuoteNumber(tenantId);
   const exchangeRate = data.exchangeRate || Number(tenant.exchangeRate);
 
-  // Snapshot client
   let clientSnapshot = data.clientSnapshot || {};
   if (data.clientId) {
     const client = await prisma.client.findFirst({ where: { id: data.clientId, tenantId } });
@@ -139,7 +130,6 @@ const create = async (tenantId, userId, data) => {
     }
   }
 
-  // Préparer items avec snapshots produits
   const items = [];
   for (const item of data.items || []) {
     const product = await prisma.product.findFirst({ where: { id: item.productId, tenantId } });
@@ -170,6 +160,7 @@ const create = async (tenantId, userId, data) => {
   const quote = await prisma.quote.create({
     data: {
       tenantId,
+      branchId: data.branchId || null,   // ⚠️ NOUVO
       quoteNumber,
       clientId: data.clientId,
       clientSnapshot,
@@ -187,8 +178,7 @@ const create = async (tenantId, userId, data) => {
       createdBy: userId,
       items: {
         create: items.map(item => ({
-          ...item,
-          tenantId,
+          ...item, tenantId,
           totalHtg: item.totalHtg,
           totalUsd: item.totalUsd
         }))
@@ -203,7 +193,7 @@ const create = async (tenantId, userId, data) => {
   return quote;
 };
 
-// ── UPDATE (seulement si draft ou sent)
+// ── UPDATE
 const update = async (tenantId, id, userId, data) => {
   const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
@@ -215,7 +205,6 @@ const update = async (tenantId, id, userId, data) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   const exchangeRate = data.exchangeRate || Number(quote.exchangeRate);
 
-  // Recalculer items si fournis
   let items = [];
   if (data.items) {
     for (const item of data.items) {
@@ -239,8 +228,6 @@ const update = async (tenantId, id, userId, data) => {
     }
 
     const totals = calculateTotals(items, data.discountType, data.discountValue, data.taxRate, exchangeRate);
-
-    // Supprimer anciens items et recréer
     await prisma.quoteItem.deleteMany({ where: { quoteId: id } });
 
     return prisma.quote.update({
@@ -260,8 +247,7 @@ const update = async (tenantId, id, userId, data) => {
         terms: data.terms,
         items: {
           create: items.map(item => ({
-            ...item,
-            tenantId,
+            ...item, tenantId,
             totalHtg: item.totalHtg,
             totalUsd: item.totalUsd
           }))
@@ -271,16 +257,17 @@ const update = async (tenantId, id, userId, data) => {
     });
   }
 
-  // Mise à jour simple sans items
-  return prisma.quote.update({ where: { id }, data: { notes: data.notes, terms: data.terms, expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined } });
+  return prisma.quote.update({
+    where: { id },
+    data: { notes: data.notes, terms: data.terms, expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined }
+  });
 };
 
-// ── SEND (changer statut → sent)
+// ── SEND
 const send = async (tenantId, id) => {
   const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
   if (quote.status !== 'draft') throw Object.assign(new Error('Se sèlman devis brouyon yo ka voye.'), { statusCode: 400 });
-
   return prisma.quote.update({ where: { id }, data: { status: 'sent' } });
 };
 
@@ -289,11 +276,11 @@ const cancel = async (tenantId, id) => {
   const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
   if (quote.status === 'converted') throw Object.assign(new Error('Devis konvèti pa ka anile.'), { statusCode: 400 });
-
   return prisma.quote.update({ where: { id }, data: { status: 'cancelled' } });
 };
 
-// ── CONVERT TO INVOICE ← règle critique
+// ── CONVERT TO INVOICE
+// ⚠️ KORIJE — erite branchId depi quote nan invoice
 const convertToInvoice = async (tenantId, id, userId) => {
   const quote = await prisma.quote.findFirst({
     where: { id, tenantId },
@@ -301,18 +288,10 @@ const convertToInvoice = async (tenantId, id, userId) => {
   });
 
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
+  if (quote.status === 'converted') throw Object.assign(new Error('Devis sa deja konvèti an facture.'), { statusCode: 400 });
+  if (quote.status === 'cancelled') throw Object.assign(new Error('Devis anile pa ka konvèti.'), { statusCode: 400 });
+  if (quote.items.length === 0) throw Object.assign(new Error('Devis dwe gen omwen yon atik.'), { statusCode: 400 });
 
-  if (quote.status === 'converted') {
-    throw Object.assign(new Error('Devis sa deja konvèti an facture.'), { statusCode: 400 });
-  }
-  if (quote.status === 'cancelled') {
-    throw Object.assign(new Error('Devis anile pa ka konvèti.'), { statusCode: 400 });
-  }
-  if (quote.items.length === 0) {
-    throw Object.assign(new Error('Devis dwe gen omwen yon atik.'), { statusCode: 400 });
-  }
-
-  // Générer numéro facture
   const year = new Date().getFullYear();
   const invoiceSeq = await prisma.documentSequence.upsert({
     where: { tenantId_documentType: { tenantId, documentType: 'invoice' } },
@@ -322,12 +301,11 @@ const convertToInvoice = async (tenantId, id, userId) => {
 
   const invoiceNumber = `${invoiceSeq.prefix}-${year}-${String(invoiceSeq.lastNumber).padStart(4, '0')}`;
 
-  // Transaction: créer facture + marquer devis converti
   const [invoice] = await prisma.$transaction([
-    // Créer la facture
     prisma.invoice.create({
       data: {
         tenantId,
+        branchId: quote.branchId || null,  // ⚠️ NOUVO — erite branchId depi quote
         invoiceNumber,
         quoteId: quote.id,
         clientId: quote.clientId,
@@ -368,28 +346,19 @@ const convertToInvoice = async (tenantId, id, userId) => {
           }))
         }
       },
-      include: {
-        items: true,
-        client: { select: { id: true, name: true } }
-      }
+      include: { items: true, client: { select: { id: true, name: true } } }
     }),
-    // Marquer devis converti
     prisma.quote.update({
       where: { id: quote.id },
-      data: {
-        status: 'converted',
-        convertedAt: new Date()
-      }
+      data: { status: 'converted', convertedAt: new Date() }
     })
   ]);
 
-  // Décrémenter le stock (hors transaction pour éviter timeout)
   await decrementStock(invoice.id, tenantId, userId);
-
   return invoice;
 };
 
-// ── Décrémenter stock après création facture
+// ── Décrémenter stock
 const decrementStock = async (invoiceId, tenantId, userId) => {
   const items = await prisma.invoiceItem.findMany({
     where: { invoiceId },
@@ -404,14 +373,8 @@ const decrementStock = async (invoiceId, tenantId, userId) => {
     const qtyAfter  = qtyBefore + qtyChange;
 
     await prisma.$transaction([
-      prisma.product.update({
-        where: { id: item.productId },
-        data: { quantity: Math.max(0, qtyAfter) }
-      }),
-      prisma.invoiceItem.update({
-        where: { id: item.id },
-        data: { stockBefore: qtyBefore, stockAfter: Math.max(0, qtyAfter) }
-      }),
+      prisma.product.update({ where: { id: item.productId }, data: { quantity: Math.max(0, qtyAfter) } }),
+      prisma.invoiceItem.update({ where: { id: item.id }, data: { stockBefore: qtyBefore, stockAfter: Math.max(0, qtyAfter) } }),
       prisma.stockMovement.create({
         data: {
           tenantId, productId: item.productId,

@@ -4,9 +4,10 @@
 const express = require('express');
 const router  = express.Router();
 const { identifyTenant, authenticate, authorize } = require('../../middleware/auth');
+const { extractBranch } = require('../../middleware/branch');
 const ctrl = require('./quote.controller');
 
-router.use(identifyTenant, authenticate);
+router.use(identifyTenant, authenticate, extractBranch);
 
 router.get('/',                    ctrl.getAll);
 router.get('/:id',                 ctrl.getOne);
