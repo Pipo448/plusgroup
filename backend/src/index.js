@@ -28,6 +28,7 @@ const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
 const reportRoutes  = require('./modules/reports/report.routes');
 const branchRoutes  = require('./modules/branches/branch.routes');
+const notifRoutes   = require('./modules/notifications/notification.routes');
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -118,6 +119,7 @@ app.get('/', (req, res) => {
       admin:           '/api/v1/admin/*',
       auth:            '/api/v1/auth/*',
       branches:        '/api/v1/branches/*',
+      notifications:   '/api/v1/notifications/*',
       kane:            '/api/v1/kane/*',
       sabotay:         '/api/v1/sabotay/*',
       moncash:         '/api/v1/moncash/*',
@@ -144,16 +146,17 @@ app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/auth`, authLimiter, authRoutes);
 
 // Routes protégées (nécessitent tenant + user auth)
-app.use(`${API}/tenant`,   tenantRoutes);
-app.use(`${API}/users`,    userRoutes);
-app.use(`${API}/products`, productRoutes);
-app.use(`${API}/clients`,  clientRoutes);
-app.use(`${API}/quotes`,   quoteRoutes);
-app.use(`${API}/invoices`, invoiceRoutes);
-app.use(`${API}/payments`, paymentRoutes);
-app.use(`${API}/stock`,    stockRoutes);
-app.use(`${API}/reports`,  reportRoutes);
-app.use(`${API}/branches`, branchRoutes);
+app.use(`${API}/tenant`,        tenantRoutes);
+app.use(`${API}/users`,         userRoutes);
+app.use(`${API}/products`,      productRoutes);
+app.use(`${API}/clients`,       clientRoutes);
+app.use(`${API}/quotes`,        quoteRoutes);
+app.use(`${API}/invoices`,      invoiceRoutes);
+app.use(`${API}/payments`,      paymentRoutes);
+app.use(`${API}/stock`,         stockRoutes);
+app.use(`${API}/reports`,       reportRoutes);
+app.use(`${API}/branches`,      branchRoutes);
+app.use(`${API}/notifications`, notifRoutes); // ✅ FIX: te '/api/notifications', kounye a bon prefix
 
 // ✅ Enterprise routes (Plan Antepriz sèlman — pwoteje pa requireEnterprise)
 app.use(`${API}/kane`,    kaneRouter);
