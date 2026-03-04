@@ -29,6 +29,7 @@ const stockRoutes   = require('./modules/stock/stock.routes');
 const reportRoutes  = require('./modules/reports/report.routes');
 const branchRoutes  = require('./modules/branches/branch.routes');
 const notifRoutes   = require('./modules/notifications/notification.routes');
+const kaneEpayRoutes = require('./modules/kane-epay/kane-epay.routes')
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -157,6 +158,7 @@ app.use(`${API}/stock`,         stockRoutes);
 app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes); // ✅ FIX: te '/api/notifications', kounye a bon prefix
+app.use('/api/v1/kane-epay', kaneEpayRoutes)
 
 // ✅ Enterprise routes (Plan Antepriz sèlman — pwoteje pa requireEnterprise)
 app.use(`${API}/kane`,    kaneRouter);
