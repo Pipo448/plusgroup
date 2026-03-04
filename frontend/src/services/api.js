@@ -8,18 +8,17 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// ✅ Request: ajoute token + slug + branchId automatiquement
+// ── Request: ajoute token + slug + branchId otomatikman
 api.interceptors.request.use((config) => {
   try {
     const token    = localStorage.getItem('plusgroup-token')
     const slug     = localStorage.getItem('plusgroup-slug')
-    const branchId = localStorage.getItem('plusgroup-branch-id') // ⚠️ NOUVO
+    const branchId = localStorage.getItem('plusgroup-branch-id')
 
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    if (token)    config.headers.Authorization  = `Bearer ${token}`
     if (!config.headers['X-Tenant-Slug'] && slug) {
       config.headers['X-Tenant-Slug'] = slug
     }
-    // ⚠️ NOUVO — voye branchId si itilizatè nan yon branch espesifik
     if (branchId) {
       config.headers['X-Branch-Id'] = branchId
     } else {
@@ -29,14 +28,14 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response: gestion erreurs globales
+// ── Response: gestion erreurs globales
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    const status = err.response?.status
-    const isLoginRoute = err.config?.url?.includes('/auth/login')
+    const status  = err.response?.status
+    const isLogin = err.config?.url?.includes('/auth/login')
 
-    if (isLoginRoute) return Promise.reject(err)
+    if (isLogin) return Promise.reject(err)
 
     if (status === 401) {
       ['plusgroup-token','plusgroup-user','plusgroup-tenant','plusgroup-slug','plusgroup-lang',
@@ -51,10 +50,16 @@ api.interceptors.response.use(
       return Promise.reject(err)
     }
 
+    if (status === 403) {
+      // ✅ Souse silansyeuseman — chak page jere 403 li menm
+      return Promise.reject(err)
+    }
+
     if (status !== 404) {
       const msg = err.response?.data?.message || 'Erè koneksyon. Verifye entènèt ou.'
       toast.error(msg)
     }
+
     return Promise.reject(err)
   }
 )
