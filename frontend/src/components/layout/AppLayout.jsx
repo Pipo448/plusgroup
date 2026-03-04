@@ -25,20 +25,20 @@ const C = {
 }
 
 const NAV = [
-  { to:'/app/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard' },
-  { to:'/app/products',  icon:Package,         labelKey:'nav.products'  },
-  { to:'/app/clients',   icon:Users,           labelKey:'nav.clients'   },
-  { to:'/app/quotes',    icon:FileText,        labelKey:'nav.quotes'    },
-  { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices'  },
-  { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock'     },
-  { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
+  { to:'/app/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard', pageKey:'dashboard' },
+  { to:'/app/products',  icon:Package,         labelKey:'nav.products',  pageKey:'products'  },
+  { to:'/app/clients',   icon:Users,           labelKey:'nav.clients',   pageKey:'clients'   },
+  { to:'/app/quotes',    icon:FileText,        labelKey:'nav.quotes',    pageKey:'quotes'    },
+  { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices',  pageKey:'invoices'  },
+  { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock',     pageKey:'stock'     },
+  { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
 ]
 
 const ENTERPRISE_ITEMS = [
-  { to:'/app/kane',      icon:CreditCard, label:'Ti Kanè Kès'      },
-  { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay'         },
-  { to:'/app/sabotay',   icon:Smartphone, label:'Sabotay'           },
-  { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash' },
+  { to:'/app/kane',      icon:CreditCard, label:'Ti Kanè Kès',      pageKey:'kane'      },
+  { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay',         pageKey:'kane-epay' },
+  { to:'/app/sabotay',   icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
+  { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
 ]
 
 const LANGS = [
@@ -109,6 +109,14 @@ export default function AppLayout() {
   const planName     = tenant?.plan?.name || ''
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
+
+  // ✅ Verifye si yon paj otorize pa super admin (si pa defini → aksesib)
+  const isPageAllowed = (pageKey) => {
+    const ap = tenant?.allowedPages
+    if (!ap || typeof ap !== 'object') return true
+    if (ap[pageKey] === false) return false
+    return true
+  }
 
   const currentBranchId   = localStorage.getItem('plusgroup-branch-id')
   const currentBranchName = localStorage.getItem('plusgroup-branch-name')
@@ -385,7 +393,7 @@ export default function AppLayout() {
 
         {/* ══ Navigation ══ */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
-          {NAV.map(({ to, icon:Icon, labelKey }) => (
+          {NAV.filter(({ pageKey }) => isPageAllowed(pageKey)).map(({ to, icon:Icon, labelKey }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}
               style={({ isActive }) => navLinkStyle(isActive)}>
               {({ isActive }) => (
@@ -398,7 +406,7 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {isAdmin && (
+          {isAdmin && isPageAllowed('branches') && (
             <NavLink to="/app/branches" onClick={() => setOpen(false)}
               style={({ isActive }) => ({
                 ...navLinkStyle(isActive),
@@ -423,8 +431,8 @@ export default function AppLayout() {
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
           </div>
 
-          {/* ✅ Retire blokaj — NavLink dirèk san kondisyon locked */}
-          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label }) => (
+          {/* ✅ Filtre selon allowedPages super admin */}
+          {ENTERPRISE_ITEMS.filter(({ pageKey }) => isPageAllowed(pageKey)).map(({ to, icon:Icon, label }) => (
             <NavLink key={to} to={to} onClick={() => setOpen(false)}
               style={({ isActive }) => enterpriseLinkStyle(isActive)}>
               {({ isActive }) => (
