@@ -11,8 +11,9 @@ const SYSTEMS = [
     route: '/login',
     available: true,
     accent: '#FF6B00',
-    glow: 'rgba(255,107,0,0.4)',
+    glow: 'rgba(255,107,0,0.5)',
     icon: '🏪',
+    bgImage: '/flyers_jestion_stock.jpg',
     tags: ['Boutik', 'Restoran', 'Pharmacy', 'Sipèmache'],
     badge: 'DISPONIB',
     badgeColor: '#27ae60',
@@ -86,33 +87,50 @@ function SystemCard({ sys, idx }) {
         borderRadius: 24, padding: '32px 28px 28px',
         cursor: sys.available ? 'pointer' : 'default',
         border: `1px solid ${hovered && sys.available ? sys.accent : 'rgba(255,255,255,0.08)'}`,
-        background: hovered && sys.available
-          ? `linear-gradient(145deg, ${sys.accent}18, rgba(0,0,0,0.6))`
-          : 'rgba(255,255,255,0.04)',
-        backdropFilter: 'blur(20px)',
+        // Background image si disponib
+        ...(sys.bgImage ? {
+          backgroundImage: `url(${sys.bgImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+        } : {
+          background: hovered && sys.available
+            ? `linear-gradient(145deg, ${sys.accent}18, rgba(0,0,0,0.6))`
+            : 'rgba(255,255,255,0.04)',
+        }),
+        backdropFilter: 'blur(0px)',
         transform: clicked ? 'scale(0.97)' : hovered && sys.available ? 'translateY(-6px)' : 'translateY(0)',
         transition: 'all 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         boxShadow: hovered && sys.available
-          ? `0 24px 60px ${sys.glow}, 0 0 0 1px ${sys.accent}40`
+          ? `0 24px 60px ${sys.glow}, 0 0 0 2px ${sys.accent}80`
           : '0 4px 20px rgba(0,0,0,0.3)',
         animation: `cardIn 0.6s ease ${idx * 0.15}s both`,
         minHeight: 340,
         display: 'flex', flexDirection: 'column',
       }}
     >
+      {/* Overlay gradient pou lisib tèks sou imaj */}
+      {sys.bgImage && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 0, borderRadius: 24,
+          background: hovered
+            ? `linear-gradient(160deg, rgba(0,0,0,0.82) 0%, rgba(255,107,0,0.45) 60%, rgba(0,0,0,0.75) 100%)`
+            : `linear-gradient(160deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 50%, rgba(0,0,0,0.80) 100%)`,
+          transition: 'background 0.4s ease',
+        }}/>
+      )}
       {/* Glow top bar */}
       <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3, zIndex: 2,
         background: `linear-gradient(90deg, transparent, ${sys.accent}, transparent)`,
-        opacity: hovered ? 1 : 0.4,
+        opacity: hovered ? 1 : 0.5,
         transition: 'opacity 0.3s',
       }}/>
 
       {/* Shimmer sweep on hover */}
       {hovered && sys.available && (
         <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `linear-gradient(105deg, transparent 30%, ${sys.accent}15 50%, transparent 70%)`,
+          position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
+          background: `linear-gradient(105deg, transparent 30%, ${sys.accent}20 50%, transparent 70%)`,
           animation: 'shimmer 1.5s linear infinite',
         }}/>
       )}
@@ -124,7 +142,7 @@ function SystemCard({ sys, idx }) {
 
       {/* Badge */}
       <div style={{
-        position: 'absolute', top: 16, right: 16,
+        position: 'absolute', top: 16, right: 16, zIndex: 3,
         background: `${sys.badgeColor}22`,
         border: `1px solid ${sys.badgeColor}55`,
         color: sys.badgeColor,
@@ -134,9 +152,10 @@ function SystemCard({ sys, idx }) {
 
       {/* Icon */}
       <div style={{
+        position: 'relative', zIndex: 1,
         width: 70, height: 70, borderRadius: 20,
-        background: `linear-gradient(135deg, ${sys.accent}30, ${sys.accent}10)`,
-        border: `1px solid ${sys.accent}40`,
+        background: `linear-gradient(135deg, ${sys.accent}40, ${sys.accent}15)`,
+        border: `1px solid ${sys.accent}60`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 32, marginBottom: 20,
         boxShadow: hovered ? `0 8px 24px ${sys.glow}` : 'none',
@@ -146,45 +165,54 @@ function SystemCard({ sys, idx }) {
 
       {/* Content */}
       <h3 style={{
+        position: 'relative', zIndex: 1,
         color: '#fff', fontSize: 18, fontWeight: 800, margin: '0 0 6px',
         fontFamily: "'Playfair Display', serif",
-        lineHeight: 1.3,
+        lineHeight: 1.3, textShadow: '0 2px 8px rgba(0,0,0,0.8)',
       }}>{sys.title}</h3>
 
       <p style={{
+        position: 'relative', zIndex: 1,
         color: sys.accent, fontSize: 11, fontWeight: 700,
         letterSpacing: '0.08em', margin: '0 0 14px', textTransform: 'uppercase',
+        textShadow: '0 1px 4px rgba(0,0,0,0.9)',
       }}>{sys.subtitle}</p>
 
       <p style={{
-        color: 'rgba(255,255,255,0.55)', fontSize: 13, lineHeight: 1.6,
+        position: 'relative', zIndex: 1,
+        color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 1.6,
         margin: '0 0 20px', flex: 1,
+        textShadow: '0 1px 6px rgba(0,0,0,0.9)',
       }}>{sys.desc}</p>
 
       {/* Tags */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         {sys.tags.map(tag => (
           <span key={tag} style={{
             fontSize: 10, padding: '3px 10px', borderRadius: 99,
-            background: `${sys.accent}15`,
-            border: `1px solid ${sys.accent}30`,
-            color: 'rgba(255,255,255,0.6)', fontWeight: 600,
+            background: `rgba(0,0,0,0.5)`,
+            border: `1px solid ${sys.accent}50`,
+            color: 'rgba(255,255,255,0.8)', fontWeight: 600,
+            backdropFilter: 'blur(4px)',
           }}>{tag}</span>
         ))}
       </div>
 
       {/* CTA */}
       <div style={{
+        position: 'relative', zIndex: 1,
         display: 'flex', alignItems: 'center', gap: 8,
         padding: '12px 20px', borderRadius: 12,
         background: sys.available
-          ? hovered ? sys.accent : `${sys.accent}20`
-          : 'rgba(255,255,255,0.04)',
-        border: `1px solid ${sys.available ? sys.accent + '60' : 'rgba(255,255,255,0.08)'}`,
-        color: sys.available ? '#fff' : 'rgba(255,255,255,0.3)',
+          ? hovered ? sys.accent : `rgba(0,0,0,0.6)`
+          : 'rgba(0,0,0,0.4)',
+        border: `1px solid ${sys.available ? sys.accent + '80' : 'rgba(255,255,255,0.1)'}`,
+        color: sys.available ? '#fff' : 'rgba(255,255,255,0.4)',
         fontWeight: 700, fontSize: 13,
         transition: 'all 0.3s',
         justifyContent: 'center',
+        backdropFilter: 'blur(8px)',
+        boxShadow: hovered && sys.available ? `0 4px 20px ${sys.glow}` : 'none',
       }}>
         {sys.available
           ? <><span style={{ fontSize: 15 }}>→</span> Konekte Kounye a</>
