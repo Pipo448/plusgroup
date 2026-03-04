@@ -29,7 +29,8 @@ const stockRoutes   = require('./modules/stock/stock.routes');
 const reportRoutes  = require('./modules/reports/report.routes');
 const branchRoutes  = require('./modules/branches/branch.routes');
 const notifRoutes   = require('./modules/notifications/notification.routes');
-const kaneEpayRoutes = require('./modules/kane-epay/kane-epay.routes')
+const kaneEpayRoutes    = require('./modules/kane-epay/kane-epay.routes');
+const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes'); // ✅ NOUVO
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -41,12 +42,10 @@ const PORT = process.env.PORT || 5000;
 // MIDDLEWARES GLOBAUX
 // ============================================================
 
-// Sécurité
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
-// ✅ CORS — Aksepte frontend production
 app.use(cors({
   origin: [
     'http://localhost:3000',
@@ -63,7 +62,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'X-Branch-Id']
 }));
 
-// ✅ FIX CLOUDFLARE CACHE — Tout /api/* routes pa dwe cache
+// ✅ FIX CLOUDFLARE CACHE
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
   res.set('Pragma', 'no-cache')
@@ -71,34 +70,29 @@ app.use('/api', (req, res, next) => {
   next()
 })
 
-// Rate limiting global
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 500,
   message: { success: false, message: 'Twòp demann. Tanpri tann yon ti tan.' }
 }));
 
-// ✅ FIX — Rate limiting auth: max 20, sèlman echèk konte
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,                       // ← te 10, kounye a 20
-  skipSuccessfulRequests: true,  // ← NOUVO: login reyisi pa konte
+  max: 20,
+  skipSuccessfulRequests: true,
   message: { success: false, message: 'Twòp tantativ echèk. Tann 15 minit.' }
 });
 
-// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
 
-// Logging
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', {
     stream: { write: (msg) => logger.info(msg.trim()) }
   }));
 }
 
-// Fichiers statiques (logos, images)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 // ============================================================
@@ -107,7 +101,6 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 const API = '/api/v1';
 
-// ✅ ROOT ROUTE
 app.get('/', (req, res) => {
   res.json({
     success: true,
@@ -129,7 +122,6 @@ app.get('/', (req, res) => {
   });
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({
     success: true,
@@ -143,10 +135,10 @@ app.get('/health', (req, res) => {
 // Super Admin
 app.use(`${API}/admin`, adminRoutes);
 
-// Auth (avec rate limiting)
+// Auth
 app.use(`${API}/auth`, authLimiter, authRoutes);
 
-// Routes protégées (nécessitent tenant + user auth)
+// Routes protégées
 app.use(`${API}/tenant`,        tenantRoutes);
 app.use(`${API}/users`,         userRoutes);
 app.use(`${API}/products`,      productRoutes);
@@ -157,10 +149,13 @@ app.use(`${API}/payments`,      paymentRoutes);
 app.use(`${API}/stock`,         stockRoutes);
 app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
-app.use(`${API}/notifications`, notifRoutes); // ✅ FIX: te '/api/notifications', kounye a bon prefix
-app.use('/api/v1/kane-epay', kaneEpayRoutes)
+app.use(`${API}/notifications`, notifRoutes);
+app.use(`${API}/kane-epay`,     kaneEpayRoutes);
 
-// ✅ Enterprise routes (Plan Antepriz sèlman — pwoteje pa requireEnterprise)
+// ✅ NOUVO — Page access control pa tenant
+app.use(`${API}/admin/tenants/:id/pages`, tenantPagesRoutes);
+
+// ✅ Enterprise routes
 app.use(`${API}/kane`,    kaneRouter);
 app.use(`${API}/sabotay`, sabotayRouter);
 app.use(`${API}/moncash`, moncashRouter);
