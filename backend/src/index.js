@@ -30,7 +30,7 @@ const reportRoutes  = require('./modules/reports/report.routes');
 const branchRoutes  = require('./modules/branches/branch.routes');
 const notifRoutes   = require('./modules/notifications/notification.routes');
 const kaneEpayRoutes    = require('./modules/kane-epay/kane-epay.routes');
-const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes'); // ✅ NOUVO
+const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes');
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -107,32 +107,22 @@ app.get('/', (req, res) => {
     app: 'PLUS GROUP — Innov@tion & Tech SaaS API',
     version: '2.0.0',
     status: 'running',
-    endpoints: {
-      health:          '/health',
-      setupSuperAdmin: '/api/v1/admin/setup-superadmin',
-      admin:           '/api/v1/admin/*',
-      auth:            '/api/v1/auth/*',
-      branches:        '/api/v1/branches/*',
-      notifications:   '/api/v1/notifications/*',
-      kane:            '/api/v1/kane/*',
-      sabotay:         '/api/v1/sabotay/*',
-      moncash:         '/api/v1/moncash/*',
-      natcash:         '/api/v1/natcash/*',
-    }
   });
 });
 
 app.get('/health', (req, res) => {
   res.json({
     success: true,
-    app: 'PLUS GROUP — Innov@tion & Tech SaaS API',
-    version: process.env.APP_VERSION || '2.0.0',
     status: 'running',
     timestamp: new Date().toISOString()
   });
 });
 
-// Super Admin
+// ✅ KOREKSYON KRITIK — tenantPagesRoutes DOIT vini ANVAN adminRoutes
+// Rezon: Express matching lòd — /admin/tenants/:id/pages te bloke pa /admin catch-all
+app.use(`${API}/admin/tenants/:id/pages`, tenantPagesRoutes);
+
+// Super Admin (apre pages routes pou evite konfli)
 app.use(`${API}/admin`, adminRoutes);
 
 // Auth
@@ -151,9 +141,6 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
-
-// ✅ NOUVO — Page access control pa tenant
-app.use(`${API}/admin/tenants/:id/pages`, tenantPagesRoutes);
 
 // ✅ Enterprise routes
 app.use(`${API}/kane`,    kaneRouter);
