@@ -51,6 +51,16 @@ const AdminRoute = ({ children }) => {
   return session ? children : <Navigate to="/admin/login" replace />
 }
 
+// ✅ Verifye si super admin te bloke paj la
+const ProtectedPage = ({ pageKey, children }) => {
+  const tenant = useAuthStore(s => s.tenant)
+  const ap = tenant?.allowedPages
+  if (ap && typeof ap === 'object' && ap[pageKey] === false) {
+    return <Navigate to="/app/dashboard" replace />
+  }
+  return children
+}
+
 // ✅ Si deja konekte → ale nan dashboard, sinon → WelcomePage
 const RootRedirect = () => {
   const token   = useAuthStore(s => s.token)
@@ -84,31 +94,31 @@ export default function App() {
         <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard"        element={<Dashboard />} />
-          <Route path="products"         element={<ProductsPage />} />
-          <Route path="clients"          element={<ClientsPage />} />
-          <Route path="quotes"           element={<QuotesPage />} />
+          <Route path="products"         element={<ProtectedPage pageKey="products"><ProductsPage /></ProtectedPage>} />
+          <Route path="clients"          element={<ProtectedPage pageKey="clients"><ClientsPage /></ProtectedPage>} />
+          <Route path="quotes"           element={<ProtectedPage pageKey="quotes"><QuotesPage /></ProtectedPage>} />
           <Route path="quotes/new"       element={<QuoteForm />} />
           <Route path="quotes/:id"       element={<QuoteDetail />} />
           <Route path="quotes/:id/edit"  element={<QuoteForm />} />
-          <Route path="invoices"         element={<InvoicesPage />} />
+          <Route path="invoices"         element={<ProtectedPage pageKey="invoices"><InvoicesPage /></ProtectedPage>} />
           <Route path="invoices/new"     element={<NewInvoicePage />} />
           <Route path="invoices/:id"     element={<InvoiceDetail />} />
-          <Route path="stock"            element={<StockPage />} />
-          <Route path="reports"          element={<ReportsPage />} />
-          <Route path="settings"         element={<SettingsPage />} />
-          <Route path="settings/users"   element={<UsersPage />} />
+          <Route path="stock"            element={<ProtectedPage pageKey="stock"><StockPage /></ProtectedPage>} />
+          <Route path="reports"          element={<ProtectedPage pageKey="reports"><ReportsPage /></ProtectedPage>} />
+          <Route path="settings"         element={<ProtectedPage pageKey="settings"><SettingsPage /></ProtectedPage>} />
+          <Route path="settings/users"   element={<ProtectedPage pageKey="users"><UsersPage /></ProtectedPage>} />
 
           {/* ✅ Plans */}
           <Route path="plans"            element={<PlansPage />} />
 
           {/* ✅ Branch Management */}
-          <Route path="branches"         element={<BranchAdminPage />} />
+          <Route path="branches"         element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
 
           {/* ✅ Enterprise */}
-          <Route path="kane"             element={<KanePage />} />
-          <Route path="kane-epay"        element={<KaneEpayPage />} />
-          <Route path="sabotay"          element={<SabotayPage />} />
-          <Route path="mobilpay"         element={<MobilPayPage />} />
+          <Route path="kane"             element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
+          <Route path="kane-epay"        element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
+          <Route path="sabotay"          element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
+          <Route path="mobilpay"         element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
         </Route>
 
         {/* Legacy redirects */}
