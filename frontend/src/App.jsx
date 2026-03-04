@@ -29,9 +29,12 @@ import MobilPayPage    from './pages/enterprise/MobilPayPage'
 // ✅ Plans Page
 import PlansPage from './pages/plans/PlansPage'
 
+// ✅ Welcome Page
+import WelcomePage from './pages/WelcomePage'
+
 const Spinner = () => (
-  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0A0A0F' }}>
-    <div style={{ width:40, height:40, border:'3px solid #C9A84C40', borderTop:'3px solid #C9A84C', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
+    <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
     <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
   </div>
 )
@@ -48,13 +51,14 @@ const AdminRoute = ({ children }) => {
   return session ? children : <Navigate to="/admin/login" replace />
 }
 
+// ✅ Si deja konekte → ale nan dashboard, sinon → WelcomePage
 const RootRedirect = () => {
   const token   = useAuthStore(s => s.token)
   const loading = useAuthStore(s => s.loading)
   if (loading) return <Spinner />
   return token
     ? <Navigate to="/app/dashboard" replace />
-    : <Navigate to="/login" replace />
+    : <WelcomePage />
 }
 
 export default function App() {
@@ -62,8 +66,11 @@ export default function App() {
     <BrowserRouter>
       <Routes>
 
-        {/* Root */}
+        {/* ✅ Root — WelcomePage (si pa konekte) sinon dashboard */}
         <Route path="/" element={<RootRedirect />} />
+
+        {/* ✅ Welcome direct access */}
+        <Route path="/welcome" element={<WelcomePage />} />
 
         {/* Auth */}
         <Route path="/login" element={<LoginPage />} />
@@ -84,8 +91,8 @@ export default function App() {
           <Route path="quotes/:id"       element={<QuoteDetail />} />
           <Route path="quotes/:id/edit"  element={<QuoteForm />} />
           <Route path="invoices"         element={<InvoicesPage />} />
-          <Route path="invoices/:id"     element={<InvoiceDetail />} />
           <Route path="invoices/new"     element={<NewInvoicePage />} />
+          <Route path="invoices/:id"     element={<InvoiceDetail />} />
           <Route path="stock"            element={<StockPage />} />
           <Route path="reports"          element={<ReportsPage />} />
           <Route path="settings"         element={<SettingsPage />} />
@@ -122,7 +129,7 @@ export default function App() {
         <Route path="/plans"          element={<Navigate to="/app/plans"     replace />} />
 
         {/* Catch all */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>
     </BrowserRouter>
