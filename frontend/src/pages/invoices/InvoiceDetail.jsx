@@ -270,7 +270,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 export default function InvoiceDetail() {
   const { id }      = useParams()
   const navigate    = useNavigate()
-  const { hasRole, tenant } = useAuthStore()
+  const { hasRole, tenant, user } = useAuthStore()
   const qc          = useQueryClient()
   const pdfMenuRef  = useRef(null)
   const { t, i18n } = useTranslation()
@@ -470,7 +470,7 @@ export default function InvoiceDetail() {
                 </button>
               ) : (
                 <>
-                  <button onClick={() => print(invoice, tenant)} disabled={printing}
+                  <button onClick={() => print(invoice, tenant, user)} disabled={printing}
                     className="btn-secondary btn-sm"
                     style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
                     <Printer size={14} />
@@ -643,7 +643,7 @@ export default function InvoiceDetail() {
             </div>
 
             {connected && (
-              <button onClick={() => print(invoice, tenant)} disabled={printing}
+              <button onClick={() => print(invoice, tenant, user)} disabled={printing}
                 className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
                 <Printer size={15}/>
                 {printing ? 'Ap enprime...' : 'Enprime Resi Bluetooth'}

@@ -5,6 +5,7 @@ import api from '../services/api'
 
 const BRANCH_KEY      = 'plusgroup-branch-id'
 const BRANCH_NAME_KEY = 'plusgroup-branch-name'
+const CASHIER_KEY     = 'plusgroup-cashier-name'
 
 export const useAuthStore = create(
   persist(
@@ -17,7 +18,9 @@ export const useAuthStore = create(
       branchName: null,
 
       setAuth: (token, user, tenant) => {
-        if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
+        if (tenant?.slug)    localStorage.setItem('plusgroup-slug', tenant.slug)
+        // ✅ Sove non kasye pou printerService ka itilize l
+        if (user?.fullName)  localStorage.setItem(CASHIER_KEY, user.fullName)
         // Reset branchId ak header — evite vye sesyon kontamine nouvo a
         localStorage.removeItem(BRANCH_KEY)
         localStorage.removeItem(BRANCH_NAME_KEY)
@@ -48,12 +51,12 @@ export const useAuthStore = create(
 
         // Kasye ak 1 sèl branch → sete otomatikman
         if (userBranches.length === 1) {
-          const branch   = userBranches[0]
-          const branchId = branch?.id || branch?.branchId
+          const branch     = userBranches[0]
+          const branchId   = branch?.id || branch?.branchId
           const branchName = branch?.name || null
           if (branchId) {
             localStorage.setItem(BRANCH_KEY, String(branchId))
-            if (branchName) localStorage.setItem(BRANCH_NAME_KEY, branchName) // ✅ Sove non tou
+            if (branchName) localStorage.setItem(BRANCH_NAME_KEY, branchName)
             api.defaults.headers.common['X-Branch-Id'] = String(branchId)
             set({ branchId: String(branchId), branchName })
           }
@@ -75,6 +78,7 @@ export const useAuthStore = create(
         localStorage.removeItem('plusgroup-tenant')
         localStorage.removeItem(BRANCH_KEY)
         localStorage.removeItem(BRANCH_NAME_KEY)
+        localStorage.removeItem(CASHIER_KEY) // ✅ Netwaye kasye tou
         delete api.defaults.headers.common['X-Branch-Id']
         delete api.defaults.headers.common['X-Tenant-Slug']
         delete api.defaults.headers.common['Authorization']
@@ -106,6 +110,10 @@ export const useAuthStore = create(
           }
           if (state.token) {
             api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
+          }
+          // ✅ Restore cashier name apre refresh
+          if (state.user?.fullName) {
+            localStorage.setItem(CASHIER_KEY, state.user.fullName)
           }
           if (state.branchId) {
             localStorage.setItem(BRANCH_KEY, state.branchId)
