@@ -22,6 +22,7 @@ import NewInvoicePage from './pages/invoices/NewInvoicePage'
 // ✅ Paj Enterprise + Branch
 import BranchAdminPage from './pages/branches/BranchAdminPage'
 import KanePage        from './pages/enterprise/KanePage'
+import KaneEpayPage    from './pages/enterprise/KaneEpayPage'
 import SabotayPage     from './pages/enterprise/SabotayPage'
 import MobilPayPage    from './pages/enterprise/MobilPayPage'
 
@@ -84,11 +85,11 @@ export default function App() {
           <Route path="quotes/:id/edit"  element={<QuoteForm />} />
           <Route path="invoices"         element={<InvoicesPage />} />
           <Route path="invoices/:id"     element={<InvoiceDetail />} />
+          <Route path="invoices/new"     element={<NewInvoicePage />} />
           <Route path="stock"            element={<StockPage />} />
           <Route path="reports"          element={<ReportsPage />} />
           <Route path="settings"         element={<SettingsPage />} />
           <Route path="settings/users"   element={<UsersPage />} />
-          <Route path="/app/invoices/new" element={<NewInvoicePage />} />
 
           {/* ✅ Plans */}
           <Route path="plans"            element={<PlansPage />} />
@@ -98,6 +99,7 @@ export default function App() {
 
           {/* ✅ Enterprise */}
           <Route path="kane"             element={<KanePage />} />
+          <Route path="kane-epay"        element={<KaneEpayPage />} />
           <Route path="sabotay"          element={<SabotayPage />} />
           <Route path="mobilpay"         element={<MobilPayPage />} />
         </Route>
@@ -114,6 +116,7 @@ export default function App() {
         <Route path="/settings"       element={<Navigate to="/app/settings"  replace />} />
         <Route path="/branches"       element={<Navigate to="/app/branches"  replace />} />
         <Route path="/kane"           element={<Navigate to="/app/kane"      replace />} />
+        <Route path="/kane-epay"      element={<Navigate to="/app/kane-epay" replace />} />
         <Route path="/sabotay"        element={<Navigate to="/app/sabotay"   replace />} />
         <Route path="/mobilpay"       element={<Navigate to="/app/mobilpay"  replace />} />
         <Route path="/plans"          element={<Navigate to="/app/plans"     replace />} />
