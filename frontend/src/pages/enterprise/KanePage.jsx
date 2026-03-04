@@ -1,6 +1,6 @@
 // src/pages/enterprise/KanePage.jsx
 // ============================================================
-// PLUS GROUP — Ti Kanè Kès (Plan Antepriz sèlman)
+// PLUS GROUP — Ti Kanè Kès
 // Jesyon nòt kès, rekèt lajan, reçu rapid
 // 3 Lang: ht | fr | en
 // ============================================================
@@ -13,7 +13,6 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
-import EnterpriseLock from '../../components/EnterpriseLock'
 
 // ── Tradiksyon
 const T = {
@@ -45,7 +44,6 @@ const T = {
     totalToday: 'Total Jodi a',
     totalPaid: 'Total Peye',
     totalPending: 'Annatant',
-    enterpriseOnly: 'Fonksyon sa a disponib sèlman pou Plan Antepriz.',
     confirmPaid: 'Mete kanè sa a kòm peye?',
     confirmCancel: 'Anile kanè sa a?',
     receiptTitle: 'REÇU KÈS',
@@ -82,7 +80,6 @@ const T = {
     totalToday: "Total Aujourd'hui",
     totalPaid: 'Total Payé',
     totalPending: 'En attente',
-    enterpriseOnly: 'Cette fonctionnalité est disponible uniquement pour le Plan Entreprise.',
     confirmPaid: 'Marquer ce bon comme payé?',
     confirmCancel: 'Annuler ce bon?',
     receiptTitle: 'REÇU DE CAISSE',
@@ -119,7 +116,6 @@ const T = {
     totalToday: 'Today Total',
     totalPaid: 'Total Paid',
     totalPending: 'Pending',
-    enterpriseOnly: 'This feature is available only for the Enterprise Plan.',
     confirmPaid: 'Mark this voucher as paid?',
     confirmCancel: 'Cancel this voucher?',
     receiptTitle: 'CASH RECEIPT',
@@ -302,29 +298,16 @@ export default function KanePage() {
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
 
-  // ✅ KORIJE — case-insensitive, sipòte tout variante
-  const planName = tenant?.plan?.name || ''
-  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-    .includes(planName.toLowerCase().trim())
-
-  // ✅ Si pa Enterprise, montre paj lock la
-  if (!isEnterprise) return (
-    <EnterpriseLock lang={lang} page="kane" currentPlanName={planName} />
-  )
-
-  // ✅ KORIJE — retire onError (pa sipòte nan React Query v5)
-  //    Itilize isError + error olye a
+  // ✅ KORIJE — retire blokaj plan, aksè kontwole pa super admin (allowedPages)
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['kane', filter],
     queryFn: () =>
       api.get('/kane', { params: { status: filter !== 'all' ? filter : undefined } })
         .then(r => r.data),
     retry: 1,
-    // Retounen done vide si API echwe (evite crash)
     placeholderData: { kanes: [], stats: { totalToday: 0, totalPaid: 0, totalPending: 0 } },
   })
 
-  // ✅ Pwoteksyon null — toujou retounen yon tableau/objè
   const kanes = Array.isArray(data?.kanes)
     ? data.kanes.filter(k =>
         !search ||
@@ -336,23 +319,19 @@ export default function KanePage() {
 
   const stats = data?.stats || { totalToday: 0, totalPaid: 0, totalPending: 0 }
 
-  // Kreye
   const createMutation = useMutation({
     mutationFn: (form) => api.post('/kane', form),
     onSuccess: (res) => {
       toast.success('Kanè kreye!')
       qc.invalidateQueries({ queryKey: ['kane'] })
       setShowModal(false)
-      // ✅ Pwoteksyon null anvan enprime
       if (res?.data?.kane) printKane(res.data.kane, tenant, t)
     },
     onError: err => toast.error(err?.response?.data?.message || 'Erè kreye kanè')
   })
 
-  // Chanje statut
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => {
-      // ✅ Pwoteksyon — pa voye request si id undefined
       if (!id) throw new Error('ID manke')
       return api.patch(`/kane/${id}/status`, { status })
     },
@@ -363,7 +342,6 @@ export default function KanePage() {
     onError: err => toast.error(err?.response?.data?.message || err?.message || 'Erè')
   })
 
-  // ✅ Pwoteksyon — verifye kane ak kane.id egziste
   const handleMarkPaid = (kane) => {
     if (!kane?.id) return toast.error('ID kanè manke')
     if (window.confirm(t.confirmPaid)) statusMutation.mutate({ id: kane.id, status: 'paid' })
@@ -400,7 +378,6 @@ export default function KanePage() {
         </div>
       </div>
 
-      {/* ✅ Montre erè API si gen pwoblèm backend */}
       {isError && (
         <div style={{
           marginBottom: 16, padding: '12px 16px', borderRadius: 10,
@@ -464,10 +441,8 @@ export default function KanePage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {kanes.map((kane, idx) => {
-            // ✅ Skip si kane undefined/null
             if (!kane) return null
             const ss = STATUS_STYLE[kane.status] || STATUS_STYLE.pending
-            // ✅ Kle sekirize — itilize id si disponib, sinon idx
             const key = kane.id ?? `kane-${idx}`
             return (
               <div key={key} style={{
@@ -475,15 +450,12 @@ export default function KanePage() {
                 borderRadius: 10, padding: '14px 16px',
                 display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
               }}>
-                {/* Nimewo */}
                 <div style={{ minWidth: 80 }}>
                   <div style={{ color: '#64748b', fontSize: 10 }}>{t.kaneNum}</div>
                   <div style={{ color: COLORS.gold, fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>
                     #{kane.kaneNumber || 'KNE-001'}
                   </div>
                 </div>
-
-                {/* Deskripsyon */}
                 <div style={{ flex: 1, minWidth: 140 }}>
                   <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{kane.description || '—'}</div>
                   {kane.clientName && (
@@ -492,32 +464,24 @@ export default function KanePage() {
                     </div>
                   )}
                 </div>
-
-                {/* Montan */}
                 <div style={{ minWidth: 100, textAlign: 'right' }}>
                   <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>
                     {Number(kane.amount || 0).toLocaleString('fr-HT')}
                   </div>
                   <div style={{ color: '#64748b', fontSize: 11 }}>{kane.currency || 'HTG'}</div>
                 </div>
-
-                {/* Statut */}
                 <span style={{
                   padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700,
                   background: ss.bg, color: ss.color, minWidth: 70, textAlign: 'center'
                 }}>
                   {ss.label} {t[kane.status] || kane.status}
                 </span>
-
-                {/* Dat */}
                 <div style={{ color: '#64748b', fontSize: 11, minWidth: 80, textAlign: 'right' }}>
                   {kane.createdAt
                     ? new Date(kane.createdAt).toLocaleDateString('fr-FR')
                     : new Date().toLocaleDateString('fr-FR')
                   }
                 </div>
-
-                {/* Aksyon */}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={() => printKane(kane, tenant, t)} title={t.print} style={{
                     padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
@@ -546,7 +510,6 @@ export default function KanePage() {
         </div>
       )}
 
-      {/* Modal */}
       {showModal && (
         <KaneModal
           lang={lang}

@@ -1,4 +1,5 @@
 // src/pages/enterprise/MobilPayPage.jsx
+// ✅ KOREKSYON: Retire blokaj plan Enterprise — aksè kontwole pa super admin via allowedPages
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -8,7 +9,6 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
-import EnterpriseLock from '../../components/EnterpriseLock'
 
 const T = {
   ht: {
@@ -324,20 +324,10 @@ export default function MobilPayPage() {
   const [filter, setFilter] = useState('all')
   const [period, setPeriod] = useState('today')
 
-  // ✅ KORIJE — case-insensitive
-  const planName = tenant?.plan?.name || ''
-  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-    .includes(planName.toLowerCase().trim())
-
-  // ✅ Si pa Enterprise, montre lock
-  if (!isEnterprise) return (
-    <EnterpriseLock lang={lang} page="mobilpay" currentPlanName={planName} />
-  )
-
+  // ✅ KORIJE — retire blokaj plan, aksè kontwole pa super admin (allowedPages)
   const endpoint = provider === 'MonCash' ? 'moncash' : 'natcash'
   const pc = PROVIDER_COLORS[provider]
 
-  // ✅ KORIJE — retire onError (React Query v5), ajoute placeholderData
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['mobilpay', provider, filter, period],
     queryFn: () => api.get(`/${endpoint}/transactions`, {
@@ -347,7 +337,6 @@ export default function MobilPayPage() {
     placeholderData: { transactions: [], stats: {} },
   })
 
-  // ✅ Pwoteksyon null
   const transactions = Array.isArray(data?.transactions)
     ? data.transactions.filter(tx =>
         !tx ? false :
@@ -364,7 +353,6 @@ export default function MobilPayPage() {
     mutationFn: (form) => api.post(`/${endpoint}/request`, form),
     onSuccess: (res) => {
       toast.success('Demann kreye!')
-      // ✅ React Query v5 syntax
       qc.invalidateQueries({ queryKey: ['mobilpay'] })
       const paymentLink = res?.data?.paymentLink
       setShowNewModal(false)
@@ -383,7 +371,6 @@ export default function MobilPayPage() {
 
   const confirmMutation = useMutation({
     mutationFn: (id) => {
-      // ✅ Pwoteksyon — pa voye si id undefined
       if (!id) throw new Error('ID tranzaksyon manke')
       return api.patch(`/${endpoint}/transactions/${id}/confirm`)
     },
@@ -394,7 +381,6 @@ export default function MobilPayPage() {
     onError: err => toast.error(err?.response?.data?.message || err?.message || 'Erè')
   })
 
-  // ✅ Pwoteksyon — verifye tx ak tx.id
   const handleConfirm = (tx) => {
     if (!tx?.id) return toast.error('ID tranzaksyon manke')
     if (window.confirm(t.confirmMark)) confirmMutation.mutate(tx.id)
@@ -428,7 +414,6 @@ export default function MobilPayPage() {
         </div>
       </div>
 
-      {/* ✅ Erè API */}
       {isError && (
         <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#C0392B', fontSize: 13 }}>
           ⚠️ {t.apiError} — {error?.response?.data?.message || error?.message || '500'}
@@ -506,7 +491,6 @@ export default function MobilPayPage() {
             </div>
           </div>
 
-          {/* Lis tranzaksyon */}
           {isLoading ? (
             <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>Chajman...</div>
           ) : transactions.length === 0 ? (

@@ -8,7 +8,6 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
-import EnterpriseLock from '../../components/EnterpriseLock'
 
 const T = {
   ht: {
@@ -237,17 +236,7 @@ export default function SabotayPage() {
   const [search, setSearch] = useState('')
   const [period, setPeriod] = useState('today')
 
-  // ✅ KORIJE — case-insensitive
-  const planName = tenant?.plan?.name || ''
-  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-    .includes(planName.toLowerCase().trim())
-
-  // ✅ Si pa Enterprise, montre lock
-  if (!isEnterprise) return (
-    <EnterpriseLock lang={lang} page="sabotay" currentPlanName={planName} />
-  )
-
-  // ✅ KORIJE — retire onError, ajoute placeholderData (React Query v5)
+  // ✅ KORIJE — retire blokaj plan, aksè kontwole pa super admin (allowedPages)
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['sabotay-sales', filter, period],
     queryFn: () => api.get('/sabotay/sales', {
@@ -264,7 +253,6 @@ export default function SabotayPage() {
     placeholderData: { balance: null },
   })
 
-  // ✅ Pwoteksyon null
   const sales = Array.isArray(data?.sales)
     ? data.sales.filter(s =>
         !s ? false :
@@ -280,7 +268,6 @@ export default function SabotayPage() {
     mutationFn: (form) => api.post('/sabotay/sales', form),
     onSuccess: () => {
       toast.success('Vant reyisi!')
-      // ✅ React Query v5 syntax
       qc.invalidateQueries({ queryKey: ['sabotay-sales'] })
       qc.invalidateQueries({ queryKey: ['sabotay-balance'] })
       setShowSaleModal(false)
@@ -309,7 +296,6 @@ export default function SabotayPage() {
         </div>
       </div>
 
-      {/* ✅ Erè API */}
       {isError && (
         <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#C0392B', fontSize: 13 }}>
           ⚠️ {t.apiError} — {error?.response?.data?.message || error?.message || '500'}
@@ -387,13 +373,11 @@ export default function SabotayPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {sales.map((sale, idx) => {
-            // ✅ Skip si sale null/undefined
             if (!sale) return null
             const ss = STATUS_STYLE[sale.status] || STATUS_STYLE.pending
             const profit = sale.sellingPrice && sale.costPrice
               ? Number(sale.sellingPrice) - Number(sale.costPrice) : null
             return (
-              // ✅ Kle sekirize
               <div key={sale.id ?? `sale-${idx}`} style={{
                 background: COLORS.card, border: `1px solid ${COLORS.border}`,
                 borderRadius: 10, padding: '12px 16px',
