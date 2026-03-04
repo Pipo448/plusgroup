@@ -7,6 +7,7 @@ import {
   Warehouse, TrendingUp, Settings, LogOut, Bell,
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
+  Wallet,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
@@ -33,10 +34,12 @@ const NAV = [
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
 ]
 
+// ✅ FIX 1 — Ajoute Kanè Epay nan lis ANTREPRIZ
 const ENTERPRISE_ITEMS = [
-  { to:'/app/kane',     icon:CreditCard,  label:'Ti Kanè Kès'      },
-  { to:'/app/sabotay',  icon:Smartphone,  label:'Sabotay'           },
-  { to:'/app/mobilpay', icon:Phone,       label:'MonCash / NatCash' },
+  { to:'/app/kane',      icon:CreditCard, label:'Ti Kanè Kès'      },
+  { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay'         },
+  { to:'/app/sabotay',   icon:Smartphone, label:'Sabotay'           },
+  { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash' },
 ]
 
 const LANGS = [
@@ -44,6 +47,14 @@ const LANGS = [
   { code:'fr', name:'Français', flag:'🇫🇷' },
   { code:'en', name:'English',  flag:'🇺🇸' },
 ]
+
+// ✅ FIX 3 — Wòl an Kreyòl
+const ROLE_LABELS = {
+  admin:         'Admin',
+  cashier:       'Kesye',
+  stock_manager: 'Jesyonè Estòk',
+  viewer:        'Obsèvatè',
+}
 
 const logoSrc = (url) => {
   if (!url) return null
@@ -100,11 +111,9 @@ export default function AppLayout() {
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
 
-  // ⚠️ KORIJE — sove branchId (pa slug) — branch pa gen slug pwòp
-  const currentBranchId = localStorage.getItem('plusgroup-branch-id')
+  const currentBranchId   = localStorage.getItem('plusgroup-branch-id')
   const currentBranchName = localStorage.getItem('plusgroup-branch-name')
 
-  // Chaje branch yo pou switcher
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll()
@@ -112,7 +121,6 @@ export default function AppLayout() {
       .catch(() => {})
   }, [isAdmin, token])
 
-  // ⚠️ NOUVO — Sinkronize X-Branch-Id header au demaraj
   useEffect(() => {
     const branchId = localStorage.getItem('plusgroup-branch-id')
     if (branchId) {
@@ -168,7 +176,6 @@ export default function AppLayout() {
   }, [token, tenant])
 
   const handleLogout = () => {
-    // ⚠️ Efase branchId tou lè logout
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
@@ -183,33 +190,17 @@ export default function AppLayout() {
     setShowLang(false)
   }
 
-  // ⚠️ KORIJE — sove branchId + mete header X-Branch-Id dirèkteman
   const handleSwitchBranch = (branch) => {
-    if (!branch.isActive) {
-      toast.error('Branch sa a bloke.')
-      return
-    }
-
-    if (branch.id === currentBranchId) {
-      setShowBranches(false)
-      return
-    }
-
-    // Sove branchId nan localStorage
+    if (!branch.isActive) { toast.error('Branch sa a bloke.'); return }
+    if (branch.id === currentBranchId) { setShowBranches(false); return }
     localStorage.setItem('plusgroup-branch-id', branch.id)
     localStorage.setItem('plusgroup-branch-name', branch.name)
-
-    // Mete header pou tout pwochen demann API yo
     api.defaults.headers.common['X-Branch-Id'] = branch.id
-
     setShowBranches(false)
     toast.success(`Branch: ${branch.name}`)
-
-    // Recharge paj la pou tout done refresh
     window.location.href = '/app/dashboard'
   }
 
-  // ⚠️ NOUVO — Retire filtre branch (retounen wè tout done)
   const handleClearBranch = () => {
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
@@ -285,7 +276,6 @@ export default function AppLayout() {
 
         {/* ══ LOGO ZONE ak Branch Switcher ══ */}
         <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
-
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.08)', padding:5, boxShadow:`0 0 0 2px rgba(245,104,12,0.35)`, flexShrink:0 }}/>
@@ -297,7 +287,6 @@ export default function AppLayout() {
               <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {tenant?.name || 'PLUS GROUP'}
               </p>
-              {/* ⚠️ NOUVO — Montre non branch aktif si gen youn */}
               {currentBranchName
                 ? <p style={{ color:'#27ae60', fontSize:9, fontWeight:700, letterSpacing:'0.08em', margin:'3px 0 0', textTransform:'uppercase' }}>
                     📍 {currentBranchName}
@@ -308,7 +297,7 @@ export default function AppLayout() {
               }
             </div>
 
-            {/* Branch Switcher (admin + gen branch) */}
+            {/* Branch Switcher */}
             {isAdmin && branches.length > 0 && (
               <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
                 <button
@@ -318,8 +307,7 @@ export default function AppLayout() {
                     background: showBranches ? 'rgba(245,104,12,0.2)' : currentBranchId ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.07)',
                     border: `1px solid ${showBranches ? 'rgba(245,104,12,0.4)' : currentBranchId ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}`,
                     borderRadius: 8, padding: '5px 7px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 3,
-                    transition: 'all 0.2s',
+                    display: 'flex', alignItems: 'center', gap: 3, transition: 'all 0.2s',
                   }}
                 >
                   <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? '#27ae60' : C.muted }} />
@@ -331,108 +319,51 @@ export default function AppLayout() {
                 </button>
 
                 {showBranches && (
-                  <div style={{
-                    position: 'fixed', top: 70, left: 258,
-                    minWidth: 220, zIndex: 9999,
-                    background: '#0f0a1e',
-                    border: `1px solid rgba(245,104,12,0.25)`,
-                    borderRadius: 12,
-                    boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
-                    overflow: 'hidden',
-                  }}>
-                    {/* Tit */}
-                    <div style={{
-                      padding: '10px 14px 8px',
-                      borderBottom: `1px solid rgba(245,104,12,0.12)`,
-                      display: 'flex', alignItems: 'center', gap: 6,
-                    }}>
+                  <div style={{ position: 'fixed', top: 70, left: 258, minWidth: 220, zIndex: 9999, background: '#0f0a1e', border: `1px solid rgba(245,104,12,0.25)`, borderRadius: 12, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px 8px', borderBottom: `1px solid rgba(245,104,12,0.12)`, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <GitBranch size={12} style={{ color: C.gold }} />
-                      <span style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                        Chanje Branch
-                      </span>
+                      <span style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Chanje Branch</span>
                     </div>
 
-                    {/* ⚠️ NOUVO — Opsyon "Tout Branch" (efase filtre) */}
-                    <button
-                      onClick={handleClearBranch}
-                      style={{
-                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                        padding: '10px 14px', border: 'none', cursor: 'pointer',
-                        background: !currentBranchId ? 'rgba(245,104,12,0.12)' : 'transparent',
-                        borderBottom: `1px solid rgba(255,255,255,0.04)`,
-                        transition: 'background 0.15s',
-                      }}
+                    <button onClick={handleClearBranch}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(245,104,12,0.12)' : 'transparent', borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: 'background 0.15s' }}
                       onMouseEnter={e => { if (currentBranchId) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                       onMouseLeave={e => { if (currentBranchId) e.currentTarget.style.background = 'transparent' }}
                     >
                       <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: C.gold, boxShadow:`0 0 6px ${C.gold}` }} />
                       <div style={{ flex:1, textAlign:'left' }}>
-                        <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>
-                          Tout branch yo
-                        </div>
+                        <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
                         <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
                       </div>
                       {!currentBranchId && <span style={{ fontSize:10, color:C.gold, fontWeight:700, flexShrink:0 }}>✓</span>}
                     </button>
 
-                    {/* Lis Branch yo */}
                     {branches.map(branch => {
                       const isCurrent = branch.id === currentBranchId
                       return (
-                        <button
-                          key={branch.id}
-                          onClick={() => handleSwitchBranch(branch)}
-                          disabled={!branch.isActive}
-                          style={{
-                            width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                            padding: '10px 14px', border: 'none', cursor: branch.isActive ? 'pointer' : 'not-allowed',
-                            background: isCurrent ? 'rgba(39,174,96,0.12)' : 'transparent',
-                            borderBottom: `1px solid rgba(255,255,255,0.04)`,
-                            transition: 'background 0.15s',
-                          }}
+                        <button key={branch.id} onClick={() => handleSwitchBranch(branch)} disabled={!branch.isActive}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(39,174,96,0.12)' : 'transparent', borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: 'background 0.15s' }}
                           onMouseEnter={e => { if (branch.isActive && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                           onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
                         >
-                          <div style={{
-                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
-                            background: branch.isActive ? '#27ae60' : '#C0392B',
-                            boxShadow: branch.isActive ? '0 0 6px #27ae60' : 'none',
-                          }} />
-                          <div style={{ flex: 1, textAlign: 'left', minWidth: 0 }}>
-                            <div style={{
-                              color: branch.isActive ? '#fff' : '#475569',
-                              fontWeight: isCurrent ? 700 : 500, fontSize: 13,
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            }}>
-                              {branch.name}
-                            </div>
-                            <div style={{ color: '#475569', fontSize: 10 }}>
-                              {branch.isActive ? 'Aktif' : 'Bloke'}
-                            </div>
+                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? '#27ae60' : '#C0392B', boxShadow: branch.isActive ? '0 0 6px #27ae60' : 'none' }} />
+                          <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
+                            <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
+                            <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
                           </div>
                           {isCurrent
-                            ? <span style={{ fontSize: 10, color: '#27ae60', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                            ? <span style={{ fontSize:10, color:'#27ae60', fontWeight:700, flexShrink:0 }}>✓</span>
                             : !branch.isActive
-                              ? <Lock size={10} style={{ color: '#475569', flexShrink: 0 }} />
-                              : <ChevronRight size={12} style={{ color: '#475569', flexShrink: 0 }} />
+                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }} />
+                              : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }} />
                           }
                         </button>
                       )
                     })}
 
-                    {/* Lyen Jere Branch yo */}
-                    <button
-                      onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
-                      style={{
-                        width: '100%', padding: '9px 14px', border: 'none',
-                        borderTop: `1px solid rgba(245,104,12,0.12)`,
-                        background: 'transparent', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        color: C.gold, fontSize: 11, fontWeight: 700,
-                      }}
-                    >
-                      <GitBranch size={11} />
-                      Jere Branch yo →
+                    <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
+                      style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.12)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
+                      <GitBranch size={11} /> Jere Branch yo →
                     </button>
                   </div>
                 )}
@@ -441,12 +372,7 @@ export default function AppLayout() {
           </div>
 
           {/* Badge plan */}
-          <div style={{
-            marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'5px 10px', borderRadius:8,
-            background: isEnterprise ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${isEnterprise ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.08)'}`,
-          }}>
+          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isEnterprise ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
             <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : '#475569', fontWeight:700 }}>
               {planName || 'Free'}
             </span>
@@ -490,13 +416,10 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          <div style={{
-            margin:'10px 4px 6px', paddingTop:10,
-            borderTop:`1px solid rgba(201,168,76,0.18)`,
-            display:'flex', alignItems:'center', gap:8,
-          }}>
+          {/* ✅ FIX 2 — ANTEPRIZ → ANTREPRIZ */}
+          <div style={{ margin:'10px 4px 6px', paddingTop:10, borderTop:`1px solid rgba(201,168,76,0.18)`, display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ color: isEnterprise ? C.enterprise : '#334155', fontSize:10, fontWeight:700, letterSpacing:'0.1em' }}>
-              ✦ ANTEPRIZ
+              ✦ ANTREPRIZ
             </span>
             {isEnterprise && (
               <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
@@ -544,8 +467,13 @@ export default function AppLayout() {
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ color:C.white, fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.fullName}</p>
-              <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>{user?.role}</p>
+              <p style={{ color:C.white, fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {user?.fullName}
+              </p>
+              {/* ✅ FIX 3 — Kesye olye cashier */}
+              <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>
+                {ROLE_LABELS[user?.role] || user?.role}
+              </p>
             </div>
             <button onClick={handleLogout} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, borderRadius:6, display:'flex' }}>
               <LogOut size={15}/>
@@ -573,17 +501,10 @@ export default function AppLayout() {
           )}
 
           {rateItems.map(({ cur, rate }) => (
-            <div key={cur} style={{
-              display:'flex', alignItems:'center', gap:4,
-              padding:'4px 8px', borderRadius:8,
-              background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)',
-              border:'1px solid #f5680c40', fontSize:11, flexShrink:0,
-            }}>
+            <div key={cur} style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #f5680c40', fontSize:11, flexShrink:0 }}>
               <span style={{ color:'#b34200', fontWeight:700 }}>1 {cur}</span>
               <span style={{ color:'#f5680c' }}>=</span>
-              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>
-                {rate.toFixed(2)} HTG
-              </span>
+              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>{rate.toFixed(2)} HTG</span>
             </div>
           ))}
 
@@ -591,12 +512,7 @@ export default function AppLayout() {
 
           {/* Lang Switcher */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
-            <button onClick={() => setShowLang(!showLang)} style={{
-              display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10,
-              border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`,
-              background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent',
-              color: showLang ? '#f5680c' : '#555', cursor:'pointer', fontSize:12, fontWeight:700,
-            }}>
+            <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? '#f5680c' : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
               <span style={{ fontSize:15 }}>{currentLang.flag}</span>
               <span style={{ fontSize:10, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
@@ -605,14 +521,7 @@ export default function AppLayout() {
             {showLang && (
               <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:'1px solid rgba(245,104,12,0.2)', overflow:'hidden' }}>
                 {LANGS.map(lang => (
-                  <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
-                    width:'100%', display:'flex', alignItems:'center', gap:10,
-                    padding:'11px 14px', border:'none', cursor:'pointer',
-                    background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent',
-                    color: i18n.language === lang.code ? '#f5680c' : '#333',
-                    fontWeight: i18n.language === lang.code ? 700 : 500,
-                    fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)',
-                  }}>
+                  <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 14px', border:'none', cursor:'pointer', background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent', color: i18n.language === lang.code ? '#f5680c' : '#333', fontWeight: i18n.language === lang.code ? 700 : 500, fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)' }}>
                     <span style={{ fontSize:18 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
                     {i18n.language === lang.code && <span style={{ color:'#f5680c' }}>✓</span>}
@@ -626,9 +535,7 @@ export default function AppLayout() {
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
-          {/* ✅ NotificationBell */}
           <NotificationBell lang={i18n.language} />
-
         </header>
 
         <main style={{ flex:1, overflowY:'auto' }}>
