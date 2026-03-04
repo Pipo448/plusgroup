@@ -169,7 +169,7 @@ export default function AppLayout() {
   }, [tenant?.slug])
 
   useEffect(() => {
-    if (!token || tenant) return
+    if (!token) return
     authAPI.me()
       .then(res => {
         if (res.data?.tenant?.slug) {
@@ -180,7 +180,7 @@ export default function AppLayout() {
       .catch(err => {
         if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
       })
-  }, [token, tenant])
+  }, [token])
 
   const handleLogout = () => {
     localStorage.removeItem('plusgroup-branch-id')
