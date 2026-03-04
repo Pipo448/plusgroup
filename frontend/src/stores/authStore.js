@@ -3,35 +3,40 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import api from '../services/api'
 
-const BRANCH_KEY = 'plusgroup-branch-id'
+const BRANCH_KEY      = 'plusgroup-branch-id'
+const BRANCH_NAME_KEY = 'plusgroup-branch-name'
 
 export const useAuthStore = create(
   persist(
     (set, get) => ({
-      token:    null,
-      user:     null,
-      tenant:   null,
-      loading:  false,
-      branchId: null,
+      token:      null,
+      user:       null,
+      tenant:     null,
+      loading:    false,
+      branchId:   null,
+      branchName: null,
 
       setAuth: (token, user, tenant) => {
         if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
-        // ✅ Reset branchId ak header — evite vye sesyon an kontamine nouvo a
+        // Reset branchId ak header — evite vye sesyon kontamine nouvo a
         localStorage.removeItem(BRANCH_KEY)
+        localStorage.removeItem(BRANCH_NAME_KEY)
         delete api.defaults.headers.common['X-Branch-Id']
-        set({ token, user, tenant, loading: false, branchId: null })
+        set({ token, user, tenant, loading: false, branchId: null, branchName: null })
       },
 
       // Sete branch manyèlman (admin ki chwazi branch)
-      setBranch: (branchId) => {
+      setBranch: (branchId, branchName = null) => {
         if (branchId) {
           localStorage.setItem(BRANCH_KEY, String(branchId))
+          if (branchName) localStorage.setItem(BRANCH_NAME_KEY, branchName)
           api.defaults.headers.common['X-Branch-Id'] = String(branchId)
         } else {
           localStorage.removeItem(BRANCH_KEY)
+          localStorage.removeItem(BRANCH_NAME_KEY)
           delete api.defaults.headers.common['X-Branch-Id']
         }
-        set({ branchId: branchId || null })
+        set({ branchId: branchId || null, branchName: branchName || null })
       },
 
       // Apre login, detekte branch otomatikman pou kasye
@@ -43,11 +48,14 @@ export const useAuthStore = create(
 
         // Kasye ak 1 sèl branch → sete otomatikman
         if (userBranches.length === 1) {
-          const branchId = userBranches[0]?.id || userBranches[0]?.branchId
+          const branch   = userBranches[0]
+          const branchId = branch?.id || branch?.branchId
+          const branchName = branch?.name || null
           if (branchId) {
             localStorage.setItem(BRANCH_KEY, String(branchId))
+            if (branchName) localStorage.setItem(BRANCH_NAME_KEY, branchName) // ✅ Sove non tou
             api.defaults.headers.common['X-Branch-Id'] = String(branchId)
-            set({ branchId: String(branchId) })
+            set({ branchId: String(branchId), branchName })
           }
         }
         // Si kasye gen plizyè branch → kite li chwazi manyèlman
@@ -66,10 +74,11 @@ export const useAuthStore = create(
         localStorage.removeItem('plusgroup-user')
         localStorage.removeItem('plusgroup-tenant')
         localStorage.removeItem(BRANCH_KEY)
+        localStorage.removeItem(BRANCH_NAME_KEY)
         delete api.defaults.headers.common['X-Branch-Id']
         delete api.defaults.headers.common['X-Tenant-Slug']
         delete api.defaults.headers.common['Authorization']
-        set({ token: null, user: null, tenant: null, branchId: null, loading: false })
+        set({ token: null, user: null, tenant: null, branchId: null, branchName: null, loading: false })
       },
 
       isAuthenticated: () => !!get().token,
@@ -82,10 +91,11 @@ export const useAuthStore = create(
     {
       name: 'pg-auth',
       partialize: (s) => ({
-        token:    s.token,
-        user:     s.user,
-        tenant:   s.tenant,
-        branchId: s.branchId,
+        token:      s.token,
+        user:       s.user,
+        tenant:     s.tenant,
+        branchId:   s.branchId,
+        branchName: s.branchName,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -97,10 +107,12 @@ export const useAuthStore = create(
           if (state.token) {
             api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
           }
-          // ✅ Restore X-Branch-Id apre refresh paj
           if (state.branchId) {
             localStorage.setItem(BRANCH_KEY, state.branchId)
             api.defaults.headers.common['X-Branch-Id'] = state.branchId
+          }
+          if (state.branchName) {
+            localStorage.setItem(BRANCH_NAME_KEY, state.branchName)
           }
         }
       },

@@ -182,15 +182,29 @@ export const disconnectPrinter = () => {
 
 export const isPrinterConnected = () => !!_char && !!(_device && _device.gatt && _device.gatt.connected)
 
-export const printInvoice = async (invoice, tenant) => {
+// ✅ printInvoice aksepte 3yèm paramèt: cashier { fullName }
+export const printInvoice = async (invoice, tenant, cashier = null) => {
   if (!_char) throw new Error('Printer pa konekte')
 
- const fmt = (n) => Number(n || 0)
-  .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-  .replace(/\u00A0/g, ' ')   // ← retire espace insécable
-  .replace(/\u202F/g, ' ')   // ← retire narrow no-break space tou
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/\u00A0/g, ' ')
+    .replace(/\u202F/g, ' ')
+
   const W    = getWidth(tenant)
   const snap = invoice.clientSnapshot || {}
+
+  // Branch aktif (depi invoice oswa localStorage)
+  const branchName = invoice.branchName
+    || invoice.branch?.name
+    || localStorage.getItem('plusgroup-branch-name')
+    || null
+
+  // Kasye (depi paramèt oswa localStorage)
+  const cashierName = cashier?.fullName
+    || cashier?.name
+    || localStorage.getItem('plusgroup-cashier-name')
+    || null
 
   // Parse exchangeRates
   const exchangeRates = (() => {
@@ -239,7 +253,7 @@ export const printInvoice = async (invoice, tenant) => {
   const bytes = [
     ...CMD.INIT,
 
-    // LOGO (si disponib)
+    // LOGO
     ...(logoBytes.length > 0 ? [
       ...CMD.ALIGN_CENTER,
       ...logoBytes,
@@ -253,6 +267,14 @@ export const printInvoice = async (invoice, tenant) => {
     ...encodeText((tenant && (tenant.businessName || tenant.name) || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
+
+    // ✅ NON BRANCH (si disponib)
+    ...(branchName ? [
+      ...CMD.ALIGN_CENTER,
+      ...CMD.BOLD_ON,
+      ...encodeText('-- ' + branchName + ' --\n'),
+      ...CMD.BOLD_OFF,
+    ] : []),
 
     // Telefon + Adres
     ...(tenant && tenant.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
@@ -273,6 +295,11 @@ export const printInvoice = async (invoice, tenant) => {
     ...CMD.ALIGN_LEFT,
     ...makeLine('No. Fakti/Invoice:', invoice.invoiceNumber || '', W), ...CMD.LINE_FEED,
     ...makeLine('Dat/Date:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
+
+    // ✅ NON KASYE (si disponib)
+    ...(cashierName ? [
+      ...makeLine('Kasye/Caissier:', cashierName.substring(0, W - 17), W), ...CMD.LINE_FEED,
+    ] : []),
 
     // KLIYAN
     ...(snap.name ? [
@@ -318,7 +345,7 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // TOTAL GWO + 3 deviz — FIX: redui font si montan long
+    // TOTAL GWO
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...(fmt(totalHtg).length > 10 ? [...CMD.DOUBLE_HEIGHT] : [...CMD.DOUBLE_BOTH]),
@@ -331,7 +358,7 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
-    // PEMAN — FIX: redui font si montan long
+    // PEMAN
     ...CMD.ALIGN_LEFT,
     ...CMD.BOLD_ON,
     ...encodeText('Peye/Paye/Paid: '),
@@ -341,7 +368,7 @@ export const printInvoice = async (invoice, tenant) => {
       : [...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n')]
     ),
 
-    // BALANS — FIX: redui font si montan long
+    // BALANS
     ...(Number(invoice.balanceDueHtg) > 0 ? [
       ...CMD.BOLD_ON,
       ...encodeText('Balans/Solde/Balance: '),
@@ -359,7 +386,7 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('-', W), ...CMD.LINE_FEED,
 
-    // STATUT TRILENG
+    // STATUT
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
     ...CMD.DOUBLE_HEIGHT,
@@ -369,16 +396,16 @@ export const printInvoice = async (invoice, tenant) => {
 
     ...divider('-', W), ...CMD.LINE_FEED,
 
-    // ── QR CODE (sèlman si tenant.showQrCode !== false)
-...(tenant?.showQrCode !== false ? [
-  ...CMD.ALIGN_CENTER,
-  ...makeQR(qrContent),
-  ...CMD.LINE_FEED,
-  ...CMD.SMALL_FONT,
-  ...encodeText('Skane/Scanner/Scan to verify\n'),
-  ...encodeText(invoice.invoiceNumber + '\n'),
-  ...CMD.NORMAL_FONT,
-] : []),
+    // QR CODE
+    ...(tenant?.showQrCode !== false ? [
+      ...CMD.ALIGN_CENTER,
+      ...makeQR(qrContent),
+      ...CMD.LINE_FEED,
+      ...CMD.SMALL_FONT,
+      ...encodeText('Skane/Scanner/Scan to verify\n'),
+      ...encodeText(invoice.invoiceNumber + '\n'),
+      ...CMD.NORMAL_FONT,
+    ] : []),
 
     ...divider('=', W), ...CMD.LINE_FEED,
 
