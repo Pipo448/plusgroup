@@ -9,24 +9,27 @@ const ALL_PAGES = [
 
 const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
 
-// GET /api/admin/tenants/:id/pages
+// GET /api/v1/admin/tenants/:id/pages
 exports.getPages = async (req, res) => {
   try {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, name: true, allowedPages: true }
-    })
-    if (!tenant) return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
-
-    // Merge ak default pou asire tout paj yo prezan
-    const pages = { ...DEFAULT_PAGES, ...(tenant.allowedPages || {}) }
+    const result = await prisma.$queryRaw`
+      SELECT id, name, allowed_pages
+      FROM tenants
+      WHERE id = ${req.params.id}
+      LIMIT 1
+    `
+    if (!result || result.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
+    }
+    const tenant = result[0]
+    const pages = { ...DEFAULT_PAGES, ...(tenant.allowed_pages || {}) }
     res.json({ success: true, pages })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
 }
 
-// PATCH /api/admin/tenants/:id/pages
+// PATCH /api/v1/admin/tenants/:id/pages
 exports.updatePages = async (req, res) => {
   try {
     const { pages } = req.body
@@ -34,26 +37,25 @@ exports.updatePages = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Objè pages obligatwa.' })
     }
 
-    // Filtre sèlman paj ki valid yo
+    // Filtre sèlman paj valid + dashboard toujou ON
     const sanitized = {}
     ALL_PAGES.forEach(p => {
-      sanitized[p] = pages[p] !== false // default true si pa spesifye
+      sanitized[p] = pages[p] !== false
     })
-
-    // Dashboard toujou ON — pa ka bloke l
     sanitized['dashboard'] = true
 
-    const tenant = await prisma.tenant.update({
-      where: { id: req.params.id },
-      data: { allowedPages: sanitized },
-      select: { id: true, name: true, allowedPages: true }
-    })
+    // ✅ Sèvi ak $executeRaw — pa bezwen champ nan schema Prisma
+    await prisma.$executeRaw`
+      UPDATE tenants
+      SET allowed_pages = ${JSON.stringify(sanitized)}::jsonb
+      WHERE id = ${req.params.id}
+    `
 
-    res.json({ success: true, pages: tenant.allowedPages })
+    res.json({ success: true, pages: sanitized })
   } catch (e) {
     res.status(500).json({ success: false, message: e.message })
   }
 }
 
-exports.ALL_PAGES = ALL_PAGES
+exports.ALL_PAGES   = ALL_PAGES
 exports.DEFAULT_PAGES = DEFAULT_PAGES
