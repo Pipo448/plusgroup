@@ -16,17 +16,20 @@ export const useAuthStore = create(
 
       setAuth: (token, user, tenant) => {
         if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
-        set({ token, user, tenant, loading: false })
+        // ✅ Reset branchId ak header — evite vye sesyon an kontamine nouvo a
+        localStorage.removeItem(BRANCH_KEY)
+        delete api.defaults.headers.common['X-Branch-Id']
+        set({ token, user, tenant, loading: false, branchId: null })
       },
 
       // Sete branch manyèlman (admin ki chwazi branch)
       setBranch: (branchId) => {
         if (branchId) {
           localStorage.setItem(BRANCH_KEY, String(branchId))
-          api.defaults.headers.common['X-Branch-Id'] = String(branchId) // ✅ Mete header dirèkteman
+          api.defaults.headers.common['X-Branch-Id'] = String(branchId)
         } else {
           localStorage.removeItem(BRANCH_KEY)
-          delete api.defaults.headers.common['X-Branch-Id'] // ✅ Retire header
+          delete api.defaults.headers.common['X-Branch-Id']
         }
         set({ branchId: branchId || null })
       },
@@ -43,11 +46,11 @@ export const useAuthStore = create(
           const branchId = userBranches[0]?.id || userBranches[0]?.branchId
           if (branchId) {
             localStorage.setItem(BRANCH_KEY, String(branchId))
-            api.defaults.headers.common['X-Branch-Id'] = String(branchId) // ✅ Mete header dirèkteman
+            api.defaults.headers.common['X-Branch-Id'] = String(branchId)
             set({ branchId: String(branchId) })
           }
         }
-        // Si kasye gen plizyè branch → pa touche, kite li chwazi
+        // Si kasye gen plizyè branch → kite li chwazi manyèlman
       },
 
       updateTenant: (updates) => set(state => ({
@@ -63,7 +66,6 @@ export const useAuthStore = create(
         localStorage.removeItem('plusgroup-user')
         localStorage.removeItem('plusgroup-tenant')
         localStorage.removeItem(BRANCH_KEY)
-        // ✅ Netwaye headers axios tou
         delete api.defaults.headers.common['X-Branch-Id']
         delete api.defaults.headers.common['X-Tenant-Slug']
         delete api.defaults.headers.common['Authorization']
@@ -95,7 +97,7 @@ export const useAuthStore = create(
           if (state.token) {
             api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
           }
-          // ✅ Restore X-Branch-Id nan axios headers apre rehydrate
+          // ✅ Restore X-Branch-Id apre refresh paj
           if (state.branchId) {
             localStorage.setItem(BRANCH_KEY, state.branchId)
             api.defaults.headers.common['X-Branch-Id'] = state.branchId

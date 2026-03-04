@@ -118,7 +118,7 @@ export default function LoginPage() {
     try {
       const slug = data.slug.trim().toLowerCase()
 
-      // Netwaye tout ansyen done
+      // Netwaye tout ansyen done + headers
       localStorage.removeItem('pg-auth')
       localStorage.removeItem('plusgroup-slug')
       localStorage.removeItem('plusgroup-token')
@@ -127,39 +127,27 @@ export default function LoginPage() {
       localStorage.removeItem('plusgroup-branch-id')
       localStorage.removeItem('plusgroup-branch-name')
       delete api.defaults.headers.common['X-Branch-Id']
-      api.defaults.headers.common['X-Tenant-Slug'] = ''
+      api.defaults.headers.common['X-Tenant-Slug'] = slug
       api.defaults.headers.common['Authorization'] = ''
 
       localStorage.setItem('plusgroup-slug', slug)
-      api.defaults.headers.common['X-Tenant-Slug'] = slug
 
       const res = await authAPI.login({ slug, email: data.email, password: data.password })
       const { token } = res.data
 
       localStorage.setItem('plusgroup-token', token)
       api.defaults.headers.common['Authorization'] = 'Bearer ' + token
-      api.defaults.headers.common['X-Tenant-Slug'] = slug
 
       const meRes  = await authAPI.me()
       const tenant = meRes.data.tenant
       const user   = meRes.data.user
 
-      // 1. Sete auth dabò
+      // 1. Sete auth (reset branchId otomatikman nan setAuth)
       setAuth(token, user, tenant)
 
-      // 2. Jwenn branches — eseye nan login response, sinon fè yon appèl separe
-      let branches = res.data.branches || []
-      if (branches.length === 0 && user.role !== 'admin') {
-        try {
-          const branchRes = await branchAPI.getAll()
-          // Backend ka retounen { branches: [...] } oswa [...] dirèkteman
-          branches = branchRes.data?.branches || branchRes.data || []
-        } catch {
-          // Si echèk, kontinye san branch
-        }
-      }
-
-      // 3. Auto-sete branch pou kasye
+      // 2. Auto-sete branch pou kasye — sèlman depi login response
+      //    auth.service.js retounen branches filtre pa userId deja
+      const branches = res.data.branches || []
       autoSetBranch(branches)
 
       toast.success('Byenveni, ' + user.fullName + '! 🎉')
