@@ -34,7 +34,6 @@ const NAV = [
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports'   },
 ]
 
-// ✅ FIX 1 — Ajoute Kanè Epay nan lis ANTREPRIZ
 const ENTERPRISE_ITEMS = [
   { to:'/app/kane',      icon:CreditCard, label:'Ti Kanè Kès'      },
   { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay'         },
@@ -48,7 +47,6 @@ const LANGS = [
   { code:'en', name:'English',  flag:'🇺🇸' },
 ]
 
-// ✅ FIX 3 — Wòl an Kreyòl
 const ROLE_LABELS = {
   admin:         'Admin',
   cashier:       'Kesye',
@@ -80,15 +78,16 @@ const navLinkStyle = (isActive) => ({
   boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
 })
 
-const enterpriseLinkStyle = (isActive, locked) => ({
+// ✅ Retire paramèt `locked` — tout paj antrepriz aksesib
+const enterpriseLinkStyle = (isActive) => ({
   display:'flex', alignItems:'center', gap:10,
   padding:'9px 12px', borderRadius:10, marginBottom:2,
   textDecoration:'none', transition:'all 0.2s',
-  background: isActive && !locked ? `rgba(201,168,76,0.18)` : 'transparent',
-  color: locked ? 'rgba(255,255,255,0.3)' : (isActive ? '#ffffff' : C.muted),
-  border: isActive && !locked ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
-  fontWeight: isActive && !locked ? 700 : 500, fontSize:13,
-  cursor: locked ? 'not-allowed' : 'pointer',
+  background: isActive ? `rgba(201,168,76,0.18)` : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  border: isActive ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
+  fontWeight: isActive ? 700 : 500, fontSize:13,
+  cursor: 'pointer',
 })
 
 export default function AppLayout() {
@@ -416,36 +415,27 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          {/* ✅ FIX 2 — ANTEPRIZ → ANTREPRIZ */}
+          {/* ✅ ANTREPRIZ — tout paj lib, pa bloke pa plan */}
           <div style={{ margin:'10px 4px 6px', paddingTop:10, borderTop:`1px solid rgba(201,168,76,0.18)`, display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ color: isEnterprise ? C.enterprise : '#334155', fontSize:10, fontWeight:700, letterSpacing:'0.1em' }}>
+            <span style={{ color: C.enterprise, fontSize:10, fontWeight:700, letterSpacing:'0.1em' }}>
               ✦ ANTREPRIZ
             </span>
-            {isEnterprise && (
-              <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
-            )}
+            <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
           </div>
 
-          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label }) => {
-            const locked = !isEnterprise
-            return (
-              <NavLink key={to} to={locked ? '#' : to}
-                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
-                style={({ isActive }) => enterpriseLinkStyle(isActive, locked)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <Icon size={16} style={{ flexShrink:0, color: locked ? '#334155' : (isActive ? C.enterprise : C.muted) }}/>
-                    <span style={{ color: locked ? '#334155' : undefined }}>{label}</span>
-                    {locked
-                      ? <Lock size={11} style={{ marginLeft:'auto', color:'#334155', flexShrink:0 }}/>
-                      : isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>
-                    }
-                  </>
-                )}
-              </NavLink>
-            )
-          })}
+          {/* ✅ Retire blokaj — NavLink dirèk san kondisyon locked */}
+          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label }) => (
+            <NavLink key={to} to={to} onClick={() => setOpen(false)}
+              style={({ isActive }) => enterpriseLinkStyle(isActive)}>
+              {({ isActive }) => (
+                <>
+                  <Icon size={16} style={{ flexShrink:0, color: isActive ? C.enterprise : C.muted }}/>
+                  <span>{label}</span>
+                  {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
+                </>
+              )}
+            </NavLink>
+          ))}
         </nav>
 
         {/* ══ Settings + User ══ */}
@@ -470,7 +460,6 @@ export default function AppLayout() {
               <p style={{ color:C.white, fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {user?.fullName}
               </p>
-              {/* ✅ FIX 3 — Kesye olye cashier */}
               <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>
                 {ROLE_LABELS[user?.role] || user?.role}
               </p>
