@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { authAPI } from '../../services/api'
+import { authAPI, branchAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
@@ -82,8 +82,6 @@ function Particles() {
 export default function LoginPage() {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
-
-  // ✅ Ajoute autoSetBranch nan destructuring
   const { setAuth, autoSetBranch } = useAuthStore()
 
   const [show, setShow]         = useState(false)
@@ -126,7 +124,9 @@ export default function LoginPage() {
       localStorage.removeItem('plusgroup-token')
       localStorage.removeItem('plusgroup-user')
       localStorage.removeItem('plusgroup-tenant')
-      localStorage.removeItem('plusgroup-branch-id') // ✅ Netwaye branch ansyen an tou
+      localStorage.removeItem('plusgroup-branch-id')
+      localStorage.removeItem('plusgroup-branch-name')
+      delete api.defaults.headers.common['X-Branch-Id']
       api.defaults.headers.common['X-Tenant-Slug'] = ''
       api.defaults.headers.common['Authorization'] = ''
 
@@ -144,12 +144,22 @@ export default function LoginPage() {
       const tenant = meRes.data.tenant
       const user   = meRes.data.user
 
-      // ✅ 1. Sete auth dabò
+      // 1. Sete auth dabò
       setAuth(token, user, tenant)
 
-      // ✅ 2. Apre sa, detekte branch otomatikman pou kasye
-      //    branches vini nan res.data (login response) — pa nan /me
-      const branches = res.data.branches || []
+      // 2. Jwenn branches — eseye nan login response, sinon fè yon appèl separe
+      let branches = res.data.branches || []
+      if (branches.length === 0 && user.role !== 'admin') {
+        try {
+          const branchRes = await branchAPI.getAll()
+          // Backend ka retounen { branches: [...] } oswa [...] dirèkteman
+          branches = branchRes.data?.branches || branchRes.data || []
+        } catch {
+          // Si echèk, kontinye san branch
+        }
+      }
+
+      // 3. Auto-sete branch pou kasye
       autoSetBranch(branches)
 
       toast.success('Byenveni, ' + user.fullName + '! 🎉')
@@ -157,7 +167,8 @@ export default function LoginPage() {
     } catch (e) {
       localStorage.removeItem('plusgroup-slug')
       localStorage.removeItem('plusgroup-token')
-      localStorage.removeItem('plusgroup-branch-id') // ✅ Netwaye si echèk
+      localStorage.removeItem('plusgroup-branch-id')
+      delete api.defaults.headers.common['X-Branch-Id']
       api.defaults.headers.common['X-Tenant-Slug'] = ''
       api.defaults.headers.common['Authorization'] = ''
 

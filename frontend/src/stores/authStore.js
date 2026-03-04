@@ -1,6 +1,7 @@
 // src/stores/authStore.js
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import api from '../services/api'
 
 const BRANCH_KEY = 'plusgroup-branch-id'
 
@@ -11,24 +12,26 @@ export const useAuthStore = create(
       user:     null,
       tenant:   null,
       loading:  false,
-      branchId: null, // ✅ Ajoute branchId nan store a
+      branchId: null,
 
       setAuth: (token, user, tenant) => {
         if (tenant?.slug) localStorage.setItem('plusgroup-slug', tenant.slug)
         set({ token, user, tenant, loading: false })
       },
 
-      // ✅ Nouvo — sete branch manyèlman (admin ki chwazi branch)
+      // Sete branch manyèlman (admin ki chwazi branch)
       setBranch: (branchId) => {
         if (branchId) {
-          localStorage.setItem(BRANCH_KEY, branchId)
+          localStorage.setItem(BRANCH_KEY, String(branchId))
+          api.defaults.headers.common['X-Branch-Id'] = String(branchId) // ✅ Mete header dirèkteman
         } else {
           localStorage.removeItem(BRANCH_KEY)
+          delete api.defaults.headers.common['X-Branch-Id'] // ✅ Retire header
         }
         set({ branchId: branchId || null })
       },
 
-      // ✅ Nouvo — apre login, detekte branch otomatikman pou kasye
+      // Apre login, detekte branch otomatikman pou kasye
       autoSetBranch: (userBranches = []) => {
         const { user } = get()
 
@@ -40,6 +43,7 @@ export const useAuthStore = create(
           const branchId = userBranches[0]?.id || userBranches[0]?.branchId
           if (branchId) {
             localStorage.setItem(BRANCH_KEY, String(branchId))
+            api.defaults.headers.common['X-Branch-Id'] = String(branchId) // ✅ Mete header dirèkteman
             set({ branchId: String(branchId) })
           }
         }
@@ -58,7 +62,11 @@ export const useAuthStore = create(
         localStorage.removeItem('plusgroup-token')
         localStorage.removeItem('plusgroup-user')
         localStorage.removeItem('plusgroup-tenant')
-        localStorage.removeItem(BRANCH_KEY) // ✅ Netwaye branch tou
+        localStorage.removeItem(BRANCH_KEY)
+        // ✅ Netwaye headers axios tou
+        delete api.defaults.headers.common['X-Branch-Id']
+        delete api.defaults.headers.common['X-Tenant-Slug']
+        delete api.defaults.headers.common['Authorization']
         set({ token: null, user: null, tenant: null, branchId: null, loading: false })
       },
 
@@ -75,17 +83,22 @@ export const useAuthStore = create(
         token:    s.token,
         user:     s.user,
         tenant:   s.tenant,
-        branchId: s.branchId, // ✅ Persist branchId tou
+        branchId: s.branchId,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setLoading(false)
           if (state.tenant?.slug) {
             localStorage.setItem('plusgroup-slug', state.tenant.slug)
+            api.defaults.headers.common['X-Tenant-Slug'] = state.tenant.slug
           }
-          // ✅ Senkronize localStorage ak store apre rehydrate
+          if (state.token) {
+            api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
+          }
+          // ✅ Restore X-Branch-Id nan axios headers apre rehydrate
           if (state.branchId) {
             localStorage.setItem(BRANCH_KEY, state.branchId)
+            api.defaults.headers.common['X-Branch-Id'] = state.branchId
           }
         }
       },
