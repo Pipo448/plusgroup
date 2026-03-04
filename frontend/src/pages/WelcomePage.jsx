@@ -159,7 +159,7 @@ export default function WelcomePage() {
       <div style={{
         position:'relative', minHeight:'100vh',
         backgroundImage:`url(${IMG})`,
-        backgroundSize:'cover', backgroundPosition:'center top',
+        backgroundSize:'110%', backgroundPosition:'center 20%',
         display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
         padding:'0 20px',
       }}>
