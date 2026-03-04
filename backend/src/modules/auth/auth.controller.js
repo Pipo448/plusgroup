@@ -16,7 +16,6 @@ const login = asyncHandler(async (req, res) => {
       ...(result.tenant || {}),
       plan: result.tenant?.plan || req.tenant?.plan || null,
     },
-    // ✅ AJOUTE — branches itilizatè a gen aksè, pou frontend ka autoSetBranch
     branches: result.branches || result.user?.branches || [],
   });
 });
@@ -64,6 +63,8 @@ const getMe = asyncHandler(async (req, res) => {
       receiptSize:        req.tenant.receiptSize,
       subscriptionEndsAt: req.tenant.subscriptionEndsAt,
       plan:               req.tenant.plan,
+      // ✅ KOREKSYON — allowedPages te manke, sidebar ak ProtectedPage pa te fonksyone
+      allowedPages:       req.tenant.allowedPages ?? null,
     }
   });
 });
