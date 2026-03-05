@@ -69,6 +69,7 @@ model Tenant {
   visibleCurrencies  String?              @default("[\"USD\"]")
   showQrCode         Boolean              @default(true) @map("show_qr_code")
   requireQuote       Boolean              @default(false) @map("require_quote")
+  allowedPages       Json?                @default("{}") @map("allowed_pages")
   activityLogs       ActivityLog[]
   branches           Branch[]
   clients            Client[]
