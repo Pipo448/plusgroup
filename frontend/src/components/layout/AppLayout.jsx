@@ -393,18 +393,24 @@ export default function AppLayout() {
 
         {/* ══ Navigation ══ */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
-          {NAV.filter(({ pageKey }) => isPageAllowed(pageKey)).map(({ to, icon:Icon, labelKey }) => (
-            <NavLink key={to} to={to} onClick={() => setOpen(false)}
-              style={({ isActive }) => navLinkStyle(isActive)}>
-              {({ isActive }) => (
-                <>
-                  <Icon size={16} style={{ flexShrink:0, color: isActive ? C.gold : C.muted, filter: isActive ? 'drop-shadow(0 0 4px rgba(245,104,12,0.6))' : 'none' }}/>
-                  <span>{t(labelKey)}</span>
-                  {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}` }}/>}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {NAV.map(({ to, icon: Icon, labelKey, pageKey }) => {
+  const locked = !isPageAllowed(pageKey)
+  return (
+    <NavLink key={to} to={locked ? '#' : to}
+      onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
+      style={({ isActive }) => ({
+        ...navLinkStyle(locked ? false : isActive),
+        opacity: locked ? 0.45 : 1,
+        cursor: locked ? 'not-allowed' : 'pointer',
+      })}>
+      {({ isActive }) => (<>
+        <Icon size={16} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.muted, filter: (!locked && isActive) ? 'drop-shadow(0 0 4px rgba(245,104,12,0.6))' : 'none' }}/>
+        <span style={{ flex:1 }}>{t(labelKey)}</span>
+        {locked ? <Lock size={12} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}` }}/>}
+      </>)}
+    </NavLink>
+  )
+})}
 
           {isAdmin && isPageAllowed('branches') && (
             <NavLink to="/app/branches" onClick={() => setOpen(false)}
@@ -432,18 +438,24 @@ export default function AppLayout() {
           </div>
 
           {/* ✅ Filtre selon allowedPages super admin */}
-          {ENTERPRISE_ITEMS.filter(({ pageKey }) => isPageAllowed(pageKey)).map(({ to, icon:Icon, label }) => (
-            <NavLink key={to} to={to} onClick={() => setOpen(false)}
-              style={({ isActive }) => enterpriseLinkStyle(isActive)}>
-              {({ isActive }) => (
-                <>
-                  <Icon size={16} style={{ flexShrink:0, color: isActive ? C.enterprise : C.muted }}/>
-                  <span>{label}</span>
-                  {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
-                </>
-              )}
-            </NavLink>
-          ))}
+          {ENTERPRISE_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
+  const locked = !isPageAllowed(pageKey)
+  return (
+    <NavLink key={to} to={locked ? '#' : to}
+      onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
+      style={({ isActive }) => ({
+        ...enterpriseLinkStyle(locked ? false : isActive),
+        opacity: locked ? 0.45 : 1,
+        cursor: locked ? 'not-allowed' : 'pointer',
+      })}>
+      {({ isActive }) => (<>
+        <Icon size={16} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.enterprise : C.muted }}/>
+        <span style={{ flex:1 }}>{label}</span>
+        {locked ? <Lock size={12} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
+      </>)}
+    </NavLink>
+  )
+})}
         </nav>
 
         {/* ══ Settings + User ══ */}
