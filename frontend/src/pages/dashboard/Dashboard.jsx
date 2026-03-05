@@ -74,12 +74,7 @@ const TickerBanner = () => (
         }}>{m}</span>
       ))}
     </div>
-    <style>{`
-      @keyframes ticker {
-        0%   { transform: translateX(0) }
-        100% { transform: translateX(-33.333%) }
-      }
-    `}</style>
+    <style>{`@keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-33.333%)} }`}</style>
   </div>
 )
 
@@ -128,8 +123,7 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
         transition:'all 0.25s ease',
         transform:hov?'translateY(-3px)':'none',
         boxShadow:hov?`0 12px 32px ${color}25`:D.shadow,
-        cursor:'pointer', height:'100%',
-        minWidth: 160,
+        cursor:'pointer', height:'100%', minWidth: 160,
       }}>
         <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
           <div style={{
@@ -163,7 +157,7 @@ export default function Dashboard() {
   const branchId = localStorage.getItem('plusgroup-branch-id') || undefined
   const isAdmin  = user?.role === 'admin'
 
-  const { data:dashboard }   = useQuery({
+  const { data:dashboard } = useQuery({
     queryKey: ['dashboard', branchId],
     queryFn:  () => invoiceAPI.getDashboard().then(r => r.data.dashboard),
   })
@@ -173,12 +167,23 @@ export default function Dashboard() {
     queryFn:  () => productAPI.getLowStock().then(r => r.data.products),
   })
 
-  // ✅ Sèlman admin ki wè grafik vant — evite 403 pou kasye
+  // Grafik 7 jou (admin sèlman)
   const { data:salesReport } = useQuery({
     queryKey: ['sales-report-dash', branchId],
     enabled:  isAdmin,
     queryFn:  () => reportAPI.getSales({
       dateFrom: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+      dateTo:   format(new Date(), 'yyyy-MM-dd'),
+      ...(branchId && { branchId })
+    }).then(r => r.data.report),
+  })
+
+  // ✅ NOUVO — Vant jodi a sèlman pou StatCard premye a
+  const { data:todayReport } = useQuery({
+    queryKey: ['sales-today-dash', branchId],
+    enabled:  isAdmin,
+    queryFn:  () => reportAPI.getSales({
+      dateFrom: format(new Date(), 'yyyy-MM-dd'),
       dateTo:   format(new Date(), 'yyyy-MM-dd'),
       ...(branchId && { branchId })
     }).then(r => r.data.report),
@@ -191,10 +196,11 @@ export default function Dashboard() {
     return { date: format(d, 'EEE', {locale:fr}), ventes: Number(found?.total_htg||0) }
   })
 
-  const totalVentes = Number(salesReport?.totals?._sum?.totalHtg||0)
-  const totalPaye   = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
-  const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
-  const totalPasyal = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
+  // ✅ CHANJE — totalVentesJodi (jodi a) olye totalVentes (30 jou)
+  const totalVentesJodi = Number(todayReport?.totals?._sum?.totalHtg||0)
+  const totalPaye       = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
+  const totalImpaye     = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
+  const totalPasyal     = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
   const subBanner = (() => {
     if (!tenant?.subscriptionEndsAt) return null
@@ -210,71 +216,24 @@ export default function Dashboard() {
       <style>{`
         @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
         @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-
-        .hero-stats-scroll {
-          overflow-x: auto;
-          margin: 0 -28px;
-          padding: 0 28px 4px;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-        }
-        .hero-stats-scroll::-webkit-scrollbar { display: none; }
-        .hero-stats-inner {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(155px, 1fr));
-          gap: 10px;
-          min-width: 600px;
-        }
-
-        .kpi-scroll {
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-          padding-bottom: 4px;
-        }
-        .kpi-scroll::-webkit-scrollbar { display: none; }
-        .kpi-inner {
-          display: grid;
-          grid-template-columns: repeat(4, minmax(160px, 1fr));
-          gap: 14px;
-          min-width: 640px;
-        }
-
-        .chart-stock-grid {
-          display: grid;
-          grid-template-columns: 1fr 300px;
-          gap: 16px;
-        }
-
-        .hero-header-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 16px;
-          margin-bottom: 22px;
-        }
-
-        .invoice-table-wrap {
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-        }
-        .invoice-table-wrap table {
-          min-width: 560px;
-        }
-
-        @media (max-width: 900px) {
-          .chart-stock-grid { grid-template-columns: 1fr; }
-          .hero-stats-inner { grid-template-columns: repeat(4, minmax(140px, 1fr)); }
-        }
-
-        @media (max-width: 600px) {
-          .hero-stats-scroll { margin: 0 -16px; padding: 0 16px 4px; }
-          .hero-header-row   { flex-direction: column; gap: 12px; margin-bottom: 16px; }
-          .hero-title        { font-size: 22px !important; }
-          .hero-banner       { padding: 20px 16px !important; }
-          .dash-section-header { flex-direction: column !important; align-items: flex-start !important; gap: 8px !important; }
-          .dash-actions-row  { flex-wrap: wrap; }
+        .hero-stats-scroll { overflow-x:auto; margin:0 -28px; padding:0 28px 4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+        .hero-stats-scroll::-webkit-scrollbar { display:none; }
+        .hero-stats-inner { display:grid; grid-template-columns:repeat(4,minmax(155px,1fr)); gap:10px; min-width:600px; }
+        .kpi-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
+        .kpi-scroll::-webkit-scrollbar { display:none; }
+        .kpi-inner { display:grid; grid-template-columns:repeat(4,minmax(160px,1fr)); gap:14px; min-width:640px; }
+        .chart-stock-grid { display:grid; grid-template-columns:1fr 300px; gap:16px; }
+        .hero-header-row { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+        .invoice-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+        .invoice-table-wrap table { min-width:560px; }
+        @media (max-width:900px) { .chart-stock-grid{grid-template-columns:1fr} .hero-stats-inner{grid-template-columns:repeat(4,minmax(140px,1fr))} }
+        @media (max-width:600px) {
+          .hero-stats-scroll{margin:0 -16px;padding:0 16px 4px}
+          .hero-header-row{flex-direction:column;gap:12px;margin-bottom:16px}
+          .hero-title{font-size:22px!important}
+          .hero-banner{padding:20px 16px!important}
+          .dash-section-header{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
+          .dash-actions-row{flex-wrap:wrap}
         }
       `}</style>
 
@@ -283,36 +242,20 @@ export default function Dashboard() {
         <div style={{
           borderRadius:16, padding:'14px 20px',
           display:'flex', alignItems:'center', gap:14, flexWrap:'wrap',
-          background: subBanner.expired
-            ? 'linear-gradient(135deg,#8B0000,#C0392B)'
-            : 'linear-gradient(135deg,#8B6914,#C9A84C)',
-          boxShadow: subBanner.expired
-            ? '0 4px 20px rgba(192,57,43,0.35)'
-            : '0 4px 20px rgba(201,168,76,0.35)',
-          border:'1px solid rgba(255,255,255,0.15)',
-          animation:'slideDown 0.3s ease'
+          background: subBanner.expired ? 'linear-gradient(135deg,#8B0000,#C0392B)' : 'linear-gradient(135deg,#8B6914,#C9A84C)',
+          boxShadow: subBanner.expired ? '0 4px 20px rgba(192,57,43,0.35)' : '0 4px 20px rgba(201,168,76,0.35)',
+          border:'1px solid rgba(255,255,255,0.15)', animation:'slideDown 0.3s ease'
         }}>
           <span style={{fontSize:24}}>{subBanner.expired ? '🔒' : '⏰'}</span>
           <div style={{flex:1}}>
             <p style={{color:'#fff',fontWeight:800,fontSize:13,margin:'0 0 2px'}}>
               {subBanner.expired ? t('dashboard.subscriptionExpired') : t('dashboard.subscriptionExpiring',{days:subBanner.daysLeft})}
             </p>
-            <p style={{color:'rgba(255,255,255,0.75)',fontSize:11,margin:0}}>
-              {t('dashboard.contactAdmin')}
-            </p>
+            <p style={{color:'rgba(255,255,255,0.75)',fontSize:11,margin:0}}>{t('dashboard.contactAdmin')}</p>
           </div>
-          <a
-            href={`https://wa.me/50942449024?text=${encodeURIComponent(`🏢 *PLUS GROUP — Demann Renouvèlman*\n\n📋 *Entreprise:* ${tenant?.name||'N/A'}\n📦 *Plan:* ${tenant?.plan?.name||'N/A'}\n\nBonjou, mwen vle renouvle abònman mwen an. Mèsi!`)}`}
+          <a href={`https://wa.me/50942449024?text=${encodeURIComponent(`🏢 *PLUS GROUP — Demann Renouvèlman*\n\n📋 *Entreprise:* ${tenant?.name||'N/A'}\n📦 *Plan:* ${tenant?.plan?.name||'N/A'}\n\nBonjou, mwen vle renouvle abònman mwen an. Mèsi!`)}`}
             target="_blank" rel="noreferrer"
-            style={{
-              display:'inline-flex', alignItems:'center', gap:6,
-              padding:'8px 18px', borderRadius:10,
-              background:'rgba(255,255,255,0.95)', color:'#8B0000',
-              border:'none', cursor:'pointer',
-              fontSize:12, fontWeight:800, fontFamily:'DM Sans, sans-serif',
-              boxShadow:'0 2px 12px rgba(0,0,0,0.2)', flexShrink:0,
-              textDecoration:'none'
-            }}>
+            style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 18px',borderRadius:10,background:'rgba(255,255,255,0.95)',color:'#8B0000',border:'none',cursor:'pointer',fontSize:12,fontWeight:800,fontFamily:'DM Sans, sans-serif',boxShadow:'0 2px 12px rgba(0,0,0,0.2)',flexShrink:0,textDecoration:'none'}}>
             📱 Renouvle via WhatsApp
           </a>
         </div>
@@ -351,7 +294,7 @@ export default function Dashboard() {
             display:'flex',alignItems:'center',gap:7,padding:'10px 20px',borderRadius:12,textDecoration:'none',
             background:`linear-gradient(135deg,${D.gold},${D.goldDk})`,
             color:'#0F1A5C',fontWeight:800,fontSize:12,letterSpacing:'0.03em',
-            boxShadow:`0 4px 20px ${D.gold}50`,transition:'all 0.2s', alignSelf:'flex-start',
+            boxShadow:`0 4px 20px ${D.gold}50`,transition:'all 0.2s',alignSelf:'flex-start',
           }}
             onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.05)';e.currentTarget.style.boxShadow=`0 8px 28px ${D.gold}70`}}
             onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 4px 20px ${D.gold}50`}}
@@ -362,10 +305,17 @@ export default function Dashboard() {
 
         <div className="hero-stats-scroll" style={{position:'relative',zIndex:1}}>
           <div className="hero-stats-inner">
-            <StatCard label={t('dashboard.sales30days')} val={`${fmt(totalVentes)} HTG`} icon={<TrendingUp size={15}/>}   color={D.gold}  sub={showRate&&fmtConv(totalVentes,exchangeRates,visibleCurrs)}/>
-            <StatCard label={t('dashboard.paid')}        val={`${fmt(totalPaye)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPaye,exchangeRates,visibleCurrs)||`${dashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
-            <StatCard label={t('dashboard.balance')}     val={`${fmt(totalImpaye)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpaye,exchangeRates,visibleCurrs)||`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
-            <StatCard label={t('dashboard.partial')}     val={`${fmt(totalPasyal)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyal,exchangeRates,visibleCurrs)||`${dashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
+            {/* ✅ CHANJE — Vant Jodi a olye Vant 30 Jou */}
+            <StatCard
+              label={t('dashboard.salesToday') || 'Vant Jodi a'}
+              val={`${fmt(totalVentesJodi)} HTG`}
+              icon={<TrendingUp size={15}/>}
+              color={D.gold}
+              sub={showRate && fmtConv(totalVentesJodi, exchangeRates, visibleCurrs)}
+            />
+            <StatCard label={t('dashboard.paid')}    val={`${fmt(totalPaye)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPaye,exchangeRates,visibleCurrs)||`${dashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
+            <StatCard label={t('dashboard.balance')} val={`${fmt(totalImpaye)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpaye,exchangeRates,visibleCurrs)||`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
+            <StatCard label={t('dashboard.partial')} val={`${fmt(totalPasyal)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyal,exchangeRates,visibleCurrs)||`${dashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
           </div>
         </div>
       </div>
@@ -378,18 +328,13 @@ export default function Dashboard() {
               <h3 style={{fontSize:15,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
               <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.salesChart')}</p>
             </div>
-            <Link to="/app/reports" style={{
-              display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,color:D.blue,
-              textDecoration:'none',padding:'5px 12px',borderRadius:8,background:D.blueDim,border:`1px solid ${D.border}`,transition:'all 0.15s'
-            }}
+            <Link to="/app/reports" style={{display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,color:D.blue,textDecoration:'none',padding:'5px 12px',borderRadius:8,background:D.blueDim,border:`1px solid ${D.border}`,transition:'all 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background=D.blueDim2}
               onMouseLeave={e=>e.currentTarget.style.background=D.blueDim}
             >
               {t('dashboard.seeReport')} <ArrowRight size={12}/>
             </Link>
           </div>
-
-          {/* ✅ KORIJE — syntax error te isit la: {isAdmin width="100%" ...} */}
           {isAdmin
             ? <ResponsiveContainer width="100%" height={195}>
                 <BarChart data={chartData} barSize={28} barCategoryGap="35%">
@@ -426,11 +371,7 @@ export default function Dashboard() {
               <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.lowStock')}</h3>
               <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.needRestock')}</p>
             </div>
-            <Link to="/app/products" style={{
-              fontSize:11,fontWeight:700,color:D.red,textDecoration:'none',
-              display:'flex',alignItems:'center',gap:3,padding:'4px 10px',borderRadius:8,
-              background:D.redDim,transition:'all 0.15s'
-            }}
+            <Link to="/app/products" style={{fontSize:11,fontWeight:700,color:D.red,textDecoration:'none',display:'flex',alignItems:'center',gap:3,padding:'4px 10px',borderRadius:8,background:D.redDim,transition:'all 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background='rgba(192,57,43,0.14)'}
               onMouseLeave={e=>e.currentTarget.style.background=D.redDim}
             >
@@ -490,19 +431,13 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="dash-actions-row" style={{display:'flex',gap:8}}>
-            <Link to="/app/quotes/new" style={{
-              display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:800,
-              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 3px 12px ${D.blue}40`,transition:'all 0.2s'
-            }}
+            <Link to="/app/quotes/new" style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:800,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 3px 12px ${D.blue}40`,transition:'all 0.2s'}}
               onMouseEnter={e=>{e.currentTarget.style.transform='scale(1.04)';e.currentTarget.style.boxShadow=`0 6px 20px ${D.blue}50`}}
               onMouseLeave={e=>{e.currentTarget.style.transform='scale(1)';e.currentTarget.style.boxShadow=`0 3px 12px ${D.blue}40`}}
             >
               <Plus size={13}/> {t('dashboard.newQuoteBtn')}
             </Link>
-            <Link to="/app/invoices" style={{
-              display:'flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:700,
-              background:D.blueDim,color:D.blue,border:`1px solid ${D.border}`,transition:'all 0.15s'
-            }}
+            <Link to="/app/invoices" style={{display:'flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:700,background:D.blueDim,color:D.blue,border:`1px solid ${D.border}`,transition:'all 0.15s'}}
               onMouseEnter={e=>e.currentTarget.style.background=D.blueDim2}
               onMouseLeave={e=>e.currentTarget.style.background=D.blueDim}
             >
@@ -518,11 +453,7 @@ export default function Dashboard() {
               </div>
               <p style={{fontWeight:800,color:D.text,fontSize:14,margin:'0 0 4px'}}>{t('dashboard.noInvoices')}</p>
               <p style={{color:D.muted,fontSize:12,margin:'0 0 16px'}}>{t('dashboard.createQuoteToStart')}</p>
-              <Link to="/app/quotes/new" style={{
-                display:'inline-flex',alignItems:'center',gap:6,padding:'9px 18px',
-                borderRadius:12,textDecoration:'none',fontSize:12,fontWeight:800,
-                background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 4px 16px ${D.blue}40`
-              }}>
+              <Link to="/app/quotes/new" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 18px',borderRadius:12,textDecoration:'none',fontSize:12,fontWeight:800,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 4px 16px ${D.blue}40`}}>
                 <Plus size={14}/> {t('dashboard.createFirstQuote')}
               </Link>
             </div>
@@ -531,11 +462,7 @@ export default function Dashboard() {
                 <thead>
                   <tr style={{background:D.blueDim}}>
                     {[t('dashboard.number'),t('dashboard.client'),t('common.total'),t('dashboard.status'),t('dashboard.date'),''].map((h,i)=>(
-                      <th key={i} style={{
-                        padding:'10px 16px',textAlign:i>=2&&i<5?'center':i===5?'right':'left',
-                        fontSize:10,fontWeight:800,color:D.blue,textTransform:'uppercase',
-                        letterSpacing:'0.07em',borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'
-                      }}>{h}</th>
+                      <th key={i} style={{padding:'10px 16px',textAlign:i>=2&&i<5?'center':i===5?'right':'left',fontSize:10,fontWeight:800,color:D.blue,textTransform:'uppercase',letterSpacing:'0.07em',borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -549,9 +476,7 @@ export default function Dashboard() {
         }
       </div>
 
-      {/* ✅ ProfitSection pou admin sèlman */}
       {isAdmin && <ProfitSection />}
-
       <TickerBanner />
     </div>
   )
@@ -575,33 +500,22 @@ function InvoiceRow({ inv, idx, showRate, exchangeRates, visibleCurrs }) {
       <td style={{padding:'12px 16px'}}>
         <span style={{fontFamily:'monospace',fontWeight:800,color:D.blue,fontSize:12}}>{inv.invoiceNumber}</span>
       </td>
-      <td style={{padding:'12px 16px',fontSize:13,fontWeight:600,color:D.text}}>
-        {inv.client?.name||'—'}
-      </td>
+      <td style={{padding:'12px 16px',fontSize:13,fontWeight:600,color:D.text}}>{inv.client?.name||'—'}</td>
       <td style={{padding:'12px 16px',textAlign:'center'}}>
         <div>
-          <span style={{fontFamily:'monospace',fontWeight:800,color:D.text,fontSize:13}}>
-            {Number(inv.totalHtg||0).toLocaleString('fr-HT',{minimumFractionDigits:2})}
-          </span>
+          <span style={{fontFamily:'monospace',fontWeight:800,color:D.text,fontSize:13}}>{Number(inv.totalHtg||0).toLocaleString('fr-HT',{minimumFractionDigits:2})}</span>
           <span style={{color:D.muted,fontSize:10,marginLeft:3}}>HTG</span>
         </div>
         {convStr&&<div style={{fontSize:10,color:D.muted,fontFamily:'monospace',marginTop:2}}>{convStr}</div>}
       </td>
       <td style={{padding:'12px 16px',textAlign:'center'}}>
-        {(()=>{
-          const s = statusMap[inv.status]||statusMap.unpaid
-          return <span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:99,background:s.bg,color:s.color,letterSpacing:'0.05em',textTransform:'uppercase'}}>{s.label}</span>
-        })()}
+        {(()=>{ const s=statusMap[inv.status]||statusMap.unpaid; return <span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:99,background:s.bg,color:s.color,letterSpacing:'0.05em',textTransform:'uppercase'}}>{s.label}</span> })()}
       </td>
       <td style={{padding:'12px 16px',textAlign:'center',fontSize:11,color:D.muted,fontFamily:'monospace'}}>
         {format(new Date(inv.issueDate),'dd/MM/yy')}
       </td>
       <td style={{padding:'12px 16px',textAlign:'right'}}>
-        <Link to={`/app/invoices/${inv.id}`} style={{
-          width:30,height:30,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',
-          background:hov?`linear-gradient(135deg,${D.blue},${D.blueLt})`:D.blueDim,
-          color:hov?'#fff':D.blue,textDecoration:'none',transition:'all 0.2s',
-        }}>
+        <Link to={`/app/invoices/${inv.id}`} style={{width:30,height:30,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',background:hov?`linear-gradient(135deg,${D.blue},${D.blueLt})`:D.blueDim,color:hov?'#fff':D.blue,textDecoration:'none',transition:'all 0.2s'}}>
           <ArrowRight size={13}/>
         </Link>
       </td>
