@@ -38,6 +38,7 @@ const identifyTenant = asyncHandler(async (req, res, next) => {
       printerConnection: true,
       subscriptionEndsAt: true,
       planId: true,
+      allowedPages: true,  // ✅ KOREKSYON KRITIK — te manke, blokaj pa t fonksyone
       plan: {
         select: {
           id: true, name: true,
@@ -103,8 +104,6 @@ const authenticate = asyncHandler(async (req, res, next) => {
     });
   }
 
-  // ✅ KORIJE — Si req.tenant undefined (identifyTenant pa pase),
-  //    evite crash "Cannot read properties of undefined (reading 'id')"
   if (!req.tenant || !req.tenant.id) {
     return res.status(400).json({
       success: false,
@@ -187,11 +186,9 @@ const hasPermission = (permission) => (req, res, next) => {
   });
 };
 
-// ✅ KORIJE — Ajoute 'antrepriz' (ak r) + verifye req.tenant egziste
 const ENTERPRISE_PLAN_NAMES = ['antepriz', 'antrepriz', 'enterprise', 'entreprise'];
 
 const requireEnterprise = (req, res, next) => {
-  // ✅ Pwoteksyon — si req.tenant undefined, pa krase
   if (!req.tenant) {
     return res.status(400).json({
       success: false,
