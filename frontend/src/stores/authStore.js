@@ -19,7 +19,6 @@ export const useAuthStore = create(
 
       setAuth: (token, user, tenant) => {
         if (tenant?.slug)    localStorage.setItem('plusgroup-slug', tenant.slug)
-        // ✅ Sove non kasye pou printerService ka itilize l
         if (user?.fullName)  localStorage.setItem(CASHIER_KEY, user.fullName)
         // Reset branchId ak header — evite vye sesyon kontamine nouvo a
         localStorage.removeItem(BRANCH_KEY)
@@ -28,7 +27,17 @@ export const useAuthStore = create(
         set({ token, user, tenant, loading: false, branchId: null, branchName: null })
       },
 
-      // Sete branch manyèlman (admin ki chwazi branch)
+      // ✅ NOUVO — Refresh tenant sèlman, PA touche branch ni user
+      // Itilize sa nan AppLayout pou /me call — pa setAuth
+      refreshTenant: (tenant) => {
+        if (tenant?.slug) {
+          localStorage.setItem('plusgroup-slug', tenant.slug)
+          api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
+        }
+        set(() => ({ tenant }))
+        // branchId, branchName, user, token — PA chanje
+      },
+
       setBranch: (branchId, branchName = null) => {
         if (branchId) {
           localStorage.setItem(BRANCH_KEY, String(branchId))
@@ -42,14 +51,9 @@ export const useAuthStore = create(
         set({ branchId: branchId || null, branchName: branchName || null })
       },
 
-      // Apre login, detekte branch otomatikman pou kasye
       autoSetBranch: (userBranches = []) => {
         const { user } = get()
-
-        // Admin pa bezwen auto-set — li chwazi branch li menm
         if (user?.role === 'admin') return
-
-        // Kasye ak 1 sèl branch → sete otomatikman
         if (userBranches.length === 1) {
           const branch     = userBranches[0]
           const branchId   = branch?.id || branch?.branchId
@@ -61,7 +65,6 @@ export const useAuthStore = create(
             set({ branchId: String(branchId), branchName })
           }
         }
-        // Si kasye gen plizyè branch → kite li chwazi manyèlman
       },
 
       updateTenant: (updates) => set(state => ({
@@ -78,7 +81,7 @@ export const useAuthStore = create(
         localStorage.removeItem('plusgroup-tenant')
         localStorage.removeItem(BRANCH_KEY)
         localStorage.removeItem(BRANCH_NAME_KEY)
-        localStorage.removeItem(CASHIER_KEY) // ✅ Netwaye kasye tou
+        localStorage.removeItem(CASHIER_KEY)
         delete api.defaults.headers.common['X-Branch-Id']
         delete api.defaults.headers.common['X-Tenant-Slug']
         delete api.defaults.headers.common['Authorization']
@@ -111,7 +114,6 @@ export const useAuthStore = create(
           if (state.token) {
             api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
           }
-          // ✅ Restore cashier name apre refresh
           if (state.user?.fullName) {
             localStorage.setItem(CASHIER_KEY, state.user.fullName)
           }

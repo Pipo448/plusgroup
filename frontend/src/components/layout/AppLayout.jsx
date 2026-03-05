@@ -168,19 +168,20 @@ export default function AppLayout() {
     if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
   }, [tenant?.slug])
 
-  useEffect(() => {
-    if (!token) return
-    authAPI.me()
-      .then(res => {
-        if (res.data?.tenant?.slug) {
-          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-          setAuth(token, res.data.user, res.data.tenant)
-        }
-      })
-      .catch(err => {
-        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
-      })
-  }, [token])
+  // ✅ APRE — refreshTenant olye setAuth
+useEffect(() => {
+  if (!token) return
+  authAPI.me()
+    .then(res => {
+      if (res.data?.tenant?.slug) {
+        api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+        useAuthStore.getState().refreshTenant(res.data.tenant)  // ← pa touche branch
+      }
+    })
+    .catch(err => {
+      if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
+    })
+}, [token])
 
   const handleLogout = () => {
     localStorage.removeItem('plusgroup-branch-id')
