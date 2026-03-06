@@ -237,11 +237,13 @@ router.get('/tenants', asyncHandler(async (req, res) => {
   const [tenants, total] = await Promise.all([
     prisma.tenant.findMany({
       where,
-      include: {
+      select: {
+        id: true, name: true, slug: true, email: true, phone: true, address: true,
+        status: true, subscriptionEndsAt: true, createdAt: true, updatedAt: true,
+        defaultCurrency: true, defaultLanguage: true,
+        monthlyPrice: true,
         plan: { select: { id: true, name: true, features: true, priceMonthly: true, maxBranches: true } },
-        branches: {
-          select: { id: true, name: true, slug: true, isActive: true, createdAt: true }
-        },
+        branches: { select: { id: true, name: true, slug: true, isActive: true, createdAt: true } },
         _count: { select: { users: true, products: true, invoices: true, branches: true } }
       },
       orderBy: { createdAt: 'desc' },
@@ -251,16 +253,7 @@ router.get('/tenants', asyncHandler(async (req, res) => {
     prisma.tenant.count({ where })
   ])
 
-  // Ajoute monthly_price ba chak tenant
-  let priceMap = {}
-  try {
-    // FIX: $queryRawUnsafe — pa bezwen UUID cast isit, SELECT senp
-    const prices = await prisma.$queryRawUnsafe(`SELECT id::text, monthly_price FROM tenants`)
-    prices.forEach(p => { priceMap[p.id] = Number(p.monthly_price || 0) })
-  } catch {}
-  const tenantsWithPrice = tenants.map(t => ({ ...t, monthlyPrice: priceMap[t.id] || 0 }))
-
-  res.json({ success: true, tenants: tenantsWithPrice, total, pages: Math.ceil(total / Number(limit)) })
+  res.json({ success: true, tenants, total, pages: Math.ceil(total / Number(limit)) })
 }))
 
 // ── GET /api/v1/admin/tenants/:id
@@ -647,26 +640,17 @@ router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
 // ── PATCH /api/v1/admin/tenants/:id/monthly-price
 router.patch('/tenants/:id/monthly-price', asyncHandler(async (req, res) => {
   const price = Math.max(0, Number(req.body.monthlyPrice) || 0)
-  try {
-    // FIX: $executeRawUnsafe ak positional params pou UUID cast
-    await prisma.$executeRawUnsafe(
-      `UPDATE tenants SET monthly_price = $1 WHERE id = CAST($2 AS uuid)`,
-      price,
-      req.params.id
-    )
-    const t = await prisma.tenant.findUnique({
-      where: { id: req.params.id }, select: { name: true }
-    })
 
-    // ── Audit log
-    await logAudit(req.params.id, 'PRICE_UPDATED', null, t?.name, {
-      monthlyPrice: price
-    })
+  // Prisma ORM — pa gen raw SQL, pa gen UUID pwoblem
+  const t = await prisma.tenant.update({
+    where: { id: req.params.id },
+    data: { monthlyPrice: price },
+    select: { name: true }
+  })
 
-    res.json({ success: true, monthlyPrice: price, message: `Pri mensyèl ajou: ${price.toLocaleString()} HTG` })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
+  await logAudit(req.params.id, 'PRICE_UPDATED', null, t?.name, { monthlyPrice: price })
+
+  res.json({ success: true, monthlyPrice: price, message: `Pri mensyèl ajou: ${price.toLocaleString()} HTG` })
 }))
 
 // ══════════════════════════════════════════════
@@ -754,14 +738,12 @@ router.get('/stats', asyncHandler(async (req, res) => {
     prisma.branch.count()
   ])
 
-  // Kalkile total revni mensyèl aktif
-  let totalMonthly = 0
-  try {
-    const prices = await prisma.$queryRawUnsafe(
-      `SELECT COALESCE(SUM(monthly_price), 0) as total FROM tenants WHERE status = 'active'`
-    )
-    totalMonthly = Number(prices[0]?.total || 0)
-  } catch {}
+  // Kalkile total revni mensyèl aktif via Prisma aggregate
+  const revenueAgg = await prisma.tenant.aggregate({
+    where: { status: 'active' },
+    _sum: { monthlyPrice: true }
+  })
+  const totalMonthly = Number(revenueAgg._sum.monthlyPrice || 0)
 
   res.json({
     success: true,
