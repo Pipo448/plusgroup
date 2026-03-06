@@ -9,14 +9,15 @@ const prisma  = require('../../config/prisma');
 router.use(identifyTenant, authenticate);
 
 // ── Haiti = UTC-5
-// '2026-03-05' → gte: 2026-03-05T05:00:00Z (minwi Haiti)
-//              → lte: 2026-03-06T05:00:00Z (minwi Haiti jou APRE = 11:59pm Haiti)
+// '2026-03-05' gte = 2026-03-05T05:00:00.000Z  (minwi Haiti 5 mas)
+// '2026-03-05' lte = 2026-03-06T04:59:59.999Z  (11:59pm Haiti 5 mas)
+//
+// ✅ FIX: lte = gte + 24h - 1ms  (pa gte menm!)
 const haitiRange = (dateFrom, dateTo) => {
   if (!dateFrom || !dateTo) return {};
-  return {
-    gte: new Date(`${dateFrom}T05:00:00.000Z`),
-    lte: new Date(`${dateTo}T05:00:00.000Z`),
-  };
+  const gte = new Date(`${dateFrom}T05:00:00.000Z`);
+  const lte = new Date(new Date(`${dateTo}T05:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000 - 1);
+  return { gte, lte };
 };
 
 // ── GET /api/v1/reports/sales
@@ -25,7 +26,6 @@ router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
   const tenantId = req.tenant.id;
   const branchId = req.branchId || null;
 
-  // ✅ KORIJE timezone Haiti
   const dateFilter = dateFrom && dateTo
     ? { issueDate: haitiRange(dateFrom, dateTo) }
     : {};
@@ -44,16 +44,13 @@ router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
       _count: true
     }),
     prisma.invoice.groupBy({
-      by: ['status'],
-      where,
-      _sum: { totalHtg: true, totalUsd: true },
-      _count: true
+      by: ['status'], where,
+      _sum: { totalHtg: true, totalUsd: true }, _count: true
     }),
     prisma.invoice.findMany({
       where,
       include: { client: { select: { name: true } } },
-      orderBy: { issueDate: 'desc' },
-      take: 30
+      orderBy: { issueDate: 'desc' }, take: 30
     })
   ]);
 
@@ -78,12 +75,8 @@ router.get('/stock', asyncHandler(async (req, res) => {
       include: { category: { select: { name: true, color: true } } },
       orderBy: { quantity: 'asc' }
     }),
-    prisma.product.count({
-      where: { tenantId, isActive: true, isService: false, quantity: { lte: 5, gt: 0 } }
-    }),
-    prisma.product.count({
-      where: { tenantId, isActive: true, isService: false, quantity: { lte: 0 } }
-    })
+    prisma.product.count({ where: { tenantId, isActive: true, isService: false, quantity: { lte: 5, gt: 0 } } }),
+    prisma.product.count({ where: { tenantId, isActive: true, isService: false, quantity: { lte: 0 } } })
   ]);
 
   const stockValue = products.reduce((acc, p) => {
@@ -103,7 +96,6 @@ router.get('/top-products', asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, limit = 10 } = req.query;
   const tenantId = req.tenant.id;
 
-  // ✅ KORIJE timezone Haiti
   const invoiceFilter = {
     status: { not: 'cancelled' },
     ...(dateFrom && dateTo && { issueDate: haitiRange(dateFrom, dateTo) })
@@ -136,28 +128,23 @@ router.get('/top-products', asyncHandler(async (req, res) => {
 router.get('/dashboard', asyncHandler(async (req, res) => {
   const tenantId   = req.tenant.id;
   const today      = new Date();
-  // ✅ KORIJE — debut mwa an timezone Haiti
   const startMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 5, 0, 0));
 
   const [invoiceStats, paidThisMonth, lowStockCount, productCount, recentInvoices] = await Promise.all([
     prisma.invoice.groupBy({
-      by: ['status'],
-      where: { tenantId },
-      _sum: { totalHtg: true, balanceDueHtg: true },
-      _count: true
+      by: ['status'], where: { tenantId },
+      _sum: { totalHtg: true, balanceDueHtg: true }, _count: true
     }),
     prisma.invoice.aggregate({
       where: { tenantId, status: 'paid', issueDate: { gte: startMonth } },
-      _sum: { totalHtg: true, totalUsd: true },
-      _count: true
+      _sum: { totalHtg: true, totalUsd: true }, _count: true
     }),
     prisma.product.count({ where: { tenantId, isActive: true, isService: false, quantity: { lte: 5 } } }),
     prisma.product.count({ where: { tenantId, isActive: true } }),
     prisma.invoice.findMany({
       where: { tenantId },
       include: { client: { select: { name: true } } },
-      orderBy: { createdAt: 'desc' },
-      take: 5
+      orderBy: { createdAt: 'desc' }, take: 5
     })
   ]);
 
@@ -176,10 +163,7 @@ router.get('/profit', asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Aksè refize. Admin sèlman.' });
   }
 
-  // ✅ KORIJE timezone Haiti
-  const dateFilter = dateFrom && dateTo
-    ? haitiRange(dateFrom, dateTo)
-    : undefined;
+  const dateFilter = dateFrom && dateTo ? haitiRange(dateFrom, dateTo) : undefined;
 
   const itemWhere = {
     tenantId,
@@ -196,14 +180,11 @@ router.get('/profit', asyncHandler(async (req, res) => {
     include: {
       product: {
         select: {
-          id: true, name: true, code: true, unit: true,
-          costPriceHtg: true,
+          id: true, name: true, code: true, unit: true, costPriceHtg: true,
           category: { select: { id: true, name: true, color: true } }
         }
       },
-      invoice: {
-        select: { issueDate: true, createdBy: true, invoiceNumber: true }
-      }
+      invoice: { select: { issueDate: true, createdBy: true, invoiceNumber: true } }
     }
   });
 
@@ -215,7 +196,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
     const unit     = item.product?.unit || '';
     const cat      = item.product?.category?.name || '—';
     const catColor = item.product?.category?.color || '#6B7AAB';
-
     const costPriceHtg = Number(item.product?.costPriceHtg || item.productSnapshot?.costPriceHtg || 0);
     const qty          = Number(item.quantity || 0);
     const vantTotal    = Number(item.totalHtg || 0);
@@ -228,7 +208,6 @@ router.get('/profit', asyncHandler(async (req, res) => {
         qteVann: 0, vantHtg: 0, koutHtg: 0, benefisHtg: 0, nbTransaksyon: 0
       };
     }
-
     productMap[pid].qteVann       += qty;
     productMap[pid].vantHtg       += vantTotal;
     productMap[pid].koutHtg       += koutTotal;
@@ -237,44 +216,33 @@ router.get('/profit', asyncHandler(async (req, res) => {
   }
 
   const byProduct = Object.values(productMap)
-    .map(p => ({
-      ...p,
-      majPct: p.vantHtg > 0 ? ((p.benefisHtg / p.vantHtg) * 100).toFixed(1) : '0.0'
-    }))
+    .map(p => ({ ...p, majPct: p.vantHtg > 0 ? ((p.benefisHtg / p.vantHtg) * 100).toFixed(1) : '0.0' }))
     .sort((a, b) => b.benefisHtg - a.benefisHtg);
 
   const totaux = byProduct.reduce((acc, p) => {
-    acc.vantHtg    += p.vantHtg;
-    acc.koutHtg    += p.koutHtg;
-    acc.benefisHtg += p.benefisHtg;
+    acc.vantHtg += p.vantHtg; acc.koutHtg += p.koutHtg; acc.benefisHtg += p.benefisHtg;
     return acc;
   }, { vantHtg: 0, koutHtg: 0, benefisHtg: 0 });
 
   totaux.majPct = totaux.vantHtg > 0
-    ? ((totaux.benefisHtg / totaux.vantHtg) * 100).toFixed(1)
-    : '0.0';
-
-  const top5 = [...byProduct].slice(0, 5);
+    ? ((totaux.benefisHtg / totaux.vantHtg) * 100).toFixed(1) : '0.0';
 
   const dailyMap = {};
   for (const item of items) {
-    const day   = String(item.invoice.issueDate).substring(0, 10);
-    const cost  = Number(item.product?.costPriceHtg || 0);
-    const qty   = Number(item.quantity || 0);
-    const vant  = Number(item.totalHtg || 0);
-    const kout  = cost * qty;
-
+    const day  = String(item.invoice.issueDate).substring(0, 10);
+    const cost = Number(item.product?.costPriceHtg || 0);
+    const qty  = Number(item.quantity || 0);
+    const vant = Number(item.totalHtg || 0);
+    const kout = cost * qty;
     if (!dailyMap[day]) dailyMap[day] = { date: day, vant: 0, kout: 0, benefis: 0 };
     dailyMap[day].vant    += vant;
     dailyMap[day].kout    += kout;
     dailyMap[day].benefis += vant - kout;
   }
 
-  const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
-
   res.json({
     success: true,
-    profit: { totaux, byProduct, top5, daily }
+    profit: { totaux, byProduct, top5: byProduct.slice(0, 5), daily: Object.values(dailyMap).sort((a,b) => a.date.localeCompare(b.date)) }
   });
 }));
 
