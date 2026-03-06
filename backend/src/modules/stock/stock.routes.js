@@ -6,6 +6,7 @@ const { extractBranch } = require('../../middleware/branch');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma     = require('../../config/prisma');
 const svcProduct = require('../products/product.service');
+const { checkAndNotifyLowStock, notifyEmployeeAction } = require('../helpers/notification.helper');
 
 router.use(identifyTenant, authenticate);
 

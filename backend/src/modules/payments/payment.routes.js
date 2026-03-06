@@ -4,6 +4,7 @@ const router  = express.Router();
 const { identifyTenant, authenticate } = require('../../middleware/auth');
 const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma  = require('../../config/prisma');
+const { notifyPaymentReceived } = require('../helpers/notification.helper');
 
 router.use(identifyTenant, authenticate);
 
