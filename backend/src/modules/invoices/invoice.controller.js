@@ -2,7 +2,10 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./invoice.service');
 const { generateInvoicePDF } = require('./pdf.service');
-const { notifyEmployeeSale, checkAndNotifyLowStock } = require('../helpers/notification.helper');
+
+// ✅ KORIJE chemen — te '../helpers' (mal) → kounye a '../../helpers' (kòrèk)
+// src/modules/invoices/invoice.controller.js → src/helpers/notification.helper.js
+const { notifyEmployeeSale, checkAndNotifyLowStock } = require('../../helpers/notification.helper');
 
 // ⚠️ KORIJE — pase req.branchId bay svc.getAll
 const getAll = asyncHandler(async (req, res) => {
@@ -13,16 +16,32 @@ const getAll = asyncHandler(async (req, res) => {
   res.json({ success: true, ...data });
 });
 
-const getOne = asyncHandler(async (req, res) => { const data = await svc.getOne(req.tenant.id, req.params.id); res.json({ success: true, invoice: data }); });
+const getOne = asyncHandler(async (req, res) => {
+  const data = await svc.getOne(req.tenant.id, req.params.id);
+  res.json({ success: true, invoice: data });
+});
 
-// ⚠️ KORIJE — pase req.branchId bay getDashboard tou
+// ✅ KORIJE — aksepte dateFrom/dateTo pou filtre stat cards jodi a
 const getDashboard = asyncHandler(async (req, res) => {
-  const data = await svc.getDashboard(req.tenant.id, req.branchId || null);
+  const { dateFrom, dateTo } = req.query;
+  const data = await svc.getDashboard(
+    req.tenant.id,
+    req.branchId || null,
+    dateFrom || null,
+    dateTo   || null
+  );
   res.json({ success: true, dashboard: data });
 });
 
-const cancel     = asyncHandler(async (req, res) => { const data = await svc.cancel(req.tenant.id, req.params.id, req.user.id, req.body.reason); res.json({ success: true, invoice: data, message: 'Facture anile.' }); });
-const addPayment = asyncHandler(async (req, res) => { const data = await svc.addPayment(req.tenant.id, req.params.id, req.user.id, req.body); res.status(201).json({ success: true, ...data, message: 'Peman anrejistre.' }); });
+const cancel = asyncHandler(async (req, res) => {
+  const data = await svc.cancel(req.tenant.id, req.params.id, req.user.id, req.body.reason);
+  res.json({ success: true, invoice: data, message: 'Facture anile.' });
+});
+
+const addPayment = asyncHandler(async (req, res) => {
+  const data = await svc.addPayment(req.tenant.id, req.params.id, req.user.id, req.body);
+  res.status(201).json({ success: true, ...data, message: 'Peman anrejistre.' });
+});
 
 // ⚠️ KORIJE — ajoute branchId nan createDirect otomatikman
 const createDirect = asyncHandler(async (req, res) => {

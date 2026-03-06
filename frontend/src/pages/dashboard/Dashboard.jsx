@@ -50,6 +50,14 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
   return parts.length ? parts.join('  ') : null
 }
 
+// ✅ Labels dirèk san depann sou fichye tradiksyon — evite "DASHBOARD.SALESTODAY" bug
+const LABELS = {
+  salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales" },
+  paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today' },
+  balance:    { ht:'Balans Jodi a',  fr:'Solde du Jour',     en:'Balance Today' },
+  partial:    { ht:'Pasyal Jodi a',  fr:'Partiel du Jour',   en:'Partial Today' },
+}
+
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
 
 const TickerBanner = () => (
@@ -147,7 +155,7 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation()
+  const { t, i18n: i18nInst } = useTranslation()
   const { user, tenant } = useAuthStore()
 
   const showRate      = tenant?.showExchangeRate !== false
@@ -157,6 +165,13 @@ export default function Dashboard() {
   const branchId = localStorage.getItem('plusgroup-branch-id') || undefined
   const isAdmin  = user?.role === 'admin'
 
+  // ✅ Detekte lang aktyèl — pou labels dirèk
+  const lang = (i18nInst?.language || 'ht').substring(0,2)
+  const lbl  = (key) => LABELS[key]?.[lang] || LABELS[key]?.ht || key
+
+  const today = format(new Date(), 'yyyy-MM-dd')
+
+  // Dènye fakti + lowstock (pa filtre pa dat — pou tab resan + KPI)
   const { data:dashboard } = useQuery({
     queryKey: ['dashboard', branchId],
     queryFn:  () => invoiceAPI.getDashboard().then(r => r.data.dashboard),
@@ -167,24 +182,31 @@ export default function Dashboard() {
     queryFn:  () => productAPI.getLowStock().then(r => r.data.products),
   })
 
-  // Grafik 7 jou (admin sèlman)
+  // Grafik 7 jou
   const { data:salesReport } = useQuery({
     queryKey: ['sales-report-dash', branchId],
     enabled:  isAdmin,
     queryFn:  () => reportAPI.getSales({
       dateFrom: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
-      dateTo:   format(new Date(), 'yyyy-MM-dd'),
+      dateTo:   today,
       ...(branchId && { branchId })
     }).then(r => r.data.report),
   })
 
-  // ✅ NOUVO — Vant jodi a sèlman pou StatCard premye a
+  // ✅ Dashboard jodi a — stat cards 4 yo (filtre pa dat jodi a)
+  const { data:todayDashboard } = useQuery({
+    queryKey: ['dashboard-today', branchId, today],
+    queryFn:  () => invoiceAPI.getDashboard({ dateFrom: today, dateTo: today })
+      .then(r => r.data.dashboard),
+  })
+
+  // ✅ Vant jodi a (soti nan reportAPI)
   const { data:todayReport } = useQuery({
-    queryKey: ['sales-today-dash', branchId],
+    queryKey: ['sales-today-dash', branchId, today],
     enabled:  isAdmin,
     queryFn:  () => reportAPI.getSales({
-      dateFrom: format(new Date(), 'yyyy-MM-dd'),
-      dateTo:   format(new Date(), 'yyyy-MM-dd'),
+      dateFrom: today,
+      dateTo:   today,
       ...(branchId && { branchId })
     }).then(r => r.data.report),
   })
@@ -196,11 +218,16 @@ export default function Dashboard() {
     return { date: format(d, 'EEE', {locale:fr}), ventes: Number(found?.total_htg||0) }
   })
 
-  // ✅ CHANJE — totalVentesJodi (jodi a) olye totalVentes (30 jou)
+  // ✅ Stat cards — tout jodi a sèlman
   const totalVentesJodi = Number(todayReport?.totals?._sum?.totalHtg||0)
-  const totalPaye       = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
-  const totalImpaye     = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
-  const totalPasyal     = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
+  const totalPayeJodi   = Number(todayDashboard?.totalPaid?._sum?.totalHtg||0)
+  const totalImpayeJodi = Number(todayDashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
+  const totalPasyalJodi = Number(todayDashboard?.totalPartial?._sum?.balanceDueHtg||0)
+
+  // KPI cards — toujou tout tan (pou wè akimilasyon global)
+  const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
+  const totalPaye   = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
+  const totalPasyal = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
   const subBanner = (() => {
     if (!tenant?.subscriptionEndsAt) return null
@@ -237,7 +264,7 @@ export default function Dashboard() {
         }
       `}</style>
 
-      {/* ── Bannè ekspire ── */}
+      {/* Bannè ekspire */}
       {subBanner && (
         <div style={{
           borderRadius:16, padding:'14px 20px',
@@ -303,24 +330,42 @@ export default function Dashboard() {
           </Link>
         </div>
 
+        {/* ✅ 4 stat cards — tout jodi a sèlman, labels dirèk (pa tradiksyon key) */}
         <div className="hero-stats-scroll" style={{position:'relative',zIndex:1}}>
           <div className="hero-stats-inner">
-            {/* ✅ CHANJE — Vant Jodi a olye Vant 30 Jou */}
             <StatCard
-              label={t('dashboard.salesToday') || 'Vant Jodi a'}
+              label={lbl('salesToday')}
               val={`${fmt(totalVentesJodi)} HTG`}
               icon={<TrendingUp size={15}/>}
               color={D.gold}
               sub={showRate && fmtConv(totalVentesJodi, exchangeRates, visibleCurrs)}
             />
-            <StatCard label={t('dashboard.paid')}    val={`${fmt(totalPaye)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPaye,exchangeRates,visibleCurrs)||`${dashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
-            <StatCard label={t('dashboard.balance')} val={`${fmt(totalImpaye)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpaye,exchangeRates,visibleCurrs)||`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
-            <StatCard label={t('dashboard.partial')} val={`${fmt(totalPasyal)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyal,exchangeRates,visibleCurrs)||`${dashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
+            <StatCard
+              label={lbl('paid')}
+              val={`${fmt(totalPayeJodi)} HTG`}
+              icon={<CheckCircle2 size={15}/>}
+              color="#34d399"
+              sub={showRate && fmtConv(totalPayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}
+            />
+            <StatCard
+              label={lbl('balance')}
+              val={`${fmt(totalImpayeJodi)} HTG`}
+              icon={<Clock size={15}/>}
+              color={D.redLt}
+              sub={showRate && fmtConv(totalImpayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}
+            />
+            <StatCard
+              label={lbl('partial')}
+              val={`${fmt(totalPasyalJodi)} HTG`}
+              icon={<Receipt size={15}/>}
+              color="#93c5fd"
+              sub={showRate && fmtConv(totalPasyalJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}
+            />
           </div>
         </div>
       </div>
 
-      {/* ── Grafik + Low Stock ── */}
+      {/* Grafik + Low Stock */}
       <div className="chart-stock-grid">
         <div style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:8}}>
@@ -404,7 +449,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
+      {/* KPI Cards — tout tan (pou wè akimilasyon global) */}
       <div className="kpi-scroll">
         <div className="kpi-inner">
           <KpiCard label={t('dashboard.kpiFaktirImpaye')} value={`${fmt(totalImpaye)} HTG`} count={`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.kpiFakti')}`}  icon={<Receipt size={20}/>}      color={D.red}     bg={D.redDim}             link="/app/invoices?status=unpaid"/>
@@ -414,7 +459,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Dènye Fakti ── */}
+      {/* Dènye Fakti */}
       <div style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
         <div className="dash-section-header" style={{
           display:'flex',alignItems:'center',justifyContent:'space-between',

@@ -10,7 +10,6 @@ const getNextInvoiceNumber = async (tenantId) => {
     update: {}
   });
 
-  // Reset si nouvo ane
   const lastNumber = seq.currentYear < year ? 0 : seq.lastNumber;
   const nextNumber = lastNumber + 1;
 
@@ -23,7 +22,6 @@ const getNextInvoiceNumber = async (tenantId) => {
 };
 
 // ── GET ALL
-// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
 const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20, dateFrom, dateTo, branchId }) => {
   const where = {
     tenantId,
@@ -212,28 +210,37 @@ const createDirect = async (tenantId, userId, data) => {
 };
 
 // ── DASHBOARD
-// ✅ FIX: Retire filtre startOfMonth — totalPaid afiche TT fakti peye, pa sèlman mwa aktyèl
-// ⚠️ KORIJE — ajoute filtre branchId opsyonèl
-const getDashboard = async (tenantId, branchId) => {
-  // ⚠️ NOUVO — filtre pa branch si branchId prezan
-  const bf = branchId ? { branchId } : {}
+// ✅ KORIJE — aksepte dateFrom/dateTo pou filtre stat cards jodi a
+const getDashboard = async (tenantId, branchId, dateFrom = null, dateTo = null) => {
+  const bf = branchId ? { branchId } : {};
+
+  // ✅ Filtre dat — si dateFrom/dateTo prezan, filtre pa createdAt jodi a
+  // Pou dat jodi a: dateFrom = '2026-03-05', dateTo = '2026-03-05'
+  // → createdAt >= debut jou a, <= fen jou a (23:59:59)
+  const df = (dateFrom && dateTo) ? {
+    createdAt: {
+      gte: new Date(`${dateFrom}T00:00:00.000Z`),
+      lte: new Date(`${dateTo}T23:59:59.999Z`)
+    }
+  } : {};
 
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
     prisma.invoice.aggregate({
-      where: { tenantId, ...bf, status: 'unpaid' },
+      where: { tenantId, ...bf, ...df, status: 'unpaid' },
       _sum: { balanceDueHtg: true, balanceDueUsd: true },
       _count: true
     }),
     prisma.invoice.aggregate({
-      where: { tenantId, ...bf, status: 'paid' },
+      where: { tenantId, ...bf, ...df, status: 'paid' },
       _sum: { totalHtg: true, totalUsd: true },
       _count: true
     }),
     prisma.invoice.aggregate({
-      where: { tenantId, ...bf, status: 'partial' },
+      where: { tenantId, ...bf, ...df, status: 'partial' },
       _sum: { balanceDueHtg: true },
       _count: true
     }),
+    // recentInvoices — pa filtre pa dat (toujou dènye 5 yo)
     prisma.invoice.findMany({
       where: { tenantId, ...bf },
       include: { client: { select: { name: true } } },
