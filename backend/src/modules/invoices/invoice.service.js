@@ -1,6 +1,19 @@
 // src/modules/invoices/invoice.service.js
 const prisma = require('../../config/prisma');
 
+// ── Haiti = UTC-5
+// '2026-03-05' → gte: 2026-03-05T05:00:00Z (minwi Haiti)
+//              → lte: 2026-03-06T04:59:59Z (11:59pm Haiti)
+const haitiDateRange = (dateFrom, dateTo) => {
+  if (!dateFrom || !dateTo) return {};
+  return {
+    createdAt: {
+      gte: new Date(`${dateFrom}T05:00:00.000Z`),
+      lte: new Date(`${dateTo}T05:00:00.000Z`), // midnight Haiti of NEXT day start = end of dateTo in Haiti
+    }
+  };
+};
+
 // ── Jwenn nimewo fakti nextval
 const getNextInvoiceNumber = async (tenantId) => {
   const year = new Date().getFullYear();
@@ -35,7 +48,10 @@ const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20
       ]
     }),
     ...(dateFrom && dateTo && {
-      issueDate: { gte: new Date(dateFrom), lte: new Date(dateTo) }
+      issueDate: {
+        gte: new Date(`${dateFrom}T05:00:00.000Z`),
+        lte: new Date(`${dateTo}T05:00:00.000Z`),
+      }
     })
   };
 
@@ -210,19 +226,14 @@ const createDirect = async (tenantId, userId, data) => {
 };
 
 // ── DASHBOARD
-// ✅ KORIJE — aksepte dateFrom/dateTo pou filtre stat cards jodi a
+// ✅ KORIJE timezone Haiti UTC-5
 const getDashboard = async (tenantId, branchId, dateFrom = null, dateTo = null) => {
   const bf = branchId ? { branchId } : {};
 
-  // ✅ Filtre dat — si dateFrom/dateTo prezan, filtre pa createdAt jodi a
-  // Pou dat jodi a: dateFrom = '2026-03-05', dateTo = '2026-03-05'
-  // → createdAt >= debut jou a, <= fen jou a (23:59:59)
-  const df = (dateFrom && dateTo) ? {
-    createdAt: {
-      gte: new Date(`${dateFrom}T00:00:00.000Z`),
-      lte: new Date(`${dateTo}T23:59:59.999Z`)
-    }
-  } : {};
+  // ✅ Haiti timezone fix: minwi Haiti = 5am UTC
+  // dateFrom='2026-03-05' → gte: 2026-03-05T05:00Z  (minwi Haiti 5 mas)
+  //                       → lte: 2026-03-06T04:59Z  (11:59pm Haiti 5 mas)
+  const df = haitiDateRange(dateFrom, dateTo);
 
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
     prisma.invoice.aggregate({
