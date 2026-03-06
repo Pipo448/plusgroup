@@ -8,18 +8,28 @@ const prisma  = require('../../config/prisma');
 
 router.use(identifyTenant, authenticate);
 
+// ── Haiti = UTC-5
+// '2026-03-05' → gte: 2026-03-05T05:00:00Z (minwi Haiti)
+//              → lte: 2026-03-06T05:00:00Z (minwi Haiti jou APRE = 11:59pm Haiti)
+const haitiRange = (dateFrom, dateTo) => {
+  if (!dateFrom || !dateTo) return {};
+  return {
+    gte: new Date(`${dateFrom}T05:00:00.000Z`),
+    lte: new Date(`${dateTo}T05:00:00.000Z`),
+  };
+};
+
 // ── GET /api/v1/reports/sales
-// ⚠️ KORIJE — ajoute extractBranch + filtre branchId
 router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
   const { dateFrom, dateTo } = req.query;
   const tenantId = req.tenant.id;
   const branchId = req.branchId || null;
 
+  // ✅ KORIJE timezone Haiti
   const dateFilter = dateFrom && dateTo
-    ? { issueDate: { gte: new Date(dateFrom), lte: new Date(dateTo) } }
+    ? { issueDate: haitiRange(dateFrom, dateTo) }
     : {};
 
-  // ⚠️ NOUVO — filtre pa branch si branchId prezan
   const where = {
     tenantId,
     status: { not: 'cancelled' },
@@ -47,7 +57,6 @@ router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
     })
   ]);
 
-  // ── Calcul vant pa jou (pou grafik)
   const daily = recentInvoices.reduce((acc, inv) => {
     const day = String(inv.issueDate).substring(0, 10);
     if (!acc[day]) acc[day] = { date: day, total_htg: 0, count: 0 };
@@ -94,9 +103,10 @@ router.get('/top-products', asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, limit = 10 } = req.query;
   const tenantId = req.tenant.id;
 
+  // ✅ KORIJE timezone Haiti
   const invoiceFilter = {
     status: { not: 'cancelled' },
-    ...(dateFrom && dateTo && { issueDate: { gte: new Date(dateFrom), lte: new Date(dateTo) } })
+    ...(dateFrom && dateTo && { issueDate: haitiRange(dateFrom, dateTo) })
   };
 
   const topItems = await prisma.invoiceItem.groupBy({
@@ -124,9 +134,10 @@ router.get('/top-products', asyncHandler(async (req, res) => {
 
 // ── GET /api/v1/reports/dashboard
 router.get('/dashboard', asyncHandler(async (req, res) => {
-  const tenantId = req.tenant.id;
-  const today    = new Date();
-  const startMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const tenantId   = req.tenant.id;
+  const today      = new Date();
+  // ✅ KORIJE — debut mwa an timezone Haiti
+  const startMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 5, 0, 0));
 
   const [invoiceStats, paidThisMonth, lowStockCount, productCount, recentInvoices] = await Promise.all([
     prisma.invoice.groupBy({
@@ -156,10 +167,7 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   });
 }));
 
-// ══════════════════════════════════════════════════════════════
-// ── GET /api/v1/reports/profit  (ADMIN SÈLMAN)
-// ── Rapò Benefis: vant vs kout, benefis pa pwodui, maj %
-// ══════════════════════════════════════════════════════════════
+// ── GET /api/v1/reports/profit (ADMIN SÈLMAN)
 router.get('/profit', asyncHandler(async (req, res) => {
   const { dateFrom, dateTo, categoryId, createdBy } = req.query;
   const tenantId = req.tenant.id;
@@ -168,8 +176,9 @@ router.get('/profit', asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'Aksè refize. Admin sèlman.' });
   }
 
+  // ✅ KORIJE timezone Haiti
   const dateFilter = dateFrom && dateTo
-    ? { gte: new Date(dateFrom), lte: new Date(dateTo) }
+    ? haitiRange(dateFrom, dateTo)
     : undefined;
 
   const itemWhere = {
@@ -179,9 +188,7 @@ router.get('/profit', asyncHandler(async (req, res) => {
       ...(dateFilter && { issueDate: dateFilter }),
       ...(createdBy && { createdBy }),
     },
-    ...(categoryId && {
-      product: { categoryId }
-    }),
+    ...(categoryId && { product: { categoryId } }),
   };
 
   const items = await prisma.invoiceItem.findMany({
@@ -202,11 +209,11 @@ router.get('/profit', asyncHandler(async (req, res) => {
 
   const productMap = {};
   for (const item of items) {
-    const pid  = item.productId || 'unknown';
-    const name = item.productSnapshot?.name || item.product?.name || 'Pwodui Siprime';
-    const code = item.product?.code || '—';
-    const unit = item.product?.unit || '';
-    const cat  = item.product?.category?.name || '—';
+    const pid      = item.productId || 'unknown';
+    const name     = item.productSnapshot?.name || item.product?.name || 'Pwodui Siprime';
+    const code     = item.product?.code || '—';
+    const unit     = item.product?.unit || '';
+    const cat      = item.product?.category?.name || '—';
     const catColor = item.product?.category?.color || '#6B7AAB';
 
     const costPriceHtg = Number(item.product?.costPriceHtg || item.productSnapshot?.costPriceHtg || 0);
@@ -251,11 +258,11 @@ router.get('/profit', asyncHandler(async (req, res) => {
 
   const dailyMap = {};
   for (const item of items) {
-    const day          = String(item.invoice.issueDate).substring(0, 10);
-    const costPrice    = Number(item.product?.costPriceHtg || 0);
-    const qty          = Number(item.quantity || 0);
-    const vant         = Number(item.totalHtg || 0);
-    const kout         = costPrice * qty;
+    const day   = String(item.invoice.issueDate).substring(0, 10);
+    const cost  = Number(item.product?.costPriceHtg || 0);
+    const qty   = Number(item.quantity || 0);
+    const vant  = Number(item.totalHtg || 0);
+    const kout  = cost * qty;
 
     if (!dailyMap[day]) dailyMap[day] = { date: day, vant: 0, kout: 0, benefis: 0 };
     dailyMap[day].vant    += vant;
