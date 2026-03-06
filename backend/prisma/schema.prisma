@@ -79,6 +79,7 @@ model Tenant {
   kaneAccounts       KaneEpay[]
   kaneTransactions   KaneTransaction[]
   sabotayPlans       SabotayPlan[]
+  monthlyPrice       Int               @default(0) @map("monthly_price")
   notifications      Notification[]
   payments           Payment[]
   productCategories  ProductCategory[]
