@@ -31,6 +31,7 @@ const branchRoutes  = require('./modules/branches/branch.routes');
 const notifRoutes   = require('./modules/notifications/notification.routes');
 const kaneEpayRoutes    = require('./modules/kane-epay/kane-epay.routes');
 const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes');
+const sabotayRoutes = require('./modules/sabotay/sabotay.routes')
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -141,6 +142,7 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
+app.use('/api/sabotay', sabotayRoutes)
 
 // ✅ Enterprise routes
 app.use(`${API}/kane`,    kaneRouter);
