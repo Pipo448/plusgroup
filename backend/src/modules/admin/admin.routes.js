@@ -34,6 +34,57 @@ function renewSubscription(currentEnd, months) {
   return expireDate
 }
 
+// ══════════════════════════════════════════════
+// DB SETUP: Kreye tabèl audit + kolòn monthly_price
+// ══════════════════════════════════════════════
+;(async () => {
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS admin_audit_logs (
+        id            UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        tenant_id     UUID,
+        action        VARCHAR(100) NOT NULL,
+        actor         VARCHAR(200) DEFAULT 'Super Admin',
+        target_email  VARCHAR(200),
+        target_name   VARCHAR(200),
+        details       JSONB DEFAULT '{}',
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      )
+    `)
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS idx_audit_tenant
+      ON admin_audit_logs(tenant_id, created_at DESC)
+    `)
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS monthly_price INTEGER DEFAULT 0
+    `)
+    console.log('[Admin] DB setup done.')
+  } catch (e) {
+    console.warn('[Admin] DB setup warn:', e.message)
+  }
+})()
+
+// ══════════════════════════════════════════════
+// AUDIT LOG HELPER
+// ══════════════════════════════════════════════
+async function logAudit(tenantId, action, targetEmail, targetName, details = {}) {
+  if (!tenantId) return
+  try {
+    await prisma.$executeRaw`
+      INSERT INTO admin_audit_logs (tenant_id, action, target_email, target_name, details)
+      VALUES (
+        ${tenantId}::uuid,
+        ${action},
+        ${targetEmail || null},
+        ${targetName  || null},
+        ${JSON.stringify(details)}::jsonb
+      )
+    `
+  } catch (e) {
+    console.warn('[Audit]', e.message)
+  }
+}
+
 // ── POST /api/v1/admin/login
 router.post('/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body
@@ -160,6 +211,11 @@ router.post('/tenants/reset-password', asyncHandler(async (req, res) => {
     }
   })
 
+  // ── Audit log
+  await logAudit(user.tenantId, 'PASSWORD_RESET', user.email, user.fullName, {
+    changedBy: 'Super Admin'
+  })
+
   res.json({
     success: true,
     message: `✅ Modpas ${user.fullName || user.email} chanje. Sesyon li anyile — li dwe konekte ankò.`,
@@ -194,7 +250,16 @@ router.get('/tenants', asyncHandler(async (req, res) => {
     }),
     prisma.tenant.count({ where })
   ])
-  res.json({ success: true, tenants, total, pages: Math.ceil(total / Number(limit)) })
+
+  // Ajoute monthly_price ba chak tenant
+  let priceMap = {}
+  try {
+    const prices = await prisma.$queryRaw`SELECT id::text, monthly_price FROM tenants`
+    prices.forEach(p => { priceMap[p.id] = Number(p.monthly_price || 0) })
+  } catch {}
+  const tenantsWithPrice = tenants.map(t => ({ ...t, monthlyPrice: priceMap[t.id] || 0 }))
+
+  res.json({ success: true, tenants: tenantsWithPrice, total, pages: Math.ceil(total / Number(limit)) })
 }))
 
 // ── GET /api/v1/admin/tenants/:id
@@ -297,6 +362,11 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     ])
   } catch (seqErr) { console.warn('Sekans dokiman:', seqErr.message) }
 
+  // ── Audit log
+  await logAudit(tenant.id, 'TENANT_CREATED', adminEmail || null, tenant.name, {
+    plan: cleanPlanId, months, currency: cleanCurrency
+  })
+
   res.status(201).json({
     success: true, tenant,
     message: `Entreprise "${tenant.name}" kreye. Abònman ekspire ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`
@@ -310,8 +380,20 @@ router.patch('/tenants/:id/status', asyncHandler(async (req, res) => {
   if (!valid.includes(status))
     return res.status(400).json({ success: false, message: 'Statut pa valid.' })
 
+  // Jwenn statut + non anvan chanjman
+  const before = await prisma.tenant.findUnique({
+    where: { id: req.params.id },
+    select: { status: true, name: true }
+  })
+
   const tenant = await prisma.tenant.update({ where: { id: req.params.id }, data: { status } })
   const msg = status === 'active' ? 'aktive' : status === 'suspended' ? 'sipann' : status
+
+  // ── Audit log
+  await logAudit(req.params.id, 'STATUS_CHANGED', null, before?.name, {
+    from: before?.status, to: status
+  })
+
   res.json({ success: true, tenant, message: `Entreprise ${msg}.` })
 }))
 
@@ -329,6 +411,11 @@ router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
     where: { id: req.params.id },
     data: { planId },
     include: { plan: { select: { id: true, name: true, features: true, priceMonthly: true, maxBranches: true } } }
+  })
+
+  // ── Audit log
+  await logAudit(req.params.id, 'PLAN_CHANGED', null, tenant.name, {
+    newPlan: planExists.name, price: planExists.priceMonthly
   })
 
   res.json({ success: true, tenant, message: `Plan "${planExists.name}" asiye bay ${tenant.name}.` })
@@ -354,6 +441,11 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   })
 
+  // ── Audit log
+  await logAudit(req.params.id, 'SUBSCRIPTION_RENEWED', null, existing.name, {
+    months: numMonths, newEndsAt: newEndsAt.toISOString()
+  })
+
   res.json({
     success: true, tenant,
     message: `Abònman ${existing.name} renouvle pou ${numMonths} mwa. Nouvo ekspirasyon: ${newEndsAt.toLocaleDateString('fr-FR')}.`
@@ -362,10 +454,9 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 
 // ══════════════════════════════════════════════
 // BRANCH MANAGEMENT PAR SUPER ADMIN
-// Toggle on/off chak branch pou chak tenant
 // ══════════════════════════════════════════════
 
-// ── GET /api/v1/admin/tenants/:id/branches — Wè tout branch yon tenant
+// ── GET /api/v1/admin/tenants/:id/branches
 router.get('/tenants/:id/branches', asyncHandler(async (req, res) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: req.params.id },
@@ -390,8 +481,6 @@ router.get('/tenants/:id/branches', asyncHandler(async (req, res) => {
 }))
 
 // ── PATCH /api/v1/admin/tenants/:tenantId/branches/:branchId/toggle
-// Super Admin ka bloke/debloke nenpòt branch (bouton ON/OFF)
-// NB: Dat ekspirasyon plan an pa chanje — li endepandan
 router.patch('/tenants/:tenantId/branches/:branchId/toggle', asyncHandler(async (req, res) => {
   const branch = await prisma.branch.findFirst({
     where: { id: req.params.branchId, tenantId: req.params.tenantId }
@@ -411,6 +500,11 @@ router.patch('/tenants/:tenantId/branches/:branchId/toggle', asyncHandler(async 
     }
   })
 
+  // ── Audit log
+  await logAudit(req.params.tenantId, 'BRANCH_TOGGLED', null, branch.name, {
+    branchSlug: branch.slug, isActive: newStatus
+  })
+
   res.json({
     success: true,
     branch: updated,
@@ -420,7 +514,7 @@ router.patch('/tenants/:tenantId/branches/:branchId/toggle', asyncHandler(async 
   })
 }))
 
-// ── POST /api/v1/admin/tenants/:id/branches — Kreye branch pou yon tenant
+// ── POST /api/v1/admin/tenants/:id/branches
 router.post('/tenants/:id/branches', asyncHandler(async (req, res) => {
   const { name, slug, description, address, phone, email, isActive } = req.body
 
@@ -471,6 +565,126 @@ router.post('/tenants/:id/branches', asyncHandler(async (req, res) => {
     message: `Branch "${branch.name}" kreye pou ${tenant.name}.`
   })
 }))
+
+// ══════════════════════════════════════════════
+// PAGE ACCESS MANAGEMENT
+// ══════════════════════════════════════════════
+
+const ALL_PAGES = [
+  'dashboard','products','clients','quotes','invoices','stock','reports',
+  'branches','settings','users','kane','kane-epay','sabotay','mobilpay'
+]
+
+const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
+
+// ── GET /api/v1/admin/tenants/:id/pages
+router.get('/tenants/:id/pages', asyncHandler(async (req, res) => {
+  try {
+    const rows = await prisma.$queryRaw`
+      SELECT allowed_pages FROM tenants WHERE id = ${req.params.id}::uuid
+    `
+    if (!rows || rows.length === 0)
+      return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
+
+    const raw   = rows[0].allowed_pages
+    const saved = typeof raw === 'string' ? JSON.parse(raw) : (raw || {})
+
+    // Fòse dashboard toujou ON, merge ak defaults
+    const pages = { ...DEFAULT_PAGES, ...saved, dashboard: true }
+
+    res.json({ success: true, pages })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}))
+
+// ── PATCH /api/v1/admin/tenants/:id/pages
+router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
+  const { pages } = req.body
+  if (!pages || typeof pages !== 'object')
+    return res.status(400).json({ success: false, message: 'pages obligatwa (obje JSON).' })
+
+  // Sanktifye — sèlman paj ki nan ALL_PAGES, dashboard toujou true
+  const sanitized = {}
+  ALL_PAGES.forEach(key => {
+    sanitized[key] = key === 'dashboard' ? true : (pages[key] !== false)
+  })
+
+  try {
+    await prisma.$executeRaw`
+      UPDATE tenants
+      SET allowed_pages = ${JSON.stringify(sanitized)}::jsonb
+      WHERE id = ${req.params.id}::uuid
+    `
+
+    // Jwenn non tenant pou audit
+    const t = await prisma.tenant.findUnique({
+      where: { id: req.params.id }, select: { name: true }
+    })
+
+    const enabledCount  = Object.values(sanitized).filter(Boolean).length
+    const disabledCount = Object.values(sanitized).filter(v => !v).length
+
+    // ── Audit log
+    await logAudit(req.params.id, 'PAGE_ACCESS_UPDATED', null, t?.name, {
+      enabled: enabledCount, disabled: disabledCount
+    })
+
+    res.json({ success: true, pages: sanitized, message: 'Aksè paj yo ajou.' })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}))
+
+// ══════════════════════════════════════════════
+// MONTHLY PRICE
+// ══════════════════════════════════════════════
+
+// ── PATCH /api/v1/admin/tenants/:id/monthly-price
+router.patch('/tenants/:id/monthly-price', asyncHandler(async (req, res) => {
+  const price = Math.max(0, Number(req.body.monthlyPrice) || 0)
+  try {
+    await prisma.$executeRaw`
+      UPDATE tenants SET monthly_price = ${price} WHERE id = ${req.params.id}::uuid
+    `
+    const t = await prisma.tenant.findUnique({
+      where: { id: req.params.id }, select: { name: true }
+    })
+
+    // ── Audit log
+    await logAudit(req.params.id, 'PRICE_UPDATED', null, t?.name, {
+      monthlyPrice: price
+    })
+
+    res.json({ success: true, monthlyPrice: price, message: `Pri mensyèl ajou: ${price.toLocaleString()} HTG` })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}))
+
+// ══════════════════════════════════════════════
+// AUDIT LOG — GET ISTORIK
+// ══════════════════════════════════════════════
+
+// ── GET /api/v1/admin/tenants/:id/audit
+router.get('/tenants/:id/audit', asyncHandler(async (req, res) => {
+  try {
+    const logs = await prisma.$queryRaw`
+      SELECT id::text, action, actor, target_email, target_name, details, created_at
+      FROM admin_audit_logs
+      WHERE tenant_id = ${req.params.id}::uuid
+      ORDER BY created_at DESC
+      LIMIT 100
+    `
+    res.json({ success: true, logs })
+  } catch {
+    res.json({ success: true, logs: [] })
+  }
+}))
+
+// ══════════════════════════════════════════════
+// PLANS
+// ══════════════════════════════════════════════
 
 // ── GET /api/v1/admin/plans
 router.get('/plans', asyncHandler(async (req, res) => {
@@ -531,12 +745,23 @@ router.get('/stats', asyncHandler(async (req, res) => {
     prisma.branch.count()
   ])
 
+  // Kalkile total revni mensyèl aktif
+  let totalMonthly = 0
+  try {
+    const prices = await prisma.$queryRaw`
+      SELECT COALESCE(SUM(monthly_price), 0) as total
+      FROM tenants WHERE status = 'active'
+    `
+    totalMonthly = Number(prices[0]?.total || 0)
+  } catch {}
+
   res.json({
     success: true,
     stats: {
       tenants:  { total, active, pending, suspended },
       users:    { total: totalUsers },
-      branches: { total: totalBranches }
+      branches: { total: totalBranches },
+      revenue:  { totalMonthly }
     }
   })
 }))
