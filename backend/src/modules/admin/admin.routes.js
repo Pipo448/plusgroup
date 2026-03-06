@@ -70,16 +70,16 @@ function renewSubscription(currentEnd, months) {
 async function logAudit(tenantId, action, targetEmail, targetName, details = {}) {
   if (!tenantId) return
   try {
-    await prisma.$executeRaw`
-      INSERT INTO admin_audit_logs (tenant_id, action, target_email, target_name, details)
-      VALUES (
-        ${tenantId}::uuid,
-        ${action},
-        ${targetEmail || null},
-        ${targetName  || null},
-        ${JSON.stringify(details)}::jsonb
-      )
-    `
+    // FIX: $executeRawUnsafe ak positional params pou evite UUID cast error ak Supabase/pgBouncer
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO admin_audit_logs (tenant_id, action, target_email, target_name, details)
+       VALUES ($1::uuid, $2, $3, $4, $5::jsonb)`,
+      tenantId,
+      action,
+      targetEmail || null,
+      targetName  || null,
+      JSON.stringify(details)
+    )
   } catch (e) {
     console.warn('[Audit]', e.message)
   }
@@ -254,7 +254,8 @@ router.get('/tenants', asyncHandler(async (req, res) => {
   // Ajoute monthly_price ba chak tenant
   let priceMap = {}
   try {
-    const prices = await prisma.$queryRaw`SELECT id::text, monthly_price FROM tenants`
+    // FIX: $queryRawUnsafe — pa bezwen UUID cast isit, SELECT senp
+    const prices = await prisma.$queryRawUnsafe(`SELECT id::text, monthly_price FROM tenants`)
     prices.forEach(p => { priceMap[p.id] = Number(p.monthly_price || 0) })
   } catch {}
   const tenantsWithPrice = tenants.map(t => ({ ...t, monthlyPrice: priceMap[t.id] || 0 }))
@@ -580,9 +581,11 @@ const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
 // ── GET /api/v1/admin/tenants/:id/pages
 router.get('/tenants/:id/pages', asyncHandler(async (req, res) => {
   try {
-    const rows = await prisma.$queryRaw`
-      SELECT allowed_pages FROM tenants WHERE id = ${req.params.id}::uuid
-    `
+    // FIX: $queryRawUnsafe ak positional param pou UUID cast
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT allowed_pages FROM tenants WHERE id = $1::uuid`,
+      req.params.id
+    )
     if (!rows || rows.length === 0)
       return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
 
@@ -611,11 +614,12 @@ router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
   })
 
   try {
-    await prisma.$executeRaw`
-      UPDATE tenants
-      SET allowed_pages = ${JSON.stringify(sanitized)}::jsonb
-      WHERE id = ${req.params.id}::uuid
-    `
+    // FIX: $executeRawUnsafe ak positional params pou UUID cast
+    await prisma.$executeRawUnsafe(
+      `UPDATE tenants SET allowed_pages = $1::jsonb WHERE id = $2::uuid`,
+      JSON.stringify(sanitized),
+      req.params.id
+    )
 
     // Jwenn non tenant pou audit
     const t = await prisma.tenant.findUnique({
@@ -644,9 +648,12 @@ router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
 router.patch('/tenants/:id/monthly-price', asyncHandler(async (req, res) => {
   const price = Math.max(0, Number(req.body.monthlyPrice) || 0)
   try {
-    await prisma.$executeRaw`
-      UPDATE tenants SET monthly_price = ${price} WHERE id = ${req.params.id}::uuid
-    `
+    // FIX: $executeRawUnsafe ak positional params pou UUID cast
+    await prisma.$executeRawUnsafe(
+      `UPDATE tenants SET monthly_price = $1 WHERE id = $2::uuid`,
+      price,
+      req.params.id
+    )
     const t = await prisma.tenant.findUnique({
       where: { id: req.params.id }, select: { name: true }
     })
@@ -669,13 +676,15 @@ router.patch('/tenants/:id/monthly-price', asyncHandler(async (req, res) => {
 // ── GET /api/v1/admin/tenants/:id/audit
 router.get('/tenants/:id/audit', asyncHandler(async (req, res) => {
   try {
-    const logs = await prisma.$queryRaw`
-      SELECT id::text, action, actor, target_email, target_name, details, created_at
-      FROM admin_audit_logs
-      WHERE tenant_id = ${req.params.id}::uuid
-      ORDER BY created_at DESC
-      LIMIT 100
-    `
+    // FIX: $queryRawUnsafe ak positional param pou UUID cast
+    const logs = await prisma.$queryRawUnsafe(
+      `SELECT id::text, action, actor, target_email, target_name, details, created_at
+       FROM admin_audit_logs
+       WHERE tenant_id = $1::uuid
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      req.params.id
+    )
     res.json({ success: true, logs })
   } catch {
     res.json({ success: true, logs: [] })
@@ -748,10 +757,9 @@ router.get('/stats', asyncHandler(async (req, res) => {
   // Kalkile total revni mensyèl aktif
   let totalMonthly = 0
   try {
-    const prices = await prisma.$queryRaw`
-      SELECT COALESCE(SUM(monthly_price), 0) as total
-      FROM tenants WHERE status = 'active'
-    `
+    const prices = await prisma.$queryRawUnsafe(
+      `SELECT COALESCE(SUM(monthly_price), 0) as total FROM tenants WHERE status = 'active'`
+    )
     totalMonthly = Number(prices[0]?.total || 0)
   } catch {}
 
