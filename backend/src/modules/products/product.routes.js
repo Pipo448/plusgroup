@@ -4,7 +4,7 @@ const router   = express.Router();
 const { identifyTenant, authenticate, authorize } = require('../../middleware/auth');
 const { extractBranch } = require('../../middleware/branch'); // ⚠️ NOUVO
 const ctrl     = require('./product.controller');
-const { notifyEmployeeAction } = require('../helpers/notification.helper');
+const { notifyEmployeeAction } = require('../../helpers/notification.helper');
 
 // ⚠️ KORIJE — ajoute extractBranch pou li X-Branch-Id header
 router.use(identifyTenant, authenticate, extractBranch);
