@@ -8,7 +8,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' }
 })
 
-// ── Request: ajoute token + slug + branchId otomatikman
 api.interceptors.request.use((config) => {
   try {
     const token    = localStorage.getItem('plusgroup-token')
@@ -28,7 +27,6 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// ── Response: gestion erreurs globales
 api.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -51,7 +49,6 @@ api.interceptors.response.use(
     }
 
     if (status === 403) {
-      // ✅ Souse silansyeuseman — chak page jere 403 li menm
       return Promise.reject(err)
     }
 
@@ -64,7 +61,6 @@ api.interceptors.response.use(
   }
 )
 
-// ── Auth
 export const authAPI = {
   login:          (data) => api.post('/auth/login', data, { headers: { 'X-Tenant-Slug': data.slug } }),
   logout:         ()     => api.post('/auth/logout'),
@@ -74,7 +70,6 @@ export const authAPI = {
   changePassword: (data) => api.patch('/auth/change-password', data),
 }
 
-// ── Tenant
 export const tenantAPI = {
   getSettings:       ()     => api.get('/tenant/settings'),
   updateSettings:    (data) => api.put('/tenant/settings', data),
@@ -85,7 +80,6 @@ export const tenantAPI = {
   resetUserPassword: (data) => api.post('/users/reset-password', data),
 }
 
-// ── Products
 export const productAPI = {
   getAll:         (p)        => api.get('/products', { params: p }),
   getLowStock:    ()         => api.get('/products/low-stock'),
@@ -99,7 +93,6 @@ export const productAPI = {
   adjustStock:    (id, data) => api.patch(`/products/${id}/stock`, data),
 }
 
-// ── Clients
 export const clientAPI = {
   getAll:  (p)        => api.get('/clients', { params: p }),
   getOne:  (id)       => api.get(`/clients/${id}`),
@@ -108,7 +101,6 @@ export const clientAPI = {
   delete:  (id)       => api.delete(`/clients/${id}`),
 }
 
-// ── Quotes
 export const quoteAPI = {
   getAll:  (p)        => api.get('/quotes', { params: p }),
   getOne:  (id)       => api.get(`/quotes/${id}`),
@@ -121,17 +113,16 @@ export const quoteAPI = {
   cancel:  (id)       => api.patch(`/quotes/${id}/cancel`),
 }
 
-// ── Invoices
 export const invoiceAPI = {
   getAll:       (p)        => api.get('/invoices', { params: p }),
   getOne:       (id)       => api.get(`/invoices/${id}`),
   addPayment:   (id, data) => api.post(`/invoices/${id}/payment`, data),
   cancel:       (id, data) => api.patch(`/invoices/${id}/cancel`, data),
-  getDashboard: ()         => api.get('/invoices/dashboard'),
+  // ✅ KORIJE — aksepte params pou dateFrom/dateTo
+  getDashboard: (p)        => api.get('/invoices/dashboard', { params: p }),
   createDirect: (data)     => api.post('/invoices/direct', data),
 }
 
-// ── Stock
 export const stockAPI = {
   getMovements: (p)    => api.get('/stock/movements', { params: p }),
   addMovement:  (data) => {
@@ -142,7 +133,6 @@ export const stockAPI = {
   },
 }
 
-// ── Reports
 export const reportAPI = {
   getSummary: (p) => api.get('/reports/summary', { params: p }),
   getSales:   (p) => api.get('/reports/sales',   { params: p }),
@@ -151,7 +141,6 @@ export const reportAPI = {
   getProfit:  (p) => api.get('/reports/profit',  { params: p }),
 }
 
-// ── Users (Admin sèlman)
 export const userAPI = {
   getAll:  ()         => api.get('/users'),
   create:  (data)     => api.post('/users', data),
@@ -160,7 +149,6 @@ export const userAPI = {
   toggle:  (id)       => api.patch(`/users/${id}/toggle`),
 }
 
-// ── Super Admin API
 export const adminAPI = {
   login:          (data)     => api.post('/admin/login', data),
   getStats:       ()         => api.get('/admin/stats'),
@@ -175,7 +163,6 @@ export const adminAPI = {
   updatePlan:     (id, data) => api.put(`/admin/plans/${id}`, data),
 }
 
-// ── BRANCHES — Multi-Branch System
 export const branchAPI = {
   getAll:          ()                 => api.get('/branches'),
   getOne:          (id)               => api.get(`/branches/${id}`),
@@ -190,7 +177,6 @@ export const branchAPI = {
   getTenantUsers:  ()                 => api.get('/users'),
 }
 
-// ── Enterprise Services
 export const kaneAPI = {
   getBalance:      ()     => api.get('/kane/balance'),
   transfer:        (data) => api.post('/kane/transfer', data),
