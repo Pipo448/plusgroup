@@ -1,420 +1,1127 @@
 // src/pages/enterprise/SabotayPage.jsx
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  Smartphone, Plus, Search, RefreshCw, DollarSign,
-  TrendingUp, Package, X, Wifi, WifiOff,
+  Users, Plus, X, Calendar, ChevronRight, ChevronLeft,
+  Wallet, TrendingUp, Bell, Eye, CheckCircle, Clock,
+  Settings, RefreshCw, Trophy, AlertCircle, ArrowLeft,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
-const T = {
-  ht: {
-    title: 'Sabotay', subtitle: 'Vant recharge ak vouch elektwonik Sabotay',
-    newSale: 'Nouvo Vant', balance: 'Balans Sabotay', checkBalance: 'Verifye Balans',
-    totalSales: 'Total Vant', totalProfit: 'Benefis Total', totalTransactions: 'Tranzaksyon',
-    phone: 'Nimewo Telefòn', amount: 'Montan', operator: 'Operatè',
-    sellingPrice: 'Pri Vant', costPrice: 'Pri Koute', profit: 'Benefis',
-    status: 'Statut', pending: 'Annatant', success: 'Reyisi', failed: 'Echwe',
-    all: 'Tout', cancel: 'Anile', confirm: 'Konfime Vant',
-    noSales: 'Pa gen vant. Kòmanse premye vant ou a!',
-    enterPhone: 'Antre nimewo telefòn kliyan', selectOperator: 'Chwazi operatè',
-    enterAmount: 'Antre montan recharge', enterSellPrice: 'Pri ou ap vann',
-    enterCostPrice: 'Pri Sabotay achte',
-    today: 'Jodi a', week: 'Semèn sa a', month: 'Mwa sa a',
-    confirmSale: 'Konfime vant sa a?',
-    apiConfig: 'Konfigirasyon API Sabotay', apiKey: 'Kle API Sabotay',
-    saveConfig: 'Sove Konfigirasyon', testConnection: 'Tès Koneksyon',
-    connected: 'Konekte', disconnected: 'Dekonekte',
-    apiError: 'Erè koneksyon ak sèvè a.',
+// ─────────────────────────────────────────────────────────────
+// MOCK DATA (retire lè backend prè)
+// ─────────────────────────────────────────────────────────────
+let _nextPlanId  = 4
+let _nextMemberId = 10
+
+const MOCK_PLANS = [
+  {
+    id: 1, name: 'Sol 100 Jou', amount: 100, fee: 10,
+    frequency: 'daily', maxMembers: 20,
+    members: [
+      { id: 1, name: 'Marie Joseph',   phone: '+509 3714-0001', position: 1,  joinedAt: '2025-01-01', payments: { '2025-03-01': true, '2025-03-02': true, '2025-03-03': false } },
+      { id: 2, name: 'Jean Pierre',    phone: '+509 3714-0002', position: 2,  joinedAt: '2025-01-02', payments: { '2025-03-01': true, '2025-03-02': false } },
+      { id: 3, name: 'Rose Dorval',    phone: '+509 3714-0003', position: 3,  joinedAt: '2025-01-03', payments: { '2025-03-01': true } },
+      { id: 4, name: 'Claude Moreau',  phone: '+509 3714-0004', position: 4,  joinedAt: '2025-01-04', payments: {} },
+      { id: 5, name: 'Anne Bertrand',  phone: '+509 3714-0005', position: 5,  joinedAt: '2025-01-05', payments: { '2025-03-01': true, '2025-03-02': true } },
+    ],
+    createdAt: '2025-01-01',
+    active: true,
   },
-  fr: {
-    title: 'Sabotay', subtitle: 'Vente de recharges et vouchers électroniques Sabotay',
-    newSale: 'Nouvelle Vente', balance: 'Solde Sabotay', checkBalance: 'Vérifier Solde',
-    totalSales: 'Total Ventes', totalProfit: 'Bénéfice Total', totalTransactions: 'Transactions',
-    phone: 'Numéro de Téléphone', amount: 'Montant', operator: 'Opérateur',
-    sellingPrice: 'Prix de Vente', costPrice: 'Prix de Revient', profit: 'Bénéfice',
-    status: 'Statut', pending: 'En attente', success: 'Réussi', failed: 'Échoué',
-    all: 'Tous', cancel: 'Annuler', confirm: 'Confirmer la Vente',
-    noSales: 'Aucune vente. Commencez votre première vente!',
-    enterPhone: 'Entrez le numéro du client', selectOperator: "Choisir l'opérateur",
-    enterAmount: 'Montant de la recharge', enterSellPrice: 'Prix de vente',
-    enterCostPrice: 'Prix Sabotay',
-    today: "Aujourd'hui", week: 'Cette semaine', month: 'Ce mois',
-    confirmSale: 'Confirmer cette vente?',
-    apiConfig: 'Configuration API Sabotay', apiKey: 'Clé API Sabotay',
-    saveConfig: 'Sauvegarder', testConnection: 'Tester la connexion',
-    connected: 'Connecté', disconnected: 'Déconnecté',
-    apiError: 'Erreur de connexion au serveur.',
+  {
+    id: 2, name: 'Sol 500 Samdi', amount: 500, fee: 50,
+    frequency: 'weekly_saturday', maxMembers: 10,
+    members: [
+      { id: 6, name: 'Paul Estimé',    phone: '+509 3714-0006', position: 1,  joinedAt: '2025-01-05', payments: { '2025-03-01': true } },
+      { id: 7, name: 'Lucie Francois', phone: '+509 3714-0007', position: 2,  joinedAt: '2025-01-06', payments: {} },
+      { id: 8, name: 'Marc Antoine',   phone: '+509 3714-0008', position: 3,  joinedAt: '2025-01-07', payments: { '2025-03-01': true } },
+    ],
+    createdAt: '2025-01-05',
+    active: true,
   },
-  en: {
-    title: 'Sabotay', subtitle: 'Electronic recharge and voucher sales via Sabotay',
-    newSale: 'New Sale', balance: 'Sabotay Balance', checkBalance: 'Check Balance',
-    totalSales: 'Total Sales', totalProfit: 'Total Profit', totalTransactions: 'Transactions',
-    phone: 'Phone Number', amount: 'Amount', operator: 'Operator',
-    sellingPrice: 'Selling Price', costPrice: 'Cost Price', profit: 'Profit',
-    status: 'Status', pending: 'Pending', success: 'Success', failed: 'Failed',
-    all: 'All', cancel: 'Cancel', confirm: 'Confirm Sale',
-    noSales: 'No sales yet. Start your first sale!',
-    enterPhone: 'Enter customer phone number', selectOperator: 'Select operator',
-    enterAmount: 'Recharge amount', enterSellPrice: 'Your selling price',
-    enterCostPrice: 'Sabotay cost price',
-    today: 'Today', week: 'This week', month: 'This month',
-    confirmSale: 'Confirm this sale?',
-    apiConfig: 'Sabotay API Configuration', apiKey: 'Sabotay API Key',
-    saveConfig: 'Save Configuration', testConnection: 'Test Connection',
-    connected: 'Connected', disconnected: 'Disconnected',
-    apiError: 'Server connection error.',
+  {
+    id: 3, name: 'Sol 1000 Mwa', amount: 1000, fee: 100,
+    frequency: 'monthly', maxMembers: 15,
+    members: [
+      { id: 9, name: 'Simone Lafleur', phone: '+509 3714-0009', position: 1, joinedAt: '2025-01-10', payments: { '2025-03-01': true } },
+    ],
+    createdAt: '2025-01-10',
+    active: true,
+  },
+]
+
+// Frekans label
+const FREQ_LABELS = {
+  daily:            { ht: 'Chak Jou',         fr: 'Chaque jour',     en: 'Daily'           },
+  weekly_saturday:  { ht: 'Chak Samdi',       fr: 'Chaque samedi',   en: 'Every Saturday'  },
+  weekly_monday:    { ht: 'Chak Lendi',       fr: 'Chaque lundi',    en: 'Every Monday'    },
+  biweekly:         { ht: 'Chak 15 Jou',     fr: 'Tous les 15 j.',  en: 'Every 2 weeks'   },
+  monthly:          { ht: 'Chak Mwa',         fr: 'Chaque mois',     en: 'Monthly'         },
+  weekdays:         { ht: 'Lendi-Vandredi',   fr: 'Lun-Ven',         en: 'Weekdays'        },
+}
+
+// ─────────────────────────────────────────────────────────────
+// COULEURS / DESIGN TOKENS
+// ─────────────────────────────────────────────────────────────
+const D = {
+  bg:         '#060f1e',
+  card:       '#0d1b2a',
+  cardHov:    '#112236',
+  border:     'rgba(201,168,76,0.18)',
+  borderSub:  'rgba(255,255,255,0.07)',
+  gold:       '#C9A84C',
+  goldDk:     '#8B6914',
+  goldBtn:    'linear-gradient(135deg,#C9A84C,#8B6914)',
+  goldDim:    'rgba(201,168,76,0.10)',
+  green:      '#27ae60', greenBg: 'rgba(39,174,96,0.12)',
+  red:        '#e74c3c', redBg:   'rgba(231,76,60,0.10)',
+  blue:       '#3B82F6', blueBg:  'rgba(59,130,246,0.10)',
+  orange:     '#f39c12', orangeBg:'rgba(243,156,18,0.10)',
+  purple:     '#9b59b6', purpleBg:'rgba(155,89,182,0.10)',
+  text:       '#e8eaf0',
+  muted:      '#6b7a99',
+  label:      'rgba(201,168,76,0.75)',
+  input:      '#060f1e',
+  shadow:     '0 8px 32px rgba(0,0,0,0.55)',
+}
+
+const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+// ─────────────────────────────────────────────────────────────
+// HELPERS DATE selon frekans
+// ─────────────────────────────────────────────────────────────
+function getPaymentDates(frequency, startDate, count) {
+  const dates = []
+  const start = new Date(startDate || Date.now())
+  let cur = new Date(start)
+
+  const advance = () => {
+    switch (frequency) {
+      case 'daily':           cur.setDate(cur.getDate() + 1); break
+      case 'weekly_saturday': cur.setDate(cur.getDate() + ((6 - cur.getDay() + 7) % 7 || 7)); break
+      case 'weekly_monday':   cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7 || 7)); break
+      case 'biweekly':        cur.setDate(cur.getDate() + 14); break
+      case 'monthly':         cur.setMonth(cur.getMonth() + 1); break
+      case 'weekdays':
+        do { cur.setDate(cur.getDate() + 1) } while ([0,6].includes(cur.getDay()))
+        break
+      default: cur.setDate(cur.getDate() + 1)
+    }
   }
+
+  // premier dat = dat kòmansman
+  dates.push(cur.toISOString().split('T')[0])
+  for (let i = 1; i < count; i++) {
+    advance()
+    dates.push(new Date(cur).toISOString().split('T')[0])
+  }
+  return dates
 }
 
-const COLORS = {
-  gold: '#C9A84C', card: 'rgba(255,255,255,0.04)', border: 'rgba(201,168,76,0.2)',
-  green: '#27ae60', red: '#C0392B',
+// ─────────────────────────────────────────────────────────────
+// INPUT STYLE
+// ─────────────────────────────────────────────────────────────
+const inp = {
+  width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13,
+  border: `1.5px solid rgba(255,255,255,0.09)`, outline: 'none', fontFamily: 'inherit',
+  color: D.text, background: D.input, transition: 'border-color 0.15s', boxSizing: 'border-box',
+}
+const lbl = {
+  display: 'block', fontSize: 10, fontWeight: 700, color: D.label,
+  marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em',
 }
 
-const OPERATORS = ['Digicel', 'Natcom', 'Unitel']
-
-const STATUS_STYLE = {
-  pending: { bg: 'rgba(201,168,76,0.15)', color: '#C9A84C' },
-  success: { bg: 'rgba(39,174,96,0.15)',  color: '#27ae60' },
-  failed:  { bg: 'rgba(192,57,43,0.15)',  color: '#C0392B' },
-}
-
-// ── Modal Vant
-function SaleModal({ lang, onClose, onSave }) {
-  const t = T[lang] || T.ht
-  const [form, setForm] = useState({ phone: '', operator: 'Digicel', amount: '', sellingPrice: '', costPrice: '' })
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  const profit = form.sellingPrice && form.costPrice
-    ? (Number(form.sellingPrice) - Number(form.costPrice)).toFixed(2) : null
-  const profitColor = profit === null ? '#94a3b8' : Number(profit) >= 0 ? COLORS.green : COLORS.red
-
+// ─────────────────────────────────────────────────────────────
+// BADGE STATUT PEMAN
+// ─────────────────────────────────────────────────────────────
+function PayBadge({ paid, small }) {
+  const size = small ? { padding: '2px 7px', fontSize: 9 } : { padding: '4px 10px', fontSize: 11 }
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <div style={{ background: '#0f172a', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ color: COLORS.gold, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Smartphone size={18} />{t.newSale}
-          </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
+    <span style={{
+      ...size, borderRadius: 20, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4,
+      background: paid ? D.greenBg : D.redBg,
+      color: paid ? D.green : D.red,
+      border: `1px solid ${paid ? D.green : D.red}25`,
+    }}>
+      {paid ? <CheckCircle size={small?9:11}/> : <Clock size={small?9:11}/>}
+      {paid ? 'Peye' : 'Pa Peye'}
+    </span>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL WRAPPER
+// ─────────────────────────────────────────────────────────────
+function Modal({ onClose, title, children, width = 540 }) {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <style>{`
+        @keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+        @media(min-width:640px){ .m-sheet{ border-radius:20px!important; margin:20px!important; max-height:88vh!important; } }
+        .m-sheet::-webkit-scrollbar{width:3px}
+        .m-sheet::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:2px}
+        .m-sheet input::placeholder,.m-sheet textarea::placeholder{color:#2a3a54}
+        .m-sheet select option{background:#0d1b2a;color:#e8eaf0}
+      `}</style>
+      <div className="m-sheet" style={{
+        background: D.card, border: `1px solid ${D.border}`,
+        borderRadius: '20px 20px 0 0', width: '100%', maxWidth: width,
+        maxHeight: '95vh', overflowY: 'auto',
+        boxShadow: '0 -8px 48px rgba(0,0,0,0.7)',
+        animation: 'sheetUp 0.26s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+        <div style={{ display:'flex', justifyContent:'center', padding:'10px 0 2px' }}>
+          <div style={{ width:40, height:4, borderRadius:2, background:'rgba(255,255,255,0.12)' }}/>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
-            <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.phone} *</label>
-            <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder={t.enterPhone} type="tel"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 15, fontWeight: 700, marginTop: 4,
-                background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
-          </div>
-
-          <div>
-            <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.operator} *</label>
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              {OPERATORS.map(op => (
-                <button key={op} onClick={() => set('operator', op)} style={{
-                  flex: 1, padding: '8px 4px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  border: `2px solid ${form.operator === op ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
-                  background: form.operator === op ? 'rgba(201,168,76,0.15)' : 'transparent',
-                  color: form.operator === op ? COLORS.gold : '#94a3b8'
-                }}>{op}</button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.amount} (HTG) *</label>
-            <input value={form.amount} onChange={e => set('amount', e.target.value)} placeholder={t.enterAmount} type="number"
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 16, fontWeight: 800, marginTop: 4,
-                background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: COLORS.gold, boxSizing: 'border-box' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.sellingPrice} *</label>
-              <input value={form.sellingPrice} onChange={e => set('sellingPrice', e.target.value)} placeholder={t.enterSellPrice} type="number"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginTop: 4,
-                  background: 'rgba(39,174,96,0.08)', border: `1px solid rgba(39,174,96,0.3)`, color: '#fff', boxSizing: 'border-box' }} />
-            </div>
-            <div>
-              <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.costPrice}</label>
-              <input value={form.costPrice} onChange={e => set('costPrice', e.target.value)} placeholder={t.enterCostPrice} type="number"
-                style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginTop: 4,
-                  background: 'rgba(192,57,43,0.08)', border: `1px solid rgba(192,57,43,0.2)`, color: '#fff', boxSizing: 'border-box' }} />
-            </div>
-          </div>
-
-          {profit !== null && (
-            <div style={{ padding: '10px 14px', borderRadius: 8, textAlign: 'center', background: Number(profit) >= 0 ? 'rgba(39,174,96,0.1)' : 'rgba(192,57,43,0.1)', border: `1px solid ${profitColor}30` }}>
-              <span style={{ color: '#94a3b8', fontSize: 12 }}>{t.profit}: </span>
-              <span style={{ color: profitColor, fontWeight: 800, fontSize: 18 }}>{Number(profit) >= 0 ? '+' : ''}{profit} HTG</span>
-            </div>
-          )}
+        <div style={{
+          display:'flex', alignItems:'center', justifyContent:'space-between',
+          padding:'12px 20px 14px', borderBottom:`1px solid ${D.border}`,
+          position:'sticky', top:0, background:D.card, zIndex:1,
+        }}>
+          <h2 style={{ fontSize:15, fontWeight:800, color:'#fff', margin:0 }}>{title}</h2>
+          <button onClick={onClose} style={{
+            width:32, height:32, borderRadius:8, border:'none',
+            background:'rgba(255,255,255,0.06)', color:D.muted, cursor:'pointer',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}><X size={16}/></button>
         </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>{t.cancel}</button>
-          <button onClick={() => {
-            if (!form.phone || !form.amount || !form.sellingPrice) return toast.error('Telefòn, montan, ak pri vant obligatwa.')
-            if (!window.confirm(t.confirmSale)) return
-            onSave(form)
-          }} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${COLORS.gold}, #a07830)`, color: '#000', fontWeight: 700 }}>{t.confirm}</button>
-        </div>
+        <div style={{ padding:'18px 20px 28px' }}>{children}</div>
       </div>
     </div>
   )
 }
 
-// ── Modal Konfigirasyon API
-function ApiConfigModal({ lang, onClose }) {
-  const t = T[lang] || T.ht
-  const [apiKey, setApiKey] = useState('')
-  const [testing, setTesting] = useState(false)
-  const [status, setStatus] = useState(null)
+// ─────────────────────────────────────────────────────────────
+// SECTION WRAPPER
+// ─────────────────────────────────────────────────────────────
+const Sec = ({ icon, title, children }) => (
+  <div style={{ background:'rgba(201,168,76,0.03)', border:`1px solid rgba(201,168,76,0.10)`, borderRadius:12, padding:'13px 14px', marginBottom:12 }}>
+    <p style={{ fontSize:10, fontWeight:800, color:D.gold, textTransform:'uppercase', letterSpacing:'0.07em', margin:'0 0 11px', display:'flex', alignItems:'center', gap:6 }}>
+      <span>{icon}</span>{title}
+    </p>
+    {children}
+  </div>
+)
 
-  const handleTest = async () => {
-    setTesting(true)
-    try {
-      const res = await api.post('/sabotay/test-connection', { apiKey })
-      setStatus(res.data?.connected ? 'connected' : 'disconnected')
-    } catch { setStatus('disconnected') }
-    setTesting(false)
-  }
+// ─────────────────────────────────────────────────────────────
+// MODAL: KREYE NOUVO PLAN SOL
+// ─────────────────────────────────────────────────────────────
+function ModalCreatePlan({ onClose, onSave }) {
+  const [form, setForm] = useState({
+    name: '', amount: '', fee: '', frequency: 'daily', maxMembers: '',
+  })
+  const set = (k,v) => setForm(p=>({...p,[k]:v}))
 
-  const handleSave = async () => {
-    try {
-      await api.post('/sabotay/config', { apiKey })
-      toast.success('Konfigirasyon sove!')
-      onClose()
-    } catch { toast.error('Erè sove konfigirasyon') }
-  }
+  const totalPool = form.amount && form.maxMembers
+    ? Number(form.amount) * Number(form.maxMembers) : 0
+  const payout = totalPool - Number(form.fee || 0)
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <div style={{ background: '#0f172a', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 400 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ color: COLORS.gold, margin: 0 }}>{t.apiConfig}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
-        </div>
-        <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.apiKey}</label>
-        <input value={apiKey} onChange={e => setApiKey(e.target.value)} type="password"
-          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginTop: 6, marginBottom: 14,
-            background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
-        {status && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, color: status === 'connected' ? COLORS.green : COLORS.red }}>
-            {status === 'connected' ? <Wifi size={16} /> : <WifiOff size={16} />}
-            {t[status]}
+    <Modal onClose={onClose} title="✚ Kreye Plan Sabotay" width={520}>
+      <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+
+        <Sec icon="📋" title="Enfòmasyon Plan">
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:10 }}>
+            <div style={{ gridColumn:'1/-1' }}>
+              <label style={lbl}>Non Plan *</label>
+              <input style={inp} value={form.name} onChange={e=>set('name',e.target.value)} placeholder="Ex: Sol 500 Samdi" />
+            </div>
+            <div>
+              <label style={lbl}>Montan pou Chak Moun (HTG) *</label>
+              <input type="number" style={{...inp, color:D.gold, fontWeight:800, fontSize:16, textAlign:'center'}}
+                value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="500" />
+            </div>
+            <div>
+              <label style={lbl}>Frè (HTG)</label>
+              <input type="number" style={{...inp, color:D.red}}
+                value={form.fee} onChange={e=>set('fee',e.target.value)} placeholder="50" />
+            </div>
+            <div>
+              <label style={lbl}>Kantite Moun Max *</label>
+              <input type="number" style={{...inp, color:D.blue, fontWeight:700}}
+                value={form.maxMembers} onChange={e=>set('maxMembers',e.target.value)} placeholder="20" />
+            </div>
+          </div>
+        </Sec>
+
+        <Sec icon="🗓" title="Frekans Peman">
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))', gap:8 }}>
+            {Object.entries(FREQ_LABELS).map(([val, labels]) => (
+              <button key={val} onClick={()=>set('frequency',val)} style={{
+                padding:'9px 6px', borderRadius:9, cursor:'pointer', fontSize:11, fontWeight:600,
+                border:`1.5px solid ${form.frequency===val ? D.gold : D.borderSub}`,
+                background: form.frequency===val ? D.goldDim : 'transparent',
+                color: form.frequency===val ? D.gold : D.muted,
+                transition:'all 0.15s',
+              }}>{labels.ht}</button>
+            ))}
+          </div>
+        </Sec>
+
+        {totalPool > 0 && (
+          <div style={{ background:D.greenBg, border:`1px solid ${D.green}30`, borderRadius:12, padding:'12px 16px', marginBottom:12 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', marginBottom:3 }}>Total Pool</div>
+                <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color:D.gold }}>{fmt(totalPool)} HTG</div>
+              </div>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', marginBottom:3 }}>Frè</div>
+                <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color:D.red }}>-{fmt(form.fee||0)} HTG</div>
+              </div>
+              <div style={{ textAlign:'center' }}>
+                <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', marginBottom:3 }}>Moun ap Touche</div>
+                <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:18, color:D.green }}>{fmt(payout)} HTG</div>
+              </div>
+            </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleTest} disabled={testing || !apiKey} style={{ flex: 1, padding: '10px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8' }}>
-            {testing ? '...' : t.testConnection}
-          </button>
-          <button onClick={handleSave} disabled={!apiKey} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${COLORS.gold}, #a07830)`, color: '#000', fontWeight: 700 }}>
-            {t.saveConfig}
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700, fontSize:14 }}>Anile</button>
+          <button onClick={()=>{
+            if(!form.name||!form.amount||!form.maxMembers) return toast.error('Non, montan, ak kantite moun obligatwa.')
+            onSave({...form, amount:Number(form.amount), fee:Number(form.fee||0), maxMembers:Number(form.maxMembers)})
+          }} style={{
+            flex:2, padding:'12px', borderRadius:10, border:'none', cursor:'pointer',
+            background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14,
+            display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+            boxShadow:'0 4px 16px rgba(201,168,76,0.28)',
+          }}>
+            <Plus size={15}/> Kreye Plan
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
-// ══════════════════════════════════════════════
-// KONPOZAN PRENSIPAL
-// ══════════════════════════════════════════════
-export default function SabotayPage() {
-  const { tenant } = useAuthStore()
-  const lang = tenant?.defaultLanguage || 'ht'
-  const t = T[lang] || T.ht
-  const qc = useQueryClient()
-
-  const [showSaleModal, setShowSaleModal] = useState(false)
-  const [showConfigModal, setShowConfigModal] = useState(false)
-  const [filter, setFilter] = useState('all')
-  const [search, setSearch] = useState('')
-  const [period, setPeriod] = useState('today')
-
-  // ✅ KORIJE — retire blokaj plan, aksè kontwole pa super admin (allowedPages)
-  const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['sabotay-sales', filter, period],
-    queryFn: () => api.get('/sabotay/sales', {
-      params: { status: filter !== 'all' ? filter : undefined, period }
-    }).then(r => r.data),
-    retry: 1,
-    placeholderData: { sales: [], stats: {}, balance: null },
-  })
-
-  const { data: balanceData, refetch: refetchBalance } = useQuery({
-    queryKey: ['sabotay-balance'],
-    queryFn: () => api.get('/sabotay/balance').then(r => r.data),
-    retry: 1,
-    placeholderData: { balance: null },
-  })
-
-  const sales = Array.isArray(data?.sales)
-    ? data.sales.filter(s =>
-        !s ? false :
-        !search ||
-        s.phone?.includes(search) ||
-        s.operator?.toLowerCase().includes(search.toLowerCase())
-      )
-    : []
-
-  const stats = data?.stats || {}
-
-  const createMutation = useMutation({
-    mutationFn: (form) => api.post('/sabotay/sales', form),
-    onSuccess: () => {
-      toast.success('Vant reyisi!')
-      qc.invalidateQueries({ queryKey: ['sabotay-sales'] })
-      qc.invalidateQueries({ queryKey: ['sabotay-balance'] })
-      setShowSaleModal(false)
-    },
-    onError: err => toast.error(err?.response?.data?.message || 'Erè vant')
-  })
+// ─────────────────────────────────────────────────────────────
+// MODAL: ENSKRI KLIYAN NAN PLAN
+// ─────────────────────────────────────────────────────────────
+function ModalAddMember({ plan, onClose, onSave }) {
+  const [form, setForm] = useState({ name:'', phone:'' })
+  const nextPos = (plan.members?.length || 0) + 1
+  const isFull  = nextPos > plan.maxMembers
 
   return (
-    <div style={{ padding: '24px', maxWidth: 900, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ color: COLORS.gold, margin: 0, fontSize: 22, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Smartphone size={22} />{t.title}
-          </h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{t.subtitle}</p>
+    <Modal onClose={onClose} title={`👤 Enskri Kliyan — ${plan.name}`} width={440}>
+      {isFull ? (
+        <div style={{ textAlign:'center', padding:'24px 0' }}>
+          <AlertCircle size={40} style={{ color:D.red, marginBottom:12 }}/>
+          <p style={{ color:D.red, fontWeight:700, fontSize:15 }}>Plan sa a plen! ({plan.maxMembers}/{plan.maxMembers} moun)</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setShowConfigModal(true)} style={{ padding: '8px 14px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: 12 }}>⚙ API</button>
-          <button onClick={() => refetch()} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer' }}><RefreshCw size={14} /></button>
-          <button onClick={() => setShowSaleModal(true)} style={{
-            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            background: `linear-gradient(135deg, ${COLORS.gold}, #a07830)`,
-            color: '#000', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6
-          }}><Plus size={15} />{t.newSale}</button>
-        </div>
-      </div>
-
-      {isError && (
-        <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#C0392B', fontSize: 13 }}>
-          ⚠️ {t.apiError} — {error?.response?.data?.message || error?.message || '500'}
-        </div>
-      )}
-
-      {/* Balans */}
-      <div style={{
-        background: 'linear-gradient(135deg, rgba(201,168,76,0.15), rgba(27,58,107,0.3))',
-        border: `1px solid ${COLORS.border}`, borderRadius: 12, padding: '18px 24px',
-        marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12
-      }}>
-        <div>
-          <div style={{ color: '#64748b', fontSize: 12, marginBottom: 4 }}>{t.balance}</div>
-          <div style={{ color: COLORS.gold, fontWeight: 800, fontSize: 28 }}>
-            {balanceData?.balance != null
-              ? `${Number(balanceData.balance).toLocaleString('fr-HT')} HTG`
-              : '— HTG'}
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+          <div style={{ background:D.goldDim, border:`1px solid ${D.border}`, borderRadius:10, padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:12, color:D.muted }}>Pozisyon li ap okipe:</span>
+            <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:20, color:D.gold }}>#{nextPos}</span>
+          </div>
+          <div>
+            <label style={lbl}>Non Kliyan *</label>
+            <input style={inp} value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} placeholder="Non ak Prenon" />
+          </div>
+          <div>
+            <label style={lbl}>Telefòn *</label>
+            <input style={inp} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="+509 XXXX XXXX" />
+          </div>
+          <div style={{ background:D.goldDim, borderRadius:10, padding:'10px 14px', fontSize:12, color:D.muted }}>
+            <span style={{ color:D.gold, fontWeight:700 }}>Enfòmasyon Sol:</span>
+            <div style={{ marginTop:6, display:'flex', gap:16, flexWrap:'wrap' }}>
+              <span>💰 {fmt(plan.amount)} HTG / {FREQ_LABELS[plan.frequency]?.ht}</span>
+              <span>👥 {plan.members?.length||0}/{plan.maxMembers} moun</span>
+              <span>🏆 Touche: {fmt((plan.amount * plan.maxMembers) - plan.fee)} HTG</span>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:10, marginTop:4 }}>
+            <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>Anile</button>
+            <button onClick={()=>{
+              if(!form.name||!form.phone) return toast.error('Non ak telefòn obligatwa.')
+              onSave({...form, position:nextPos})
+            }} style={{
+              flex:2, padding:'12px', borderRadius:10, border:'none', cursor:'pointer',
+              background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14,
+              display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+            }}>
+              <Users size={15}/> Enskri Kliyan
+            </button>
           </div>
         </div>
-        <button onClick={refetchBalance} style={{ padding: '8px 16px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'rgba(255,255,255,0.06)', color: '#94a3b8', cursor: 'pointer', fontSize: 12 }}>
-          {t.checkBalance}
+      )}
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// KALANDRIYE PLAN
+// ─────────────────────────────────────────────────────────────
+function PlanCalendar({ plan }) {
+  const [monthOffset, setMonthOffset] = useState(0)
+  const today = new Date().toISOString().split('T')[0]
+
+  // Jenere tout dat peman pou chak moun
+  const memberDates = useMemo(() => {
+    return (plan.members || []).map(m => ({
+      ...m,
+      dates: getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers),
+    }))
+  }, [plan])
+
+  // Dat ki nan mwa kounye a
+  const now = new Date()
+  now.setMonth(now.getMonth() + monthOffset)
+  const year  = now.getFullYear()
+  const month = now.getMonth()
+  const monthStr = now.toLocaleDateString('fr-FR', { month:'long', year:'numeric' })
+
+  // Tout dat peman nan mwa sa a
+  const allDates = useMemo(() => {
+    const set = new Set()
+    memberDates.forEach(m => m.dates.forEach(d => {
+      if (new Date(d).getFullYear() === year && new Date(d).getMonth() === month) set.add(d)
+    }))
+    return Array.from(set).sort()
+  }, [memberDates, year, month])
+
+  // Premye jou mwa a + total jou
+  const firstDay = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  // Pou chak dat: ki moun ki dwe peye / ki moun k ap touche
+  function getDateInfo(dateStr) {
+    const payors  = memberDates.filter(m => m.dates.includes(dateStr))
+    const winner  = memberDates.find((m, i) => m.dates[i] === dateStr)
+    return { payors, winner: winner || null }
+  }
+
+  return (
+    <div style={{ marginTop:16 }}>
+      {/* Nav mwa */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+        <button onClick={()=>setMonthOffset(o=>o-1)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.border}`, background:'transparent', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <ChevronLeft size={14}/>
+        </button>
+        <span style={{ fontWeight:800, fontSize:13, color:D.text, textTransform:'capitalize' }}>{monthStr}</span>
+        <button onClick={()=>setMonthOffset(o=>o+1)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.border}`, background:'transparent', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <ChevronRight size={14}/>
         </button>
       </div>
 
-      {/* Statistik */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
+      {/* Header jou */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2, marginBottom:4 }}>
+        {['Di','Lu','Ma','Me','Je','Ve','Sa'].map(d => (
+          <div key={d} style={{ textAlign:'center', fontSize:9, fontWeight:800, color:D.muted, padding:'4px 0' }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Sèl kalandriye */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:2 }}>
+        {/* Espas anvan premye jou */}
+        {Array.from({ length: firstDay }).map((_, i) => (
+          <div key={`empty-${i}`} style={{ aspectRatio:'1', borderRadius:8 }}/>
+        ))}
+        {/* Jou yo */}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const day     = i + 1
+          const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+          const isToday = dateStr === today
+          const { payors, winner } = getDateInfo(dateStr)
+          const hasActivity = payors.length > 0
+          const isPast = dateStr < today
+
+          // Verifye si tout moun nan dat sa a peye
+          const allPaid = payors.length > 0 && payors.every(m => m.payments?.[dateStr])
+          const somePaid = payors.some(m => m.payments?.[dateStr])
+
+          let bg = 'transparent'
+          let borderColor = 'transparent'
+          let textColor = D.muted
+          if (isToday) { bg = D.goldDim; borderColor = D.gold; textColor = D.gold }
+          else if (hasActivity && allPaid) { bg = D.greenBg; borderColor = `${D.green}40`; textColor = D.green }
+          else if (hasActivity && somePaid) { bg = D.orangeBg; borderColor = `${D.orange}40`; textColor = D.orange }
+          else if (hasActivity && isPast) { bg = D.redBg; borderColor = `${D.red}40`; textColor = D.red }
+          else if (hasActivity) { bg = 'rgba(59,130,246,0.08)'; borderColor = 'rgba(59,130,246,0.25)'; textColor = D.blue }
+
+          return (
+            <div key={day} style={{
+              aspectRatio:'1', borderRadius:8, display:'flex', flexDirection:'column',
+              alignItems:'center', justifyContent:'center', position:'relative',
+              background:bg, border:`1px solid ${borderColor}`,
+              cursor: hasActivity ? 'pointer' : 'default',
+              transition:'transform 0.1s',
+            }}>
+              <span style={{ fontSize:11, fontWeight: isToday||hasActivity ? 800 : 400, color:textColor }}>{day}</span>
+              {hasActivity && (
+                <div style={{ display:'flex', gap:1, marginTop:1 }}>
+                  {payors.slice(0,3).map(m => (
+                    <div key={m.id} style={{
+                      width:4, height:4, borderRadius:'50%',
+                      background: m.payments?.[dateStr] ? D.green : (isPast ? D.red : D.blue),
+                    }}/>
+                  ))}
+                  {payors.length > 3 && <span style={{ fontSize:7, color:D.muted }}>+{payors.length-3}</span>}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Lejann */}
+      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:12, fontSize:10, color:D.muted }}>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.green, marginRight:4 }}/>Tout Peye</span>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.orange, marginRight:4 }}/>Pasyèl</span>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.red, marginRight:4 }}/>Pa Peye</span>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.blue, marginRight:4 }}/>Pwochen</span>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// KONT VITYÈL KLIYAN (lekti sèlman)
+// ─────────────────────────────────────────────────────────────
+function MemberVirtualAccount({ member, plan, onClose }) {
+  const dates = useMemo(()=> getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers), [plan])
+  const myDates = dates // chak moun peye chak dat
+
+  // Dat li ap touche a (pozisyon li nan lis la)
+  const winDate = dates[member.position - 1]
+
+  const totalPaid    = myDates.filter(d => member.payments?.[d]).length
+  const totalDue     = myDates.filter(d => d <= new Date().toISOString().split('T')[0]).length
+  const amountPaid   = totalPaid   * plan.amount
+  const amountDue    = totalDue    * plan.amount
+  const balance      = amountPaid  // sa yo deja kontribye
+  const payout       = (plan.amount * plan.maxMembers) - plan.fee
+  const progress     = plan.maxMembers > 0 ? (totalPaid / plan.maxMembers) * 100 : 0
+  const today        = new Date().toISOString().split('T')[0]
+  const isWinner     = winDate <= today && !member.payments?.[winDate]
+
+  return (
+    <Modal onClose={onClose} title={`💳 Kont — ${member.name}`} width={500}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+        {/* Header kont */}
+        <div style={{
+          background:D.goldBtn, borderRadius:14, padding:'16px 18px', color:'#0a1222',
+        }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:8 }}>
+            <div>
+              <p style={{ fontSize:18, fontWeight:900, margin:'0 0 2px' }}>{member.name}</p>
+              <p style={{ fontSize:11, opacity:0.65, margin:0 }}>{member.phone}</p>
+              <p style={{ fontSize:10, opacity:0.6, margin:'3px 0 0' }}>Pozisyon #{member.position} • {plan.name}</p>
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <p style={{ fontSize:9, opacity:0.6, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>Kontribisyon</p>
+              <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:20, margin:'0 0 2px' }}>{fmt(amountPaid)} HTG</p>
+              <p style={{ fontSize:9, opacity:0.5, margin:0 }}>{totalPaid}/{plan.maxMembers} peman</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Alèt touche */}
+        {isWinner && (
+          <div style={{ background:'rgba(39,174,96,0.15)', border:`1px solid ${D.green}50`, borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
+            <Trophy size={22} style={{ color:D.green, flexShrink:0 }}/>
+            <div>
+              <p style={{ fontSize:13, fontWeight:800, color:D.green, margin:0 }}>🎉 Se Moun sa a ki Touche Jodi a!</p>
+              <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Montan: {fmt(payout)} HTG</p>
+            </div>
+          </div>
+        )}
+
+        {/* Stats kart */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(110px,1fr))', gap:10 }}>
+          {[
+            { label:'Deja Peye',     val:`${fmt(amountPaid)} HTG`,   color:D.green  },
+            { label:'Rès pou Peye', val:`${fmt(Math.max(0,amountDue-amountPaid))} HTG`, color:D.red },
+            { label:'Ap Touche',     val:`${fmt(payout)} HTG`,        color:D.gold   },
+            { label:'Dat Touche',    val: winDate ? winDate.split('-').reverse().join('/') : '—', color:D.blue },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{ background:D.card, border:`1px solid ${D.border}`, borderRadius:10, padding:'10px 12px', textAlign:'center' }}>
+              <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', fontWeight:700, marginBottom:4 }}>{label}</div>
+              <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:13, color }}>{val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Bari pwogrè */}
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+            <span style={{ fontSize:10, color:D.muted, fontWeight:700 }}>PWOGRÈ</span>
+            <span style={{ fontSize:10, color:D.gold, fontWeight:800 }}>{Math.round(progress)}%</span>
+          </div>
+          <div style={{ height:8, borderRadius:8, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+            <div style={{ height:'100%', width:`${progress}%`, background:D.goldBtn, borderRadius:8, transition:'width 0.5s' }}/>
+          </div>
+        </div>
+
+        {/* Istwa peman */}
+        <div>
+          <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.muted, margin:'0 0 8px', letterSpacing:'0.06em' }}>
+            Istwa Peman ({totalPaid}/{myDates.length})
+          </p>
+          <div style={{ maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:5 }}>
+            {myDates.slice(0, 30).map((d, i) => {
+              const paid   = !!member.payments?.[d]
+              const isPast = d <= new Date().toISOString().split('T')[0]
+              const isWin  = i === member.position - 1
+              return (
+                <div key={d} style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'8px 12px', borderRadius:9,
+                  background: isWin ? D.goldDim : (paid ? D.greenBg : (isPast ? D.redBg : 'rgba(255,255,255,0.02)')),
+                  border:`1px solid ${isWin ? D.border : (paid ? `${D.green}20` : (isPast ? `${D.red}20` : 'transparent'))}`,
+                }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:10, fontFamily:'monospace', color:D.muted }}>{d.split('-').reverse().join('/')}</span>
+                    {isWin && <span style={{ fontSize:9, background:D.goldDim, color:D.gold, padding:'1px 6px', borderRadius:10, fontWeight:700 }}>🏆 Touche</span>}
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color: paid ? D.green : (isPast ? D.red : D.muted) }}>
+                      {paid ? `+${fmt(plan.amount)}` : isPast ? `-${fmt(plan.amount)}` : `${fmt(plan.amount)}`} HTG
+                    </span>
+                    <PayBadge paid={paid} small />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: MACHE PEYE KLIYAN
+// ─────────────────────────────────────────────────────────────
+function ModalMarkPayment({ member, plan, onClose, onSave }) {
+  const dates = useMemo(()=> getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers), [plan])
+  const today = new Date().toISOString().split('T')[0]
+  const unpaidDates = dates.filter(d => d <= today && !member.payments?.[d])
+
+  const [selectedDates, setSelectedDates] = useState(
+    unpaidDates.length === 1 ? [unpaidDates[0]] : []
+  )
+
+  const toggle = (d) => setSelectedDates(p =>
+    p.includes(d) ? p.filter(x=>x!==d) : [...p, d]
+  )
+
+  return (
+    <Modal onClose={onClose} title={`✅ Mache Peye — ${member.name}`} width={460}>
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+        <div style={{ background:D.goldDim, borderRadius:10, padding:'10px 14px', fontSize:12, color:D.muted }}>
+          <span style={{ color:D.gold, fontWeight:700 }}>Plan: </span>{plan.name} •
+          <span style={{ color:D.gold, fontWeight:700 }}> Montan: </span>{fmt(plan.amount)} HTG / dat
+        </div>
+        {unpaidDates.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'20px 0', color:D.green }}>
+            <CheckCircle size={36} style={{ marginBottom:8 }}/>
+            <p style={{ fontWeight:700 }}>Kliyan sa a ajou nan tout peman l!</p>
+          </div>
+        ) : (
+          <>
+            <p style={{ fontSize:11, color:D.muted, margin:0 }}>Chwazi dat ou vle mache kòm peye:</p>
+            <div style={{ maxHeight:240, overflowY:'auto', display:'flex', flexDirection:'column', gap:5 }}>
+              {unpaidDates.map(d => (
+                <div key={d} onClick={()=>toggle(d)} style={{
+                  display:'flex', alignItems:'center', justifyContent:'space-between',
+                  padding:'10px 13px', borderRadius:9, cursor:'pointer',
+                  background: selectedDates.includes(d) ? D.greenBg : 'rgba(255,255,255,0.03)',
+                  border:`1px solid ${selectedDates.includes(d) ? `${D.green}40` : D.borderSub}`,
+                  transition:'all 0.15s',
+                }}>
+                  <span style={{ fontFamily:'monospace', fontSize:12, color:D.text }}>{d.split('-').reverse().join('/')}</span>
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:D.gold }}>{fmt(plan.amount)} HTG</span>
+                    <div style={{ width:18, height:18, borderRadius:5, border:`2px solid ${selectedDates.includes(d) ? D.green : D.borderSub}`, background: selectedDates.includes(d) ? D.green : 'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      {selectedDates.includes(d) && <CheckCircle size={11} color="#fff"/>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background:D.greenBg, borderRadius:10, padding:'10px 14px', display:'flex', justifyContent:'space-between' }}>
+              <span style={{ fontSize:12, color:D.green, fontWeight:700 }}>Total Chwazi:</span>
+              <span style={{ fontFamily:'monospace', fontWeight:800, color:D.green }}>{fmt(selectedDates.length * plan.amount)} HTG</span>
+            </div>
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>Anile</button>
+              <button onClick={()=>{
+                if(!selectedDates.length) return toast.error('Chwazi omwen yon dat.')
+                onSave(selectedDates)
+              }} style={{
+                flex:2, padding:'12px', borderRadius:10, border:'none', cursor:'pointer',
+                background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14,
+                display:'flex', alignItems:'center', justifyContent:'center', gap:7,
+              }}>
+                <CheckCircle size={15}/> Konfime Peman
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// PANEL DETAY PLAN
+// ─────────────────────────────────────────────────────────────
+function PlanDetail({ plan, onBack, onAddMember, onPaymentSaved }) {
+  const [viewMember,   setViewMember]   = useState(null) // kont vityèl
+  const [payMember,    setPayMember]    = useState(null) // mache peye
+  const [tab,          setTab]          = useState('members') // 'members' | 'calendar'
+  const [plans, setPlans]               = useState(null) // pou update mock
+
+  const today  = new Date().toISOString().split('T')[0]
+  const dates  = useMemo(()=> getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers), [plan])
+
+  // Moun ki ap touche jodi a
+  const todayWinnerIdx = dates.findIndex(d => d === today)
+  const todayWinner    = todayWinnerIdx >= 0 ? plan.members?.[todayWinnerIdx] : null
+
+  // Kalkilasyon global plan
+  const totalCollected = plan.members?.reduce((acc, m) => {
+    return acc + Object.keys(m.payments||{}).filter(d=>m.payments[d]).length * plan.amount
+  }, 0) || 0
+  const totalExpected = plan.members?.reduce((acc, m) => {
+    const due = dates.filter(d => d <= today).length
+    return acc + due * plan.amount
+  }, 0) || 0
+  const payout = (plan.amount * plan.maxMembers) - plan.fee
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+        <button onClick={onBack} style={{ width:36, height:36, borderRadius:10, border:`1px solid ${D.border}`, background:'transparent', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <ArrowLeft size={16}/>
+        </button>
+        <div style={{ flex:1 }}>
+          <h2 style={{ color:D.gold, margin:0, fontSize:18, fontWeight:900 }}>{plan.name}</h2>
+          <p style={{ color:D.muted, margin:0, fontSize:12 }}>{FREQ_LABELS[plan.frequency]?.ht} • {fmt(plan.amount)} HTG / moun</p>
+        </div>
+        <button onClick={onAddMember} style={{
+          padding:'9px 14px', borderRadius:10, border:'none', cursor:'pointer',
+          background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:12,
+          display:'flex', alignItems:'center', gap:6,
+        }}><Plus size={13}/> Enskri</button>
+      </div>
+
+      {/* Alèt moun ki ap touche */}
+      {todayWinner && (
+        <div style={{ background:'linear-gradient(135deg,rgba(39,174,96,0.15),rgba(201,168,76,0.08))', border:`1px solid ${D.green}40`, borderRadius:14, padding:'14px 18px', marginBottom:16, display:'flex', alignItems:'center', gap:12 }}>
+          <div style={{ width:44, height:44, borderRadius:12, background:D.goldBtn, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+            <Trophy size={20} color="#0a1222"/>
+          </div>
+          <div>
+            <p style={{ fontSize:13, fontWeight:800, color:D.green, margin:'0 0 2px' }}>🎉 {todayWinner.name} ap touche jodi a!</p>
+            <p style={{ fontSize:11, color:D.muted, margin:0 }}>Montan: <span style={{ color:D.gold, fontWeight:700 }}>{fmt(payout)} HTG</span> • Pozisyon #{todayWinner.position}</p>
+          </div>
+          <button style={{
+            marginLeft:'auto', padding:'7px 12px', borderRadius:8, border:'none', cursor:'pointer',
+            background:D.greenBg, color:D.green, fontWeight:700, fontSize:11, flexShrink:0,
+            display:'flex', alignItems:'center', gap:5,
+          }}><Bell size={13}/> Notifye</button>
+        </div>
+      )}
+
+      {/* Stats */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:10, marginBottom:16 }}>
         {[
-          { label: t.totalSales,        val: `${Number(stats.totalSales || 0).toLocaleString('fr-HT')} HTG`, icon: <DollarSign size={14} />, color: '#fff' },
-          { label: t.totalProfit,       val: `+${Number(stats.totalProfit || 0).toLocaleString('fr-HT')} HTG`, icon: <TrendingUp size={14} />, color: COLORS.green },
-          { label: t.totalTransactions, val: stats.count || 0, icon: <Package size={14} />, color: COLORS.gold },
-        ].map(({ label, val, icon, color }) => (
-          <div key={label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, textAlign: 'center' }}>
-            <div style={{ color, fontWeight: 800, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>{icon}{val}</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{label}</div>
+          { label:'Moun',        val:`${plan.members?.length||0}/${plan.maxMembers}`, color:D.blue   },
+          { label:'Kolekte',     val:`${fmt(totalCollected)} HTG`,                    color:D.green  },
+          { label:'Rès Atann',   val:`${fmt(Math.max(0,totalExpected-totalCollected))} HTG`, color:D.red },
+          { label:'Pryim Sol',   val:`${fmt(payout)} HTG`,                            color:D.gold   },
+        ].map(({ label, val, color }) => (
+          <div key={label} style={{ background:D.card, border:`1px solid ${D.border}`, borderRadius:10, padding:'11px 13px', textAlign:'center' }}>
+            <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', fontWeight:700, marginBottom:3 }}>{label}</div>
+            <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:13, color }}>{val}</div>
           </div>
         ))}
       </div>
 
-      {/* Filtri */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`${t.phone}...`}
-            style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 8, fontSize: 13, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
-        </div>
-        {['all', 'pending', 'success', 'failed'].map(s => (
-          <button key={s} onClick={() => setFilter(s)} style={{
-            padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: filter === s ? 700 : 400,
-            border: `1px solid ${filter === s ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
-            background: filter === s ? 'rgba(201,168,76,0.15)' : 'transparent',
-            color: filter === s ? COLORS.gold : '#64748b'
-          }}>{t[s] || s}</button>
+      {/* Tabs */}
+      <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+        {[['members','👥 Manm'],['calendar','📅 Kalandriye']].map(([t,l])=>(
+          <button key={t} onClick={()=>setTab(t)} style={{
+            padding:'8px 16px', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:700,
+            border:`1px solid ${tab===t ? D.gold : D.borderSub}`,
+            background: tab===t ? D.goldDim : 'transparent',
+            color: tab===t ? D.gold : D.muted,
+          }}>{l}</button>
         ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-          {['today', 'week', 'month'].map(p => (
-            <button key={p} onClick={() => setPeriod(p)} style={{
-              padding: '6px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-              border: `1px solid ${period === p ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
-              background: period === p ? 'rgba(201,168,76,0.1)' : 'transparent',
-              color: period === p ? COLORS.gold : '#64748b'
-            }}>{t[p]}</button>
-          ))}
-        </div>
       </div>
 
-      {/* Lis vant */}
-      {isLoading ? (
-        <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>Chajman...</div>
-      ) : sales.length === 0 ? (
-        <div style={{ textAlign: 'center', color: '#64748b', padding: 60, background: COLORS.card, borderRadius: 12, border: `1px dashed ${COLORS.border}` }}>
-          <Smartphone size={40} color="#334155" style={{ marginBottom: 12 }} />
-          <p style={{ margin: 0 }}>{t.noSales}</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {sales.map((sale, idx) => {
-            if (!sale) return null
-            const ss = STATUS_STYLE[sale.status] || STATUS_STYLE.pending
-            const profit = sale.sellingPrice && sale.costPrice
-              ? Number(sale.sellingPrice) - Number(sale.costPrice) : null
+      {/* Tab Manm */}
+      {tab === 'members' && (
+        <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+          {!plan.members?.length ? (
+            <div style={{ textAlign:'center', padding:40, color:D.muted }}>
+              <Users size={32} style={{ opacity:0.3, display:'block', margin:'0 auto 8px' }}/>
+              <p style={{ margin:0 }}>Pa gen manm. Enskri premye kliyan ou!</p>
+            </div>
+          ) : plan.members.map(m => {
+            const due  = dates.filter(d => d <= today).length
+            const paid = Object.keys(m.payments||{}).filter(d=>m.payments[d]).length
+            const isWin = dates[m.position-1] === today
             return (
-              <div key={sale.id ?? `sale-${idx}`} style={{
-                background: COLORS.card, border: `1px solid ${COLORS.border}`,
-                borderRadius: 10, padding: '12px 16px',
-                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
+              <div key={m.id} style={{
+                background: isWin ? 'linear-gradient(135deg,rgba(39,174,96,0.10),rgba(201,168,76,0.06))' : D.card,
+                border:`1px solid ${isWin ? `${D.green}40` : D.border}`,
+                borderRadius:12, padding:'11px 14px',
               }}>
-                <div style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: 'rgba(201,168,76,0.12)', color: COLORS.gold, minWidth: 64, textAlign: 'center' }}>
-                  {sale.operator || '—'}
-                </div>
-                <div style={{ flex: 1, minWidth: 120 }}>
-                  <div style={{ color: '#fff', fontFamily: 'monospace', fontWeight: 700, fontSize: 14 }}>{sale.phone || '—'}</div>
-                  <div style={{ color: '#64748b', fontSize: 11 }}>
-                    {sale.createdAt ? new Date(sale.createdAt).toLocaleString('fr-FR') : '—'}
+                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                  {/* Badge pozisyon */}
+                  <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:D.goldDim, border:`1px solid ${D.border}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:13, color:D.gold }}>#{m.position}</span>
+                  </div>
+                  {/* Info */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                      <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{m.name}</span>
+                      {isWin && <span style={{ fontSize:9, background:D.greenBg, color:D.green, padding:'1px 7px', borderRadius:10, fontWeight:700, border:`1px solid ${D.green}30` }}>🏆 Touche Jodi</span>}
+                    </div>
+                    <div style={{ fontSize:11, color:D.muted, marginTop:1 }}>{m.phone}</div>
+                  </div>
+                  {/* Pwogrè peman */}
+                  <div style={{ textAlign:'right', minWidth:70 }}>
+                    <div style={{ fontFamily:'monospace', fontSize:11, color: paid>=due ? D.green : (due>0?D.orange:D.muted), fontWeight:700 }}>
+                      {paid}/{due} peye
+                    </div>
+                    <div style={{ fontSize:10, color:D.muted }}>{fmt(paid*plan.amount)} HTG</div>
+                  </div>
+                  {/* Aksyon */}
+                  <div style={{ display:'flex', gap:5 }}>
+                    <button onClick={()=>setPayMember(m)} title="Mache Peye"
+                      style={{ width:28, height:28, borderRadius:7, border:'none', background:D.greenBg, color:D.green, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <CheckCircle size={13}/>
+                    </button>
+                    <button onClick={()=>setViewMember(m)} title="Kont Vityèl"
+                      style={{ width:28, height:28, borderRadius:7, border:'none', background:D.goldDim, color:D.gold, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <Eye size={13}/>
+                    </button>
                   </div>
                 </div>
-                <div style={{ textAlign: 'right', minWidth: 90 }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>{Number(sale.amount || 0).toLocaleString('fr-HT')} HTG</div>
-                  <div style={{ color: '#64748b', fontSize: 11 }}>{t.amount}</div>
-                </div>
-                {profit !== null && (
-                  <div style={{ textAlign: 'right', minWidth: 80 }}>
-                    <div style={{ color: profit >= 0 ? COLORS.green : COLORS.red, fontWeight: 700, fontSize: 14 }}>
-                      {profit >= 0 ? '+' : ''}{profit.toLocaleString('fr-HT')}
+
+                {/* Mini bari pwogrè */}
+                {due > 0 && (
+                  <div style={{ marginTop:8 }}>
+                    <div style={{ height:4, borderRadius:4, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${Math.min(100,(paid/due)*100)}%`, background: paid>=due ? D.green : D.gold, borderRadius:4 }}/>
                     </div>
-                    <div style={{ color: '#64748b', fontSize: 11 }}>{t.profit}</div>
                   </div>
                 )}
-                <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.color }}>
-                  {t[sale.status] || sale.status}
-                </span>
               </div>
             )
           })}
         </div>
       )}
 
-      {showSaleModal && <SaleModal lang={lang} onClose={() => setShowSaleModal(false)} onSave={(form) => createMutation.mutate(form)} />}
-      {showConfigModal && <ApiConfigModal lang={lang} onClose={() => setShowConfigModal(false)} />}
+      {/* Tab Kalandriye */}
+      {tab === 'calendar' && <PlanCalendar plan={plan}/>}
+
+      {/* Modals */}
+      {viewMember && (
+        <MemberVirtualAccount member={viewMember} plan={plan} onClose={()=>setViewMember(null)}/>
+      )}
+      {payMember && (
+        <ModalMarkPayment
+          member={payMember} plan={plan}
+          onClose={()=>setPayMember(null)}
+          onSave={(selectedDates)=>{
+            onPaymentSaved(plan.id, payMember.id, selectedDates)
+            setPayMember(null)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAGE PRENSIPAL
+// ═══════════════════════════════════════════════════════════════
+export default function SabotayPage() {
+  const { tenant } = useAuthStore()
+  const [plans,       setPlans]       = useState(MOCK_PLANS)
+  const [activePlan,  setActivePlan]  = useState(null) // Plan kounye a seleksyone
+  const [showCreate,  setShowCreate]  = useState(false)
+  const [addMemberFor,setAddMemberFor]= useState(null)
+  const [search,      setSearch]      = useState('')
+
+  const today = new Date().toISOString().split('T')[0]
+
+  // Stats global
+  const totalPlans    = plans.length
+  const totalMembers  = plans.reduce((a,p)=>(a+(p.members?.length||0)),0)
+  const totalCollected= plans.reduce((acc,p)=>{
+    return acc + (p.members||[]).reduce((a,m)=>{
+      return a + Object.keys(m.payments||{}).filter(d=>m.payments[d]).length * p.amount
+    },0)
+  },0)
+  const todayWinners  = plans.flatMap(p => {
+    const dates = getPaymentDates(p.frequency, p.createdAt, p.maxMembers)
+    const idx   = dates.findIndex(d => d === today)
+    return idx >= 0 && p.members?.[idx] ? [{ plan:p, member:p.members[idx] }] : []
+  })
+
+  const filteredPlans = plans.filter(p =>
+    !search || p.name.toLowerCase().includes(search.toLowerCase())
+  )
+
+  // Handlers (mock — remplace ak API calls)
+  const handleCreatePlan = (data) => {
+    const newPlan = { ...data, id: _nextPlanId++, members:[], createdAt: today, active:true }
+    setPlans(p => [...p, newPlan])
+    toast.success(`Plan "${data.name}" kreye!`)
+    setShowCreate(false)
+  }
+
+  const handleAddMember = (planId, memberData) => {
+    setPlans(p => p.map(plan =>
+      plan.id !== planId ? plan : {
+        ...plan,
+        members: [...(plan.members||[]), {
+          ...memberData,
+          id: _nextMemberId++,
+          joinedAt: today,
+          payments: {},
+        }]
+      }
+    ))
+    toast.success(`${memberData.name} enskri nan plan!`)
+    setAddMemberFor(null)
+    // Refresh activePlan reference
+    setActivePlan(prev => prev?.id === planId
+      ? { ...prev, members: [...(prev.members||[]), { ...memberData, id:_nextMemberId-1, joinedAt:today, payments:{} }] }
+      : prev
+    )
+  }
+
+  const handlePaymentSaved = (planId, memberId, selectedDates) => {
+    setPlans(p => p.map(plan => {
+      if (plan.id !== planId) return plan
+      return {
+        ...plan,
+        members: plan.members.map(m => {
+          if (m.id !== memberId) return m
+          const newPays = { ...m.payments }
+          selectedDates.forEach(d => { newPays[d] = true })
+          return { ...m, payments: newPays }
+        })
+      }
+    }))
+    // Refresh activePlan
+    setActivePlan(prev => {
+      if (!prev || prev.id !== planId) return prev
+      return {
+        ...prev,
+        members: prev.members.map(m => {
+          if (m.id !== memberId) return m
+          const newPays = { ...m.payments }
+          selectedDates.forEach(d => { newPays[d] = true })
+          return { ...m, payments: newPays }
+        })
+      }
+    })
+    toast.success(`${selectedDates.length} peman anrejistre!`)
+  }
+
+  // Si yon plan seleksyone, montre detay
+  if (activePlan) {
+    const freshPlan = plans.find(p => p.id === activePlan.id) || activePlan
+    return (
+      <div style={{ padding:'0 0 60px', fontFamily:'DM Sans, sans-serif', maxWidth:860, margin:'0 auto' }}>
+        <style>{`@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}} @media(min-width:640px){.m-sheet{border-radius:20px!important;margin:20px!important;max-height:88vh!important;}} .m-sheet::-webkit-scrollbar{width:3px} .m-sheet::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:2px} .m-sheet input::placeholder,.m-sheet textarea::placeholder{color:#2a3a54} .m-sheet select option{background:#0d1b2a;color:#e8eaf0}`}</style>
+        <PlanDetail
+          plan={freshPlan}
+          onBack={()=>setActivePlan(null)}
+          onAddMember={()=>setAddMemberFor(freshPlan)}
+          onPaymentSaved={handlePaymentSaved}
+        />
+        {addMemberFor && (
+          <ModalAddMember
+            plan={addMemberFor}
+            onClose={()=>setAddMemberFor(null)}
+            onSave={(data)=>handleAddMember(addMemberFor.id, data)}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // VÈ PRENSIPAL — lis plan yo
+  return (
+    <div style={{ padding:'0 0 60px', fontFamily:'DM Sans, sans-serif', maxWidth:860, margin:'0 auto' }}>
+      <style>{`
+        @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @media(min-width:640px){.m-sheet{border-radius:20px!important;margin:20px!important;max-height:88vh!important;}}
+        .m-sheet::-webkit-scrollbar{width:3px} .m-sheet::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:2px}
+        .m-sheet input::placeholder,.m-sheet textarea::placeholder{color:#2a3a54}
+        .m-sheet select option{background:#0d1b2a;color:#e8eaf0}
+        .plan-card:hover{background:#112236!important;transform:translateY(-2px);}
+        .plan-card{transition:all 0.18s;}
+        @media(max-width:640px){
+          .top-stats{grid-template-columns:1fr 1fr!important;}
+          .page-head{flex-direction:column;align-items:flex-start!important;}
+        }
+      `}</style>
+
+      {/* Header */}
+      <div className="page-head" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, marginBottom:20, flexWrap:'wrap' }}>
+        <div>
+          <h1 style={{ fontSize:21, fontWeight:900, color:D.gold, margin:'0 0 3px', display:'flex', alignItems:'center', gap:8 }}>
+            <Users size={20}/> Sabotay Sol
+          </h1>
+          <p style={{ fontSize:12, color:D.muted, margin:0 }}>Sistèm sol wotatif pou kliyan yo</p>
+        </div>
+        <button onClick={()=>setShowCreate(true)} style={{
+          display:'flex', alignItems:'center', gap:7,
+          padding:'10px 18px', borderRadius:12, border:'none', cursor:'pointer',
+          background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:13,
+          boxShadow:'0 4px 16px rgba(201,168,76,0.28)', whiteSpace:'nowrap',
+        }}><Plus size={15}/> Nouvo Plan</button>
+      </div>
+
+      {/* Alèt moun ki ap touche jodi a */}
+      {todayWinners.length > 0 && (
+        <div style={{ marginBottom:16, display:'flex', flexDirection:'column', gap:8 }}>
+          {todayWinners.map(({ plan, member }) => (
+            <div key={`${plan.id}-${member.id}`} style={{
+              background:'linear-gradient(135deg,rgba(201,168,76,0.12),rgba(39,174,96,0.08))',
+              border:`1px solid ${D.gold}40`, borderRadius:14, padding:'12px 16px',
+              display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
+            }}>
+              <Trophy size={20} style={{ color:D.gold, flexShrink:0 }}/>
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ fontSize:13, fontWeight:800, color:D.gold, margin:'0 0 1px' }}>
+                  🎉 {member.name} — {plan.name}
+                </p>
+                <p style={{ fontSize:11, color:D.muted, margin:0 }}>
+                  Touche: <span style={{ color:D.green, fontWeight:700 }}>{fmt((plan.amount*plan.maxMembers)-plan.fee)} HTG</span>
+                </p>
+              </div>
+              <button style={{ padding:'7px 12px', borderRadius:8, border:`1px solid ${D.gold}40`, background:D.goldDim, color:D.gold, fontWeight:700, fontSize:11, cursor:'pointer', display:'flex', alignItems:'center', gap:5, flexShrink:0 }}>
+                <Bell size={12}/> Notifye
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Stats global */}
+      <div className="top-stats" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:11, marginBottom:20 }}>
+        {[
+          { label:'Total Plan',    val:totalPlans,              icon:<Settings size={17}/>,   color:D.gold   },
+          { label:'Total Manm',    val:totalMembers,            icon:<Users size={17}/>,      color:D.blue   },
+          { label:'Total Kolekte', val:`${fmt(totalCollected)} HTG`, icon:<Wallet size={17}/>, color:D.green  },
+          { label:'Touche Jodi',   val:todayWinners.length,     icon:<Trophy size={17}/>,     color:D.orange  },
+        ].map(({ label, val, icon, color }) => (
+          <div key={label} style={{ background:D.card, border:`1px solid ${D.border}`, borderRadius:14, padding:'13px 15px', display:'flex', alignItems:'center', gap:11 }}>
+            <div style={{ width:40, height:40, borderRadius:11, flexShrink:0, background:`linear-gradient(135deg,${color},${color}CC)`, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <span style={{ color:'#fff' }}>{icon}</span>
+            </div>
+            <div>
+              <div style={{ fontSize:9, fontWeight:800, textTransform:'uppercase', color:D.muted, letterSpacing:'0.06em', marginBottom:2 }}>{label}</div>
+              <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:14, color:D.text }}>{val}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Recherch */}
+      <div style={{ position:'relative', maxWidth:380, marginBottom:16 }}>
+        <Search size={13} style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', color:D.muted, pointerEvents:'none' }}/>
+        <input style={{ ...inp, paddingLeft:34 }} placeholder="Chèche plan..."
+          value={search} onChange={e=>setSearch(e.target.value)}/>
+      </div>
+
+      {/* Lis plan */}
+      {filteredPlans.length === 0 ? (
+        <div style={{ textAlign:'center', padding:60, background:D.card, borderRadius:16, border:`1px dashed ${D.border}` }}>
+          <Users size={38} style={{ color:D.muted, opacity:0.3, display:'block', margin:'0 auto 10px' }}/>
+          <p style={{ color:D.muted, margin:0, fontSize:13 }}>Pa gen plan. Kreye premye plan ou!</p>
+        </div>
+      ) : (
+        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {filteredPlans.map(plan => {
+            const dates = getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers)
+            const collected = (plan.members||[]).reduce((acc,m)=>{
+              return acc + Object.keys(m.payments||{}).filter(d=>m.payments[d]).length * plan.amount
+            },0)
+            const expected = (plan.members||[]).reduce((acc,m)=>{
+              return acc + dates.filter(d=>d<=today).length * plan.amount
+            },0)
+            const pct = expected > 0 ? Math.min(100,(collected/expected)*100) : 0
+            const payout = (plan.amount * plan.maxMembers) - plan.fee
+            const isWinToday = dates.findIndex(d=>d===today) >= 0 && plan.members?.[dates.findIndex(d=>d===today)]
+
+            return (
+              <div key={plan.id} className="plan-card"
+                onClick={()=>setActivePlan(plan)}
+                style={{ background:D.card, border:`1px solid ${isWinToday?`${D.gold}60`:D.border}`, borderRadius:14, padding:'14px 16px', cursor:'pointer' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                  {/* Ikòn */}
+                  <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:D.goldBtn, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <span style={{ fontSize:18 }}>🏦</span>
+                  </div>
+                  {/* Info prensipal */}
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:2 }}>
+                      <span style={{ fontSize:14, fontWeight:800, color:D.text }}>{plan.name}</span>
+                      {isWinToday && <span style={{ fontSize:9, background:D.greenBg, color:D.green, padding:'1px 7px', borderRadius:10, fontWeight:700, border:`1px solid ${D.green}30` }}>🏆 Touche Jodi</span>}
+                    </div>
+                    <div style={{ display:'flex', gap:10, fontSize:11, color:D.muted, flexWrap:'wrap' }}>
+                      <span style={{ color:D.gold, fontWeight:700 }}>{fmt(plan.amount)} HTG</span>
+                      <span>•</span>
+                      <span>{FREQ_LABELS[plan.frequency]?.ht}</span>
+                      <span>•</span>
+                      <span style={{ color: plan.members?.length>=plan.maxMembers ? D.red : D.muted }}>
+                        {plan.members?.length||0}/{plan.maxMembers} manm
+                      </span>
+                    </div>
+                  </div>
+                  {/* Pryim */}
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <div style={{ fontSize:9, color:D.muted, textTransform:'uppercase', marginBottom:2 }}>Pryim Sol</div>
+                    <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:15, color:D.green }}>{fmt(payout)} HTG</div>
+                  </div>
+                  <ChevronRight size={16} style={{ color:D.muted, flexShrink:0 }}/>
+                </div>
+
+                {/* Bari pwogrè */}
+                {expected > 0 && (
+                  <div style={{ marginTop:10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                      <span style={{ fontSize:9, color:D.muted }}>Kolekte: {fmt(collected)} HTG</span>
+                      <span style={{ fontSize:9, color:D.gold, fontWeight:700 }}>{Math.round(pct)}%</span>
+                    </div>
+                    <div style={{ height:5, borderRadius:4, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                      <div style={{ height:'100%', width:`${pct}%`, background:D.goldBtn, borderRadius:4, transition:'width 0.5s' }}/>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Modals */}
+      {showCreate && (
+        <ModalCreatePlan onClose={()=>setShowCreate(false)} onSave={handleCreatePlan}/>
+      )}
     </div>
   )
 }
