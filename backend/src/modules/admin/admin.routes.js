@@ -73,7 +73,7 @@ async function logAudit(tenantId, action, targetEmail, targetName, details = {})
     // FIX: $executeRawUnsafe ak positional params pou evite UUID cast error ak Supabase/pgBouncer
     await prisma.$executeRawUnsafe(
       `INSERT INTO admin_audit_logs (tenant_id, action, target_email, target_name, details)
-       VALUES ($1::uuid, $2, $3, $4, $5::jsonb)`,
+       VALUES (CAST($1 AS uuid), $2, $3, $4, CAST($5 AS jsonb))`,
       tenantId,
       action,
       targetEmail || null,
@@ -583,7 +583,7 @@ router.get('/tenants/:id/pages', asyncHandler(async (req, res) => {
   try {
     // FIX: $queryRawUnsafe ak positional param pou UUID cast
     const rows = await prisma.$queryRawUnsafe(
-      `SELECT allowed_pages FROM tenants WHERE id = $1::uuid`,
+      `SELECT allowed_pages FROM tenants WHERE id = CAST($1 AS uuid)`,
       req.params.id
     )
     if (!rows || rows.length === 0)
@@ -616,7 +616,7 @@ router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
   try {
     // FIX: $executeRawUnsafe ak positional params pou UUID cast
     await prisma.$executeRawUnsafe(
-      `UPDATE tenants SET allowed_pages = $1::jsonb WHERE id = $2::uuid`,
+      `UPDATE tenants SET allowed_pages = CAST($1 AS jsonb) WHERE id = CAST($2 AS uuid)`,
       JSON.stringify(sanitized),
       req.params.id
     )
@@ -650,7 +650,7 @@ router.patch('/tenants/:id/monthly-price', asyncHandler(async (req, res) => {
   try {
     // FIX: $executeRawUnsafe ak positional params pou UUID cast
     await prisma.$executeRawUnsafe(
-      `UPDATE tenants SET monthly_price = $1 WHERE id = $2::uuid`,
+      `UPDATE tenants SET monthly_price = $1 WHERE id = CAST($2 AS uuid)`,
       price,
       req.params.id
     )
@@ -680,7 +680,7 @@ router.get('/tenants/:id/audit', asyncHandler(async (req, res) => {
     const logs = await prisma.$queryRawUnsafe(
       `SELECT id::text, action, actor, target_email, target_name, details, created_at
        FROM admin_audit_logs
-       WHERE tenant_id = $1::uuid
+       WHERE tenant_id = CAST($1 AS uuid)
        ORDER BY created_at DESC
        LIMIT 100`,
       req.params.id
