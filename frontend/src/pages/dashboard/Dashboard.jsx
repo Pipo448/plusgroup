@@ -160,7 +160,7 @@ export default function Dashboard() {
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates     || {}
-  const visibleCurrs  = tenant?.visibleCurrencies  || []
+  const visibleCurrs  = Array.isArray(tenant?.visibleCurrencies) ? tenant.visibleCurrencies : []
 
   const branchId = localStorage.getItem('plusgroup-branch-id') || undefined
   const isAdmin  = user?.role === 'admin'
@@ -432,7 +432,7 @@ export default function Dashboard() {
                 <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.noAlerts')}</p>
               </div>
             : <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                {lowStock.slice(0,5).map(p=>(
+                {(Array.isArray(lowStock) ? lowStock : []).slice(0,5).map(p=>(
                   <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(192,57,43,0.05)',border:`1px solid ${D.border}`}}>
                     <AlertTriangle size={13} style={{color:D.red,flexShrink:0}}/>
                     <div style={{flex:1,minWidth:0}}>
@@ -512,7 +512,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dashboard.recentInvoices.map((inv,idx)=>(
+                  {(dashboard?.recentInvoices || []).map((inv,idx)=>(
                     <InvoiceRow key={inv.id} inv={inv} idx={idx} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
                   ))}
                 </tbody>
