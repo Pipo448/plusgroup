@@ -1,12 +1,13 @@
 // src/pages/enterprise/SabotayPage.jsx
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   Users, Plus, X, Calendar, ChevronRight, ChevronLeft,
   Wallet, TrendingUp, Bell, Eye, CheckCircle, Clock,
   Settings, RefreshCw, Trophy, AlertCircle, ArrowLeft, Search,
-  Printer, Bluetooth, BluetoothOff,
+  Printer, Bluetooth, BluetoothOff, Key, Zap, AlertTriangle,
+  Star, UserCheck,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
@@ -23,33 +24,33 @@ let _nextMemberId = 10
 const MOCK_PLANS = [
   {
     id: 1, name: 'Sol 100 Jou', amount: 100, fee: 10,
-    frequency: 'daily', maxMembers: 20,
+    frequency: 'daily', maxMembers: 20, dueTime: '08:00',
     members: [
-      { id: 1, name: 'Marie Joseph',   phone: '+509 3714-0001', position: 1,  joinedAt: '2025-01-01', payments: { '2025-03-01': true, '2025-03-02': true, '2025-03-03': false } },
-      { id: 2, name: 'Jean Pierre',    phone: '+509 3714-0002', position: 2,  joinedAt: '2025-01-02', payments: { '2025-03-01': true, '2025-03-02': false } },
-      { id: 3, name: 'Rose Dorval',    phone: '+509 3714-0003', position: 3,  joinedAt: '2025-01-03', payments: { '2025-03-01': true } },
-      { id: 4, name: 'Claude Moreau',  phone: '+509 3714-0004', position: 4,  joinedAt: '2025-01-04', payments: {} },
-      { id: 5, name: 'Anne Bertrand',  phone: '+509 3714-0005', position: 5,  joinedAt: '2025-01-05', payments: { '2025-03-01': true, '2025-03-02': true } },
+      { id: 1, name: 'Marie Joseph',   phone: '+509 3714-0001', position: 1,  joinedAt: '2025-01-01', payments: { '2025-03-01': true, '2025-03-02': true, '2025-03-03': false }, paymentTimings: { '2025-03-01': 'early', '2025-03-02': 'onTime' } },
+      { id: 2, name: 'Jean Pierre',    phone: '+509 3714-0002', position: 2,  joinedAt: '2025-01-02', payments: { '2025-03-01': true, '2025-03-02': false }, paymentTimings: { '2025-03-01': 'late' } },
+      { id: 3, name: 'Rose Dorval',    phone: '+509 3714-0003', position: 3,  joinedAt: '2025-01-03', payments: { '2025-03-01': true }, paymentTimings: { '2025-03-01': 'onTime' } },
+      { id: 4, name: 'Claude Moreau',  phone: '+509 3714-0004', position: 4,  joinedAt: '2025-01-04', payments: {}, paymentTimings: {} },
+      { id: 5, name: 'Anne Bertrand',  phone: '+509 3714-0005', position: 5,  joinedAt: '2025-01-05', payments: { '2025-03-01': true, '2025-03-02': true }, paymentTimings: { '2025-03-01': 'early', '2025-03-02': 'early' } },
     ],
     createdAt: '2025-01-01',
     active: true,
   },
   {
     id: 2, name: 'Sol 500 Samdi', amount: 500, fee: 50,
-    frequency: 'weekly_saturday', maxMembers: 10,
+    frequency: 'weekly_saturday', maxMembers: 10, dueTime: '09:00',
     members: [
-      { id: 6, name: 'Paul Estimé',    phone: '+509 3714-0006', position: 1,  joinedAt: '2025-01-05', payments: { '2025-03-01': true } },
-      { id: 7, name: 'Lucie Francois', phone: '+509 3714-0007', position: 2,  joinedAt: '2025-01-06', payments: {} },
-      { id: 8, name: 'Marc Antoine',   phone: '+509 3714-0008', position: 3,  joinedAt: '2025-01-07', payments: { '2025-03-01': true } },
+      { id: 6, name: 'Paul Estimé',    phone: '+509 3714-0006', position: 1,  joinedAt: '2025-01-05', payments: { '2025-03-01': true }, paymentTimings: { '2025-03-01': 'onTime' } },
+      { id: 7, name: 'Lucie Francois', phone: '+509 3714-0007', position: 2,  joinedAt: '2025-01-06', payments: {}, paymentTimings: {} },
+      { id: 8, name: 'Marc Antoine',   phone: '+509 3714-0008', position: 3,  joinedAt: '2025-01-07', payments: { '2025-03-01': true }, paymentTimings: { '2025-03-01': 'late' } },
     ],
     createdAt: '2025-01-05',
     active: true,
   },
   {
     id: 3, name: 'Sol 1000 Mwa', amount: 1000, fee: 100,
-    frequency: 'monthly', maxMembers: 15,
+    frequency: 'monthly', maxMembers: 15, dueTime: '10:00',
     members: [
-      { id: 9, name: 'Simone Lafleur', phone: '+509 3714-0009', position: 1, joinedAt: '2025-01-10', payments: { '2025-03-01': true } },
+      { id: 9, name: 'Simone Lafleur', phone: '+509 3714-0009', position: 1, joinedAt: '2025-01-10', payments: { '2025-03-01': true }, paymentTimings: { '2025-03-01': 'early' } },
     ],
     createdAt: '2025-01-10',
     active: true,
@@ -91,6 +92,45 @@ const D = {
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+
+// ─────────────────────────────────────────────────────────────
+// TIMING HELPERS
+// ─────────────────────────────────────────────────────────────
+function getPaymentTiming(plan, paymentDate) {
+  // Si peye avan dat la: early
+  // Si peye jodi a avan lè + 60min: onTime
+  // Si peye pita: late
+  const today = new Date().toISOString().split('T')[0]
+  if (paymentDate < today) return 'late' // peye yon dat ki pase
+  const now = new Date()
+  const [dueH, dueM] = (plan.dueTime || '08:00').split(':').map(Number)
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+  const dueMins = dueH * 60 + dueM
+  if (nowMins < dueMins - 15) return 'early'
+  if (nowMins <= dueMins + 60) return 'onTime'
+  return 'late'
+}
+
+function getMemberScore(member) {
+  const timings = Object.values(member.paymentTimings || {})
+  if (!timings.length) return null
+  const early  = timings.filter(t => t === 'early').length
+  const onTime = timings.filter(t => t === 'onTime').length
+  const late   = timings.filter(t => t === 'late').length
+  const score  = Math.round(((early * 2 + onTime * 1) / (timings.length * 2)) * 100)
+  return { score, early, onTime, late, total: timings.length }
+}
+
+// Jenere kredansyèl kliyan
+function generateCredentials(name, phone) {
+  const firstName = name.split(' ')[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const phoneLast4 = phone.replace(/\D/g,'').slice(-4)
+  const username = `${firstName}${phoneLast4}`
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let password = ''
+  for (let i = 0; i < 6; i++) password += chars[Math.floor(Math.random() * chars.length)]
+  return { username, password }
+}
 
 // ─────────────────────────────────────────────────────────────
 // PRINTER HOOK — Bluetooth ESC/POS
@@ -338,7 +378,7 @@ const Sec = ({ icon, title, children }) => (
 // MODAL: KREYE NOUVO PLAN SOL
 // ─────────────────────────────────────────────────────────────
 function ModalCreatePlan({ onClose, onSave }) {
-  const [form, setForm] = useState({ name: '', amount: '', fee: '', frequency: 'daily', maxMembers: '' })
+  const [form, setForm] = useState({ name: '', amount: '', fee: '', frequency: 'daily', maxMembers: '', dueTime: '08:00' })
   const set = (k,v) => setForm(p=>({...p,[k]:v}))
   const totalPool = form.amount && form.maxMembers ? Number(form.amount) * Number(form.maxMembers) : 0
   const payout = totalPool - Number(form.fee || 0)
@@ -366,6 +406,11 @@ function ModalCreatePlan({ onClose, onSave }) {
               <label style={lbl}>Kantite Moun Max *</label>
               <input type="number" style={{...inp, color:D.blue, fontWeight:700}}
                 value={form.maxMembers} onChange={e=>set('maxMembers',e.target.value)} placeholder="20" />
+            </div>
+            <div>
+              <label style={lbl}>Lè Peman (dueTime) *</label>
+              <input type="time" style={{...inp, color:D.purple, fontWeight:700}}
+                value={form.dueTime} onChange={e=>set('dueTime',e.target.value)} />
             </div>
           </div>
         </Sec>
@@ -403,7 +448,7 @@ function ModalCreatePlan({ onClose, onSave }) {
           <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700, fontSize:14 }}>Anile</button>
           <button onClick={()=>{
             if(!form.name||!form.amount||!form.maxMembers) return toast.error('Non, montan, ak kantite moun obligatwa.')
-            onSave({...form, amount:Number(form.amount), fee:Number(form.fee||0), maxMembers:Number(form.maxMembers)})
+            onSave({...form, amount:Number(form.amount), fee:Number(form.fee||0), maxMembers:Number(form.maxMembers), dueTime: form.dueTime||'08:00'})
           }} style={{
             flex:2, padding:'12px', borderRadius:10, border:'none', cursor:'pointer',
             background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14,
@@ -417,12 +462,81 @@ function ModalCreatePlan({ onClose, onSave }) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// MODAL: KREDANSYÈL KLIYAN
+// ─────────────────────────────────────────────────────────────
+function ModalMemberCredentials({ member, credentials, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const text = `Non: ${member.name}\nItilizatè: ${credentials.username}\nModpas: ${credentials.password}`
+
+  const copy = () => {
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true); setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  return (
+    <Modal onClose={onClose} title="🔑 Kont Kliyan Kreye!" width={400}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div style={{ background:'rgba(39,174,96,0.12)', border:`1px solid ${D.green}30`, borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
+          <UserCheck size={22} style={{ color:D.green, flexShrink:0 }}/>
+          <div>
+            <p style={{ fontSize:13, fontWeight:800, color:D.green, margin:0 }}>Kont kreye pou {member.name}</p>
+            <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Kliyan ka konekte pou wè kont li</p>
+          </div>
+        </div>
+
+        <div style={{ background:'rgba(155,89,182,0.08)', border:`1px solid rgba(155,89,182,0.20)`, borderRadius:14, padding:'16px' }}>
+          <p style={{ fontSize:10, fontWeight:800, color:D.purple, textTransform:'uppercase', margin:'0 0 12px', letterSpacing:'0.06em' }}>
+            <Key size={11} style={{ marginRight:4, verticalAlign:'middle' }}/> Enfòmasyon Koneksyon
+          </p>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            <div>
+              <div style={{ fontSize:10, color:D.muted, marginBottom:4 }}>Non Itilizatè</div>
+              <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:18, color:D.text, background:'rgba(0,0,0,0.25)', padding:'10px 14px', borderRadius:8, letterSpacing:'0.05em' }}>
+                {credentials.username}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize:10, color:D.muted, marginBottom:4 }}>Modpas Pwovizwa</div>
+              <div style={{ fontFamily:'monospace', fontWeight:800, fontSize:22, color:D.gold, background:'rgba(0,0,0,0.25)', padding:'10px 14px', borderRadius:8, letterSpacing:'0.15em', textAlign:'center' }}>
+                {credentials.password}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p style={{ fontSize:11, color:D.muted, margin:0, background:D.redBg, borderRadius:8, padding:'8px 12px' }}>
+          ⚠️ Note modpas sa kounye a. Kliyan dwe chanje l apre premye koneksyon.
+        </p>
+
+        <div style={{ display:'flex', gap:10 }}>
+          <button onClick={copy} style={{
+            flex:1, padding:'11px', borderRadius:10, border:`1px solid ${D.borderSub}`,
+            background:'rgba(255,255,255,0.05)', color: copied ? D.green : D.muted,
+            cursor:'pointer', fontWeight:700, fontSize:13,
+          }}>{copied ? '✅ Kopye!' : '📋 Kopye'}</button>
+          <button onClick={onClose} style={{
+            flex:2, padding:'11px', borderRadius:10, border:'none',
+            background:D.goldBtn, color:'#0a1222', cursor:'pointer', fontWeight:800, fontSize:13,
+          }}>Fèmen</button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 // MODAL: ENSKRI KLIYAN NAN PLAN
 // ─────────────────────────────────────────────────────────────
 function ModalAddMember({ plan, onClose, onSave }) {
   const [form, setForm] = useState({ name:'', phone:'' })
+  const [showCreds, setShowCreds] = useState(null) // { member, credentials }
   const nextPos = (plan.members?.length || 0) + 1
   const isFull  = nextPos > plan.maxMembers
+
+  if (showCreds) {
+    return <ModalMemberCredentials member={showCreds.member} credentials={showCreds.credentials} onClose={onClose}/>
+  }
 
   return (
     <Modal onClose={onClose} title={`👤 Enskri Kliyan — ${plan.name}`} width={440}>
@@ -453,16 +567,23 @@ function ModalAddMember({ plan, onClose, onSave }) {
               <span>🏆 Touche: {fmt((plan.amount * plan.maxMembers) - plan.fee)} HTG</span>
             </div>
           </div>
+          <div style={{ background:'rgba(155,89,182,0.08)', border:`1px solid rgba(155,89,182,0.15)`, borderRadius:10, padding:'10px 14px', fontSize:11, color:D.muted, display:'flex', alignItems:'center', gap:8 }}>
+            <Key size={13} style={{ color:D.purple, flexShrink:0 }}/>
+            <span>Sistèm ap <strong style={{ color:D.purple }}>kreye yon kont</strong> otomatikman pou kliyan an konekte wè sol li.</span>
+          </div>
           <div style={{ display:'flex', gap:10, marginTop:4 }}>
             <button onClick={onClose} style={{ flex:1, padding:'12px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>Anile</button>
             <button onClick={()=>{
               if(!form.name||!form.phone) return toast.error('Non ak telefòn obligatwa.')
-              onSave({...form, position:nextPos})
+              const credentials = generateCredentials(form.name, form.phone)
+              const memberData = { ...form, position:nextPos, credentials }
+              onSave(memberData)
+              setShowCreds({ member: memberData, credentials })
             }} style={{
               flex:2, padding:'12px', borderRadius:10, border:'none', cursor:'pointer',
               background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14,
               display:'flex', alignItems:'center', justifyContent:'center', gap:7,
-            }}><Users size={15}/> Enskri Kliyan</button>
+            }}><Users size={15}/> Enskri + Kreye Kont</button>
           </div>
         </div>
       )}
@@ -499,13 +620,23 @@ function PlanCalendar({ plan }) {
     return { payors, winner: winner || null }
   }
 
+  // Timing dot color
+  function timingColor(m, dateStr, isPast) {
+    const timing = m.paymentTimings?.[dateStr]
+    if (!m.payments?.[dateStr]) return isPast ? D.red : D.blue
+    if (timing === 'early')  return '#00d084'  // vert vif
+    if (timing === 'onTime') return D.green
+    if (timing === 'late')   return D.orange
+    return D.green
+  }
+
   return (
     <div style={{ marginTop:16 }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
         <button onClick={()=>setMonthOffset(o=>o-1)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.border}`, background:'transparent', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <ChevronLeft size={14}/>
         </button>
-        <span style={{ fontWeight:800, fontSize:13, color:D.text, textTransform:'capitalize' }}>{monthStr}</span>
+        <span style={{ fontWeight:800, fontSize:13, color:'#fff', textTransform:'capitalize' }}>{monthStr}</span>
         <button onClick={()=>setMonthOffset(o=>o+1)} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.border}`, background:'transparent', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
           <ChevronRight size={14}/>
         </button>
@@ -547,7 +678,7 @@ function PlanCalendar({ plan }) {
               {hasActivity && (
                 <div style={{ display:'flex', gap:1, marginTop:1 }}>
                   {payors.slice(0,3).map(m => (
-                    <div key={m.id} style={{ width:4, height:4, borderRadius:'50%', background: m.payments?.[dateStr] ? D.green : (isPast ? D.red : D.blue) }}/>
+                    <div key={m.id} style={{ width:4, height:4, borderRadius:'50%', background: timingColor(m, dateStr, isPast) }}/>
                   ))}
                   {payors.length > 3 && <span style={{ fontSize:7, color:D.muted }}>+{payors.length-3}</span>}
                 </div>
@@ -556,9 +687,10 @@ function PlanCalendar({ plan }) {
           )
         })}
       </div>
-      <div style={{ display:'flex', gap:12, flexWrap:'wrap', marginTop:12, fontSize:10, color:D.muted }}>
-        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.green,  marginRight:4 }}/>Tout Peye</span>
-        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.orange, marginRight:4 }}/>Pasyèl</span>
+      <div style={{ display:'flex', gap:10, flexWrap:'wrap', marginTop:12, fontSize:10, color:D.muted }}>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:'#00d084', marginRight:4 }}/>Bonè ⚡</span>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.green,  marginRight:4 }}/>Atètan ✅</span>
+        <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.orange, marginRight:4 }}/>Reta ⚠️</span>
         <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.red,    marginRight:4 }}/>Pa Peye</span>
         <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:'50%', background:D.blue,   marginRight:4 }}/>Pwochen</span>
       </div>
@@ -582,6 +714,14 @@ function MemberVirtualAccount({ member, plan, onClose, printer }) {
   const payout     = (plan.amount * plan.maxMembers) - plan.fee
   const progress   = plan.maxMembers > 0 ? (totalPaid / plan.maxMembers) * 100 : 0
   const isWinner   = winDate <= today && !member.payments?.[winDate]
+  const scoreData  = getMemberScore(member)
+
+  const timingBadge = (timing) => {
+    if (timing === 'early')  return <span style={{ fontSize:8, background:'rgba(0,208,132,0.15)', color:'#00d084', padding:'1px 5px', borderRadius:8, fontWeight:700 }}>⚡ Bonè</span>
+    if (timing === 'onTime') return <span style={{ fontSize:8, background:D.greenBg, color:D.green, padding:'1px 5px', borderRadius:8, fontWeight:700 }}>✅ Atètan</span>
+    if (timing === 'late')   return <span style={{ fontSize:8, background:D.orangeBg, color:D.orange, padding:'1px 5px', borderRadius:8, fontWeight:700 }}>⚠️ Reta</span>
+    return null
+  }
 
   return (
     <Modal onClose={onClose} title={`💳 Kont — ${member.name}`} width={500}>
@@ -638,7 +778,43 @@ function MemberVirtualAccount({ member, plan, onClose, printer }) {
           </div>
         </div>
 
-        {/* ✅ Bouton Enprime Kont */}
+        {/* Skò Pèfòmans */}
+        {scoreData && (
+          <div style={{ background:'rgba(59,130,246,0.06)', border:`1px solid rgba(59,130,246,0.15)`, borderRadius:12, padding:'11px 14px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <span style={{ fontSize:10, fontWeight:800, color:D.blue, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+                <Star size={11} style={{ marginRight:4, verticalAlign:'middle' }}/>Pèfòmans
+              </span>
+              <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color: scoreData.score >= 80 ? '#00d084' : scoreData.score >= 50 ? D.orange : D.red }}>
+                {scoreData.score}%
+              </span>
+            </div>
+            <div style={{ display:'flex', gap:10, fontSize:10 }}>
+              <span style={{ color:'#00d084', fontWeight:700 }}>⚡ {scoreData.early} bonè</span>
+              <span style={{ color:D.green, fontWeight:700 }}>✅ {scoreData.onTime} atètan</span>
+              <span style={{ color:D.orange, fontWeight:700 }}>⚠️ {scoreData.late} reta</span>
+            </div>
+          </div>
+        )}
+
+        {/* Kredansyèl kliyan */}
+        {member.credentials && (
+          <div style={{ background:'rgba(155,89,182,0.08)', border:`1px solid rgba(155,89,182,0.20)`, borderRadius:12, padding:'11px 14px' }}>
+            <p style={{ fontSize:10, fontWeight:800, color:D.purple, textTransform:'uppercase', margin:'0 0 8px', display:'flex', alignItems:'center', gap:5 }}>
+              <Key size={11}/> Aksè Kont Kliyan
+            </p>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              <div>
+                <div style={{ fontSize:9, color:D.muted, marginBottom:2 }}>Non Itilizatè</div>
+                <div style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:12, background:'rgba(0,0,0,0.2)', padding:'4px 8px', borderRadius:6 }}>{member.credentials.username}</div>
+              </div>
+              <div>
+                <div style={{ fontSize:9, color:D.muted, marginBottom:2 }}>Modpas</div>
+                <div style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:12, background:'rgba(0,0,0,0.2)', padding:'4px 8px', borderRadius:6 }}>{member.credentials.password}</div>
+              </div>
+            </div>
+          </div>
+        )}
         <button
           onClick={() => printer.print(plan, member, [], tenant, 'kont')}
           disabled={printer.printing}
@@ -658,9 +834,10 @@ function MemberVirtualAccount({ member, plan, onClose, printer }) {
           </p>
           <div style={{ maxHeight:220, overflowY:'auto', display:'flex', flexDirection:'column', gap:5 }}>
             {dates.slice(0, 30).map((d, i) => {
-              const paid   = !!member.payments?.[d]
-              const isPast = d <= today
-              const isWin  = i === member.position - 1
+              const paid    = !!member.payments?.[d]
+              const timing  = member.paymentTimings?.[d]
+              const isPast  = d <= today
+              const isWin   = i === member.position - 1
               return (
                 <div key={d} style={{
                   display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -668,9 +845,10 @@ function MemberVirtualAccount({ member, plan, onClose, printer }) {
                   background: isWin ? D.goldDim : (paid ? D.greenBg : (isPast ? D.redBg : 'rgba(255,255,255,0.02)')),
                   border:`1px solid ${isWin ? D.border : (paid ? `${D.green}20` : (isPast ? `${D.red}20` : 'transparent'))}`,
                 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                     <span style={{ fontSize:10, fontFamily:'monospace', color:D.muted }}>{d.split('-').reverse().join('/')}</span>
                     {isWin && <span style={{ fontSize:9, background:D.goldDim, color:D.gold, padding:'1px 6px', borderRadius:10, fontWeight:700 }}>🏆 Touche</span>}
+                    {paid && timingBadge(timing)}
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color: paid ? D.green : (isPast ? D.red : D.muted) }}>
@@ -704,7 +882,10 @@ function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 
   const handleConfirm = async () => {
     if (!selectedDates.length) return toast.error('Chwazi omwen yon dat.')
-    onSave(selectedDates)
+    // Kalkile timing pou chak dat
+    const timings = {}
+    selectedDates.forEach(d => { timings[d] = getPaymentTiming(plan, d) })
+    onSave(selectedDates, timings)
     // ✅ Enprime resi apre konfirmasyon
     await printer.print(plan, member, selectedDates, tenant, 'peman')
   }
@@ -875,6 +1056,12 @@ function PlanDetail({ plan, onBack, onAddMember, onPaymentSaved, printer }) {
                     <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                       <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{m.name}</span>
                       {isWin && <span style={{ fontSize:9, background:D.greenBg, color:D.green, padding:'1px 7px', borderRadius:10, fontWeight:700, border:`1px solid ${D.green}30` }}>🏆 Touche Jodi</span>}
+                      {(() => { const s = getMemberScore(m); return s ? (
+                        <span style={{ fontSize:9, padding:'1px 7px', borderRadius:10, fontWeight:700,
+                          background: s.score >= 80 ? 'rgba(0,208,132,0.12)' : s.score >= 50 ? D.orangeBg : D.redBg,
+                          color: s.score >= 80 ? '#00d084' : s.score >= 50 ? D.orange : D.red,
+                        }}>⭐ {s.score}%</span>
+                      ) : null })()}
                     </div>
                     <div style={{ fontSize:11, color:D.muted, marginTop:1 }}>{m.phone}</div>
                   </div>
@@ -918,8 +1105,8 @@ function PlanDetail({ plan, onBack, onAddMember, onPaymentSaved, printer }) {
           member={payMember} plan={plan}
           onClose={()=>setPayMember(null)}
           printer={printer}
-          onSave={(selectedDates)=>{
-            onPaymentSaved(plan.id, payMember.id, selectedDates)
+          onSave={(selectedDates, timings)=>{
+            onPaymentSaved(plan.id, payMember.id, selectedDates, timings)
             setPayMember(null)
           }}
         />
@@ -968,23 +1155,27 @@ export default function SabotayPage() {
     setPlans(p => p.map(plan =>
       plan.id !== planId ? plan : {
         ...plan,
-        members: [...(plan.members||[]), { ...memberData, id: _nextMemberId++, joinedAt: today, payments: {} }]
+        members: [...(plan.members||[]), { ...memberData, id: _nextMemberId++, joinedAt: today, payments: {}, paymentTimings: {} }]
       }
     ))
     toast.success(`${memberData.name} enskri nan plan!`)
     setAddMemberFor(null)
     setActivePlan(prev => prev?.id === planId
-      ? { ...prev, members: [...(prev.members||[]), { ...memberData, id:_nextMemberId-1, joinedAt:today, payments:{} }] }
+      ? { ...prev, members: [...(prev.members||[]), { ...memberData, id:_nextMemberId-1, joinedAt:today, payments:{}, paymentTimings:{} }] }
       : prev
     )
   }
 
-  const handlePaymentSaved = (planId, memberId, selectedDates) => {
+  const handlePaymentSaved = (planId, memberId, selectedDates, timings = {}) => {
     const updateMembers = (members) => members.map(m => {
       if (m.id !== memberId) return m
       const newPays = { ...m.payments }
-      selectedDates.forEach(d => { newPays[d] = true })
-      return { ...m, payments: newPays }
+      const newTimings = { ...(m.paymentTimings || {}) }
+      selectedDates.forEach(d => {
+        newPays[d] = true
+        newTimings[d] = timings[d] || 'onTime'
+      })
+      return { ...m, payments: newPays, paymentTimings: newTimings }
     })
     setPlans(p => p.map(plan =>
       plan.id !== planId ? plan : { ...plan, members: updateMembers(plan.members) }
@@ -993,8 +1184,45 @@ export default function SabotayPage() {
       if (!prev || prev.id !== planId) return prev
       return { ...prev, members: updateMembers(prev.members) }
     })
-    toast.success(`${selectedDates.length} peman anrejistre!`)
+    const lateCount = Object.values(timings).filter(t => t === 'late').length
+    const earlyCount = Object.values(timings).filter(t => t === 'early').length
+    let msg = `${selectedDates.length} peman anrejistre!`
+    if (earlyCount > 0) msg += ` ⚡ ${earlyCount} bonè`
+    if (lateCount > 0)  msg += ` ⚠️ ${lateCount} reta`
+    toast.success(msg)
   }
+
+  // ── Notifikasyon 30 min avan lè peman
+  useEffect(() => {
+    const checkNotifications = () => {
+      const now = new Date()
+      const todayStr = now.toISOString().split('T')[0]
+      const nowMins = now.getHours() * 60 + now.getMinutes()
+
+      plans.forEach(plan => {
+        const [dueH, dueM] = (plan.dueTime || '08:00').split(':').map(Number)
+        const dueMins = dueH * 60 + dueM
+        const diff = dueMins - nowMins
+
+        // 28-32 minit avan lè = fenèt notifikasyon (pou evite double)
+        if (diff >= 28 && diff <= 32) {
+          const dates = getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers)
+          const unpaid = plan.members?.filter(m => dates.includes(todayStr) && !m.payments?.[todayStr])
+          if (unpaid?.length > 0) {
+            toast(`🔔 ${plan.name}: ${unpaid.length} kliyan dwe peye nan 30 minit (${plan.dueTime})`, {
+              duration: 8000,
+              icon: '⏰',
+              style: { background: '#0d1b2a', color: '#e8eaf0', border: '1px solid rgba(201,168,76,0.3)' }
+            })
+          }
+        }
+      })
+    }
+
+    checkNotifications()
+    const interval = setInterval(checkNotifications, 60000) // chak minit
+    return () => clearInterval(interval)
+  }, [plans])
 
   // ── Vue detay plan
   if (activePlan) {
