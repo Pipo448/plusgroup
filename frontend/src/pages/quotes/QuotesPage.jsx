@@ -66,11 +66,9 @@ const STATUS_COLORS = {
   expired:   { color:'#D97706', bg:'rgba(217,119,6,0.10)'  },
 }
 
+// ✅ KORIJE — useIsMobile kounye a pwòp: pa gen memory leak, pa gen addEventListener andeyo useEffect
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', () => setIsMobile(window.innerWidth < 640))
-  }
   return isMobile
 }
 
@@ -79,7 +77,7 @@ export default function QuotesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage]     = useState(1)
-  const navigate    = useNavigate()
+  const navigate    = useNavigate()  // ✅ defini isit nan parent
   const qc          = useQueryClient()
   const isMobile    = useIsMobile()
   const { tenant }  = useAuthStore()
@@ -192,7 +190,8 @@ export default function QuotesPage() {
               </Link>
             </div>
           ) : data.quotes.map((q, idx) => (
-            <QuoteRow key={q.id} q={q} idx={idx} D={D} fmt={fmt} t={t} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs} convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}/>
+            // ✅ KORIJE — pase navigate kòm prop bay QuoteRow
+            <QuoteRow key={q.id} q={q} idx={idx} D={D} fmt={fmt} t={t} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs} navigate={navigate} convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}/>
           ))}
         </div>
       )}
@@ -269,7 +268,8 @@ function QuoteCard({ q, D, fmt, t, showRate, exchangeRates, visibleCurrs, conver
   )
 }
 
-function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeRates, visibleCurrs, convertMutation, cancelMutation, sendMutation }) {
+// ✅ KORIJE — aksepte navigate kòm prop (pa te defini anvan, sa te koz crash)
+function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeRates, visibleCurrs, navigate, convertMutation, cancelMutation, sendMutation }) {
   const [hov, setHov] = useState(false)
   const sc = STATUS_COLORS[q.status] || STATUS_COLORS.draft
   const isExpired = q.expiryDate && new Date(q.expiryDate) < new Date()
@@ -297,6 +297,7 @@ function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeRates, visibleCurrs, co
       <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired ? D.red : D.muted }}>{q.expiryDate ? toHaitiDate(q.expiryDate, 'dd/MM/yy') : '-'}</span>
       <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
         <Link to={`/app/quotes/${q.id}`} style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}><Eye size={13}/></Link>
+        {/* ✅ navigate(…) kounye a travay — li resevwa l kòm prop */}
         {['draft','sent'].includes(q.status) && actionBtn(() => navigate(`/app/quotes/${q.id}/edit`), <Edit2 size={12}/>, t('common.edit'), D.blue)}
         {q.status==='draft' && actionBtn(()=>sendMutation.mutate(q.id), <Send size={12}/>, t('quotes.send'), '#0284C7')}
         {['draft','sent','accepted'].includes(q.status) && actionBtn(()=>{ if(confirm(t('quotes.convertConfirm'))) convertMutation.mutate(q.id) }, <CheckCircle size={12}/>, t('quotes.convert'), D.success)}
