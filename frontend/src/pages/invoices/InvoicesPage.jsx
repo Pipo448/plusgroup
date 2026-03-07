@@ -25,6 +25,18 @@ const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigit
 
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
+// ✅ FIX: parseCurrencies — jere string, string JSON, array, oswa null
+const parseCurrencies = (raw) => {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    if (raw.startsWith('[')) {
+      try { return JSON.parse(raw) } catch { return [] }
+    }
+    if (raw.trim().length > 0) return [raw.trim()]
+  }
+  return []
+}
+
 const convertFromHTG = (amountHTG, currency, exchangeRates = {}) => {
   const rateToHTG = Number(exchangeRates[currency] || 0)
   if (!rateToHTG) return null
@@ -60,8 +72,9 @@ export default function InvoicesPage() {
   const { tenant } = useAuthStore()
 
   const showRate      = tenant?.showExchangeRate !== false
-  const exchangeRates = tenant?.exchangeRates     || {}
-  const visibleCurrs  = tenant?.visibleCurrencies  || []
+  const exchangeRates = tenant?.exchangeRates || {}
+  // ✅ FIX: parseCurrencies pou evite .map() sou string
+  const visibleCurrs  = parseCurrencies(tenant?.visibleCurrencies)
   const requireQuote  = tenant?.requireQuote === true
 
   const STATUS_MAP = {
@@ -74,19 +87,18 @@ export default function InvoicesPage() {
 
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['invoices', search, status, page],
-    // ✅ FIX: normalize response isit menm — pa kite undefined pase
+    // ✅ FIX: normalize response — garanti invoices toujou yon array
     queryFn: () => invoiceAPI.getAll({ search, status, page, limit: 15 }).then(r => {
       const d = r.data || {}
       return {
         invoices: Array.isArray(d.invoices) ? d.invoices : [],
-        total:    d.total    || 0,
-        pages:    d.pages    || 1,
+        total:    d.total || 0,
+        pages:    d.pages || 1,
       }
     }),
     keepPreviousData: true,
   })
 
-  // ✅ FIX: toujou garanti invoices se yon array
   const data = rawData
     ? { ...rawData, invoices: Array.isArray(rawData.invoices) ? rawData.invoices : [] }
     : null
