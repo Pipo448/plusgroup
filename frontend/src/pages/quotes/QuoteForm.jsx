@@ -11,11 +11,14 @@ import {
   ChevronDown, Package, User, Calculator
 } from 'lucide-react'
 
+// ✅ KORIJE — retire addEventListener andeyo useEffect (memory leak)
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', () => setIsMobile(window.innerWidth < 640))
-  }
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
   return isMobile
 }
 
@@ -72,7 +75,6 @@ const ClientSearch = ({ value, onChange }) => {
 }
 
 // ── Atik — vèsyon MOBIL (kat)
-// ✅ Autocomplete depi 1 lèt + bouton ↑ + klavye navigation
 const ItemCard = ({ item, index, onChange, onRemove }) => {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -82,7 +84,7 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
   const { data: productResults } = useQuery({
     queryKey: ['product-search-card', search],
     queryFn: () => productAPI.getAll({ search, limit: 8 }).then(r => r.data.products),
-    enabled: search.length >= 1   // ✅ depi 1 premye lèt
+    enabled: search.length >= 1
   })
 
   const selectProduct = (p) => {
@@ -108,7 +110,6 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
   return (
     <div style={{ background:'#F8F9FF', borderRadius:12, border:'1.5px solid rgba(27,42,143,0.12)', padding:'12px 14px', display:'flex', flexDirection:'column', gap:10 }}>
 
-      {/* Header kat: Nimewo + Siprime */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
         <span style={{ fontSize:11, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em' }}>Atik #{index + 1}</span>
         <button type="button" onClick={() => onRemove(index)}
@@ -117,7 +118,6 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
         </button>
       </div>
 
-      {/* Rechèch pwodui */}
       <div style={{ position:'relative' }}>
         {item.productName
           ? <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'white', borderRadius:10, border:'1.5px solid rgba(27,42,143,0.15)' }}>
@@ -145,7 +145,6 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
                 />
               </div>
 
-              {/* ✅ DROPDOWN AUTOCOMPLETE */}
               {open && productResults?.length > 0 && (
                 <div style={{
                   position:'absolute', top:'100%', left:0, right:0, marginTop:4,
@@ -165,11 +164,7 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
                       }}
                     >
                       <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                        <div style={{
-                          width:30, height:30, borderRadius:8, flexShrink:0,
-                          background:'rgba(27,42,143,0.07)',
-                          display:'flex', alignItems:'center', justifyContent:'center'
-                        }}>
+                        <div style={{ width:30, height:30, borderRadius:8, flexShrink:0, background:'rgba(27,42,143,0.07)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                           <Package size={13} color="#1B2A8F"/>
                         </div>
                         <div>
@@ -177,17 +172,11 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
                           <p style={{ fontSize:10, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{p.code} · {p.unit}</p>
                         </div>
                       </div>
-                      {/* Pri + Bouton ↑ */}
                       <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
                         <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:700, color:'#1B2A8F' }}>
                           {Number(p.priceHtg).toLocaleString('fr-HT', { minimumFractionDigits:2 })} HTG
                         </span>
-                        <div style={{
-                          width:26, height:26, borderRadius:7,
-                          background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)',
-                          display:'flex', alignItems:'center', justifyContent:'center',
-                          boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0
-                        }}>
+                        <div style={{ width:26, height:26, borderRadius:7, background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0 }}>
                           <span style={{ color:'white', fontSize:14, lineHeight:1, fontWeight:900 }}>↑</span>
                         </div>
                       </div>
@@ -202,32 +191,24 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
         }
       </div>
 
-      {/* Qte + Pri nan yon ranje */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>{t('quotes.qty')}</label>
           <input type="number" step="0.001" min="0.001" className="input text-center text-sm py-2"
-            value={item.quantity}
-            onFocus={e => e.target.select()}
-            onChange={e => update('quantity', e.target.value)}/>
+            value={item.quantity} onFocus={e => e.target.select()} onChange={e => update('quantity', e.target.value)}/>
         </div>
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
           <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-            value={item.unitPriceHtg}
-            onFocus={e => e.target.select()}
-            onChange={e => update('unitPriceHtg', e.target.value)}/>
+            value={item.unitPriceHtg} onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
         </div>
       </div>
 
-      {/* Remiz + Total */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, alignItems:'center' }}>
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Remiz %</label>
           <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-            value={item.discountPct || 0}
-            onFocus={e => e.target.select()}
-            onChange={e => update('discountPct', e.target.value)}/>
+            value={item.discountPct || 0} onFocus={e => e.target.select()} onChange={e => update('discountPct', e.target.value)}/>
         </div>
         <div style={{ textAlign:'right' }}>
           <p style={{ fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 5px' }}>Total</p>
@@ -241,7 +222,6 @@ const ItemCard = ({ item, index, onChange, onRemove }) => {
 }
 
 // ── Atik — vèsyon DESKTOP (tablo)
-// ✅ Autocomplete depi 1 lèt + bouton ↑ + klavye navigation
 const ItemRow = ({ item, index, onChange, onRemove }) => {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
@@ -251,7 +231,7 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
   const { data: productResults } = useQuery({
     queryKey: ['product-search-row', search],
     queryFn: () => productAPI.getAll({ search, limit: 8 }).then(r => r.data.products),
-    enabled: search.length >= 1   // ✅ depi 1 premye lèt
+    enabled: search.length >= 1
   })
 
   const selectProduct = (p) => {
@@ -263,7 +243,6 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
     setSearch(''); setOpen(false); setActiveIdx(-1)
   }
 
-  // ✅ Navigasyon klavye: ↑ ↓ Enter Escape
   const handleKey = (e) => {
     if (!productResults?.length) return
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, productResults.length - 1)) }
@@ -302,7 +281,6 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
                   />
                 </div>
 
-                {/* ✅ DROPDOWN AUTOCOMPLETE DESKTOP */}
                 {open && productResults?.length > 0 && (
                   <div style={{
                     position:'absolute', top:'100%', left:0, right:0, marginTop:4,
@@ -323,13 +301,8 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
                         onMouseEnter={e => { e.currentTarget.style.background = i === activeIdx ? 'rgba(27,42,143,0.07)' : 'rgba(27,42,143,0.04)' }}
                         onMouseLeave={e => { e.currentTarget.style.background = i === activeIdx ? 'rgba(27,42,143,0.07)' : 'white' }}
                       >
-                        {/* Enfòmasyon pwodui */}
                         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                          <div style={{
-                            width:32, height:32, borderRadius:9, flexShrink:0,
-                            background:'rgba(27,42,143,0.07)',
-                            display:'flex', alignItems:'center', justifyContent:'center'
-                          }}>
+                          <div style={{ width:32, height:32, borderRadius:9, flexShrink:0, background:'rgba(27,42,143,0.07)', display:'flex', alignItems:'center', justifyContent:'center' }}>
                             <Package size={14} color="#1B2A8F"/>
                           </div>
                           <div>
@@ -337,17 +310,11 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
                             <p style={{ fontSize:10, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{p.code} · {p.unit}</p>
                           </div>
                         </div>
-                        {/* Pri + ✅ Bouton ↑ pou monte nan tablo */}
                         <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
                           <span style={{ fontSize:12, fontFamily:'monospace', fontWeight:700, color:'#1B2A8F' }}>
                             {Number(p.priceHtg).toLocaleString('fr-HT', { minimumFractionDigits:2 })} HTG
                           </span>
-                          <div style={{
-                            width:28, height:28, borderRadius:8,
-                            background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)',
-                            display:'flex', alignItems:'center', justifyContent:'center',
-                            boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0
-                          }}>
+                          <div style={{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg, #1B2A8F, #2D3FBF)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 2px 8px rgba(27,42,143,0.3)', flexShrink:0 }}>
                             <span style={{ color:'white', fontSize:15, lineHeight:1, fontWeight:900 }}>↑</span>
                           </div>
                         </div>
@@ -365,21 +332,15 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
       </td>
       <td className="p-2 w-24">
         <input type="number" step="0.001" min="0.001" className="input text-center text-sm py-2"
-          value={item.quantity}
-          onFocus={e => e.target.select()}
-          onChange={e => update('quantity', e.target.value)} />
+          value={item.quantity} onFocus={e => e.target.select()} onChange={e => update('quantity', e.target.value)} />
       </td>
       <td className="p-2 w-32">
         <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-          value={item.unitPriceHtg}
-          onFocus={e => e.target.select()}
-          onChange={e => update('unitPriceHtg', e.target.value)} />
+          value={item.unitPriceHtg} onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)} />
       </td>
       <td className="p-2 w-20">
         <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-          value={item.discountPct || 0}
-          onFocus={e => e.target.select()}
-          onChange={e => update('discountPct', e.target.value)} />
+          value={item.discountPct || 0} onFocus={e => e.target.select()} onChange={e => update('discountPct', e.target.value)} />
       </td>
       <td className="p-2 w-36 text-right">
         <span className="font-mono font-semibold text-slate-800">
@@ -395,7 +356,7 @@ const ItemRow = ({ item, index, onChange, onRemove }) => {
   )
 }
 
-// ── Main QuoteForm (pa chanje)
+// ── Main QuoteForm
 export default function QuoteForm() {
   const { t } = useTranslation()
   const navigate  = useNavigate()
@@ -423,25 +384,29 @@ export default function QuoteForm() {
   })
 
   useEffect(() => {
-    if (existingQuote) {
-      setClient(existingQuote.client || existingQuote.clientSnapshot)
-      setItems(existingQuote.items.map(i => ({
-        productId: i.productId,
-        productName: i.product?.name || i.productSnapshot?.name || '',
-        productCode: i.product?.code || i.productSnapshot?.code || '',
-        quantity: Number(i.quantity),
-        unitPriceHtg: Number(i.unitPriceHtg),
-        unitPriceUsd: Number(i.unitPriceUsd),
-        discountPct: Number(i.discountPct),
-        unit: i.product?.unit || i.productSnapshot?.unit || 'unité'
-      })))
-      setDiscountType(existingQuote.discountType)
-      setDiscountValue(Number(existingQuote.discountValue))
-      setTaxRate(Number(existingQuote.taxRate))
-      setNotes(existingQuote.notes || '')
-      setTerms(existingQuote.terms || '')
-      setCurrency(existingQuote.currency)
-    }
+    if (!existingQuote) return
+    setClient(existingQuote.client || existingQuote.clientSnapshot)
+    // ✅ KORIJE — pwoteje kont existingQuote.items undefined
+    const rawItems = Array.isArray(existingQuote.items) ? existingQuote.items : []
+    setItems(rawItems.length > 0
+      ? rawItems.map(i => ({
+          productId:    i.productId,
+          productName:  i.product?.name    || i.productSnapshot?.name  || '',
+          productCode:  i.product?.code    || i.productSnapshot?.code  || '',
+          quantity:     Number(i.quantity),
+          unitPriceHtg: Number(i.unitPriceHtg),
+          unitPriceUsd: Number(i.unitPriceUsd),
+          discountPct:  Number(i.discountPct),
+          unit:         i.product?.unit    || i.productSnapshot?.unit  || 'unité'
+        }))
+      : [{ productId: null, productName: '', productCode: '', quantity: 1, unitPriceHtg: 0, unitPriceUsd: 0, discountPct: 0, unit: 'unité' }]
+    )
+    setDiscountType(existingQuote.discountType)
+    setDiscountValue(Number(existingQuote.discountValue))
+    setTaxRate(Number(existingQuote.taxRate))
+    setNotes(existingQuote.notes || '')
+    setTerms(existingQuote.terms || '')
+    setCurrency(existingQuote.currency)
   }, [existingQuote])
 
   const subtotal = items.reduce((acc, item) =>
@@ -461,7 +426,8 @@ export default function QuoteForm() {
     mutationFn: (data) => isEdit ? quoteAPI.update(id, data) : quoteAPI.create(data),
     onSuccess: (res) => {
       toast.success(isEdit ? t('quotes.quoteUpdated') : t('quotes.quoteCreated'))
-      navigate(`/quotes/${res.data.quote?.id || id}`)
+      // ✅ KORIJE — te '/quotes/...' (mal), kounye a '/app/quotes/...' (kòrèk)
+      navigate(`/app/quotes/${res.data.quote?.id || id}`)
     }
   })
 
@@ -484,7 +450,6 @@ export default function QuoteForm() {
     })
   }
 
-  // Blok totaux (reutilize pou mobil ak desktop)
   const TotauxBlock = () => {
     const rate    = Number(tenant?.exchangeRate || 132)
     const factor  = currency === 'USD' ? (1 / rate) : 1
@@ -523,9 +488,7 @@ export default function QuoteForm() {
                 <option value="percent">{t('quotes.percentage')} (%)</option>
               </select>
               <input type="number" min="0" step="0.01" className="input py-1.5 text-sm w-24 text-right font-mono"
-                value={discountValue}
-                onFocus={e => e.target.select()}
-                onChange={e => setDiscountValue(e.target.value)} />
+                value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)} />
             </div>
             {discountAmt * factor > 0 && (
               <div className="flex justify-between text-sm text-red-600">
@@ -538,9 +501,7 @@ export default function QuoteForm() {
           <div className="border-t border-slate-100 pt-3">
             <label className="label">{t('quotes.taxVAT')} (%)</label>
             <input type="number" min="0" max="100" step="0.5" className="input py-1.5 text-sm text-right font-mono"
-              value={taxRate}
-              onFocus={e => e.target.select()}
-              onChange={e => setTaxRate(e.target.value)} />
+              value={taxRate} onFocus={e => e.target.select()} onChange={e => setTaxRate(e.target.value)} />
             {taxAmt * factor > 0 && (
               <div className="flex justify-between text-sm text-slate-600 mt-2">
                 <span>{t('quotes.taxVAT')} ({taxRate}%)</span>
@@ -567,7 +528,6 @@ export default function QuoteForm() {
           </div>
         </div>
 
-        {/* Bouton sove sou mobil */}
         {isMobile && (
           <button type="submit" disabled={mutation.isPending} className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
             <Save size={16}/> {mutation.isPending ? t('common.saving') : isEdit ? t('common.update') : t('quotes.createQuote')}
@@ -579,10 +539,10 @@ export default function QuoteForm() {
 
   return (
     <form onSubmit={handleSubmit} className="animate-fade-in max-w-5xl">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate('/quotes')} className="btn-ghost p-2">
+          {/* ✅ KORIJE — te '/quotes' (mal), kounye a '/app/quotes' (kòrèk) */}
+          <button type="button" onClick={() => navigate('/app/quotes')} className="btn-ghost p-2">
             <ArrowLeft size={18} />
           </button>
           <div>
@@ -600,7 +560,6 @@ export default function QuoteForm() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Infos client */}
           <div className="card p-5">
             <h3 className="section-title">{t('quotes.clientInfo')}</h3>
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
@@ -622,7 +581,6 @@ export default function QuoteForm() {
             </div>
           </div>
 
-          {/* Atik yo */}
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-slate-100">
               <h3 className="font-display font-bold text-slate-800">{t('quotes.items')}</h3>
@@ -667,7 +625,6 @@ export default function QuoteForm() {
             </div>
           </div>
 
-          {/* Notes */}
           <div className="card p-5">
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
               <div>
