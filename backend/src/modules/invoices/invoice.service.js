@@ -1,12 +1,14 @@
 // src/modules/invoices/invoice.service.js
 const prisma = require('../../config/prisma');
+// ⚠️ KORIJE — enpòte helpers notifikasyon
+const {
+  notifyNewInvoice,
+  notifyInvoicePaid,
+  notifyPaymentReceived,
+  notifyLowStock,
+} = require('../notifications/notification.service');
 
 // ── Haiti = UTC-5
-// '2026-03-05' minwi Haiti     = 2026-03-05T05:00:00.000Z  (gte)
-// '2026-03-05' 11:59pm Haiti   = 2026-03-06T04:59:59.999Z  (lte)
-//
-// BUG ki te la: gte = lte = T05:00Z → 0 rezilta lè dateFrom=dateTo
-// FIX: lte = T05:00Z + 24h - 1ms = jou apre T04:59:59.999Z
 const haitiRange = (dateFrom, dateTo) => {
   if (!dateFrom || !dateTo) return {};
   const gte = new Date(`${dateFrom}T05:00:00.000Z`);
@@ -147,6 +149,16 @@ const createDirect = async (tenantId, userId, data) => {
               notes: `Fakti dirèk ${invoiceNumber}`, createdBy: userId
             }
           });
+
+          // ⚠️ NOUVO — alèt stòk ba apre vant (pa bloke transaction)
+          if (product.alertThreshold && Math.max(0, stockAfter) <= Number(product.alertThreshold)) {
+            notifyLowStock({
+              tenantId,
+              productName: product.name,
+              currentQty: Math.max(0, stockAfter),
+              threshold: Number(product.alertThreshold)
+            }).catch(() => {});
+          }
         }
       }
       await tx.invoiceItem.create({
@@ -165,13 +177,20 @@ const createDirect = async (tenantId, userId, data) => {
     return inv;
   });
 
+  // ⚠️ NOUVO — notifye admin: nouvo fakti kreye (apre transaction fini)
+  notifyNewInvoice({
+    tenantId,
+    invoiceNumber,
+    clientName: clientSnapshot?.name || 'Kliyan enkoni',
+    totalHtg: Number(totalHtg || 0)
+  }).catch(() => {});
+
   return getOne(tenantId, invoice.id);
 };
 
 // ── DASHBOARD
 const getDashboard = async (tenantId, branchId, dateFrom = null, dateTo = null) => {
   const bf = branchId ? { branchId } : {};
-  // ✅ FIX: haitiRange retounen { gte, lte } — ajoute nan createdAt
   const df = (dateFrom && dateTo) ? { createdAt: haitiRange(dateFrom, dateTo) } : {};
 
   const [totalUnpaid, totalPaid, totalPartial, recentInvoices, topClients] = await Promise.all([
@@ -277,6 +296,23 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
       status: newStatus
     }
   });
+
+  // ⚠️ NOUVO — notifye pèman resevwa
+  notifyPaymentReceived({
+    tenantId,
+    invoiceNumber: invoice.invoiceNumber,
+    amountHtg,
+    method: data.method || 'cash'
+  }).catch(() => {});
+
+  // ⚠️ NOUVO — notifye si fakti fin peye nèt
+  if (newStatus === 'paid') {
+    notifyInvoicePaid({
+      tenantId,
+      invoiceNumber: invoice.invoiceNumber,
+      clientName: invoice.clientSnapshot?.name || 'Kliyan enkoni'
+    }).catch(() => {});
+  }
 
   return { payment, newStatus, balanceDueHtg: Math.max(0, balanceDueHtg) };
 };

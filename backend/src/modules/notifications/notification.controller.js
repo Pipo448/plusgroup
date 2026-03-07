@@ -1,4 +1,6 @@
 // src/modules/notifications/notification.controller.js
+// ⚠️ KORIJE — req.tenantId → req.tenant.id (auth.js sete req.tenant, pa req.tenantId)
+
 const notifService = require('./notification.service');
 
 // GET /notifications?limit=20&offset=0&unreadOnly=false
@@ -6,7 +8,7 @@ exports.getAll = async (req, res) => {
   try {
     const { limit = 20, offset = 0, unreadOnly = 'false' } = req.query;
     const result = await notifService.getNotifications({
-      tenantId: req.tenantId,
+      tenantId: req.tenant.id,   // ⚠️ KORIJE
       userId: req.user.id,
       limit: Math.min(Number(limit), 50),
       offset: Number(offset),
@@ -23,7 +25,7 @@ exports.getAll = async (req, res) => {
 exports.getUnreadCount = async (req, res) => {
   try {
     const count = await notifService.getUnreadCount({
-      tenantId: req.tenantId,
+      tenantId: req.tenant.id,   // ⚠️ KORIJE
       userId: req.user.id,
     });
     res.json({ success: true, unreadCount: count });
@@ -37,7 +39,7 @@ exports.markAsRead = async (req, res) => {
   try {
     const notif = await notifService.markAsRead({
       id: req.params.id,
-      tenantId: req.tenantId,
+      tenantId: req.tenant.id,   // ⚠️ KORIJE
       userId: req.user.id,
     });
     res.json({ success: true, notification: notif });
@@ -50,7 +52,7 @@ exports.markAsRead = async (req, res) => {
 exports.markAllAsRead = async (req, res) => {
   try {
     const result = await notifService.markAllAsRead({
-      tenantId: req.tenantId,
+      tenantId: req.tenant.id,   // ⚠️ KORIJE
       userId: req.user.id,
     });
     res.json({ success: true, updated: result.count });
@@ -64,7 +66,7 @@ exports.deleteOne = async (req, res) => {
   try {
     await notifService.deleteNotification({
       id: req.params.id,
-      tenantId: req.tenantId,
+      tenantId: req.tenant.id,   // ⚠️ KORIJE
       userId: req.user.id,
     });
     res.json({ success: true });
