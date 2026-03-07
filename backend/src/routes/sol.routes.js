@@ -2,10 +2,10 @@
 // API pou pòtal manm Sabotay Sol
 // Mount: app.use('/api/sol', solRouter)
 
-import express from 'express'
-import bcrypt  from 'bcryptjs'
-import jwt     from 'jsonwebtoken'
-import { PrismaClient } from '@prisma/client'
+const express = require('express')
+const bcrypt  = require('bcryptjs')
+const jwt     = require('jsonwebtoken')
+const { PrismaClient } = require('@prisma/client')
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -14,11 +14,6 @@ const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me
 
 // ─────────────────────────────────────────────────────────────
 // HELPER: Kalkile timing (early / onTime / late)
-// dueDate : @db.Date       → jou ki te prevwa pou peman an
-// paidAt  : @db.Timestamptz → lè reyèl manm peye a
-// Lojik: si manm peye anvan jou a  → early
-//        si menm jou                → onTime
-//        si apre jou a              → late
 // ─────────────────────────────────────────────────────────────
 function computeTiming(dueDate, paidAt) {
   const due  = new Date(dueDate).toISOString().split('T')[0]
@@ -30,14 +25,11 @@ function computeTiming(dueDate, paidAt) {
 
 // ─────────────────────────────────────────────────────────────
 // HELPER: Bati maps payments + paymentTimings
-// depi vrè enregisteman SabotayPayment yo
-// Retounen: { payments: {"2025-03-01": true, ...}, paymentTimings: {...} }
 // ─────────────────────────────────────────────────────────────
 function buildPaymentMaps(sabotayPayments) {
   const payments       = {}
   const paymentTimings = {}
   for (const p of sabotayPayments) {
-    // dueDate se @db.Date — pran pati dat la sèlman (YYYY-MM-DD)
     const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
     payments[dateKey]       = true
     paymentTimings[dateKey] = computeTiming(p.dueDate, p.paidAt)
@@ -79,7 +71,6 @@ function authAdmin(req, res, next) {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/sol/auth/login
-// Body: { username, password }
 // ══════════════════════════════════════════════════════════════
 router.post('/auth/login', async (req, res) => {
   try {
@@ -100,16 +91,9 @@ router.post('/auth/login', async (req, res) => {
       return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
     }
 
-    // ✅ Tenant: champ ki egziste se 'name' — pa 'businessName'
     const tenant = await prisma.tenant.findUnique({
       where: { id: account.tenantId },
-      select: {
-        id:      true,
-        name:    true,
-        phone:   true,
-        address: true,
-        logoUrl: true,
-      },
+      select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
     const token = jwt.sign(
@@ -132,7 +116,6 @@ router.post('/auth/login', async (req, res) => {
         phone:    account.memberPhone,
         position: account.memberPosition,
       },
-      // Aliyas name → businessName pou frontend SolDashboardPage aksepte li
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
   } catch (err) {
@@ -143,8 +126,6 @@ router.post('/auth/login', async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/sol/auth/change-password
-// Headers: Authorization: Bearer <token manm>
-// Body: { currentPassword, newPassword }
 // ══════════════════════════════════════════════════════════════
 router.post('/auth/change-password', authMember, async (req, res) => {
   try {
@@ -179,8 +160,6 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════
 // GET /api/sol/members/me
-// Headers: Authorization: Bearer <token manm>
-// ✅ Li done yo dirèkteman depi SabotayMember + SabotayPlan + SabotayPayment
 // ══════════════════════════════════════════════════════════════
 router.get('/members/me', authMember, async (req, res) => {
   try {
@@ -189,36 +168,23 @@ router.get('/members/me', authMember, async (req, res) => {
     })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
 
-    // ✅ Li manm reyèl + plan + tout peman li yo
     const sabotayMember = await prisma.sabotayMember.findUnique({
       where: { id: account.memberId },
       include: {
-        plan: true,              // SabotayPlan
-        payments: {              // SabotayPayment[]
-          orderBy: { dueDate: 'asc' },
-        },
+        plan: true,
+        payments: { orderBy: { dueDate: 'asc' } },
       },
     })
-
     if (!sabotayMember) {
       return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
     }
 
     const plan = sabotayMember.plan
-
-    // ✅ Kalkile payments + timings depi dueDate vs paidAt reyèl
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
-    // ✅ Tenant.name — pa businessName (pa egziste nan schema)
     const tenant = await prisma.tenant.findUnique({
       where: { id: account.tenantId },
-      select: {
-        id:      true,
-        name:    true,
-        phone:   true,
-        address: true,
-        logoUrl: true,
-      },
+      select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
     return res.json({
@@ -233,13 +199,10 @@ router.get('/members/me', authMember, async (req, res) => {
       plan: {
         id:         plan.id,
         name:       plan.name,
-        // ✅ amount se Decimal nan Prisma — konvèti an Number
         amount:     Number(plan.amount),
         fee:        Number(plan.fee),
         frequency:  plan.frequency,
         maxMembers: plan.maxMembers,
-        // ✅ SabotayPlan gen 'startDate' (@db.Timestamptz) — pa 'createdAt'
-        // Frontend (SolDashboardPage) atann 'createdAt' kòm string YYYY-MM-DD
         createdAt:  plan.startDate.toISOString().split('T')[0],
         dueTime:    account.planDueTime || '08:00',
       },
@@ -253,9 +216,6 @@ router.get('/members/me', authMember, async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════
 // POST /api/sol/accounts   (admin sèlman)
-// Kreye kont aksè pou yon manm sabotay ki deja egziste
-// Body: { memberId, tenantId, dueTime, credentials: { username, password } }
-// NOTE: planId pa obligatwa nan body — nou li li depi SabotayMember.planId
 // ══════════════════════════════════════════════════════════════
 router.post('/accounts', authAdmin, async (req, res) => {
   try {
@@ -267,7 +227,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
       })
     }
 
-    // ✅ Jwenn manm reyèl + plan li depi SabotayMember
     const sabotayMember = await prisma.sabotayMember.findUnique({
       where: { id: memberId },
       include: { plan: true },
@@ -276,12 +235,10 @@ router.post('/accounts', authAdmin, async (req, res) => {
       return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
     }
 
-    // Verifye si manm nan bon tenant an
     if (sabotayMember.plan.tenantId !== tenantId) {
       return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
     }
 
-    // Chèche si username deja pran (global — yon manm pa ka gen 2 kont)
     const existing = await prisma.solMemberAccount.findUnique({
       where: { username: credentials.username.toLowerCase().trim() },
     })
@@ -289,7 +246,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
       return res.status(409).json({ message: 'Non itilizatè sa deja pran' })
     }
 
-    // Verifye si manm sa gen deja yon kont
     const existingByMember = await prisma.solMemberAccount.findFirst({
       where: { memberId: sabotayMember.id },
     })
@@ -304,26 +260,23 @@ router.post('/accounts', authAdmin, async (req, res) => {
 
     const account = await prisma.solMemberAccount.create({
       data: {
-        username:        credentials.username.toLowerCase().trim(),
+        username:       credentials.username.toLowerCase().trim(),
         passwordHash,
         tenantId,
-        memberId:        sabotayMember.id,
-        memberName:      sabotayMember.name,
-        memberPhone:     sabotayMember.phone || '',
-        memberPosition:  sabotayMember.position,
-        planId:          plan.id,
-        planName:        plan.name,
-        planAmount:      Number(plan.amount),
-        planFee:         Number(plan.fee),
-        planFrequency:   plan.frequency,
-        planMaxMembers:  plan.maxMembers,
-        // ✅ SabotayPlan.startDate (@db.Timestamptz) → string YYYY-MM-DD
-        planCreatedAt:   plan.startDate.toISOString().split('T')[0],
-        planDueTime:     dueTime || '08:00',
-        // payments + paymentTimings pa sèvi pou GET /me ankò (nou li depi SabotayPayment)
-        // men nou kite yo nan schema pou referans oswa cache opsyonèl
-        payments:        {},
-        paymentTimings:  {},
+        memberId:       sabotayMember.id,
+        memberName:     sabotayMember.name,
+        memberPhone:    sabotayMember.phone || '',
+        memberPosition: sabotayMember.position,
+        planId:         plan.id,
+        planName:       plan.name,
+        planAmount:     Number(plan.amount),
+        planFee:        Number(plan.fee),
+        planFrequency:  plan.frequency,
+        planMaxMembers: plan.maxMembers,
+        planCreatedAt:  plan.startDate.toISOString().split('T')[0],
+        planDueTime:    dueTime || '08:00',
+        payments:       {},
+        paymentTimings: {},
       },
     })
 
@@ -340,7 +293,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
 
 // ══════════════════════════════════════════════════════════════
 // GET /api/sol/members/:memberId/check   (admin)
-// Verifye si yon manm gen deja yon kont sol
 // ══════════════════════════════════════════════════════════════
 router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   try {
@@ -355,4 +307,4 @@ router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   }
 })
 
-export default router
+module.exports = router
