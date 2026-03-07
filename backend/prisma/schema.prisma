@@ -187,7 +187,6 @@ model User {
   sabotayPlansCreated     SabotayPlan[]     @relation("SabotayPlanCreatedBy")
   sabotayMembersCreated   SabotayMember[]   @relation("SabotayMemberCreatedBy")
   sabotayPaymentsCreated  SabotayPayment[]  @relation("SabotayPaymentCreatedBy")
-
   notifications           Notification[]
   payments                Payment[]
   products                Product[]
@@ -650,12 +649,12 @@ model SabotayPlan {
   tenantId   String          @map("tenant_id")
   branchId   String?         @map("branch_id")
   name       String          @db.VarChar(200)
-  frequency  String          @db.VarChar(20)   // daily | saturday | weekly | biweekly | monthly
+  frequency  String          @db.VarChar(20)
   amount     Decimal         @db.Decimal(14, 2)
   maxMembers Int             @map("max_members")
   fee        Decimal         @default(0) @db.Decimal(14, 2)
   startDate  DateTime        @map("start_date") @db.Timestamptz(6)
-  status     String          @default("active") @db.VarChar(20) // active | paused | completed | cancelled
+  status     String          @default("active") @db.VarChar(20)
   notes      String?
   createdBy  String?         @map("created_by")
   createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -679,8 +678,8 @@ model SabotayMember {
   planId      String    @map("plan_id")
   name        String    @db.VarChar(200)
   phone       String?   @db.VarChar(50)
-  position    Int                           // Pozisyon nan sol (1, 2, 3...)
-  dueDate     DateTime? @map("due_date")    @db.Date
+  position    Int
+  dueDate     DateTime? @map("due_date")     @db.Date
   collectDate DateTime? @map("collect_date") @db.Date
   notes       String?
   isActive    Boolean   @default(true)  @map("is_active")
@@ -703,8 +702,8 @@ model SabotayPayment {
   planId    String   @map("plan_id")
   memberId  String   @map("member_id")
   amount    Decimal  @db.Decimal(14, 2)
-  dueDate   DateTime @map("due_date")  @db.Date      // Dat peman an te dwe fèt
-  paidAt    DateTime @map("paid_at")   @db.Timestamptz(6)  // Dat reyèl peman an
+  dueDate   DateTime @map("due_date")  @db.Date
+  paidAt    DateTime @map("paid_at")   @db.Timestamptz(6)
   method    String   @default("cash")  @db.VarChar(20)
   notes     String?
   createdBy String?  @map("created_by")
@@ -719,4 +718,36 @@ model SabotayPayment {
   @@index([memberId], map: "sabotay_payments_member_idx")
   @@index([dueDate],  map: "sabotay_payments_date_idx")
   @@map("sabotay_payments")
+}
+
+model SolMemberAccount {
+  id             String   @id @default(uuid())
+  username       String   @unique
+  passwordHash   String   @map("password_hash")
+
+  tenantId       String   @map("tenant_id")
+
+  memberId       String   @map("member_id")
+  memberName     String   @map("member_name")
+  memberPhone    String   @default("") @map("member_phone")
+  memberPosition Int      @map("member_position")
+
+  planId         String   @map("plan_id")
+  planName       String   @map("plan_name")
+  planAmount     Float    @map("plan_amount")
+  planFee        Float    @default(0) @map("plan_fee")
+  planFrequency  String   @map("plan_frequency")
+  planMaxMembers Int      @map("plan_max_members")
+  planCreatedAt  String   @map("plan_created_at")
+  planDueTime    String   @default("08:00") @map("plan_due_time")
+
+  payments       Json     @default("{}") @map("payments")
+  paymentTimings Json     @default("{}") @map("payment_timings")
+
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt      @map("updated_at")
+
+  @@index([tenantId], map: "sol_member_accounts_tenant_idx")
+  @@index([memberId], map: "sol_member_accounts_member_idx")
+  @@map("sol_member_accounts")
 }

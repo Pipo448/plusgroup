@@ -31,7 +31,8 @@ const branchRoutes  = require('./modules/branches/branch.routes');
 const notifRoutes   = require('./modules/notifications/notification.routes');
 const kaneEpayRoutes    = require('./modules/kane-epay/kane-epay.routes');
 const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes');
-const sabotayRoutes = require('./modules/sabotay/sabotay.routes')
+const sabotayRoutes = require('./modules/sabotay/sabotay.routes');
+const solRoutes = require('./routes/sol.routes');
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -120,10 +121,9 @@ app.get('/health', (req, res) => {
 });
 
 // ✅ KOREKSYON KRITIK — tenantPagesRoutes DOIT vini ANVAN adminRoutes
-// Rezon: Express matching lòd — /admin/tenants/:id/pages te bloke pa /admin catch-all
 app.use(`${API}/admin/tenants/:id/pages`, tenantPagesRoutes);
 
-// Super Admin (apre pages routes pou evite konfli)
+// Super Admin
 app.use(`${API}/admin`, adminRoutes);
 
 // Auth
@@ -142,7 +142,8 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
-app.use('/api/sabotay', sabotayRoutes)
+app.use('/api/sabotay',         sabotayRoutes);
+app.use('/api/sol',             solRoutes); // ✅ Sol Member Portal
 
 // ✅ Enterprise routes
 app.use(`${API}/kane`,    kaneRouter);
