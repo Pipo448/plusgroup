@@ -27,15 +27,13 @@ export const useAuthStore = create(
         set({ token, user, tenant, loading: false, branchId: null, branchName: null })
       },
 
-      // ✅ NOUVO — Refresh tenant sèlman, PA touche branch ni user
-      // Itilize sa nan AppLayout pou /me call — pa setAuth
+      // ✅ Refresh tenant sèlman, PA touche branch ni user
       refreshTenant: (tenant) => {
         if (tenant?.slug) {
           localStorage.setItem('plusgroup-slug', tenant.slug)
           api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
         }
         set(() => ({ tenant }))
-        // branchId, branchName, user, token — PA chanje
       },
 
       setBranch: (branchId, branchName = null) => {
@@ -74,11 +72,12 @@ export const useAuthStore = create(
       setLoading: (loading) => set({ loading }),
 
       logout: () => {
+        // ✅ KORIJE — retire 'pg-auth' (persist key reyèl la) + tout lòt legacy keys
         localStorage.removeItem('pg-auth')
         localStorage.removeItem('plusgroup-slug')
-        localStorage.removeItem('plusgroup-token')
-        localStorage.removeItem('plusgroup-user')
-        localStorage.removeItem('plusgroup-tenant')
+        localStorage.removeItem('plusgroup-token')   // legacy
+        localStorage.removeItem('plusgroup-user')    // legacy
+        localStorage.removeItem('plusgroup-tenant')  // legacy
         localStorage.removeItem(BRANCH_KEY)
         localStorage.removeItem(BRANCH_NAME_KEY)
         localStorage.removeItem(CASHIER_KEY)
@@ -105,25 +104,24 @@ export const useAuthStore = create(
         branchName: s.branchName,
       }),
       onRehydrateStorage: () => (state) => {
-        if (state) {
-          state.setLoading(false)
-          if (state.tenant?.slug) {
-            localStorage.setItem('plusgroup-slug', state.tenant.slug)
-            api.defaults.headers.common['X-Tenant-Slug'] = state.tenant.slug
-          }
-          if (state.token) {
-            api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
-          }
-          if (state.user?.fullName) {
-            localStorage.setItem(CASHIER_KEY, state.user.fullName)
-          }
-          if (state.branchId) {
-            localStorage.setItem(BRANCH_KEY, state.branchId)
-            api.defaults.headers.common['X-Branch-Id'] = state.branchId
-          }
-          if (state.branchName) {
-            localStorage.setItem(BRANCH_NAME_KEY, state.branchName)
-          }
+        if (!state) return
+        state.setLoading(false)
+        if (state.tenant?.slug) {
+          localStorage.setItem('plusgroup-slug', state.tenant.slug)
+          api.defaults.headers.common['X-Tenant-Slug'] = state.tenant.slug
+        }
+        if (state.token) {
+          api.defaults.headers.common['Authorization'] = 'Bearer ' + state.token
+        }
+        if (state.user?.fullName) {
+          localStorage.setItem(CASHIER_KEY, state.user.fullName)
+        }
+        if (state.branchId) {
+          localStorage.setItem(BRANCH_KEY, state.branchId)
+          api.defaults.headers.common['X-Branch-Id'] = state.branchId
+        }
+        if (state.branchName) {
+          localStorage.setItem(BRANCH_NAME_KEY, state.branchName)
         }
       },
     }
