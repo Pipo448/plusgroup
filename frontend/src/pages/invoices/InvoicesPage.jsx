@@ -1,5 +1,5 @@
 // src/pages/invoices/InvoicesPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -40,11 +40,14 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
   return parts.length ? parts.join('  ') : null
 }
 
+// ✅ FIX: useEffect + cleanup pou evite memory leak
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640)
-  if (typeof window !== 'undefined') {
-    window.addEventListener('resize', () => setIsMobile(window.innerWidth < 640))
-  }
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 640)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
   return isMobile
 }
 
@@ -59,7 +62,6 @@ export default function InvoicesPage() {
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates     || {}
   const visibleCurrs  = tenant?.visibleCurrencies  || []
-  // ✅ Si requireQuote = false → biznis ka kreye fakti direk
   const requireQuote  = tenant?.requireQuote === true
 
   const STATUS_MAP = {
@@ -70,11 +72,24 @@ export default function InvoicesPage() {
     refunded:  { label: t('invoices.refunded'),  color: D.blue,    bg: D.blueDim },
   }
 
-  const { data, isLoading } = useQuery({
+  const { data: rawData, isLoading } = useQuery({
     queryKey: ['invoices', search, status, page],
-    queryFn:  () => invoiceAPI.getAll({ search, status, page, limit: 15 }).then(r => r.data),
+    // ✅ FIX: normalize response isit menm — pa kite undefined pase
+    queryFn: () => invoiceAPI.getAll({ search, status, page, limit: 15 }).then(r => {
+      const d = r.data || {}
+      return {
+        invoices: Array.isArray(d.invoices) ? d.invoices : [],
+        total:    d.total    || 0,
+        pages:    d.pages    || 1,
+      }
+    }),
     keepPreviousData: true,
   })
+
+  // ✅ FIX: toujou garanti invoices se yon array
+  const data = rawData
+    ? { ...rawData, invoices: Array.isArray(rawData.invoices) ? rawData.invoices : [] }
+    : null
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif' }}>
@@ -91,7 +106,6 @@ export default function InvoicesPage() {
           </div>
         </div>
 
-        {/* ✅ Bouton Nouvo Fakti — sèlman si requireQuote = false */}
         {!requireQuote && (
           <Link
             to="/app/invoices/new"
@@ -111,7 +125,6 @@ export default function InvoicesPage() {
           </Link>
         )}
 
-        {/* ✅ Si requireQuote = true → montre yon ti mesaj eksplika */}
         {requireQuote && (
           <div style={{
             display:'flex', alignItems:'center', gap:8,
@@ -178,7 +191,6 @@ export default function InvoicesPage() {
             ? <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
                 <Receipt size={32} color={D.blue} style={{ marginBottom:12 }}/>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('invoices.noInvoices')}</p>
-                {/* ✅ Bouton nan empty state tou */}
                 {!requireQuote && (
                   <Link to="/app/invoices/new" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:16, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
                     <Plus size={14}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
@@ -216,7 +228,6 @@ export default function InvoicesPage() {
                   <Receipt size={32} color={D.blue}/>
                 </div>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('invoices.noInvoices')}</p>
-                {/* ✅ Bouton nan empty state desktop tou */}
                 {!requireQuote && (
                   <Link to="/app/invoices/new" style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:16, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
                     <Plus size={14}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
