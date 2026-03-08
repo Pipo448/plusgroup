@@ -1557,8 +1557,8 @@ export default function SabotayPage() {
     },
     onSuccess:(r,vars)=>{
       qc.invalidateQueries(['sabotay-plans'])
-      setAddMember(false)
       if(typeof vars._cb==='function') vars._cb(r.member||r)
+      else setAddMember(false)
     },
     onError:(e)=>toast.error(e.message),
   })
