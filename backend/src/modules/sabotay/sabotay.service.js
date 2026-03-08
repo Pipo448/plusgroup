@@ -6,47 +6,42 @@ const prisma = new PrismaClient()
 // HELPERS
 // ─────────────────────────────────────────────────────────────
 
-// Kalkile dat peman selon frekans + pozisyon
-function computePaymentDate(startDate, frequency, position) {
+function computePaymentDate(startDate, frequency, position, interval = 1) {
   const start = new Date(startDate)
   const pos   = position - 1 // 0-indexed
 
   switch (frequency) {
     case 'daily':
-      start.setDate(start.getDate() + pos)
+      start.setDate(start.getDate() + pos * interval)
       break
     case 'saturday':
-      // Chak samdi — pos samdi depi startDate
-      start.setDate(start.getDate() + pos * 7)
+      start.setDate(start.getDate() + pos * 7 * interval)
       break
     case 'weekly':
-      // Chak 5 jou (lendi-vandredi)
-      start.setDate(start.getDate() + pos * 5)
+      start.setDate(start.getDate() + pos * 5 * interval)
       break
     case 'biweekly':
-      start.setDate(start.getDate() + pos * 15)
+      start.setDate(start.getDate() + pos * 15 * interval)
       break
     case 'monthly':
-      start.setMonth(start.getMonth() + pos)
+      start.setMonth(start.getMonth() + pos * interval)
       break
     default:
-      start.setDate(start.getDate() + pos * 7)
+      start.setDate(start.getDate() + pos * 7 * interval)
   }
 
   return start.toISOString().split('T')[0]
 }
 
-// Interval an jou selon frekans
-function getIntervalDays(frequency) {
-  const map = { daily: 1, saturday: 7, weekly: 5, biweekly: 15, monthly: 30 }
-  return map[frequency] || 7
+function getIntervalDays(frequency, interval = 1) {
+  const base = { daily: 1, saturday: 7, weekly: 5, biweekly: 15, monthly: 30 }
+  return (base[frequency] || 7) * interval
 }
 
-// Kalkile dat koleksyon yon manm (pozisyon × interval apre startDate)
-function computeCollectDate(startDate, frequency, position, totalMembers) {
+function computeCollectDate(startDate, frequency, position, totalMembers, interval = 1) {
   const start    = new Date(startDate)
-  const interval = getIntervalDays(frequency)
-  start.setDate(start.getDate() + position * interval)
+  const days     = getIntervalDays(frequency, interval)
+  start.setDate(start.getDate() + position * days)
   return start.toISOString().split('T')[0]
 }
 
@@ -54,10 +49,7 @@ function computeCollectDate(startDate, frequency, position, totalMembers) {
 // STATS
 // ─────────────────────────────────────────────────────────────
 async function getStats(tenantId, branchId) {
-  const where = {
-    tenantId,
-    ...(branchId && { branchId }),
-  }
+  const where = { tenantId, ...(branchId && { branchId }) }
 
   const [totalPlans, activePlans, totalMembers, paymentsToday] = await Promise.all([
     prisma.sabotayPlan.count({ where }),
@@ -73,17 +65,13 @@ async function getStats(tenantId, branchId) {
     }),
   ])
 
-  // Total fon kolekte (tout peman aktif)
   const fundsAgg = await prisma.sabotayPayment.aggregate({
     where: { plan: { tenantId } },
     _sum: { amount: true }
   })
 
   return {
-    totalPlans,
-    activePlans,
-    totalMembers,
-    paymentsToday,
+    totalPlans, activePlans, totalMembers, paymentsToday,
     totalFunds: Number(fundsAgg._sum.amount || 0),
   }
 }
@@ -99,9 +87,7 @@ async function getPlans(tenantId, branchId, params = {}) {
     tenantId,
     ...(branchId && { branchId }),
     ...(status && { status }),
-    ...(search && {
-      name: { contains: search, mode: 'insensitive' }
-    }),
+    ...(search && { name: { contains: search, mode: 'insensitive' } }),
   }
 
   const [plans, total] = await Promise.all([
@@ -113,9 +99,7 @@ async function getPlans(tenantId, branchId, params = {}) {
         members: {
           where: { isActive: true },
           include: {
-            payments: {
-              select: { id: true, dueDate: true, paidAt: true, amount: true }
-            }
+            payments: { select: { id: true, dueDate: true, paidAt: true, amount: true } }
           },
           orderBy: { position: 'asc' },
         },
@@ -137,16 +121,12 @@ async function getPlanById(tenantId, planId) {
       creator: { select: { fullName: true } },
       members: {
         where: { isActive: true },
-        include: {
-          payments: {
-            orderBy: { dueDate: 'asc' },
-          }
-        },
+        include: { payments: { orderBy: { dueDate: 'asc' } } },
         orderBy: { position: 'asc' },
       },
       payments: {
         include: {
-          member: { select: { id: true, name: true, phone: true, position: true } },
+          member:  { select: { id: true, name: true, phone: true, position: true } },
           creator: { select: { fullName: true } },
         },
         orderBy: { dueDate: 'asc' },
@@ -158,27 +138,38 @@ async function getPlanById(tenantId, planId) {
   return plan
 }
 
+// ✅ FIX: ajoute nouvo kolòn schema (feePerMember, penalty, interval, dueTime, regleman)
 async function createPlan(tenantId, branchId, userId, data) {
-  const { name, frequency, amount, maxMembers, fee, startDate, notes } = data
+  const {
+    name, frequency, amount, maxMembers, fee, startDate, notes,
+    // Nouvo kolòn
+    feePerMember, penalty, interval, dueTime, regleman,
+  } = data
 
-  if (!name)       throw new Error('Non plan obligatwa.')
-  if (!frequency)  throw new Error('Frekans obligatwa.')
+  if (!name)      throw new Error('Non plan obligatwa.')
+  if (!frequency) throw new Error('Frekans obligatwa.')
   if (!amount || Number(amount) <= 0) throw new Error('Montan dwe plis ke 0.')
   if (!maxMembers || Number(maxMembers) < 2) throw new Error('Dwe gen omwen 2 manm.')
 
   const plan = await prisma.sabotayPlan.create({
     data: {
       tenantId,
-      branchId:   branchId || null,
-      name:       name.trim(),
+      branchId:     branchId || null,
+      name:         name.trim(),
       frequency,
-      amount:     Number(amount),
-      maxMembers: Number(maxMembers),
-      fee:        Number(fee || 0),
-      startDate:  startDate ? new Date(startDate) : new Date(),
-      notes:      notes || null,
-      status:     'active',
-      createdBy:  userId,
+      amount:       Number(amount),
+      maxMembers:   Number(maxMembers),
+      fee:          Number(fee || 0),
+      startDate:    startDate ? new Date(startDate) : new Date(),
+      notes:        notes    || null,
+      status:       'active',
+      createdBy:    userId,
+      // ✅ Nouvo kolòn
+      feePerMember: Number(feePerMember || 0),
+      penalty:      Number(penalty      || 0),
+      interval:     Number(interval     || 1),
+      dueTime:      dueTime   || '08:00',
+      regleman:     regleman  || null,
     },
     include: {
       creator: { select: { fullName: true } },
@@ -189,6 +180,7 @@ async function createPlan(tenantId, branchId, userId, data) {
   return plan
 }
 
+// ✅ FIX: ajoute nouvo kolòn nan updatePlan tou
 async function updatePlan(tenantId, planId, userId, data) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
@@ -196,11 +188,17 @@ async function updatePlan(tenantId, planId, userId, data) {
   const updated = await prisma.sabotayPlan.update({
     where: { id: planId },
     data: {
-      ...(data.name       && { name: data.name.trim() }),
-      ...(data.status     && { status: data.status }),
-      ...(data.notes      !== undefined && { notes: data.notes }),
-      ...(data.fee        !== undefined && { fee: Number(data.fee) }),
-      ...(data.maxMembers && { maxMembers: Number(data.maxMembers) }),
+      ...(data.name        && { name: data.name.trim() }),
+      ...(data.status      && { status: data.status }),
+      ...(data.notes       !== undefined && { notes: data.notes }),
+      ...(data.fee         !== undefined && { fee: Number(data.fee) }),
+      ...(data.maxMembers  && { maxMembers: Number(data.maxMembers) }),
+      // ✅ Nouvo kolòn
+      ...(data.feePerMember !== undefined && { feePerMember: Number(data.feePerMember) }),
+      ...(data.penalty      !== undefined && { penalty:      Number(data.penalty) }),
+      ...(data.interval     !== undefined && { interval:     Number(data.interval) }),
+      ...(data.dueTime      !== undefined && { dueTime:      data.dueTime }),
+      ...(data.regleman     !== undefined && { regleman:     data.regleman }),
     },
     include: {
       creator: { select: { fullName: true } },
@@ -215,7 +213,6 @@ async function deletePlan(tenantId, planId) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  // Verifye pa gen peman deja
   const paymentCount = await prisma.sabotayPayment.count({ where: { planId } })
   if (paymentCount > 0) throw new Error('Pa ka efase yon plan ki gen peman deja. Mete l inaktif olye.')
 
@@ -223,10 +220,61 @@ async function deletePlan(tenantId, planId) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// TIRAJ AVÈG (BLIND DRAW)
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: chwazi yon manm pou touche sol la, mete hasWon = true
+async function blindDraw(tenantId, planId, userId, data) {
+  const { winnerId } = data
+
+  const plan = await prisma.sabotayPlan.findFirst({
+    where: { id: planId, tenantId },
+    include: { members: { where: { isActive: true, hasWon: false } } }
+  })
+  if (!plan) throw new Error('Plan pa jwenn.')
+
+  // Si winnerId bay dirèkteman (admin chwazi), sinon chwazi yon manm owaza
+  let winner
+  if (winnerId) {
+    winner = await prisma.sabotayMember.findFirst({
+      where: { id: winnerId, planId, isActive: true }
+    })
+    if (!winner) throw new Error('Manm pa jwenn.')
+  } else {
+    // Chwazi owaza nan manm ki poko touche
+    const eligible = plan.members.filter(m => !m.hasWon)
+    if (!eligible.length) throw new Error('Tout manm fin touche deja.')
+    winner = eligible[Math.floor(Math.random() * eligible.length)]
+  }
+
+  // Mete hasWon = true pou gagnant la
+  const updatedWinner = await prisma.sabotayMember.update({
+    where: { id: winner.id },
+    data:  { hasWon: true },
+  })
+
+  // Kalkile payout
+  const totalMembers  = plan.members.length
+  const feePerMember  = Number(plan.feePerMember || 0)
+  const amount        = Number(plan.amount)
+  const pool          = amount * totalMembers
+  const payout        = pool - feePerMember
+
+  // Notifye admins
+  await _checkAndNotifyCollection(tenantId, plan, new Date().toISOString().split('T')[0])
+
+  return {
+    winner: updatedWinner,
+    payout,
+    pool,
+    feePerMember,
+    message: `${updatedWinner.name} ap touche ${payout.toLocaleString('fr-HT')} HTG!`,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // MANM
 // ─────────────────────────────────────────────────────────────
 async function getMembers(tenantId, planId) {
-  // Verifye plan existe
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
 
@@ -242,8 +290,9 @@ async function getMembers(tenantId, planId) {
   return members
 }
 
+// ✅ FIX: ajoute isOwnerSlot, hasWon, fines sou addMember
 async function addMember(tenantId, planId, userId, data) {
-  const { name, phone, position, notes } = data
+  const { name, phone, position, notes, isOwnerSlot, hasWon, fines } = data
 
   if (!name)     throw new Error('Non manm obligatwa.')
   if (!phone)    throw new Error('Telefòn manm obligatwa.')
@@ -255,9 +304,13 @@ async function addMember(tenantId, planId, userId, data) {
   })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  // Verifye plan pa plen
-  if (plan._count.members >= plan.maxMembers) {
-    throw new Error(`Plan plen! Maks ${plan.maxMembers} manm rive.`)
+  // ✅ Kalkile totalSlots: si feePerMember === amount → plas pwopriyetè ajoute
+  const ownerSlot    = Number(plan.feePerMember || 0) === Number(plan.amount) ? 1 : 0
+  const maxSlots     = plan.maxMembers + ownerSlot
+  const currentCount = plan._count.members
+
+  if (currentCount >= maxSlots) {
+    throw new Error(`Plan plen! Maks ${maxSlots} manm rive.`)
   }
 
   // Verifye pozisyon pa pran
@@ -266,10 +319,8 @@ async function addMember(tenantId, planId, userId, data) {
   })
   if (posExists) throw new Error(`Pozisyon #${position} deja pran pa ${posExists.name}.`)
 
-  // Kalkile dat peman ak koleksyon pou manm sa
-  const totalMembers = plan._count.members + 1 // apre ajout
-  const dueDate      = computePaymentDate(plan.startDate, plan.frequency, Number(position))
-  const collectDate  = computeCollectDate(plan.startDate, plan.frequency, Number(position), plan.maxMembers)
+  const dueDate     = computePaymentDate(plan.startDate, plan.frequency, Number(position), Number(plan.interval || 1))
+  const collectDate = computeCollectDate(plan.startDate, plan.frequency, Number(position), plan.maxMembers, Number(plan.interval || 1))
 
   const member = await prisma.sabotayMember.create({
     data: {
@@ -279,9 +330,13 @@ async function addMember(tenantId, planId, userId, data) {
       position:    Number(position),
       dueDate:     new Date(dueDate),
       collectDate: new Date(collectDate),
-      notes:       notes || null,
+      notes:       notes       || null,
       isActive:    true,
       createdBy:   userId,
+      // ✅ Nouvo kolòn
+      isOwnerSlot: isOwnerSlot || false,
+      hasWon:      hasWon      || false,
+      fines:       fines       || {},
     },
     include: {
       payments: true,
@@ -301,10 +356,12 @@ async function updateMember(tenantId, planId, memberId, data) {
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
     data: {
-      ...(data.name  && { name: data.name.trim() }),
-      ...(data.phone && { phone: data.phone.trim() }),
-      ...(data.notes !== undefined && { notes: data.notes }),
-      ...(data.isActive !== undefined && { isActive: data.isActive }),
+      ...(data.name       && { name: data.name.trim() }),
+      ...(data.phone      && { phone: data.phone.trim() }),
+      ...(data.notes      !== undefined && { notes: data.notes }),
+      ...(data.isActive   !== undefined && { isActive: data.isActive }),
+      ...(data.hasWon     !== undefined && { hasWon: data.hasWon }),
+      ...(data.fines      !== undefined && { fines: data.fines }),
     },
     include: { payments: true }
   })
@@ -320,13 +377,8 @@ async function removeMember(tenantId, planId, memberId) {
   if (!member) throw new Error('Manm pa jwenn.')
 
   if (member._count.payments > 0) {
-    // Soft delete si gen peman — mete inaktif sèlman
-    await prisma.sabotayMember.update({
-      where: { id: memberId },
-      data: { isActive: false }
-    })
+    await prisma.sabotayMember.update({ where: { id: memberId }, data: { isActive: false } })
   } else {
-    // Pa gen peman — efase nèt
     await prisma.sabotayMember.delete({ where: { id: memberId } })
   }
 }
@@ -362,7 +414,7 @@ async function getPayments(tenantId, planId, params = {}) {
 }
 
 async function markPaid(tenantId, planId, memberId, userId, data) {
-  const { dueDate, method, notes } = data
+  const { dueDate, method, notes, fineAmt, timing } = data
 
   if (!dueDate) throw new Error('Dat peman obligatwa.')
 
@@ -374,7 +426,6 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
   })
   if (!member) throw new Error('Manm pa jwenn oswa inaktif.')
 
-  // Verifye pa gen doublòn pou menm dat
   const exists = await prisma.sabotayPayment.findFirst({
     where: { planId, memberId, dueDate: new Date(dueDate) }
   })
@@ -384,12 +435,15 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     data: {
       planId,
       memberId,
-      amount:  Number(plan.amount),
-      dueDate: new Date(dueDate),
-      paidAt:  new Date(),
-      method:  method || 'cash',
-      notes:   notes  || null,
+      amount:    Number(plan.amount),
+      dueDate:   new Date(dueDate),
+      paidAt:    new Date(),
+      method:    method  || 'cash',
+      notes:     notes   || null,
       createdBy: userId,
+      // ✅ Nouvo kolòn
+      fineAmt:   Number(fineAmt || 0),
+      timing:    timing  || null,
     },
     include: {
       member:  { select: { id: true, name: true, phone: true, position: true } },
@@ -397,8 +451,16 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     }
   })
 
-  // ── Notifikasyon: si tout manm fin peye pou dat sa,
-  //    moun ki pozisyon koresponn nan ap resevwa notifikasyon
+  // Si gen amand, mete ajou fines nan manm nan
+  if (Number(fineAmt) > 0) {
+    const currentFines = member.fines || {}
+    const updatedFines = { ...currentFines, [dueDate]: Number(fineAmt) }
+    await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data:  { fines: updatedFines }
+    })
+  }
+
   await _checkAndNotifyCollection(tenantId, plan, dueDate)
 
   return payment
@@ -409,13 +471,13 @@ async function unmarkPaid(tenantId, paymentId) {
     where: { id: paymentId, plan: { tenantId } }
   })
   if (!payment) throw new Error('Peman pa jwenn.')
-
   await prisma.sabotayPayment.delete({ where: { id: paymentId } })
 }
 
 // ─────────────────────────────────────────────────────────────
-// KONT VITYÈL MANM (lekti sèlman)
+// KONT VITYÈL MANM
 // ─────────────────────────────────────────────────────────────
+// ✅ FIX: retounen nouvo kolòn (feePerMember, penalty, interval, regleman, hasWon, fines)
 async function getMemberAccount(tenantId, planId, memberId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
@@ -439,49 +501,72 @@ async function getMemberAccount(tenantId, planId, memberId) {
   })
   if (!member) throw new Error('Manm pa jwenn.')
 
+  const planInterval   = Number(plan.interval || 1)
+  const feePerMember   = Number(plan.feePerMember || 0)
+  const penaltyRate    = Number(plan.penalty || 0)
   const totalMembers   = plan.members.length
-  const interval       = getIntervalDays(plan.frequency)
-  const totalExpected  = Number(plan.amount) * totalMembers
+  const intervalDays   = getIntervalDays(plan.frequency, planInterval)
+  const amount         = Number(plan.amount)
+  const totalExpected  = amount * totalMembers
   const totalPaid      = member.payments.reduce((s, p) => s + Number(p.amount), 0)
-  const toCollect      = Number(plan.amount) * totalMembers - Number(plan.fee)
-  const progressPct    = totalMembers > 0
+
+  // Payout selon règ feePerMember
+  let toCollect
+  if (feePerMember === amount) {
+    // Plas pwopriyetè — touche totalMembers × amount san deduksyon
+    toCollect = member.isOwnerSlot ? amount * totalMembers : amount * totalMembers - feePerMember
+  } else if (feePerMember > 0) {
+    toCollect = amount * totalMembers - feePerMember
+  } else {
+    toCollect = amount * totalMembers - Number(plan.fee || 0)
+  }
+
+  const progressPct = totalMembers > 0
     ? Math.round((member.payments.length / totalMembers) * 100) : 0
 
-  // Tout dat li sipoze te peye (1 peman pa sèl mwa/semèn/jou)
+  // Total amand pou manm sa
+  const totalFines = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
+
   const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
-    d.setDate(d.getDate() + i * interval)
+    d.setDate(d.getDate() + i * intervalDays)
     return d.toISOString().split('T')[0]
   })
 
   const today = new Date().toISOString().split('T')[0]
 
   const paymentHistory = allDueDates.map((dueDate, i) => {
-    const paid = member.payments.find(
-      p => p.dueDate.toISOString().split('T')[0] === dueDate
-    )
+    const paid  = member.payments.find(p => p.dueDate.toISOString().split('T')[0] === dueDate)
     const isPast = dueDate <= today
     return {
-      index:   i + 1,
+      index:     i + 1,
       dueDate,
-      amount:  Number(plan.amount),
-      isPaid:  !!paid,
-      isLate:  isPast && !paid,
-      paidAt:  paid?.paidAt || null,
-      method:  paid?.method || null,
-      paymentId: paid?.id || null,
+      amount,
+      isPaid:    !!paid,
+      isLate:    isPast && !paid,
+      paidAt:    paid?.paidAt    || null,
+      method:    paid?.method    || null,
+      paymentId: paid?.id        || null,
+      fineAmt:   paid?.fineAmt   || (member.fines?.[dueDate] || 0),
+      timing:    paid?.timing    || null,
     }
   })
 
   return {
     plan: {
-      id:         plan.id,
-      name:       plan.name,
-      frequency:  plan.frequency,
-      amount:     Number(plan.amount),
-      fee:        Number(plan.fee),
-      maxMembers: plan.maxMembers,
-      startDate:  plan.startDate,
+      id:          plan.id,
+      name:        plan.name,
+      frequency:   plan.frequency,
+      amount,
+      fee:         Number(plan.fee || 0),
+      maxMembers:  plan.maxMembers,
+      startDate:   plan.startDate,
+      // ✅ Nouvo kolòn
+      feePerMember,
+      penalty:     penaltyRate,
+      interval:    planInterval,
+      dueTime:     plan.dueTime  || '08:00',
+      regleman:    plan.regleman || null,
     },
     member: {
       id:          member.id,
@@ -491,6 +576,10 @@ async function getMemberAccount(tenantId, planId, memberId) {
       dueDate:     member.dueDate,
       collectDate: member.collectDate,
       joinedAt:    member.createdAt,
+      // ✅ Nouvo kolòn
+      isOwnerSlot: member.isOwnerSlot || false,
+      hasWon:      member.hasWon      || false,
+      fines:       member.fines       || {},
     },
     summary: {
       totalExpected,
@@ -500,51 +589,47 @@ async function getMemberAccount(tenantId, planId, memberId) {
       progressPct,
       paidCount:   member.payments.length,
       totalRounds: totalMembers,
+      totalFines,
     },
     paymentHistory,
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// NOTIFIKASYON ENTÈN — lè tout manm fin peye yon roud
+// NOTIFIKASYON ENTÈN
 // ─────────────────────────────────────────────────────────────
 async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
   try {
-    // Konte kantite manm aktif
     const totalActive = await prisma.sabotayMember.count({
       where: { planId: plan.id, isActive: true }
     })
 
-    // Konte peman pou dat sa (yon sèl peman pa manm)
     const paidCount = await prisma.sabotayPayment.count({
       where: { planId: plan.id, dueDate: new Date(dueDate) }
     })
 
-    if (paidCount < totalActive) return // Pako tout moun fin peye
+    if (paidCount < totalActive) return
 
-    // Jwenn moun k ap touche — pozisyon koresponn ak roud la
     const round = await prisma.sabotayPayment.count({
-      where: {
-        planId: plan.id,
-        dueDate: { lte: new Date(dueDate) },
-      }
+      where: { planId: plan.id, dueDate: { lte: new Date(dueDate) } }
     })
-    // round / totalActive = nimewo roud la
     const roundNum = Math.ceil(round / totalActive)
 
     const winner = await prisma.sabotayMember.findFirst({
       where: { planId: plan.id, position: roundNum, isActive: true }
     })
-
     if (!winner) return
 
-    // Kreye notifikasyon pou tout admin tenant an
     const admins = await prisma.user.findMany({
       where: { tenantId, role: 'admin', isActive: true },
       select: { id: true }
     })
 
-    const collectionAmount = Number(plan.amount) * totalActive - Number(plan.fee)
+    const feePerMember     = Number(plan.feePerMember || 0)
+    const amount           = Number(plan.amount)
+    const collectionAmount = feePerMember === amount
+      ? amount * totalActive  // plas pwopriyetè
+      : amount * totalActive - Number(plan.fee || 0)
 
     await Promise.all(admins.map(admin =>
       prisma.notification.create({
@@ -564,7 +649,6 @@ async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
       })
     ))
   } catch (err) {
-    // Notifikasyon pa dwe bloke peman an
     console.error('[sabotay] Notifikasyon erè:', err.message)
   }
 }
@@ -576,6 +660,7 @@ module.exports = {
   createPlan,
   updatePlan,
   deletePlan,
+  blindDraw,
   getMembers,
   addMember,
   updateMember,

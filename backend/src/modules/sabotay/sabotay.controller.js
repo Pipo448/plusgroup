@@ -53,7 +53,7 @@ exports.createPlan = async (req, res) => {
   }
 }
 
-// PATCH /sabotay/plans/:id
+// PATCH + PUT /sabotay/plans/:id
 exports.updatePlan = async (req, res) => {
   try {
     const { tenantId, userId } = getCtx(req)
@@ -70,6 +70,19 @@ exports.deletePlan = async (req, res) => {
     const { tenantId } = getCtx(req)
     await svc.deletePlan(tenantId, req.params.id)
     res.json({ success: true, message: 'Plan efase.' })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
+// ── Tiraj Avèg ────────────────────────────────────────────────
+
+// ✅ NOUVO: POST /sabotay/plans/:id/blind-draw
+exports.blindDraw = async (req, res) => {
+  try {
+    const { tenantId, userId } = getCtx(req)
+    const result = await svc.blindDraw(tenantId, req.params.id, userId, req.body)
+    res.json({ success: true, ...result })
   } catch (e) {
     res.status(400).json({ success: false, message: e.message })
   }
