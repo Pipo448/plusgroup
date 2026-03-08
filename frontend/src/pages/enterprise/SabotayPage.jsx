@@ -168,8 +168,13 @@ function generateCredentials(name, phone) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DATE HELPERS
+// DATE HELPERS — ✅ itilize startDate (pa createdAt)
 // ─────────────────────────────────────────────────────────────
+function getPlanStartDate(plan) {
+  // ✅ Priyorite: startDate → createdAt → jodi a
+  return plan.startDate || plan.createdAt || new Date().toISOString()
+}
+
 function getPaymentDates(frequency, startDate, count, interval=1) {
   const dates=[], n=Math.max(1,Math.floor(interval)||1)
   let cur = new Date(startDate||Date.now())
@@ -194,19 +199,19 @@ function getPaymentDates(frequency, startDate, count, interval=1) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// API HELPERS
+// API HELPERS — ✅ apiFetch pou tout routes admin /api/v1/sabotay
 // ─────────────────────────────────────────────────────────────
 async function apiFetch(path, options={}) {
   const {token} = useAuthStore.getState()
-  const slug = localStorage.getItem('plusgroup-slug')
+  const slug     = localStorage.getItem('plusgroup-slug')
   const branchId = localStorage.getItem('plusgroup-branch-id')
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers:{
       'Content-Type':'application/json',
       Authorization:`Bearer ${token}`,
-      ...(slug ? {'X-Tenant-Slug': slug} : {}),
-      ...(branchId ? {'X-Branch-Id': branchId} : {}),
+      ...(slug     ? {'X-Tenant-Slug': slug}      : {}),
+      ...(branchId ? {'X-Branch-Id':  branchId}   : {}),
       ...(options.headers||{}),
     },
   })
@@ -214,20 +219,19 @@ async function apiFetch(path, options={}) {
   if (!res.ok) throw new Error(data.message||'Erè API')
   return data
 }
+
+// solFetch = sèlman pou /api/sol/... (pòtal manm) — pa pou admin
 async function solFetch(path, options={}) {
   const {token} = useAuthStore.getState()
   const res = await fetch(`${SOL_API}${path}`, {
     ...options,
-    headers:{
-      'Content-Type':'application/json',
-      Authorization:`Bearer ${token}`,
-      ...(options.headers||{}),
-    },
+    headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(options.headers||{})},
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message||'Erè Sol API')
   return data
 }
+
 // ─────────────────────────────────────────────────────────────
 // PRINTER HOOK
 // ─────────────────────────────────────────────────────────────
@@ -414,8 +418,12 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
   const isEdit = !!initialData
   const [form,setForm] = useState({
     name:'',amount:'',feePerMember:'',penalty:'',
-    frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',regleman:'',
+    frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',regleman:'',startDate:'',
     ...(initialData||{}),
+    // ✅ Konvèti startDate pou input[type=date] (YYYY-MM-DD)
+    startDate: initialData?.startDate
+      ? new Date(initialData.startDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0],
   })
   const set=(k,v)=>setForm(p=>({...p,[k]:v}))
 
@@ -449,6 +457,12 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               <label style={lbl}>Lè Peman *</label>
               <input type="time" style={{...inp,color:D.purple,fontWeight:700}}
                 value={form.dueTime} onChange={e=>set('dueTime',e.target.value)}/>
+            </div>
+            {/* ✅ NOUVO: champ startDate */}
+            <div>
+              <label style={lbl}>Dat Kòmanse Sol *</label>
+              <input type="date" style={{...inp,color:D.teal,fontWeight:700}}
+                value={form.startDate} onChange={e=>set('startDate',e.target.value)}/>
             </div>
           </div>
         </Sec>
@@ -568,7 +582,8 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
             if(!form.name||!form.amount||!form.maxMembers) return toast.error('Non, montan, ak kantite moun obligatwa.')
             onSave({...form,amount:Number(form.amount),feePerMember:Number(form.feePerMember||0),
               penalty:Number(form.penalty||0),maxMembers:Number(form.maxMembers),
-              dueTime:form.dueTime||'08:00',interval:intervalN})
+              dueTime:form.dueTime||'08:00',interval:intervalN,
+              startDate:form.startDate||new Date().toISOString().split('T')[0]})
           }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
             cursor:loading?'default':'pointer',
             background:loading?'rgba(201,168,76,0.3)':D.goldBtn,
@@ -585,7 +600,9 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-  function ModalAddMember({plan,onClose,onSave,loading}) {
+// MODAL: ENSKRI KLIYAN
+// ─────────────────────────────────────────────────────────────
+function ModalAddMember({plan,onClose,onSave,loading}) {
   const slots    = totalSlots(plan)
   const taken    = new Set((plan.members||[]).map(m=>m.position))
   const available= Array.from({length:slots},(_,i)=>i+1).filter(p=>!taken.has(p))
@@ -672,12 +689,10 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               if(!position) return toast.error('Chwazi yon plas.')
               const credentials = generateCredentials(form.name,form.phone)
               const isOwnerSlot = hasOwnerSlot(plan)&&position===slots
+              // ✅ Pase _cb kòm pati nan data objè (pa kòm 2yèm argument)
               onSave({
-                ...form,
-                position,
-                credentials,
-                isOwnerSlot,
-                _cb:(saved)=>setCreds({member:saved||{...form,position},credentials})
+                ...form, position, credentials, isOwnerSlot,
+                _cb:(saved)=>setCreds({member:saved||{...form,position}, credentials})
               })
             }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
               cursor:loading?'default':'pointer',
@@ -699,7 +714,7 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
 // ─────────────────────────────────────────────────────────────
 function ModalMemberCredentials({member,credentials,onClose}) {
   const [copied,setCopied] = useState(false)
-  const text = `Non: ${member.name}\nItilizatè: ${credentials.username}\nModpas: ${credentials.password}`
+  const text = `Non: ${member.name}\nItilizatè: ${credentials.username}\nModpas: ${credentials.password}\nURL: https://app.plusgroupe.com/app/sol/login`
   const copy = ()=>navigator.clipboard?.writeText(text).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)})
 
   return (
@@ -719,6 +734,11 @@ function ModalMemberCredentials({member,credentials,onClose}) {
             <Key size={11}/> Enfòmasyon Koneksyon
           </p>
           <div>
+            <div style={{fontSize:10,color:D.muted,marginBottom:4}}>URL Login</div>
+            <div style={{fontFamily:'monospace',fontSize:11,color:D.teal,
+              background:'rgba(0,0,0,0.25)',padding:'7px 12px',borderRadius:8,marginBottom:10,wordBreak:'break-all'}}>
+              app.plusgroupe.com/app/sol/login
+            </div>
             <div style={{fontSize:10,color:D.muted,marginBottom:4}}>Non Itilizatè</div>
             <div style={{fontFamily:'monospace',fontWeight:800,fontSize:18,color:D.text,
               background:'rgba(0,0,0,0.25)',padding:'10px 14px',borderRadius:8,wordBreak:'break-all',marginBottom:10}}>
@@ -752,7 +772,7 @@ function ModalMemberCredentials({member,credentials,onClose}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MODAL: TIRAJ AVÈG (Blind Draw)
+// MODAL: TIRAJ AVÈG
 // ─────────────────────────────────────────────────────────────
 function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
   const eligible = (plan.members||[]).filter(m=>!m.hasWon&&!m.isOwnerSlot)
@@ -882,7 +902,8 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
 function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
   const {tenant} = useAuthStore()
   const slots    = totalSlots(plan)
-  const dates    = useMemo(()=>getPaymentDates(plan.frequency,plan.createdAt,slots,plan.interval),[plan])
+  // ✅ itilize startDate (pa createdAt)
+  const dates    = useMemo(()=>getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval),[plan])
   const today    = new Date().toISOString().split('T')[0]
   const unpaid   = dates.filter(d=>d<=today&&!member.payments?.[d])
 
@@ -1023,14 +1044,14 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KALANDRIYE
+// KALANDRIYE — ✅ itilize startDate
 // ─────────────────────────────────────────────────────────────
 function PlanCalendar({plan}) {
   const [off,setOff] = useState(0)
   const today = new Date().toISOString().split('T')[0]
   const slots = totalSlots(plan)
   const mDates = useMemo(()=>(plan.members||[]).map(m=>({
-    ...m, dates:getPaymentDates(plan.frequency,plan.createdAt,slots,plan.interval)
+    ...m, dates:getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval)
   })),[plan])
 
   const now=new Date(); now.setMonth(now.getMonth()+off)
@@ -1092,12 +1113,12 @@ function PlanCalendar({plan}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KONT VITYÈL KLIYAN
+// KONT VITYÈL KLIYAN — ✅ itilize startDate
 // ─────────────────────────────────────────────────────────────
 function MemberVirtualAccount({member,plan,onClose,printer}) {
   const {tenant} = useAuthStore()
   const slots   = totalSlots(plan)
-  const dates   = useMemo(()=>getPaymentDates(plan.frequency,plan.createdAt,slots,plan.interval),[plan])
+  const dates   = useMemo(()=>getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval),[plan])
   const winDate = dates[member.position-1]
   const today   = new Date().toISOString().split('T')[0]
   const isOwner = member.isOwnerSlot
@@ -1264,7 +1285,7 @@ function MemberVirtualAccount({member,plan,onClose,printer}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PANEL DETAY PLAN
+// PANEL DETAY PLAN — ✅ itilize startDate
 // ─────────────────────────────────────────────────────────────
 function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,printer}) {
   const [viewMember,setView] = useState(null)
@@ -1272,7 +1293,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const [tab,setTab]         = useState('members')
   const today = new Date().toISOString().split('T')[0]
   const slots = totalSlots(plan)
-  const dates = useMemo(()=>getPaymentDates(plan.frequency,plan.createdAt,slots,plan.interval),[plan])
+  const dates = useMemo(()=>getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval),[plan])
 
   const winIdx  = dates.findIndex(d=>d===today)
   const todayW  = winIdx>=0 ? plan.members?.[winIdx] : null
@@ -1504,7 +1525,7 @@ export default function SabotayPage() {
   const [showDraw,      setDraw]        = useState(false)
   const [search,        setSearch]      = useState('')
 
-  // ── Queries ──
+  // ── Queries — ✅ apiFetch pou /api/v1/sabotay
   const { data:plans=[], isLoading, error, refetch } = useQuery({
     queryKey:['sabotay-plans'],
     queryFn:()=>apiFetch('/sabotay/plans').then(r=>{
@@ -1516,7 +1537,7 @@ export default function SabotayPage() {
 
   const activePlan = selectedPlan ? plans.find(p=>p.id===selectedPlan.id)||selectedPlan : null
 
-  // ── Mutations ──
+  // ── Mutations — ✅ tout itilize apiFetch
   const createPlan = useMutation({
     mutationFn:(data)=>apiFetch('/sabotay/plans',{method:'POST',body:JSON.stringify(data)}),
     onSuccess:(r)=>{ qc.invalidateQueries(['sabotay-plans']); setShowCreate(false); toast.success('✅ Plan kreye!'); setSelected(r.plan||r) },
@@ -1527,9 +1548,11 @@ export default function SabotayPage() {
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); setEditing(null); toast.success('✅ Plan modifye!') },
     onError:(e)=>toast.error(e.message),
   })
+
+  // ✅ addMember — _cb nan onSuccess (pa 4yèm argument)
   const addMember = useMutation({
     mutationFn:(data)=>{
-      const {_cb, ...body} = data
+      const {_cb,...body} = data
       return apiFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(body)})
     },
     onSuccess:(r,vars)=>{
@@ -1539,8 +1562,9 @@ export default function SabotayPage() {
     },
     onError:(e)=>toast.error(e.message),
   })
+
   const markPayment = useMutation({
-    mutationFn:({memberId,...data})=>apiFetch(`/sabotay/plans/${activePlan?.id}/members/${memberId}/pay`,{method:'POST',body:JSON.stringify(data)}),
+    mutationFn:({memberId,...data})=>apiFetch(`/sabotay/members/${memberId}/payments`,{method:'POST',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); toast.success('✅ Peman anrejistre!') },
     onError:(e)=>toast.error(e.message),
   })
@@ -1575,7 +1599,6 @@ export default function SabotayPage() {
   return (
     <div style={{minHeight:'100vh',background:D.bg,padding:'16px 16px 80px',fontFamily:'Inter,system-ui,sans-serif',color:D.text,maxWidth:700,margin:'0 auto',boxSizing:'border-box'}}>
 
-      {/* Error */}
       {error&&(
         <div className="error-banner" style={{background:D.redBg,border:`1px solid ${D.red}40`,borderRadius:12,
           padding:'11px 15px',marginBottom:16,display:'flex',alignItems:'center',gap:10,fontSize:12}}>
@@ -1602,7 +1625,6 @@ export default function SabotayPage() {
         />
       ) : (
         <>
-          {/* Header */}
           <div className="page-head" style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20,gap:12}}>
             <div>
               <h1 style={{color:D.gold,margin:0,fontSize:20,fontWeight:900,display:'flex',alignItems:'center',gap:8}}>
@@ -1622,7 +1644,6 @@ export default function SabotayPage() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="top-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
             {[
               {label:'Plan Aktif',    val:activePlans,               color:D.gold,   bg:D.goldDim,   icon:<Wallet size={16}/> },
@@ -1643,13 +1664,11 @@ export default function SabotayPage() {
             ))}
           </div>
 
-          {/* Search */}
           <div className="search-wrap" style={{position:'relative',marginBottom:16,maxWidth:360}}>
             <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:D.muted,pointerEvents:'none'}}/>
             <input style={{...inp,paddingLeft:36}} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Chèche plan..."/>
           </div>
 
-          {/* Plan List */}
           {filtered.length===0?(
             <div style={{textAlign:'center',padding:'48px 0',color:D.muted}}>
               <Wallet size={40} style={{opacity:0.2,display:'block',margin:'0 auto 12px'}}/>
@@ -1669,7 +1688,7 @@ export default function SabotayPage() {
                 const coll=plan.members?.reduce((a,m)=>
                   a+Object.keys(m.payments||{}).filter(d=>m.payments[d]).length*plan.amount,0)||0
                 const today=new Date().toISOString().split('T')[0]
-                const dates=getPaymentDates(plan.frequency,plan.createdAt||plan.startDate,slots,plan.interval)
+                const dates=getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval)
                 const todayWin=dates.findIndex(d=>d===today)
                 const winner=todayWin>=0?plan.members?.[todayWin]:null
                 const payout=memberPayout(plan)
@@ -1721,7 +1740,6 @@ export default function SabotayPage() {
         </>
       )}
 
-      {/* Modals */}
       {showCreate&&(
         <ModalCreatePlan onClose={()=>setShowCreate(false)} loading={createPlan.isPending}
           onSave={(data)=>createPlan.mutate(data)}/>
