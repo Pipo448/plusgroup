@@ -46,30 +46,74 @@ const FAMILY_RELATIONS = [
 ]
 
 const D = {
-  card:      '#0d1b2a',
-  cardDk:    '#060f1e',
-  cardBorder:'rgba(201,168,76,0.18)',
-  secBg:     'rgba(201,168,76,0.04)',
-  secBorder: 'rgba(201,168,76,0.11)',
-  overlay:   'rgba(0,0,0,0.88)',
-  gold:      '#C9A84C',
-  goldDk:    '#8B6914',
-  goldBtn:   'linear-gradient(135deg,#C9A84C,#8B6914)',
-  goldDim:   'rgba(201,168,76,0.10)',
-  green:     '#27ae60', greenBg: 'rgba(39,174,96,0.12)',
-  red:       '#C0392B', redBg:   'rgba(192,57,43,0.10)',
-  orange:    '#D97706', orangeBg:'rgba(217,119,6,0.10)',
-  text:      '#e8eaf0',
-  muted:     '#6b7a99',
-  label:     'rgba(201,168,76,0.75)',
-  input:     '#060f1e',
-  inputBorder:'rgba(255,255,255,0.09)',
-  shadow:    '0 8px 32px rgba(0,0,0,0.55)',
+  card:       '#0d1b2a',
+  cardDk:     '#060f1e',
+  cardBorder: 'rgba(201,168,76,0.18)',
+  secBg:      'rgba(201,168,76,0.04)',
+  secBorder:  'rgba(201,168,76,0.11)',
+  overlay:    'rgba(0,0,0,0.88)',
+  gold:       '#C9A84C',
+  goldDk:     '#8B6914',
+  goldBtn:    'linear-gradient(135deg,#C9A84C,#8B6914)',
+  goldDim:    'rgba(201,168,76,0.10)',
+  green:      '#27ae60', greenBg: 'rgba(39,174,96,0.12)',
+  red:        '#C0392B', redBg:   'rgba(192,57,43,0.10)',
+  orange:     '#D97706', orangeBg:'rgba(217,119,6,0.10)',
+  text:       '#e8eaf0',
+  muted:      '#6b7a99',
+  label:      'rgba(201,168,76,0.75)',
+  input:      '#060f1e',
+  shadow:     '0 8px 32px rgba(0,0,0,0.55)',
 }
 
-// ══════════════════════════════════════════════════════════════
-// PRINTER HOOK — Bluetooth ESC/POS (menm jan ak paj Stock la)
-// ══════════════════════════════════════════════════════════════
+// ─────────────────────────────────────────────────────────────
+// GLOBAL STYLES
+// ─────────────────────────────────────────────────────────────
+const GLOBAL_STYLES = `
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes sheetUp { from{transform:translateY(100%);opacity:0} to{transform:translateY(0);opacity:1} }
+  .kane-modal::-webkit-scrollbar{width:3px}
+  .kane-modal::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:2px}
+  .kane-modal input::placeholder,.kane-modal textarea::placeholder{color:#2a3a54}
+  .kane-modal select option{background:#0d1b2a;color:#e8eaf0}
+  .kane-row:hover{background:rgba(201,168,76,0.06)!important;}
+
+  /* Desktop: modal flote nan mitan */
+  @media(min-width:600px){
+    .kane-sheet{
+      border-radius:20px!important;
+      margin:20px!important;
+      max-height:88vh!important;
+    }
+    .kane-overlay{
+      align-items:center!important;
+    }
+  }
+
+  /* Mobil: responsive */
+  @media(max-width:480px){
+    .kane-header{flex-wrap:wrap!important;gap:8px!important;}
+    .kane-header-actions{width:100%!important;justify-content:space-between!important;}
+    .kane-btn-new{flex:1!important;justify-content:center!important;}
+    .kane-stats{grid-template-columns:1fr 1fr!important;gap:8px!important;}
+    .kane-stat-card{padding:10px 11px!important;}
+    .kane-stat-icon{width:34px!important;height:34px!important;}
+    .kane-acc-name{font-size:13px!important;}
+    .kane-acc-balance{font-size:14px!important;}
+    .kane-sheet{border-radius:18px 18px 0 0!important;}
+    .kane-modal-body{padding:14px 15px 28px!important;}
+    .kane-modal-title{font-size:13px!important;}
+    .kane-form-row{flex-direction:column!important;}
+    .kane-tx-amount{font-size:20px!important;}
+  }
+  @media(max-width:360px){
+    .kane-stats{grid-template-columns:1fr!important;}
+  }
+`
+
+// ─────────────────────────────────────────────────────────────
+// PRINTER HOOK
+// ─────────────────────────────────────────────────────────────
 function usePrinterState() {
   const [connected,  setConnected]  = useState(isPrinterConnected())
   const [connecting, setConnecting] = useState(false)
@@ -83,37 +127,24 @@ function usePrinterState() {
       setConnected(true)
       toast.success(`✅ Printer konekte: ${name}`)
     } catch (err) {
-      if (err.name !== 'NotFoundError') {
-        toast.error('Pa ka konekte printer. Asire Bluetooth aktive.')
-      }
-    } finally {
-      setConnecting(false)
-    }
+      if (err.name !== 'NotFoundError') toast.error('Pa ka konekte printer.')
+    } finally { setConnecting(false) }
   }, [connecting, connected])
 
   const disconnect = useCallback(() => {
-    disconnectPrinter()
-    setConnected(false)
-    toast('Printer dekonekte', { icon: '🔌' })
+    disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
   }, [])
 
   const print = useCallback(async (account, transaction, tenant, type) => {
-    // ── Si Bluetooth konekte → ESC/POS (menm jan ak Stock)
     if (isPrinterConnected()) {
       setPrinting(true)
       try {
         await printKaneReceipt(account, transaction, tenant, type)
-        toast.success('Resi enprime!')
-        return true
-      } catch (err) {
-        setConnected(false)
-        toast.error('Erè printer. Eseye konekte ankò.')
-        return false
-      } finally {
-        setPrinting(false)
-      }
+        toast.success('Resi enprime!'); return true
+      } catch {
+        setConnected(false); toast.error('Erè printer.'); return false
+      } finally { setPrinting(false) }
     }
-    // ── Fallback: browser print
     printReceiptBrowser(buildReceiptHTML(account, transaction, tenant, type))
     return true
   }, [])
@@ -121,34 +152,24 @@ function usePrinterState() {
   return { connected, connecting, printing, connect, disconnect, print }
 }
 
-// ── Browser print fallback ────────────────────────────────────
-function printReceiptBrowser(html, title = 'Resi Kane Epay') {
+function printReceiptBrowser(html) {
   const w = window.open('', '_blank', 'width=340,height=620')
   if (!w) { toast.error('Pemit popup pou sit sa.'); return }
-  w.document.write(`<!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><title>${title}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resi</title>
     <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff;font-family:'Courier New',monospace;font-size:10px}
-    @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style>
-  </head><body>${html}</body></html>`)
+    @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style></head><body>${html}</body></html>`)
   w.document.close()
-  w.onload = () => { setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 1000) }, 200) }
+  w.onload = () => setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 1000) }, 200)
 }
 
-// ── HTML Receipt (browser fallback) — antet menm jan ak ESC/POS ──
 function buildReceiptHTML(account, transaction, tenant, type = 'ouverture') {
   const biz  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const logo = tenant?.logoUrl
     ? `<img src="${tenant.logoUrl}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`
     : ''
-  const txLabels = {
-    ouverture: 'OUVERTURE KONT',
-    depot:     'DEPO / DÉPÔT',
-    retrait:   'RETRÈ / RETRAIT',
-  }
+  const txLabels = { ouverture:'OUVERTURE KONT', depot:'DEPO / DÉPÔT', retrait:'RETRÈ / RETRAIT' }
   const txColor = type === 'retrait' ? '#dc2626' : '#16a34a'
-  const txDate = transaction?.createdAt
-    ? fmtDate(transaction.createdAt)
-    : fmtDate(new Date())
+  const txDate = transaction?.createdAt ? fmtDate(transaction.createdAt) : fmtDate(new Date())
 
   return `<div style="width:80mm;padding:4mm 3mm;background:#fff;color:#1a1a1a;font-family:'Courier New',monospace;font-size:10px;line-height:1.5">
     <div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:5px;margin-bottom:5px">
@@ -167,10 +188,10 @@ function buildReceiptHTML(account, transaction, tenant, type = 'ouverture') {
     </div>
     <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid #ccc;margin-bottom:5px;font-size:9px">
       <div style="font-weight:700">${account.firstName} ${account.lastName}</div>
-      ${account.address       ? `<div>${account.address}</div>`                                                    : ''}
-      ${account.nifOrCin      ? `<div>NIF/CIN: ${account.nifOrCin}</div>`                                          : ''}
-      ${account.phone         ? `<div>Tel: ${account.phone}</div>`                                                  : ''}
-      ${account.familyRelation? `<div>Referans: ${account.familyRelation} — ${account.familyName || ''}</div>`     : ''}
+      ${account.address        ? `<div>${account.address}</div>`                                                    : ''}
+      ${account.nifOrCin       ? `<div>NIF/CIN: ${account.nifOrCin}</div>`                                          : ''}
+      ${account.phone          ? `<div>Tel: ${account.phone}</div>`                                                  : ''}
+      ${account.familyRelation ? `<div>Referans: ${account.familyRelation} — ${account.familyName || ''}</div>`     : ''}
     </div>
     <div style="border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
       ${type === 'ouverture' ? `
@@ -195,15 +216,17 @@ function buildReceiptHTML(account, transaction, tenant, type = 'ouverture') {
   </div>`
 }
 
-// ── StatCard ──────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// UI ATOMS
+// ─────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, color }) {
   return (
-    <div style={{
+    <div className="kane-stat-card" style={{
       background: D.card, borderRadius: 14, padding: '14px 16px',
       border: `1px solid ${D.cardBorder}`, boxShadow: D.shadow,
       display: 'flex', alignItems: 'center', gap: 12,
     }}>
-      <div style={{
+      <div className="kane-stat-icon" style={{
         width: 42, height: 42, borderRadius: 12, flexShrink: 0,
         background: `linear-gradient(135deg,${color},${color}CC)`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -219,67 +242,10 @@ function StatCard({ label, value, icon, color }) {
   )
 }
 
-// ── Modal wrapper ─────────────────────────────────────────────
-function Modal({ onClose, children, title, width = 520 }) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: D.overlay, backdropFilter: 'blur(4px)',
-      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      padding: 0,
-    }} onClick={e => e.target === e.currentTarget && onClose()}>
-      <style>{`
-        .dk-modal::-webkit-scrollbar{width:3px}
-        .dk-modal::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.25);border-radius:2px}
-        .dk-modal input::placeholder,.dk-modal textarea::placeholder{color:#2a3a54}
-        .dk-modal select option{background:#0d1b2a;color:#e8eaf0}
-        @media(min-width:600px){
-          .modal-outer{ align-items:center !important; padding:16px !important; }
-          .modal-inner{ border-radius:20px !important; max-height:90vh !important; }
-        }
-      `}</style>
-      <div className="modal-outer" style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: D.overlay, backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        padding: 0,
-      }} onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="dk-modal modal-inner" style={{
-          background: D.card,
-          border: `1px solid ${D.cardBorder}`,
-          borderRadius: '20px 20px 0 0',
-          width: '100%', maxWidth: width,
-          maxHeight: '95vh', overflowY: 'auto',
-          boxShadow: '0 -8px 40px rgba(0,0,0,0.75)',
-          animation: 'slideUpMobile 0.25s ease',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }} />
-          </div>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '12px 18px 14px',
-            borderBottom: `1px solid ${D.cardBorder}`,
-          }}>
-            <h2 style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0 }}>{title}</h2>
-            <button onClick={onClose} style={{
-              width: 32, height: 32, borderRadius: 8, border: 'none',
-              background: 'rgba(255,255,255,0.06)', color: D.muted, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}><X size={16} /></button>
-          </div>
-          <div style={{ padding: '18px 18px 32px' }}>{children}</div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const inputStyle = {
   width: '100%', padding: '11px 13px', borderRadius: 10, fontSize: 14,
-  border: `1.5px solid rgba(255,255,255,0.09)`, outline: 'none', fontFamily: 'inherit',
-  color: D.text, background: D.input,
-  transition: 'border-color 0.15s', boxSizing: 'border-box',
+  border: '1.5px solid rgba(255,255,255,0.09)', outline: 'none', fontFamily: 'inherit',
+  color: D.text, background: D.input, transition: 'border-color 0.15s', boxSizing: 'border-box',
 }
 const labelStyle = {
   display: 'block', fontSize: 11, fontWeight: 700, color: D.label,
@@ -294,6 +260,51 @@ const Section = ({ icon, title, children }) => (
   </div>
 )
 
+// ─────────────────────────────────────────────────────────────
+// MODAL — ✅ FIX: pa gen double wrapper, SÈLMAN ti kwa fèmen
+// ─────────────────────────────────────────────────────────────
+function Modal({ onClose, children, title, width = 520 }) {
+  return (
+    // ❌ Retire onClick sou overlay — modal fèmen SÈLMAN ak bouton X
+    <div className="kane-overlay" style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: D.overlay, backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div className="kane-modal kane-sheet" style={{
+        background: D.card,
+        border: `1px solid ${D.cardBorder}`,
+        borderRadius: '20px 20px 0 0',
+        width: '100%', maxWidth: width,
+        maxHeight: '95vh', overflowY: 'auto',
+        boxShadow: '0 -8px 40px rgba(0,0,0,0.75)',
+        animation: 'sheetUp 0.26s cubic-bezier(0.32,0.72,0,1)',
+      }}>
+        {/* Handle bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }} />
+        </div>
+        {/* Header sticky */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 18px 14px',
+          borderBottom: `1px solid ${D.cardBorder}`,
+          position: 'sticky', top: 0, background: D.card, zIndex: 1,
+        }}>
+          <h2 className="kane-modal-title" style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0 }}>{title}</h2>
+          {/* ✅ Sèlman bouton sa a ki ka fèmen modal la */}
+          <button onClick={onClose} style={{
+            width: 32, height: 32, borderRadius: 8, border: 'none',
+            background: 'rgba(255,255,255,0.06)', color: D.muted, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}><X size={16} /></button>
+        </div>
+        <div className="kane-modal-body" style={{ padding: '18px 18px 32px' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MODAL: NOUVO KONT
 // ═══════════════════════════════════════════════════════════════
@@ -305,7 +316,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
     openingAmount: '', kaneFee: '', lockedAmount: '',
     method: 'cash', reference: '',
   })
-  const [errors, setErrors] = useState({})
+  const [errors,   setErrors]   = useState({})
   const [focusKey, setFocusKey] = useState(null)
 
   const opening = Number(form.openingAmount || 0)
@@ -342,8 +353,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
       await printer.print(
         res.data.account,
         { createdAt: new Date(), method: form.method, reference: form.reference },
-        tenant,
-        'ouverture'
+        tenant, 'ouverture'
       )
       onSuccess(res.data.account)
       onClose()
@@ -366,7 +376,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
   return (
     <Modal onClose={onClose} title="✚ Nouvo Kont Kanè Epay" width={560}>
       <Section icon="👤" title="Enfòmasyon Titilè">
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 140px' }}>
             <label style={labelStyle}>Prenon *</label>
             <input style={inp('firstName', { borderColor: errors.firstName ? D.red : undefined })}
@@ -380,14 +390,14 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
             {errors.lastName && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.lastName}</p>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
+        <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10 }}>
           <div style={{ flex: '1 1 140px' }}>
             <label style={labelStyle}>Nif / CIN</label>
             <input style={inp('nifOrCin')} value={form.nifOrCin} onChange={e => set('nifOrCin', e.target.value)} placeholder="001-234-5678" />
           </div>
           <div style={{ flex: '1 1 140px' }}>
             <label style={labelStyle}>Telefòn</label>
-            <input style={inp('phone')} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+509 XXXX XXXX" />
+            <input style={inp('phone')} inputMode="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+509 XXXX XXXX" />
           </div>
         </div>
         <div style={{ marginTop: 10 }}>
@@ -397,7 +407,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
       </Section>
 
       <Section icon="👨‍👩‍👧" title="Referans Fanmi">
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 140px' }}>
             <label style={labelStyle}>Relasyon</label>
             <select style={inp('relation', { cursor: 'pointer' })} value={form.familyRelation} onChange={e => set('familyRelation', e.target.value)}>
@@ -423,7 +433,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
         </div>
         {opening > 0 && (
           <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 120px' }}>
                 <label style={{ ...labelStyle, color: `${D.red}cc` }}>Frè Kanè (HTG)</label>
                 <input type="number" min="0" step="0.01"
@@ -441,14 +451,14 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
             </div>
             <div style={{ marginTop: 10, borderRadius: 8, overflow: 'hidden', border: `1px solid ${D.cardBorder}` }}>
               <div style={{ display: 'flex', height: 10 }}>
-                {fee > 0    && <div style={{ width: `${(fee/opening)*100}%`,    background: D.red,    transition: 'width 0.3s' }} />}
-                {locked > 0 && <div style={{ width: `${(locked/opening)*100}%`, background: D.orange, transition: 'width 0.3s' }} />}
-                {balance > 0 && <div style={{ flex: 1, background: D.green, transition: 'width 0.3s' }} />}
+                {fee > 0     && <div style={{ width: `${(fee/opening)*100}%`,    background: D.red,    transition: 'width 0.3s' }} />}
+                {locked > 0  && <div style={{ width: `${(locked/opening)*100}%`, background: D.orange, transition: 'width 0.3s' }} />}
+                {balance > 0 && <div style={{ flex: 1, background: D.green,      transition: 'width 0.3s' }} />}
               </div>
               <div style={{ display: 'flex', padding: '7px 10px', gap: 10, fontSize: 10, fontWeight: 700, background: 'rgba(255,255,255,0.03)', flexWrap: 'wrap' }}>
-                <span style={{ color: D.red    }}>🔴 {fmt(fee)}</span>
-                <span style={{ color: D.orange }}>🟠 {fmt(locked)}</span>
-                <span style={{ color: D.green  }}>🟢 {fmt(balance)} HTG</span>
+                <span style={{ color: D.red    }}>🔴 Frè: {fmt(fee)}</span>
+                <span style={{ color: D.orange }}>🟠 Bloke: {fmt(locked)}</span>
+                <span style={{ color: D.green  }}>🟢 Balans: {fmt(balance)} HTG</span>
               </div>
             </div>
             {errors.balance && (
@@ -461,7 +471,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
         )}
       </Section>
 
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+      <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
         <div style={{ flex: '1 1 140px' }}>
           <label style={labelStyle}>Metod Peman</label>
           <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.method} onChange={e => set('method', e.target.value)}>
@@ -486,7 +496,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
       <div style={{ display: 'flex', gap: 10 }}>
         <button onClick={onClose} style={{
           flex: 1, padding: '13px', borderRadius: 12,
-          border: `1px solid rgba(255,255,255,0.1)`,
+          border: '1px solid rgba(255,255,255,0.1)',
           background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14,
         }}>Anile</button>
         <button onClick={handleSubmit} disabled={mutation.isPending || !isValid} style={{
@@ -511,10 +521,10 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
 function ModalTransaction({ account, type, onClose, onSuccess, printer }) {
   const { tenant } = useAuthStore()
   const [form, setForm] = useState({ amount: '', method: 'cash', reference: '' })
-  const amt = Number(form.amount || 0)
-  const isWithdraw = type === 'retrait'
-  const color   = isWithdraw ? D.red : D.green
-  const balance = Number(account.balance)
+  const amt       = Number(form.amount || 0)
+  const isWithdraw= type === 'retrait'
+  const color     = isWithdraw ? D.red : D.green
+  const balance   = Number(account.balance)
 
   const mutation = useMutation({
     mutationFn: (data) => isWithdraw ? kaneAPI.withdraw(account.id, data) : kaneAPI.deposit(account.id, data),
@@ -543,7 +553,7 @@ function ModalTransaction({ account, type, onClose, onSuccess, printer }) {
 
         <div>
           <label style={{ ...labelStyle, color }}>{isWithdraw ? 'Montan Retrè' : 'Montan Depo'} (HTG) *</label>
-          <input type="number" min="0.01" step="0.01"
+          <input type="number" min="0.01" step="0.01" className="kane-tx-amount"
             style={{ ...inputStyle, fontSize: 26, fontWeight: 800, textAlign: 'center', borderColor: `${color}60`, color }}
             value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))}
             placeholder="0.00" onFocus={e => e.target.select()} autoFocus />
@@ -555,14 +565,16 @@ function ModalTransaction({ account, type, onClose, onSuccess, printer }) {
               <span>Nouvo balans:</span>
               <span style={{ fontFamily: 'monospace', fontSize: 15 }}>
                 {isWithdraw
-                  ? amt > balance ? <span style={{ color: D.red }}>⚠ Ensifizàn!</span> : `${fmt(balance - amt)} HTG`
+                  ? amt > balance
+                    ? <span style={{ color: D.red }}>⚠ Ensifizàn!</span>
+                    : `${fmt(balance - amt)} HTG`
                   : `${fmt(balance + amt)} HTG`}
               </span>
             </div>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 130px' }}>
             <label style={labelStyle}>Metod</label>
             <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.method} onChange={e => setForm(p => ({ ...p, method: e.target.value }))}>
@@ -578,10 +590,11 @@ function ModalTransaction({ account, type, onClose, onSuccess, printer }) {
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
           <button onClick={onClose} style={{
             flex: 1, padding: '13px', borderRadius: 12,
-            border: `1px solid rgba(255,255,255,0.1)`, background: 'transparent',
+            border: '1px solid rgba(255,255,255,0.1)', background: 'transparent',
             color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14,
           }}>Anile</button>
-          <button onClick={() => mutation.mutate({ amount: amt, method: form.method, reference: form.reference || undefined })}
+          <button
+            onClick={() => mutation.mutate({ amount: amt, method: form.method, reference: form.reference || undefined })}
             disabled={mutation.isPending || amt <= 0 || (isWithdraw && amt > balance)}
             style={{
               flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer',
@@ -602,7 +615,7 @@ function ModalTransaction({ account, type, onClose, onSuccess, printer }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: DETAY
+// MODAL: DETAY KONT
 // ═══════════════════════════════════════════════════════════════
 function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
   const { tenant } = useAuthStore()
@@ -627,6 +640,7 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
   return (
     <Modal onClose={onClose} title={`📋 ${data.accountNumber}`} width={580}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Kat kont */}
         <div style={{
           background: D.goldBtn, borderRadius: 14, padding: '14px 16px', color: '#0a1222',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
@@ -634,16 +648,18 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.firstName} {data.lastName}</p>
             <p style={{ fontSize: 10, opacity: 0.7, margin: 0, fontFamily: 'monospace' }}>{data.accountNumber}</p>
-            {data.nifOrCin && <p style={{ fontSize: 10, opacity: 0.6, margin: '2px 0 0' }}>NIF: {data.nifOrCin}</p>}
+            {data.nifOrCin       && <p style={{ fontSize: 10, opacity: 0.6, margin: '2px 0 0' }}>NIF: {data.nifOrCin}</p>}
+            {data.phone          && <p style={{ fontSize: 10, opacity: 0.6, margin: '2px 0 0' }}>📱 {data.phone}</p>}
             {data.familyRelation && <p style={{ fontSize: 10, opacity: 0.7, margin: '2px 0 0' }}>👨‍👩‍👧 {data.familyRelation}: {data.familyName || ''}</p>}
           </div>
           <div style={{ textAlign: 'right', flexShrink: 0 }}>
             <p style={{ fontSize: 10, opacity: 0.6, margin: '0 0 2px', textTransform: 'uppercase' }}>Balans</p>
             <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 20, margin: 0 }}>{fmt(data.balance)} HTG</p>
-            <p style={{ fontSize: 9, opacity: 0.5, margin: '2px 0 0' }}>Bloke: {fmt(data.lockedAmount)} HTG</p>
+            {Number(data.lockedAmount) > 0 && <p style={{ fontSize: 9, opacity: 0.5, margin: '2px 0 0' }}>Bloke: {fmt(data.lockedAmount)} HTG</p>}
           </div>
         </div>
 
+        {/* Bouton aksyon */}
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={onDepo} style={{ flex: 1, padding: '11px 8px', borderRadius: 10, border: `1px solid ${D.green}30`, cursor: 'pointer', background: D.greenBg, color: D.green, fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
             <ArrowDownCircle size={15} /> Depo
@@ -659,6 +675,7 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           </button>
         </div>
 
+        {/* Istwa tranzaksyon */}
         <div>
           <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: D.muted, margin: '0 0 8px' }}>
             Istwa ({data.transactions?.length || 0})
@@ -713,6 +730,14 @@ export default function KaneEpayPage() {
   const [modal,  setModal]  = useState(null)
   const [selAcc, setSelAcc] = useState(null)
 
+  // Inject global styles yon sèl fwa
+  useState(() => {
+    const el = document.createElement('style')
+    el.textContent = GLOBAL_STYLES
+    document.head.appendChild(el)
+    return () => document.head.removeChild(el)
+  })
+
   const { data: statsData } = useQuery({
     queryKey: ['kane-stats'],
     queryFn: () => kaneAPI.getStats().then(r => r.data.stats),
@@ -738,46 +763,36 @@ export default function KaneEpayPage() {
   const openRetrait = (acc) => { setSelAcc(acc); setModal('retrait') }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'DM Sans, sans-serif', paddingBottom: 50, padding: '16px' }}>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes slideUpMobile { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
-        .kane-row:hover { background: rgba(201,168,76,0.06) !important; }
-      `}</style>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'DM Sans, sans-serif', padding: '16px', paddingBottom: 60 }}>
 
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+      {/* Header */}
+      <div className="kane-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
           <h1 style={{ fontSize: 20, fontWeight: 900, color: D.gold, margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <CreditCard size={20} /> Kanè Epay
           </h1>
           <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Kont depo ak retrè</p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-          {/* ── Bouton Printer Bluetooth — menm jan ak paj Stock ── */}
+        <div className="kane-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
           <button
             onClick={printer.connected ? printer.disconnect : printer.connect}
             disabled={printer.connecting}
-            title={printer.connected ? 'Dekonekte printer' : 'Konekte printer Bluetooth'}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '9px 12px', borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: printer.connected
-                ? 'rgba(39,174,96,0.15)'
-                : 'rgba(255,255,255,0.06)',
+              background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)',
               color: printer.connected ? D.green : D.muted,
-              fontWeight: 700, fontSize: 12,
-              transition: 'all 0.2s',
+              fontWeight: 700, fontSize: 12, transition: 'all 0.2s',
             }}>
             {printer.connecting
               ? <span style={{ width: 13, height: 13, border: `2px solid ${D.muted}40`, borderTopColor: D.muted, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-              : printer.connected
-                ? <Bluetooth size={14} />
-                : <BluetoothOff size={14} />}
-            {printer.connected ? 'Printer OK' : 'Printer'}
+              : printer.connected ? <Bluetooth size={14} /> : <BluetoothOff size={14} />}
+            <span style={{ display: printer.connected ? 'inline' : 'inline' }}>
+              {printer.connected ? 'OK' : 'Printer'}
+            </span>
           </button>
 
-          <button onClick={() => setModal('create')} style={{
+          <button className="kane-btn-new" onClick={() => setModal('create')} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '10px 16px', borderRadius: 12, border: 'none', cursor: 'pointer',
             background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 13,
@@ -788,15 +803,15 @@ export default function KaneEpayPage() {
         </div>
       </div>
 
-      {/* ── Stats 2x2 ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-        <StatCard label="Total Kont"    value={statsData?.totalAccounts    || 0}              icon={<Users size={18}/>}      color={D.gold}   />
-        <StatCard label="Kont Aktif"    value={statsData?.activeAccounts   || 0}              icon={<Activity size={18}/>}   color={D.green}  />
-        <StatCard label="Total Balans"  value={`${fmt(statsData?.totalBalance || 0)} HTG`}    icon={<Wallet size={18}/>}     color="#3B82F6"  />
-        <StatCard label="Jodi a"        value={statsData?.todayTransactions || 0}             icon={<TrendingUp size={18}/>} color={D.orange} />
+      {/* Stats */}
+      <div className="kane-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
+        <StatCard label="Total Kont"   value={statsData?.totalAccounts    || 0}           icon={<Users size={18}/>}      color={D.gold}   />
+        <StatCard label="Kont Aktif"   value={statsData?.activeAccounts   || 0}           icon={<Activity size={18}/>}   color={D.green}  />
+        <StatCard label="Total Balans" value={`${fmt(statsData?.totalBalance || 0)} HTG`} icon={<Wallet size={18}/>}     color="#3B82F6"  />
+        <StatCard label="Jodi a"       value={statsData?.todayTransactions || 0}          icon={<TrendingUp size={18}/>} color={D.orange} />
       </div>
 
-      {/* ── Rechèch ── */}
+      {/* Rechèch */}
       <div style={{ position: 'relative' }}>
         <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: D.muted, pointerEvents: 'none' }} />
         <input
@@ -807,35 +822,35 @@ export default function KaneEpayPage() {
         />
       </div>
 
-      {/* ── Lis kont yo ── */}
+      {/* Lis kont */}
       {isLoading ? (
         <div style={{ textAlign: 'center', color: D.muted, padding: 40 }}>Ap chaje...</div>
       ) : !accounts.length ? (
         <div style={{ textAlign: 'center', color: D.muted, padding: 50, background: D.card, borderRadius: 16, border: `1px dashed ${D.cardBorder}` }}>
-          <CreditCard size={36} style={{ opacity: 0.3, marginBottom: 10 }} />
+          <CreditCard size={36} style={{ opacity: 0.3, marginBottom: 10, display: 'block', margin: '0 auto 10px' }} />
           <p style={{ fontSize: 13, fontWeight: 700, margin: 0 }}>{search ? 'Pa jwenn rezilta' : 'Pa gen kont Kanè Epay'}</p>
         </div>
       ) : (
         <>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {accounts.map(acc => (
-              <div key={acc.id} onClick={() => openDetail(acc)}
+              <div key={acc.id} className="kane-row" onClick={() => openDetail(acc)}
                 style={{
                   background: D.card, border: `1px solid ${D.cardBorder}`,
                   borderRadius: 14, padding: '13px 14px', cursor: 'pointer',
-                  boxShadow: D.shadow,
+                  boxShadow: D.shadow, transition: 'background 0.15s',
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ minWidth: 0 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <div style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold, fontSize: 11, marginBottom: 3 }}>{acc.accountNumber}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div className="kane-acc-name" style={{ fontSize: 14, fontWeight: 700, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {acc.firstName} {acc.lastName}
                     </div>
                     {acc.phone && <div style={{ fontSize: 11, color: D.muted, marginTop: 1 }}>{acc.phone}</div>}
                     <div style={{ fontSize: 10, color: D.muted, marginTop: 2, fontFamily: 'monospace' }}>{fmtDate(acc.createdAt)}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: D.green }}>{fmt(acc.balance)}</div>
+                    <div className="kane-acc-balance" style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: D.green }}>{fmt(acc.balance)}</div>
                     <div style={{ fontSize: 10, color: D.muted }}>HTG</div>
                     {Number(acc.lockedAmount) > 0 && <div style={{ fontSize: 10, color: D.orange, marginTop: 2 }}>🔒 {fmt(acc.lockedAmount)}</div>}
                   </div>
@@ -877,7 +892,7 @@ export default function KaneEpayPage() {
         </>
       )}
 
-      {/* ── MODALS ── */}
+      {/* MODALS */}
       {modal === 'create' && (
         <ModalCreateAccount onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
       )}
@@ -886,8 +901,8 @@ export default function KaneEpayPage() {
           onDepo={() => setModal('depot')} onRetrait={() => setModal('retrait')}
           printer={printer} />
       )}
-      {modal === 'depot'   && selAcc && (
-        <ModalTransaction account={selAcc} type="depot"   onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
+      {modal === 'depot' && selAcc && (
+        <ModalTransaction account={selAcc} type="depot" onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
       )}
       {modal === 'retrait' && selAcc && (
         <ModalTransaction account={selAcc} type="retrait" onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
