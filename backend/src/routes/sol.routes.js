@@ -92,7 +92,7 @@ router.post('/auth/login', async (req, res) => {
     }
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: account.tenantId },
+      where:  { id: account.tenantId },
       select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
@@ -148,7 +148,8 @@ router.post('/auth/change-password', authMember, async (req, res) => {
     const newHash = await bcrypt.hash(newPassword, 10)
     await prisma.solMemberAccount.update({
       where: { id: account.id },
-      data:  { passwordHash: newHash },
+      // ✅ Efase plainPassword lè manm chanje modpas li — sekiri
+      data:  { passwordHash: newHash, plainPassword: null },
     })
 
     return res.json({ message: 'Modpas chanje avèk siksè' })
@@ -171,7 +172,7 @@ router.get('/members/me', authMember, async (req, res) => {
     const sabotayMember = await prisma.sabotayMember.findUnique({
       where: { id: account.memberId },
       include: {
-        plan: true,
+        plan:     true,
         payments: { orderBy: { dueDate: 'asc' } },
       },
     })
@@ -183,7 +184,7 @@ router.get('/members/me', authMember, async (req, res) => {
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
     const tenant = await prisma.tenant.findUnique({
-      where: { id: account.tenantId },
+      where:  { id: account.tenantId },
       select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
@@ -197,14 +198,18 @@ router.get('/members/me', authMember, async (req, res) => {
         paymentTimings,
       },
       plan: {
-        id:         plan.id,
-        name:       plan.name,
-        amount:     Number(plan.amount),
-        fee:        Number(plan.fee),
-        frequency:  plan.frequency,
-        maxMembers: plan.maxMembers,
-        createdAt:  plan.startDate.toISOString().split('T')[0],
-        dueTime:    account.planDueTime || '08:00',
+        id:            plan.id,
+        name:          plan.name,
+        amount:        Number(plan.amount),
+        fee:           Number(plan.fee),
+        frequency:     plan.frequency,
+        maxMembers:    plan.maxMembers,
+        createdAt:     plan.startDate.toISOString().split('T')[0],
+        dueTime:       account.planDueTime      || '08:00',
+        interval:      account.planInterval     || 1,
+        feePerMember:  account.planFeePerMember || 0,
+        penalty:       account.planPenalty      || 0,
+        regleman:      account.planRegleman     || null,
       },
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
@@ -228,7 +233,7 @@ router.post('/accounts', authAdmin, async (req, res) => {
     }
 
     const sabotayMember = await prisma.sabotayMember.findUnique({
-      where: { id: memberId },
+      where:   { id: memberId },
       include: { plan: true },
     })
     if (!sabotayMember) {
@@ -255,28 +260,35 @@ router.post('/accounts', authAdmin, async (req, res) => {
       })
     }
 
-    const passwordHash = await bcrypt.hash(credentials.password, 10)
-    const plan = sabotayMember.plan
+    const rawPassword  = credentials.password
+    const passwordHash = await bcrypt.hash(rawPassword, 10)
+    const plan         = sabotayMember.plan
 
     const account = await prisma.solMemberAccount.create({
       data: {
-        username:       credentials.username.toLowerCase().trim(),
+        username:         credentials.username.toLowerCase().trim(),
         passwordHash,
+        plainPassword:    rawPassword,  // ✅ Sove modpas klè pou admin ka wè l
         tenantId,
-        memberId:       sabotayMember.id,
-        memberName:     sabotayMember.name,
-        memberPhone:    sabotayMember.phone || '',
-        memberPosition: sabotayMember.position,
-        planId:         plan.id,
-        planName:       plan.name,
-        planAmount:     Number(plan.amount),
-        planFee:        Number(plan.fee),
-        planFrequency:  plan.frequency,
-        planMaxMembers: plan.maxMembers,
-        planCreatedAt:  plan.startDate.toISOString().split('T')[0],
-        planDueTime:    dueTime || '08:00',
-        payments:       {},
-        paymentTimings: {},
+        memberId:         sabotayMember.id,
+        memberName:       sabotayMember.name,
+        memberPhone:      sabotayMember.phone || '',
+        memberPosition:   sabotayMember.position,
+        planId:           plan.id,
+        planName:         plan.name,
+        planAmount:       Number(plan.amount),
+        planFee:          Number(plan.fee),
+        planFrequency:    plan.frequency,
+        planMaxMembers:   plan.maxMembers,
+        planCreatedAt:    plan.startDate.toISOString().split('T')[0],
+        planDueTime:      dueTime || '08:00',
+        planInterval:     Number(plan.interval     || 1),
+        planFeePerMember: Number(plan.feePerMember || 0),
+        planPenalty:      Number(plan.penalty      || 0),
+        planRegleman:     plan.regleman            || null,
+        payments:         {},
+        paymentTimings:   {},
+        fines:            {},
       },
     })
 
@@ -303,6 +315,71 @@ router.get('/members/:memberId/check', authAdmin, async (req, res) => {
     return res.json({ hasAccount: !!account, account: account || null })
   } catch (err) {
     console.error('[SOL CHECK]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO: GET /api/sol/accounts?tenantId=xxx&planId=xxx  (admin)
+// Admin ka wè tout kont Sol ak credentials yo
+// ══════════════════════════════════════════════════════════════
+router.get('/accounts', authAdmin, async (req, res) => {
+  try {
+    const { tenantId, planId } = req.query
+    if (!tenantId) {
+      return res.status(400).json({ message: 'tenantId obligatwa' })
+    }
+
+    const accounts = await prisma.solMemberAccount.findMany({
+      where: {
+        tenantId,
+        ...(planId && { planId }),
+      },
+      select: {
+        id:            true,
+        username:      true,
+        plainPassword: true,   // ← modpas klè pou admin
+        memberName:    true,
+        memberPhone:   true,
+        memberPosition:true,
+        planName:      true,
+        createdAt:     true,
+      },
+      orderBy: { memberPosition: 'asc' },
+    })
+
+    return res.json({ accounts })
+  } catch (err) {
+    console.error('[SOL ACCOUNTS LIST]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO: PATCH /api/sol/accounts/:accountId/reset-password  (admin)
+// Admin ka reset modpas yon manm
+// ══════════════════════════════════════════════════════════════
+router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) => {
+  try {
+    const { newPassword } = req.body
+    if (!newPassword || newPassword.length < 4) {
+      return res.status(400).json({ message: 'Modpas dwe gen omwen 4 karaktè' })
+    }
+
+    const account = await prisma.solMemberAccount.findUnique({
+      where: { id: req.params.accountId },
+    })
+    if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
+
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+    await prisma.solMemberAccount.update({
+      where: { id: account.id },
+      data:  { passwordHash, plainPassword: newPassword },
+    })
+
+    return res.json({ message: 'Modpas reset avèk siksè', username: account.username })
+  } catch (err) {
+    console.error('[SOL RESET PW]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
