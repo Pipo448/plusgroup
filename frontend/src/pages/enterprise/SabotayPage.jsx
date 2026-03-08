@@ -1493,15 +1493,14 @@ export default function SabotayPage() {
   // ── Queries ──
   const { data:plans=[], isLoading, error, refetch } = useQuery({
     queryKey:['sabotay-plans'],
-    queryFn:()=>solFetch('/sabotay/plans').then(r=>r.plans||r.data||r),
-    refetchInterval:60000,
+    queryFn:()=>apiFetch('/sabotay/plans')
   })
 
   const activePlan = selectedPlan ? plans.find(p=>p.id===selectedPlan.id)||selectedPlan : null
 
   // ── Mutations ──
   const createPlan = useMutation({
-    mutationFn:(data)=>solFetch('/sabotay/plans',{method:'POST',body:JSON.stringify(data)}),
+    mutationFn:(data)=>apiFetch('/sabotay/plans',{method:'POST',body:JSON.stringify(data)}),
     onSuccess:(r)=>{ qc.invalidateQueries(['sabotay-plans']); setShowCreate(false); toast.success('✅ Plan kreye!'); setSelected(r.plan||r) },
     onError:(e)=>toast.error(e.message),
   })
@@ -1516,7 +1515,7 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
   const markPayment = useMutation({
-    mutationFn:({memberId,...data})=>solFetch(`/sabotay/members/${memberId}/payments`,{method:'POST',body:JSON.stringify(data)}),
+    mutationFn:({memberId,...data})=>apiFetch(`/sabotay/plans/${activePlan?.id}/members/${memberId}/pay`,{method:'POST',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); toast.success('✅ Peman anrejistre!') },
     onError:(e)=>toast.error(e.message),
   })
