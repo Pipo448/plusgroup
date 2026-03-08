@@ -149,6 +149,7 @@ app.use(`${API}/sabotay`,       sabotayRoutes);
 
 // ✅ Sol Member Portal
 app.use(`${API}/sol`,           solRoutes);
+app.use('/api/sol',   solRoutes); 
 
 // ✅ Enterprise routes (san sabotay — li deja anrejistre anwo a)
 app.use(`${API}/kane`,    kaneRouter);
