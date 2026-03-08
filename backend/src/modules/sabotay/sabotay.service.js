@@ -15,9 +15,11 @@ function computePaymentDate(startDate, frequency, position, interval = 1) {
       start.setDate(start.getDate() + pos * interval)
       break
     case 'saturday':
+    case 'weekly_saturday':
       start.setDate(start.getDate() + pos * 7 * interval)
       break
     case 'weekly':
+    case 'weekly_monday':
       start.setDate(start.getDate() + pos * 5 * interval)
       break
     case 'biweekly':
@@ -25,6 +27,9 @@ function computePaymentDate(startDate, frequency, position, interval = 1) {
       break
     case 'monthly':
       start.setMonth(start.getMonth() + pos * interval)
+      break
+    case 'weekdays':
+      start.setDate(start.getDate() + pos * interval)
       break
     default:
       start.setDate(start.getDate() + pos * 7 * interval)
@@ -34,7 +39,11 @@ function computePaymentDate(startDate, frequency, position, interval = 1) {
 }
 
 function getIntervalDays(frequency, interval = 1) {
-  const base = { daily: 1, saturday: 7, weekly: 5, biweekly: 15, monthly: 30 }
+  const base = {
+    daily: 1, saturday: 7, weekly_saturday: 7,
+    weekly: 5, weekly_monday: 5, biweekly: 15,
+    monthly: 30, weekdays: 1,
+  }
   return (base[frequency] || 7) * interval
 }
 
@@ -99,7 +108,7 @@ async function getPlans(tenantId, branchId, params = {}) {
         members: {
           where: { isActive: true },
           include: {
-            payments: { select: { id: true, dueDate: true, paidAt: true, amount: true } }
+            payments: { select: { id: true, dueDate: true, paidAt: true, amount: true, timing: true, fineAmt: true } }
           },
           orderBy: { position: 'asc' },
         },
@@ -111,7 +120,22 @@ async function getPlans(tenantId, branchId, params = {}) {
     prisma.sabotayPlan.count({ where }),
   ])
 
-  return { plans, total, page: Number(page), limit: Number(limit) }
+  // ✅ Transfòme payments array → { payments: {}, paymentTimings: {}, fines: {} }
+  const plansFormatted = plans.map(plan => ({
+    ...plan,
+    members: plan.members.map(member => {
+      const payments       = {}
+      const paymentTimings = {}
+      for (const p of member.payments) {
+        const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
+        payments[dateKey]       = true
+        paymentTimings[dateKey] = p.timing || 'onTime'
+      }
+      return { ...member, payments, paymentTimings }
+    })
+  }))
+
+  return { plans: plansFormatted, total, page: Number(page), limit: Number(limit) }
 }
 
 async function getPlanById(tenantId, planId) {
@@ -138,11 +162,9 @@ async function getPlanById(tenantId, planId) {
   return plan
 }
 
-// ✅ FIX: ajoute nouvo kolòn schema (feePerMember, penalty, interval, dueTime, regleman)
 async function createPlan(tenantId, branchId, userId, data) {
   const {
     name, frequency, amount, maxMembers, fee, startDate, notes,
-    // Nouvo kolòn
     feePerMember, penalty, interval, dueTime, regleman,
   } = data
 
@@ -161,10 +183,9 @@ async function createPlan(tenantId, branchId, userId, data) {
       maxMembers:   Number(maxMembers),
       fee:          Number(fee || 0),
       startDate:    startDate ? new Date(startDate) : new Date(),
-      notes:        notes    || null,
+      notes:        notes     || null,
       status:       'active',
       createdBy:    userId,
-      // ✅ Nouvo kolòn
       feePerMember: Number(feePerMember || 0),
       penalty:      Number(penalty      || 0),
       interval:     Number(interval     || 1),
@@ -180,7 +201,6 @@ async function createPlan(tenantId, branchId, userId, data) {
   return plan
 }
 
-// ✅ FIX: ajoute nouvo kolòn nan updatePlan tou
 async function updatePlan(tenantId, planId, userId, data) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
@@ -188,12 +208,13 @@ async function updatePlan(tenantId, planId, userId, data) {
   const updated = await prisma.sabotayPlan.update({
     where: { id: planId },
     data: {
-      ...(data.name        && { name: data.name.trim() }),
-      ...(data.status      && { status: data.status }),
-      ...(data.notes       !== undefined && { notes: data.notes }),
-      ...(data.fee         !== undefined && { fee: Number(data.fee) }),
-      ...(data.maxMembers  && { maxMembers: Number(data.maxMembers) }),
-      // ✅ Nouvo kolòn
+      ...(data.name         && { name: data.name.trim() }),
+      ...(data.status       && { status: data.status }),
+      ...(data.notes        !== undefined && { notes: data.notes }),
+      ...(data.fee          !== undefined && { fee: Number(data.fee) }),
+      ...(data.maxMembers   && { maxMembers: Number(data.maxMembers) }),
+      // ✅ Ajoute startDate nan update
+      ...(data.startDate    && { startDate: new Date(data.startDate) }),
       ...(data.feePerMember !== undefined && { feePerMember: Number(data.feePerMember) }),
       ...(data.penalty      !== undefined && { penalty:      Number(data.penalty) }),
       ...(data.interval     !== undefined && { interval:     Number(data.interval) }),
@@ -222,7 +243,6 @@ async function deletePlan(tenantId, planId) {
 // ─────────────────────────────────────────────────────────────
 // TIRAJ AVÈG (BLIND DRAW)
 // ─────────────────────────────────────────────────────────────
-// ✅ NOUVO: chwazi yon manm pou touche sol la, mete hasWon = true
 async function blindDraw(tenantId, planId, userId, data) {
   const { winnerId } = data
 
@@ -232,7 +252,6 @@ async function blindDraw(tenantId, planId, userId, data) {
   })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  // Si winnerId bay dirèkteman (admin chwazi), sinon chwazi yon manm owaza
   let winner
   if (winnerId) {
     winner = await prisma.sabotayMember.findFirst({
@@ -240,26 +259,22 @@ async function blindDraw(tenantId, planId, userId, data) {
     })
     if (!winner) throw new Error('Manm pa jwenn.')
   } else {
-    // Chwazi owaza nan manm ki poko touche
     const eligible = plan.members.filter(m => !m.hasWon)
     if (!eligible.length) throw new Error('Tout manm fin touche deja.')
     winner = eligible[Math.floor(Math.random() * eligible.length)]
   }
 
-  // Mete hasWon = true pou gagnant la
   const updatedWinner = await prisma.sabotayMember.update({
     where: { id: winner.id },
     data:  { hasWon: true },
   })
 
-  // Kalkile payout
   const totalMembers  = plan.members.length
   const feePerMember  = Number(plan.feePerMember || 0)
   const amount        = Number(plan.amount)
   const pool          = amount * totalMembers
   const payout        = pool - feePerMember
 
-  // Notifye admins
   await _checkAndNotifyCollection(tenantId, plan, new Date().toISOString().split('T')[0])
 
   return {
@@ -290,9 +305,8 @@ async function getMembers(tenantId, planId) {
   return members
 }
 
-// ✅ FIX: ajoute isOwnerSlot, hasWon, fines sou addMember
 async function addMember(tenantId, planId, userId, data) {
-  const { name, phone, position, notes, isOwnerSlot, hasWon, fines } = data
+  const { name, phone, position, notes, isOwnerSlot, hasWon, fines, credentials } = data
 
   if (!name)     throw new Error('Non manm obligatwa.')
   if (!phone)    throw new Error('Telefòn manm obligatwa.')
@@ -304,7 +318,6 @@ async function addMember(tenantId, planId, userId, data) {
   })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  // ✅ Kalkile totalSlots: si feePerMember === amount → plas pwopriyetè ajoute
   const ownerSlot    = Number(plan.feePerMember || 0) === Number(plan.amount) ? 1 : 0
   const maxSlots     = plan.maxMembers + ownerSlot
   const currentCount = plan._count.members
@@ -313,7 +326,6 @@ async function addMember(tenantId, planId, userId, data) {
     throw new Error(`Plan plen! Maks ${maxSlots} manm rive.`)
   }
 
-  // Verifye pozisyon pa pran
   const posExists = await prisma.sabotayMember.findFirst({
     where: { planId, position: Number(position), isActive: true }
   })
@@ -333,7 +345,6 @@ async function addMember(tenantId, planId, userId, data) {
       notes:       notes       || null,
       isActive:    true,
       createdBy:   userId,
-      // ✅ Nouvo kolòn
       isOwnerSlot: isOwnerSlot || false,
       hasWon:      hasWon      || false,
       fines:       fines       || {},
@@ -343,6 +354,46 @@ async function addMember(tenantId, planId, userId, data) {
       creator:  { select: { fullName: true } },
     }
   })
+
+  // ✅ Kreye kont Sol otomatikman si credentials bay epi pa isOwnerSlot
+  if (credentials && !isOwnerSlot) {
+    try {
+      const bcrypt = require('bcryptjs')
+      const passwordHash = await bcrypt.hash(credentials.password, 10)
+
+      await prisma.solMemberAccount.create({
+        data: {
+          username:        credentials.username.toLowerCase().trim(),
+          passwordHash,
+          tenantId,
+          memberId:        member.id,
+          memberName:      member.name,
+          memberPhone:     member.phone || '',
+          memberPosition:  member.position,
+          planId:          plan.id,
+          planName:        plan.name,
+          planAmount:      Number(plan.amount),
+          planFee:         Number(plan.fee || 0),
+          planFrequency:   plan.frequency,
+          planMaxMembers:  plan.maxMembers,
+          planCreatedAt:   plan.startDate.toISOString().split('T')[0],
+          planDueTime:     plan.dueTime || '08:00',
+          planInterval:    Number(plan.interval || 1),
+          planFeePerMember:Number(plan.feePerMember || 0),
+          planPenalty:     Number(plan.penalty || 0),
+          planRegleman:    plan.regleman || null,
+          isOwnerSlot:     false,
+          hasWon:          false,
+          payments:        {},
+          paymentTimings:  {},
+          fines:           {},
+        }
+      })
+    } catch (err) {
+      console.error('[sabotay] Kont Sol pa kreye:', err.message)
+      // Pa bloke — manm kreye menm si kont Sol echwe
+    }
+  }
 
   return member
 }
@@ -384,7 +435,7 @@ async function removeMember(tenantId, planId, memberId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PEMAN
+// PEMAN — ✅ Aksepte plizyè dat yon sèl kou (dates array)
 // ─────────────────────────────────────────────────────────────
 async function getPayments(tenantId, planId, params = {}) {
   const { memberId, month, year } = params
@@ -414,9 +465,13 @@ async function getPayments(tenantId, planId, params = {}) {
 }
 
 async function markPaid(tenantId, planId, memberId, userId, data) {
-  const { dueDate, method, notes, fineAmt, timing } = data
+  // ✅ Frontend voye { dates: [], timings: {}, fines: {} } — plizyè dat yon sèl kou
+  const { dates, timings, fines, method, notes } = data
 
-  if (!dueDate) throw new Error('Dat peman obligatwa.')
+  // Sipòte tou vye fòma { dueDate, timing, fineAmt } pou konpatibilite
+  const datesToProcess = dates || (data.dueDate ? [data.dueDate] : [])
+
+  if (!datesToProcess.length) throw new Error('Omwen yon dat peman obligatwa.')
 
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
@@ -426,44 +481,59 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
   })
   if (!member) throw new Error('Manm pa jwenn oswa inaktif.')
 
-  const exists = await prisma.sabotayPayment.findFirst({
-    where: { planId, memberId, dueDate: new Date(dueDate) }
-  })
-  if (exists) throw new Error(`Peman pou dat ${dueDate} deja anrejistre pou manm sa.`)
+  const createdPayments = []
+  const updatedFines    = { ...(member.fines || {}) }
 
-  const payment = await prisma.sabotayPayment.create({
-    data: {
-      planId,
-      memberId,
-      amount:    Number(plan.amount),
-      dueDate:   new Date(dueDate),
-      paidAt:    new Date(),
-      method:    method  || 'cash',
-      notes:     notes   || null,
-      createdBy: userId,
-      // ✅ Nouvo kolòn
-      fineAmt:   Number(fineAmt || 0),
-      timing:    timing  || null,
-    },
-    include: {
-      member:  { select: { id: true, name: true, phone: true, position: true } },
-      creator: { select: { fullName: true } },
+  for (const dueDate of datesToProcess) {
+    // Verifye pa anrejistre deja
+    const exists = await prisma.sabotayPayment.findFirst({
+      where: { planId, memberId, dueDate: new Date(dueDate) }
+    })
+    if (exists) continue // Skip si deja peye
+
+    const timing  = timings?.[dueDate] || data.timing || null
+    const fineAmt = fines?.[dueDate]   || (data.fineAmt || 0)
+
+    const payment = await prisma.sabotayPayment.create({
+      data: {
+        planId,
+        memberId,
+        amount:    Number(plan.amount),
+        dueDate:   new Date(dueDate),
+        paidAt:    new Date(),
+        method:    method  || 'cash',
+        notes:     notes   || null,
+        createdBy: userId,
+        fineAmt:   Number(fineAmt),
+        timing:    timing  || null,
+      },
+      include: {
+        member:  { select: { id: true, name: true, phone: true, position: true } },
+        creator: { select: { fullName: true } },
+      }
+    })
+
+    createdPayments.push(payment)
+
+    // Mete ajou fines si gen amand
+    if (Number(fineAmt) > 0) {
+      updatedFines[dueDate] = Number(fineAmt)
     }
-  })
+  }
 
-  // Si gen amand, mete ajou fines nan manm nan
-  if (Number(fineAmt) > 0) {
-    const currentFines = member.fines || {}
-    const updatedFines = { ...currentFines, [dueDate]: Number(fineAmt) }
+  // ✅ Mete ajou fines nan manm nan yon sèl fwa
+  if (Object.keys(updatedFines).length > Object.keys(member.fines || {}).length) {
     await prisma.sabotayMember.update({
       where: { id: memberId },
       data:  { fines: updatedFines }
     })
   }
 
-  await _checkAndNotifyCollection(tenantId, plan, dueDate)
+  if (datesToProcess.length > 0) {
+    await _checkAndNotifyCollection(tenantId, plan, datesToProcess[datesToProcess.length - 1])
+  }
 
-  return payment
+  return { payments: createdPayments, count: createdPayments.length }
 }
 
 async function unmarkPaid(tenantId, paymentId) {
@@ -477,7 +547,6 @@ async function unmarkPaid(tenantId, paymentId) {
 // ─────────────────────────────────────────────────────────────
 // KONT VITYÈL MANM
 // ─────────────────────────────────────────────────────────────
-// ✅ FIX: retounen nouvo kolòn (feePerMember, penalty, interval, regleman, hasWon, fines)
 async function getMemberAccount(tenantId, planId, memberId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
@@ -510,10 +579,8 @@ async function getMemberAccount(tenantId, planId, memberId) {
   const totalExpected  = amount * totalMembers
   const totalPaid      = member.payments.reduce((s, p) => s + Number(p.amount), 0)
 
-  // Payout selon règ feePerMember
   let toCollect
   if (feePerMember === amount) {
-    // Plas pwopriyetè — touche totalMembers × amount san deduksyon
     toCollect = member.isOwnerSlot ? amount * totalMembers : amount * totalMembers - feePerMember
   } else if (feePerMember > 0) {
     toCollect = amount * totalMembers - feePerMember
@@ -521,13 +588,11 @@ async function getMemberAccount(tenantId, planId, memberId) {
     toCollect = amount * totalMembers - Number(plan.fee || 0)
   }
 
-  const progressPct = totalMembers > 0
+  const progressPct  = totalMembers > 0
     ? Math.round((member.payments.length / totalMembers) * 100) : 0
+  const totalFines   = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
 
-  // Total amand pou manm sa
-  const totalFines = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
-
-  const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
+  const allDueDates  = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
     d.setDate(d.getDate() + i * intervalDays)
     return d.toISOString().split('T')[0]
@@ -561,7 +626,6 @@ async function getMemberAccount(tenantId, planId, memberId) {
       fee:         Number(plan.fee || 0),
       maxMembers:  plan.maxMembers,
       startDate:   plan.startDate,
-      // ✅ Nouvo kolòn
       feePerMember,
       penalty:     penaltyRate,
       interval:    planInterval,
@@ -576,7 +640,6 @@ async function getMemberAccount(tenantId, planId, memberId) {
       dueDate:     member.dueDate,
       collectDate: member.collectDate,
       joinedAt:    member.createdAt,
-      // ✅ Nouvo kolòn
       isOwnerSlot: member.isOwnerSlot || false,
       hasWon:      member.hasWon      || false,
       fines:       member.fines       || {},
@@ -628,7 +691,7 @@ async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
     const feePerMember     = Number(plan.feePerMember || 0)
     const amount           = Number(plan.amount)
     const collectionAmount = feePerMember === amount
-      ? amount * totalActive  // plas pwopriyetè
+      ? amount * totalActive
       : amount * totalActive - Number(plan.fee || 0)
 
     await Promise.all(admins.map(admin =>
