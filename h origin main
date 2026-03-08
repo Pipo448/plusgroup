@@ -1,0 +1,314 @@
+[33md1feb0d5[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m :wqRevert "feat: add Sol Member Portal routes to App.jsx"
+[33m303029ec[m feat: add Sol Member Portal routes to App.jsx
+[33mc9b77556[m fix: parse visibleCurrencies to avoid .map() crash on string values
+[33mf7fb38c6[m fix(invoices): normalize API response + fix useIsMobile memory leak
+[33m28e3a632[m fix(quotes): guard existingQuote.items undefined + fix navigate paths + fix useIsMobile leak
+[33m9f51b8f5[m fix(quotes): pass navigate as prop to QuoteRow + remove useIsMobile memory leak
+[33m64e2d597[m fix: logout clears pg-auth persist key + null guard in onRehydrateStorage
+[33mf0d4e46f[m fix: convert sol.routes.js to CommonJS (require/module.exports)
+[33m11a4c0c1[m feat: add Sol Member Portal login and dashboard pages
+[33m70800a98[m feat: add Sol Member Portal routes and schema
+[33m47df57dc[m feat(notifications): deklanch notif pou nouvo fakti, pèman, ak stòk ba
+[33md5a4fa73[m feat(sabotay): notifications, performance scoring, client accounts, calendar fix - Add 30-min payment reminder notifications via useEffect interval - Add payment timing tracking (early/onTime/late) per payment - Add automatic performance score per member (% bon pèfòmans) - Auto-generate client credentials (username/password) on enrollment - Fix calendar month text color (white invisible text) - Update calendar dots to reflect timing performance colors - Add dueTime field to plan creation form
+[33m7edbeda2[m feat(sabotay): add Bluetooth ESC/POS printer support
+[33mcd56c5cf[m fix(sabotay): remove unused imports causing build failure
+[33m069638f4[m fix print receipt
+[33md9e5c013[m fix print receipt
+[33m369000cb[m feat(prisma): add monthlyPrice field to Tenant model
+[33m66398bee[m fix(admin): replace raw SQL with Prisma ORM for monthly price to fix UUID cast error
+[33m76f42cd1[m fix(admin): use CAST syntax instead of ::uuid for Supabase pgBouncer compatibility
+[33m541e5801[m fix(admin): replace \ with \ for Supabase UUID compatibility
+[33mcb6ea71c[m feat(admin): add audit log modal, price editor and revenue card
+[33m3dbd2e77[m feat(admin): add audit logging and monthly pricing endpoints
+[33m43fa0cfd[m fix(dashboard): defensive array checks — crash on new tenants with null visibleCurrencies/recentInvoices
+[33m945b284b[m fix(sabotay): add missing Search import from lucide-react
+[33m6900599f[m feat(sabotay): register sabotay routes in main app
+[33ma7642cc1[m feat(sabotay): Sol rotating savings frontend - plans, members, calendar, virtual account
+[33mde241f06[m feat(sabotay): Sol rotating savings system - backend API + schema
+[33m88c8d227[m fix(kane-epay): mobile responsive + UI improvements
+[33m2786c9ad[m fix(kane-epay): dark modal theme + family relation dropdown
+[33m5a45dbff[m fix(kane): confirm dark modal + family relation dropdown
+[33m2fb645de[m feat(kane): family reference dropdown + dark Branch-style modal
+[33ma09b5f6e[m fix(timezone): lte = gte+24h-1ms — today filter was returning 0 results when dateFrom=dateTo
+[33me689c98a[m fix(timezone): Haiti UTC-5 — all date filters now use T05:00Z instead of T00:00Z
+[33m2872565c[m fix(dashboard): Haiti timezone UTC-5 — today filter now uses T05:00Z not T00:00Z
+[33mabc5e0ed[m fix(api): getDashboard now accepts params for date filtering
+[33mc66c0315[m feat(notifications): auto stock alerts, employee actions, mobile bell drawer
+[33m6570ac2a[m fix(dashboard): all 4 stat cards show today's data only + translation fix + date filter in service
+[33mcf03634c[m feat(notifications): auto stock alerts, employee actions, mobile bell drawer
+[33m3c174e89[m feat(notifications): mobile drawer, category filter, bell shake, auto stock+employee alerts
+[33m4a279dd2[m feat(dashboard): show today's sales in hero stat card instead of 30-day total
+[33m6857f5e8[m feat(stock): mobile responsive — card layout on mobile, table on desktop
+[33mf89072c2[m fix(branch): refreshTenant instead of setAuth on /me — branch selection preserved
+[33md658a29f[m feat(sidebar): show locked pages with padlock icon instead of hiding
+[33m32e1a189[m fix(auth): add allowedPages to identifyTenant select — page blocking now works
+[33me4b5cdf9[m fix(schema): add allowedPages Json field to Tenant model — was missing, causing page access control to fail
+[33m84bff23c[m fix(auth): always refresh tenant on mount — allowedPages now updates correctly
+[33m33d79f3e[m fix(enterprise): remove plan-based lock — access now controlled via allowedPages (super admin)
+[33mbbef5754[m fix(routes): move tenantPagesRoutes before adminRoutes — was blocked by catch-all
+[33m1c89108c[m fix(auth): include allowedPages in getMe response — sidebar + route guard now works
+[33ma7b5fb13[m feat(access): block pages at route level — ProtectedPage redirects to dashboard if disabled
+[33m35cc6b0b[m feat(layout): hide sidebar pages based on super admin allowedPages config
+[33m01931948[m fix(layout): unlock all enterprise pages — plan gating removed, super admin controls access
+[33m8eba7eae[m feat(welcome): single page, image right, features bar, no scroll
+[33md1083cec[m fix(welcome): shrink image to 55% background right side
+[33m5ce14004[m fix(welcome): contain full image, darken edges
+[33m20647d9a[m fix(welcome): zoom out background image
+[33m3f3a3f86[m feat(welcome): hero section + scroll + features + brighter image
+[33m527c19c5[m fix(welcome): move flyer image to full page background
+[33ma23743d1[m fix(welcome): embed flyer image as base64 — no path dependency
+[33m391b22c7[m fix(welcome): add flyer background image to stock card
+[33m66f20c48[m feat(welcome): add WelcomePage as landing before login - WelcomePage: 3 kart animé (Stòk/Kanè, Pressing, Lopital) - Root '/' montre WelcomePage si pa konekte, sinon dashboard - /welcome route aksesib dirèkteman - Catch all redirijé → '/' olye '/login'
+[33mbd83c9a0[m fix(admin): use executeRaw for allowed_pages — bypass Prisma schema
+[33me33e76a2[m feat(admin): page access control per tenant — toggle ON/OFF
+[33ma2f08118[m feat(admin): page access control per tenant — toggle ON/OFF
+[33ma35c8ec9[m fix(kane-epay): replace requireTenant with identifyTenant in routes
+[33m5bd9189a[m feat(routes): register kane-epay API routes in index.js
+[33mb5f23c9d[m fix(layout): add Kane Epay to sidebar, fix ANTREPRIZ label, translate role to Creole - ENTERPRISE_ITEMS: add Kanè Epay route (/app/kane-epay) with Wallet icon - Sidebar section label: ANTEPRIZ → ANTREPRIZ - User role display: cashier → Kesye (Kreyòl translation for all roles)
+[33m8574fe8c[m feat(routes): add /app/kane-epay route, fix /app/invoices/new route placement
+[33m500d9707[m feat(kane-epay): add KaneEpayPage with account creation, deposit, withdrawal and receipt printing
+[33m880ce68b[m feat(schema): add KaneEpay and KaneTransaction models with relations
+[33m40401c21[m feat(kane-epay): add savings account module (service, controller, routes)
+[33m847eaea8[m fix(printer): pass cashier name to receipt for bluetooth printing - authStore.js: setAuth() saves user.fullName to localStorage as   plusgroup-cashier-name. onRehydrateStorage restores it after refresh.   logout() clears it.
+[33m57cc2e04[m fix(api): suppress 403 toast notifications silently
+[33m0f544ccf[m fix(dashboard): fix ResponsiveContainer syntax error, suppress 403 for cashiers
+[33mc0f519b1[m feat: show branch name in sidebar and on printed receipt - authStore.js: autoSetBranch() and setBranch() now also save/restore   branchName in localStorage and store state, so sidebar displays   branch name for cashiers after login.
+[33mc4a7391f[m fix(auth): reset branchId on new login to prevent session bleed - authStore.js: setAuth() now explicitly resets branchId to null and   deletes X-Branch-Id axios header before setting new session, preventing   previous user's branch context from leaking into new session.
+[33mfdfcb1d8[m fix(auth): resolve 403 errors for cashier users on multi-branch login - authStore.js: set X-Branch-Id header directly in autoSetBranch()   and setBranch() so current session receives correct header without   waiting for page reload. Restore Authorization + X-Tenant-Slug   headers on rehydrate. Clear all axios headers on logout.
+[33mcda9ca98[m fix(products): filtre categories ak lowstock pa branchId, evite data leakage
+[33m2fe497fa[m fix(schema): ajoute branchId nan ProductCategory, evite data leakage ant branch
+[33mcbe5a4af[m feat(auth): ajoute setBranch + autoSetBranch, persist branchId
+[33m92e553f3[m feat(auth): pase branches nan login response JSON
+[33m8968fcd6[m feat(auth): retounen branches itilizatè nan login response
+[33mfe53d710[m feat(login): autoSetBranch apre login, netwaye branch-id si echèk
+[33me0f0ca05[m feat(clients): filtre + asosyasyon branchId nan kliyan
+[33m610de66e[m feat(stock): filtre mouvman pa branchId + asosye branch nan adjust/purchase
+[33m72a03bb7[m feat(quotes): filtre + asosyasyon branchId nan devi ak konvèsyon
+[33m43454f3c[m fix(reports): filtre vant pa branchId nan route /sales
+[33mb1c8e36b[m fix(dashboard): filtre vant 30jou + stock + grafik pa branchId
+[33m2176c6f6[m fix(branch): retire champ slug, jenere otomatikman nan backend
+[33m7403dd98[m fix(dashboard): filtre done pa branchId lè branch aktif
+[33m2ea2c026[m fix(cors): ajoute X-Branch-Id nan allowedHeaders
+[33mbc1d7035[m fix(branch): dropdown parèt adwat sidebar, pa koupe ankò
+[33m0a96465e[m feat(branch): isolasyon done pa branchId nan invoices + products
+[33m210c380e[m feat(branch): switch pa branchId + X-Branch-Id header + clear branch option
+[33m7d7fa4b1[m fix(i18n): add nav.branches translation for ht/fr/en
+[33ma3eb3c04[m fix(api): correct userAPI and getTenantUsers routes to /users
+[33m91ca3ec4[m feat(users): add toggle, delete routes + email uniqueness check
+[33m6ab32a69[m feat: NewInvoicePage mobile responsive — kard view pou atik, dropdown pwodui vizib, layout adaptatif
+[33ma0cda7c4[m feat: NotificationBell responsive — drawer mobile anba, dropdown desktop
+[33m2ab7f632[m fix: notifications route — korije prefix /api/v1/notifications (te /api/notifications)
+[33m88159ff7[m feat: notification system — bell fonksyonèl ak panel konplè
+[33m32ef979d[m feat: mobile responsive product cards view for screens ≤768px
+[33m8d8d2ffd[m fix: use balanceDueHtg for unpaid total in dashboard hero stats
+[33m0684a848[m fix: add getProfit to reportAPI — ProfitSection was calling undefined function
+[33mf34f1c09[m fix: align createDirect payload with backend expected fields
+[33m749e0590[m fix: move /direct route before /:id to prevent Express conflict
+[33ma249b9f1[m feat: add NewInvoicePage + i18n keys for direct invoice + requireQuote
+[33m0a7793b8[m feat: show/hide new invoice button based on requireQuote tenant setting
+[33md932dd87[m fix: kache Prisma/technical errors — pa janm montre detay entèn bay kliyan
+[33mb8f4cd4c[m fix: ajoute getDashboard ak createDirect ki te manke nan invoiceAPI
+[33m7ac6da81[m feat: add requireQuote toggle in settings general tab
+[33m905aedef[m fix: dashboard totalPaid te filtre pa mwa aktyel sèlman — kounye a afiche tout fakti peye
+[33mc2e35de8[m feat: add requireQuote toggle + direct invoice creation without quote
+[33m49a0b251[m fix: route stockAPI.addMovement to /stock/adjust or /stock/purchase based on type
+[33m0a8f60f1[m fix: correct addPayment route from /payments to /payment
+[33mf35fbc2d[m fix: correct stock adjustment mutation to use existing stockAPI.addMovement
+[33m6060961c[m feat: add PlansPage + /app/plans route — bouton Upgrade sidebar
+[33m4ea01a5a[m fix: Upgrade button redirects to WhatsApp instead of missing /app/plans route
+[33mdaf64b50[m fix: categories routes anvan /:id — rezoud 404 sou /api/v1/products/categories
+[33m8446a457[m feat(layout): add branch switcher dropdown in sidebar logo zone
+[33m5891fc5f[m feat(api): add getTenantUsers to branchAPI
+[33m8e63fe37[m feat(branches): hide toggle for non-superAdmin, add users modal
+[33m1f4c6524[m feat(branches): restrict toggle to superAdmin only
+[33m13a8535d[m fix: ajoute identifyTenant nan enterprise middleware chain
+[33m99bd3f2c[m fix: null check req.tenant nan authenticate + ajoute antrepriz nan requireEnterprise
+[33me5097e73[m fix: ajoute tout wout manke pou Kane, Sabotay, MonCash, NatCash
+[33m5de472e9[m fix: React Query v5 compat + null safety nan tout paj Enterprise yo
+[33m2533b8c2[m fix: null safety + React Query v5 compat nan KanePage
+[33md54cca4d[m fix: isEnterprise check case-insensitive nan tout paj Enterprise yo
+[33mecc982c4[m feat: ajoute Branches (admin) + Enterprise items nan AppLayout navigation
+[33m6a7424be[m fix: isEnterprise check ajoute Antrepriz + case-insensitive
+[33ma5e0badc[m fix: requireEnterprise case-insensitive + login retounen plan
+[33m738293fe[m fix: sidebar /app/ paths + korije tout erè TypeScript
+[33m3bd48330[m fix: sidebar paths /app/ prefix + startsWith active state
+[33mc01635a6[m fix: deplase EnterpriseLock nan components/ — import path korije
+[33m0b4a727c[m fix: import EnterpriseLock path korije
+[33m15ee04f0[m feat(api): add adminAPI, kaneAPI, sabotayAPI, mobilPayAPI
+[33m78223d3c[m feat(api): add branchAPI to services
+[33m7a05b82f[m feat: add branch and enterprise page files
+[33m22434a3a[m feat(routes): add branch and enterprise page routes
+[33mb27272af[m fix: bouton renouvle ouvri WhatsApp dirèkteman san modal
+[33mbc04cfa1[m feat(i18n): add password change translation keys in 3 languages
+[33m0741276e[m fix(auth): add missing requireEnterprise middleware - Enterprise routes were failing with 'Router.use() got undefined' - Root cause: requireEnterprise was not defined in auth.js - Add requireEnterprise: checks tenant plan name === 'Antepriz' - Returns 403 with clear message for non-enterprise tenants
+[33m2c567949[m feat(settings): add password change sections in users tab - Add ChangeMyPassword component with old/new/confirm fields - Add password strength indicator (4 levels with colors) - Add ChangeUserPassword component for admin only - Admin can select any user from dropdown and reset their password - Both sections appear in Settings > Users tab
+[33m0ea48a62[m fix: resolve build errors blocking deployment - Fix useIsMobile: remove duplicate function wrapper, fix 'isMobil' typo - Fix enterprise.routes.js: correct named exports to avoid Router.use() undefined error
+[33m22ccd03d[m feat(server): register enterprise payment routes - Import kaneRouter, sabotayRouter, moncashRouter, natcashRouter - Register /api/v1/kane, /api/v1/sabotay, /api/v1/moncash, /api/v1/natcash - All routes protected by requireEnterprise middleware - Update version: 1.0.0 → 2.0.0 in root and health endpoints
+[33mc4594b81[m[33m ([m[1;33mtag: [m[1;33mv2.1.0[m[33m)[m feat(enterprise): replace inline gate with EnterpriseLock component - KanePage: import EnterpriseLock, pass page='kane' - SabotayPage: import EnterpriseLock, pass page='sabotay' - MobilPayPage: import EnterpriseLock, pass page='mobilpay' - All pages now show branded upgrade screen instead of plain message - Non-enterprise users see full feature preview before upgrading
+[33m9e0fb2a3[m feat(ui): add Branch and Enterprise sections to Sidebar - Add GitBranch, Lock icons to lucide imports - Add isAdmin check (user.role === 'admin' || user.isAdmin) - Add isEnterprise check against plan name - Add Branch link (/branches) visible for admin users only - Add Enterprise section divider with separator line - Add Kane (/kane), Sabotay (/sabotay), MonCash/NatCash (/mobilpay) links - Locked links (non-enterprise): opacity 0.5 + Lock icon visible - Active links (enterprise): full color per service theme - Add plan badge in footer with Upgrade link for non-enterprise - Add CSS classes: sidebar-section-divider, sidebar-link-locked - Update version badge: v1.0.0 → v2.0.0
+[33m59a6cb34[m feat(admin): integrate BranchPanel into AdminDashboard
+[33md6b0f342[m feat: add multi-branch system with on/off toggle
+[33mae0b423b[m fix: retire passwordChangedAt nan auth select (champ pa nan schema)
+[33medbc4853[m feat: reset modpas tenant + dekoneksyon otomatik via passwordChangedAt
+[33mfa628af6[m fix: adminApi baseURL konplè + paddingBottom 80 + ticker zIndex 10
+[33m40fbb3cc[m fix: paddingBottom 80 + ticker zIndex 10 pou aksyon yo vizib
+[33m950a28d5[m fix: auth rate limit 10→20, skip successful requests
+[33m1a1e0c58[m fix: adminApi baseURL konplè — rezoud 0 tenants bug
+[33m5c89012a[m fix: no-cache headers pou /api routes
+[33mb0435bc6[m fix: retire bouton Peye + PaymentModal nan admin dashboard
+[33m75a50b2d[m fix: abònman ekspire jou 5 mwa kap vini + route /admin/expiring + maxProducts korije
+[33m1255534b[m fix: admin queries pase adminApi local — tenant list ap monte kounye a
+[33mda94375d[m feat(admin): add delete tenant, upgrade/downgrade plan, calendar subscription display
+[33m9dfc000a[m fix(admin): subscription ends on last day of calendar month
+[33m06a0452b[m feat(admin): make AdminLoginPage responsive for mobile
+[33m21ddb12c[m feat(admin): make AdminDashboard fully responsive for mobile
+[33m4728f797[m fix: planHasFeature 'sevis' + cascade tout nan premyum — kadna retire nan Biznis/Premyum/Antrepriz
+[33m99764897[m fix: plan features retounen nan getMe+login+middleware — rezoud kadna Sèvis
+[33m40e816ab[m fix: planHasFeature — nòmalize aksan pou detekte Sèvis kòrèkteman
+[33ma2dff665[m fix: mesaj lock Sèvis — disponib nan Biznis + Premyum + Antrepriz
+[33mbf202bdd[m feat: FIXED_PLANS — ajoute maxProducts + Sèvis nan Biznis/Premyum/Antrepriz
+[33ma3ee4c6c[m fix: remove manual pg-auth manipulation, clean localStorage before login
+[33md21b6db7[m fix: clear pg-auth before setting new tenant in setAuth
+[33m93994cc7[m fix: use meRes user name in toast
+[33mb31e4dc9[m fix: clear all tenant data before new login to prevent cross-tenant leakage
+[33m173ec73e[m fix: clear all tenant data before new login
+[33mdaff8272[m fix: clear all tenant data before new login to prevent cross-tenant leakage
+[33m3acaac39[m feat: remove slug field, read slug from URL query param
+[33m753b95d8[m fix: set slug in localStorage before API calls on login
+[33m21149b58[m feat: add i18n translations to UsersPage and update config
+[33m3b15ae32[m fix: resolve settings/users redirect loop
+[33md1002b56[m fix: kache QR code nan enpresyon Bluetooth si tenant.showQrCode désaktive
+[33m07e32537[m feat: ajoute sistèm guide '?' sou paj Pwodui — HelpModal 3 lang pa wòl
+[33m6a0b55d4[m feat: showQrCode — tradiksyon 3 lang + backend + schema
+[33me8c176bf[m feat: ajoute toggle showQrCode nan Paramèt — QR Code opsyonèl sou resi
+[33m82bebd71[m feat(QuoteForm): autocomplete depi 1 lèt + bouton ↑ + navigasyon klavye
+[33m8ce2ab02[m fix(ProfitSection): remove invalid JSX inline prop comments causing build failure
+[33m6186968e[m fix(ProfitSection): add i18n translations + responsive mobile
+[33m0b57ec37[m fix(Dashboard): responsive mobile layout - horizontal scroll cards
+[33m2eb91b68[m feat(i18n): add profit section translations (ht/fr/en)
+[33m2c36d815[m fix: itilize adminAPI ak token pou queries admin dashboard
+[33m33946e79[m fix: ranplase FIXED_PLANS id ak UUID reyèl baz done
+[33m21254eca[m feat: ajoute seksyon Rapò Benefis pou admin
+[33mdbf6ba4a[m fix: replace non-breaking space in amounts for ESC/POS printer
+[33mebb851ad[m fix: adapt font size for large amounts on receipt
+[33mdb57560f[m fix: date timezone issue - db.Date to db.Timestamptz
+[33m73c411e7[m fix: timezone Haiti, div manke, karaktè kòwonpi InvoiceDetail ak QuotesPage
+[33m0ae62f1d[m fix: div ki manke nan dat timezone Haiti
+[33mc829cd29[m fix: dat timezone Haiti (UTC-5) nan QuotesPage ak InvoiceDetail
+[33m85fadcb7[m fix: salitasyon selon lè jounen, dat timezone Haiti
+[33m76d168e1[m fix: bouton peye abonman anba topbar (top:60, zIndex:400)
+[33m45fd480e[m fix: bouton peye abonman aliye ak topbar, pa kouvri bouton lang/deviz
+[33m65ab1252[m fix: bouton peye abonman aliye ak topbar, pa kouvri bouton lang/deviz
+[33mee18c39d[m feat: bouton peman sticky, ticker anba, modal MonCash/NatCash/Sogebanking/BUH pou kliyan
+[33m9161c19b[m feat: bouton peman abonman (MonCash/NatCash/Sogebanking/BUH), ticker mesaj, 4 koulè plan
+[33m082a87e4[m feat: 4 plan (Estanda/Biznis/Premyum/Antrepriz), limit pwodui pa stock aktif, pri 2500/3000/4000/5000 HTG
+[33m3ec422fb[m feat: settings page i18n konple - tradiksyon ht/fr/en, chanje lang imedyatman
+[33m66dfe2f2[m feat: bouton chanje plan tenant, route PATCH /plan, stats korije
+[33m4c846bfb[m feat: isService plan Premyum sèlman, upsert plan yo
+[33mcf658b00[m feat: font Inter + JetBrains Mono pou aplikasyon an
+[33m86c1c62d[m feat: sidebar koule brand Plus Group vyolèt ak oreanj
+[33mc0a08f6f[m feat: sidebar koule brand Plus Group - vyolèt fonce ak oreanj
+[33m0d989c0d[m feat: logo bitmap ESC/POS nan resi BT + pye paj trileng
+[33m8b4e42ad[m fix: resi BT trileng, 3 deviz, retire to echanj, Tel +50942449024
+[33ma3d52d94[m fix: korije sintaks exchangeRates nan InvoiceDetail
+[33m22a01cee[m fix: korije sintaks exchangeRates nan InvoiceDetail
+[33ma27ee38c[m fix: resi trileng logo 3 deviz HTG USD DOP
+[33m29ea5160[m fix: QuotesPage tradiksyon, nav.quotes=Devi, kle status trileng
+[33m4f79cc96[m fix: tradiksyon trileng stock, reports, clients
+[33mffab06ac[m fix: main anndan div wrapper la, espas vid agoch korije
+[33mad4c124f[m fix: resi trileng, logo, 3 deviz HTG/USD/DOP, retire to echanj
+[33m5bea7316[m fix: korije lyen fakti /invoices -> /app/invoices
+[33m091cd525[m fix: ajoute showNotif useState ki te manke
+[33m6577bb1c[m fix: ajoute tags fermant header ak div ki te manke
+[33m6087698f[m feat: panneau notifikasyon fonksyonèl nan header
+[33me62d456b[m fix(i18n): koreksyon tradiksyon kreyol - Faktir→Fakti + lòt kòreksyon
+[33m5416e36b[m restore: LoginPage ak banner background ak logo ofisyel
+[33macacd6c8[m fix: retire token useEffect loop nan LoginPage
+[33me1e2bd20[m fix: root redirect /app/dashboard + logo data: URL + taux DOP header
+[33mfbf49782[m feat: full i18n for invoices + dashboard + all pages
+[33m0c30c38b[m fix: persist language across refresh from localStorage
+[33m709de548[m fix: redirect si deja authentifye nan LoginPage
+[33mf0bf3b31[m fix: ranje config.ts ak authStore
+[33mc268d5a1[m fix(auth): ensure loading state resets on login and logout
+[33m1195ac6b[m feat: add products + invoices + dashboard full translations
+[33m35541471[m fix: persist language across refresh from localStorage
+[33m520a027c[m fix: logoSrc data: URL + taux DOP nan header
+[33m7fbe4ac4[m fix: tenant fields + printer USD/DOP + auth + dashboard
+[33me049c3db[m fix: ajoute phone, address, exchangeRates, visibleCurrencies, showExchangeRate nan tenant select
+[33m27039cff[m fix: retire redirect agressif AppLayout ki koz boucle login
+[33m922bde96[m fix: normalize tenant data in printInvoice (parse JSON strings, fix address/phone/rates)
+[33m4628defb[m fix: getMe retounen tout champ tenant (phone, address, exchangeRates, visibleCurrencies, showExchangeRate)
+[33m9d8eaed8[m fix: TOTAL HTG sou yon sèl liy + USD/DOP pi piti anba
+[33m52f5aa4c[m fix: address+phone nan resi (champ kòrèk) + taux respekte showExchangeRate
+[33m5bbfb13a[m fix: Bonjou/Bonswa i18n + adres/telefon nan antèt resi
+[33m14d74d13[m fix: auth flash, Bonjou/Bonswa, peso header, printer multi-currency
+[33m71cef95d[m feat: logo ESC/POS bitmap pou printer 57mm ak 80mm
+[33m81cb4851[m fix: logo base64 nan resi + AppLayout + total size 57mm
+[33m3b598566[m fix: logoSrc aksepte base64 data URL nan sidebar
+[33meb716dfe[m fix: logo pèmanan — sove base64 nan DB olye filesystem
+[33m3cf72352[m fix: logo pa monte apre refresh + total double sou resi authStore: updateTenant fè merge olye ranplase tout tenant InvoiceDetail: toBase64 amelyore ak fallback URL dirèk PrintableReceipt: retire total en double, redui font size
+[33m26ffbc1c[m feat: resi bluetooth trilingg KR/FR/EN
+[33m98d64c6f[m fix: korije lyen navigasyon ki te manke prefiks /app InvoicesPage ak QuotesPage t ap pwen sou /invoices ak /quotes legacy redirects yo te voye yo tounen sou lis san ID korije tout Link ak navigate pou yo itilize /app/...
+[33m4949ef53[m fix: bouton je fakti pa t ouvri detail la korije lyen InvCard ak InvRow: /invoices/:id → /app/invoices/:id restore App.jsx ki te modifye pa erè
+[33m46d70e55[m Fix login: correct redirect to /app/dashboard, remove manual localStorage override
+[33m13a4608f[m Fix redirect loop: safe logout on 401 only, restore slug on rehydrate
+[33mcaa5b562[m Remove debug console.log from AppLayout
+[33m31e35632[m Fix Dashboard: all text now uses t() translation system
+[33me76cca7c[m Premium admin UI: PDG photo, Plus logo, dark gold theme, 3 plans HTG
+[33m59dcb2cb[m Fix delete tenant - safe delete with error handling
+[33m969ed911[m Remove setup-demo, add delete tenant by slug endpoint
+[33m011b5c6d[m Fix CORS: add app.plusgroupe.com
+[33mac8659d4[m Add setup endpoints and fix CORS for production
+[33m8916d561[m Fix root route redirect - eliminate flash/crash on load
+[33m9ee7c6e8[m fix: korije otograf Faktir → Fakti nan nav ak dashboard (ht)
+[33m3da76b19[m fix: korije otograf faktir → fakti
+[33mbc523d18[m feat: full i18n for invoices + dashboard + all pages
+[33m7b2a7cf1[m feat: add products translations (ht/fr/en)
+[33m7a150d53[m fix: syntax error in handlePrint
+[33maeb34f95[m fix: receipt lang from tenant default + exchange rate store update
+[33mfbb0ffab[m fix: header exchange rates fallback + remove receipt zoom
+[33mf0f432c1[m fix: logo base64 print, lang zoom receipt, header exchange rates, remove receipt lang picker
+[33mdc0a79f3[m fix: ESC/POS receipt matches HTML design (unit price, QR, payment method, footer)
+[33mc6ecf8cf[m fix: popup print receipt + multi-currency header display
+[33m7ec2befc[m fix: add loading state to prevent login flash on reload
+[33m232173f6[m fix: add qrcode dependency for InvoiceDetail
+[33m017bcf47[m ﻿feat: add DOP (Peso Dominiken) conversion everywhere USD displays
+[33m977b314a[m fix: add directUrl for Supabase prisma migrations
+[33m706631f8[m feat: add multi-currency support (exchangeRates, visibleCurrencies, showExchangeRate)
+[33mccb8331f[m ﻿feat: add DOP (Peso Dominiken) conversion everywhere USD displays
+[33m87e78875[m fix: select input value on focus for all number fields
+[33mab464169[m fix: persist Bluetooth printer connection between invoices
+[33m11abec35[m feat: Bluetooth thermal printer Goojprt PT-210
+[33m586a546e[m fix: responsive mobile layout for invoices, quotes pages and quote form
+[33mb483ea77[m fix: restore printerConnection
+[33m65539840[m fix: restore receiptSize in tenant routes
+[33me8fdd9f4[m fix(settings): temp remove printerConnection until migration applies on Render
+[33mdad99501[m fix: correct package.json syntax
+[33m99ad37dc[m fix: generate prisma client before migrate on startup
+[33mbdf71f06[m fix: run prisma migrate deploy on startup
+[33mf11f797b[m feat(settings): add printer connection tab + fix logo absolute URL
+[33m0672b748[m fix(sidebar): corrige URL logo tenant — retire /api/v1 du BASE_URL et ajoute fallback onError
+[33m0ee9ec23[m feat(ui): design system PLUS GROUP inifòme - ble #1B2A8F + or #C9A84C
+[33m5789f53c[m fix(login): tèks blan visible nan champ input yo
+[33m1e802508[m feat: amelyorasyon konplè UI ak konfigirasyon
+[33m63b5e298[m fix(ui): meni mobil + lang switcher nan login
+[33mca76fb33[m fix(setup): retire categories pou evite erè createMany
+[33ma3a0486c[m fix(setup): kreye plus-store demo tenant via GET
+[33m04d74012[m fix(login): remplace moncoeur-auto-parts par plus-store
+[33m5299fe7e[m fix(login): remplace moncoeur-auto-parts par plus-store
+[33m12689dd2[m fix(api): fix adminAxios baseURL syntax
+[33mfb253c6e[m fix(api): fix adminAxios baseURL syntax
+[33m657804df[m fix(login): pass slug in body + fix adminAxios baseURL
+[33m2388b18b[m fix: restore api.js from corruption
+[33m06f63265[m fix: force new build hash
+[33m31d29feb[m fix(cors): allow app.plusgroupe.com origin
+[33m9939b59e[m fix: use absolute backend URL in api.js
+[33mff8aa690[m fix(auth): add slug field to login flow
+[33mdccc763c[m fix(admin): handle existing tenant in setup-demo endpoint
+[33mb7812ffe[m Add root route and fix setup-demo auth
+[33m6d4a03d1[m Fix setup-demo endpoint - move before auth middleware
+[33m1bdadc4a[m Add frontend URL to CORS config
+[33m960c5701[m Add setup endpoint for demo tenant creation
+[33m74bc0224[m Add production environment config
+[33mcb1ed534[m Add production API URL for Render deployment
+[33m2b701627[m Pwoteje .env

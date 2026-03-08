@@ -21,7 +21,7 @@ const D = {
   green:   '#27ae60',
 }
 
-const SOL_API = import.meta.env.VITE_API_URL || 'https://plusgroup-backend.onrender.com'
+const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 
 export default function SolLoginPage() {
   const navigate = useNavigate()
