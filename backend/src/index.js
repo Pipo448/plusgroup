@@ -35,9 +35,10 @@ const sabotayRoutes = require('./modules/sabotay/sabotay.routes');
 const solRoutes = require('./routes/sol.routes');
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
-const { kaneRouter, sabotayRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
+const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
+// ⚠️  sabotayRouter RETIRE nan enterprise.routes — sabotayRoutes dirèk la pran plas li
 
-const app  = express();
+const app  = require('express')();
 const PORT = process.env.PORT || 5000;
 
 // ============================================================
@@ -70,7 +71,7 @@ app.use('/api', (req, res, next) => {
   res.set('Pragma', 'no-cache')
   res.set('Expires', '0')
   next()
-})
+});
 
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -142,12 +143,15 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
-app.use('/api/sabotay',         sabotayRoutes);
-app.use('/api/sol',             solRoutes); // ✅ Sol Member Portal
 
-// ✅ Enterprise routes
+// ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay (retire doublon /api/sabotay ak enterprise)
+app.use(`${API}/sabotay`,       sabotayRoutes);
+
+// ✅ Sol Member Portal
+app.use(`${API}/sol`,           solRoutes);
+
+// ✅ Enterprise routes (san sabotay — li deja anrejistre anwo a)
 app.use(`${API}/kane`,    kaneRouter);
-app.use(`${API}/sabotay`, sabotayRouter);
 app.use(`${API}/moncash`, moncashRouter);
 app.use(`${API}/natcash`, natcashRouter);
 
@@ -159,7 +163,8 @@ app.use(errorHandler);
 // DÉMARRAGE
 // ============================================================
 
-app.listen(PORT, () => {
+const server = require('http').createServer(app);
+server.listen(PORT, () => {
   logger.info(`🚀 PLUS GROUP SaaS API démarré sur le port ${PORT}`);
   logger.info(`📦 Environnement: ${process.env.NODE_ENV}`);
   logger.info(`🌐 URL: ${process.env.API_URL}`);
