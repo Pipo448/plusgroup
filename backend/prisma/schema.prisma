@@ -591,7 +591,6 @@ model SabotayPlan {
   maxMembers   Int             @map("max_members")
   fee          Decimal         @default(0) @db.Decimal(14, 2)
 
-  // ── NOUVO KOLÒN ──
   feePerMember Decimal         @default(0) @map("fee_per_member") @db.Decimal(14, 2)
   penalty      Decimal         @default(0) @db.Decimal(14, 2)
   interval     Int             @default(1)
@@ -629,10 +628,9 @@ model SabotayMember {
   notes       String?
   isActive    Boolean   @default(true)  @map("is_active")
 
-  // ── NOUVO KOLÒN ──
   hasWon      Boolean   @default(false) @map("has_won")
   isOwnerSlot Boolean   @default(false) @map("is_owner_slot")
-  fines       Json      @default("{}") // { "2025-01-10": 50, ... }
+  fines       Json      @default("{}")
 
   createdBy   String?   @map("created_by")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -656,7 +654,7 @@ model SabotayPayment {
   dueDate   DateTime @map("due_date")  @db.Date
   paidAt    DateTime @map("paid_at")   @db.Timestamptz(6)
   method    String   @default("cash")  @db.VarChar(20)
-  timing    String?  @db.VarChar(10)   // "early" | "onTime" | "late"
+  timing    String?  @db.VarChar(10)
   fineAmt   Decimal  @default(0) @map("fine_amt") @db.Decimal(14, 2)
   notes     String?
   createdBy String?  @map("created_by")
@@ -677,6 +675,8 @@ model SolMemberAccount {
   id             String   @id @default(uuid())
   username       String   @unique
   passwordHash   String   @map("password_hash")
+  // ✅ NOUVO — Modpas klè pou admin ka wè l epi distribye bay manm
+  plainPassword  String?  @map("plain_password")
 
   tenantId       String   @map("tenant_id")
 
@@ -694,7 +694,6 @@ model SolMemberAccount {
   planCreatedAt  String   @map("plan_created_at")
   planDueTime    String   @default("08:00") @map("plan_due_time")
 
-  // ── NOUVO KOLÒN ──
   planInterval     Int     @default(1) @map("plan_interval")
   planFeePerMember Float   @default(0) @map("plan_fee_per_member")
   planPenalty      Float   @default(0) @map("plan_penalty")
@@ -704,7 +703,7 @@ model SolMemberAccount {
 
   payments       Json     @default("{}") @map("payments")
   paymentTimings Json     @default("{}") @map("payment_timings")
-  fines          Json     @default("{}") // { "2025-01-10": 50, ... }
+  fines          Json     @default("{}")
 
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt      @map("updated_at")
