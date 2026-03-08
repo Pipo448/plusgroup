@@ -1504,7 +1504,11 @@ export default function SabotayPage() {
   // ── Queries ──
   const { data:plans=[], isLoading, error, refetch } = useQuery({
     queryKey:['sabotay-plans'],
-    queryFn:()=>apiFetch('/sabotay/plans')
+    queryFn:()=>apiFetch('/sabotay/plans').then(r=>{
+      const result = r.plans||r.data||r
+      return Array.isArray(result) ? result : []
+    }),
+    refetchInterval:60000,
   })
 
   const activePlan = selectedPlan ? plans.find(p=>p.id===selectedPlan.id)||selectedPlan : null
@@ -1516,13 +1520,13 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
   const updatePlan = useMutation({
-    mutationFn:({id,...data})=>solFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
+    mutationFn:({id,...data})=>apiFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); setEditing(null); toast.success('✅ Plan modifye!') },
     onError:(e)=>toast.error(e.message),
   })
   const addMember = useMutation({
-    mutationFn:(data)=>solFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(data)}),
-    onSuccess:(r,vars,_,cb)=>{ qc.invalidateQueries(['sabotay-plans']); if(typeof vars._cb==='function') vars._cb(r.member||r) },
+    mutationFn:(data)=>apiFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(data)}),
+    onSuccess:(r,vars)=>{ qc.invalidateQueries(['sabotay-plans']); if(typeof vars._cb==='function') vars._cb(r.member||r) },
     onError:(e)=>toast.error(e.message),
   })
   const markPayment = useMutation({
@@ -1531,16 +1535,15 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
   const blindDraw = useMutation({
-    mutationFn:(memberId)=>solFetch(`/sabotay/plans/${activePlan?.id}/blind-draw`,{method:'POST',body:JSON.stringify({memberId})}),
+    mutationFn:(memberId)=>apiFetch(`/sabotay/plans/${activePlan?.id}/blind-draw`,{method:'POST',body:JSON.stringify({memberId})}),
     onSuccess:(r)=>{
       qc.invalidateQueries(['sabotay-plans'])
       setDraw(false)
       toast.success(`🏆 ${r.member?.name||'Manm'} chwazi pa tiraj!`)
-      if(activePlan) printer.print(activePlan,r.member||{},[]  ,tenant,'tirage')
+      if(activePlan) printer.print(activePlan,r.member||{},[],tenant,'tirage')
     },
     onError:(e)=>toast.error(e.message),
   })
-
   // ── Derived stats ──
   const totalMembers = plans.reduce((a,p)=>a+(p.members?.length||0),0)
   const totalCollected = plans.reduce((a,p)=>
