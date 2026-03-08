@@ -198,9 +198,17 @@ function getPaymentDates(frequency, startDate, count, interval=1) {
 // ─────────────────────────────────────────────────────────────
 async function apiFetch(path, options={}) {
   const {token} = useAuthStore.getState()
+  const slug = localStorage.getItem('plusgroup-slug')
+  const branchId = localStorage.getItem('plusgroup-branch-id')
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(options.headers||{})},
+    headers:{
+      'Content-Type':'application/json',
+      Authorization:`Bearer ${token}`,
+      ...(slug ? {'X-Tenant-Slug': slug} : {}),
+      ...(branchId ? {'X-Branch-Id': branchId} : {}),
+      ...(options.headers||{}),
+    },
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message||'Erè API')
@@ -210,13 +218,16 @@ async function solFetch(path, options={}) {
   const {token} = useAuthStore.getState()
   const res = await fetch(`${SOL_API}${path}`, {
     ...options,
-    headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(options.headers||{})},
+    headers:{
+      'Content-Type':'application/json',
+      Authorization:`Bearer ${token}`,
+      ...(options.headers||{}),
+    },
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message||'Erè Sol API')
   return data
 }
-
 // ─────────────────────────────────────────────────────────────
 // PRINTER HOOK
 // ─────────────────────────────────────────────────────────────
