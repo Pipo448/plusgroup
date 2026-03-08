@@ -55,6 +55,33 @@ function computeCollectDate(startDate, frequency, position, totalMembers, interv
 }
 
 // ─────────────────────────────────────────────────────────────
+// ✅ NOUVO HELPERS — Auto-génère credentials Sol
+// ─────────────────────────────────────────────────────────────
+
+// Jenere username: premye non + pozisyon (ex: marie0003)
+function generateUsername(name, position) {
+  const first = name
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // retire accents
+    .split(' ')[0]                    // premye mo sèlman
+    .replace(/[^a-z0-9]/g, '')        // retire karaktè espesyal
+  const pos = String(position).padStart(4, '0')
+  return `${first}${pos}`
+}
+
+// Jenere modpas 8 karaktè (lettres + chif, retire karaktè konfizyon: 0/O, 1/l/I)
+function generatePassword(length = 8) {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+  let pass = ''
+  for (let i = 0; i < length; i++) {
+    pass += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return pass
+}
+
+// ─────────────────────────────────────────────────────────────
 // STATS
 // ─────────────────────────────────────────────────────────────
 async function getStats(tenantId, branchId) {
@@ -213,7 +240,6 @@ async function updatePlan(tenantId, planId, userId, data) {
       ...(data.notes        !== undefined && { notes: data.notes }),
       ...(data.fee          !== undefined && { fee: Number(data.fee) }),
       ...(data.maxMembers   && { maxMembers: Number(data.maxMembers) }),
-      // ✅ Ajoute startDate nan update
       ...(data.startDate    && { startDate: new Date(data.startDate) }),
       ...(data.feePerMember !== undefined && { feePerMember: Number(data.feePerMember) }),
       ...(data.penalty      !== undefined && { penalty:      Number(data.penalty) }),
@@ -355,42 +381,65 @@ async function addMember(tenantId, planId, userId, data) {
     }
   })
 
-  // ✅ Kreye kont Sol otomatikman si credentials bay epi pa isOwnerSlot
-  if (credentials && !isOwnerSlot) {
+  // ✅ AUTO-KREYE kont Sol pou tout manm ki pa isOwnerSlot
+  if (!isOwnerSlot) {
     try {
       const bcrypt = require('bcryptjs')
-      const passwordHash = await bcrypt.hash(credentials.password, 10)
+
+      // Itilize credentials ki voye, oswa auto-jenere yo
+      const rawUsername = credentials?.username
+        ? credentials.username.toLowerCase().trim()
+        : generateUsername(name, position)
+
+      const rawPassword = credentials?.password
+        ? credentials.password
+        : generatePassword(8)
+
+      // Verifye username pa deja egziste pou tenantId sa a
+      const usernameExists = await prisma.solMemberAccount.findFirst({
+        where: { username: rawUsername, tenantId }
+      })
+
+      // Si username deja pran, ajoute suffix pou evite konfli
+      const finalUsername = usernameExists
+        ? `${rawUsername}${Date.now().toString().slice(-4)}`
+        : rawUsername
+
+      const passwordHash = await bcrypt.hash(rawPassword, 10)
 
       await prisma.solMemberAccount.create({
         data: {
-          username:        credentials.username.toLowerCase().trim(),
+          username:         finalUsername,
           passwordHash,
+          plainPassword:    rawPassword,    // ← Admin ka wè l nan dashboard
           tenantId,
-          memberId:        member.id,
-          memberName:      member.name,
-          memberPhone:     member.phone || '',
-          memberPosition:  member.position,
-          planId:          plan.id,
-          planName:        plan.name,
-          planAmount:      Number(plan.amount),
-          planFee:         Number(plan.fee || 0),
-          planFrequency:   plan.frequency,
-          planMaxMembers:  plan.maxMembers,
-          planCreatedAt:   plan.startDate.toISOString().split('T')[0],
-          planDueTime:     plan.dueTime || '08:00',
-          planInterval:    Number(plan.interval || 1),
-          planFeePerMember:Number(plan.feePerMember || 0),
-          planPenalty:     Number(plan.penalty || 0),
-          planRegleman:    plan.regleman || null,
-          isOwnerSlot:     false,
-          hasWon:          false,
-          payments:        {},
-          paymentTimings:  {},
-          fines:           {},
+          memberId:         member.id,
+          memberName:       member.name,
+          memberPhone:      member.phone || '',
+          memberPosition:   member.position,
+          planId:           plan.id,
+          planName:         plan.name,
+          planAmount:       Number(plan.amount),
+          planFee:          Number(plan.fee || 0),
+          planFrequency:    plan.frequency,
+          planMaxMembers:   plan.maxMembers,
+          planCreatedAt:    plan.startDate.toISOString().split('T')[0],
+          planDueTime:      plan.dueTime || '08:00',
+          planInterval:     Number(plan.interval || 1),
+          planFeePerMember: Number(plan.feePerMember || 0),
+          planPenalty:      Number(plan.penalty || 0),
+          planRegleman:     plan.regleman || null,
+          isOwnerSlot:      false,
+          hasWon:           false,
+          payments:         {},
+          paymentTimings:   {},
+          fines:            {},
         }
       })
+
+      console.log(`[sabotay] ✅ Kont Sol kreye — username: ${finalUsername} | password: ${rawPassword}`)
     } catch (err) {
-      console.error('[sabotay] Kont Sol pa kreye:', err.message)
+      console.error('[sabotay] ❌ Kont Sol pa kreye:', err.message)
       // Pa bloke — manm kreye menm si kont Sol echwe
     }
   }
@@ -465,12 +514,9 @@ async function getPayments(tenantId, planId, params = {}) {
 }
 
 async function markPaid(tenantId, planId, memberId, userId, data) {
-  // ✅ Frontend voye { dates: [], timings: {}, fines: {} } — plizyè dat yon sèl kou
   const { dates, timings, fines, method, notes } = data
 
-  // Sipòte tou vye fòma { dueDate, timing, fineAmt } pou konpatibilite
   const datesToProcess = dates || (data.dueDate ? [data.dueDate] : [])
-
   if (!datesToProcess.length) throw new Error('Omwen yon dat peman obligatwa.')
 
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
@@ -485,11 +531,10 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
   const updatedFines    = { ...(member.fines || {}) }
 
   for (const dueDate of datesToProcess) {
-    // Verifye pa anrejistre deja
     const exists = await prisma.sabotayPayment.findFirst({
       where: { planId, memberId, dueDate: new Date(dueDate) }
     })
-    if (exists) continue // Skip si deja peye
+    if (exists) continue
 
     const timing  = timings?.[dueDate] || data.timing || null
     const fineAmt = fines?.[dueDate]   || (data.fineAmt || 0)
@@ -515,13 +560,11 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
 
     createdPayments.push(payment)
 
-    // Mete ajou fines si gen amand
     if (Number(fineAmt) > 0) {
       updatedFines[dueDate] = Number(fineAmt)
     }
   }
 
-  // ✅ Mete ajou fines nan manm nan yon sèl fwa
   if (Object.keys(updatedFines).length > Object.keys(member.fines || {}).length) {
     await prisma.sabotayMember.update({
       where: { id: memberId },
