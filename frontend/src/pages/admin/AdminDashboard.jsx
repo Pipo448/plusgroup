@@ -95,10 +95,18 @@ adminApi.interceptors.request.use((config) => {
   } catch {}
   return config
 })
+
+// ✅ FIX: Pa redirect sou 401 si se yon route sabotay — paske backend sabotay
+//    itilize tenant auth, pa admin auth, sa ki kòze dekoneksyon enkorek
 adminApi.interceptors.response.use(r => r, err => {
-  if (err.response?.status === 401) { localStorage.removeItem('pg-admin'); window.location.href = '/admin/login' }
+  const url = err.config?.url || ''
+  if (err.response?.status === 401 && !url.includes('/sabotay/')) {
+    localStorage.removeItem('pg-admin')
+    window.location.href = '/admin/login'
+  }
   return Promise.reject(err)
 })
+
 const getAdmin = () => { try { return JSON.parse(localStorage.getItem('pg-admin') || '{}') } catch { return {} } }
 
 // ══════════════════════════════════════════════
@@ -694,7 +702,7 @@ const PriceEditor = ({ tenantId, currentPrice, onSave, small = false }) => {
 }
 
 // ══════════════════════════════════════════════
-// ✅ MODAL EDIT MANM SOL
+// MODAL EDIT MANM SOL
 // ══════════════════════════════════════════════
 const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) => {
   const isMobile = useIsMobile()
@@ -733,7 +741,6 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div style={{ background:'linear-gradient(160deg,#0f172a,#0f1923)', border:'1px solid rgba(201,168,76,0.3)', borderRadius: isMobile?'20px 20px 0 0':18, width:'100%', maxWidth:480, maxHeight: isMobile?'92vh':'85vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ height:3, background:'linear-gradient(90deg,transparent,#C9A84C 30%,#8B0000 70%,transparent)', flexShrink:0 }}/>
-        {/* Header */}
         <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid rgba(201,168,76,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             <div style={{ width:38, height:38, borderRadius:11, background:'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(139,0,0,0.3))', border:'1px solid rgba(201,168,76,0.3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -746,33 +753,26 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
           </div>
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.5)' }}><X size={14}/></button>
         </div>
-        {/* Kò */}
         <div style={{ overflowY:'auto', flex:1, padding:'18px 22px' }}>
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {/* Non */}
             <div>
               <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }}>Non Manm *</label>
               <input value={form.name} onChange={e => setForm(p=>({...p, name:e.target.value}))} placeholder="Jean Baptiste" style={iStyle}/>
             </div>
-            {/* Pòzisyon */}
             <div>
               <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }}>Pòzisyon (nimewo)</label>
               <input type="number" min="1" value={form.position} onChange={e => setForm(p=>({...p, position:e.target.value}))} placeholder="1" style={iStyle}/>
             </div>
-            {/* Telefòn */}
             <div>
               <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }}>Telefòn</label>
               <input value={form.phone} onChange={e => setForm(p=>({...p, phone:e.target.value}))} placeholder="+509 3000-0000" style={iStyle}/>
             </div>
-            {/* Username */}
             <div>
               <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }}>Username Kont Sol</label>
               <input value={form.username} onChange={e => setForm(p=>({...p, username:e.target.value}))} placeholder="jean.baptiste" style={{ ...iStyle, fontFamily:'monospace' }}/>
               <p style={{ color:'rgba(255,255,255,0.2)', fontSize:10, margin:'4px 0 0' }}>⚠ Chanje username ka afekte koneksyon manm nan</p>
             </div>
-            {/* Toggles */}
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {/* isOwnerSlot */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderRadius:10, background: form.isOwnerSlot ? 'rgba(201,168,76,0.08)' : 'rgba(255,255,255,0.03)', border:`1px solid ${form.isOwnerSlot ? 'rgba(201,168,76,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
                 <div>
                   <p style={{ color:'#fff', fontSize:13, fontWeight:600, margin:0 }}>👑 Slot Pwopriyetè</p>
@@ -783,7 +783,6 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
                   <div style={{ position:'absolute', top:2, left: form.isOwnerSlot ? 'calc(100% - 22px)' : 2, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left 0.25s', boxShadow:'0 1px 4px rgba(0,0,0,0.3)' }}/>
                 </div>
               </div>
-              {/* hasWon */}
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 14px', borderRadius:10, background: form.hasWon ? 'rgba(39,174,96,0.08)' : 'rgba(255,255,255,0.03)', border:`1px solid ${form.hasWon ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.08)'}` }}>
                 <div>
                   <p style={{ color:'#fff', fontSize:13, fontWeight:600, margin:0 }}>🏆 Deja Genyen</p>
@@ -797,7 +796,6 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
             </div>
           </div>
         </div>
-        {/* Footer */}
         <div style={{ padding:'14px 22px', borderTop:'1px solid rgba(255,255,255,0.06)', flexShrink:0, display:'flex', gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:'11px', borderRadius:10, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:13, fontWeight:600 }}>Anile</button>
           <button onClick={handleSave} disabled={saving || !form.name.trim()}
@@ -811,7 +809,7 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
 }
 
 // ══════════════════════════════════════════════
-// ✅ MODAL DELETE SOL PLAN
+// MODAL DELETE SOL PLAN
 // ══════════════════════════════════════════════
 const DeleteSolPlanModal = ({ plan, tenantSlug, onClose, onDeleted }) => {
   const isMobile = useIsMobile()
@@ -880,17 +878,17 @@ const DeleteSolPlanModal = ({ plan, tenantSlug, onClose, onDeleted }) => {
 }
 
 // ══════════════════════════════════════════════
-// ✅ SOL MANAGER MODAL (Plans + Manm)
+// SOL MANAGER MODAL (Plans + Manm)
 // ══════════════════════════════════════════════
 const SolManagerModal = ({ tenant, onClose }) => {
   const isMobile = useIsMobile()
-  const [plans, setPlans]           = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [selectedPlan, setSelectedPlan] = useState(null) // null = lis plans, sinon = lis manm
-  const [members, setMembers]       = useState([])
+  const [plans, setPlans]               = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [selectedPlan, setSelectedPlan] = useState(null)
+  const [members, setMembers]           = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
-  const [deletePlan, setDeletePlan] = useState(null)
-  const [editMember, setEditMember] = useState(null)
+  const [deletePlan, setDeletePlan]     = useState(null)
+  const [editMember, setEditMember]     = useState(null)
 
   const loadPlans = async () => {
     setLoading(true)
@@ -901,7 +899,13 @@ const SolManagerModal = ({ tenant, onClose }) => {
       const result = res.data?.plans || res.data?.data || res.data
       setPlans(Array.isArray(result) ? result : [])
     } catch(e) {
-      toast.error('Erè chajman plans Sol.')
+      // ✅ Pa toast 401 paske interceptor pa redirect ankò — afiche mesaj itil
+      const status = e.response?.status
+      if (status === 401 || status === 403) {
+        toast.error('Aksè refize pou tenant sa a.')
+      } else {
+        toast.error('Erè chajman plans Sol.')
+      }
       setPlans([])
     } finally {
       setLoading(false)
@@ -966,7 +970,7 @@ const SolManagerModal = ({ tenant, onClose }) => {
         {/* Kò */}
         <div style={{ overflowY:'auto', flex:1, padding:'14px 22px 20px' }}>
 
-          {/* ── VYÈ PLANS ── */}
+          {/* VYÈ PLANS */}
           {!selectedPlan && (
             loading ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:60, gap:12 }}>
@@ -987,7 +991,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
                     <div key={plan.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderRadius:12, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)', transition:'border-color 0.2s' }}
                       onMouseEnter={e => e.currentTarget.style.borderColor='rgba(201,168,76,0.2)'}
                       onMouseLeave={e => e.currentTarget.style.borderColor='rgba(255,255,255,0.07)'}>
-                      {/* Info */}
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
                           <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>{plan.name}</span>
@@ -1000,14 +1003,11 @@ const SolManagerModal = ({ tenant, onClose }) => {
                           {plan.startDate && <span style={{ color:'rgba(255,255,255,0.25)', fontSize:11 }}>📅 {formatDate(plan.startDate)}</span>}
                         </div>
                       </div>
-                      {/* Bouton yo */}
                       <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                        {/* Wè Manm */}
                         <button onClick={() => loadMembers(plan)}
                           style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, background:'rgba(107,174,214,0.12)', border:'1px solid rgba(107,174,214,0.25)', color:'#6baed6', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                           <Users size={11}/> Manm
                         </button>
-                        {/* Siprime Plan */}
                         <button onClick={() => setDeletePlan(plan)}
                           style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 10px', borderRadius:8, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(192,57,43,0.25)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                           <Trash2 size={11}/>
@@ -1020,7 +1020,7 @@ const SolManagerModal = ({ tenant, onClose }) => {
             )
           )}
 
-          {/* ── VYÈ MANM ── */}
+          {/* VYÈ MANM */}
           {selectedPlan && (
             loadingMembers ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:60, gap:12 }}>
@@ -1036,11 +1036,9 @@ const SolManagerModal = ({ tenant, onClose }) => {
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {members.map(member => (
                   <div key={member.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:11, background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.07)' }}>
-                    {/* Avatar */}
                     <div style={{ width:36, height:36, borderRadius:10, background: member.isOwnerSlot ? 'linear-gradient(135deg,#C9A84C,#9a7d32)' : 'linear-gradient(135deg,#1B3A6B,#2d5fa6)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:14, fontWeight:800, flexShrink:0 }}>
                       {member.isOwnerSlot ? '👑' : (member.position || '?')}
                     </div>
-                    {/* Info */}
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                         <span style={{ color:'#fff', fontWeight:700, fontSize:13 }}>{member.name}</span>
@@ -1053,7 +1051,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
                         <span style={{ color:'rgba(255,255,255,0.2)', fontSize:10 }}>Pòz #{member.position || '—'}</span>
                       </div>
                     </div>
-                    {/* Bouton Edite */}
                     <button onClick={() => setEditMember(member)}
                       style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'6px 12px', borderRadius:8, background:'rgba(201,168,76,0.1)', border:'1px solid rgba(201,168,76,0.25)', color:'#C9A84C', cursor:'pointer', fontSize:11, fontWeight:700, flexShrink:0 }}>
                       <Edit2 size={11}/> Edite
@@ -1139,7 +1136,6 @@ const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onRese
         <button onClick={() => onPages(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.25)', color:'#a78bfa', cursor:'pointer', fontSize:12, fontWeight:700 }}><LayoutGrid size={12}/> Paj yo</button>
         <button onClick={() => onResetPwd(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(26,58,107,0.15)', border:'1px solid rgba(26,58,107,0.35)', color:'#6baed6', cursor:'pointer', fontSize:12, fontWeight:700 }}><KeyRound size={12}/> Modpas</button>
         <button onClick={() => onAudit(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.25)', color:'#f59e0b', cursor:'pointer', fontSize:12, fontWeight:700 }}><History size={12}/> Istorik</button>
-        {/* ✅ Bouton Sol */}
         <button onClick={() => onSol(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(139,0,0,0.12)', border:'1px solid rgba(192,57,43,0.3)', color:'#E8836A', cursor:'pointer', fontSize:12, fontWeight:700 }}><Smartphone size={12}/> Sol</button>
         {t.status==='active'
           ? <button onClick={() => { if(window.confirm(`Sipann "${t.name}"?`)) onToggleStatus(t.id,'suspended') }} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(139,0,0,0.25)', color:'#E8836A', cursor:'pointer', fontSize:12, fontWeight:700 }}><XCircle size={12}/> Sipann</button>
@@ -1171,7 +1167,6 @@ export default function AdminDashboard() {
   const [pageSaving,    setPageSaving]   = useState(false)
   const [auditViewT,    setAuditViewT]   = useState(null)
   const [monthlyPrices, setMonthlyPrices]= useState({})
-  // ✅ Sol Manager state
   const [solViewT,      setSolViewT]     = useState(null)
 
   const { admin } = getAdmin()
@@ -1469,7 +1464,7 @@ export default function AdminDashboard() {
                               <button onClick={() => setAuditViewT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.25)', color:'#f59e0b', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <History size={11}/> Istorik</button>
-                              {/* ✅ Bouton Sol */}
+                              {/* Bouton Sol */}
                               <button onClick={() => setSolViewT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(192,57,43,0.3)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <Smartphone size={11}/> Sol</button>
@@ -1508,7 +1503,6 @@ export default function AdminDashboard() {
       {branchView   && <BranchPanel tenantId={branchView} tenantName={tenants.find(t => t.id === branchView)?.name || ''} branches={branchesData[branchView]} onToggle={toggleBranch} loadingMap={branchLoading} onClose={() => setBranchView(null)}/>}
       {pageViewT    && <PageAccessPanel tenant={pageViewT} pages={pagesData[pageViewT.id]} onSave={savePages} saving={pageSaving} onClose={() => setPageViewT(null)}/>}
       {auditViewT   && <AuditLogModal tenant={auditViewT} onClose={() => setAuditViewT(null)}/>}
-      {/* ✅ Sol Manager */}
       {solViewT     && <SolManagerModal tenant={solViewT} onClose={() => setSolViewT(null)}/>}
 
       <TickerBanner/>
