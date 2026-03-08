@@ -372,8 +372,7 @@ function PrinterBtn({printer}) {
 function Modal({onClose,title,children,width=540}) {
   return (
     <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(4px)',
-      display:'flex',alignItems:'flex-end',justifyContent:'center'}}
-      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
       <div className="m-sheet" style={{background:D.card,border:`1px solid ${D.border}`,
         borderRadius:'20px 20px 0 0',width:'100%',maxWidth:width,
         maxHeight:'95vh',overflowY:'auto',boxShadow:'0 -8px 48px rgba(0,0,0,0.7)',
@@ -586,9 +585,7 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MODAL: ENSKRI KLIYAN — plas manyèl
-// ─────────────────────────────────────────────────────────────
-function ModalAddMember({plan,onClose,onSave,loading}) {
+  function ModalAddMember({plan,onClose,onSave,loading}) {
   const slots    = totalSlots(plan)
   const taken    = new Set((plan.members||[]).map(m=>m.position))
   const available= Array.from({length:slots},(_,i)=>i+1).filter(p=>!taken.has(p))
@@ -675,7 +672,13 @@ function ModalAddMember({plan,onClose,onSave,loading}) {
               if(!position) return toast.error('Chwazi yon plas.')
               const credentials = generateCredentials(form.name,form.phone)
               const isOwnerSlot = hasOwnerSlot(plan)&&position===slots
-              onSave({...form,position,credentials,isOwnerSlot},(saved)=>setCreds({member:saved||{...form,position},credentials}))
+              onSave({
+                ...form,
+                position,
+                credentials,
+                isOwnerSlot,
+                _cb:(saved)=>setCreds({member:saved||{...form,position},credentials})
+              })
             }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
               cursor:loading?'default':'pointer',
               background:loading?'rgba(201,168,76,0.3)':D.goldBtn,
@@ -1525,8 +1528,15 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
   const addMember = useMutation({
-    mutationFn:(data)=>apiFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(data)}),
-    onSuccess:(r,vars)=>{ qc.invalidateQueries(['sabotay-plans']); if(typeof vars._cb==='function') vars._cb(r.member||r) },
+    mutationFn:(data)=>{
+      const {_cb, ...body} = data
+      return apiFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(body)})
+    },
+    onSuccess:(r,vars)=>{
+      qc.invalidateQueries(['sabotay-plans'])
+      setAddMember(false)
+      if(typeof vars._cb==='function') vars._cb(r.member||r)
+    },
     onError:(e)=>toast.error(e.message),
   })
   const markPayment = useMutation({
@@ -1544,6 +1554,7 @@ export default function SabotayPage() {
     },
     onError:(e)=>toast.error(e.message),
   })
+
   // ── Derived stats ──
   const totalMembers = plans.reduce((a,p)=>a+(p.members?.length||0),0)
   const totalCollected = plans.reduce((a,p)=>
@@ -1658,7 +1669,7 @@ export default function SabotayPage() {
                 const coll=plan.members?.reduce((a,m)=>
                   a+Object.keys(m.payments||{}).filter(d=>m.payments[d]).length*plan.amount,0)||0
                 const today=new Date().toISOString().split('T')[0]
-                const dates=getPaymentDates(plan.frequency,plan.createdAt,slots,plan.interval)
+                const dates=getPaymentDates(plan.frequency,plan.createdAt||plan.startDate,slots,plan.interval)
                 const todayWin=dates.findIndex(d=>d===today)
                 const winner=todayWin>=0?plan.members?.[todayWin]:null
                 const payout=memberPayout(plan)
@@ -1723,7 +1734,7 @@ export default function SabotayPage() {
       {showAddMember&&activePlan&&(
         <ModalAddMember plan={activePlan} onClose={()=>setAddMember(false)}
           loading={addMember.isPending}
-          onSave={(data,cb)=>addMember.mutate({...data,_cb:cb},{onSuccess:(r)=>{setAddMember(false);if(cb)cb(r.member||r)}})}/>
+          onSave={(data)=>addMember.mutate(data)}/>
       )}
       {showDraw&&activePlan&&(
         <ModalBlindDraw plan={activePlan} onClose={()=>setDraw(false)}
