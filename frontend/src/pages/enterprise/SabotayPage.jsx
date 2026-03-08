@@ -1564,7 +1564,7 @@ export default function SabotayPage() {
   })
 
   const markPayment = useMutation({
-    mutationFn:({memberId,...data})=>apiFetch(`/sabotay/members/${memberId}/payments`,{method:'POST',body:JSON.stringify(data)}),
+    mutationFn:({memberId,...data})=>apiFetch(`/sabotay/plans/${activePlan?.id}/members/${memberId}/pay`,{method:'POST',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); toast.success('✅ Peman anrejistre!') },
     onError:(e)=>toast.error(e.message),
   })
