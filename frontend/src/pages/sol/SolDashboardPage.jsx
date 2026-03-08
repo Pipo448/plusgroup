@@ -25,7 +25,7 @@ const D = {
   muted:    '#6b7a99',
 }
 
-const SOL_API = import.meta.env.VITE_API_URL || 'https://plusgroup-backend.onrender.com'
+const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0 })
 
 // ─────────────────────────────────────────────────────────────
