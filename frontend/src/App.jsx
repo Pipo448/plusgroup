@@ -32,10 +32,6 @@ import PlansPage from './pages/plans/PlansPage'
 // ✅ Welcome Page
 import WelcomePage from './pages/WelcomePage'
 
-// ✅ Sol Member Portal
-import SolLoginPage     from './pages/sol/SolLoginPage'
-import SolDashboardPage from './pages/sol/SolDashboardPage'
-
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
     <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -93,10 +89,6 @@ export default function App() {
         <Route path="/admin/login"     element={<AdminLoginPage />} />
         <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
         <Route path="/admin"           element={<Navigate to="/admin/login" replace />} />
-
-        {/* ✅ Sol Member Portal — ANDEYÒ PrivateRoute (manm pa gen token admin) */}
-        <Route path="/app/sol/login"     element={<SolLoginPage />} />
-        <Route path="/app/sol/dashboard" element={<SolDashboardPage />} />
 
         {/* ✅ App principal */}
         <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
