@@ -168,10 +168,9 @@ function generateCredentials(name, phone) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// DATE HELPERS — ✅ itilize startDate (pa createdAt)
+// DATE HELPERS
 // ─────────────────────────────────────────────────────────────
 function getPlanStartDate(plan) {
-  // ✅ Priyorite: startDate → createdAt → jodi a
   return plan.startDate || plan.createdAt || new Date().toISOString()
 }
 
@@ -199,7 +198,7 @@ function getPaymentDates(frequency, startDate, count, interval=1) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// API HELPERS — ✅ apiFetch pou tout routes admin /api/v1/sabotay
+// API HELPERS
 // ─────────────────────────────────────────────────────────────
 async function apiFetch(path, options={}) {
   const {token} = useAuthStore.getState()
@@ -220,7 +219,6 @@ async function apiFetch(path, options={}) {
   return data
 }
 
-// solFetch = sèlman pou /api/sol/... (pòtal manm) — pa pou admin
 async function solFetch(path, options={}) {
   const {token} = useAuthStore.getState()
   const res = await fetch(`${SOL_API}${path}`, {
@@ -420,7 +418,6 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
     name:'',amount:'',feePerMember:'',penalty:'',
     frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',regleman:'',startDate:'',
     ...(initialData||{}),
-    // ✅ Konvèti startDate pou input[type=date] (YYYY-MM-DD)
     startDate: initialData?.startDate
       ? new Date(initialData.startDate).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
@@ -458,7 +455,6 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               <input type="time" style={{...inp,color:D.purple,fontWeight:700}}
                 value={form.dueTime} onChange={e=>set('dueTime',e.target.value)}/>
             </div>
-            {/* ✅ NOUVO: champ startDate */}
             <div>
               <label style={lbl}>Dat Kòmanse Sol *</label>
               <input type="date" style={{...inp,color:D.teal,fontWeight:700}}
@@ -601,16 +597,15 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
 
 // ─────────────────────────────────────────────────────────────
 // MODAL: ENSKRI KLIYAN
+// ✅ FIX: retire showCreds state — deplase nan parent (SabotayPage)
+//         ajoute prop onShowCreds pou pase kredansyèl yo monte
 // ─────────────────────────────────────────────────────────────
-function ModalAddMember({plan,onClose,onSave,loading}) {
+function ModalAddMember({plan, onClose, onSave, loading, onShowCreds}) {
   const slots    = totalSlots(plan)
   const taken    = new Set((plan.members||[]).map(m=>m.position))
   const available= Array.from({length:slots},(_,i)=>i+1).filter(p=>!taken.has(p))
   const [form,setForm]   = useState({name:'',phone:''})
   const [position,setPos]= useState(available[0]||null)
-  const [showCreds,setCreds]= useState(null)
-
-  if(showCreds) return <ModalMemberCredentials member={showCreds.member} credentials={showCreds.credentials} onClose={onClose}/>
 
   const isOwnerPos = hasOwnerSlot(plan) && position===slots
   const isFull     = available.length===0
@@ -687,12 +682,12 @@ function ModalAddMember({plan,onClose,onSave,loading}) {
             <button disabled={loading||!position} onClick={()=>{
               if(!form.name||!form.phone) return toast.error('Non ak telefòn obligatwa.')
               if(!position) return toast.error('Chwazi yon plas.')
-              const credentials = generateCredentials(form.name,form.phone)
-              const isOwnerSlot = hasOwnerSlot(plan)&&position===slots
-              // ✅ Pase _cb kòm pati nan data objè (pa kòm 2yèm argument)
+              const credentials = generateCredentials(form.name, form.phone)
+              const isOwnerSlot = hasOwnerSlot(plan) && position === slots
+              // ✅ FIX: pase onShowCreds kòm _cb — li viv nan parent ki pa janm démonté
               onSave({
                 ...form, position, credentials, isOwnerSlot,
-                _cb:(saved)=>setCreds({member:saved||{...form,position}, credentials})
+                _cb: (saved) => onShowCreds({ member: saved || {...form, position}, credentials })
               })
             }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
               cursor:loading?'default':'pointer',
@@ -712,7 +707,7 @@ function ModalAddMember({plan,onClose,onSave,loading}) {
 // ─────────────────────────────────────────────────────────────
 // MODAL: KREDANSYÈL
 // ─────────────────────────────────────────────────────────────
-function ModalMemberCredentials({member,credentials,onClose}) {
+function ModalMemberCredentials({member, credentials, onClose}) {
   const [copied,setCopied] = useState(false)
   const text = `Non: ${member.name}\nItilizatè: ${credentials.username}\nModpas: ${credentials.password}\nURL: https://app.plusgroupe.com/app/sol/login`
   const copy = ()=>navigator.clipboard?.writeText(text).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000)})
@@ -902,7 +897,6 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
 function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
   const {tenant} = useAuthStore()
   const slots    = totalSlots(plan)
-  // ✅ itilize startDate (pa createdAt)
   const dates    = useMemo(()=>getPaymentDates(plan.frequency,getPlanStartDate(plan),slots,plan.interval),[plan])
   const today    = new Date().toISOString().split('T')[0]
   const unpaid   = dates.filter(d=>d<=today&&!member.payments?.[d])
@@ -1044,7 +1038,7 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KALANDRIYE — ✅ itilize startDate
+// KALANDRIYE
 // ─────────────────────────────────────────────────────────────
 function PlanCalendar({plan}) {
   const [off,setOff] = useState(0)
@@ -1113,7 +1107,7 @@ function PlanCalendar({plan}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KONT VITYÈL KLIYAN — ✅ itilize startDate
+// KONT VITYÈL KLIYAN
 // ─────────────────────────────────────────────────────────────
 function MemberVirtualAccount({member,plan,onClose,printer}) {
   const {tenant} = useAuthStore()
@@ -1285,7 +1279,7 @@ function MemberVirtualAccount({member,plan,onClose,printer}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// PANEL DETAY PLAN — ✅ itilize startDate
+// PANEL DETAY PLAN
 // ─────────────────────────────────────────────────────────────
 function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,printer}) {
   const [viewMember,setView] = useState(null)
@@ -1524,8 +1518,10 @@ export default function SabotayPage() {
   const [showAddMember, setAddMember]   = useState(false)
   const [showDraw,      setDraw]        = useState(false)
   const [search,        setSearch]      = useState('')
+  // ✅ FIX: memberCreds viv nan parent — pa janm démonté
+  const [memberCreds,   setMemberCreds] = useState(null)
 
-  // ── Queries — ✅ apiFetch pou /api/v1/sabotay
+  // ── Queries
   const { data:plans=[], isLoading, error, refetch } = useQuery({
     queryKey:['sabotay-plans'],
     queryFn:()=>apiFetch('/sabotay/plans').then(r=>{
@@ -1537,7 +1533,7 @@ export default function SabotayPage() {
 
   const activePlan = selectedPlan ? plans.find(p=>p.id===selectedPlan.id)||selectedPlan : null
 
-  // ── Mutations — ✅ tout itilize apiFetch
+  // ── Mutations
   const createPlan = useMutation({
     mutationFn:(data)=>apiFetch('/sabotay/plans',{method:'POST',body:JSON.stringify(data)}),
     onSuccess:(r)=>{ qc.invalidateQueries(['sabotay-plans']); setShowCreate(false); toast.success('✅ Plan kreye!'); setSelected(r.plan||r) },
@@ -1549,7 +1545,8 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
 
-  // ✅ addMember — _cb nan onSuccess (pa 4yèm argument)
+  // ✅ FIX: addMember — pa rele setAddMember(false) si _cb egziste
+  //         kite ModalMemberCredentials (nan parent) jere fèmti a
   const addMember = useMutation({
     mutationFn:(data)=>{
       const {_cb,...body} = data
@@ -1557,8 +1554,11 @@ export default function SabotayPage() {
     },
     onSuccess:(r,vars)=>{
       qc.invalidateQueries(['sabotay-plans'])
-      if(typeof vars._cb==='function') vars._cb(r.member||r)
-      else setAddMember(false)
+      if(typeof vars._cb==='function') {
+        vars._cb(r.member||r)
+      } else {
+        setAddMember(false)
+      }
     },
     onError:(e)=>toast.error(e.message),
   })
@@ -1579,7 +1579,7 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
 
-  // ── Derived stats ──
+  // ── Derived stats
   const totalMembers = plans.reduce((a,p)=>a+(p.members?.length||0),0)
   const totalCollected = plans.reduce((a,p)=>
     a+(p.members||[]).reduce((b,m)=>b+Object.keys(m.payments||{}).filter(d=>m.payments[d]).length*p.amount,0),0)
@@ -1750,14 +1750,28 @@ export default function SabotayPage() {
           onSave={(data)=>updatePlan.mutate({id:editingPlan.id,...data})}/>
       )}
       {showAddMember&&activePlan&&(
-        <ModalAddMember plan={activePlan} onClose={()=>setAddMember(false)}
+        <ModalAddMember
+          plan={activePlan}
+          onClose={()=>setAddMember(false)}
           loading={addMember.isPending}
-          onSave={(data)=>addMember.mutate(data)}/>
+          onSave={(data)=>addMember.mutate(data)}
+          // ✅ FIX: onShowCreds monte nan parent — pa nan ModalAddMember ki démonté
+          onShowCreds={(data)=>{ setMemberCreds(data); setAddMember(false) }}
+        />
       )}
       {showDraw&&activePlan&&(
         <ModalBlindDraw plan={activePlan} onClose={()=>setDraw(false)}
           loading={blindDraw.isPending}
           onConfirm={(member)=>blindDraw.mutate(member.id)}/>
+      )}
+
+      {/* ✅ FIX: ModalMemberCredentials rann nan parent — toujou monte */}
+      {memberCreds&&(
+        <ModalMemberCredentials
+          member={memberCreds.member}
+          credentials={memberCreds.credentials}
+          onClose={()=>setMemberCreds(null)}
+        />
       )}
     </div>
   )
