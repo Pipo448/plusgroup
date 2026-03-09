@@ -7,7 +7,7 @@ import {
   Warehouse, TrendingUp, Settings, LogOut, Bell,
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
-  Wallet,
+  Wallet, Hotel, CalendarDays,
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
@@ -17,32 +17,25 @@ import NotificationBell from '../NotificationBell'
 
 // ── Palèt koulè ──────────────────────────────────────────────
 const C = {
-  // Fon sidebar (vin soti nan HTML demo a)
   sidebarBg:   '#16192a',
   sidebarTop:  '#0f1117',
   navBg:       '#1e2235',
-
-  // Or — konsève koulè orijinal ou a
   gold:        '#f5680c',
   goldLt:      '#ff8534',
   goldDim:     'rgba(245,104,12,0.12)',
   goldBorder:  'rgba(245,104,12,0.20)',
-
-  // Antrepriz or
   enterprise:  '#C9A84C',
   entDim:      'rgba(201,168,76,0.15)',
   entBorder:   'rgba(201,168,76,0.28)',
-
-  // Tèks
+  // ✅ Hotel — bleu syèl
+  hotel:       '#0EA5E9',
+  hotelDim:    'rgba(14,165,233,0.15)',
+  hotelBorder: 'rgba(14,165,233,0.28)',
   white:       '#FFFFFF',
   muted:       'rgba(255,255,255,0.45)',
   mutedMd:     'rgba(255,255,255,0.65)',
-
-  // Bòdè & efè
   border:      'rgba(255,255,255,0.07)',
   borderGold:  'rgba(245,104,12,0.18)',
-
-  // Status
   red:         '#ef4444',
   green:       '#22c55e',
 }
@@ -62,6 +55,12 @@ const ENTERPRISE_ITEMS = [
   { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay',         pageKey:'kane-epay' },
   { to:'/app/sabotay',   icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
   { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
+]
+
+// ✅ Hotel nav items
+const HOTEL_ITEMS = [
+  { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
+  { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
 ]
 
 const LANGS = [
@@ -112,6 +111,19 @@ const enterpriseLinkStyle = (isActive) => ({
   background: isActive ? C.entDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500,
+  fontSize: 13,
+  cursor: 'pointer',
+})
+
+// ✅ Style Hotel nav items
+const hotelLinkStyle = (isActive) => ({
+  display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
+  textDecoration: 'none', transition: 'all 0.2s',
+  background: isActive ? C.hotelDim : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
   fontWeight: isActive ? 700 : 500,
   fontSize: 13,
   cursor: 'pointer',
@@ -258,7 +270,6 @@ export default function AppLayout() {
     </div>
   )
 
-  // ── Sidebar style ─────────────────────────────────────────
   const sidebarStyle = {
     position:   isDesktop ? 'relative' : 'fixed',
     inset:      isDesktop ? 'auto' : '0 auto 0 0',
@@ -290,7 +301,6 @@ export default function AppLayout() {
       ══════════════════════════════════════════════ */}
       <aside style={sidebarStyle}>
 
-        {/* Bann or anwo */}
         <div style={{
           height: 3, flexShrink: 0,
           background: `linear-gradient(90deg, transparent, #b34200 10%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 90%, transparent)`,
@@ -298,14 +308,12 @@ export default function AppLayout() {
           backgroundSize: '200% 100%',
         }}/>
 
-        {/* Reflet dekoratif */}
         <div style={{
           position:'absolute', top:-60, left:-40, width:220, height:220,
           background:`radial-gradient(circle, rgba(245,104,12,0.10) 0%, transparent 70%)`,
           pointerEvents:'none', zIndex:0,
         }}/>
 
-        {/* Bouton fèmen (mobil) */}
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
             position:'absolute', top:12, right:12, zIndex:50,
@@ -324,7 +332,6 @@ export default function AppLayout() {
         }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
 
-            {/* Logo / Inityal */}
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{
                   width:44, height:44, borderRadius:12, objectFit:'contain',
@@ -359,7 +366,6 @@ export default function AppLayout() {
               }
             </div>
 
-            {/* Branch Switcher */}
             {isAdmin && branches.length > 0 && (
               <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
                 <button
@@ -439,7 +445,6 @@ export default function AppLayout() {
             )}
           </div>
 
-          {/* Badge plan */}
           <div style={{
             marginTop:10,
             display:'flex', alignItems:'center', justifyContent:'space-between',
@@ -462,7 +467,6 @@ export default function AppLayout() {
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none' }}>
           <style>{`.nav-scroll::-webkit-scrollbar { display:none; }`}</style>
 
-          {/* Label seksyon */}
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
           </p>
@@ -544,12 +548,47 @@ export default function AppLayout() {
               </NavLink>
             )
           })}
+
+          {/* ✅ ── HOTEL ── */}
+          {isPageAllowed('hotel') && (
+            <>
+              <div style={{
+                margin:'14px 4px 8px',
+                paddingTop:12,
+                borderTop:`1px solid rgba(14,165,233,0.15)`,
+                display:'flex', alignItems:'center', gap:8,
+              }}>
+                <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+                  🏨 Hotel
+                </span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, animation:'pulseBlue 2s infinite' }}/>
+              </div>
+
+              {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
+                <NavLink key={to} to={to} end={end}
+                  onClick={() => setOpen(false)}
+                  style={({ isActive }) => hotelLinkStyle(isActive)}>
+                  {({ isActive }) => (<>
+                    <Icon size={15} style={{
+                      flexShrink:0,
+                      color: isActive ? C.hotel : C.mutedMd,
+                      filter: isActive ? `drop-shadow(0 0 5px ${C.hotel}80)` : 'none',
+                      transition:'all 0.2s',
+                    }}/>
+                    <span style={{ flex:1 }}>{label}</span>
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, boxShadow:`0 0 8px ${C.hotel}`, flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
+              ))}
+            </>
+          )}
+
         </nav>
 
         {/* ── SETTINGS + USER ── */}
         <div style={{
           padding:'10px 10px 12px',
-          paddingBottom: 38, // ← espas pou ticker anba a pa kache bouton dekonekte
+          paddingBottom: 38,
           borderTop:`1px solid ${C.border}`,
           position:'relative', zIndex:1,
         }}>
@@ -569,14 +608,12 @@ export default function AppLayout() {
             </>)}
           </NavLink>
 
-          {/* User card */}
           <div style={{
             display:'flex', alignItems:'center', gap:10,
             padding:'10px 12px', borderRadius:12,
             background:`linear-gradient(135deg, rgba(245,104,12,0.10), rgba(245,104,12,0.03))`,
             border:`1px solid ${C.goldBorder}`,
           }}>
-            {/* Avatar */}
             <div style={{
               width:34, height:34, borderRadius:10, flexShrink:0,
               background:`linear-gradient(135deg, #ef4444, #dc2626)`,
@@ -613,7 +650,6 @@ export default function AppLayout() {
       ══════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
-        {/* Topbar */}
         <header style={{
           minHeight:58,
           background:'#fff',
@@ -641,7 +677,6 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
-          {/* Lang Switcher */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
@@ -675,9 +710,10 @@ export default function AppLayout() {
       </div>
 
       <style>{`
-        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 5px rgba(201,168,76,0)} }
-        @keyframes spin    { to { transform: rotate(360deg) } }
+        @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes pulse     { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 5px rgba(201,168,76,0)} }
+        @keyframes pulseBlue { 0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.4)} 50%{box-shadow:0 0 0 5px rgba(14,165,233,0)} }
+        @keyframes spin      { to { transform: rotate(360deg) } }
         aside::-webkit-scrollbar { display:none; }
         nav::-webkit-scrollbar   { display:none; }
       `}</style>

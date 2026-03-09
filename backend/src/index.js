@@ -33,6 +33,7 @@ const kaneEpayRoutes    = require('./modules/kane-epay/kane-epay.routes');
 const tenantPagesRoutes = require('./modules/admin/tenant-pages.routes');
 const sabotayRoutes = require('./modules/sabotay/sabotay.routes');
 const solRoutes = require('./routes/sol.routes');
+const hotelRoutes = require('./modules/hotel/hotel.routes')
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
@@ -143,6 +144,7 @@ app.use(`${API}/reports`,       reportRoutes);
 app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
+app.use(`${API}/hotel`,         hotelRoutes)
 
 // ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay (retire doublon /api/sabotay ak enterprise)
 app.use(`${API}/sabotay`,       sabotayRoutes);

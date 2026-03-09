@@ -70,6 +70,7 @@ model Tenant {
   showQrCode         Boolean              @default(true) @map("show_qr_code")
   requireQuote       Boolean              @default(false) @map("require_quote")
   allowedPages       Json?                @default("{}") @map("allowed_pages")
+  monthlyPrice       Int                  @default(0) @map("monthly_price")
   activityLogs       ActivityLog[]
   branches           Branch[]
   clients            Client[]
@@ -79,7 +80,6 @@ model Tenant {
   kaneAccounts       KaneEpay[]
   kaneTransactions   KaneTransaction[]
   sabotayPlans       SabotayPlan[]
-  monthlyPrice       Int                  @default(0) @map("monthly_price")
   notifications      Notification[]
   payments           Payment[]
   productCategories  ProductCategory[]
@@ -88,9 +88,15 @@ model Tenant {
   quotes             Quote[]
   stockMovements     StockMovement[]
   subscriptions      TenantSubscription[]
+  users              User[]
+  // ── Hotel
+  roomTypes          RoomType[]
+  rooms              Room[]
+  reservations       Reservation[]
+  hotelServices      HotelService[]
+  hotelPayments      HotelPayment[]
   creator            SuperAdmin?          @relation(fields: [createdBy], references: [id])
   plan               SubscriptionPlan?    @relation(fields: [planId], references: [id])
-  users              User[]
 
   @@map("tenants")
 }
@@ -136,6 +142,9 @@ model Branch {
   products          Product[]
   quotes            Quote[]
   stockMovements    StockMovement[]
+  // ── Hotel
+  rooms             Room[]
+  reservations      Reservation[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -192,6 +201,10 @@ model User {
   products                Product[]
   quotesCreated           Quote[]           @relation("QuoteCreatedBy")
   stockMovements          StockMovement[]
+  // ── Hotel
+  reservationsCreated     Reservation[]     @relation("ReservationCreatedBy")
+  hotelServicesCreated    HotelService[]    @relation("HotelServiceCreatedBy")
+  hotelPaymentsCreated    HotelPayment[]    @relation("HotelPaymentCreatedBy")
   tenant                  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
@@ -248,6 +261,8 @@ model Product {
   tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   quoteItems     QuoteItem[]
   stockMovements StockMovement[]
+  // ── Hotel
+  hotelServices  HotelService[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -280,6 +295,8 @@ model Client {
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices          Invoice[]
   quotes            Quote[]
+  // ── Hotel
+  reservations      Reservation[]
 
   @@index([branchId])
   @@map("clients")
@@ -394,6 +411,8 @@ model Invoice {
   quote            Quote?          @relation(fields: [quoteId], references: [id], onDelete: Restrict)
   tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   payments         Payment[]
+  // ── Hotel
+  reservation      Reservation?
 
   @@unique([tenantId, invoiceNumber])
   @@index([branchId])
@@ -578,7 +597,7 @@ model KaneTransaction {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SABOTAY SOL — modèl mete ajou
+// SABOTAY SOL
 // ─────────────────────────────────────────────────────────────
 
 model SabotayPlan {
@@ -590,29 +609,25 @@ model SabotayPlan {
   amount       Decimal         @db.Decimal(14, 2)
   maxMembers   Int             @map("max_members")
   fee          Decimal         @default(0) @db.Decimal(14, 2)
-
   feePerMember Decimal         @default(0) @map("fee_per_member") @db.Decimal(14, 2)
   penalty      Decimal         @default(0) @db.Decimal(14, 2)
   interval     Int             @default(1)
   dueTime      String          @default("08:00") @map("due_time") @db.VarChar(5)
   regleman     String?
-
   startDate    DateTime        @map("start_date") @db.Timestamptz(6)
   status       String          @default("active") @db.VarChar(20)
   notes        String?
   createdBy    String?         @map("created_by")
   createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch       Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator      User?           @relation("SabotayPlanCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  members      SabotayMember[]
+  payments     SabotayPayment[]
 
-  branch   Branch?          @relation(fields: [branchId],  references: [id], onDelete: SetNull,  onUpdate: NoAction)
-  tenant   Tenant           @relation(fields: [tenantId],  references: [id], onDelete: Cascade,  onUpdate: NoAction)
-  creator  User?            @relation("SabotayPlanCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  members  SabotayMember[]
-  payments SabotayPayment[]
-
-  @@index([tenantId],         map: "sabotay_plans_tenant_idx")
-  @@index([branchId],         map: "sabotay_plans_branch_idx")
+  @@index([tenantId], map: "sabotay_plans_tenant_idx")
+  @@index([branchId], map: "sabotay_plans_branch_idx")
   @@index([tenantId, status], map: "sabotay_plans_status_idx")
   @@map("sabotay_plans")
 }
@@ -623,26 +638,23 @@ model SabotayMember {
   name        String    @db.VarChar(200)
   phone       String?   @db.VarChar(50)
   position    Int
-  dueDate     DateTime? @map("due_date")     @db.Date
+  dueDate     DateTime? @map("due_date") @db.Date
   collectDate DateTime? @map("collect_date") @db.Date
   notes       String?
-  isActive    Boolean   @default(true)  @map("is_active")
-
+  isActive    Boolean   @default(true) @map("is_active")
   hasWon      Boolean   @default(false) @map("has_won")
   isOwnerSlot Boolean   @default(false) @map("is_owner_slot")
   fines       Json      @default("{}")
-
   createdBy   String?   @map("created_by")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  plan     SabotayPlan      @relation(fields: [planId],    references: [id], onDelete: Cascade,  onUpdate: NoAction)
-  creator  User?            @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  payments SabotayPayment[]
+  plan        SabotayPlan     @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator     User?           @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  payments    SabotayPayment[]
 
   @@unique([planId, position], map: "sabotay_members_plan_position_key")
-  @@index([planId],            map: "sabotay_members_plan_idx")
-  @@index([planId, isActive],  map: "sabotay_members_active_idx")
+  @@index([planId], map: "sabotay_members_plan_idx")
+  @@index([planId, isActive], map: "sabotay_members_active_idx")
   @@map("sabotay_members")
 }
 
@@ -651,66 +663,195 @@ model SabotayPayment {
   planId    String   @map("plan_id")
   memberId  String   @map("member_id")
   amount    Decimal  @db.Decimal(14, 2)
-  dueDate   DateTime @map("due_date")  @db.Date
-  paidAt    DateTime @map("paid_at")   @db.Timestamptz(6)
-  method    String   @default("cash")  @db.VarChar(20)
+  dueDate   DateTime @map("due_date") @db.Date
+  paidAt    DateTime @map("paid_at") @db.Timestamptz(6)
+  method    String   @default("cash") @db.VarChar(20)
   timing    String?  @db.VarChar(10)
   fineAmt   Decimal  @default(0) @map("fine_amt") @db.Decimal(14, 2)
   notes     String?
   createdBy String?  @map("created_by")
-  createdAt DateTime @default(now())   @map("created_at") @db.Timestamptz(6)
-
-  plan      SabotayPlan   @relation(fields: [planId],   references: [id], onDelete: Cascade,  onUpdate: NoAction)
-  member    SabotayMember @relation(fields: [memberId], references: [id], onDelete: Cascade,  onUpdate: NoAction)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  plan      SabotayPlan   @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  member    SabotayMember @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   creator   User?         @relation("SabotayPaymentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([planId, memberId, dueDate], map: "sabotay_payments_unique_per_date")
-  @@index([planId],   map: "sabotay_payments_plan_idx")
+  @@index([planId], map: "sabotay_payments_plan_idx")
   @@index([memberId], map: "sabotay_payments_member_idx")
-  @@index([dueDate],  map: "sabotay_payments_date_idx")
+  @@index([dueDate], map: "sabotay_payments_date_idx")
   @@map("sabotay_payments")
 }
 
 model SolMemberAccount {
-  id             String   @id @default(uuid())
-  username       String   @unique
-  passwordHash   String   @map("password_hash")
-  // ✅ NOUVO — Modpas klè pou admin ka wè l epi distribye bay manm
-  plainPassword  String?  @map("plain_password")
-
-  tenantId       String   @map("tenant_id")
-
-  memberId       String   @map("member_id")
-  memberName     String   @map("member_name")
-  memberPhone    String   @default("") @map("member_phone")
-  memberPosition Int      @map("member_position")
-
-  planId         String   @map("plan_id")
-  planName       String   @map("plan_name")
-  planAmount     Float    @map("plan_amount")
-  planFee        Float    @default(0) @map("plan_fee")
-  planFrequency  String   @map("plan_frequency")
-  planMaxMembers Int      @map("plan_max_members")
-  planCreatedAt  String   @map("plan_created_at")
-  planDueTime    String   @default("08:00") @map("plan_due_time")
-
-  planInterval     Int     @default(1) @map("plan_interval")
-  planFeePerMember Float   @default(0) @map("plan_fee_per_member")
-  planPenalty      Float   @default(0) @map("plan_penalty")
-  planRegleman     String? @map("plan_regleman")
-  isOwnerSlot      Boolean @default(false) @map("is_owner_slot")
-  hasWon           Boolean @default(false) @map("has_won")
-
-  payments       Json     @default("{}") @map("payments")
-  paymentTimings Json     @default("{}") @map("payment_timings")
-  fines          Json     @default("{}")
-
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt      @map("updated_at")
+  id               String   @id @default(uuid())
+  username         String   @unique
+  passwordHash     String   @map("password_hash")
+  plainPassword    String?  @map("plain_password")
+  tenantId         String   @map("tenant_id")
+  memberId         String   @map("member_id")
+  memberName       String   @map("member_name")
+  memberPhone      String   @default("") @map("member_phone")
+  memberPosition   Int      @map("member_position")
+  planId           String   @map("plan_id")
+  planName         String   @map("plan_name")
+  planAmount       Float    @map("plan_amount")
+  planFee          Float    @default(0) @map("plan_fee")
+  planFrequency    String   @map("plan_frequency")
+  planMaxMembers   Int      @map("plan_max_members")
+  planCreatedAt    String   @map("plan_created_at")
+  planDueTime      String   @default("08:00") @map("plan_due_time")
+  planInterval     Int      @default(1) @map("plan_interval")
+  planFeePerMember Float    @default(0) @map("plan_fee_per_member")
+  planPenalty      Float    @default(0) @map("plan_penalty")
+  planRegleman     String?  @map("plan_regleman")
+  isOwnerSlot      Boolean  @default(false) @map("is_owner_slot")
+  hasWon           Boolean  @default(false) @map("has_won")
+  payments         Json     @default("{}") @map("payments")
+  paymentTimings   Json     @default("{}") @map("payment_timings")
+  fines            Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([tenantId], map: "sol_member_accounts_tenant_idx")
   @@index([memberId], map: "sol_member_accounts_member_idx")
   @@map("sol_member_accounts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// HOTEL
+// ─────────────────────────────────────────────────────────────
+
+model RoomType {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String   @db.VarChar(100)
+  description String?
+  priceHtg    Decimal  @map("price_htg") @db.Decimal(12, 2)
+  priceUsd    Decimal  @default(0) @map("price_usd") @db.Decimal(12, 2)
+  maxAdults   Int      @default(2) @map("max_adults")
+  maxChildren Int      @default(1) @map("max_children")
+  amenities   Json     @default("[]")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rooms       Room[]
+
+  @@index([tenantId])
+  @@map("room_types")
+}
+
+model Room {
+  id         String     @id @default(uuid())
+  tenantId   String     @map("tenant_id")
+  branchId   String?    @map("branch_id")
+  roomTypeId String     @map("room_type_id")
+  number     String     @db.VarChar(20)
+  floor      Int        @default(1)
+  description String?
+  status     RoomStatus @default(available)
+  isActive   Boolean    @default(true) @map("is_active")
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch?    @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  roomType   RoomType   @relation(fields: [roomTypeId], references: [id])
+  reservations Reservation[]
+
+  @@unique([tenantId, branchId, number])
+  @@index([tenantId])
+  @@index([branchId])
+  @@map("rooms")
+}
+
+model Reservation {
+  id                String            @id @default(uuid())
+  tenantId          String            @map("tenant_id")
+  branchId          String?           @map("branch_id")
+  reservationNumber String            @map("reservation_number") @db.VarChar(50)
+  roomId            String            @map("room_id")
+  clientId          String?           @map("client_id")
+  clientSnapshot    Json              @map("client_snapshot")
+  adults            Int               @default(1)
+  children          Int               @default(0)
+  checkIn           DateTime          @map("check_in") @db.Timestamptz(6)
+  checkOut          DateTime          @map("check_out") @db.Timestamptz(6)
+  nights            Int
+  pricePerNight     Decimal           @map("price_per_night") @db.Decimal(12, 2)
+  roomTotalHtg      Decimal           @default(0) @map("room_total_htg") @db.Decimal(14, 2)
+  servicesTotalHtg  Decimal           @default(0) @map("services_total_htg") @db.Decimal(14, 2)
+  totalHtg          Decimal           @default(0) @map("total_htg") @db.Decimal(14, 2)
+  amountPaidHtg     Decimal           @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
+  balanceDueHtg     Decimal           @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
+  depositHtg        Decimal           @default(0) @map("deposit_htg") @db.Decimal(14, 2)
+  status            ReservationStatus @default(pending)
+  source            String?           @db.VarChar(50)
+  notes             String?
+  invoiceId         String?           @unique @map("invoice_id")
+  createdBy         String?           @map("created_by")
+  checkedInAt       DateTime?         @map("checked_in_at") @db.Timestamptz(6)
+  checkedOutAt      DateTime?         @map("checked_out_at") @db.Timestamptz(6)
+  cancelledAt       DateTime?         @map("cancelled_at") @db.Timestamptz(6)
+  cancelReason      String?           @map("cancel_reason")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch            Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  room              Room              @relation(fields: [roomId], references: [id])
+  client            Client?           @relation(fields: [clientId], references: [id])
+  creator           User?             @relation("ReservationCreatedBy", fields: [createdBy], references: [id])
+  invoice           Invoice?          @relation(fields: [invoiceId], references: [id])
+  services          HotelService[]
+  payments          HotelPayment[]
+
+  @@unique([tenantId, reservationNumber])
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([roomId])
+  @@map("reservations")
+}
+
+model HotelService {
+  id            String      @id @default(uuid())
+  tenantId      String      @map("tenant_id")
+  reservationId String      @map("reservation_id")
+  productId     String?     @map("product_id")
+  type          ServiceType @default(other)
+  description   String      @db.VarChar(200)
+  quantity      Decimal     @default(1) @db.Decimal(12, 3)
+  unitPriceHtg  Decimal     @map("unit_price_htg") @db.Decimal(12, 2)
+  totalHtg      Decimal     @map("total_htg") @db.Decimal(14, 2)
+  notes         String?
+  createdBy     String?     @map("created_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  product       Product?    @relation(fields: [productId], references: [id])
+  creator       User?       @relation("HotelServiceCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([reservationId])
+  @@index([tenantId])
+  @@map("hotel_services")
+}
+
+model HotelPayment {
+  id            String        @id @default(uuid())
+  tenantId      String        @map("tenant_id")
+  reservationId String        @map("reservation_id")
+  amountHtg     Decimal       @map("amount_htg") @db.Decimal(14, 2)
+  method        PaymentMethod @default(cash)
+  type          String        @default("payment") @db.VarChar(20)
+  reference     String?       @db.VarChar(200)
+  notes         String?
+  createdBy     String?       @map("created_by")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reservation   Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  creator       User?         @relation("HotelPaymentCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([reservationId])
+  @@index([tenantId])
+  @@map("hotel_payments")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -782,4 +923,31 @@ enum KaneTransactionType {
   ouverture
   depot
   retrait
+}
+
+enum RoomStatus {
+  available
+  occupied
+  cleaning
+  maintenance
+  reserved
+}
+
+enum ReservationStatus {
+  pending
+  confirmed
+  checked_in
+  checked_out
+  cancelled
+  no_show
+}
+
+enum ServiceType {
+  food
+  drink
+  laundry
+  transport
+  spa
+  room_service
+  other
 }

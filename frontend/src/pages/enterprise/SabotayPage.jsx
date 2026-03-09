@@ -1776,3 +1776,579 @@ export default function SabotayPage() {
     </div>
   )
 }
+
+// ─────────────────────────────────────────────────────────────
+// RANPLASE ModalAddMember() LA ANTYE ak vèsyon sa
+// Enpòte ajoute: Upload, Camera (si pa la deja nan imports yo)
+// ─────────────────────────────────────────────────────────────
+
+// ── Relasyon (valè pou dropdown)
+const RELATIONSHIPS = [
+  { val: 'conjoint',  label: '💑 Konjwen / Konjwèt' },
+  { val: 'parent',    label: '👪 Manman / Papa'      },
+  { val: 'fre_se',    label: '👫 Frè / Sè'           },
+  { val: 'pitit',     label: '👶 Pitit'               },
+  { val: 'zanmi',     label: '🤝 Zanmi'              },
+  { val: 'koleg',     label: '💼 Kolèg Travay'       },
+  { val: 'lot',       label: '🔗 Lòt'                },
+]
+
+function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
+  const slots     = totalSlots(plan)
+  const taken     = new Set((plan.members || []).map(m => m.position))
+  const available = Array.from({ length: slots }, (_, i) => i + 1).filter(p => !taken.has(p))
+
+  // ── Kalkile toutes les dates de payout pour positions disponibles
+  const payoutDates = useMemo(() => {
+    const map = {}
+    available.forEach(pos => {
+      map[pos] = computePaymentDate(
+        plan.startDate || plan.createdAt,
+        plan.frequency,
+        pos,
+        Number(plan.interval || 1)
+      )
+    })
+    return map
+  }, [plan, available])
+
+  const [position,  setPos]  = useState(available[0] || null)
+  const [tab,       setTab]  = useState('info')   // 'info' | 'kyc' | 'ref'
+
+  // ── Enfòmasyon de baz
+  const [form, setForm] = useState({
+    name: '', phone: '',
+    // KYC
+    cin: '', nif: '', address: '',
+    // Referans
+    referenceName: '', referencePhone: '', relationship: '',
+  })
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  // ── Foto upload (base64 preview)
+  const [photoPreview,   setPhotoPreview]   = useState(null)
+  const [idPhotoPreview, setIdPhotoPreview] = useState(null)
+  const [photoB64,       setPhotoB64]       = useState(null)
+  const [idPhotoB64,     setIdPhotoB64]     = useState(null)
+
+  // ── Kont egzistant (detekte pa telefòn)
+  const [existingAccount, setExistingAccount] = useState(null)
+  const [checkingPhone,   setCheckingPhone]   = useState(false)
+
+  const isOwnerPos = hasOwnerSlot(plan) && position === slots
+  const isFull     = available.length === 0
+
+  // ── Verifye si telefòn deja gen kont Sol
+  const checkPhone = useCallback(async (phone) => {
+    if (phone.replace(/\D/g, '').length < 8) { setExistingAccount(null); return }
+    setCheckingPhone(true)
+    try {
+      const slug     = localStorage.getItem('plusgroup-slug')
+      const { token } = useAuthStore.getState()
+      const res = await fetch(
+        `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
+        { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setExistingAccount(data.account || null)
+      } else {
+        setExistingAccount(null)
+      }
+    } catch { setExistingAccount(null) }
+    finally { setCheckingPhone(false) }
+  }, [])
+
+  // ── Konvèti foto → base64
+  const handlePhoto = (e, type) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const b64 = ev.target.result
+      if (type === 'photo')   { setPhotoPreview(b64);   setPhotoB64(b64)   }
+      if (type === 'idPhoto') { setIdPhotoPreview(b64); setIdPhotoB64(b64) }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const tabStyle = (active) => ({
+    flex: 1, padding: '8px 6px', borderRadius: 8, cursor: 'pointer',
+    fontSize: 11, fontWeight: 700, border: 'none',
+    background: active ? D.goldDim : 'transparent',
+    color:      active ? D.gold   : D.muted,
+    borderBottom: active ? `2px solid ${D.gold}` : '2px solid transparent',
+    transition: 'all 0.15s',
+  })
+
+  const tabImgBox = {
+    width: '100%', height: 90, borderRadius: 10, objectFit: 'cover',
+    border: `1px solid ${D.border}`, background: 'rgba(0,0,0,0.3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', overflow: 'hidden', position: 'relative',
+  }
+
+  return (
+    <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={500}>
+      {isFull ? (
+        <div style={{ textAlign: 'center', padding: '24px 0' }}>
+          <AlertCircle size={40} style={{ color: D.red, marginBottom: 12 }} />
+          <p style={{ color: D.red, fontWeight: 700, fontSize: 15 }}>
+            Plan sa a plen! ({plan.members?.length}/{slots} plas)
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+          {/* ── CHWAZI PLAS + DAT PAYOUT ── */}
+          <div style={{ background: D.goldDim, borderRadius: 12, padding: '12px 14px' }}>
+            <label style={{ ...lbl, marginBottom: 8 }}>Chwazi Plas (dat touche sol)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {available.map(p => {
+                const isOwn    = hasOwnerSlot(plan) && p === slots
+                const pDate    = payoutDates[p]
+                const dateDisp = pDate ? pDate.split('-').reverse().join('/') : '—'
+                const isActive = position === p
+                return (
+                  <button key={p} onClick={() => setPos(p)} style={{
+                    padding: '7px 11px', borderRadius: 10, cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    minWidth: 68, position: 'relative',
+                    border: `2px solid ${isActive ? (isOwn ? D.gold : D.blue) : D.borderSub}`,
+                    background: isActive ? (isOwn ? D.goldDim : D.blueBg) : 'transparent',
+                    transition: 'all 0.12s',
+                  }}>
+                    <span style={{
+                      fontFamily: 'monospace', fontWeight: 900, fontSize: 14,
+                      color: isActive ? (isOwn ? D.gold : D.blue) : D.muted,
+                    }}>
+                      #{p}
+                    </span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 600, marginTop: 2,
+                      color: isActive ? (isOwn ? D.gold : D.blue) : '#3a4a6a',
+                    }}>
+                      {dateDisp}
+                    </span>
+                    {isOwn && (
+                      <span style={{
+                        position: 'absolute', top: -5, right: -5, fontSize: 8,
+                        background: D.gold, color: '#0a1222', borderRadius: 6,
+                        padding: '1px 4px', fontWeight: 900,
+                      }}>★</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {position && (
+              <div style={{
+                marginTop: 10, fontSize: 11, color: D.muted,
+                display: 'flex', gap: 14, flexWrap: 'wrap',
+              }}>
+                <span>📅 Dat touche: <strong style={{ color: D.gold }}>
+                  {payoutDates[position]?.split('-').reverse().join('/') || '—'}
+                </strong></span>
+                <span>🏆 Payout: <strong style={{ color: D.green }}>
+                  {fmt(isOwnerPos ? ownerPayout(plan) : memberPayout(plan))} HTG
+                </strong></span>
+              </div>
+            )}
+            {isOwnerPos && (
+              <div style={{
+                marginTop: 8, background: D.goldDim, borderRadius: 8,
+                padding: '7px 11px', fontSize: 11, color: D.gold,
+                display: 'flex', alignItems: 'center', gap: 7,
+              }}>
+                <Shield size={13} /> Plas #{position} = <strong>{OWNER_SLOT_NAME}</strong>
+              </div>
+            )}
+          </div>
+
+          {/* ── TABS: Info / KYC / Referans ── */}
+          <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${D.borderSub}` }}>
+            {[
+              ['info', '👤 Enfòmasyon'],
+              ['kyc',  '🪪 KYC'],
+              ['ref',  '📞 Referans'],
+            ].map(([t, l]) => (
+              <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>{l}</button>
+            ))}
+          </div>
+
+          {/* ── TAB: INFO ── */}
+          {tab === 'info' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <div>
+                <label style={lbl}>Non Manm *</label>
+                <input style={inp} value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  placeholder="Non ak Prenon" />
+              </div>
+              <div>
+                <label style={lbl}>Telefòn * {checkingPhone && (
+                  <span style={{ color: D.muted, fontWeight: 400 }}>ap verifye...</span>
+                )}</label>
+                <input
+                  style={{ ...inp, fontSize: 16 }}
+                  inputMode="tel"
+                  value={form.phone}
+                  onChange={e => {
+                    set('phone', e.target.value)
+                    checkPhone(e.target.value)
+                  }}
+                  placeholder="+509 XXXX XXXX"
+                />
+              </div>
+
+              {/* ── Kont egzistant detekte ── */}
+              {existingAccount && (
+                <div style={{
+                  background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}40`,
+                  borderRadius: 10, padding: '10px 13px',
+                  display: 'flex', alignItems: 'flex-start', gap: 9,
+                }}>
+                  <UserCheck size={18} style={{ color: D.teal, flexShrink: 0, marginTop: 1 }} />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: D.teal, margin: '0 0 4px' }}>
+                      ♻️ Kont Sol egziste pou {existingAccount.memberName}
+                    </p>
+                    <p style={{ fontSize: 11, color: D.muted, margin: '0 0 4px' }}>
+                      Username: <strong style={{ color: D.text, fontFamily: 'monospace' }}>
+                        {existingAccount.username}
+                      </strong>
+                    </p>
+                    <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>
+                      {existingAccount.positions?.length || 0} pozisyon deja — yon nouvo pozisyon ap ajoute sou menm kont lan.
+                    </p>
+                    {existingAccount.positions?.length > 0 && (
+                      <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {existingAccount.positions.slice(0, 3).map((pos, i) => (
+                          <span key={i} style={{
+                            fontSize: 9, background: D.goldDim, color: D.gold,
+                            padding: '2px 7px', borderRadius: 8, fontWeight: 700,
+                          }}>
+                            {pos.planName} #{pos.memberPosition}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!isOwnerPos && (
+                <div style={{
+                  background: D.purpleBg, border: `1px solid rgba(155,89,182,0.15)`,
+                  borderRadius: 10, padding: '9px 13px', fontSize: 11, color: D.muted,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}>
+                  <Key size={13} style={{ color: D.purple, flexShrink: 0 }} />
+                  <span>
+                    {existingAccount
+                      ? <><strong style={{ color: D.teal }}>Pozisyon ap ajoute</strong> sou kont egzistant lan.</>
+                      : <><strong style={{ color: D.purple }}>Nouvo kont</strong> ap kreye otomatikman.</>
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── TAB: KYC ── */}
+          {tab === 'kyc' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={lbl}>CIN (Kart Idantite)</label>
+                  <input style={inp} value={form.cin}
+                    onChange={e => set('cin', e.target.value)}
+                    placeholder="Ex: 1-23-456789-0" />
+                </div>
+                <div>
+                  <label style={lbl}>NIF (Fiskal)</label>
+                  <input style={inp} value={form.nif}
+                    onChange={e => set('nif', e.target.value)}
+                    placeholder="Ex: 000-123-456-7" />
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Adres Domisil</label>
+                <input style={inp} value={form.address}
+                  onChange={e => set('address', e.target.value)}
+                  placeholder="Ex: Rue Capois, Pétionville" />
+              </div>
+
+              {/* ── Foto Upload ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {/* Foto Pwofil */}
+                <div>
+                  <label style={lbl}>Foto Kliyan</label>
+                  <label htmlFor="sol-photo-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="photo"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ textAlign: 'center', color: D.muted }}>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
+                        <div style={{ fontSize: 9 }}>Klike pou foto</div>
+                      </div>
+                    )}
+                    <input id="sol-photo-upload" type="file" accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => handlePhoto(e, 'photo')} />
+                  </label>
+                </div>
+
+                {/* Foto Pyes Idantite */}
+                <div>
+                  <label style={lbl}>Foto Pyes Idantite</label>
+                  <label htmlFor="sol-id-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
+                    {idPhotoPreview ? (
+                      <img src={idPhotoPreview} alt="id"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ textAlign: 'center', color: D.muted }}>
+                        <div style={{ fontSize: 24, marginBottom: 4 }}>🪪</div>
+                        <div style={{ fontSize: 9 }}>CIN / Paspo</div>
+                      </div>
+                    )}
+                    <input id="sol-id-upload" type="file" accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => handlePhoto(e, 'idPhoto')} />
+                  </label>
+                </div>
+              </div>
+              <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>
+                ⚠️ Foto yo sove nan sèvè — yo afiche nan profil kliyan nan Sol dashboard la.
+              </p>
+            </div>
+          )}
+
+          {/* ── TAB: REFERANS ── */}
+          {tab === 'ref' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+              <div>
+                <label style={lbl}>Non Moun Referans</label>
+                <input style={inp} value={form.referenceName}
+                  onChange={e => set('referenceName', e.target.value)}
+                  placeholder="Non ak Prenon referans" />
+              </div>
+              <div>
+                <label style={lbl}>Telefòn Referans</label>
+                <input style={inp} inputMode="tel" value={form.referencePhone}
+                  onChange={e => set('referencePhone', e.target.value)}
+                  placeholder="+509 XXXX XXXX" />
+              </div>
+              <div>
+                <label style={lbl}>Relasyon ak Kliyan</label>
+                <select
+                  style={{ ...inp, appearance: 'none', cursor: 'pointer' }}
+                  value={form.relationship}
+                  onChange={e => set('relationship', e.target.value)}
+                >
+                  <option value="">— Chwazi relasyon —</option>
+                  {RELATIONSHIPS.map(r => (
+                    <option key={r.val} value={r.val}>{r.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{
+                background: D.blueBg, border: `1px solid rgba(59,130,246,0.15)`,
+                borderRadius: 10, padding: '10px 13px', fontSize: 11, color: D.muted,
+              }}>
+                <Shield size={12} style={{ color: D.blue, verticalAlign: 'middle', marginRight: 6 }} />
+                Referans la ka kontakte si manm lan pa reyajisab oswa gen pwoblèm peman.
+              </div>
+            </div>
+          )}
+
+          {/* ── BOUTON KONFIME ── */}
+          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+            <button onClick={onClose} style={{
+              flex: 1, padding: '12px', borderRadius: 10,
+              border: `1px solid ${D.borderSub}`, background: 'transparent',
+              color: D.muted, cursor: 'pointer', fontWeight: 700,
+            }}>
+              Anile
+            </button>
+            <button
+              disabled={loading || !position}
+              onClick={() => {
+                if (!form.name)  return toast.error('Non manm obligatwa.')
+                if (!form.phone) return toast.error('Telefòn obligatwa.')
+                if (!position)   return toast.error('Chwazi yon plas.')
+
+                const credentials = existingAccount
+                  ? null  // kont deja egziste — pa kreye nouvo
+                  : generateCredentials(form.name, form.phone)
+
+                const isOwnerSlot = hasOwnerSlot(plan) && position === slots
+
+                onSave({
+                  ...form,
+                  position,
+                  credentials,
+                  isOwnerSlot,
+                  // KYC
+                  cin:        form.cin        || null,
+                  nif:        form.nif        || null,
+                  address:    form.address    || null,
+                  photoUrl:   photoB64        || null,
+                  idPhotoUrl: idPhotoB64      || null,
+                  // Referans
+                  referenceName:  form.referenceName  || null,
+                  referencePhone: form.referencePhone || null,
+                  relationship:   form.relationship   || null,
+                  // Dat peferans = dat touche pou pozisyon chwazi a
+                  preferredDate: payoutDates[position] || null,
+
+                  _cb: (saved) => onShowCreds({
+                    member:      saved || { ...form, position },
+                    credentials: existingAccount
+                      ? { username: existingAccount.username, password: null, isExisting: true }
+                      : credentials,
+                  })
+                })
+              }}
+              style={{
+                flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+                cursor: loading ? 'default' : 'pointer',
+                background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
+                color: '#0a1222', fontWeight: 800, fontSize: 14,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              }}>
+              {loading
+                ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
+                : <Users size={15} />}
+              {loading ? 'Ap enskri...' : (existingAccount ? 'Ajoute Pozisyon' : 'Enskri + Kreye Kont')}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// METE AJO ModalMemberCredentials — afiche mesaj diferan
+// si kont te deja egziste (isExisting: true)
+// ─────────────────────────────────────────────────────────────
+function ModalMemberCredentials({ member, credentials, onClose }) {
+  const [copied, setCopied] = useState(false)
+  const isExisting = credentials?.isExisting
+
+  const text = isExisting
+    ? `Non: ${member.name}\nItilizatè: ${credentials.username}\n(Kont deja egziste — nouvo pozisyon ajoute)\nURL: https://app.plusgroupe.com/app/sol/login`
+    : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: https://app.plusgroupe.com/app/sol/login`
+
+  const copy = () =>
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+
+  return (
+    <Modal onClose={onClose} title={isExisting ? '🔗 Pozisyon Ajoute!' : '🔑 Kont Kliyan Kreye!'} width={400}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{
+          background: isExisting ? 'rgba(20,184,166,0.1)' : D.greenBg,
+          border: `1px solid ${isExisting ? D.teal : D.green}30`,
+          borderRadius: 12, padding: '12px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <UserCheck size={22} style={{ color: isExisting ? D.teal : D.green, flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 800, color: isExisting ? D.teal : D.green, margin: 0 }}>
+              {isExisting
+                ? `Nouvo pozisyon ajoute pou ${member.name}`
+                : `Kont kreye pou ${member.name}`
+              }
+            </p>
+            <p style={{ fontSize: 11, color: D.muted, margin: '2px 0 0' }}>
+              {isExisting
+                ? 'Kliyan ka konekte ak menm kont li — li ap wè nouvo pozisyon an.'
+                : 'Kliyan ka konekte pou wè tout kont li'
+              }
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          background: D.purpleBg, border: `1px solid rgba(155,89,182,0.20)`,
+          borderRadius: 14, padding: '16px',
+        }}>
+          <p style={{
+            fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase',
+            margin: '0 0 12px', letterSpacing: '0.06em',
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <Key size={11} /> Enfòmasyon Koneksyon
+          </p>
+          <div>
+            <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>URL Login</div>
+            <div style={{
+              fontFamily: 'monospace', fontSize: 11, color: D.teal,
+              background: 'rgba(0,0,0,0.25)', padding: '7px 12px',
+              borderRadius: 8, marginBottom: 10, wordBreak: 'break-all',
+            }}>
+              app.plusgroupe.com/app/sol/login
+            </div>
+            <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Non Itilizatè</div>
+            <div style={{
+              fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.text,
+              background: 'rgba(0,0,0,0.25)', padding: '10px 14px',
+              borderRadius: 8, wordBreak: 'break-all', marginBottom: 10,
+            }}>
+              {credentials?.username}
+            </div>
+
+            {!isExisting && credentials?.password && (
+              <>
+                <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Modpas Pwovizwa</div>
+                <div style={{
+                  fontFamily: 'monospace', fontWeight: 800, fontSize: 22, color: D.gold,
+                  background: 'rgba(0,0,0,0.25)', padding: '10px 14px',
+                  borderRadius: 8, letterSpacing: '0.15em', textAlign: 'center',
+                }}>
+                  {credentials.password}
+                </div>
+              </>
+            )}
+
+            {isExisting && (
+              <div style={{
+                background: D.tealBg, border: `1px solid ${D.teal}30`,
+                borderRadius: 8, padding: '8px 12px', fontSize: 11, color: D.teal, marginTop: 6,
+              }}>
+                ♻️ Kliyan kapab itilize menm modpas li deja genyen an.
+              </div>
+            )}
+          </div>
+        </div>
+
+        {!isExisting && (
+          <p style={{ fontSize: 11, color: D.muted, margin: 0, background: D.redBg, borderRadius: 8, padding: '8px 12px' }}>
+            ⚠️ Note modpas sa kounye a. Kliyan dwe chanje l apre premye koneksyon.
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={copy} style={{
+            flex: 1, padding: '11px', borderRadius: 10,
+            border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.05)',
+            color: copied ? D.green : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13,
+          }}>
+            {copied ? '✅ Kopye!' : '📋 Kopye'}
+          </button>
+          <button onClick={onClose} style={{
+            flex: 2, padding: '11px', borderRadius: 10, border: 'none',
+            background: D.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 13,
+          }}>
+            Fèmen
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}

@@ -784,4 +784,118 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
   res.json({ success: true, expiring, count: expiring.length })
 }))
 
+// ══════════════════════════════════════════════
+// SOL MEMBER ACCOUNTS — Super Admin access
+// Ajoute sa ANVAN module.exports = router
+// ══════════════════════════════════════════════
+
+// ── GET /api/v1/admin/tenants/:id/sol/accounts
+// Wè tout kont Sol pou yon tenant (ak credentials)
+router.get('/tenants/:id/sol/accounts', asyncHandler(async (req, res) => {
+  const { planId } = req.query
+
+  const tenant = await prisma.tenant.findUnique({
+    where:  { id: req.params.id },
+    select: { id: true, name: true }
+  })
+  if (!tenant) return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
+
+  const accounts = await prisma.solMemberAccount.findMany({
+    where: {
+      tenantId: req.params.id,
+      ...(planId && { planId }),
+    },
+    select: {
+      id:             true,
+      username:       true,
+      plainPassword:  true,   // ← Admin ka wè modpas klè
+      memberName:     true,
+      memberPhone:    true,
+      memberPosition: true,
+      planId:         true,
+      planName:       true,
+      isOwnerSlot:    true,
+      hasWon:         true,
+      createdAt:      true,
+    },
+    orderBy: [{ planName: 'asc' }, { memberPosition: 'asc' }],
+  })
+
+  res.json({ success: true, accounts, total: accounts.length, tenantName: tenant.name })
+}))
+
+// ── GET /api/v1/admin/tenants/:id/sol/plans
+// Wè tout plan Sabotay pou yon tenant ak kont Sol yo
+router.get('/tenants/:id/sol/plans', asyncHandler(async (req, res) => {
+  const tenant = await prisma.tenant.findUnique({
+    where:  { id: req.params.id },
+    select: { id: true, name: true }
+  })
+  if (!tenant) return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
+
+  const plans = await prisma.sabotayPlan.findMany({
+    where:   { tenantId: req.params.id },
+    include: {
+      _count: { select: { members: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  // Pou chak plan, konbyen kont Sol egziste
+  const plansWithSolCount = await Promise.all(
+    plans.map(async (plan) => {
+      const solCount = await prisma.solMemberAccount.count({
+        where: { planId: plan.id }
+      })
+      return { ...plan, solAccountCount: solCount }
+    })
+  )
+
+  res.json({ success: true, plans: plansWithSolCount, total: plans.length })
+}))
+
+// ── PATCH /api/v1/admin/tenants/:tenantId/sol/accounts/:accountId/reset-password
+// Super Admin reset modpas yon manm Sol
+router.patch('/tenants/:tenantId/sol/accounts/:accountId/reset-password', asyncHandler(async (req, res) => {
+  const bcrypt = require('bcryptjs')
+  const { newPassword } = req.body
+
+  if (!newPassword || newPassword.length < 4)
+    return res.status(400).json({ success: false, message: 'Modpas dwe gen omwen 4 karaktè.' })
+
+  const account = await prisma.solMemberAccount.findFirst({
+    where: { id: req.params.accountId, tenantId: req.params.tenantId }
+  })
+  if (!account) return res.status(404).json({ success: false, message: 'Kont Sol pa jwenn.' })
+
+  const passwordHash = await bcrypt.hash(newPassword, 10)
+  await prisma.solMemberAccount.update({
+    where: { id: account.id },
+    data:  { passwordHash, plainPassword: newPassword },
+  })
+
+  await logAudit(req.params.tenantId, 'SOL_PASSWORD_RESET', null, account.memberName, {
+    username: account.username, resetBy: 'Super Admin'
+  })
+
+  res.json({ success: true, message: `Modpas ${account.memberName} (${account.username}) reset.`, username: account.username })
+}))
+
+// ── DELETE /api/v1/admin/tenants/:tenantId/sol/accounts/:accountId
+// Efase yon kont Sol
+router.delete('/tenants/:tenantId/sol/accounts/:accountId', asyncHandler(async (req, res) => {
+  const account = await prisma.solMemberAccount.findFirst({
+    where: { id: req.params.accountId, tenantId: req.params.tenantId }
+  })
+  if (!account) return res.status(404).json({ success: false, message: 'Kont Sol pa jwenn.' })
+
+  await prisma.solMemberAccount.delete({ where: { id: account.id } })
+
+  await logAudit(req.params.tenantId, 'SOL_ACCOUNT_DELETED', null, account.memberName, {
+    username: account.username, deletedBy: 'Super Admin'
+  })
+
+  res.json({ success: true, message: `Kont Sol ${account.username} efase.` })
+}))
+
 module.exports = router

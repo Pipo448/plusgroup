@@ -36,6 +36,12 @@ import WelcomePage from './pages/WelcomePage'
 import SolLoginPage     from './pages/sol/SolLoginPage'
 import SolDashboardPage from './pages/sol/SolDashboardPage'
 
+// ✅ Hotel
+import HotelDashboard    from './pages/hotel/HotelDashboard'
+import ReservationsPage  from './pages/hotel/ReservationsPage'
+import NewReservationPage from './pages/hotel/NewReservationPage'
+import ReservationDetail from './pages/hotel/ReservationDetail'
+
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
     <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -127,6 +133,12 @@ export default function App() {
           <Route path="kane-epay"        element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
           <Route path="sabotay"          element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
           <Route path="mobilpay"         element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
+
+          {/* ✅ Hotel */}
+          <Route path="hotel"                       element={<ProtectedPage pageKey="hotel"><HotelDashboard /></ProtectedPage>} />
+          <Route path="hotel/reservations"          element={<ProtectedPage pageKey="hotel"><ReservationsPage /></ProtectedPage>} />
+          <Route path="hotel/reservations/new"      element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
+          <Route path="hotel/reservations/:id"      element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
         </Route>
 
         {/* Legacy redirects */}
