@@ -15,13 +15,36 @@ import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
 import NotificationBell from '../NotificationBell'
 
+// ── Palèt koulè ──────────────────────────────────────────────
 const C = {
-  black:'#1a0533', darkBg:'#2d0a4e', navBg:'#1f0a3a',
-  gold:'#f5680c', goldLt:'#ff8534',
-  red:'#C0392B', redBrt:'#E74C3C',
-  white:'#FFFFFF', muted:'rgba(255,255,255,0.55)',
-  border:'rgba(245,104,12,0.15)',
-  enterprise: '#C9A84C',
+  // Fon sidebar (vin soti nan HTML demo a)
+  sidebarBg:   '#16192a',
+  sidebarTop:  '#0f1117',
+  navBg:       '#1e2235',
+
+  // Or — konsève koulè orijinal ou a
+  gold:        '#f5680c',
+  goldLt:      '#ff8534',
+  goldDim:     'rgba(245,104,12,0.12)',
+  goldBorder:  'rgba(245,104,12,0.20)',
+
+  // Antrepriz or
+  enterprise:  '#C9A84C',
+  entDim:      'rgba(201,168,76,0.15)',
+  entBorder:   'rgba(201,168,76,0.28)',
+
+  // Tèks
+  white:       '#FFFFFF',
+  muted:       'rgba(255,255,255,0.45)',
+  mutedMd:     'rgba(255,255,255,0.65)',
+
+  // Bòdè & efè
+  border:      'rgba(255,255,255,0.07)',
+  borderGold:  'rgba(245,104,12,0.18)',
+
+  // Status
+  red:         '#ef4444',
+  green:       '#22c55e',
 }
 
 const NAV = [
@@ -67,26 +90,30 @@ const safeJson = (val, fallback) => {
   try { return JSON.parse(val) } catch { return fallback }
 }
 
+// ── Styles nav item ───────────────────────────────────────────
 const navLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 12px', borderRadius:10, marginBottom:2,
-  textDecoration:'none', transition:'all 0.2s',
-  background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.22),rgba(245,104,12,0.06))` : 'transparent',
+  display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
+  textDecoration: 'none', transition: 'all 0.2s',
+  background: isActive
+    ? `linear-gradient(90deg, rgba(245,104,12,0.18) 0%, rgba(245,104,12,0.05) 100%)`
+    : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
-  border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13,
-  boxShadow: isActive ? '0 2px 12px rgba(245,104,12,0.12)' : 'none',
+  borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500,
+  fontSize: 13,
+  boxShadow: isActive ? `inset 0 0 20px rgba(245,104,12,0.04)` : 'none',
 })
 
-// ✅ Retire paramèt `locked` — tout paj antrepriz aksesib
 const enterpriseLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 12px', borderRadius:10, marginBottom:2,
-  textDecoration:'none', transition:'all 0.2s',
-  background: isActive ? `rgba(201,168,76,0.18)` : 'transparent',
+  display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
+  textDecoration: 'none', transition: 'all 0.2s',
+  background: isActive ? C.entDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
-  border: isActive ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13,
+  borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500,
+  fontSize: 13,
   cursor: 'pointer',
 })
 
@@ -110,7 +137,6 @@ export default function AppLayout() {
   const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
     .includes(planName.toLowerCase().trim())
 
-  // ✅ Verifye si yon paj otorize pa super admin (si pa defini → aksesib)
   const isPageAllowed = (pageKey) => {
     const ap = tenant?.allowedPages
     if (!ap || typeof ap !== 'object') return true
@@ -130,11 +156,8 @@ export default function AppLayout() {
 
   useEffect(() => {
     const branchId = localStorage.getItem('plusgroup-branch-id')
-    if (branchId) {
-      api.defaults.headers.common['X-Branch-Id'] = branchId
-    } else {
-      delete api.defaults.headers.common['X-Branch-Id']
-    }
+    if (branchId) api.defaults.headers.common['X-Branch-Id'] = branchId
+    else delete api.defaults.headers.common['X-Branch-Id']
   }, [])
 
   useEffect(() => {
@@ -168,20 +191,19 @@ export default function AppLayout() {
     if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
   }, [tenant?.slug])
 
-  // ✅ APRE — refreshTenant olye setAuth
-useEffect(() => {
-  if (!token) return
-  authAPI.me()
-    .then(res => {
-      if (res.data?.tenant?.slug) {
-        api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-        useAuthStore.getState().refreshTenant(res.data.tenant)  // ← pa touche branch
-      }
-    })
-    .catch(err => {
-      if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
-    })
-}, [token])
+  useEffect(() => {
+    if (!token) return
+    authAPI.me()
+      .then(res => {
+        if (res.data?.tenant?.slug) {
+          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+          useAuthStore.getState().refreshTenant(res.data.tenant)
+        }
+      })
+      .catch(err => {
+        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
+      })
+  }, [token])
 
   const handleLogout = () => {
     localStorage.removeItem('plusgroup-branch-id')
@@ -230,22 +252,26 @@ useEffect(() => {
   const tenantLogoUrl = logoSrc(tenant?.logoUrl)
 
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#1a0533' }}>
-      <div style={{ width:36, height:36, border:'3px solid rgba(245,104,12,0.3)', borderTop:'3px solid #f5680c', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background: C.sidebarTop }}>
+      <div style={{ width:36, height:36, border:`3px solid ${C.goldDim}`, borderTop:`3px solid ${C.gold}`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
+  // ── Sidebar style ─────────────────────────────────────────
   const sidebarStyle = {
-    position: isDesktop ? 'relative' : 'fixed',
-    inset: isDesktop ? 'auto' : '0 auto 0 0',
-    zIndex: 40, width: 252,
-    background: `linear-gradient(160deg, ${C.black} 0%, ${C.darkBg} 45%, ${C.navBg} 100%)`,
-    display: 'flex', flexDirection: 'column',
-    transform: isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
+    position:   isDesktop ? 'relative' : 'fixed',
+    inset:      isDesktop ? 'auto' : '0 auto 0 0',
+    zIndex:     40,
+    width:      248,
+    minHeight:  '100vh',
+    background: `linear-gradient(170deg, ${C.sidebarTop} 0%, ${C.sidebarBg} 50%, #1a1f35 100%)`,
+    display:    'flex',
+    flexDirection: 'column',
+    transform:  isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
     transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-    boxShadow: '4px 0 32px rgba(0,0,0,0.5)',
-    borderRight: `1px solid ${C.border}`,
+    boxShadow:  '4px 0 40px rgba(0,0,0,0.55)',
+    borderRight:`1px solid ${C.border}`,
     flexShrink: 0,
   }
 
@@ -259,48 +285,76 @@ useEffect(() => {
         }}/>
       )}
 
-      {/* ══ SIDEBAR ══ */}
+      {/* ══════════════════════════════════════════════
+          SIDEBAR
+      ══════════════════════════════════════════════ */}
       <aside style={sidebarStyle}>
+
+        {/* Bann or anwo */}
         <div style={{
-          height:3,
-          background:'linear-gradient(90deg,transparent,#b34200 10%,#f5680c 35%,#ff8534 50%,#f5680c 65%,#b34200 90%,transparent)',
-          animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%',
-        }}/>
-        <div style={{
-          position:'absolute', top:-60, left:-40, width:220, height:220,
-          background:'radial-gradient(circle, rgba(245,104,12,0.15) 0%, transparent 70%)',
-          pointerEvents:'none',
+          height: 3, flexShrink: 0,
+          background: `linear-gradient(90deg, transparent, #b34200 10%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 90%, transparent)`,
+          animation: 'shimmer 3s linear infinite',
+          backgroundSize: '200% 100%',
         }}/>
 
+        {/* Reflet dekoratif */}
+        <div style={{
+          position:'absolute', top:-60, left:-40, width:220, height:220,
+          background:`radial-gradient(circle, rgba(245,104,12,0.10) 0%, transparent 70%)`,
+          pointerEvents:'none', zIndex:0,
+        }}/>
+
+        {/* Bouton fèmen (mobil) */}
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
             position:'absolute', top:12, right:12, zIndex:50,
-            background:'rgba(255,255,255,0.08)', border:`1px solid ${C.border}`,
+            background:'rgba(255,255,255,0.07)', border:`1px solid ${C.border}`,
             borderRadius:8, padding:6, cursor:'pointer', color:C.muted, display:'flex',
           }}>
             <X size={16}/>
           </button>
         )}
 
-        {/* ══ LOGO ZONE ak Branch Switcher ══ */}
-        <div style={{ padding:'20px 16px 16px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
+        {/* ── LOGO ZONE ── */}
+        <div style={{
+          padding: '18px 16px 14px',
+          borderBottom: `1px solid ${C.border}`,
+          position: 'relative', zIndex: 1,
+        }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+
+            {/* Logo / Inityal */}
             {tenantLogoUrl
-              ? <img src={tenantLogoUrl} alt="logo" style={{ width:48, height:48, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.08)', padding:5, boxShadow:`0 0 0 2px rgba(245,104,12,0.35)`, flexShrink:0 }}/>
-              : <div style={{ width:48, height:48, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${C.gold},${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff', boxShadow:`0 4px 20px rgba(245,104,12,0.4)` }}>
+              ? <img src={tenantLogoUrl} alt="logo" style={{
+                  width:44, height:44, borderRadius:12, objectFit:'contain',
+                  background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0,
+                  boxShadow:`0 0 0 2px ${C.goldBorder}, 0 4px 16px rgba(0,0,0,0.3)`,
+                }}/>
+              : <div style={{
+                  width:44, height:44, borderRadius:12, flexShrink:0,
+                  background:`linear-gradient(135deg, ${C.gold}, ${C.goldLt})`,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:20, fontWeight:900, color:'#fff',
+                  boxShadow:`0 4px 20px rgba(245,104,12,0.45)`,
+                }}>
                   {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </div>
             }
+
             <div style={{ minWidth:0, flex:1 }}>
-              <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              <p style={{
+                color: C.white, fontWeight:800, fontSize:13, margin:0,
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+              }}>
                 {tenant?.name || 'PLUS GROUP'}
               </p>
               {currentBranchName
-                ? <p style={{ color:'#27ae60', fontSize:9, fontWeight:700, letterSpacing:'0.08em', margin:'3px 0 0', textTransform:'uppercase' }}>
+                ? <p style={{ color:C.green, fontSize:10, fontWeight:700, letterSpacing:'0.07em', margin:'3px 0 0', textTransform:'uppercase' }}>
                     📍 {currentBranchName}
                   </p>
-                : <p style={{ color:C.gold, fontSize:9, fontWeight:700, letterSpacing:'0.1em', margin:'3px 0 0', textTransform:'uppercase' }}>
-                    Innov@tion & Tech
+                : <p style={{ color:C.gold, fontSize:10, fontWeight:700, letterSpacing:'0.09em', margin:'3px 0 0', textTransform:'uppercase' }}>
+                    Innov@tion &amp; Tech
                   </p>
               }
             </div>
@@ -312,33 +366,39 @@ useEffect(() => {
                   onClick={() => setShowBranches(!showBranches)}
                   title="Chanje branch"
                   style={{
-                    background: showBranches ? 'rgba(245,104,12,0.2)' : currentBranchId ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.07)',
-                    border: `1px solid ${showBranches ? 'rgba(245,104,12,0.4)' : currentBranchId ? 'rgba(39,174,96,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                    borderRadius: 8, padding: '5px 7px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: 3, transition: 'all 0.2s',
+                    background: showBranches
+                      ? `rgba(245,104,12,0.18)`
+                      : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`,
+                    borderRadius:8, padding:'5px 7px', cursor:'pointer',
+                    display:'flex', alignItems:'center', gap:3, transition:'all 0.2s',
                   }}
                 >
-                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? '#27ae60' : C.muted }} />
+                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }} />
                   <ChevronDown size={11} style={{
-                    color: showBranches ? C.gold : currentBranchId ? '#27ae60' : C.muted,
+                    color: showBranches ? C.gold : currentBranchId ? C.green : C.muted,
                     transform: showBranches ? 'rotate(180deg)' : 'none',
-                    transition: 'transform 0.2s'
+                    transition: 'transform 0.2s',
                   }} />
                 </button>
 
                 {showBranches && (
-                  <div style={{ position: 'fixed', top: 70, left: 258, minWidth: 220, zIndex: 9999, background: '#0f0a1e', border: `1px solid rgba(245,104,12,0.25)`, borderRadius: 12, boxShadow: '0 16px 48px rgba(0,0,0,0.6)', overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px 8px', borderBottom: `1px solid rgba(245,104,12,0.12)`, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <GitBranch size={12} style={{ color: C.gold }} />
-                      <span style={{ color: C.gold, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Chanje Branch</span>
+                  <div style={{
+                    position:'fixed', top:70, left:252, minWidth:220, zIndex:9999,
+                    background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`,
+                    borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden',
+                  }}>
+                    <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
+                      <GitBranch size={12} style={{ color:C.gold }} />
+                      <span style={{ color:C.gold, fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Chanje Branch</span>
                     </div>
 
                     <button onClick={handleClearBranch}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(245,104,12,0.12)' : 'transparent', borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: 'background 0.15s' }}
+                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)`, transition:'background 0.15s' }}
                       onMouseEnter={e => { if (currentBranchId) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                       onMouseLeave={e => { if (currentBranchId) e.currentTarget.style.background = 'transparent' }}
                     >
-                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: C.gold, boxShadow:`0 0 6px ${C.gold}` }} />
+                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold, boxShadow:`0 0 6px ${C.gold}` }} />
                       <div style={{ flex:1, textAlign:'left' }}>
                         <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
                         <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
@@ -350,17 +410,17 @@ useEffect(() => {
                       const isCurrent = branch.id === currentBranchId
                       return (
                         <button key={branch.id} onClick={() => handleSwitchBranch(branch)} disabled={!branch.isActive}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(39,174,96,0.12)' : 'transparent', borderBottom: `1px solid rgba(255,255,255,0.04)`, transition: 'background 0.15s' }}
+                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)`, transition:'background 0.15s' }}
                           onMouseEnter={e => { if (branch.isActive && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
                           onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
                         >
-                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? '#27ae60' : '#C0392B', boxShadow: branch.isActive ? '0 0 6px #27ae60' : 'none' }} />
+                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red, boxShadow: branch.isActive ? `0 0 6px ${C.green}` : 'none' }} />
                           <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
                             <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
                             <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
                           </div>
                           {isCurrent
-                            ? <span style={{ fontSize:10, color:'#27ae60', fontWeight:700, flexShrink:0 }}>✓</span>
+                            ? <span style={{ fontSize:10, color:C.green, fontWeight:700, flexShrink:0 }}>✓</span>
                             : !branch.isActive
                               ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }} />
                               : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }} />
@@ -370,7 +430,7 @@ useEffect(() => {
                     })}
 
                     <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
-                      style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.12)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
+                      style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.10)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
                       <GitBranch size={11} /> Jere Branch yo →
                     </button>
                   </div>
@@ -380,8 +440,14 @@ useEffect(() => {
           </div>
 
           {/* Badge plan */}
-          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isEnterprise ? 'rgba(201,168,76,0.25)' : 'rgba(255,255,255,0.08)'}` }}>
-            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : '#475569', fontWeight:700 }}>
+          <div style={{
+            marginTop:10,
+            display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'5px 10px', borderRadius:8,
+            background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${isEnterprise ? C.entBorder : C.border}`,
+          }}>
+            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : C.muted, fontWeight:700 }}>
               {planName || 'Free'}
             </span>
             {!isEnterprise && (
@@ -392,117 +458,171 @@ useEffect(() => {
           </div>
         </div>
 
-        {/* ══ Navigation ══ */}
-        <nav style={{ flex:1, overflowY:'auto', padding:'10px 8px', position:'relative', zIndex:1 }}>
-          {NAV.map(({ to, icon: Icon, labelKey, pageKey }) => {
-  const locked = !isPageAllowed(pageKey)
-  return (
-    <NavLink key={to} to={locked ? '#' : to}
-      onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
-      style={({ isActive }) => ({
-        ...navLinkStyle(locked ? false : isActive),
-        opacity: locked ? 0.45 : 1,
-        cursor: locked ? 'not-allowed' : 'pointer',
-      })}>
-      {({ isActive }) => (<>
-        <Icon size={16} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.muted, filter: (!locked && isActive) ? 'drop-shadow(0 0 4px rgba(245,104,12,0.6))' : 'none' }}/>
-        <span style={{ flex:1 }}>{t(labelKey)}</span>
-        {locked ? <Lock size={12} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}` }}/>}
-      </>)}
-    </NavLink>
-  )
-})}
+        {/* ── NAV ── */}
+        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none' }}>
+          <style>{`.nav-scroll::-webkit-scrollbar { display:none; }`}</style>
 
+          {/* Label seksyon */}
+          <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
+            Menu prensipal
+          </p>
+
+          {NAV.map(({ to, icon: Icon, labelKey, pageKey }) => {
+            const locked = !isPageAllowed(pageKey)
+            return (
+              <NavLink key={to} to={locked ? '#' : to}
+                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
+                style={({ isActive }) => ({
+                  ...navLinkStyle(locked ? false : isActive),
+                  opacity: locked ? 0.4 : 1,
+                  cursor:  locked ? 'not-allowed' : 'pointer',
+                })}>
+                {({ isActive }) => (<>
+                  <Icon size={15} style={{
+                    flexShrink:0,
+                    color: locked ? '#475569' : isActive ? C.gold : C.mutedMd,
+                    filter: (!locked && isActive) ? `drop-shadow(0 0 5px ${C.gold}80)` : 'none',
+                    transition:'all 0.2s',
+                  }}/>
+                  <span style={{ flex:1 }}>{t(labelKey)}</span>
+                  {locked
+                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}`, flexShrink:0 }}/>
+                  }
+                </>)}
+              </NavLink>
+            )
+          })}
+
+          {/* Branches (admin sèlman) */}
           {isAdmin && isPageAllowed('branches') && (
             <NavLink to="/app/branches" onClick={() => setOpen(false)}
               style={({ isActive }) => ({
                 ...navLinkStyle(isActive),
-                background: isActive ? `rgba(201,168,76,0.18)` : 'transparent',
-                border: isActive ? `1px solid rgba(201,168,76,0.3)` : '1px solid transparent',
+                background: isActive ? C.entDim : 'transparent',
+                borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
               })}>
-              {({ isActive }) => (
-                <>
-                  <GitBranch size={16} style={{ flexShrink:0, color: isActive ? C.enterprise : C.muted }}/>
-                  <span>{t('nav.branches') || 'Branches'}</span>
-                  {isActive && <div style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
-                </>
-              )}
+              {({ isActive }) => (<>
+                <GitBranch size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
+                <span style={{ flex:1 }}>{t('nav.branches') || 'Branches'}</span>
+                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}`, flexShrink:0 }}/>}
+              </>)}
             </NavLink>
           )}
 
-          {/* ✅ ANTREPRIZ — tout paj lib, pa bloke pa plan */}
-          <div style={{ margin:'10px 4px 6px', paddingTop:10, borderTop:`1px solid rgba(201,168,76,0.18)`, display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ color: C.enterprise, fontSize:10, fontWeight:700, letterSpacing:'0.1em' }}>
-              ✦ ANTREPRIZ
+          {/* ── ANTREPRIZ ── */}
+          <div style={{
+            margin:'14px 4px 8px',
+            paddingTop:12,
+            borderTop:`1px solid rgba(201,168,76,0.15)`,
+            display:'flex', alignItems:'center', gap:8,
+          }}>
+            <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+              ✦ Antrepriz
             </span>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
           </div>
 
-          {/* ✅ Filtre selon allowedPages super admin */}
           {ENTERPRISE_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
-  const locked = !isPageAllowed(pageKey)
-  return (
-    <NavLink key={to} to={locked ? '#' : to}
-      onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
-      style={({ isActive }) => ({
-        ...enterpriseLinkStyle(locked ? false : isActive),
-        opacity: locked ? 0.45 : 1,
-        cursor: locked ? 'not-allowed' : 'pointer',
-      })}>
-      {({ isActive }) => (<>
-        <Icon size={16} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.enterprise : C.muted }}/>
-        <span style={{ flex:1 }}>{label}</span>
-        {locked ? <Lock size={12} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}` }}/>}
-      </>)}
-    </NavLink>
-  )
-})}
+            const locked = !isPageAllowed(pageKey)
+            return (
+              <NavLink key={to} to={locked ? '#' : to}
+                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
+                style={({ isActive }) => ({
+                  ...enterpriseLinkStyle(locked ? false : isActive),
+                  opacity: locked ? 0.4 : 1,
+                  cursor:  locked ? 'not-allowed' : 'pointer',
+                })}>
+                {({ isActive }) => (<>
+                  <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
+                  <span style={{ flex:1 }}>{label}</span>
+                  {locked
+                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}`, flexShrink:0 }}/>
+                  }
+                </>)}
+              </NavLink>
+            )
+          })}
         </nav>
 
-        {/* ══ Settings + User ══ */}
-        <div style={{ padding:'10px 8px', borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
+        {/* ── SETTINGS + USER ── */}
+        <div style={{
+          padding:'10px 10px 12px',
+          borderTop:`1px solid ${C.border}`,
+          position:'relative', zIndex:1,
+        }}>
           <NavLink to="/app/settings" onClick={() => setOpen(false)}
             style={({ isActive }) => ({
               display:'flex', alignItems:'center', gap:10,
-              padding:'9px 12px', borderRadius:10, marginBottom:8, textDecoration:'none',
-              background: isActive ? `rgba(245,104,12,0.15)` : 'transparent',
-              color: isActive ? '#ffffff' : C.muted,
-              border: isActive ? `1px solid rgba(245,104,12,0.22)` : '1px solid transparent',
+              padding:'9px 14px', borderRadius:10, marginBottom:8, textDecoration:'none',
+              background: isActive ? `rgba(245,104,12,0.12)` : 'transparent',
+              color: isActive ? '#fff' : C.muted,
+              borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
               fontSize:13, fontWeight: isActive ? 700 : 500,
+              transition:'all 0.2s',
             })}>
-            {({ isActive }) => (<><Settings size={16} style={{ color: isActive ? C.gold : C.muted }}/><span>{t('nav.settings')}</span></>)}
+            {({ isActive }) => (<>
+              <Settings size={15} style={{ color: isActive ? C.gold : C.mutedMd, flexShrink:0 }}/>
+              <span>{t('nav.settings')}</span>
+            </>)}
           </NavLink>
 
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`linear-gradient(135deg,rgba(245,104,12,0.12),transparent)`, border:`1px solid rgba(245,104,12,0.2)` }}>
-            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg,${C.red},${C.redBrt})`, display:'flex', alignItems:'center', justifyContent:'center', color:C.white, fontWeight:800, fontSize:14 }}>
+          {/* User card */}
+          <div style={{
+            display:'flex', alignItems:'center', gap:10,
+            padding:'10px 12px', borderRadius:12,
+            background:`linear-gradient(135deg, rgba(245,104,12,0.10), rgba(245,104,12,0.03))`,
+            border:`1px solid ${C.goldBorder}`,
+          }}>
+            {/* Avatar */}
+            <div style={{
+              width:34, height:34, borderRadius:10, flexShrink:0,
+              background:`linear-gradient(135deg, #ef4444, #dc2626)`,
+              display:'flex', alignItems:'center', justifyContent:'center',
+              color:'#fff', fontWeight:800, fontSize:14,
+              boxShadow:'0 3px 10px rgba(239,68,68,0.35)',
+            }}>
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ color:C.white, fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+              <p style={{ color:'#fff', fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {user?.fullName}
               </p>
               <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>
                 {ROLE_LABELS[user?.role] || user?.role}
               </p>
             </div>
-            <button onClick={handleLogout} style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, borderRadius:6, display:'flex' }}>
+            <button onClick={handleLogout} title="Dekonekte" style={{
+              background:'none', border:'none', cursor:'pointer',
+              color:C.muted, padding:4, borderRadius:6, display:'flex',
+              transition:'color 0.2s',
+            }}
+              onMouseEnter={e => e.currentTarget.style.color = C.red}
+              onMouseLeave={e => e.currentTarget.style.color = C.muted}
+            >
               <LogOut size={15}/>
             </button>
           </div>
         </div>
       </aside>
 
-      {/* ══ MAIN CONTENT AREA ══ */}
+      {/* ══════════════════════════════════════════════
+          MAIN CONTENT
+      ══════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
+
+        {/* Topbar */}
         <header style={{
-          minHeight:58, background:'#fff',
+          minHeight:58,
+          background:'#fff',
           borderBottom:`1px solid rgba(245,104,12,0.15)`,
           boxShadow:'0 2px 20px rgba(0,0,0,0.06)',
           display:'flex', alignItems:'center', gap:6,
           padding:'0 12px', flexShrink:0, position:'relative', zIndex:10,
           flexWrap:'wrap',
         }}>
-          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:'linear-gradient(90deg,transparent,#C0392B 20%,#f5680c 50%,#C0392B 80%,transparent)' }}/>
+          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,#C0392B 20%,${C.gold} 50%,#C0392B 80%,transparent)` }}/>
 
           {!isDesktop && (
             <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:'#1a0533', padding:6, borderRadius:8, display:'flex', flexShrink:0 }}>
@@ -513,7 +633,7 @@ useEffect(() => {
           {rateItems.map(({ cur, rate }) => (
             <div key={cur} style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #f5680c40', fontSize:11, flexShrink:0 }}>
               <span style={{ color:'#b34200', fontWeight:700 }}>1 {cur}</span>
-              <span style={{ color:'#f5680c' }}>=</span>
+              <span style={{ color:C.gold }}>  =</span>
               <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>{rate.toFixed(2)} HTG</span>
             </div>
           ))}
@@ -522,7 +642,7 @@ useEffect(() => {
 
           {/* Lang Switcher */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
-            <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? '#f5680c' : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+            <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
               <span style={{ fontSize:15 }}>{currentLang.flag}</span>
               <span style={{ fontSize:10, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
@@ -531,17 +651,17 @@ useEffect(() => {
             {showLang && (
               <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:'1px solid rgba(245,104,12,0.2)', overflow:'hidden' }}>
                 {LANGS.map(lang => (
-                  <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 14px', border:'none', cursor:'pointer', background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent', color: i18n.language === lang.code ? '#f5680c' : '#333', fontWeight: i18n.language === lang.code ? 700 : 500, fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)' }}>
+                  <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 14px', border:'none', cursor:'pointer', background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent', color: i18n.language === lang.code ? C.gold : '#333', fontWeight: i18n.language === lang.code ? 700 : 500, fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)' }}>
                     <span style={{ fontSize:18 }}>{lang.flag}</span>
                     <span style={{ flex:1 }}>{lang.name}</span>
-                    {i18n.language === lang.code && <span style={{ color:'#f5680c' }}>✓</span>}
+                    {i18n.language === lang.code && <span style={{ color:C.gold }}>✓</span>}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,#1a0533,#2d0a4e)`, color:'#f5680c', letterSpacing:'0.08em', border:'1px solid rgba(245,104,12,0.3)', flexShrink:0 }}>
+          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,#1a0533,#2d0a4e)`, color:C.gold, letterSpacing:'0.08em', border:`1px solid rgba(245,104,12,0.3)`, flexShrink:0 }}>
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
@@ -555,8 +675,10 @@ useEffect(() => {
 
       <style>{`
         @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.5)} 50%{box-shadow:0 0 0 5px rgba(192,57,43,0)} }
-        @keyframes spin { to { transform: rotate(360deg) } }
+        @keyframes pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 5px rgba(201,168,76,0)} }
+        @keyframes spin    { to { transform: rotate(360deg) } }
+        aside::-webkit-scrollbar { display:none; }
+        nav::-webkit-scrollbar   { display:none; }
       `}</style>
     </div>
   )

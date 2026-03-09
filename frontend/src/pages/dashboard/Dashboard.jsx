@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI, productAPI, reportAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import ProfitSection from './ProfitSection'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   Receipt, Package, AlertTriangle, TrendingUp,
   ArrowRight, CheckCircle2, Clock, Plus, Crown,
@@ -50,7 +50,6 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
   return parts.length ? parts.join('  ') : null
 }
 
-// ✅ Labels dirèk san depann sou fichye tradiksyon — evite "DASHBOARD.SALESTODAY" bug
 const LABELS = {
   salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales" },
   paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today' },
@@ -154,9 +153,50 @@ const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
   )
 }
 
+// ══ TILE MULTICOLORE ══
+const ColorTile = ({ icon, name, badge, gradient, onClick }) => {
+  const [hov, setHov] = useState(false)
+  return (
+    <div
+      className="ctile"
+      onClick={onClick}
+      onMouseEnter={()=>setHov(true)}
+      onMouseLeave={()=>setHov(false)}
+      style={{
+        background: gradient,
+        borderRadius: 16,
+        padding: '16px 10px 12px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+        cursor: 'pointer',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        border: '1.5px solid rgba(255,255,255,0.18)',
+        position: 'relative', overflow: 'hidden',
+        transform: hov ? 'translateY(-5px) scale(1.03)' : 'none',
+        boxShadow: hov ? '0 14px 36px rgba(0,0,0,0.22)' : '0 3px 12px rgba(0,0,0,0.10)',
+      }}
+    >
+      {/* dekorasyon sèk */}
+      <div style={{
+        position:'absolute', top:-28, right:-28,
+        width:70, height:70, borderRadius:'50%',
+        background:'rgba(255,255,255,0.1)',
+        pointerEvents:'none',
+      }}/>
+      <div style={{ fontSize:26, lineHeight:1 }}>{icon}</div>
+      <div style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.95)', textAlign:'center', lineHeight:1.25 }}>{name}</div>
+      <div style={{
+        background:'rgba(0,0,0,0.22)',
+        borderRadius:20, padding:'2px 8px',
+        fontSize:10, color:'rgba(255,255,255,0.85)', fontWeight:700,
+      }}>{badge}</div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const { t, i18n: i18nInst } = useTranslation()
   const { user, tenant } = useAuthStore()
+  const navigate = useNavigate()
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates     || {}
@@ -165,13 +205,11 @@ export default function Dashboard() {
   const branchId = localStorage.getItem('plusgroup-branch-id') || undefined
   const isAdmin  = user?.role === 'admin'
 
-  // ✅ Detekte lang aktyèl — pou labels dirèk
   const lang = (i18nInst?.language || 'ht').substring(0,2)
   const lbl  = (key) => LABELS[key]?.[lang] || LABELS[key]?.ht || key
 
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  // Dènye fakti + lowstock (pa filtre pa dat — pou tab resan + KPI)
   const { data:dashboard } = useQuery({
     queryKey: ['dashboard', branchId],
     queryFn:  () => invoiceAPI.getDashboard().then(r => r.data.dashboard),
@@ -182,7 +220,6 @@ export default function Dashboard() {
     queryFn:  () => productAPI.getLowStock().then(r => r.data.products),
   })
 
-  // Grafik 7 jou
   const { data:salesReport } = useQuery({
     queryKey: ['sales-report-dash', branchId],
     enabled:  isAdmin,
@@ -193,14 +230,12 @@ export default function Dashboard() {
     }).then(r => r.data.report),
   })
 
-  // ✅ Dashboard jodi a — stat cards 4 yo (filtre pa dat jodi a)
   const { data:todayDashboard } = useQuery({
     queryKey: ['dashboard-today', branchId, today],
     queryFn:  () => invoiceAPI.getDashboard({ dateFrom: today, dateTo: today })
       .then(r => r.data.dashboard),
   })
 
-  // ✅ Vant jodi a (soti nan reportAPI)
   const { data:todayReport } = useQuery({
     queryKey: ['sales-today-dash', branchId, today],
     enabled:  isAdmin,
@@ -218,13 +253,11 @@ export default function Dashboard() {
     return { date: format(d, 'EEE', {locale:fr}), ventes: Number(found?.total_htg||0) }
   })
 
-  // ✅ Stat cards — tout jodi a sèlman
   const totalVentesJodi = Number(todayReport?.totals?._sum?.totalHtg||0)
   const totalPayeJodi   = Number(todayDashboard?.totalPaid?._sum?.totalHtg||0)
   const totalImpayeJodi = Number(todayDashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
   const totalPasyalJodi = Number(todayDashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
-  // KPI cards — toujou tout tan (pou wè akimilasyon global)
   const totalImpaye = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
   const totalPaye   = Number(dashboard?.totalPaid?._sum?.totalHtg||0)
   const totalPasyal = Number(dashboard?.totalPartial?._sum?.balanceDueHtg||0)
@@ -236,6 +269,20 @@ export default function Dashboard() {
     if (daysLeft > 5) return null
     return { expired: daysLeft < 0, daysLeft, endsAt }
   })()
+
+  // Definisyon tiles multicolore
+  const COLOR_TILES = [
+    { icon:'🧾', name:'Fakti',          badge:`${dashboard?.totalUnpaid?._count||0} aktif`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices'   },
+    { icon:'👤', name:'Kliyan',          badge:'Jere',                                        gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'    },
+    { icon:'📦', name:'Pwodui',          badge:'Katalòg',                                     gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products'   },
+    { icon:'📋', name:'Devi',            badge:'Nouvo +',                                     gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'     },
+    { icon:'🏭', name:'Estòk',           badge:`${lowStock?.length||0} alèt`,                 gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock'      },
+    { icon:'📊', name:'Rapò',            badge:'Analytics',                                   gradient:'linear-gradient(135deg,#6366f1,#4338ca)', path:'/app/reports'    },
+    { icon:'💰', name:'Ti Kanè Kès',     badge:'Kès',                                         gradient:'linear-gradient(135deg,#C9A84C,#8B6914)', path:'/app/kane'       },
+    { icon:'💳', name:'Kanè Epay',       badge:'Pèman',                                       gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay'  },
+    { icon:'📱', name:'Sabotay',         badge:'Mobile',                                      gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'    },
+    { icon:'📲', name:'MonCash / NatCash', badge:'Pèman',                                     gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay'   },
+  ]
 
   return (
     <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif',paddingBottom:40}}>
@@ -253,14 +300,26 @@ export default function Dashboard() {
         .hero-header-row { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
         .invoice-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
         .invoice-table-wrap table { min-width:560px; }
-        @media (max-width:900px) { .chart-stock-grid{grid-template-columns:1fr} .hero-stats-inner{grid-template-columns:repeat(4,minmax(140px,1fr))} }
-        @media (max-width:600px) {
+
+        /* ── Color Grid ── */
+        .color-grid-wrap {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 12px;
+        }
+        @media (max-width: 900px) {
+          .chart-stock-grid{grid-template-columns:1fr}
+          .hero-stats-inner{grid-template-columns:repeat(4,minmax(140px,1fr))}
+          .color-grid-wrap { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 600px) {
           .hero-stats-scroll{margin:0 -16px;padding:0 16px 4px}
           .hero-header-row{flex-direction:column;gap:12px;margin-bottom:16px}
           .hero-title{font-size:22px!important}
           .hero-banner{padding:20px 16px!important}
           .dash-section-header{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
           .dash-actions-row{flex-wrap:wrap}
+          .color-grid-wrap { grid-template-columns: repeat(3, 1fr); gap: 8px; }
         }
       `}</style>
 
@@ -330,38 +389,40 @@ export default function Dashboard() {
           </Link>
         </div>
 
-        {/* ✅ 4 stat cards — tout jodi a sèlman, labels dirèk (pa tradiksyon key) */}
+        {/* 4 stat cards */}
         <div className="hero-stats-scroll" style={{position:'relative',zIndex:1}}>
           <div className="hero-stats-inner">
-            <StatCard
-              label={lbl('salesToday')}
-              val={`${fmt(totalVentesJodi)} HTG`}
-              icon={<TrendingUp size={15}/>}
-              color={D.gold}
-              sub={showRate && fmtConv(totalVentesJodi, exchangeRates, visibleCurrs)}
-            />
-            <StatCard
-              label={lbl('paid')}
-              val={`${fmt(totalPayeJodi)} HTG`}
-              icon={<CheckCircle2 size={15}/>}
-              color="#34d399"
-              sub={showRate && fmtConv(totalPayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}
-            />
-            <StatCard
-              label={lbl('balance')}
-              val={`${fmt(totalImpayeJodi)} HTG`}
-              icon={<Clock size={15}/>}
-              color={D.redLt}
-              sub={showRate && fmtConv(totalImpayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}
-            />
-            <StatCard
-              label={lbl('partial')}
-              val={`${fmt(totalPasyalJodi)} HTG`}
-              icon={<Receipt size={15}/>}
-              color="#93c5fd"
-              sub={showRate && fmtConv(totalPasyalJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}
-            />
+            <StatCard label={lbl('salesToday')} val={`${fmt(totalVentesJodi)} HTG`} icon={<TrendingUp size={15}/>} color={D.gold}    sub={showRate && fmtConv(totalVentesJodi, exchangeRates, visibleCurrs)}/>
+            <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate && fmtConv(totalPayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
+            <StatCard label={lbl('balance')}    val={`${fmt(totalImpayeJodi)} HTG`} icon={<Clock size={15}/>}       color={D.redLt} sub={showRate && fmtConv(totalImpayeJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
+            <StatCard label={lbl('partial')}    val={`${fmt(totalPasyalJodi)} HTG`} icon={<Receipt size={15}/>}     color="#93c5fd" sub={showRate && fmtConv(totalPasyalJodi, exchangeRates, visibleCurrs) || `${todayDashboard?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
           </div>
+        </div>
+      </div>
+
+      {/* ══ AKSÈ RAPID — Panel Multicolore ══ */}
+      <div>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14,flexWrap:'wrap',gap:8}}>
+          <div>
+            <h2 style={{fontSize:13,fontWeight:900,color:D.text,margin:'0 0 2px',textTransform:'uppercase',letterSpacing:'0.09em'}}>
+              🎨 Aksè Rapid
+            </h2>
+            <p style={{fontSize:11,color:D.muted,margin:0}}>
+              Klike sou yon modil pou louvri l dirèkteman
+            </p>
+          </div>
+        </div>
+        <div className="color-grid-wrap">
+          {COLOR_TILES.map((tile) => (
+            <ColorTile
+              key={tile.path}
+              icon={tile.icon}
+              name={tile.name}
+              badge={tile.badge}
+              gradient={tile.gradient}
+              onClick={()=>navigate(tile.path)}
+            />
+          ))}
         </div>
       </div>
 
@@ -449,7 +510,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards — tout tan (pou wè akimilasyon global) */}
+      {/* KPI Cards */}
       <div className="kpi-scroll">
         <div className="kpi-inner">
           <KpiCard label={t('dashboard.kpiFaktirImpaye')} value={`${fmt(totalImpaye)} HTG`} count={`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.kpiFakti')}`}  icon={<Receipt size={20}/>}      color={D.red}     bg={D.redDim}             link="/app/invoices?status=unpaid"/>
