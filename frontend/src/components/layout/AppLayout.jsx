@@ -549,6 +549,7 @@ export default function AppLayout() {
         {/* ── SETTINGS + USER ── */}
         <div style={{
           padding:'10px 10px 12px',
+          paddingBottom: 38, // ← espas pou ticker anba a pa kache bouton dekonekte
           borderTop:`1px solid ${C.border}`,
           position:'relative', zIndex:1,
         }}>
@@ -669,7 +670,7 @@ export default function AppLayout() {
         </header>
 
         <main style={{ flex:1, overflowY:'auto' }}>
-          <div style={{ padding:'16px' }}><Outlet /></div>
+          <div style={{ padding:'16px', paddingBottom: 46 }}><Outlet /></div>
         </main>
       </div>
 
