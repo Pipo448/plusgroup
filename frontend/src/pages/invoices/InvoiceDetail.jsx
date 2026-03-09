@@ -54,7 +54,30 @@ const toHaitiDate = (dateStr, fmt2) => {
   } catch { return '' }
 }
 
-// ── showQrCode prop: kontwole si QR parèt sou resi ──
+// ── Chaje jsPDF + html2canvas dynamikman (pa bezwen enstale)
+const loadPdfLibs = async () => {
+  // Chaje html2canvas
+  if (!window.html2canvas) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'
+      s.onload = resolve
+      s.onerror = () => reject(new Error('html2canvas pa chaje'))
+      document.head.appendChild(s)
+    })
+  }
+  // Chaje jsPDF
+  if (!window.jspdf) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+      s.onload = resolve
+      s.onerror = () => reject(new Error('jsPDF pa chaje'))
+      document.head.appendChild(s)
+    })
+  }
+}
+
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode }) {
   if (!invoice) return null
   const snap        = invoice.clientSnapshot || {}
@@ -243,7 +266,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      {/* ── QR Code sou resi — parèt sèlman si showQrCode aktive ── */}
       {showQrCode && qrDataUrl && (
         <div style={{ textAlign: 'center', marginBottom: '5px' }}>
           <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
@@ -284,7 +306,6 @@ export default function InvoiceDetail() {
   const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
   const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
-  // ── Detèmine si QR Code dwe afiche (defò: true si pa konfigire) ──
   const showQrCode = tenant?.showQrCode !== false
 
   useEffect(() => {
@@ -308,7 +329,6 @@ export default function InvoiceDetail() {
     toBase64(url).then(b64 => setLogoBase64(b64 || null))
   }, [tenant?.logoUrl])
 
-  // ── Jenere QR sèlman si showQrCode aktive — ekonomize resous ──
   useEffect(() => {
     if (!invoice || !showQrCode) { setQrDataUrl(null); return }
     const qrContent = [
@@ -356,13 +376,74 @@ export default function InvoiceDetail() {
       </html>
     `)
     printWindow.document.close()
-
     printWindow.onload = () => {
       setTimeout(() => {
         printWindow.focus()
         printWindow.print()
         setTimeout(() => printWindow.close(), 1000)
       }, 200)
+    }
+  }
+
+  // ── DOWNLOAD PDF — 100% frontend, pa bezwen backend ──
+  const downloadPdf = async (size) => {
+    setShowPdfMenu(false)
+    const toastId = toast.loading(`Ap prepare PDF ${size}...`)
+
+    try {
+      // 1. Chaje librairi yo
+      await loadPdfLibs()
+
+      // 2. Prepare eleman HTML pou capture
+      const receiptEl = document.getElementById('printable-receipt')
+      if (!receiptEl) throw new Error('Resi HTML pa trovab')
+
+      // Montre l tanporèman pou html2canvas ka wè l
+      const prevDisplay = receiptEl.style.display
+      receiptEl.style.display = 'block'
+      receiptEl.style.position = 'fixed'
+      receiptEl.style.left = '-9999px'
+      receiptEl.style.top = '0'
+
+      // 3. Konvèti HTML → Canvas
+      const canvas = await window.html2canvas(receiptEl, {
+        scale: 3,               // Rezolisyon wo pou PDF klè
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+      })
+
+      // Remèt eleman an kache
+      receiptEl.style.display = prevDisplay
+      receiptEl.style.position = ''
+      receiptEl.style.left = ''
+      receiptEl.style.top = ''
+
+      // 4. Dimansyon PDF selon size
+      const mmWidth  = size === '57mm' ? 57 : 80
+      const pxWidth  = canvas.width
+      const pxHeight = canvas.height
+      const mmHeight = (pxHeight / pxWidth) * mmWidth
+
+      // 5. Kreye PDF ak jsPDF
+      const { jsPDF } = window.jspdf
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [mmWidth, mmHeight],
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      pdf.addImage(imgData, 'PNG', 0, 0, mmWidth, mmHeight)
+
+      // 6. Telechaje
+      pdf.save(`facture-${invoice.invoiceNumber}-${size}.pdf`)
+      toast.success(`PDF ${size} telechaje!`, { id: toastId })
+
+    } catch (err) {
+      console.error('PDF error:', err)
+      toast.error('Ere pandan jenere PDF. Eseye ankò.', { id: toastId })
     }
   }
 
@@ -388,23 +469,6 @@ export default function InvoiceDetail() {
     setShowPayment(true)
   }
 
-  const downloadPdf = async (size) => {
-    setShowPdfMenu(false)
-    const toastId = toast.loading(`Ap prepare PDF ${size}...`)
-    try {
-      const res = await invoiceAPI.downloadPDF(invoice.id, size)
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
-      const a   = document.createElement('a')
-      a.href     = url
-      a.download = `facture-${invoice.invoiceNumber}-${size}.pdf`
-      a.click()
-      URL.revokeObjectURL(url)
-      toast.success(`PDF ${size} telechaje!`, { id: toastId })
-    } catch {
-      toast.error('Ere pandan telechajman PDF.', { id: toastId })
-    }
-  }
-
   if (isLoading) return <div className="flex justify-center py-20"><div className="spinner" /></div>
   if (!invoice)  return null
 
@@ -418,7 +482,6 @@ export default function InvoiceDetail() {
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      {/* ── Pase showQrCode bay PrintableReceipt ── */}
       <PrintableReceipt
         invoice={invoice}
         tenant={tenant}
@@ -485,6 +548,7 @@ export default function InvoiceDetail() {
             </div>
           )}
 
+          {/* ── PDF Dropdown ── */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -530,7 +594,7 @@ export default function InvoiceDetail() {
       {connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Goojprt PT-210 konekte via Bluetooth - Klike "Enprime BT" pou voye resi bay printer a
+          Printer konekte — Klike "Enprime BT" pou voye resi bay printer a
         </div>
       )}
 
@@ -650,7 +714,6 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {/* ── QR Code nan sidebar — kache si showQrCode désaktive ── */}
             {showQrCode && qrDataUrl && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
                 <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>QR Verifikasyon</p>
