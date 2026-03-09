@@ -101,20 +101,24 @@ const StatCard = ({ label, val, icon, color, sub }) => {
   const [hov,setHov] = useState(false)
   return (
     <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{
-      background: hov?`${color}18`:'rgba(255,255,255,0.06)',
-      border:`1px solid ${hov?color+'40':'rgba(255,255,255,0.12)'}`,
-      borderRadius:14, padding:'14px 14px',
-      transition:'all 0.25s ease',
-      transform: hov?'translateY(-2px)':'none',
-      boxShadow: hov?`0 8px 24px ${color}25`:'none',
-      minWidth: 140,
+      background: hov ? `linear-gradient(135deg, ${color}22, ${color}0a)` : 'rgba(255,255,255,0.05)',
+      borderRadius:16, padding:'16px 14px',
+      transition:'all 0.3s cubic-bezier(0.34,1.2,0.64,1)',
+      transform: hov ? 'translateY(-4px) scale(1.02)' : 'translateY(0) scale(1)',
+      outline: hov ? '1.5px solid rgba(201,168,76,0.75)' : '1.5px solid rgba(255,255,255,0.10)',
+      outlineOffset: hov ? '2px' : '0px',
+      boxShadow: hov ? `0 12px 30px ${color}30, 0 0 0 1px rgba(201,168,76,0.25)` : '0 2px 8px rgba(0,0,0,0.10)',
+      minWidth: 140, position:'relative', overflow:'hidden',
     }}>
-      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-        <span style={{color,filter:hov?`drop-shadow(0 0 6px ${color})`:'none',transition:'filter 0.25s'}}>{icon}</span>
+      <div style={{position:'absolute',inset:0,background:hov?'linear-gradient(135deg,rgba(255,255,255,0.06) 0%,transparent 60%)':'none',borderRadius:16,pointerEvents:'none',transition:'all 0.3s'}}/>
+      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,position:'relative'}}>
+        <div style={{width:30,height:30,borderRadius:8,background:`${color}22`,display:'flex',alignItems:'center',justifyContent:'center',border:`1px solid ${color}30`,transition:'all 0.3s',transform:hov?'rotate(-8deg) scale(1.15)':'none',boxShadow:hov?`0 4px 12px ${color}40`:'none'}}>
+          <span style={{color,filter:hov?`drop-shadow(0 0 6px ${color})`:'none',transition:'filter 0.25s'}}>{icon}</span>
+        </div>
         <span style={{fontSize:10,fontWeight:800,color,textTransform:'uppercase',letterSpacing:'0.07em',opacity:0.9}}>{label}</span>
       </div>
-      <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:800,color:'#fff',fontSize:13,margin:0}}>{val}</p>
-      {sub&&<p style={{fontSize:10,color:'rgba(255,255,255,0.4)',margin:'3px 0 0'}}>{sub}</p>}
+      <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:800,color:'#fff',fontSize:14,margin:0,position:'relative'}}>{val}</p>
+      {sub&&<p style={{fontSize:10,color:'rgba(255,255,255,0.45)',margin:'4px 0 0',position:'relative'}}>{sub}</p>}
     </div>
   )
 }
@@ -122,72 +126,128 @@ const StatCard = ({ label, val, icon, color, sub }) => {
 const KpiCard = ({ label, value, count, icon, color, bg, link }) => {
   const [hov,setHov] = useState(false)
   return (
-    <Link to={link} style={{textDecoration:'none'}}>
+    <Link to={link} style={{textDecoration:'none',display:'block'}}>
       <div onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{
-        background:hov?bg:D.white,
-        border:`1px solid ${hov?color+'30':D.border}`,
-        borderRadius:18, padding:'18px 14px',
-        transition:'all 0.25s ease',
-        transform:hov?'translateY(-3px)':'none',
-        boxShadow:hov?`0 12px 32px ${color}25`:D.shadow,
-        cursor:'pointer', height:'100%', minWidth: 160,
+        background: hov ? bg : D.white,
+        borderRadius:18, padding:'18px 16px',
+        transition:'all 0.3s cubic-bezier(0.34,1.2,0.64,1)',
+        transform: hov ? 'translateY(-5px) scale(1.02)' : 'translateY(0) scale(1)',
+        // Bòdè or animé sou hover
+        outline: hov ? '2px solid rgba(201,168,76,0.8)' : `1px solid ${D.border}`,
+        outlineOffset: hov ? '1px' : '0px',
+        boxShadow: hov
+          ? `0 16px 40px ${color}22, 0 0 0 1px rgba(201,168,76,0.20), 0 0 20px rgba(201,168,76,0.08)`
+          : D.shadow,
+        cursor:'pointer', height:'100%', minWidth:160,
+        position:'relative', overflow:'hidden',
       }}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14}}>
+        {/* Strip koulè anwo */}
+        <div style={{
+          position:'absolute', top:0, left:0, right:0, height:3,
+          background: hov
+            ? `linear-gradient(90deg, ${color}, rgba(201,168,76,0.8), ${color})`
+            : `linear-gradient(90deg, ${color}40, ${color}20)`,
+          transition:'all 0.3s',
+        }}/>
+        {/* Reflet */}
+        <div style={{position:'absolute',top:0,right:0,width:80,height:80,background:`radial-gradient(circle at top right, ${color}10, transparent 70%)`,pointerEvents:'none'}}/>
+
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14,marginTop:6}}>
           <div style={{
-            width:44,height:44,borderRadius:12,flexShrink:0,
-            background:`linear-gradient(135deg,${color},${color}CC)`,
+            width:46,height:46,borderRadius:14,flexShrink:0,
+            background:`linear-gradient(135deg,${color},${color}BB)`,
             display:'flex',alignItems:'center',justifyContent:'center',
-            boxShadow:`0 4px 14px ${color}40`,
-            transition:'transform 0.2s',
-            transform:hov?'rotate(-6deg) scale(1.1)':'none',
+            boxShadow: hov ? `0 6px 20px ${color}55` : `0 4px 14px ${color}35`,
+            transition:'all 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+            transform: hov ? 'rotate(-8deg) scale(1.15)' : 'none',
           }}>
             <span style={{color:'#fff'}}>{icon}</span>
           </div>
-          <ArrowRight size={14} style={{color:D.muted,opacity:hov?0.8:0.3,transform:hov?'translateX(3px)':'none',transition:'all 0.2s'}}/>
+          <div style={{
+            width:26,height:26,borderRadius:8,
+            background: hov ? `${color}15` : 'transparent',
+            border: hov ? `1px solid ${color}30` : '1px solid transparent',
+            display:'flex',alignItems:'center',justifyContent:'center',
+            transition:'all 0.2s',
+          }}>
+            <ArrowRight size={13} style={{color:hov?color:D.muted,transform:hov?'translateX(2px)':'none',transition:'all 0.2s'}}/>
+          </div>
         </div>
-        <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.07em',color:D.muted,marginBottom:4}}>{label}</p>
-        <p style={{fontFamily:'monospace',fontWeight:800,fontSize:14,color,margin:0}}>{value}</p>
-        <p style={{fontSize:11,color:D.muted,margin:'3px 0 0',opacity:0.7}}>{count}</p>
+        <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.08em',color:D.muted,marginBottom:5}}>{label}</p>
+        <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:900,fontSize:15,color,margin:0,transition:'all 0.2s'}}>{value}</p>
+        <p style={{fontSize:11,color:D.muted,margin:'4px 0 0',opacity:0.75}}>{count}</p>
       </div>
     </Link>
   )
 }
 
-// ══ TILE MULTICOLORE ══
-const ColorTile = ({ icon, name, badge, gradient, onClick }) => {
+// ══ TILE MULTICOLORE — or animé + efè mouvman ══
+const ColorTile = ({ icon, name, badge, gradient, onClick, accentColor }) => {
   const [hov, setHov] = useState(false)
   return (
     <div
-      className="ctile"
       onClick={onClick}
       onMouseEnter={()=>setHov(true)}
       onMouseLeave={()=>setHov(false)}
       style={{
         background: gradient,
-        borderRadius: 16,
-        padding: '16px 10px 12px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+        borderRadius: 18,
+        padding: '18px 10px 14px',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
         cursor: 'pointer',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-        border: '1.5px solid rgba(255,255,255,0.18)',
+        transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.25s ease',
+        // Bòdè or animé via outline + box-shadow
+        outline: hov ? `2px solid rgba(201,168,76,0.9)` : '2px solid rgba(255,255,255,0.10)',
+        outlineOffset: hov ? '2px' : '0px',
         position: 'relative', overflow: 'hidden',
-        transform: hov ? 'translateY(-5px) scale(1.03)' : 'none',
-        boxShadow: hov ? '0 14px 36px rgba(0,0,0,0.22)' : '0 3px 12px rgba(0,0,0,0.10)',
+        transform: hov ? 'translateY(-7px) scale(1.05)' : 'translateY(0) scale(1)',
+        boxShadow: hov
+          ? `0 18px 40px rgba(0,0,0,0.30), 0 0 0 1px rgba(201,168,76,0.4), 0 0 20px rgba(201,168,76,0.20)`
+          : `0 4px 14px rgba(0,0,0,0.15)`,
       }}
     >
-      {/* dekorasyon sèk */}
+      {/* Reflet animé */}
       <div style={{
-        position:'absolute', top:-28, right:-28,
-        width:70, height:70, borderRadius:'50%',
-        background:'rgba(255,255,255,0.1)',
+        position:'absolute', top:0, left:'-100%',
+        width:'60%', height:'100%',
+        background:'linear-gradient(105deg, transparent 20%, rgba(255,255,255,0.18) 50%, transparent 80%)',
+        transform: hov ? 'translateX(300%)' : 'translateX(0)',
+        transition: hov ? 'transform 0.5s ease' : 'none',
         pointerEvents:'none',
       }}/>
-      <div style={{ fontSize:26, lineHeight:1 }}>{icon}</div>
-      <div style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.95)', textAlign:'center', lineHeight:1.25 }}>{name}</div>
+      {/* Sèk dekoratif */}
       <div style={{
-        background:'rgba(0,0,0,0.22)',
-        borderRadius:20, padding:'2px 8px',
-        fontSize:10, color:'rgba(255,255,255,0.85)', fontWeight:700,
+        position:'absolute', top:-24, right:-24,
+        width:65, height:65, borderRadius:'50%',
+        background:'rgba(255,255,255,0.10)',
+        pointerEvents:'none',
+      }}/>
+      <div style={{
+        position:'absolute', bottom:-18, left:-18,
+        width:50, height:50, borderRadius:'50%',
+        background:'rgba(255,255,255,0.07)',
+        pointerEvents:'none',
+      }}/>
+      {/* Icòn ak efè scale */}
+      <div style={{
+        fontSize: 28, lineHeight:1,
+        transform: hov ? 'scale(1.2) rotate(-5deg)' : 'scale(1) rotate(0deg)',
+        transition:'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+        filter: hov ? `drop-shadow(0 4px 8px rgba(0,0,0,0.4))` : 'none',
+      }}>{icon}</div>
+      <div style={{
+        fontSize:11, fontWeight:800,
+        color: hov ? '#fff' : 'rgba(255,255,255,0.92)',
+        textAlign:'center', lineHeight:1.25,
+        textShadow: hov ? '0 1px 4px rgba(0,0,0,0.4)' : 'none',
+        transition:'all 0.2s',
+      }}>{name}</div>
+      <div style={{
+        background: hov ? 'rgba(201,168,76,0.30)' : 'rgba(0,0,0,0.22)',
+        border: hov ? '1px solid rgba(201,168,76,0.6)' : '1px solid transparent',
+        borderRadius:20, padding:'2px 9px',
+        fontSize:10, color: hov ? '#F0D080' : 'rgba(255,255,255,0.80)',
+        fontWeight:700, transition:'all 0.2s',
       }}>{badge}</div>
     </div>
   )
@@ -288,25 +348,66 @@ export default function Dashboard() {
     <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif',paddingBottom:40}}>
 
       <style>{`
-        @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes slideDown  { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes shimmer    { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+        @keyframes fadeUp     { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes goldPulse  { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.35)} 50%{box-shadow:0 0 0 6px rgba(201,168,76,0)} }
+        @keyframes floatY     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @keyframes borderRun  {
+          0%   { background-position: 0% 50% }
+          50%  { background-position: 100% 50% }
+          100% { background-position: 0% 50% }
+        }
+
         .hero-stats-scroll { overflow-x:auto; margin:0 -28px; padding:0 28px 4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
         .hero-stats-scroll::-webkit-scrollbar { display:none; }
-        .hero-stats-inner { display:grid; grid-template-columns:repeat(4,minmax(155px,1fr)); gap:10px; min-width:600px; }
+        .hero-stats-inner { display:grid; grid-template-columns:repeat(4,minmax(155px,1fr)); gap:12px; min-width:600px; }
+
         .kpi-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; }
         .kpi-scroll::-webkit-scrollbar { display:none; }
-        .kpi-inner { display:grid; grid-template-columns:repeat(4,minmax(160px,1fr)); gap:14px; min-width:640px; }
+        .kpi-inner { display:grid; grid-template-columns:repeat(4,minmax(160px,1fr)); gap:16px; min-width:640px; }
+
         .chart-stock-grid { display:grid; grid-template-columns:1fr 300px; gap:16px; }
-        .hero-header-row { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+        .hero-header-row  { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
         .invoice-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
         .invoice-table-wrap table { min-width:560px; }
+
+        /* Tiles animate on mount */
+        .color-tile-anim { animation: fadeUp 0.4s ease both; }
+
+        /* Bòdè or kouran sou section cards */
+        .gold-border-card {
+          position: relative;
+        }
+        .gold-border-card::before {
+          content: '';
+          position: absolute; inset: 0;
+          border-radius: inherit;
+          padding: 1.5px;
+          background: linear-gradient(135deg, rgba(201,168,76,0.6), rgba(245,104,12,0.3), rgba(201,168,76,0.15), rgba(245,104,12,0.5));
+          background-size: 300% 300%;
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: destination-out;
+          mask-composite: exclude;
+          animation: borderRun 4s ease infinite;
+          pointer-events: none;
+        }
 
         /* ── Color Grid ── */
         .color-grid-wrap {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
-          gap: 12px;
+          gap: 14px;
         }
+
+        /* Tablo row hover */
+        .inv-row { transition: background 0.15s, transform 0.15s; }
+        .inv-row:hover { transform: translateX(2px); }
+
+        /* Chart card hover */
+        .chart-card-wrap { transition: box-shadow 0.3s, outline 0.3s; }
+        .chart-card-wrap:hover { outline: 1.5px solid rgba(201,168,76,0.4); outline-offset: 1px; box-shadow: 0 8px 32px rgba(27,42,143,0.18), 0 0 0 1px rgba(201,168,76,0.10) !important; }
+
         @media (max-width: 900px) {
           .chart-stock-grid{grid-template-columns:1fr}
           .hero-stats-inner{grid-template-columns:repeat(4,minmax(140px,1fr))}
@@ -319,7 +420,7 @@ export default function Dashboard() {
           .hero-banner{padding:20px 16px!important}
           .dash-section-header{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
           .dash-actions-row{flex-wrap:wrap}
-          .color-grid-wrap { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+          .color-grid-wrap { grid-template-columns: repeat(3, 1fr); gap: 9px; }
         }
       `}</style>
 
@@ -413,22 +514,23 @@ export default function Dashboard() {
           </div>
         </div>
         <div className="color-grid-wrap">
-          {COLOR_TILES.map((tile) => (
-            <ColorTile
-              key={tile.path}
-              icon={tile.icon}
-              name={tile.name}
-              badge={tile.badge}
-              gradient={tile.gradient}
-              onClick={()=>navigate(tile.path)}
-            />
+          {COLOR_TILES.map((tile, i) => (
+            <div key={tile.path} className="color-tile-anim" style={{ animationDelay:`${i * 0.05}s` }}>
+              <ColorTile
+                icon={tile.icon}
+                name={tile.name}
+                badge={tile.badge}
+                gradient={tile.gradient}
+                onClick={()=>navigate(tile.path)}
+              />
+            </div>
           ))}
         </div>
       </div>
 
       {/* Grafik + Low Stock */}
       <div className="chart-stock-grid">
-        <div style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
+        <div className="chart-card-wrap gold-border-card" style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:8}}>
             <div>
               <h3 style={{fontSize:15,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
@@ -521,7 +623,7 @@ export default function Dashboard() {
       </div>
 
       {/* Dènye Fakti */}
-      <div style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
+      <div className="gold-border-card" style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
         <div className="dash-section-header" style={{
           display:'flex',alignItems:'center',justifyContent:'space-between',
           padding:'16px 20px',borderBottom:`2px solid ${D.blueDim}`,
@@ -602,7 +704,17 @@ function InvoiceRow({ inv, idx, showRate, exchangeRates, visibleCurrs }) {
 
   return (
     <tr onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{background:hov?D.blueDim:idx%2===0?'#fff':'rgba(244,246,255,0.5)',transition:'background 0.15s',borderBottom:`1px solid ${D.border}`,cursor:'pointer'}}>
+      className="inv-row"
+      style={{
+        background: hov
+          ? `linear-gradient(90deg, rgba(201,168,76,0.06), ${D.blueDim})`
+          : idx%2===0 ? '#fff' : 'rgba(244,246,255,0.5)',
+        borderBottom:`1px solid ${hov ? 'rgba(201,168,76,0.25)' : D.border}`,
+        cursor:'pointer',
+        // Bòdè gòch or lè hover
+        boxShadow: hov ? `inset 3px 0 0 rgba(201,168,76,0.7)` : 'none',
+        transition:'all 0.15s ease',
+      }}>
       <td style={{padding:'12px 16px'}}>
         <span style={{fontFamily:'monospace',fontWeight:800,color:D.blue,fontSize:12}}>{inv.invoiceNumber}</span>
       </td>
