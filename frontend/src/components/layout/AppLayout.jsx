@@ -550,39 +550,49 @@ export default function AppLayout() {
           })}
 
           {/* ✅ ── HOTEL ── */}
-          {isPageAllowed('hotel') && (
-            <>
-              <div style={{
-                margin:'14px 4px 8px',
-                paddingTop:12,
-                borderTop:`1px solid rgba(14,165,233,0.15)`,
-                display:'flex', alignItems:'center', gap:8,
-              }}>
-                <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-                  🏨 Hotel
-                </span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, animation:'pulseBlue 2s infinite' }}/>
-              </div>
+{(() => {
+  const hotelLocked = !isPageAllowed('hotel')
+  return (
+    <>
+      <div style={{
+        margin:'14px 4px 8px',
+        paddingTop:12,
+        borderTop:`1px solid rgba(14,165,233,0.15)`,
+        display:'flex', alignItems:'center', gap:8,
+        opacity: hotelLocked ? 0.4 : 1,
+      }}>
+        <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+          🏨 Hotel
+        </span>
+        <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, animation:'pulseBlue 2s infinite' }}/>
+      </div>
 
-              {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
-                <NavLink key={to} to={to} end={end}
-                  onClick={() => setOpen(false)}
-                  style={({ isActive }) => hotelLinkStyle(isActive)}>
-                  {({ isActive }) => (<>
-                    <Icon size={15} style={{
-                      flexShrink:0,
-                      color: isActive ? C.hotel : C.mutedMd,
-                      filter: isActive ? `drop-shadow(0 0 5px ${C.hotel}80)` : 'none',
-                      transition:'all 0.2s',
-                    }}/>
-                    <span style={{ flex:1 }}>{label}</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, boxShadow:`0 0 8px ${C.hotel}`, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              ))}
-            </>
-          )}
-
+      {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
+        <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
+          onClick={(e) => { if (hotelLocked) { e.preventDefault(); return } setOpen(false) }}
+          style={({ isActive }) => ({
+            ...hotelLinkStyle(hotelLocked ? false : isActive),
+            opacity: hotelLocked ? 0.4 : 1,
+            cursor:  hotelLocked ? 'not-allowed' : 'pointer',
+          })}>
+          {({ isActive }) => (<>
+            <Icon size={15} style={{
+              flexShrink:0,
+              color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd,
+              filter: (!hotelLocked && isActive) ? `drop-shadow(0 0 5px ${C.hotel}80)` : 'none',
+              transition:'all 0.2s',
+            }}/>
+            <span style={{ flex:1 }}>{label}</span>
+            {hotelLocked
+              ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+              : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, boxShadow:`0 0 8px ${C.hotel}`, flexShrink:0 }}/>
+            }
+          </>)}
+        </NavLink>
+      ))}
+    </>
+  )
+})()}
         </nav>
 
         {/* ── SETTINGS + USER ── */}
