@@ -80,6 +80,7 @@ const PAGE_DEFINITIONS = [
   { key:'kane-epay',  label:'Kanè Epay',         icon:<Wallet size={14}/>,          group:'Antrepriz' },
   { key:'sabotay',    label:'Sabotay',           icon:<Smartphone size={14}/>,      group:'Antrepriz' },
   { key:'mobilpay',   label:'MonCash / NatCash', icon:<Phone size={14}/>,           group:'Antrepriz' },
+  { key:'hotel',      label:'Otèl (Rezèvasyon & Dashboard)', icon:<Building2 size={14}/>, group:'Antrepriz' },
 ]
 
 const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: true }), {})

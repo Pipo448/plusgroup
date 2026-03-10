@@ -4,7 +4,7 @@ const prisma = require('../../config/prisma')
 const ALL_PAGES = [
   'dashboard', 'products', 'clients', 'quotes', 'invoices',
   'stock', 'reports', 'branches', 'settings', 'users',
-  'kane', 'kane-epay', 'sabotay', 'mobilpay'
+  'kane', 'kane-epay', 'sabotay', 'mobilpay', 'hotel'
 ]
 
 const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
