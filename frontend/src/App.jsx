@@ -41,6 +41,7 @@ import HotelDashboard    from './pages/hotel/HotelDashboard'
 import ReservationsPage  from './pages/hotel/ReservationsPage'
 import NewReservationPage from './pages/hotel/NewReservationPage'
 import ReservationDetail from './pages/hotel/ReservationDetail'
+import NewRoomPage from './pages/hotel/NewRoomPage'
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -139,6 +140,7 @@ export default function App() {
           <Route path="hotel/reservations"          element={<ProtectedPage pageKey="hotel"><ReservationsPage /></ProtectedPage>} />
           <Route path="hotel/reservations/new"      element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
           <Route path="hotel/reservations/:id"      element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
+          <Route path="hotel/rooms/new" element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
         </Route>
 
         {/* Legacy redirects */}
