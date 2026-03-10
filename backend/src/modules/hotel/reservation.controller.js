@@ -2,7 +2,7 @@
 const prisma = require('../../lib/prisma')
 
 const generateReservationNumber = async (tenantId) => {
-  const year = new Date().getFullYear()
+  const year  = new Date().getFullYear()
   const count = await prisma.reservation.count({
     where: { tenantId, createdAt: { gte: new Date(`${year}-01-01`) } },
   })
@@ -13,13 +13,14 @@ const getAll = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
     const branchId = req.branchId
-    const { status, page = 1, limit = 20 } = req.query
+    const { status, type, page = 1, limit = 20 } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
     const where = {
       tenantId,
       ...(branchId && { branchId }),
       ...(status   && { status }),
+      ...(type     && { type }),
     }
 
     const [reservations, total] = await Promise.all([
@@ -47,10 +48,10 @@ const getAll = async (req, res) => {
 const getOne = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
-    const { id } = req.params
+    const { id }   = req.params
 
     const reservation = await prisma.reservation.findFirst({
-      where: { id, tenantId },
+      where:   { id, tenantId },
       include: {
         room:     { include: { roomType: true } },
         client:   true,
@@ -71,18 +72,27 @@ const create = async (req, res) => {
     const tenantId = req.user?.tenantId
     const branchId = req.branchId
     const userId   = req.user?.id
-    const { roomId, clientId, adults, children, checkIn, checkOut, depositHtg, source, notes } = req.body
+
+    const {
+      roomId, clientId, adults, children,
+      checkIn, checkOut, depositHtg, source, notes,
+      // Type
+      type = 'nuit',
+      // Moman fields
+      momentDurationMinutes, momentStartTime, momentEndTime,
+    } = req.body
 
     if (!roomId || !checkIn || !checkOut) {
       return res.status(400).json({ success: false, message: 'Chanm, check-in ak check-out obligatwa' })
     }
 
     const room = await prisma.room.findFirst({
-      where: { id: roomId, tenantId },
+      where:   { id: roomId, tenantId },
       include: { roomType: true },
     })
     if (!room) return res.status(404).json({ success: false, message: 'Chanm pa jwenn' })
 
+    // Konfli rezèvasyon
     const conflict = await prisma.reservation.findFirst({
       where: {
         roomId,
@@ -91,15 +101,9 @@ const create = async (req, res) => {
         checkOut: { gte: new Date(checkIn) },
       },
     })
-    if (conflict) return res.status(400).json({ success: false, message: 'Chanm sa deja rezève pou dat sa yo' })
+    if (conflict) return res.status(400).json({ success: false, message: 'Chanm sa deja rezève pou peryòd sa' })
 
-    const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))
-    if (nights <= 0) return res.status(400).json({ success: false, message: 'Dat yo pa valid' })
-
-    const pricePerNight = parseFloat(room.roomType.priceHtg)
-    const roomTotalHtg  = pricePerNight * nights
-    const deposit       = parseFloat(depositHtg || 0)
-
+    // Snapshot kliyan
     let clientSnapshot = { name: 'Kliyan Anonim' }
     if (clientId) {
       const client = await prisma.client.findFirst({ where: { id: clientId, tenantId } })
@@ -107,31 +111,68 @@ const create = async (req, res) => {
     }
 
     const reservationNumber = await generateReservationNumber(tenantId)
+    const deposit = parseFloat(depositHtg || 0)
+
+    // ── Kalkil selon type ──
+    let nights        = 0
+    let pricePerNight = 0
+    let roomTotalHtg  = 0
+    let roomStatus    = 'reserved'
+
+    if (type === 'nuit') {
+      // ── MODE NUIT
+      nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))
+      if (nights <= 0) return res.status(400).json({ success: false, message: 'Dat yo pa valid' })
+      pricePerNight = parseFloat(room.roomType.priceHtg)
+      roomTotalHtg  = pricePerNight * nights
+      roomStatus    = 'reserved'
+
+    } else {
+      // ── MODE MOMAN
+      if (!momentDurationMinutes || !momentStartTime) {
+        return res.status(400).json({ success: false, message: 'Durasyon ak lè kòmanse obligatwa pou moman' })
+      }
+      if (!room.roomType.momentPriceHtg) {
+        return res.status(400).json({ success: false, message: 'Tip chanm sa pa gen pri moman defini' })
+      }
+      pricePerNight = parseFloat(room.roomType.momentPriceHtg) // pri fiks moman
+      roomTotalHtg  = pricePerNight
+      nights        = 0
+      roomStatus    = 'occupied' // moman → occupied dirèkteman
+    }
 
     const reservation = await prisma.$transaction(async (tx) => {
       const r = await tx.reservation.create({
         data: {
           tenantId,
-          branchId:         branchId || null,
+          branchId:             branchId || null,
           reservationNumber,
           roomId,
-          clientId:         clientId || null,
+          clientId:             clientId || null,
           clientSnapshot,
-          adults:           parseInt(adults || 1),
-          children:         parseInt(children || 0),
-          checkIn:          new Date(checkIn),
-          checkOut:         new Date(checkOut),
+          adults:               parseInt(adults || 1),
+          children:             parseInt(children || 0),
+          type,
+          checkIn:              new Date(checkIn),
+          checkOut:             new Date(checkOut),
           nights,
+          // Moman fields
+          ...(type === 'moman' && {
+            momentDurationMinutes: parseInt(momentDurationMinutes),
+            momentStartTime:      momentStartTime ? new Date(momentStartTime) : null,
+            momentEndTime:        momentEndTime   ? new Date(momentEndTime)   : null,
+          }),
           pricePerNight,
           roomTotalHtg,
-          totalHtg:         roomTotalHtg,
-          depositHtg:       deposit,
-          amountPaidHtg:    deposit,
-          balanceDueHtg:    roomTotalHtg - deposit,
-          status:           'confirmed',
-          source:           source || 'walk-in',
+          totalHtg:             roomTotalHtg,
+          depositHtg:           deposit,
+          amountPaidHtg:        deposit,
+          balanceDueHtg:        roomTotalHtg - deposit,
+          status:               type === 'moman' ? 'checked_in' : 'confirmed',
+          source:               source || 'walk-in',
           notes,
-          createdBy:        userId,
+          createdBy:            userId,
+          ...(type === 'moman' && { checkedInAt: new Date() }),
         },
         include: {
           room:   { include: { roomType: true } },
@@ -139,7 +180,7 @@ const create = async (req, res) => {
         },
       })
 
-      await tx.room.update({ where: { id: roomId }, data: { status: 'reserved' } })
+      await tx.room.update({ where: { id: roomId }, data: { status: roomStatus } })
 
       if (deposit > 0) {
         await tx.hotelPayment.create({
@@ -166,10 +207,14 @@ const create = async (req, res) => {
 const checkIn = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
-    const { id } = req.params
+    const { id }   = req.params
 
     const reservation = await prisma.reservation.findFirst({ where: { id, tenantId } })
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
+
+    if (reservation.type === 'moman') {
+      return res.status(400).json({ success: false, message: 'Moman yo otomatikman checked-in nan kreyasyon' })
+    }
     if (reservation.status !== 'confirmed') {
       return res.status(400).json({ success: false, message: `Pa ka check-in — estati: ${reservation.status}` })
     }
@@ -195,20 +240,30 @@ const checkOut = async (req, res) => {
     const tenantId = req.user?.tenantId
     const branchId = req.branchId
     const userId   = req.user?.id
-    const { id } = req.params
-    const { paymentMethod = 'cash', notes } = req.body
+    const { id }   = req.params
+    const { paymentMethod = 'cash', notes, momentExtraHours = 0 } = req.body
 
     const reservation = await prisma.reservation.findFirst({
       where:   { id, tenantId },
-      include: { services: true, payments: true, room: true },
+      include: { services: true, payments: true, room: { include: { roomType: true } } },
     })
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
     if (reservation.status !== 'checked_in') {
       return res.status(400).json({ success: false, message: `Pa ka check-out — estati: ${reservation.status}` })
     }
 
+    // ── Kalkil total selon type
+    let roomTotalHtg       = parseFloat(reservation.roomTotalHtg)
+    let momentExtraChargeHtg = 0
+
+    if (reservation.type === 'moman' && momentExtraHours > 0) {
+      const perHour = parseFloat(reservation.room.roomType.momentPricePerHourHtg || 0)
+      momentExtraChargeHtg = perHour * parseInt(momentExtraHours)
+      roomTotalHtg += momentExtraChargeHtg
+    }
+
     const servicesTotalHtg = reservation.services.reduce((sum, s) => sum + parseFloat(s.totalHtg), 0)
-    const totalHtg         = parseFloat(reservation.roomTotalHtg) + servicesTotalHtg
+    const totalHtg         = roomTotalHtg + servicesTotalHtg
     const alreadyPaid      = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
     const balanceDue       = totalHtg - alreadyPaid
 
@@ -220,19 +275,19 @@ const checkOut = async (req, res) => {
       const invoice = await tx.invoice.create({
         data: {
           tenantId,
-          branchId:        branchId || null,
+          branchId:         branchId || null,
           invoiceNumber,
-          clientId:        reservation.clientId,
-          clientSnapshot:  reservation.clientSnapshot,
-          currency:        'HTG',
-          exchangeRate:    1,
-          subtotalHtg:     totalHtg,
+          clientId:         reservation.clientId,
+          clientSnapshot:   reservation.clientSnapshot,
+          currency:         'HTG',
+          exchangeRate:     1,
+          subtotalHtg:      totalHtg,
           totalHtg,
-          amountPaidHtg:   alreadyPaid,
-          balanceDueHtg:   Math.max(0, balanceDue),
-          status:          balanceDue <= 0 ? 'paid' : 'partial',
-          notes:           `Check-out ${reservation.reservationNumber}`,
-          createdBy:       userId,
+          amountPaidHtg:    alreadyPaid,
+          balanceDueHtg:    Math.max(0, balanceDue),
+          status:           balanceDue <= 0 ? 'paid' : 'partial',
+          notes:            `Check-out ${reservation.reservationNumber}${reservation.type === 'moman' ? ' (Moman)' : ''}`,
+          createdBy:        userId,
           stockDecremented: false,
         },
       })
@@ -240,13 +295,19 @@ const checkOut = async (req, res) => {
       const updated = await tx.reservation.update({
         where: { id },
         data: {
-          status:          'checked_out',
-          checkedOutAt:    new Date(),
+          status:               'checked_out',
+          checkedOutAt:         new Date(),
+          roomTotalHtg,
           servicesTotalHtg,
           totalHtg,
-          amountPaidHtg:   alreadyPaid,
-          balanceDueHtg:   Math.max(0, balanceDue),
-          invoiceId:       invoice.id,
+          amountPaidHtg:        alreadyPaid,
+          balanceDueHtg:        Math.max(0, balanceDue),
+          invoiceId:            invoice.id,
+          // Moman extra
+          ...(reservation.type === 'moman' && momentExtraHours > 0 && {
+            momentExtraHours:     parseInt(momentExtraHours),
+            momentExtraChargeHtg,
+          }),
         },
         include: { room: { include: { roomType: true } }, services: true, payments: true },
       })
@@ -279,7 +340,7 @@ const checkOut = async (req, res) => {
 const cancel = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
-    const { id } = req.params
+    const { id }   = req.params
     const { cancelReason } = req.body
 
     const reservation = await prisma.reservation.findFirst({ where: { id, tenantId } })
@@ -303,4 +364,59 @@ const cancel = async (req, res) => {
   }
 }
 
-module.exports = { getAll, getOne, create, checkIn, checkOut, cancel }
+// ── Pwolonje moman (ajoute tan)
+const extendMoment = async (req, res) => {
+  try {
+    const tenantId = req.user?.tenantId
+    const { id }   = req.params
+    const { extraMinutes } = req.body
+
+    if (!extraMinutes || extraMinutes <= 0) {
+      return res.status(400).json({ success: false, message: 'extraMinutes obligatwa' })
+    }
+
+    const reservation = await prisma.reservation.findFirst({
+      where:   { id, tenantId },
+      include: { room: { include: { roomType: true } } },
+    })
+    if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
+    if (reservation.type !== 'moman') return res.status(400).json({ success: false, message: 'Sèlman moman ka pwolonje' })
+    if (reservation.status !== 'checked_in') return res.status(400).json({ success: false, message: 'Rezèvasyon pa aktif' })
+
+    const newDuration = (reservation.momentDurationMinutes || 0) + parseInt(extraMinutes)
+    const newEndTime  = reservation.momentEndTime
+      ? new Date(new Date(reservation.momentEndTime).getTime() + extraMinutes * 60000)
+      : new Date(Date.now() + extraMinutes * 60000)
+    const newCheckOut = newEndTime
+
+    // Kalkil chaj siplemantè si gen prix pa zèd
+    const perHour    = parseFloat(reservation.room.roomType.momentPricePerHourHtg || 0)
+    const extraHours = Math.ceil(extraMinutes / 60)
+    const extraCharge = perHour > 0 ? perHour * extraHours : 0
+
+    const updated = await prisma.reservation.update({
+      where: { id },
+      data: {
+        momentDurationMinutes: newDuration,
+        momentEndTime:         newEndTime,
+        checkOut:              newCheckOut,
+        roomTotalHtg: {
+          increment: extraCharge,
+        },
+        totalHtg: {
+          increment: extraCharge,
+        },
+        balanceDueHtg: {
+          increment: extraCharge,
+        },
+      },
+      include: { room: { include: { roomType: true } } },
+    })
+
+    res.json({ success: true, data: updated, extraCharge })
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message })
+  }
+}
+
+module.exports = { getAll, getOne, create, checkIn, checkOut, cancel, extendMoment }
