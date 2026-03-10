@@ -162,9 +162,9 @@ export default function NewRoomPage() {
             ) : roomTypes.length === 0 ? (
               <div style={{ padding:'12px 14px', borderRadius:10, background:D.blueDim, border:`1.5px solid ${D.border}`, color:D.muted, fontSize:13 }}>
                 Pa gen tip chanm encore.{' '}
-                <span style={{ color:D.blue, fontWeight:700, cursor:'pointer' }}>
+                <Link to="/app/hotel/room-types" style={{ color:D.blue, fontWeight:700, textDecoration:'none' }}>
                   Kreye yon tip chanm anvan.
-                </span>
+                </Link>
               </div>
             ) : (
               <>
