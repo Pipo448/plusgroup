@@ -32,13 +32,13 @@ const labelStyle = {
 
 
 const DURATIONS = [
-  { value: 60,  label: '1 Zèd' },
-  { value: 90,  label: '1z 30min' },
-  { value: 120, label: '2 Zèd' },
-  { value: 180, label: '3 Zèd' },
-  { value: 240, label: '4 Zèd' },
-  { value: 300, label: '5 Zèd' },
-  { value: 360, label: '6 Zèd' },
+  { value: 60,  label: '1èd tan' },
+  { value: 90,  label: '1èd 30min' },
+  { value: 120, label: '2èd tan' },
+  { value: 180, label: '3èd tan' },
+  { value: 240, label: '4èd tan' },
+  { value: 300, label: '5èd tan' },
+  { value: 360, label: '6èd tan' },
 ]
 
 export default function NewReservationPage() {
@@ -136,8 +136,8 @@ export default function NewReservationPage() {
     setError('')
     if (type === 'nuit') {
       if (!form.roomId)   return setError('Chwazi yon chanm')
-      if (!form.checkIn)  return setError('Dat check-in obligatwa')
-      if (!form.checkOut) return setError('Dat check-out obligatwa')
+      if (!form.checkIn)  return setError('Dat antre obligatwa')
+      if (!form.checkOut) return setError('Dat soti obligatwa')
       if (nights <= 0)    return setError('Dat yo pa valid')
       mutation.mutate({
         ...form,
@@ -225,12 +225,12 @@ export default function NewReservationPage() {
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                 <div>
-                  <label style={labelStyle}>Check-in</label>
+                  <label style={labelStyle}>Antre</label>
                   <input type="date" value={form.checkIn} min={today} onChange={e => set('checkIn', e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
                 <div>
-                  <label style={labelStyle}>Check-out</label>
+                  <label style={labelStyle}>Soti</label>
                   <input type="date" value={form.checkOut} min={form.checkIn||today} onChange={e => set('checkOut', e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
@@ -358,7 +358,7 @@ export default function NewReservationPage() {
             {/* Durasyon */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <Clock size={16} color={D.purple}/> Durasyon Moman
+                <Clock size={16} color={D.purple}/> Dire Moman
               </h3>
 
               {/* Lè kòmanse */}
