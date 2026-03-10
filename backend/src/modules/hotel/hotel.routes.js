@@ -6,10 +6,10 @@ const roomCtrl        = require('./room.controller')
 const reservationCtrl = require('./reservation.controller')
 const serviceCtrl     = require('./hotelService.controller')
 const paymentCtrl     = require('./hotelPayment.controller')
-const { identifyTenant, authenticate, extractBranch } = require('../../middleware/auth')
+const { identifyTenant, authenticate } = require('../../middleware/auth')
 
 // Tout routes pwoteje
-router.use(identifyTenant, authenticate, extractBranch)
+router.use(identifyTenant, authenticate)
 
 // ── Room Types ─────────────────────────────────────────────────
 router.get('/room-types',        roomTypeCtrl.getAll)
@@ -26,13 +26,13 @@ router.put('/rooms/:id',          roomCtrl.update)
 router.patch('/rooms/:id/status', roomCtrl.updateStatus)
 
 // ── Reservations ───────────────────────────────────────────────
-router.get('/reservations',                        reservationCtrl.getAll)
-router.get('/reservations/:id',                    reservationCtrl.getOne)
-router.post('/reservations',                       reservationCtrl.create)
-router.patch('/reservations/:id/check-in',         reservationCtrl.checkIn)
-router.patch('/reservations/:id/check-out',        reservationCtrl.checkOut)
-router.patch('/reservations/:id/cancel',           reservationCtrl.cancel)
-router.patch('/reservations/:id/extend-moment',    reservationCtrl.extendMoment)
+router.get('/reservations',                     reservationCtrl.getAll)
+router.get('/reservations/:id',                 reservationCtrl.getOne)
+router.post('/reservations',                    reservationCtrl.create)
+router.patch('/reservations/:id/check-in',      reservationCtrl.checkIn)
+router.patch('/reservations/:id/check-out',     reservationCtrl.checkOut)
+router.patch('/reservations/:id/cancel',        reservationCtrl.cancel)
+router.patch('/reservations/:id/extend-moment', reservationCtrl.extendMoment)
 
 // ── Services anplis ────────────────────────────────────────────
 router.get('/reservations/:id/services',  serviceCtrl.getByReservation)
