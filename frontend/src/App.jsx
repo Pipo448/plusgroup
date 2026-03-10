@@ -42,6 +42,7 @@ import ReservationsPage  from './pages/hotel/ReservationsPage'
 import NewReservationPage from './pages/hotel/NewReservationPage'
 import ReservationDetail from './pages/hotel/ReservationDetail'
 import NewRoomPage from './pages/hotel/NewRoomPage'
+import RoomTypesPage from './pages/hotel/RoomTypesPage'
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -66,6 +67,15 @@ const AdminRoute = ({ children }) => {
 const ProtectedPage = ({ pageKey, children }) => {
   const tenant = useAuthStore(s => s.tenant)
   const ap = tenant?.allowedPages
+const ProtectedPage = ({ pageKey, children }) => {
+  const tenant = useAuthStore(s => s.tenant)
+  const ap = tenant?.allowedPages
+  console.log('ProtectedPage:', pageKey, ap?.[pageKey]) // ← liy 73
+  if (ap && typeof ap === 'object' && ap[pageKey] === false) {
+    return <Navigate to="/app/dashboard" replace />
+  }
+  return children
+}
   if (ap && typeof ap === 'object' && ap[pageKey] === false) {
     return <Navigate to="/app/dashboard" replace />
   }
@@ -141,6 +151,7 @@ export default function App() {
           <Route path="hotel/reservations/new"      element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
           <Route path="hotel/reservations/:id"      element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
           <Route path="hotel/rooms/new" element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
+          <Route path="hotel/room-types" element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
         </Route>
 
         {/* Legacy redirects */}
