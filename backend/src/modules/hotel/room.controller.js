@@ -3,7 +3,8 @@ const prisma = require('../../lib/prisma')
 
 const getAll = async (req, res) => {
   try {
-    const { tenantId, branchId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
     const rooms = await prisma.room.findMany({
       where: { tenantId, ...(branchId && { branchId }) },
       include: {
@@ -24,7 +25,8 @@ const getAll = async (req, res) => {
 
 const getAvailable = async (req, res) => {
   try {
-    const { tenantId, branchId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
     const { checkIn, checkOut } = req.query
 
     const busyRoomIds = checkIn && checkOut
@@ -58,7 +60,7 @@ const getAvailable = async (req, res) => {
 
 const getOne = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
     const room = await prisma.room.findFirst({
       where: { id, tenantId },
@@ -80,7 +82,8 @@ const getOne = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { tenantId, branchId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
     const { roomTypeId, number, floor, description } = req.body
 
     if (!roomTypeId || !number) {
@@ -109,7 +112,7 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
     const { roomTypeId, number, floor, description, isActive } = req.body
 
@@ -135,7 +138,7 @@ const update = async (req, res) => {
 
 const updateStatus = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
     const { status } = req.body
 

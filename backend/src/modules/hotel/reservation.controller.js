@@ -11,7 +11,8 @@ const generateReservationNumber = async (tenantId) => {
 
 const getAll = async (req, res) => {
   try {
-    const { tenantId, branchId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
     const { status, page = 1, limit = 20 } = req.query
     const skip = (parseInt(page) - 1) * parseInt(limit)
 
@@ -45,7 +46,7 @@ const getAll = async (req, res) => {
 
 const getOne = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
 
     const reservation = await prisma.reservation.findFirst({
@@ -67,21 +68,21 @@ const getOne = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { tenantId, branchId, userId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
+    const userId   = req.user?.id
     const { roomId, clientId, adults, children, checkIn, checkOut, depositHtg, source, notes } = req.body
 
     if (!roomId || !checkIn || !checkOut) {
       return res.status(400).json({ success: false, message: 'Chanm, check-in ak check-out obligatwa' })
     }
 
-    // Verifye chanm egziste
     const room = await prisma.room.findFirst({
       where: { id: roomId, tenantId },
       include: { roomType: true },
     })
     if (!room) return res.status(404).json({ success: false, message: 'Chanm pa jwenn' })
 
-    // Verifye pa gen konfli
     const conflict = await prisma.reservation.findFirst({
       where: {
         roomId,
@@ -92,7 +93,6 @@ const create = async (req, res) => {
     })
     if (conflict) return res.status(400).json({ success: false, message: 'Chanm sa deja rezève pou dat sa yo' })
 
-    // Kalkile nwit
     const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24))
     if (nights <= 0) return res.status(400).json({ success: false, message: 'Dat yo pa valid' })
 
@@ -100,7 +100,6 @@ const create = async (req, res) => {
     const roomTotalHtg  = pricePerNight * nights
     const deposit       = parseFloat(depositHtg || 0)
 
-    // Kliyan snapshot
     let clientSnapshot = { name: 'Kliyan Anonim' }
     if (clientId) {
       const client = await prisma.client.findFirst({ where: { id: clientId, tenantId } })
@@ -140,10 +139,8 @@ const create = async (req, res) => {
         },
       })
 
-      // Chanm → reserved
       await tx.room.update({ where: { id: roomId }, data: { status: 'reserved' } })
 
-      // Kreye peman depo si gen youn
       if (deposit > 0) {
         await tx.hotelPayment.create({
           data: {
@@ -168,7 +165,7 @@ const create = async (req, res) => {
 
 const checkIn = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
 
     const reservation = await prisma.reservation.findFirst({ where: { id, tenantId } })
@@ -195,7 +192,9 @@ const checkIn = async (req, res) => {
 
 const checkOut = async (req, res) => {
   try {
-    const { tenantId, branchId, userId } = req
+    const tenantId = req.user?.tenantId
+    const branchId = req.branchId
+    const userId   = req.user?.id
     const { id } = req.params
     const { paymentMethod = 'cash', notes } = req.body
 
@@ -208,19 +207,16 @@ const checkOut = async (req, res) => {
       return res.status(400).json({ success: false, message: `Pa ka check-out — estati: ${reservation.status}` })
     }
 
-    // Kalkile total final
     const servicesTotalHtg = reservation.services.reduce((sum, s) => sum + parseFloat(s.totalHtg), 0)
     const totalHtg         = parseFloat(reservation.roomTotalHtg) + servicesTotalHtg
     const alreadyPaid      = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
     const balanceDue       = totalHtg - alreadyPaid
 
-    // Jenere nimewo fakti
     const year  = new Date().getFullYear()
     const count = await prisma.invoice.count({ where: { tenantId } })
     const invoiceNumber = `FAK-${year}-${String(count + 1).padStart(4, '0')}`
 
     const result = await prisma.$transaction(async (tx) => {
-      // Kreye Invoice
       const invoice = await tx.invoice.create({
         data: {
           tenantId,
@@ -241,7 +237,6 @@ const checkOut = async (req, res) => {
         },
       })
 
-      // Mete ajou rezèvasyon
       const updated = await tx.reservation.update({
         where: { id },
         data: {
@@ -256,7 +251,6 @@ const checkOut = async (req, res) => {
         include: { room: { include: { roomType: true } }, services: true, payments: true },
       })
 
-      // Peman balans si gen youn
       if (balanceDue > 0) {
         await tx.hotelPayment.create({
           data: {
@@ -271,7 +265,6 @@ const checkOut = async (req, res) => {
         })
       }
 
-      // Chanm → cleaning
       await tx.room.update({ where: { id: reservation.roomId }, data: { status: 'cleaning' } })
 
       return { reservation: updated, invoice }
@@ -285,7 +278,7 @@ const checkOut = async (req, res) => {
 
 const cancel = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
     const { cancelReason } = req.body
 

@@ -3,7 +3,7 @@ const prisma = require('../../lib/prisma')
 
 const getAll = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const roomTypes = await prisma.roomType.findMany({
       where: { tenantId },
       include: { _count: { select: { rooms: true } } },
@@ -17,7 +17,7 @@ const getAll = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { name, description, priceHtg, priceUsd, maxAdults, maxChildren, amenities } = req.body
 
     if (!name || !priceHtg) {
@@ -44,7 +44,7 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
     const { name, description, priceHtg, priceUsd, maxAdults, maxChildren, amenities, isActive } = req.body
 
@@ -72,7 +72,7 @@ const update = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.user?.tenantId
     const { id } = req.params
 
     const existing = await prisma.roomType.findFirst({
