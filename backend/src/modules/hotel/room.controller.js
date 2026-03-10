@@ -92,12 +92,12 @@ const create = async (req, res) => {
 
     const room = await prisma.room.create({
       data: {
-        tenantId,
-        branchId: branchId || null,
-        roomTypeId,
+        tenant:   { connect: { id: tenantId } },   // ← connect olye tenantId dirèkt
+        roomType: { connect: { id: roomTypeId } },  // ← connect olye roomTypeId dirèkt
+        ...(branchId && { branch: { connect: { id: branchId } } }),
         number,
-        floor: parseInt(floor || 1),
-        description,
+        floor:       floor || null,   // ← string dirèkt, pa parseInt
+        description: description || null,
       },
       include: { roomType: true },
     })
