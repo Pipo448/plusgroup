@@ -18,7 +18,14 @@ const D = {
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
-const FLOORS = ['Rezd chosye', '1ye etaj', '2yèm etaj', '3yèm etaj', '4yèm etaj', '5yèm etaj']
+const FLOORS = [
+  { value: 0, label: 'Rezd chosye' },
+  { value: 1, label: '1ye etaj' },
+  { value: 2, label: '2yèm etaj' },
+  { value: 3, label: '3yèm etaj' },
+  { value: 4, label: '4yèm etaj' },
+  { value: 5, label: '5yèm etaj' },
+]
 
 const inputStyle = {
   width:'100%', padding:'11px 14px', borderRadius:10,
@@ -78,7 +85,7 @@ export default function NewRoomPage() {
     if (!validate()) return
     mutation.mutate({
       number:     form.number.trim(),
-      floor:      form.floor || null,
+      floor:      form.floor !== '' ? parseInt(form.floor) : null,
       roomTypeId: form.roomTypeId,
       notes:      form.notes.trim() || null,
     })
@@ -147,7 +154,7 @@ export default function NewRoomPage() {
               style={{ ...inputStyle, cursor:'pointer', appearance:'none', backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7AAB' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center' }}
             >
               <option value="">— Chwazi etaj (opsyonèl) —</option>
-              {FLOORS.map((f, i) => <option key={i} value={f}>{f}</option>)}
+              {FLOORS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
           </div>
 
