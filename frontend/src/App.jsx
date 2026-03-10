@@ -70,7 +70,6 @@ const ProtectedPage = ({ pageKey, children }) => {
 const ProtectedPage = ({ pageKey, children }) => {
   const tenant = useAuthStore(s => s.tenant)
   const ap = tenant?.allowedPages
-  console.log('ProtectedPage:', pageKey, ap?.[pageKey]) // ← liy 73
   if (ap && typeof ap === 'object' && ap[pageKey] === false) {
     return <Navigate to="/app/dashboard" replace />
   }
