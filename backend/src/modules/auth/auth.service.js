@@ -27,24 +27,6 @@ const login = async (tenantId, email, password) => {
     throw Object.assign(new Error('Email oswa modpas pa kòrèk.'), { statusCode: 401 });
   }
 
-  prisma.tenant.findUnique({
-  where: { id: tenantId },
-  select: {                    // ← chanje include → select
-    id: true, name: true, slug: true, logoUrl: true,
-    primaryColor: true, defaultCurrency: true, defaultLanguage: true,
-    phone: true, address: true, exchangeRate: true, exchangeRates: true,
-    visibleCurrencies: true, showExchangeRate: true, showQrCode: true,
-    taxRate: true, receiptSize: true, subscriptionEndsAt: true,
-    allowedPages: true,        // ✅ KRITIK
-    plan: {
-      select: {
-        id: true, name: true, features: true,
-        maxProducts: true, priceMonthly: true
-      }
-    }
-  }
-}),
-
   // ✅ Fè tou 3 query an paralèl — pi rapid
   const [, tenant, branchUsers] = await Promise.all([
     // 1. Update lastLoginAt
@@ -53,10 +35,16 @@ const login = async (tenantId, email, password) => {
       data: { lastLoginAt: new Date() }
     }),
 
-    // 2. Chèche tenant + plan
+    // 2. Chèche tenant + plan + allowedPages ✅
     prisma.tenant.findUnique({
       where: { id: tenantId },
-      include: {
+      select: {
+        id: true, name: true, slug: true, logoUrl: true,
+        primaryColor: true, defaultCurrency: true, defaultLanguage: true,
+        phone: true, address: true, exchangeRate: true, exchangeRates: true,
+        visibleCurrencies: true, showExchangeRate: true, showQrCode: true,
+        taxRate: true, receiptSize: true, subscriptionEndsAt: true,
+        allowedPages: true, // ✅ KRITIK — pou sidebar fonksyone
         plan: {
           select: {
             id: true, name: true, features: true,
@@ -66,7 +54,7 @@ const login = async (tenantId, email, password) => {
       }
     }),
 
-    // ✅ NOUVO — 3. Chèche branch itilizatè a gen aksè
+    // 3. Chèche branch itilizatè a gen aksè
     prisma.branchUser.findMany({
       where: { userId: user.id },
       select: {
