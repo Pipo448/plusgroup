@@ -7,7 +7,7 @@ import {
   Warehouse, TrendingUp, Settings, LogOut, Bell,
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
-  Wallet, Hotel, CalendarDays,
+  Wallet, Hotel, CalendarDays, Tag 
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
@@ -61,6 +61,7 @@ const ENTERPRISE_ITEMS = [
 const HOTEL_ITEMS = [
   { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
   { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
+  { to:'/app/hotel/room-types',   icon:Tag,          label:'Tip Chanm',       end:false },
 ]
 
 const LANGS = [
