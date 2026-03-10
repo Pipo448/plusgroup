@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { CalendarDays, Plus, Eye, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { CalendarDays, Plus, Eye, ChevronLeft, ChevronRight, Search, Clock, Moon } from 'lucide-react'
 import { format } from 'date-fns'
 import { hotelAPI } from '../../services/hotelAPI'
 
@@ -16,24 +16,35 @@ const D = {
   success:'#059669', successBg:'rgba(5,150,105,0.08)',
   warning:'#D97706', warningBg:'rgba(217,119,6,0.10)',
   orange:'#FF6B00', orangeLt:'#FF8C33',
+  purple:'#7C3AED', purpleDim:'rgba(124,58,237,0.08)',
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
 const STATUS_MAP = {
-  pending:     { label: 'Annatant',   color: D.muted,    bg: 'rgba(107,122,171,0.10)' },
-  confirmed:   { label: 'Konfime',    color: D.blue,     bg: D.blueDim2 },
-  checked_in:  { label: 'Check-in',   color: D.success,  bg: D.successBg },
-  checked_out: { label: 'Check-out',  color: '#7C3AED',  bg: 'rgba(124,58,237,0.08)' },
-  cancelled:   { label: 'Anile',      color: D.red,      bg: D.redDim },
-  no_show:     { label: 'No-show',    color: D.warning,  bg: D.warningBg },
+  pending:     { label: 'Annatant', color: D.muted,   bg: 'rgba(107,122,171,0.10)' },
+  confirmed:   { label: 'Konfime',  color: D.blue,    bg: D.blueDim2 },
+  checked_in:  { label: 'Antre',    color: D.success, bg: D.successBg },
+  checked_out: { label: 'Soti',     color: '#7C3AED', bg: 'rgba(124,58,237,0.08)' },
+  cancelled:   { label: 'Anile',    color: D.red,     bg: D.redDim },
+  no_show:     { label: 'No-show',  color: D.warning, bg: D.warningBg },
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0 })
 
+// Afiche dire moman ann èd tan
+const formatDuration = (minutes) => {
+  if (!minutes) return '—'
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (h === 0) return `${m}min`
+  if (m === 0) return `${h}èd tan`
+  return `${h}èd ${m}min`
+}
+
 export default function ReservationsPage() {
-  const [status, setStatus]   = useState('')
-  const [search, setSearch]   = useState('')
-  const [page, setPage]       = useState(1)
+  const [status, setStatus] = useState('')
+  const [search, setSearch] = useState('')
+  const [page, setPage]     = useState(1)
 
   const { data: raw, isLoading } = useQuery({
     queryKey: ['hotel-reservations', status, page],
@@ -41,7 +52,7 @@ export default function ReservationsPage() {
     keepPreviousData: true,
   })
 
-  const reservations = raw?.data || []
+  const reservations = raw?.data  || []
   const total        = raw?.total || 0
   const pages        = Math.ceil(total / 15) || 1
 
@@ -84,10 +95,10 @@ export default function ReservationsPage() {
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
-            { v:'', l:'Tout' },
+            { v:'',            l:'Tout' },
             { v:'confirmed',   l:'Konfime' },
-            { v:'checked_in',  l:'Check-in' },
-            { v:'checked_out', l:'Check-out' },
+            { v:'checked_in',  l:'Antre' },
+            { v:'checked_out', l:'Soti' },
             { v:'cancelled',   l:'Anile' },
           ].map(opt => (
             <button key={opt.v} onClick={() => { setStatus(opt.v); setPage(1) }}
@@ -102,7 +113,7 @@ export default function ReservationsPage() {
       <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
         {/* Header tablo */}
         <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 1fr 1.2fr 100px 100px 50px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
-          {['#Rezèvasyon','Kliyan','Chanm','Nwit','Total HTG','Estati','Dat',''].map((h, i) => (
+          {['#Rezèvasyon','Kliyan','Chanm','Dire','Total HTG','Estati','Dat',''].map((h, i) => (
             <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i >= 4 ? 'center' : 'left' }}>{h}</span>
           ))}
         </div>
@@ -121,7 +132,7 @@ export default function ReservationsPage() {
                 <Plus size={14}/> Nouvo Rezèvasyon
               </Link>
             </div>
-          : filtered.map((res, idx) => <ResRow key={res.id} res={res} idx={idx} D={D} STATUS_MAP={STATUS_MAP} fmt={fmt}/>)
+          : filtered.map((res, idx) => <ResRow key={res.id} res={res} idx={idx} D={D} STATUS_MAP={STATUS_MAP} fmt={fmt} formatDuration={formatDuration}/>)
         }
       </div>
 
@@ -145,26 +156,51 @@ export default function ReservationsPage() {
   )
 }
 
-function ResRow({ res, idx, D, STATUS_MAP, fmt }) {
+function ResRow({ res, idx, D, STATUS_MAP, fmt, formatDuration }) {
   const [hov, setHov] = useState(false)
-  const s = STATUS_MAP[res.status] || STATUS_MAP.pending
+  const s       = STATUS_MAP[res.status] || STATUS_MAP.pending
+  const isMoman = res.type === 'moman'
 
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1fr 1fr 1.2fr 100px 100px 50px', padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background:hov ? D.blueDim : idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)', transition:'background 0.15s' }}>
 
-      <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{res.reservationNumber}</span>
+      {/* # Rezèvasyon + badge type */}
+      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+        <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{res.reservationNumber}</span>
+        {isMoman
+          ? <span style={{ fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:99, background:D.purpleDim, color:D.purple, border:`1px solid ${D.purple}25`, display:'flex', alignItems:'center', gap:3 }}><Clock size={8}/>Moman</span>
+          : <span style={{ fontSize:9, fontWeight:800, padding:'2px 6px', borderRadius:99, background:D.blueDim, color:D.blue, border:`1px solid ${D.border}`, display:'flex', alignItems:'center', gap:3 }}><Moon size={8}/>Nuit</span>
+        }
+      </div>
+
       <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{res.clientSnapshot?.name || '—'}</span>
-      <span style={{ fontSize:13, fontWeight:700, color:D.text }}>#{res.room?.number} <span style={{ fontSize:11, color:D.muted, fontWeight:400 }}>{res.room?.roomType?.name}</span></span>
-      <span style={{ fontSize:13, color:D.muted, textAlign:'center' }}>{res.nights} nwit</span>
+
+      <span style={{ fontSize:13, fontWeight:700, color:D.text }}>
+        #{res.room?.number} <span style={{ fontSize:11, color:D.muted, fontWeight:400 }}>{res.room?.roomType?.name}</span>
+      </span>
+
+      {/* Dire — nwit oswa èd tan */}
+      <span style={{ fontSize:13, color:D.muted, textAlign:'center' }}>
+        {isMoman
+          ? <span style={{ color:D.purple, fontWeight:700 }}>{formatDuration(res.momentDurationMinutes)}</span>
+          : `${res.nights} nwit`
+        }
+      </span>
+
       <div style={{ textAlign:'center' }}>
         <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(res.totalHtg)}</span>
         {Number(res.balanceDueHtg) > 0 && <div style={{ fontSize:10, color:D.red, fontFamily:'monospace' }}>Balans: {fmt(res.balanceDueHtg)}</div>}
       </div>
+
       <div style={{ textAlign:'center' }}>
         <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
       </div>
-      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{format(new Date(res.checkIn), 'dd/MM/yy')}</span>
+
+      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>
+        {format(new Date(res.checkIn), 'dd/MM/yy')}
+      </span>
+
       <div style={{ textAlign:'right' }}>
         <Link to={`/app/hotel/reservations/${res.id}`} style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:hov ? `linear-gradient(135deg,${D.blue},${D.blueLt})` : D.blueDim, color:hov ? '#fff' : D.blue, textDecoration:'none', transition:'all 0.2s' }}>
           <Eye size={13}/>
