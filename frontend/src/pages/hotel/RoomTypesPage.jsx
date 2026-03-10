@@ -212,7 +212,7 @@ export default function RoomTypesPage() {
                     </div>
                     {rt.momentPricePerHourHtg > 0 && (
                       <div style={{ flex:1, padding:'8px 12px', borderRadius:10, background:'rgba(124,58,237,0.05)', border:`1px solid ${D.purple}15` }}>
-                        <p style={{ fontSize:10, color:D.purple, fontWeight:700, margin:'0 0 2px' }}>HTG/zèd supla</p>
+                        <p style={{ fontSize:10, color:D.purple, fontWeight:700, margin:'0 0 2px' }}>HTG/èd supla</p>
                         <p style={{ fontSize:14, fontWeight:900, color:D.purple, margin:0 }}>{Number(rt.momentPricePerHourHtg).toLocaleString()}</p>
                       </div>
                     )}
@@ -340,13 +340,13 @@ export default function RoomTypesPage() {
                     <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>Pri debaz pou yon moman</p>
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, color:D.purple }}>Pri pa Zèd (si depase)</label>
+                    <label style={{ ...labelStyle, color:D.purple }}>Pri pa èd (si depase)</label>
                     <input type="number" placeholder="Ex: 200" value={form.momentPricePerHourHtg} onChange={e => set('momentPricePerHourHtg', e.target.value)} min="0"
                       style={{ ...inputStyle, borderColor:`${D.purple}30` }}
                       onFocus={e => e.target.style.borderColor = D.purple}
                       onBlur={e => e.target.style.borderColor = `${D.purple}30`}
                     />
-                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>Chak zèd apre tan chwazi a</p>
+                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>Chak èd apre tan chwazi a</p>
                   </div>
                 </div>
               </div>

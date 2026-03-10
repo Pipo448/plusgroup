@@ -148,7 +148,7 @@ export default function NewReservationPage() {
     } else {
       if (!mForm.roomId)               return setError('Chwazi yon chanm')
       if (!mForm.momentStartTime)      return setError('Lè kòmanse obligatwa')
-      if (!mForm.momentDurationMinutes) return setError('Chwazi durasyon an')
+      if (!mForm.momentDurationMinutes) return setError('Chwazi dire a')
       const now = new Date()
       const startDt = new Date(`${today}T${mForm.momentStartTime}:00`)
       const endDt   = new Date(startDt.getTime() + mForm.momentDurationMinutes * 60000)
@@ -474,8 +474,8 @@ export default function NewReservationPage() {
                   </div>
                   {momentPerHour > 0 && (
                     <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:13, color:D.muted }}>Pri pa zèd (si depase)</span>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{momentPerHour.toLocaleString()} HTG/zèd</span>
+                      <span style={{ fontSize:13, color:D.muted }}>Pri pa èd tan (si depase)</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{momentPerHour.toLocaleString()} HTG/èd</span>
                     </div>
                   )}
                   <div style={{ height:1, background:`${D.purple}20` }}/>
@@ -485,7 +485,7 @@ export default function NewReservationPage() {
                   </div>
                   {momentPerHour > 0 && (
                     <p style={{ fontSize:11, color:D.muted, margin:0, fontStyle:'italic' }}>
-                      + {momentPerHour.toLocaleString()} HTG chak zèd siplemantè apre fini
+                      + {momentPerHour.toLocaleString()} HTG chak èd siplemantè apre fini
                     </p>
                   )}
                 </div>
