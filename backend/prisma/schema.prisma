@@ -387,7 +387,6 @@ model Invoice {
   balanceDueUsd    Decimal         @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
   status           InvoiceStatus   @default(unpaid)
   issueDate        DateTime        @default(now()) @map("issue_date") @db.Timestamptz(6)
-  dueDate          DateTime?       @map("due_date") @db.Timestamptz(6)
   notes            String?
   terms            String?
   stockDecremented Boolean         @default(false) @map("stock_decremented")
@@ -633,7 +632,6 @@ model SabotayMember {
   name        String           @db.VarChar(200)
   phone       String?          @db.VarChar(50)
   position    Int
-  dueDate     DateTime?        @map("due_date") @db.Date
   collectDate DateTime?        @map("collect_date") @db.Date
   notes       String?
   isActive    Boolean          @default(true) @map("is_active")
@@ -660,7 +658,6 @@ model SabotayPayment {
   memberId    String        @map("member_id")
   amount      Decimal       @db.Decimal(14, 2)
   paidDate    DateTime?     @map("paid_date") @db.Date
-  dueDate     DateTime?     @map("due_date") @db.Date
   timing      String?
   fineAmt     Decimal?      @map("fine_amt") @db.Decimal(14, 2)
   notes       String?
@@ -670,6 +667,7 @@ model SabotayPayment {
   creator     User?         @relation("SabotayPaymentCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
   member      SabotayMember @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   plan        SabotayPlan   @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  method      String?          @default("cash")
 
   @@index([planId], map: "sabotay_payments_plan_idx")
   @@index([memberId], map: "sabotay_payments_member_idx")
