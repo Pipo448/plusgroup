@@ -96,7 +96,7 @@ async function getStats(tenantId, branchId) {
     prisma.sabotayPayment.count({
       where: {
         plan: { tenantId },
-        paidAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
+        paidDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
       }
     }),
   ])
@@ -137,7 +137,7 @@ async function getPlans(tenantId, branchId, params = {}) {
           include: {
             payments: {
               select: {
-                id: true, dueDate: true, paidAt: true,
+                id: true, dueDate: true, paidDate: true,
                 amount: true, timing: true, fineAmt: true,
               }
             }
@@ -628,7 +628,7 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
         memberId,
         amount:    Number(plan.amount),
         dueDate:   new Date(dueDate),
-        paidAt:    new Date(),
+        paidDate:    new Date(),
         method:    method  || 'cash',
         notes:     notes   || null,
         createdBy: userId,
@@ -760,7 +760,7 @@ async function getMemberAccount(tenantId, planId, memberId) {
       amount,
       isPaid:    !!paid,
       isLate:    isPast && !paid,
-      paidAt:    paid?.paidAt    || null,
+      paidDate:    paid?.paidDate    || null,
       method:    paid?.method    || null,
       paymentId: paid?.id        || null,
       fineAmt:   paid?.fineAmt   || (member.fines?.[dueDate] || 0),
