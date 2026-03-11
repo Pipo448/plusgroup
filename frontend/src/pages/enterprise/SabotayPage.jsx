@@ -192,7 +192,7 @@ const GLOBAL_STYLES = `
   @keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
   @keyframes pop     { 0%{transform:scale(0.85);opacity:0} 70%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
   @media(min-width:640px){ .m-sheet{border-radius:20px!important;margin:20px!important;max-height:88vh!important;} }
-  .m-sheet::-webkit-scrollbar{width:3px}
+  .m-sheet::-webkit-scrollbar{width:8px}
   .m-sheet::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:2px}
   .m-sheet input::placeholder,.m-sheet textarea::placeholder{color:#2a3a54}
   .m-sheet select option{background:#0d1b2a;color:#e8eaf0}
