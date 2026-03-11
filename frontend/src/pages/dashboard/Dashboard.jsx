@@ -1,7 +1,7 @@
 // src/pages/dashboard/Dashboard.jsx
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { api } from '../../services/api'
+import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import ProfitSection from './ProfitSection'
 import { Link, useNavigate } from 'react-router-dom'
