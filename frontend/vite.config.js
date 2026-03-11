@@ -8,6 +8,43 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Core React
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          // Data fetching
+          'vendor-query': ['@tanstack/react-query'],
+          // Enterprise paj lou yo — chak gen pwòp chunk
+          'chunk-sabotay':  ['./src/pages/enterprise/SabotayPage'],
+          'chunk-hotel':    [
+            './src/pages/hotel/HotelDashboard',
+            './src/pages/hotel/ReservationsPage',
+            './src/pages/hotel/NewReservationPage',
+            './src/pages/hotel/ReservationDetail',
+            './src/pages/hotel/NewRoomPage',
+            './src/pages/hotel/RoomTypesPage',
+          ],
+          'chunk-enterprise': [
+            './src/pages/enterprise/KanePage',
+            './src/pages/enterprise/KaneEpayPage',
+            './src/pages/enterprise/MobilPayPage',
+          ],
+          'chunk-invoices': [
+            './src/pages/invoices/InvoicesPage',
+            './src/pages/invoices/InvoiceDetail',
+            './src/pages/invoices/NewInvoicePage',
+          ],
+          'chunk-admin': [
+            './src/pages/admin/AdminDashboard',
+            './src/pages/reports/ReportsPage',
+          ],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     port: 3000,
     proxy: {
