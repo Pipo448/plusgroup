@@ -704,6 +704,7 @@ model SolMemberAccount {
   plainPassword    String?  @map("plain_password")
   status           String   @default("active")
 
+  positions        SolMemberPosition[]
   @@index([tenantId], map: "sol_member_accounts_tenant_idx")
   @@index([memberId], map: "sol_member_accounts_member_idx")
   @@map("sol_member_accounts")
@@ -850,7 +851,7 @@ model HotelPayment {
   @@map("hotel_payments")
 }
 
-model admin_audit_logs {
+model AdminAuditLog {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id    String?   @db.Uuid
   action       String    @db.VarChar(100)
@@ -955,4 +956,24 @@ enum ServiceType {
   spa
   room_service
   other
+}
+
+model SolMemberPosition {
+  id             String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  accountId      String           @map("account_id")
+  tenantId       String           @map("tenant_id")
+  memberId       String           @map("member_id")
+  memberPosition Int              @map("member_position")
+  planId         String           @map("plan_id")
+  planName       String?          @map("plan_name")
+  planAmount     Float            @default(0) @map("plan_amount")
+  status         String           @default("active")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  account        SolMemberAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([memberId])
+  @@index([planId])
+  @@map("sol_member_positions")
 }
