@@ -14,6 +14,7 @@ exports.getStats = async (req, res) => {
     const stats = await svc.getStats(tenantId, branchId)
     res.json({ success: true, stats })
   } catch (e) {
+    console.error('❌ KANE getStats ERROR:', e.message)
     res.status(500).json({ success: false, message: e.message })
   }
 }
@@ -25,6 +26,7 @@ exports.getAccounts = async (req, res) => {
     const result = await svc.getAccounts(tenantId, branchId, req.query)
     res.json({ success: true, ...result })
   } catch (e) {
+    console.error('❌ KANE getAccounts ERROR:', e.message)
     res.status(500).json({ success: false, message: e.message })
   }
 }
@@ -36,6 +38,7 @@ exports.getAccount = async (req, res) => {
     const account = await svc.getAccountById(tenantId, req.params.id)
     res.json({ success: true, account })
   } catch (e) {
+    console.error('❌ KANE getAccount ERROR:', e.message)
     res.status(404).json({ success: false, message: e.message })
   }
 }
@@ -44,9 +47,13 @@ exports.getAccount = async (req, res) => {
 exports.createAccount = async (req, res) => {
   try {
     const { tenantId, branchId, userId } = getTenantAndBranch(req)
+    console.log('📥 KANE CREATE — body:', JSON.stringify(req.body, null, 2))
     const account = await svc.createAccount(tenantId, branchId, userId, req.body)
+    console.log('✅ KANE CREATE — success:', account.accountNumber)
     res.status(201).json({ success: true, account })
   } catch (e) {
+    console.error('❌ KANE CREATE ERROR:', e.message)
+    console.error('❌ KANE CREATE STACK:', e.stack)
     res.status(400).json({ success: false, message: e.message })
   }
 }
@@ -58,6 +65,7 @@ exports.deposit = async (req, res) => {
     const result = await svc.deposit(tenantId, req.params.id, userId, req.body)
     res.json({ success: true, ...result })
   } catch (e) {
+    console.error('❌ KANE deposit ERROR:', e.message)
     res.status(400).json({ success: false, message: e.message })
   }
 }
@@ -69,6 +77,7 @@ exports.withdraw = async (req, res) => {
     const result = await svc.withdraw(tenantId, req.params.id, userId, req.body)
     res.json({ success: true, ...result })
   } catch (e) {
+    console.error('❌ KANE withdraw ERROR:', e.message)
     res.status(400).json({ success: false, message: e.message })
   }
 }
