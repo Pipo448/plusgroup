@@ -2,12 +2,12 @@
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-// ── Jenere nimewo kont otomatik: KE-2026-00001 ──
-async function generateAccountNumber(tenantId) {
-  const year = new Date().getFullYear()
-  const docType = 'kane_epay'
+// ── Jenere nimewo kont — prefiks dinamik ──────────────────────
+async function generateAccountNumber(tenantId, accountPrefix) {
+  const year    = new Date().getFullYear()
+  const prefix  = (accountPrefix || 'KE').toUpperCase().substring(0, 4)
+  const docType = `kane_epay_${prefix.toLowerCase()}`
 
-  // Chèche oswa kreye sequence
   let seq = await prisma.documentSequence.findUnique({
     where: { tenantId_documentType: { tenantId, documentType: docType } }
   })
@@ -17,76 +17,82 @@ async function generateAccountNumber(tenantId) {
       data: {
         tenantId,
         documentType: docType,
-        prefix: 'KE',
-        lastNumber: 0,
+        prefix,
+        lastNumber:  0,
         currentYear: year,
-        yearReset: true,
+        yearReset:   true,
       }
     })
   }
 
-  // Reset si nouvo ane
   let nextNum = seq.lastNumber + 1
-  if (seq.yearReset && seq.currentYear !== year) {
-    nextNum = 1
-  }
+  if (seq.yearReset && seq.currentYear !== year) nextNum = 1
 
-  // Update sequence
   await prisma.documentSequence.update({
     where: { tenantId_documentType: { tenantId, documentType: docType } },
-    data: { lastNumber: nextNum, currentYear: year }
+    data:  { lastNumber: nextNum, currentYear: year }
   })
 
-  return `KE-${year}-${String(nextNum).padStart(5, '0')}`
+  return `${prefix}-${year}-${String(nextNum).padStart(5, '0')}`
 }
 
-// ── Enskri yon nouvo kont ──────────────────────────────────────
+// ── Kreye nouvo kont ──────────────────────────────────────────
 async function createAccount(tenantId, branchId, userId, data) {
-  const { firstName, lastName, address, nifOrCin, phone,
-          openingAmount, kaneFee, lockedAmount } = data
+  const {
+    firstName, lastName, address, nifOrCin, phone,
+    familyRelation, familyName,
+    openingAmount, kaneFee, lockedAmount,
+    method, reference,
+    accountPrefix,
+    photoUrl,
+    idPhotoUrl,
+  } = data
 
   const opening = Number(openingAmount || 0)
-  const fee     = Number(kaneFee     || 0)
-  const locked  = Number(lockedAmount || 0)
+  const fee     = Number(kaneFee       || 0)
+  const locked  = Number(lockedAmount  || 0)
   const balance = opening - fee - locked
 
-  if (balance < 0) throw new Error('Balans pa ka negatif. Ajiste frè ak montan bloke a.')
+  if (opening <= 0) throw new Error('Montan ouverture dwe plis ke 0.')
+  if (balance < 0)  throw new Error('Balans pa ka negatif. Ajiste frè ak montan bloke a.')
 
-  const accountNumber = await generateAccountNumber(tenantId)
+  const accountNumber = await generateAccountNumber(tenantId, accountPrefix)
 
   const account = await prisma.$transaction(async (tx) => {
-    // Kreye kont
     const acc = await tx.kaneEpay.create({
       data: {
         tenantId,
-        branchId:      branchId || null,
+        branchId:       branchId       || null,
         accountNumber,
-        firstName,
-        lastName,
-        address:       address  || null,
-        nifOrCin:      nifOrCin || null,
-        phone:         phone    || null,
-        openingAmount: opening,
-        kaneFee:       fee,
-        lockedAmount:  locked,
+        firstName:      firstName.trim(),
+        lastName:       lastName.trim(),
+        address:        address        || null,
+        nifOrCin:       nifOrCin       || null,
+        phone:          phone          || null,
+        familyRelation: familyRelation || null,
+        familyName:     familyName     || null,
+        photoUrl:       photoUrl       || null,
+        idPhotoUrl:     idPhotoUrl     || null,
+        openingAmount:  opening,
+        kaneFee:        fee,
+        lockedAmount:   locked,
         balance,
-        createdBy: userId,
+        createdBy:      userId,
       }
     })
 
-    // Kreye premye tranzaksyon "ouverture"
     await tx.kaneTransaction.create({
       data: {
         tenantId,
-        accountId:    acc.id,
-        type:         'ouverture',
-        amount:       opening,
+        accountId:     acc.id,
+        type:          'ouverture',
+        amount:        opening,
         balanceBefore: 0,
         balanceAfter:  balance,
-        method:       data.method || 'cash',
-        reference:    data.reference || null,
-        notes:        `Ouverture kont — Frè: ${fee} HTG | Bloke: ${locked} HTG`,
-        createdBy:    userId,
+        method:        method    || 'cash',
+        reference:     reference || null,
+        notes:         `Ouverture kont — Frè: ${fee} HTG | Bloke: ${locked} HTG`,
+        createdBy:     userId,
       }
     })
 
@@ -98,7 +104,7 @@ async function createAccount(tenantId, branchId, userId, data) {
 
 // ── Lis tout kont ─────────────────────────────────────────────
 async function getAccounts(tenantId, branchId, params = {}) {
-  const { search, page = 1, limit = 20, isActive } = params
+  const { search, page = 1, limit = 15, isActive } = params
   const skip = (Number(page) - 1) * Number(limit)
 
   const where = {
@@ -121,7 +127,7 @@ async function getAccounts(tenantId, branchId, params = {}) {
       where,
       include: {
         creator: { select: { fullName: true } },
-        _count: { select: { transactions: true } }
+        _count:  { select: { transactions: true } }
       },
       orderBy: { createdAt: 'desc' },
       skip,
@@ -133,7 +139,7 @@ async function getAccounts(tenantId, branchId, params = {}) {
   return { accounts, total, page: Number(page), limit: Number(limit) }
 }
 
-// ── Jwenn yon sèl kont + tranzaksyon li ───────────────────────
+// ── Jwenn yon sèl kont + tout tranzaksyon ─────────────────────
 async function getAccountById(tenantId, accountId) {
   const account = await prisma.kaneEpay.findFirst({
     where: { id: accountId, tenantId },
@@ -149,7 +155,7 @@ async function getAccountById(tenantId, accountId) {
   return account
 }
 
-// ── Fè yon depo ───────────────────────────────────────────────
+// ── Depo ──────────────────────────────────────────────────────
 async function deposit(tenantId, accountId, userId, data) {
   const { amount, method, reference, notes } = data
   const amt = Number(amount || 0)
@@ -163,35 +169,23 @@ async function deposit(tenantId, accountId, userId, data) {
   const balBefore = Number(account.balance)
   const balAfter  = balBefore + amt
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.kaneEpay.update({
-      where: { id: accountId },
-      data: { balance: balAfter }
-    })
-
-    const tx_ = await tx.kaneTransaction.create({
+  return prisma.$transaction(async (tx) => {
+    await tx.kaneEpay.update({ where: { id: accountId }, data: { balance: balAfter } })
+    const transaction = await tx.kaneTransaction.create({
       data: {
-        tenantId,
-        accountId,
-        type:          'depot',
-        amount:        amt,
-        balanceBefore: balBefore,
-        balanceAfter:  balAfter,
-        method:        method  || 'cash',
-        reference:     reference || null,
-        notes:         notes     || null,
-        createdBy:     userId,
+        tenantId, accountId,
+        type: 'depot', amount: amt,
+        balanceBefore: balBefore, balanceAfter: balAfter,
+        method: method || 'cash', reference: reference || null,
+        notes: notes || null, createdBy: userId,
       },
       include: { creator: { select: { fullName: true } } }
     })
-
-    return { transaction: tx_, balanceAfter: balAfter }
+    return { transaction, balanceAfter: balAfter }
   })
-
-  return result
 }
 
-// ── Fè yon retrè ──────────────────────────────────────────────
+// ── Retrè ─────────────────────────────────────────────────────
 async function withdraw(tenantId, accountId, userId, data) {
   const { amount, method, reference, notes } = data
   const amt = Number(amount || 0)
@@ -207,55 +201,53 @@ async function withdraw(tenantId, accountId, userId, data) {
 
   const balAfter = balBefore - amt
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.kaneEpay.update({
-      where: { id: accountId },
-      data: { balance: balAfter }
-    })
-
-    const tx_ = await tx.kaneTransaction.create({
+  return prisma.$transaction(async (tx) => {
+    await tx.kaneEpay.update({ where: { id: accountId }, data: { balance: balAfter } })
+    const transaction = await tx.kaneTransaction.create({
       data: {
-        tenantId,
-        accountId,
-        type:          'retrait',
-        amount:        amt,
-        balanceBefore: balBefore,
-        balanceAfter:  balAfter,
-        method:        method   || 'cash',
-        reference:     reference || null,
-        notes:         notes     || null,
-        createdBy:     userId,
+        tenantId, accountId,
+        type: 'retrait', amount: amt,
+        balanceBefore: balBefore, balanceAfter: balAfter,
+        method: method || 'cash', reference: reference || null,
+        notes: notes || null, createdBy: userId,
       },
       include: { creator: { select: { fullName: true } } }
     })
-
-    return { transaction: tx_, balanceAfter: balAfter }
+    return { transaction, balanceAfter: balAfter }
   })
-
-  return result
 }
 
 // ── Estatistik ────────────────────────────────────────────────
 async function getStats(tenantId, branchId) {
-  const where = { tenantId, ...(branchId && { branchId }) }
+  const where      = { tenantId, ...(branchId && { branchId }) }
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
 
-  const [totalAccounts, activeAccounts, balanceSum, todayTx] = await Promise.all([
+  const txWhere = { tenantId, createdAt: { gte: todayStart } }
+
+  const [
+    totalAccounts,
+    activeAccounts,
+    balanceSum,
+    todayTxCount,
+    todayDepositAgg,
+    todayWithdrawAgg,
+  ] = await Promise.all([
     prisma.kaneEpay.count({ where }),
     prisma.kaneEpay.count({ where: { ...where, isActive: true } }),
     prisma.kaneEpay.aggregate({ where: { ...where, isActive: true }, _sum: { balance: true } }),
-    prisma.kaneTransaction.count({
-      where: {
-        tenantId,
-        createdAt: { gte: new Date(new Date().setHours(0,0,0,0)) }
-      }
-    })
+    prisma.kaneTransaction.count({ where: txWhere }),
+    prisma.kaneTransaction.aggregate({ where: { ...txWhere, type: 'depot'   }, _sum: { amount: true } }),
+    prisma.kaneTransaction.aggregate({ where: { ...txWhere, type: 'retrait' }, _sum: { amount: true } }),
   ])
 
   return {
     totalAccounts,
     activeAccounts,
-    totalBalance: Number(balanceSum._sum.balance || 0),
-    todayTransactions: todayTx,
+    totalBalance:        Number(balanceSum._sum.balance        || 0),
+    todayTransactions:   todayTxCount,
+    todayDepositAmount:  Number(todayDepositAgg._sum.amount    || 0),
+    todayWithdrawAmount: Number(todayWithdrawAgg._sum.amount   || 0),
   }
 }
 
