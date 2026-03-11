@@ -77,7 +77,7 @@ exports.deletePlan = async (req, res) => {
 
 // ── Tiraj Avèg ────────────────────────────────────────────────
 
-// ✅ NOUVO: POST /sabotay/plans/:id/blind-draw
+// POST /sabotay/plans/:id/blind-draw
 exports.blindDraw = async (req, res) => {
   try {
     const { tenantId, userId } = getCtx(req)
@@ -180,6 +180,9 @@ exports.getMemberAccount = async (req, res) => {
   } catch (e) {
     res.status(404).json({ success: false, message: e.message })
   }
+}
+
+// ── Fèmen Plan ────────────────────────────────────────────────
 
 // POST /sabotay/plans/:id/close
 exports.closePlan = async (req, res) => {
@@ -192,6 +195,8 @@ exports.closePlan = async (req, res) => {
   }
 }
 
+// ── Aksyon sou Manm ───────────────────────────────────────────
+
 // POST /sabotay/plans/:planId/members/:memberId/action
 exports.memberAction = async (req, res) => {
   try {
@@ -203,5 +208,4 @@ exports.memberAction = async (req, res) => {
   } catch (e) {
     res.status(400).json({ success: false, message: e.message })
   }
-}
 }
