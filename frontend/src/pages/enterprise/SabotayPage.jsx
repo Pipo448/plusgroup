@@ -837,7 +837,7 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
   const today    = new Date().toISOString().split('T')[0]
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
-  const unpaid   = allDates.filter(d=>d<=today&&!member.payments?.[d])
+  const unpaid = allDates.filter(d => !member.payments?.[d])
 
   const [sel,setSel]        = useState(unpaid.length===1?[unpaid[0]]:[])
   const [applyFine,setFine] = useState(false)
