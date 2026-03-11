@@ -8,6 +8,8 @@ import {
   Settings, RefreshCw, Trophy, AlertCircle, ArrowLeft, Search,
   Printer, Bluetooth, BluetoothOff, Key, Star, UserCheck,
   Loader, Shuffle, FileText, Edit3, AlertTriangle, Shield,
+  Lock, Unlock, UserX, UserMinus, TrendingUp, Info,
+  XCircle, StopCircle,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import {
@@ -32,58 +34,54 @@ const FREQ_LABELS = {
   weekdays:        { ht: 'Lendi-Vandredi', fr: 'Lun-Ven',        en: 'Weekdays'       },
 }
 
+// ─── STATUT MANM ────────────────────────────────────────────
+const MEMBER_STATUS = {
+  active:   { label: 'Aktif',    color: '#27ae60', bg: 'rgba(39,174,96,0.12)',    icon: '✅' },
+  blocked:  { label: 'Bloke',    color: '#e74c3c', bg: 'rgba(231,76,60,0.12)',    icon: '🔒' },
+  stopped:  { label: 'Kanpe',    color: '#f39c12', bg: 'rgba(243,156,18,0.12)',   icon: '⏸️' },
+  finished: { label: 'Touche',   color: '#C9A84C', bg: 'rgba(201,168,76,0.12)',   icon: '🏆' },
+  late:     { label: 'Reta',     color: '#e67e22', bg: 'rgba(230,126,34,0.10)',   icon: '⚠️' },
+}
+
+// ─── STATUT PLAN ─────────────────────────────────────────────
+const PLAN_STATUS = {
+  open:    { label: 'Ouvè',   color: '#27ae60', bg: 'rgba(39,174,96,0.12)'  },
+  closed:  { label: 'Fèmen',  color: '#e74c3c', bg: 'rgba(231,76,60,0.10)' },
+  finished:{ label: 'Fini',   color: '#C9A84C', bg: 'rgba(201,168,76,0.10)'},
+}
+
 const OWNER_SLOT_NAME = 'Pwopriyete Sol'
 
 function hasOwnerSlot(plan) {
   return Number(plan.feePerMember) > 0 && Number(plan.feePerMember) === Number(plan.amount)
 }
+
+// Sol ouvè: kantite manm pa fikse — sèlman ceux ki deja antre
 function totalSlots(plan) {
-  return hasOwnerSlot(plan) ? Number(plan.maxMembers) + 1 : Number(plan.maxMembers)
+  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped').length
+  if (plan.status === 'closed' || plan.status === 'finished') {
+    // Lè plan fèmen: sèvi ak kantite manm ki te antre yo
+    return Math.max(activeMembers, plan.members?.length || 0)
+  }
+  // Plan ouvè: pa gen limit fikse — kalandriye ap pwolonje ofiramezi
+  return plan.members?.length || 0
 }
+
 function memberPayout(plan) {
-  return Number(plan.amount) * Number(plan.maxMembers) - Number(plan.feePerMember || 0)
+  const members = (plan.members || []).filter(m => m.status !== 'stopped')
+  return Number(plan.amount) * members.length - Number(plan.feePerMember || 0)
 }
 function ownerPayout(plan) {
-  return Number(plan.amount) * Number(plan.maxMembers)
+  const members = (plan.members || []).filter(m => m.status !== 'stopped')
+  return Number(plan.amount) * members.length
 }
 
 // ─────────────────────────────────────────────────────────────
-// INTERVAL = intervès ant TOUCHE (pa ant peman)
-// Manm yo toujou peye selon frekans la chak fwa
-// Men yo touche chak (interval) frekans
-// Egzanp: daily + interval=2 → peye chak jou, touche chak 2 jou
+// KALANDRIYE DINAMIK — pwolonje selon manm ki antre
+// Manm ki antre yo jwenn dat selon lòd enskripsyon yo
 // ─────────────────────────────────────────────────────────────
-function freqIntervalLabel(frequency, interval = 1) {
-  const base = FREQ_LABELS[frequency]?.ht || frequency
-  const n = Math.max(1, Math.floor(interval) || 1)
-  if (n <= 1) return base
-  const unitMap = {
-    daily: 'Jou', weekly_saturday: 'Samdi', weekly_monday: 'Lendi',
-    biweekly: '15 Jou', monthly: 'Mwa', weekdays: 'Jou Travay',
-  }
-  return `Touche Chak ${n} × ${FREQ_LABELS[frequency]?.ht || frequency}`
-}
-
-// Label konplè pou eksplike frekans nan UI
-function freqFullLabel(plan) {
-  const n = Math.max(1, Math.floor(plan.interval) || 1)
-  const base = FREQ_LABELS[plan.frequency]?.ht || plan.frequency
-  if (n <= 1) return `Peye ${base} • Touche ${base}`
-  return `Peye ${base} • Touche chak ${n}yèm`
-}
-
-// ─────────────────────────────────────────────────────────────
-// DATE HELPERS
-// interval pa yon faktè avans — li endike konbyen sik frekans
-// ant chak touche. Dat peman yo toujou selon frekans debaz la.
-// ─────────────────────────────────────────────────────────────
-function getPlanStartDate(plan) {
-  return plan.startDate || plan.createdAt || new Date().toISOString()
-}
-
-// Retounen tout dat peman (1 pa 1 selon frekans debaz)
-// count = total sik peman yo (= maxMembers × interval)
 function getPaymentDates(frequency, startDate, count) {
+  if (count <= 0) return []
   const dates = []
   let cur = new Date(startDate || Date.now())
 
@@ -100,7 +98,7 @@ function getPaymentDates(frequency, startDate, count) {
     }
   }
 
-  dates.push(cur.toISOString().split('T')[0])
+  dates.push(new Date(cur).toISOString().split('T')[0])
   for (let i = 1; i < count; i++) {
     advanceOnce()
     dates.push(new Date(cur).toISOString().split('T')[0])
@@ -108,36 +106,63 @@ function getPaymentDates(frequency, startDate, count) {
   return dates
 }
 
-// Dat touche pou yon pozisyon (li depann de interval)
-// position 1 → dat sik nimewo (1 × interval)
-// Egzanp: position=2, interval=2 → sik nimewo 4
-function getPayoutDate(plan, position) {
-  const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const slots = totalSlots(plan)
-  // Total sik peman = slots × interval (miltipliye pou interval)
-  const totalCycles = slots * interval
-  const allDates = getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
-  // Pozisyon p touche nan sik nimewo (p × interval) - 1 (index 0-based)
-  const idx = (position * interval) - 1
-  return allDates[idx] || null
+function getPlanStartDate(plan) {
+  return plan.startDate || plan.createdAt || new Date().toISOString()
 }
 
-// Retounen tout dat peman pandan tout dirasyon sol la
+// Kalkile dat touche pou yon manm selon pozisyon li ak interval
+// Kalandriye baze sou kantite manm AKTIF yo (pa fikse)
+function getPayoutDate(plan, position) {
+  const interval = Math.max(1, Math.floor(plan.interval) || 1)
+  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
+  const slots = Math.max(activeMembers.length, position)
+  const totalCycles = slots * interval
+  const allDates = getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
+  const idx = (position * interval) - 1
+  return allDates[Math.min(idx, allDates.length - 1)] || null
+}
+
+// Retounen tout dat peman selon kantite manm aktyèl yo
 function getAllPaymentDates(plan) {
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const slots = totalSlots(plan)
+  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
+  const slots = activeMembers.length || 1
   const totalCycles = slots * interval
   return getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
 }
 
-// Retounen dat touche pou chak pozisyon (map: position → date)
+// Map pozisyon → dat touche (dinamik)
 function getPayoutDateMap(plan) {
   const map = {}
-  const slots = totalSlots(plan)
-  for (let p = 1; p <= slots; p++) {
-    map[p] = getPayoutDate(plan, p)
-  }
+  const members = (plan.members || [])
+  members.forEach(m => {
+    map[m.position] = getPayoutDate(plan, m.position)
+  })
   return map
+}
+
+// ─────────────────────────────────────────────────────────────
+// KALKILE STATUT MANM OTOMATIK
+// ─────────────────────────────────────────────────────────────
+function computeMemberStatus(member, plan, today) {
+  if (member.status === 'stopped') return 'stopped'
+  if (member.status === 'blocked') return 'blocked'
+  if (member.hasWon)               return 'finished'
+
+  const allDates = getAllPaymentDates(plan)
+  const pastDates = allDates.filter(d => d <= today)
+  if (!pastDates.length) return 'active'
+
+  const unpaidPast = pastDates.filter(d => !member.payments?.[d])
+  if (!unpaidPast.length) return 'active'
+
+  // Verifye delay avètisman
+  const lateDays = plan.warningDelayDays || 0
+  const latestUnpaid = unpaidPast[0]
+  const daysDiff = Math.floor((new Date(today) - new Date(latestUnpaid)) / 86400000)
+
+  if (lateDays > 0 && daysDiff >= lateDays) return 'blocked'
+  return 'late'
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -217,6 +242,13 @@ const lbl = {
   marginBottom:5, textTransform:'uppercase', letterSpacing:'0.06em',
 }
 
+function freqFullLabel(plan) {
+  const n = Math.max(1, Math.floor(plan.interval) || 1)
+  const base = FREQ_LABELS[plan.frequency]?.ht || plan.frequency
+  if (n <= 1) return `Peye ${base} • Touche ${base}`
+  return `Peye ${base} • Touche chak ${n}yèm`
+}
+
 // ─────────────────────────────────────────────────────────────
 // TIMING & SCORE
 // ─────────────────────────────────────────────────────────────
@@ -250,10 +282,6 @@ function generateCredentials(name, phone) {
   return { username:`${first}${last4}`, password:pw }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MULTI-SLOT: jwenn tout pozisyon yon moun nan plan an
-// (yon moun ka gen plizyè plas)
-// ─────────────────────────────────────────────────────────────
 function getMemberSlots(plan, phone) {
   if (!phone || !plan.members) return []
   return plan.members.filter(m => m.phone === phone)
@@ -278,17 +306,6 @@ async function apiFetch(path, options={}) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.message||'Erè API')
-  return data
-}
-
-async function solFetch(path, options={}) {
-  const {token} = useAuthStore.getState()
-  const res = await fetch(`${SOL_API}${path}`, {
-    ...options,
-    headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...(options.headers||{})},
-  })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.message||'Erè Sol API')
   return data
 }
 
@@ -336,7 +353,7 @@ function printReceiptBrowser(html) {
     <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff;font-family:'Courier New',monospace;font-size:10px}
     @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style></head><body>${html}</body></html>`)
   w.document.close()
-  w.onload=()=>setTimeout(()=>{w.focus();w.print();setTimeout(()=>w.close(),1000)},200)
+  setTimeout(()=>{w.focus();w.print();setTimeout(()=>w.close(),2000)},300)
 }
 
 function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
@@ -350,6 +367,7 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
   const fineTotal=Object.values(member.fines||{}).reduce((a,b)=>a+Number(b),0)
   const fmtAmt=(n)=>Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:0})
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
+  const activeMbrs = (plan.members||[]).filter(m=>m.status!=='stopped').length
 
   return `<div style="width:80mm;padding:4mm 3mm;background:#fff;color:#1a1a1a;font-family:'Courier New',monospace;font-size:10px;line-height:1.5">
     <div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:5px;margin-bottom:5px">
@@ -357,14 +375,14 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
       <div style="font-family:Arial;font-weight:900;font-size:13px">${biz}</div>
       <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- SABOTAY SOL --</div>
       ${tenant?.phone?`<div style="font-size:9px;color:#555">Tel: ${tenant.phone}</div>`:''}
-      ${tenant?.address?`<div style="font-size:9px;color:#555">${tenant.address}</div>`:''}
     </div>
     <div style="text-align:center;font-family:Arial;font-weight:800;font-size:11px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:5px">
-      ${type==='peman'?'RESI PEMAN':type==='tirage'?'RESI TIRAJ AVÈG':'KONT MANM'}
+      ${type==='peman'?'RESI PEMAN':type==='tirage'?'RESI TIRAJ AVÈG':type==='kanpe'?'KONFIRMASYON KANPE':'KONT MANM'}
     </div>
     <div style="font-size:9px;margin-bottom:5px">
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Plan:</span><span style="font-weight:700">${plan.name}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Frekans:</span><span>${FREQ_LABELS[plan.frequency]?.ht||plan.frequency}${interval>1?` (touche chak ${interval}yèm)`:''}</span></div>
+      <div style="display:flex;justify-content:space-between"><span style="color:#555">Manm Aktif:</span><span>${activeMbrs}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Dat:</span><span>${txDate}</span></div>
     </div>
     <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner?'#C9A84C':'#ccc'};margin-bottom:5px;font-size:9px">
@@ -387,6 +405,11 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
           <div style="font-family:Arial;font-weight:900;font-size:14px">${member.name}</div>
           <div style="font-size:9px;color:#555">Pozisyon #${member.position}</div>
           <div style="margin-top:6px;font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">Touche: ${fmtAmt(payout)} HTG</div>
+        </div>
+      `:type==='kanpe'?`
+        <div style="text-align:center;padding:8px 0;color:#e74c3c">
+          <div style="font-weight:700">Manm sa a kanpe nan sol la.</div>
+          <div style="font-size:9px;margin-top:4px">Li ka resevwa kòb li lè sol la fini.</div>
         </div>
       `:`
         <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Peman fè:</span><span>${totalPaid}</span></div>
@@ -416,6 +439,27 @@ function PayBadge({paid,small}) {
       background:paid?D.greenBg:D.redBg,color:paid?D.green:D.red,border:`1px solid ${paid?D.green:D.red}25`}}>
       {paid?<CheckCircle size={small?9:11}/>:<Clock size={small?9:11}/>}
       {paid?'Peye':'Pa Peye'}
+    </span>
+  )
+}
+
+function MemberStatusBadge({ status, small }) {
+  const cfg = MEMBER_STATUS[status] || MEMBER_STATUS.active
+  const sz  = small ? { padding: '2px 6px', fontSize: 9 } : { padding: '3px 9px', fontSize: 11 }
+  return (
+    <span style={{ ...sz, borderRadius: 20, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3,
+      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}25` }}>
+      {cfg.icon} {cfg.label}
+    </span>
+  )
+}
+
+function PlanStatusBadge({ status }) {
+  const cfg = PLAN_STATUS[status] || PLAN_STATUS.open
+  return (
+    <span style={{ padding: '3px 10px', borderRadius: 20, fontWeight: 800, fontSize: 10,
+      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+      {cfg.label}
     </span>
   )
 }
@@ -475,11 +519,12 @@ const Sec = ({icon,title,children,col}) => (
 
 // ─────────────────────────────────────────────────────────────
 // MODAL: KREYE / EDITE PLAN
+// Nouvo: warningDelayDays, plan toujou ouvè jiskaske admin fèmen l
 // ─────────────────────────────────────────────────────────────
 function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
   const isEdit = !!initialData
   const [form,setForm] = useState({
-    name:'',amount:'',feePerMember:'',penalty:'',
+    name:'',amount:'',feePerMember:'',penalty:'',warningDelayDays:3,
     frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',regleman:'',startDate:'',
     ...(initialData||{}),
     startDate: initialData?.startDate
@@ -488,14 +533,14 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
   })
   const set=(k,v)=>setForm(p=>({...p,[k]:v}))
 
-  const amt=Number(form.amount)||0, max=Number(form.maxMembers)||0
-  const fee=Number(form.feePerMember)||0, intervalN=Math.max(1,Number(form.interval)||1)
+  const amt=Number(form.amount)||0
+  const fee=Number(form.feePerMember)||0
+  const intervalN=Math.max(1,Number(form.interval)||1)
   const isOwner=fee>0&&fee===amt
-  const totalPool=amt*max, payoutM=totalPool-fee, payoutO=totalPool
-
-  // Durasyon kalkile: manm toujou peye selon frekans debaz, men sol dire (slots × interval) sik
-  const slots = isOwner ? max + 1 : max
-  const totalCycles = slots * intervalN
+  const previewMembers = Number(form.maxMembers)||0
+  const totalPool = amt * previewMembers
+  const payoutM = totalPool - fee
+  const payoutO = totalPool
   const freqName = FREQ_LABELS[form.frequency]?.ht || form.frequency
 
   return (
@@ -514,11 +559,6 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
                 value={form.amount} onChange={e=>set('amount',e.target.value)} placeholder="500"/>
             </div>
             <div>
-              <label style={lbl}>Kantite Moun Max *</label>
-              <input type="number" style={{...inp,color:D.blue,fontWeight:700}}
-                value={form.maxMembers} onChange={e=>set('maxMembers',e.target.value)} placeholder="20"/>
-            </div>
-            <div>
               <label style={lbl}>Lè Peman *</label>
               <input type="time" style={{...inp,color:D.purple,fontWeight:700}}
                 value={form.dueTime} onChange={e=>set('dueTime',e.target.value)}/>
@@ -529,6 +569,25 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
                 value={form.startDate} onChange={e=>set('startDate',e.target.value)}/>
             </div>
           </div>
+
+          {/* INFO: Sol ouvè, pa gen limit fikse */}
+          <div style={{marginTop:10,background:'rgba(59,130,246,0.08)',border:`1px solid rgba(59,130,246,0.2)`,
+            borderRadius:10,padding:'10px 13px',display:'flex',alignItems:'flex-start',gap:8,fontSize:11}}>
+            <Info size={14} style={{color:D.blue,flexShrink:0,marginTop:1}}/>
+            <div style={{color:D.muted,lineHeight:1.6}}>
+              <strong style={{color:D.blue}}>Sol Ouvè:</strong> Moun ka antre toutan.
+              Admin sèlman ka <strong style={{color:D.text}}>fèmen plan la</strong> lè l vle.
+              Kalandriye ap pwolonje otomatikman ak chak nouvo manm.
+              {previewMembers > 0 && <><br/><span style={{color:D.gold}}>Previw ak {previewMembers} manm: Payout = {fmt(payoutM)} HTG</span></>}
+            </div>
+          </div>
+
+          {/* Champ pou previw sèlman */}
+          <div style={{marginTop:10}}>
+            <label style={{...lbl,color:'rgba(107,122,153,0.8)'}}>Previzyon (pa obligatwa) — Konbyen manm ou atann?</label>
+            <input type="number" style={{...inp,color:D.muted,fontSize:12}}
+              value={form.maxMembers} onChange={e=>set('maxMembers',e.target.value)} placeholder="Ex: 20 (previw sèlman)"/>
+          </div>
         </Sec>
 
         <Sec icon="💰" title="Frè & Amand" col="243,156,18">
@@ -537,38 +596,44 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               <label style={lbl}>Frè pa Manm ki Touche (HTG)</label>
               <input type="number" style={{...inp,color:D.orange}}
                 value={form.feePerMember} onChange={e=>set('feePerMember',e.target.value)} placeholder="0"/>
-              <p style={{fontSize:10,color:D.muted,margin:'5px 0 0',lineHeight:1.5}}>
-                Dedwi sou payout moun ki touche a sèlman.
-                {fee>0&&fee===amt&&<><br/><strong style={{color:D.gold}}>= Montan → Plas Pwopriyete Sol ajoute!</strong></>}
-              </p>
+              {fee>0&&fee===amt&&<p style={{fontSize:10,color:D.gold,margin:'4px 0 0',fontWeight:700}}>= Montan → Plas Pwopriyete Sol!</p>}
             </div>
             <div>
               <label style={lbl}>Amand pou Reta (HTG)</label>
               <input type="number" style={{...inp,color:D.red}}
                 value={form.penalty} onChange={e=>set('penalty',e.target.value)} placeholder="0"/>
-              <p style={{fontSize:10,color:D.muted,margin:'5px 0 0'}}>
-                Admin ka ajoute l sou peman reta
-              </p>
             </div>
           </div>
-          {isOwner&&amt>0&&max>0&&(
-            <div style={{marginTop:10,background:'rgba(201,168,76,0.08)',border:`1px solid ${D.gold}30`,
-              borderRadius:10,padding:'10px 14px',display:'flex',alignItems:'flex-start',gap:10}}>
-              <Shield size={18} style={{color:D.gold,flexShrink:0,marginTop:1}}/>
-              <div style={{fontSize:11,color:D.muted,lineHeight:1.6}}>
-                <span style={{color:D.gold,fontWeight:800}}>Plas #{max+1} = {OWNER_SLOT_NAME} ajoute otomatik</span><br/>
-                Manm regilye touche: <strong style={{color:D.green}}>{fmt(payoutM)} HTG</strong><br/>
-                Pwopriyetè touche: <strong style={{color:D.gold}}>{fmt(payoutO)} HTG</strong>
-              </div>
+        </Sec>
+
+        {/* ─── NOUVO: Delay Avètisman + Blokaj ─── */}
+        <Sec icon="⚠️" title="Delay Avètisman & Blokaj" col="231,76,60">
+          <div style={{marginBottom:10,fontSize:11,color:D.muted,lineHeight:1.6}}>
+            Si yon manm pa peye apre <strong style={{color:D.text}}>X jou</strong> reta,
+            sistèm ap voye avètisman epi <strong style={{color:D.red}}>bloke kont li otomatikman</strong>.
+            Sèlman <strong style={{color:D.gold}}>admin</strong> ka debloke l.
+            Manm ki bloke a <strong style={{color:D.text}}>pa pèdi dwa touche</strong> — li dwe peye anvan pou debloke.
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div>
+              <label style={lbl}>Jou Reta Anvan Avètisman</label>
+              <input type="number" min="0" style={{...inp,color:D.orange}}
+                value={form.warningDelayDays} onChange={e=>set('warningDelayDays',Number(e.target.value)||0)}
+                placeholder="3"/>
+              <p style={{fontSize:10,color:D.muted,margin:'4px 0 0'}}>0 = pa gen avètisman otomatik</p>
             </div>
-          )}
-          {fee>0&&!isOwner&&amt>0&&(
-            <div style={{marginTop:10,background:D.orangeBg,border:`1px solid ${D.orange}30`,
-              borderRadius:10,padding:'9px 13px',fontSize:11,color:D.muted}}>
-              <span style={{color:D.orange,fontWeight:700}}>Frè simple:</span>{' '}
-              Manm touche <strong style={{color:D.green}}>{fmt(totalPool)} − {fmt(fee)} = {fmt(payoutM)} HTG</strong>
+            <div style={{display:'flex',flexDirection:'column',justifyContent:'center',
+              background:'rgba(231,76,60,0.06)',borderRadius:10,padding:'10px 12px',fontSize:11,color:D.muted}}>
+              {Number(form.warningDelayDays) > 0 ? (
+                <>
+                  <span style={{color:D.orange,fontWeight:700,marginBottom:4}}>⚠️ Avètisman: +{form.warningDelayDays} jou reta</span>
+                  <span style={{color:D.red,fontWeight:700}}>🔒 Blokaj: apre avètisman an</span>
+                </>
+              ) : (
+                <span style={{color:D.muted}}>Blokaj manyèl sèlman</span>
+              )}
             </div>
-          )}
+          </div>
         </Sec>
 
         <Sec icon="🗓" title="Frekans Peman">
@@ -583,15 +648,9 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               </button>
             ))}
           </div>
-
-          {/* ─── INTERVAL: Touche chak konbyen fwa ─── */}
           <div style={{marginTop:14,borderTop:`1px solid ${D.borderSub}`,paddingTop:13}}>
-            <label style={lbl}>Manm yo touche chak konbyen fwa?</label>
-            <p style={{fontSize:10,color:D.muted,margin:'0 0 10px',lineHeight:1.5}}>
-              Manm yo <strong style={{color:D.text}}>toujou peye selon frekans debaz la</strong>.
-              Interval la detèmine <strong style={{color:D.gold}}>chak konbyen sik yon moun touche</strong>.
-            </p>
-            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            <label style={lbl}>Touche chak konbyen sik?</label>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginTop:8}}>
               {[1,2,3,4].map(n=>(
                 <button key={n} onClick={()=>set('interval',n)} style={{
                   width:40,height:40,borderRadius:10,cursor:'pointer',
@@ -607,55 +666,14 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
                 style={{...inp,width:70,textAlign:'center',fontFamily:'monospace',
                   fontWeight:800,color:intervalN>4?D.gold:D.muted,fontSize:15,padding:'8px 6px'}}/>
             </div>
-
-            {/* Preview klè */}
-            {amt>0&&max>0&&(
-              <div style={{marginTop:12,background:D.goldDim,border:`1px solid ${D.border}`,borderRadius:10,padding:'12px 14px'}}>
-                <div style={{fontSize:11,fontWeight:800,color:D.gold,marginBottom:8}}>📊 Rezime Sol la:</div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,fontSize:11,color:D.muted}}>
-                  <span>Peye: <strong style={{color:D.text}}>{freqName}</strong></span>
-                  <span>Touche: <strong style={{color:D.gold}}>Chak {intervalN > 1 ? `${intervalN}yèm ` : ''}sik</strong></span>
-                  <span>Manm: <strong style={{color:D.blue}}>{slots} moun</strong></span>
-                  <span>Total sik: <strong style={{color:D.purple}}>{totalCycles} peman</strong></span>
-                </div>
-                {intervalN > 1 && (
-                  <div style={{marginTop:8,padding:'8px 10px',background:'rgba(59,130,246,0.08)',borderRadius:8,fontSize:11,color:D.blue,lineHeight:1.6}}>
-                    💡 Egzanp: Manm #1 va touche nan sik #{intervalN}, Manm #2 va touche nan sik #{intervalN*2}, elatriye.
-                    Sol ap dire <strong>{totalCycles}</strong> sik ({freqName.toLowerCase()}) antou.
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </Sec>
 
         <Sec icon="📜" title="Regleman Sol (Opsyonèl)" col="20,184,166">
-          <textarea rows={4} style={{...inp,resize:'vertical',lineHeight:1.6,fontSize:12}}
+          <textarea rows={3} style={{...inp,resize:'vertical',lineHeight:1.6,fontSize:12}}
             value={form.regleman} onChange={e=>set('regleman',e.target.value)}
-            placeholder="Ex: Tout manm dwe peye avan 8h. Peman anreta gen amand. Pa ka transfere plas san pèmisyon admin..."/>
-          <p style={{fontSize:10,color:D.muted,margin:'5px 0 0'}}>
-            Afiche nan kanè vityèl manm ak sou resi enprime
-          </p>
+            placeholder="Ex: Tout manm dwe peye avan 8h. Peman anreta gen amand..."/>
         </Sec>
-
-        {totalPool>0&&(
-          <div style={{background:D.greenBg,border:`1px solid ${D.green}30`,borderRadius:12,
-            padding:'12px 16px',marginBottom:12}}>
-            <div style={{display:'flex',justifyContent:'space-between',flexWrap:'wrap',gap:8}}>
-              {[
-                {label:'Pool Total',val:`${fmt(totalPool)} HTG`,color:D.blue},
-                {label:'Manm Touche',val:`${fmt(payoutM)} HTG`,color:D.green},
-                isOwner?{label:'Pwopriyetè',val:`${fmt(payoutO)} HTG`,color:D.gold}:null,
-                Number(form.penalty)>0?{label:'Amand Reta',val:`${fmt(form.penalty)} HTG`,color:D.red}:null,
-              ].filter(Boolean).map(({label,val,color})=>(
-                <div key={label} style={{textAlign:'center',flex:1,minWidth:80}}>
-                  <div style={{fontSize:9,color:D.muted,textTransform:'uppercase',marginBottom:3}}>{label}</div>
-                  <div style={{fontFamily:'monospace',fontWeight:900,fontSize:14,color}}>{val}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div style={{display:'flex',gap:10}}>
           <button onClick={onClose} style={{flex:1,padding:'12px',borderRadius:10,
@@ -663,11 +681,14 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
             Anile
           </button>
           <button disabled={loading} onClick={()=>{
-            if(!form.name||!form.amount||!form.maxMembers) return toast.error('Non, montan, ak kantite moun obligatwa.')
+            if(!form.name||!form.amount) return toast.error('Non ak montan obligatwa.')
             onSave({...form,amount:Number(form.amount),feePerMember:Number(form.feePerMember||0),
-              penalty:Number(form.penalty||0),maxMembers:Number(form.maxMembers),
+              penalty:Number(form.penalty||0),
+              warningDelayDays:Number(form.warningDelayDays||0),
+              maxMembers:Number(form.maxMembers||0),
               dueTime:form.dueTime||'08:00',interval:intervalN,
-              startDate:form.startDate||new Date().toISOString().split('T')[0]})
+              startDate:form.startDate||new Date().toISOString().split('T')[0],
+              status:'open'})
           }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
             cursor:loading?'default':'pointer',
             background:loading?'rgba(201,168,76,0.3)':D.goldBtn,
@@ -687,7 +708,7 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
 // MODAL: TIRAJ AVÈG
 // ─────────────────────────────────────────────────────────────
 function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
-  const eligible = (plan.members||[]).filter(m=>!m.hasWon&&!m.isOwnerSlot)
+  const eligible = (plan.members||[]).filter(m=>!m.hasWon&&!m.isOwnerSlot&&m.status==='active')
   const [chosen,setChosen] = useState(null)
   const [drawn,setDrawn]   = useState(false)
   const [spinning,setSpin] = useState(false)
@@ -714,14 +735,14 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
         {eligible.length===0?(
           <div style={{textAlign:'center',padding:'24px 0',color:D.muted}}>
             <Trophy size={36} style={{marginBottom:10,opacity:0.4,display:'block',margin:'0 auto 10px'}}/>
-            <p>Pa gen manm disponib pou tiraj.</p>
+            <p>Pa gen manm aktif disponib pou tiraj.</p>
           </div>
         ):(
           <>
             <div style={{background:D.blueBg,border:`1px solid ${D.blue}30`,borderRadius:12,
               padding:'10px 14px',fontSize:11,color:D.muted,display:'flex',gap:8,alignItems:'center'}}>
               <Shuffle size={14} style={{color:D.blue,flexShrink:0}}/>
-              <span>Admin ap fouye men nan lis la — sistèm ap anrejistre moun ki touche a.</span>
+              <span>Sèlman manm AKTIF ki patisipe nan tiraj la ({eligible.length} moun).</span>
             </div>
 
             <div style={{background:chosen?D.goldDim:'rgba(255,255,255,0.03)',
@@ -813,15 +834,9 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
 // ─────────────────────────────────────────────────────────────
 function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
   const {tenant} = useAuthStore()
-  // Tout dat peman debaz (peye chak sik, pa selon interval touche)
-  const allDates = useMemo(()=>{
-    const interval = Math.max(1, Math.floor(plan.interval) || 1)
-    const slots = totalSlots(plan)
-    const totalCycles = slots * interval
-    return getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
-  },[plan])
-
   const today    = new Date().toISOString().split('T')[0]
+
+  const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const unpaid   = allDates.filter(d=>d<=today&&!member.payments?.[d])
 
   const [sel,setSel]        = useState(unpaid.length===1?[unpaid[0]]:[])
@@ -833,6 +848,9 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
   const fineAmt    = hasPenalty&&applyFine ? lateDates.length*Number(plan.penalty) : 0
   const baseAmt    = sel.length*Number(plan.amount)
   const totalAmt   = baseAmt+fineAmt
+
+  // Si manm te bloke, peman ap debloke li otomatikman
+  const isBlocked = member.status === 'blocked'
 
   const handleConfirm = async()=>{
     if(!sel.length) return toast.error('Chwazi omwen yon dat.')
@@ -851,6 +869,17 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
           <span style={{color:D.gold,fontWeight:700}}> {fmt(plan.amount)} HTG / dat</span>
           {hasPenalty&&<span style={{color:D.red}}> • Amand reta: {fmt(plan.penalty)} HTG</span>}
         </div>
+
+        {/* Avètisman si manm bloke */}
+        {isBlocked && (
+          <div style={{background:D.orangeBg,border:`1px solid ${D.orange}40`,borderRadius:10,
+            padding:'10px 13px',display:'flex',alignItems:'center',gap:8,fontSize:11}}>
+            <Lock size={14} style={{color:D.orange,flexShrink:0}}/>
+            <span style={{color:D.orange,fontWeight:700}}>
+              Kont sa a bloke. Peman an ap debloke l otomatikman.
+            </span>
+          </div>
+        )}
 
         {unpaid.length===0?(
           <div style={{textAlign:'center',padding:'20px 0',color:D.green}}>
@@ -961,26 +990,205 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KALANDRIYE
+// MODAL: AKSYON ADMIN SOU MANM (bloke, debloke, kanpe)
+// ─────────────────────────────────────────────────────────────
+function ModalMemberAction({ member, plan, action, onClose, onConfirm, loading, printer }) {
+  const { tenant } = useAuthStore()
+  const [reason, setReason] = useState('')
+
+  const configs = {
+    block: {
+      title: `🔒 Bloke — ${member.name}`,
+      color: D.red, bg: D.redBg,
+      icon: <Lock size={22} style={{ color: D.red }} />,
+      desc: 'Kont manm sa a ap bloke. Li pap ka resevwa kòb li jiskaske li peye ariye a ak admin debloke l.',
+      btnLabel: 'Bloke Kont',
+      btnColor: `linear-gradient(135deg,${D.red},#8B1A1A)`,
+    },
+    unblock: {
+      title: `🔓 Debloke — ${member.name}`,
+      color: D.green, bg: D.greenBg,
+      icon: <Unlock size={22} style={{ color: D.green }} />,
+      desc: 'Admin ap debloke kont manm sa a. Li ap ka resevwa kòb li lè sol la fini.',
+      btnLabel: 'Debloke Kont',
+      btnColor: `linear-gradient(135deg,${D.green},#145A32)`,
+    },
+    stop: {
+      title: `⏸️ Kanpe — ${member.name}`,
+      color: D.orange, bg: D.orangeBg,
+      icon: <StopCircle size={22} style={{ color: D.orange }} />,
+      desc: 'Manm sa a ap kanpe patisipasyon li. Li pap peye ankò men li ka resevwa pòsyon kontribisyon li deja fè a lè sol la fini.',
+      btnLabel: 'Kanpe Patisipasyon',
+      btnColor: `linear-gradient(135deg,${D.orange},#8B5A00)`,
+    },
+    resume: {
+      title: `▶️ Reprann — ${member.name}`,
+      color: D.blue, bg: D.blueBg,
+      icon: <UserCheck size={22} style={{ color: D.blue }} />,
+      desc: 'Manm sa a ap reprann patisipasyon aktif li nan sol la.',
+      btnLabel: 'Reprann Patisipasyon',
+      btnColor: `linear-gradient(135deg,${D.blue},#1A3A8B)`,
+    },
+  }
+
+  const cfg = configs[action]
+  if (!cfg) return null
+
+  // Kalkile sa manm ki kanpe ap touche (kontribisyon pworarata)
+  const stoppedPayout = useMemo(() => {
+    if (action !== 'stop') return 0
+    const allDates = getAllPaymentDates(plan)
+    const paidCount = allDates.filter(d => member.payments?.[d]).length
+    return paidCount * Number(plan.amount)
+  }, [action, plan, member])
+
+  return (
+    <Modal onClose={onClose} title={cfg.title} width={440}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ background: cfg.bg, border: `1px solid ${cfg.color}30`, borderRadius: 12,
+          padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          {cfg.icon}
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 800, color: cfg.color, margin: '0 0 4px' }}>{member.name}</p>
+            <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Pozisyon #{member.position} • {member.phone}</p>
+          </div>
+        </div>
+
+        <p style={{ fontSize: 12, color: D.muted, margin: 0, lineHeight: 1.7,
+          background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px' }}>
+          {cfg.desc}
+        </p>
+
+        {/* Si kanpe: montre sa l pral resevwa */}
+        {action === 'stop' && stoppedPayout > 0 && (
+          <div style={{ background: D.goldDim, border: `1px solid ${D.gold}30`, borderRadius: 10,
+            padding: '10px 14px', fontSize: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ color: D.muted }}>Kontribisyon li deja fè:</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold }}>{fmt(stoppedPayout)} HTG</span>
+            </div>
+            <p style={{ fontSize: 10, color: D.muted, margin: '6px 0 0' }}>
+              Li ap resevwa montan sa lè sol la fini (si li pa t touche deja).
+            </p>
+          </div>
+        )}
+
+        {/* Razon (opsyonèl) */}
+        <div>
+          <label style={lbl}>Rezon (opsyonèl)</label>
+          <input style={inp} value={reason} onChange={e => setReason(e.target.value)}
+            placeholder={action === 'stop' ? 'Ex: Moun lan demenaje...' : 'Ex: Ariye regle...'}/>
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10,
+            border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted,
+            cursor: 'pointer', fontWeight: 700 }}>Anile</button>
+          <button onClick={() => onConfirm(action, reason)} disabled={loading}
+            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+              cursor: loading ? 'default' : 'pointer',
+              background: loading ? 'rgba(201,168,76,0.3)' : cfg.btnColor,
+              color: '#fff', fontWeight: 800, fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : null}
+            {loading ? 'Ap trete...' : cfg.btnLabel}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: FÈMEN PLAN (Admin sèlman)
+// ─────────────────────────────────────────────────────────────
+function ModalClosePlan({ plan, onClose, onConfirm, loading }) {
+  const [confirm, setConfirm] = useState('')
+  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped' && !m.hasWon)
+  const pendingPayout = activeMembers.filter(m => !m.hasWon).length
+  const totalToDistribute = activeMembers.reduce((a, m) => {
+    const allD = getAllPaymentDates(plan)
+    return a + allD.filter(d => m.payments?.[d]).length * Number(plan.amount)
+  }, 0)
+
+  return (
+    <Modal onClose={onClose} title="🛑 Fèmen Plan Sol la" width={460}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ background: D.redBg, border: `1px solid ${D.red}30`, borderRadius: 12,
+          padding: '12px 16px', fontSize: 12, color: D.muted, lineHeight: 1.7 }}>
+          <p style={{ color: D.red, fontWeight: 800, fontSize: 13, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 7 }}>
+            <AlertCircle size={15} /> Aksyon sa pa ka defèt!
+          </p>
+          Plan <strong style={{ color: D.text }}>{plan.name}</strong> ap fèmen definitivman.
+          Pa gen nouvo manm ki ka antre apre sa.
+        </div>
+
+        <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 12, padding: '12px 16px' }}>
+          <div style={{ fontSize: 11, color: D.muted, display: 'flex', flexDirection: 'column', gap: 7 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Total manm aktif:</span>
+              <span style={{ color: D.text, fontWeight: 700 }}>{activeMembers.length}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Manm ki poko touche:</span>
+              <span style={{ color: D.orange, fontWeight: 700 }}>{pendingPayout}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${D.border}`, paddingTop: 7 }}>
+              <span>Total kontribisyon kolekte:</span>
+              <span style={{ color: D.green, fontWeight: 800, fontFamily: 'monospace' }}>{fmt(totalToDistribute)} HTG</span>
+            </div>
+          </div>
+        </div>
+
+        {pendingPayout > 0 && (
+          <div style={{ background: D.goldDim, border: `1px solid ${D.gold}30`, borderRadius: 10,
+            padding: '10px 13px', fontSize: 11, color: D.muted }}>
+            <span style={{ color: D.gold, fontWeight: 700 }}>⚠️ Enpòtan:</span> {pendingPayout} manm poko touche.
+            Yo ap resevwa kontribisyon yo deja fè lè plan la fèmen.
+          </div>
+        )}
+
+        <div>
+          <label style={lbl}>Tape "FEMEN" pou konfime</label>
+          <input style={{ ...inp, textAlign: 'center', fontWeight: 800, fontSize: 15,
+            borderColor: confirm === 'FEMEN' ? D.red : undefined }}
+            value={confirm} onChange={e => setConfirm(e.target.value.toUpperCase())}
+            placeholder="FEMEN" />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10,
+            border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted,
+            cursor: 'pointer', fontWeight: 700 }}>Anile</button>
+          <button onClick={onConfirm} disabled={loading || confirm !== 'FEMEN'}
+            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+              cursor: (loading || confirm !== 'FEMEN') ? 'not-allowed' : 'pointer',
+              background: (loading || confirm !== 'FEMEN') ? 'rgba(231,76,60,0.3)' : `linear-gradient(135deg,${D.red},#8B1A1A)`,
+              color: '#fff', fontWeight: 800, fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              opacity: confirm !== 'FEMEN' ? 0.5 : 1 }}>
+            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <StopCircle size={14} />}
+            {loading ? 'Ap fèmen...' : 'Fèmen Plan Definitiv'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// KALANDRIYE — Dinamik selon manm yo
 // ─────────────────────────────────────────────────────────────
 function PlanCalendar({plan}) {
   const [off,setOff] = useState(0)
   const today = new Date().toISOString().split('T')[0]
-  const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const slots = totalSlots(plan)
-  const totalCycles = slots * interval
 
-  // Dat peman debaz (chak sik)
-  const allPayDates = useMemo(()=>
-    getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles),
-  [plan])
-
-  // Dat touche pou chak pozisyon
-  const payoutMap = useMemo(()=>getPayoutDateMap(plan),[plan])
+  const allPayDates = useMemo(()=>getAllPaymentDates(plan),[plan])
+  const payoutMap   = useMemo(()=>getPayoutDateMap(plan),[plan])
 
   const mDates = useMemo(()=>(plan.members||[]).map(m=>({
     ...m,
-    payDates: allPayDates, // manm yo peye chak dat
+    payDates: allPayDates,
     payoutDate: payoutMap[m.position],
   })),[plan, allPayDates, payoutMap])
 
@@ -1011,9 +1219,7 @@ function PlanCalendar({plan}) {
           const day=i+1
           const ds=`${yr}-${String(mo+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
           const isTd=ds===today
-          // Se dat peman pou tout moun? (chak sik)
-          const payors=mDates.filter(m=>m.payDates.includes(ds))
-          // Se dat touche pou yon moun?
+          const payors=mDates.filter(m=>m.payDates.includes(ds)&&m.status!=='stopped')
           const winners=mDates.filter(m=>m.payoutDate===ds)
           const hasA=payors.length>0, past=ds<today
           const allP=hasA&&payors.every(m=>m.payments?.[ds])
@@ -1049,20 +1255,13 @@ function PlanCalendar({plan}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// KONT VITYÈL KLIYAN — ak sipò plizyè men
+// KONT VITYÈL — ak evolisyon sol la pou manm
 // ─────────────────────────────────────────────────────────────
 function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
   const {tenant} = useAuthStore()
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const slots   = totalSlots(plan)
-  const totalCycles = slots * interval
+  const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
 
-  // Tout dat peman (chak sik, pa selon interval)
-  const allDates = useMemo(()=>
-    getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles),
-  [plan])
-
-  // Si plizyè men, montre tab pou chak men
   const multiSlots = allMemberSlots && allMemberSlots.length > 1
   const [activeSlotIdx, setActiveSlotIdx] = useState(0)
   const activeMember = multiSlots ? allMemberSlots[activeSlotIdx] : member
@@ -1076,20 +1275,18 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
   const amtPaid=totalPaid*plan.amount
   const amtDue=totalDue*plan.amount
   const payout=isOwner?ownerPayout(plan):memberPayout(plan)
-  const progress=totalCycles>0?(totalPaid/totalCycles)*100:0
+  const progress=allDates.length>0?(totalPaid/allDates.length)*100:0
   const isWinner=payoutDate&&payoutDate<=today&&!activeMember.hasWon
   const scoreData=getMemberScore(activeMember)
   const fineTotal=Object.values(activeMember.fines||{}).reduce((a,b)=>a+Number(b),0)
+  const memberStatus = computeMemberStatus(activeMember, plan, today)
 
-  // Pou plizyè men: total konbine
-  const totalAmtAllSlots = multiSlots
-    ? allMemberSlots.reduce((acc,m)=>
-        acc + allDates.filter(d=>m.payments?.[d]).length * plan.amount, 0)
-    : amtPaid
-  const totalPayoutAllSlots = multiSlots
-    ? allMemberSlots.reduce((acc,m)=>
-        acc + (m.isOwnerSlot ? ownerPayout(plan) : memberPayout(plan)), 0)
-    : payout
+  // Evolisyon sol la (% total plan)
+  const totalMbrs = (plan.members || []).filter(m => m.status !== 'stopped').length
+  const totalPaidAll = (plan.members || []).reduce((acc, m) =>
+    acc + allDates.filter(d => m.payments?.[d]).length * plan.amount, 0)
+  const totalExpectedAll = totalMbrs * totalDue * plan.amount
+  const solProgress = totalExpectedAll > 0 ? (totalPaidAll / totalExpectedAll) * 100 : 0
 
   const tBadge=(t)=>{
     if(t==='early') return <span style={{fontSize:8,background:'rgba(0,208,132,0.15)',color:'#00d084',padding:'1px 5px',borderRadius:8,fontWeight:700}}>⚡ Bonè</span>
@@ -1102,7 +1299,12 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
     <Modal onClose={onClose} title={`💳 Kont — ${activeMember.name}`} width={540}>
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
 
-        {/* ─── KART TÈT ─── */}
+        {/* Statut manm */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <MemberStatusBadge status={memberStatus} />
+        </div>
+
+        {/* Kart tèt */}
         <div style={{background:isOwner?D.goldBtn:'linear-gradient(135deg,#1B2A8F,#0d1b2a)',
           border:isOwner?'none':`1px solid ${D.border}`,
           borderRadius:14,padding:'16px 18px',color:isOwner?'#0a1222':D.text}}>
@@ -1110,83 +1312,68 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
             <div>
               <p style={{fontSize:17,fontWeight:900,margin:'0 0 2px',wordBreak:'break-word'}}>{activeMember.name} {isOwner&&'★'}</p>
               <p style={{fontSize:11,opacity:0.65,margin:0}}>{activeMember.phone}</p>
-              <p style={{fontSize:10,opacity:0.6,margin:'3px 0 0'}}>Pozisyon #{activeMember.position} • {isOwner?OWNER_SLOT_NAME:plan.name}</p>
-              {interval > 1 && (
-                <p style={{fontSize:10,opacity:0.6,margin:'2px 0 0'}}>
-                  Touche chak {interval}yèm sik • {FREQ_LABELS[plan.frequency]?.ht}
-                </p>
-              )}
+              <p style={{fontSize:10,opacity:0.6,margin:'3px 0 0'}}>Pozisyon #{activeMember.position} • {plan.name}</p>
             </div>
             <div style={{textAlign:'right'}}>
-              {multiSlots && (
-                <div style={{fontSize:9,opacity:0.7,margin:'0 0 4px',fontWeight:700}}>
-                  {allMemberSlots.length} men total
-                </div>
-              )}
               <p style={{fontSize:9,opacity:0.6,margin:'0 0 2px',textTransform:'uppercase',fontWeight:700}}>Kontribisyon</p>
               <p style={{fontFamily:'monospace',fontWeight:900,fontSize:18,margin:'0 0 2px'}}>{fmt(amtPaid)} HTG</p>
-              <p style={{fontSize:9,opacity:0.5,margin:0}}>{totalPaid}/{totalCycles} peman</p>
+              <p style={{fontSize:9,opacity:0.5,margin:0}}>{totalPaid}/{allDates.length} peman</p>
             </div>
           </div>
         </div>
 
-        {/* ─── TABS MEN (si plizyè men) ─── */}
-        {multiSlots && (
-          <div style={{background:D.goldDim,borderRadius:12,padding:'10px 12px'}}>
-            <p style={{fontSize:10,fontWeight:800,color:D.gold,textTransform:'uppercase',
-              letterSpacing:'0.06em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:6}}>
-              <Trophy size={11}/> {allMemberSlots.length} Men nan Sol Sa a
-            </p>
-            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-              {allMemberSlots.map((m,idx)=>{
-                const pd = getPayoutDate(plan, m.position)
-                const mPaid = allDates.filter(d=>m.payments?.[d]).length
-                const isActive = idx === activeSlotIdx
-                return (
-                  <button key={m.id} onClick={()=>setActiveSlotIdx(idx)} style={{
-                    padding:'8px 12px',borderRadius:10,cursor:'pointer',
-                    display:'flex',flexDirection:'column',alignItems:'center',minWidth:80,
-                    border:`2px solid ${isActive ? D.gold : D.borderSub}`,
-                    background:isActive ? 'rgba(201,168,76,0.15)' : 'transparent',
-                    transition:'all 0.12s',
-                  }}>
-                    <span style={{fontFamily:'monospace',fontWeight:900,fontSize:13,
-                      color:isActive?D.gold:D.muted}}>#{m.position}</span>
-                    <span style={{fontSize:9,color:isActive?D.gold:D.muted,margin:'2px 0 0'}}>
-                      {pd ? pd.split('-').reverse().join('/') : '—'}
-                    </span>
-                    <span style={{fontSize:9,color:isActive?D.green:D.muted}}>
-                      {mPaid}/{totalCycles}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-            {/* Total konbine */}
-            <div style={{marginTop:10,display:'flex',justifyContent:'space-between',
-              padding:'8px 10px',background:'rgba(0,0,0,0.2)',borderRadius:8,fontSize:11}}>
-              <span style={{color:D.muted}}>Total Kontribye (tout men):</span>
-              <span style={{fontFamily:'monospace',fontWeight:800,color:D.green}}>{fmt(totalAmtAllSlots)} HTG</span>
-            </div>
-            <div style={{marginTop:4,display:'flex',justifyContent:'space-between',
-              padding:'6px 10px',background:'rgba(0,0,0,0.2)',borderRadius:8,fontSize:11}}>
-              <span style={{color:D.muted}}>Total Touche (tout men):</span>
-              <span style={{fontFamily:'monospace',fontWeight:800,color:D.gold}}>{fmt(totalPayoutAllSlots)} HTG</span>
-            </div>
-          </div>
-        )}
-
-        {isWinner&&!isOwner&&(
-          <div style={{background:D.greenBg,border:`1px solid ${D.green}50`,borderRadius:12,
-            padding:'12px 16px',display:'flex',alignItems:'center',gap:10}}>
-            <Trophy size={22} style={{color:D.green,flexShrink:0}}/>
+        {/* Avètisman si bloke */}
+        {(memberStatus === 'blocked' || activeMember.status === 'blocked') && (
+          <div style={{background:D.redBg,border:`1px solid ${D.red}40`,borderRadius:12,
+            padding:'11px 14px',display:'flex',alignItems:'center',gap:9,fontSize:12}}>
+            <Lock size={16} style={{color:D.red,flexShrink:0}}/>
             <div>
-              <p style={{fontSize:13,fontWeight:800,color:D.green,margin:0}}>🎉 Se Moun sa a ki Touche Jodi a! (Plas #{activeMember.position})</p>
-              <p style={{fontSize:11,color:D.muted,margin:'2px 0 0'}}>Montan: {fmt(payout)} HTG</p>
+              <p style={{fontWeight:800,color:D.red,margin:'0 0 2px'}}>🔒 Kont Bloke</p>
+              <p style={{color:D.muted,margin:0,fontSize:11}}>
+                Manm sa dwe peye ariye a. Sèlman admin ka debloke l apre peman.
+              </p>
             </div>
           </div>
         )}
 
+        {/* Avètisman si kanpe */}
+        {activeMember.status === 'stopped' && (
+          <div style={{background:D.orangeBg,border:`1px solid ${D.orange}40`,borderRadius:12,
+            padding:'11px 14px',display:'flex',alignItems:'center',gap:9,fontSize:12}}>
+            <StopCircle size={16} style={{color:D.orange,flexShrink:0}}/>
+            <div>
+              <p style={{fontWeight:800,color:D.orange,margin:'0 0 2px'}}>⏸️ Kanpe</p>
+              <p style={{color:D.muted,margin:0,fontSize:11}}>
+                Manm sa kanpe. Li ap resevwa <strong style={{color:D.gold}}>{fmt(amtPaid)} HTG</strong> lè sol la fini.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ─── Evolisyon Sol la ─── */}
+        <div style={{background:'rgba(59,130,246,0.06)',border:`1px solid rgba(59,130,246,0.15)`,
+          borderRadius:12,padding:'12px 14px'}}>
+          <p style={{fontSize:10,fontWeight:800,color:D.blue,textTransform:'uppercase',
+            letterSpacing:'0.06em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:6}}>
+            <TrendingUp size={11}/> Evolisyon Sol la ({totalMbrs} manm aktif)
+          </p>
+          <div style={{display:'flex',justifyContent:'space-between',marginBottom:6,fontSize:11}}>
+            <span style={{color:D.muted}}>Total kolekte vs atann:</span>
+            <span style={{fontFamily:'monospace',fontWeight:700,color:D.blue}}>
+              {fmt(totalPaidAll)} / {fmt(totalExpectedAll)} HTG
+            </span>
+          </div>
+          <div style={{height:8,borderRadius:8,background:'rgba(255,255,255,0.06)',overflow:'hidden',marginBottom:8}}>
+            <div style={{height:'100%',width:`${Math.min(100,solProgress)}%`,
+              background:'linear-gradient(90deg,#3B82F6,#1B2A8F)',borderRadius:8,transition:'width 0.5s'}}/>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:D.muted}}>
+            <span>Sol la: <strong style={{color:solProgress>=90?D.green:solProgress>=60?D.orange:D.red}}>{Math.round(solProgress)}% ajou</strong></span>
+            <span>Kalandriye: <strong style={{color:D.text}}>{allDates.length} sik total</strong></span>
+          </div>
+        </div>
+
+        {/* Stats manm */}
         <div className="vacct-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(100px,1fr))',gap:8}}>
           {[
             {label:'Deja Peye',    val:`${fmt(amtPaid)} HTG`,                           color:D.green},
@@ -1206,7 +1393,7 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
           <div style={{background:D.redBg,border:`1px solid ${D.red}30`,borderRadius:10,
             padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontSize:12,color:D.red,fontWeight:700,display:'flex',alignItems:'center',gap:7}}>
-              <AlertTriangle size={14}/> Total Amand Reta (Men #{activeMember.position})
+              <AlertTriangle size={14}/> Total Amand Reta
             </span>
             <span style={{fontFamily:'monospace',fontWeight:900,color:D.red}}>{fmt(fineTotal)} HTG</span>
           </div>
@@ -1214,7 +1401,7 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
 
         <div>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-            <span style={{fontSize:10,color:D.muted,fontWeight:700}}>PWOGRÈ (Men #{activeMember.position})</span>
+            <span style={{fontSize:10,color:D.muted,fontWeight:700}}>PWOGRÈ MANM</span>
             <span style={{fontSize:10,color:D.gold,fontWeight:800}}>{Math.round(progress)}%</span>
           </div>
           <div style={{height:8,borderRadius:8,background:'rgba(255,255,255,0.06)',overflow:'hidden'}}>
@@ -1258,20 +1445,19 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
           padding:'11px',borderRadius:10,border:`1px solid ${D.border}`,
           background:'rgba(255,255,255,0.04)',color:D.muted,cursor:'pointer',
           fontWeight:700,fontSize:13,opacity:printer.printing?0.5:1}}>
-          <Printer size={14}/> Enprime Kont {multiSlots?`(Men #${activeMember.position})`:''}
+          <Printer size={14}/> Enprime Kont
         </button>
 
-        {/* ─── ISTWA PEMAN ─── */}
+        {/* Istwa peman */}
         <div>
           <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:D.muted,margin:'0 0 8px',letterSpacing:'0.06em'}}>
-            Istwa Peman — Men #{activeMember.position} ({totalPaid}/{allDates.length})
+            Istwa Peman ({totalPaid}/{allDates.length})
           </p>
           <div style={{maxHeight:220,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
-            {allDates.slice(0,60).map((d,i)=>{
+            {allDates.slice(0,60).map((d)=>{
               const paid=!!activeMember.payments?.[d]
               const timing=activeMember.paymentTimings?.[d]
               const past=d<=today
-              // Se dat touche pou men sa a?
               const isPayoutDay = getPayoutDate(plan, activeMember.position) === d
               const fine=activeMember.fines?.[d]
               return (
@@ -1305,39 +1491,36 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
 // ─────────────────────────────────────────────────────────────
 // PANEL DETAY PLAN
 // ─────────────────────────────────────────────────────────────
-function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,printer}) {
-  const [viewMember,setView] = useState(null)
-  const [viewMemberSlots,setViewSlots] = useState(null) // plizyè men
-  const [payMember,setPay]   = useState(null)
-  const [tab,setTab]         = useState('members')
+function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,onClosePlan,onMemberAction,printer}) {
+  const [viewMember,setView]       = useState(null)
+  const [viewMemberSlots,setSlots] = useState(null)
+  const [payMember,setPay]         = useState(null)
+  const [actionModal,setAction]    = useState(null) // {member, action}
+  const [tab,setTab]               = useState('members')
   const today = new Date().toISOString().split('T')[0]
 
-  const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const slots = totalSlots(plan)
-  const totalCycles = slots * interval
-
-  const allDates = useMemo(()=>
-    getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles),
-  [plan])
-
+  const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const payoutMap = useMemo(()=>getPayoutDateMap(plan),[plan])
 
-  // Kiyès ki touche jodi a?
   const todayWinPos = Object.entries(payoutMap).find(([pos, d])=>d===today)
   const todayWinner = todayWinPos ? plan.members?.find(m=>m.position===Number(todayWinPos[0])) : null
 
-  const totColl = plan.members?.reduce((acc,m)=>
+  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
+  const totColl = activeMembers.reduce((acc,m)=>
     acc+allDates.filter(d=>m.payments?.[d]).length*plan.amount, 0)||0
-  const totExp  = plan.members?.reduce((acc,m)=>
+  const totExp  = activeMembers.reduce((acc,m)=>
     acc+allDates.filter(d=>d<=today).length*plan.amount, 0)||0
   const payout  = memberPayout(plan)
 
-  // Klike sou eye → jwenn tout men moun sa a
+  // Konte bloke ak reta
+  const blockedCount  = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'blocked').length
+  const lateCount     = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'late').length
+  const stoppedCount  = (plan.members || []).filter(m => m.status === 'stopped').length
+
   const handleViewMember = (m) => {
-    const phone = m.phone
-    const slots = getMemberSlots(plan, phone)
+    const slots = getMemberSlots(plan, m.phone)
     setView(m)
-    setViewSlots(slots.length > 1 ? slots : null)
+    setSlots(slots.length > 1 ? slots : null)
   }
 
   return (
@@ -1347,7 +1530,10 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           <ArrowLeft size={16}/>
         </button>
         <div style={{flex:1,minWidth:0}}>
-          <h2 style={{color:D.gold,margin:0,fontSize:17,fontWeight:900,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{plan.name}</h2>
+          <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+            <h2 style={{color:D.gold,margin:0,fontSize:17,fontWeight:900,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{plan.name}</h2>
+            <PlanStatusBadge status={plan.status || 'open'} />
+          </div>
           <p style={{color:D.muted,margin:0,fontSize:11}}>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
         </div>
         <PrinterBtn printer={printer}/>
@@ -1356,23 +1542,43 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
           <Edit3 size={14}/>
         </button>
-        <button onClick={onAddMember} style={{padding:'9px 12px',borderRadius:10,border:'none',cursor:'pointer',
-          background:D.goldBtn,color:'#0a1222',fontWeight:800,fontSize:12,
-          display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
-          <Plus size={13}/><span>Enskri</span>
-        </button>
+        {/* Bouton Fèmen Plan (admin sèlman) */}
+        {plan.status !== 'closed' && plan.status !== 'finished' && (
+          <button onClick={onClosePlan} title="Fèmen Plan" style={{width:34,height:34,borderRadius:9,
+            border:`1px solid ${D.red}40`,background:D.redBg,color:D.red,cursor:'pointer',
+            display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <StopCircle size={14}/>
+          </button>
+        )}
+        {plan.status !== 'closed' && plan.status !== 'finished' && (
+          <button onClick={onAddMember} style={{padding:'9px 12px',borderRadius:10,border:'none',cursor:'pointer',
+            background:D.goldBtn,color:'#0a1222',fontWeight:800,fontSize:12,
+            display:'flex',alignItems:'center',gap:5,flexShrink:0}}>
+            <Plus size={13}/><span>Enskri</span>
+          </button>
+        )}
       </div>
 
-      {/* Badge interval si aktif */}
-      {interval > 1 && (
-        <div style={{background:'rgba(59,130,246,0.08)',border:`1px solid rgba(59,130,246,0.2)`,
-          borderRadius:10,padding:'8px 14px',marginBottom:12,fontSize:11,color:D.blue,
-          display:'flex',alignItems:'center',gap:8}}>
-          <Clock size={13}/>
-          <span>
-            Manm yo peye <strong>{FREQ_LABELS[plan.frequency]?.ht}</strong> •
-            Touche chak <strong>{interval}</strong> sik ({totalCycles} peman antou pou {slots} moun)
-          </span>
+      {/* Avètisman si bloke/reta */}
+      {(blockedCount > 0 || lateCount > 0) && (
+        <div style={{background:D.redBg,border:`1px solid ${D.red}30`,borderRadius:12,
+          padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',fontSize:11}}>
+          <AlertTriangle size={14} style={{color:D.red,flexShrink:0}}/>
+          <div style={{flex:1,color:D.muted}}>
+            {blockedCount > 0 && <span style={{color:D.red,fontWeight:700}}>{blockedCount} kont bloke</span>}
+            {blockedCount > 0 && lateCount > 0 && <span style={{color:D.muted}}> • </span>}
+            {lateCount > 0    && <span style={{color:D.orange,fontWeight:700}}>{lateCount} manm an reta</span>}
+            {stoppedCount > 0 && <span style={{color:D.muted}}> • {stoppedCount} kanpe</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Plan fèmen banner */}
+      {(plan.status === 'closed' || plan.status === 'finished') && (
+        <div style={{background:'rgba(231,76,60,0.08)',border:`1px solid ${D.red}30`,borderRadius:12,
+          padding:'11px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,fontSize:12}}>
+          <StopCircle size={15} style={{color:D.red,flexShrink:0}}/>
+          <span style={{color:D.red,fontWeight:700}}>Plan sa a fèmen. Pa gen nouvo enskripsyon ki posib.</span>
         </div>
       )}
 
@@ -1389,20 +1595,15 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
               Montan: <span style={{color:D.gold,fontWeight:700}}>{fmt(todayWinner.isOwnerSlot?ownerPayout(plan):payout)} HTG</span>
             </p>
           </div>
-          <button style={{padding:'7px 12px',borderRadius:8,border:'none',cursor:'pointer',
-            background:D.greenBg,color:D.green,fontWeight:700,fontSize:11,flexShrink:0,
-            display:'flex',alignItems:'center',gap:5}}>
-            <Bell size={13}/> Notifye
-          </button>
         </div>
       )}
 
       <div className="detail-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:9,marginBottom:16}}>
         {[
-          {label:'Plas',       val:`${plan.members?.length||0}/${slots}`, color:D.blue },
-          {label:'Kolekte',    val:`${fmt(totColl)} HTG`,                  color:D.green},
-          {label:'Rès Atann',  val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
-          {label:'Manm Touche',val:`${fmt(payout)} HTG`,                   color:D.gold },
+          {label:'Manm Aktif',     val:`${activeMembers.length}`, color:D.blue },
+          {label:'Kolekte',        val:`${fmt(totColl)} HTG`,      color:D.green},
+          {label:'Rès Atann',      val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
+          {label:'Manm Touche',    val:`${fmt(payout)} HTG`,       color:D.gold },
         ].map(({label,val,color})=>(
           <div key={label} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:10,padding:'11px 13px',textAlign:'center'}}>
             <div style={{fontSize:9,color:D.muted,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>{label}</div>
@@ -1422,9 +1623,11 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           </button>
         ))}
         <div style={{flex:1}}/>
-        <button onClick={onBlindDraw} style={{padding:'8px 13px',borderRadius:9,border:`1px solid ${D.blue}40`,
+        <button onClick={onBlindDraw} disabled={plan.status==='closed'||plan.status==='finished'}
+          style={{padding:'8px 13px',borderRadius:9,border:`1px solid ${D.blue}40`,
           background:D.blueBg,color:D.blue,fontWeight:700,fontSize:12,cursor:'pointer',
-          display:'flex',alignItems:'center',gap:6}}>
+          display:'flex',alignItems:'center',gap:6,
+          opacity:(plan.status==='closed'||plan.status==='finished')?0.4:1}}>
           <Shuffle size={13}/> Tiraj Avèg
         </button>
       </div>
@@ -1443,16 +1646,19 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
             const isWin=payoutDate===today
             const isOwn=m.isOwnerSlot
             const fineTot=Object.values(m.fines||{}).reduce((a,b)=>a+Number(b),0)
-            // Konbyen men moun sa a genyen?
+            const mStatus = computeMemberStatus(m, plan, today)
             const samePhoneSlots = getMemberSlots(plan, m.phone)
             const hasMultiSlot = samePhoneSlots.length > 1
+            const isStopped = m.status === 'stopped'
+
             return (
               <div key={m.id} className="member-row" style={{
-                background:isOwn
-                  ?'linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04))'
-                  :isWin?'linear-gradient(135deg,rgba(39,174,96,0.10),rgba(201,168,76,0.06))':D.card,
-                border:`1px solid ${isOwn?`${D.gold}50`:isWin?`${D.green}40`:D.border}`,
-                borderRadius:12,padding:'11px 13px'}}>
+                background:isStopped?'rgba(243,156,18,0.05)':
+                  isOwn?'linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04))':
+                  isWin?'linear-gradient(135deg,rgba(39,174,96,0.10),rgba(201,168,76,0.06))':D.card,
+                border:`1px solid ${isStopped?`${D.orange}30`:isOwn?`${D.gold}50`:isWin?`${D.green}40`:D.border}`,
+                borderRadius:12,padding:'11px 13px',
+                opacity: isStopped ? 0.75 : 1}}>
                 <div style={{display:'flex',alignItems:'center',gap:9}}>
                   <div className="member-pos-badge" style={{width:34,height:34,borderRadius:10,flexShrink:0,
                     background:isOwn?D.goldBtn:D.goldDim,border:`1px solid ${D.border}`,
@@ -1462,10 +1668,11 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                   <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:1}}>
                       <span className="member-name" style={{fontSize:13,fontWeight:700,
-                        color:isOwn?D.gold:D.text,overflow:'hidden',textOverflow:'ellipsis',
-                        whiteSpace:'nowrap',maxWidth:130}}>
+                        color:isStopped?D.orange:isOwn?D.gold:D.text,
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
                         {m.name}{isOwn&&' ★'}
                       </span>
+                      <MemberStatusBadge status={mStatus} small />
                       {hasMultiSlot&&(
                         <span style={{fontSize:9,background:D.purpleBg,color:D.purple,
                           padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>
@@ -1473,18 +1680,10 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                         </span>
                       )}
                       {isWin&&!isOwn&&<span style={{fontSize:9,background:D.greenBg,color:D.green,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>🏆</span>}
-                      {m.hasWon&&<span style={{fontSize:9,background:D.goldDim,color:D.gold,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>✓ Touche</span>}
-                      {(()=>{const s=getMemberScore(m);return s?(
-                        <span style={{fontSize:9,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0,
-                          background:s.score>=80?'rgba(0,208,132,0.12)':s.score>=50?D.orangeBg:D.redBg,
-                          color:s.score>=80?'#00d084':s.score>=50?D.orange:D.red}}>
-                          ⭐{s.score}%
-                        </span>
-                      ):null})()}
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
                       <span className="member-phone" style={{fontSize:11,color:D.muted,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.phone}</span>
-                      {payoutDate&&(
+                      {payoutDate&&!isStopped&&(
                         <span style={{fontSize:9,color:D.blue}}>
                           🏆 {payoutDate.split('-').reverse().join('/')}
                         </span>
@@ -1492,25 +1691,47 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                     </div>
                   </div>
                   <div style={{textAlign:'right',flexShrink:0,minWidth:60}}>
-                    <div style={{fontFamily:'monospace',fontSize:11,fontWeight:700,
-                      color:paid>=due?D.green:due>0?D.orange:D.muted}}>
-                      {paid}/{due}
-                    </div>
-                    <div style={{fontSize:10,color:D.muted}}>{fmt(paid*plan.amount)}</div>
-                    {fineTot>0&&<div style={{fontSize:9,color:D.red}}>+{fmt(fineTot)} amand</div>}
+                    {isStopped ? (
+                      <div style={{fontSize:10,color:D.orange,fontWeight:700}}>
+                        {fmt(paid*plan.amount)} HTG<br/>
+                        <span style={{fontSize:9,color:D.muted}}>kontribiye</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{fontFamily:'monospace',fontSize:11,fontWeight:700,
+                          color:paid>=due?D.green:due>0?D.orange:D.muted}}>
+                          {paid}/{due}
+                        </div>
+                        <div style={{fontSize:10,color:D.muted}}>{fmt(paid*plan.amount)}</div>
+                        {fineTot>0&&<div style={{fontSize:9,color:D.red}}>+{fmt(fineTot)} amand</div>}
+                      </>
+                    )}
                   </div>
-                  <div className="member-btns" style={{display:'flex',gap:5,flexShrink:0}}>
-                    <button onClick={()=>setPay(m)} title="Mache Peye"
-                      style={{width:30,height:30,borderRadius:8,border:'none',background:D.greenBg,color:D.green,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      <CheckCircle size={14}/>
-                    </button>
+                  <div className="member-btns" style={{display:'flex',gap:4,flexShrink:0}}>
+                    {/* Mache Peye — sèlman si pa fèmen */}
+                    {!isStopped && plan.status !== 'finished' && (
+                      <button onClick={()=>setPay(m)} title="Mache Peye"
+                        style={{width:30,height:30,borderRadius:8,border:'none',background:D.greenBg,color:D.green,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <CheckCircle size={14}/>
+                      </button>
+                    )}
+                    {/* Wè Kont */}
                     <button onClick={()=>handleViewMember(m)} title="Kont Vityèl"
                       style={{width:30,height:30,borderRadius:8,border:'none',background:D.goldDim,color:D.gold,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                       <Eye size={14}/>
                     </button>
+                    {/* Aksyon Admin: bloke/debloke/kanpe */}
+                    <button onClick={()=>setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
+                      title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
+                      style={{width:30,height:30,borderRadius:8,border:'none',
+                        background: mStatus === 'blocked' ? D.greenBg : isStopped ? D.blueBg : D.redBg,
+                        color: mStatus === 'blocked' ? D.green : isStopped ? D.blue : D.red,
+                        cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {mStatus === 'blocked' ? <Unlock size={13}/> : isStopped ? <UserCheck size={13}/> : <Lock size={13}/>}
+                    </button>
                   </div>
                 </div>
-                {due>0&&(
+                {due>0&&!isStopped&&(
                   <div style={{marginTop:8}}>
                     <div style={{height:4,borderRadius:4,background:'rgba(255,255,255,0.06)',overflow:'hidden'}}>
                       <div style={{height:'100%',width:`${Math.min(100,(paid/due)*100)}%`,background:paid>=due?D.green:D.gold,borderRadius:4}}/>
@@ -1545,11 +1766,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
             <div style={{textAlign:'center',padding:'20px 0',color:D.muted}}>
               <FileText size={28} style={{opacity:0.3,display:'block',margin:'0 auto 8px'}}/>
               <p style={{margin:0,fontSize:12}}>Pa gen regleman pou plan sa a.</p>
-              <button onClick={onEditPlan} style={{marginTop:10,padding:'8px 16px',borderRadius:9,
-                border:`1px solid ${D.teal}40`,background:D.tealBg,color:D.teal,
-                cursor:'pointer',fontWeight:700,fontSize:12}}>
-                Ajoute Regleman
-              </button>
             </div>
           )}
         </div>
@@ -1563,16 +1779,397 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
             setPay(null)
           }}/>
       )}
+
       {viewMember&&(
         <MemberVirtualAccount
           member={viewMember}
           plan={plan}
-          onClose={()=>{setView(null);setViewSlots(null)}}
+          onClose={()=>{setView(null);setSlots(null)}}
           printer={printer}
           allMemberSlots={viewMemberSlots}
         />
       )}
+
+      {actionModal && (
+        <ModalMemberAction
+          member={actionModal.member}
+          plan={plan}
+          action={actionModal.action}
+          onClose={() => setAction(null)}
+          loading={false}
+          printer={printer}
+          onConfirm={(action, reason) => {
+            onMemberAction(actionModal.member.id, action, reason)
+            setAction(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// RELASYON
+// ─────────────────────────────────────────────────────────────
+const RELATIONSHIPS = [
+  { val: 'conjoint',  label: '💑 Konjwen / Konjwèt' },
+  { val: 'parent',    label: '👪 Manman / Papa'      },
+  { val: 'fre_se',    label: '👫 Frè / Sè'           },
+  { val: 'pitit',     label: '👶 Pitit'               },
+  { val: 'zanmi',     label: '🤝 Zanmi'              },
+  { val: 'koleg',     label: '💼 Kolèg Travay'       },
+  { val: 'lot',       label: '🔗 Lòt'                },
+]
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: ENSKRI MANM SOL
+// ─────────────────────────────────────────────────────────────
+function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
+  const available = useMemo(() => {
+    const taken = new Set((plan.members || []).map(m => m.position))
+    // Sol ouvè: pwochain pozisyon lib oswa nouvo
+    const maxPos = Math.max(...[(plan.members || []).map(m => m.position)].flat(), 0)
+    const nextPos = maxPos + 1
+    // Ofri pozisyon lib + pwochen
+    const libPos = Array.from({length: maxPos}, (_, i) => i + 1).filter(p => !taken.has(p))
+    return [...libPos, nextPos]
+  }, [plan])
+
+  const payoutDates = useMemo(() => {
+    const map = {}
+    available.forEach(pos => { map[pos] = getPayoutDate(plan, pos) })
+    return map
+  }, [plan, available])
+
+  const [positions,  setPositions]  = useState(available[0] ? [available[0]] : [])
+  const [tab,        setTab]        = useState('info')
+  const [form, setForm] = useState({
+    name: '', phone: '',
+    cin: '', nif: '', address: '',
+    referenceName: '', referencePhone: '', relationship: '',
+  })
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
+  const [photoPreview,   setPhotoPreview]   = useState(null)
+  const [idPhotoPreview, setIdPhotoPreview] = useState(null)
+  const [photoB64,       setPhotoB64]       = useState(null)
+  const [idPhotoB64,     setIdPhotoB64]     = useState(null)
+  const [existingAccount, setExistingAccount] = useState(null)
+  const [checkingPhone,   setCheckingPhone]   = useState(false)
+
+  const existingPositions = useMemo(()=>{
+    if (!form.phone) return []
+    return (plan.members || []).filter(m => m.phone === form.phone).map(m => m.position)
+  }, [form.phone, plan.members])
+
+  const togglePosition = (p) => {
+    setPositions(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
+  }
+
+  const checkPhone = useCallback(async (phone) => {
+    if (phone.replace(/\D/g, '').length < 8) { setExistingAccount(null); return }
+    setCheckingPhone(true)
+    try {
+      const slug = localStorage.getItem('plusgroup-slug')
+      const { token } = useAuthStore.getState()
+      const res = await fetch(
+        `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
+        { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setExistingAccount(data.account || null)
+      } else { setExistingAccount(null) }
+    } catch { setExistingAccount(null) }
+    finally { setCheckingPhone(false) }
+  }, [])
+
+  const handlePhoto = (e, type) => {
+    const file = e.target.files?.[0]; if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const b64 = ev.target.result
+      if (type === 'photo')   { setPhotoPreview(b64); setPhotoB64(b64) }
+      if (type === 'idPhoto') { setIdPhotoPreview(b64); setIdPhotoB64(b64) }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const tabStyle = (active) => ({
+    flex: 1, padding: '8px 6px', borderRadius: 8, cursor: 'pointer',
+    fontSize: 11, fontWeight: 700, border: 'none',
+    background: active ? D.goldDim : 'transparent',
+    color: active ? D.gold : D.muted,
+    borderBottom: active ? `2px solid ${D.gold}` : '2px solid transparent',
+    transition: 'all 0.15s',
+  })
+
+  const tabImgBox = {
+    width: '100%', height: 90, borderRadius: 10, objectFit: 'cover',
+    border: `1px solid ${D.border}`, background: 'rgba(0,0,0,0.3)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', overflow: 'hidden', position: 'relative',
+  }
+
+  const handleSave = () => {
+    if (!form.name)        return toast.error('Non manm obligatwa.')
+    if (!form.phone)       return toast.error('Telefòn obligatwa.')
+    if (!positions.length) return toast.error('Chwazi omwen yon plas.')
+
+    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
+    const firstPos    = positions[0]
+    const isOwnerSlot = hasOwnerSlot(plan) && firstPos === (plan.members?.length || 0) + 1
+
+    onSave({
+      ...form,
+      position: firstPos, positions,
+      credentials, isOwnerSlot,
+      cin: form.cin || null, nif: form.nif || null, address: form.address || null,
+      photoUrl: photoB64 || null, idPhotoUrl: idPhotoB64 || null,
+      referenceName: form.referenceName || null, referencePhone: form.referencePhone || null,
+      relationship: form.relationship || null,
+      preferredDate: payoutDates[firstPos] || null,
+      _cb: (saved) => onShowCreds({
+        member: saved || { ...form, position: firstPos, positions },
+        credentials: existingAccount
+          ? { username: existingAccount.username, password: null, isExisting: true }
+          : credentials,
+        positions, payoutDates,
+      })
+    })
+  }
+
+  return (
+    <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={520}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Info sol ouvè */}
+        <div style={{background:D.blueBg,border:`1px solid rgba(59,130,246,0.2)`,borderRadius:10,
+          padding:'9px 13px',fontSize:11,color:D.muted,display:'flex',gap:7,alignItems:'center'}}>
+          <Info size={13} style={{color:D.blue,flexShrink:0}}/>
+          <span>
+            Sol sa a <strong style={{color:D.blue}}>ouvè</strong> — kalandriye ap pwolonje otomatik ak chak nouvo manm.
+            Moun ki te antre anvan yo pa pèdi plas yo.
+          </span>
+        </div>
+
+        {/* Chwazi pozisyon */}
+        <div style={{ background: D.goldDim, borderRadius: 12, padding: '12px 14px' }}>
+          <label style={{ ...lbl, marginBottom: 4 }}>Chwazi Plas</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+            {available.map(p => {
+              const isOwn    = false
+              const pDate    = payoutDates[p]
+              const dateDisp = pDate ? pDate.split('-').reverse().join('/') : '—'
+              const isActive = positions.includes(p)
+              const isNew    = p === Math.max(...available)
+              const isExistPos = existingPositions.includes(p)
+              return (
+                <button key={p} onClick={() => togglePosition(p)} style={{
+                  padding: '7px 11px', borderRadius: 10, cursor: isExistPos ? 'not-allowed' : 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  minWidth: 68, position: 'relative', opacity: isExistPos ? 0.4 : 1,
+                  border: `2px solid ${isActive ? D.blue : isNew ? `${D.gold}50` : D.borderSub}`,
+                  background: isActive ? D.blueBg : isNew ? 'rgba(201,168,76,0.05)' : 'transparent',
+                  transition: 'all 0.12s',
+                }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14,
+                    color: isActive ? D.blue : isNew ? D.gold : D.muted }}>
+                    #{p}
+                  </span>
+                  <span style={{ fontSize: 9, fontWeight: 600, marginTop: 2,
+                    color: isActive ? D.blue : '#3a4a6a' }}>
+                    {dateDisp}
+                  </span>
+                  {isNew && !isActive && (
+                    <span style={{ fontSize: 8, color: D.gold, marginTop: 1 }}>NOUVO</span>
+                  )}
+                  {isActive && (
+                    <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 8,
+                      background: D.blue, color: '#fff', borderRadius: 6, padding: '1px 4px', fontWeight: 900 }}>✓</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {positions.length > 0 && (
+            <div style={{ marginTop: 10, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '9px 12px' }}>
+              {positions.map(p => (
+                <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: D.muted, marginBottom: 4 }}>
+                  <span style={{ color: D.text }}>Men #{p}</span>
+                  <span style={{ display: 'flex', gap: 12 }}>
+                    <span>📅 {payoutDates[p]?.split('-').reverse().join('/') || '—'}</span>
+                    <span style={{ color: D.green }}>🏆 {fmt(memberPayout(plan))} HTG</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${D.borderSub}` }}>
+          {[['info', '👤 Enfòmasyon'], ['kyc', '🪪 KYC'], ['ref', '📞 Referans']].map(([t, l]) => (
+            <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>{l}</button>
+          ))}
+        </div>
+
+        {tab === 'info' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div>
+              <label style={lbl}>Non Manm *</label>
+              <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Non ak Prenon" />
+            </div>
+            <div>
+              <label style={lbl}>Telefòn * {checkingPhone && <span style={{ color: D.muted, fontWeight: 400 }}>ap verifye...</span>}</label>
+              <input style={{ ...inp, fontSize: 16 }} inputMode="tel" value={form.phone}
+                onChange={e => { set('phone', e.target.value); checkPhone(e.target.value) }}
+                placeholder="+509 XXXX XXXX" />
+            </div>
+            {existingAccount && (
+              <div style={{ background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}40`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                <UserCheck size={18} style={{ color: D.teal, flexShrink: 0, marginTop: 1 }} />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: D.teal, margin: '0 0 4px' }}>♻️ Kont Sol egziste pou {existingAccount.memberName}</p>
+                  <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Username: <strong style={{ color: D.text, fontFamily: 'monospace' }}>{existingAccount.username}</strong></p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'kyc' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lbl}>CIN</label>
+                <input style={inp} value={form.cin} onChange={e => set('cin', e.target.value)} placeholder="1-23-456789-0" />
+              </div>
+              <div>
+                <label style={lbl}>NIF</label>
+                <input style={inp} value={form.nif} onChange={e => set('nif', e.target.value)} placeholder="000-123-456-7" />
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>Adres</label>
+              <input style={inp} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Vil, Depatman..." />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lbl}>Foto Kliyan</label>
+                <label htmlFor="sol-photo-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
+                  {photoPreview ? <img src={photoPreview} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>📷</div><div style={{ fontSize: 9 }}>Klike pou foto</div></div>}
+                  <input id="sol-photo-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'photo')} />
+                </label>
+              </div>
+              <div>
+                <label style={lbl}>Foto Pyes Idantite</label>
+                <label htmlFor="sol-id-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
+                  {idPhotoPreview ? <img src={idPhotoPreview} alt="id" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>🪪</div><div style={{ fontSize: 9 }}>CIN / Paspo</div></div>}
+                  <input id="sol-id-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'idPhoto')} />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'ref' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div>
+              <label style={lbl}>Non Moun Referans</label>
+              <input style={inp} value={form.referenceName} onChange={e => set('referenceName', e.target.value)} placeholder="Non ak Prenon referans" />
+            </div>
+            <div>
+              <label style={lbl}>Telefòn Referans</label>
+              <input style={inp} inputMode="tel" value={form.referencePhone} onChange={e => set('referencePhone', e.target.value)} placeholder="+509 XXXX XXXX" />
+            </div>
+            <div>
+              <label style={lbl}>Relasyon</label>
+              <select style={{ ...inp, appearance: 'none', cursor: 'pointer' }} value={form.relationship} onChange={e => set('relationship', e.target.value)}>
+                <option value="">— Chwazi relasyon —</option>
+                {RELATIONSHIPS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
+          <button disabled={loading || !positions.length} onClick={handleSave}
+            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+              cursor: loading ? 'default' : 'pointer',
+              background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
+              color: '#0a1222', fontWeight: 800, fontSize: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            {loading ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Users size={15} />}
+            {loading ? 'Ap enskri...' : `Enskri — ${positions.length} Men`}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: KREDANSYÈL
+// ─────────────────────────────────────────────────────────────
+function ModalMemberCredentials({ member, credentials, onClose, positions, payoutDates }) {
+  const [copied, setCopied] = useState(false)
+  const isExisting = credentials?.isExisting
+
+  const text = isExisting
+    ? `Non: ${member.name}\nItilizatè: ${credentials.username}\nURL: https://app.plusgroupe.com/app/sol/login`
+    : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: https://app.plusgroupe.com/app/sol/login`
+
+  const copy = () => navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+
+  return (
+    <Modal onClose={onClose} title={isExisting ? '🔗 Pozisyon Ajoute!' : '🔑 Kont Kliyan Kreye!'} width={420}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ background: isExisting ? 'rgba(20,184,166,0.1)' : D.greenBg, border: `1px solid ${isExisting ? D.teal : D.green}30`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <UserCheck size={22} style={{ color: isExisting ? D.teal : D.green, flexShrink: 0 }} />
+          <p style={{ fontSize: 13, fontWeight: 800, color: isExisting ? D.teal : D.green, margin: 0 }}>
+            {isExisting ? `Men ajoute pou ${member.name}` : `Kont kreye pou ${member.name}`}
+          </p>
+        </div>
+
+        {positions && positions.length > 0 && (
+          <div style={{ background: D.goldDim, borderRadius: 12, padding: '11px 14px' }}>
+            <p style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase', margin: '0 0 8px' }}>Men Enskri</p>
+            {positions.map(p => (
+              <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '5px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 7, marginBottom: 4 }}>
+                <span style={{ color: D.text, fontWeight: 600 }}>Men #{p}</span>
+                <span style={{ color: D.muted }}>📅 {payoutDates?.[p]?.split('-').reverse().join('/') || '—'}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ background: D.purpleBg, border: `1px solid rgba(155,89,182,0.20)`, borderRadius: 14, padding: '16px' }}>
+          <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', margin: '0 0 12px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Key size={11} /> Enfòmasyon Koneksyon
+          </p>
+          <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>URL Login</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 11, color: D.teal, background: 'rgba(0,0,0,0.25)', padding: '7px 12px', borderRadius: 8, marginBottom: 10, wordBreak: 'break-all' }}>app.plusgroupe.com/app/sol/login</div>
+          <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Non Itilizatè</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.text, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, wordBreak: 'break-all', marginBottom: 10 }}>{credentials?.username}</div>
+          {!isExisting && credentials?.password && (
+            <>
+              <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Modpas Pwovizwa</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 22, color: D.gold, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, letterSpacing: '0.15em', textAlign: 'center' }}>{credentials.password}</div>
+            </>
+          )}
+        </div>
+
+        {!isExisting && <p style={{ fontSize: 11, color: D.muted, margin: 0, background: D.redBg, borderRadius: 8, padding: '8px 12px' }}>⚠️ Note modpas sa kounye a. Kliyan dwe chanje l apre premye koneksyon.</p>}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={copy} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.05)', color: copied ? D.green : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
+            {copied ? '✅ Kopye!' : '📋 Kopye'}
+          </button>
+          <button onClick={onClose} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 13 }}>Fèmen</button>
+        </div>
+      </div>
+    </Modal>
   )
 }
 
@@ -1587,15 +2184,16 @@ export default function SabotayPage() {
     return ()=>document.head.removeChild(el)
   },[])
 
-  const qc      = useQueryClient()
-  const {tenant}= useAuthStore()
-  const printer = usePrinterState()
+  const qc       = useQueryClient()
+  const {tenant} = useAuthStore()
+  const printer  = usePrinterState()
 
   const [selectedPlan,  setSelected]   = useState(null)
   const [showCreate,    setShowCreate]  = useState(false)
   const [editingPlan,   setEditing]     = useState(null)
   const [showAddMember, setAddMember]   = useState(false)
   const [showDraw,      setDraw]        = useState(false)
+  const [showClosePlan, setClosePlan]   = useState(false)
   const [search,        setSearch]      = useState('')
   const [memberCreds,   setMemberCreds] = useState(null)
 
@@ -1615,9 +2213,20 @@ export default function SabotayPage() {
     onSuccess:(r)=>{ qc.invalidateQueries(['sabotay-plans']); setShowCreate(false); toast.success('✅ Plan kreye!'); setSelected(r.plan||r) },
     onError:(e)=>toast.error(e.message),
   })
+
   const updatePlan = useMutation({
     mutationFn:({id,...data})=>apiFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); setEditing(null); toast.success('✅ Plan modifye!') },
+    onError:(e)=>toast.error(e.message),
+  })
+
+  const closePlan = useMutation({
+    mutationFn:(id)=>apiFetch(`/sabotay/plans/${id}/close`,{method:'POST'}),
+    onSuccess:()=>{
+      qc.invalidateQueries(['sabotay-plans'])
+      setClosePlan(false)
+      toast.success('✅ Plan fèmen!')
+    },
     onError:(e)=>toast.error(e.message),
   })
 
@@ -1628,11 +2237,8 @@ export default function SabotayPage() {
     },
     onSuccess:(r,vars)=>{
       qc.invalidateQueries(['sabotay-plans'])
-      if(typeof vars._cb==='function') {
-        vars._cb(r.member||r)
-      } else {
-        setAddMember(false)
-      }
+      if(typeof vars._cb==='function') vars._cb(r.member||r)
+      else setAddMember(false)
     },
     onError:(e)=>toast.error(e.message),
   })
@@ -1642,6 +2248,21 @@ export default function SabotayPage() {
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); toast.success('✅ Peman anrejistre!') },
     onError:(e)=>toast.error(e.message),
   })
+
+  // ─── Aksyon sou manm: bloke, debloke, kanpe, reprann ───
+  const memberAction = useMutation({
+    mutationFn:({planId, memberId, action, reason})=>apiFetch(
+      `/sabotay/plans/${planId}/members/${memberId}/action`,
+      {method:'POST',body:JSON.stringify({action,reason})}
+    ),
+    onSuccess:(r, vars)=>{
+      qc.invalidateQueries(['sabotay-plans'])
+      const labels = { block:'🔒 Bloke!', unblock:'🔓 Debloke!', stop:'⏸️ Kanpe!', resume:'▶️ Reprann!' }
+      toast.success(labels[vars.action] || '✅ Fèt!')
+    },
+    onError:(e)=>toast.error(e.message),
+  })
+
   const blindDraw = useMutation({
     mutationFn:(memberId)=>apiFetch(`/sabotay/plans/${activePlan?.id}/blind-draw`,{method:'POST',body:JSON.stringify({memberId})}),
     onSuccess:(r)=>{
@@ -1653,16 +2274,22 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
 
-  const totalMembers = plans.reduce((a,p)=>a+(p.members?.length||0),0)
+  const today = new Date().toISOString().split('T')[0]
+  const totalMembers   = plans.reduce((a,p)=>a+(p.members?.length||0),0)
   const totalCollected = plans.reduce((a,p)=>
-    a+(p.members||[]).reduce((b,m)=>{
-      const interval = Math.max(1, Math.floor(p.interval) || 1)
-      const slots = totalSlots(p)
-      const totalCycles = slots * interval
-      const allD = getPaymentDates(p.frequency, getPlanStartDate(p), totalCycles)
+    a+(p.members||[]).filter(m=>m.status!=='stopped').reduce((b,m)=>{
+      const allD = getAllPaymentDates(p)
       return b+allD.filter(d=>m.payments?.[d]).length*p.amount
     },0),0)
-  const activePlans = plans.filter(p=>p.status!=='closed').length
+  const activePlans = plans.filter(p=>p.status!=='closed'&&p.status!=='finished').length
+
+  // Konte avètisman global
+  const globalWarnings = plans.reduce((a, p) => {
+    return a + (p.members || []).filter(m => {
+      const s = computeMemberStatus(m, p, today)
+      return s === 'blocked' || s === 'late'
+    }).length
+  }, 0)
 
   const filtered = plans.filter(p=>
     p.name?.toLowerCase().includes(search.toLowerCase())||
@@ -1699,6 +2326,10 @@ export default function SabotayPage() {
           onAddMember={()=>setAddMember(true)}
           onBlindDraw={()=>setDraw(true)}
           onEditPlan={()=>setEditing(activePlan)}
+          onClosePlan={()=>setClosePlan(true)}
+          onMemberAction={(memberId, action, reason) =>
+            memberAction.mutate({ planId: activePlan.id, memberId, action, reason })
+          }
           onPaymentSaved={(memberId,dates,timings,fines)=>
             markPayment.mutate({memberId,dates,timings,fines})}
         />
@@ -1723,11 +2354,22 @@ export default function SabotayPage() {
             </div>
           </div>
 
+          {/* Avètisman global */}
+          {globalWarnings > 0 && (
+            <div style={{background:D.orangeBg,border:`1px solid ${D.orange}30`,borderRadius:12,
+              padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10,fontSize:11}}>
+              <AlertTriangle size={14} style={{color:D.orange,flexShrink:0}}/>
+              <span style={{color:D.orange,fontWeight:700}}>
+                {globalWarnings} manm an reta oswa bloke nan tout plan yo.
+              </span>
+            </div>
+          )}
+
           <div className="top-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:10,marginBottom:20}}>
             {[
-              {label:'Plan Aktif',    val:activePlans,               color:D.gold,   bg:D.goldDim,   icon:<Wallet size={16}/> },
-              {label:'Total Manm',   val:totalMembers,               color:D.blue,   bg:D.blueBg,    icon:<Users size={16}/>  },
-              {label:'Kolekte (HTG)',val:fmt(totalCollected),         color:D.green,  bg:D.greenBg,   icon:<Trophy size={16}/> },
+              {label:'Plan Aktif',    val:activePlans,       color:D.gold,   bg:D.goldDim,   icon:<Wallet size={16}/>  },
+              {label:'Total Manm',   val:totalMembers,       color:D.blue,   bg:D.blueBg,    icon:<Users size={16}/>   },
+              {label:'Kolekte (HTG)',val:fmt(totalCollected), color:D.green,  bg:D.greenBg,   icon:<Trophy size={16}/>  },
             ].map(({label,val,color,bg,icon})=>(
               <div key={label} className="stat-card" style={{background:D.card,border:`1px solid ${D.border}`,
                 borderRadius:13,padding:'13px 15px',display:'flex',alignItems:'center',gap:12}}>
@@ -1761,19 +2403,18 @@ export default function SabotayPage() {
           ):(
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               {filtered.map(plan=>{
-                const interval = Math.max(1, Math.floor(plan.interval) || 1)
-                const slots=totalSlots(plan)
-                const totalCycles = slots * interval
-                const filled=plan.members?.length||0
-                const pct=slots>0?(filled/slots)*100:0
-                const allD = getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
-                const coll=plan.members?.reduce((a,m)=>
-                  a+allD.filter(d=>m.payments?.[d]).length*plan.amount,0)||0
-                const today=new Date().toISOString().split('T')[0]
-                const payMap = getPayoutDateMap(plan)
-                const todayWinEntry = Object.entries(payMap).find(([,d])=>d===today)
-                const winner = todayWinEntry ? plan.members?.find(m=>m.position===Number(todayWinEntry[0])) : null
-                const payout=memberPayout(plan)
+                const activeMbrs = (plan.members||[]).filter(m=>m.status!=='stopped')
+                const filled     = activeMbrs.length
+                const allD       = getAllPaymentDates(plan)
+                const coll       = activeMbrs.reduce((a,m)=>a+allD.filter(d=>m.payments?.[d]).length*plan.amount,0)||0
+                const payMap     = getPayoutDateMap(plan)
+                const todayWinE  = Object.entries(payMap).find(([,d])=>d===today)
+                const winner     = todayWinE ? plan.members?.find(m=>m.position===Number(todayWinE[0])) : null
+                const payout     = memberPayout(plan)
+                const warnings   = (plan.members||[]).filter(m=>{
+                  const s = computeMemberStatus(m, plan, today)
+                  return s==='blocked'||s==='late'
+                }).length
 
                 return (
                   <div key={plan.id} className="plan-card" onClick={()=>setSelected(plan)}
@@ -1781,13 +2422,21 @@ export default function SabotayPage() {
                       padding:'14px 16px',cursor:'pointer'}}>
                     <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:10,gap:8}}>
                       <div style={{flex:1,minWidth:0}}>
-                        <h3 style={{color:'#fff',margin:'0 0 3px',fontSize:14,fontWeight:800,
-                          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{plan.name}</h3>
+                        <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:3,flexWrap:'wrap'}}>
+                          <h3 style={{color:'#fff',margin:0,fontSize:14,fontWeight:800,
+                            overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{plan.name}</h3>
+                          <PlanStatusBadge status={plan.status||'open'}/>
+                          {warnings > 0 && (
+                            <span style={{fontSize:9,background:D.redBg,color:D.red,padding:'2px 7px',borderRadius:10,fontWeight:700}}>
+                              ⚠️ {warnings}
+                            </span>
+                          )}
+                        </div>
                         <p style={{color:D.muted,margin:0,fontSize:11}}>
                           {freqFullLabel(plan)} •{' '}
                           <span style={{color:D.gold,fontWeight:700}}>{fmt(plan.amount)} HTG</span>
                           {Number(plan.penalty)>0&&<span style={{color:D.red}}> • Amand {fmt(plan.penalty)}</span>}
-                          {interval>1&&<span style={{color:D.blue}}> • {totalCycles} sik</span>}
+                          {Number(plan.warningDelayDays)>0&&<span style={{color:D.orange}}> • ⚠️ {plan.warningDelayDays}j reta</span>}
                         </p>
                       </div>
                       <div style={{textAlign:'right',flexShrink:0}}>
@@ -1805,13 +2454,12 @@ export default function SabotayPage() {
                     )}
 
                     <div style={{display:'flex',justifyContent:'space-between',marginBottom:5}}>
-                      <span style={{fontSize:10,color:D.muted}}>{filled}/{slots} manm</span>
-                      <span style={{fontSize:10,color:D.gold,fontWeight:700}}>{Math.round(pct)}%</span>
+                      <span style={{fontSize:10,color:D.muted}}>{filled} manm aktif • {allD.length} sik total</span>
+                      <span style={{fontSize:10,color:plan.status==='open'?D.green:D.red,fontWeight:700}}>
+                        {plan.status==='open'?'🟢 Ouvè':'🔴 Fèmen'}
+                      </span>
                     </div>
-                    <div style={{height:5,borderRadius:5,background:'rgba(255,255,255,0.06)',overflow:'hidden'}}>
-                      <div style={{height:'100%',width:`${pct}%`,background:D.goldBtn,borderRadius:5,transition:'width 0.4s'}}/>
-                    </div>
-                    <div style={{display:'flex',justifyContent:'space-between',marginTop:9,fontSize:11,color:D.muted}}>
+                    <div style={{display:'flex',justifyContent:'space-between',marginTop:5,fontSize:11,color:D.muted}}>
                       <span>Payout: <strong style={{color:D.gold}}>{fmt(payout)} HTG</strong></span>
                       {plan.regleman&&<span style={{display:'flex',alignItems:'center',gap:3,color:D.teal}}><FileText size={10}/>Regleman</span>}
                     </div>
@@ -1823,6 +2471,7 @@ export default function SabotayPage() {
         </>
       )}
 
+      {/* ─── MODALS ─── */}
       {showCreate&&(
         <ModalCreatePlan onClose={()=>setShowCreate(false)} loading={createPlan.isPending}
           onSave={(data)=>createPlan.mutate(data)}/>
@@ -1846,479 +2495,23 @@ export default function SabotayPage() {
           loading={blindDraw.isPending}
           onConfirm={(member)=>blindDraw.mutate(member.id)}/>
       )}
-
+      {showClosePlan&&activePlan&&(
+        <ModalClosePlan
+          plan={activePlan}
+          onClose={()=>setClosePlan(false)}
+          loading={closePlan.isPending}
+          onConfirm={()=>closePlan.mutate(activePlan.id)}
+        />
+      )}
       {memberCreds&&(
         <ModalMemberCredentials
           member={memberCreds.member}
           credentials={memberCreds.credentials}
+          positions={memberCreds.positions}
+          payoutDates={memberCreds.payoutDates}
           onClose={()=>setMemberCreds(null)}
         />
       )}
     </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-// RELASYON
-// ─────────────────────────────────────────────────────────────
-const RELATIONSHIPS = [
-  { val: 'conjoint',  label: '💑 Konjwen / Konjwèt' },
-  { val: 'parent',    label: '👪 Manman / Papa'      },
-  { val: 'fre_se',    label: '👫 Frè / Sè'           },
-  { val: 'pitit',     label: '👶 Pitit'               },
-  { val: 'zanmi',     label: '🤝 Zanmi'              },
-  { val: 'koleg',     label: '💼 Kolèg Travay'       },
-  { val: 'lot',       label: '🔗 Lòt'                },
-]
-
-// ─────────────────────────────────────────────────────────────
-// MODAL: ENSKRI MANM SOL (vèsyon konplè ak KYC + Referans)
-// Sipò plizyè men: yon moun ka pran plizyè plas nan menm sol
-// ─────────────────────────────────────────────────────────────
-function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
-  const slots     = totalSlots(plan)
-  const taken     = new Set((plan.members || []).map(m => m.position))
-  const available = Array.from({ length: slots }, (_, i) => i + 1).filter(p => !taken.has(p))
-
-  // Dat touche pou chak pozisyon disponib
-  const payoutDates = useMemo(() => {
-    const map = {}
-    available.forEach(pos => {
-      map[pos] = getPayoutDate(plan, pos)
-    })
-    return map
-  }, [plan, available])
-
-  // Plizyè men: on ka chwazi plizyè pozisyon
-  const [positions,  setPositions]  = useState(available[0] ? [available[0]] : [])
-  const [tab,        setTab]        = useState('info')
-
-  const [form, setForm] = useState({
-    name: '', phone: '',
-    cin: '', nif: '', address: '',
-    referenceName: '', referencePhone: '', relationship: '',
-  })
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
-
-  const [photoPreview,   setPhotoPreview]   = useState(null)
-  const [idPhotoPreview, setIdPhotoPreview] = useState(null)
-  const [photoB64,       setPhotoB64]       = useState(null)
-  const [idPhotoB64,     setIdPhotoB64]     = useState(null)
-
-  const [existingAccount, setExistingAccount] = useState(null)
-  const [checkingPhone,   setCheckingPhone]   = useState(false)
-
-  // Kanpe moun sa a déjà gen nan plan sa a
-  const existingPositions = useMemo(()=>{
-    if (!form.phone) return []
-    return (plan.members || [])
-      .filter(m => m.phone === form.phone)
-      .map(m => m.position)
-  }, [form.phone, plan.members])
-
-  const isFull     = available.length === 0
-
-  const togglePosition = (p) => {
-    setPositions(prev =>
-      prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p]
-    )
-  }
-
-  const checkPhone = useCallback(async (phone) => {
-    if (phone.replace(/\D/g, '').length < 8) { setExistingAccount(null); return }
-    setCheckingPhone(true)
-    try {
-      const slug     = localStorage.getItem('plusgroup-slug')
-      const { token } = useAuthStore.getState()
-      const res = await fetch(
-        `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
-        { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
-      )
-      if (res.ok) {
-        const data = await res.json()
-        setExistingAccount(data.account || null)
-      } else {
-        setExistingAccount(null)
-      }
-    } catch { setExistingAccount(null) }
-    finally { setCheckingPhone(false) }
-  }, [])
-
-  const handlePhoto = (e, type) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const b64 = ev.target.result
-      if (type === 'photo')   { setPhotoPreview(b64);   setPhotoB64(b64)   }
-      if (type === 'idPhoto') { setIdPhotoPreview(b64); setIdPhotoB64(b64) }
-    }
-    reader.readAsDataURL(file)
-  }
-
-  const tabStyle = (active) => ({
-    flex: 1, padding: '8px 6px', borderRadius: 8, cursor: 'pointer',
-    fontSize: 11, fontWeight: 700, border: 'none',
-    background: active ? D.goldDim : 'transparent',
-    color:      active ? D.gold   : D.muted,
-    borderBottom: active ? `2px solid ${D.gold}` : '2px solid transparent',
-    transition: 'all 0.15s',
-  })
-
-  const tabImgBox = {
-    width: '100%', height: 90, borderRadius: 10, objectFit: 'cover',
-    border: `1px solid ${D.border}`, background: 'rgba(0,0,0,0.3)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', overflow: 'hidden', position: 'relative',
-  }
-
-  const handleSave = () => {
-    if (!form.name)           return toast.error('Non manm obligatwa.')
-    if (!form.phone)          return toast.error('Telefòn obligatwa.')
-    if (!positions.length)    return toast.error('Chwazi omwen yon plas.')
-
-    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
-
-    // Si plizyè pozisyon, kreye yon sèl kont men plizyè antre
-    // Rele onSave yon fwa pou chak pozisyon — backend dwe sipòte li
-    const firstPos = positions[0]
-    const isOwnerSlot = hasOwnerSlot(plan) && firstPos === slots
-
-    onSave({
-      ...form,
-      position: firstPos,
-      positions: positions, // voye tout pozisyon yo
-      credentials,
-      isOwnerSlot,
-      cin: form.cin || null, nif: form.nif || null, address: form.address || null,
-      photoUrl: photoB64 || null, idPhotoUrl: idPhotoB64 || null,
-      referenceName: form.referenceName || null, referencePhone: form.referencePhone || null,
-      relationship: form.relationship || null,
-      preferredDate: payoutDates[firstPos] || null,
-      _cb: (saved) => onShowCreds({
-        member: saved || { ...form, position: firstPos, positions },
-        credentials: existingAccount
-          ? { username: existingAccount.username, password: null, isExisting: true }
-          : credentials,
-        positions,
-        payoutDates,
-      })
-    })
-  }
-
-  return (
-    <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={520}>
-      {isFull ? (
-        <div style={{ textAlign: 'center', padding: '24px 0' }}>
-          <AlertCircle size={40} style={{ color: D.red, marginBottom: 12 }} />
-          <p style={{ color: D.red, fontWeight: 700, fontSize: 15 }}>
-            Plan sa a plen! ({plan.members?.length}/{slots} plas)
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-          {/* ─── CHWAZI PLAS (sipò plizyè men) ─── */}
-          <div style={{ background: D.goldDim, borderRadius: 12, padding: '12px 14px' }}>
-            <label style={{ ...lbl, marginBottom: 4 }}>Chwazi Plas (yon oswa plizyè men)</label>
-            <p style={{ fontSize:10, color:D.muted, margin:'0 0 10px' }}>
-              Yon moun ka pran plizyè plas — yon sèl kont pou tout men l yo.
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {available.map(p => {
-                const isOwn    = hasOwnerSlot(plan) && p === slots
-                const pDate    = payoutDates[p]
-                const dateDisp = pDate ? pDate.split('-').reverse().join('/') : '—'
-                const isActive = positions.includes(p)
-                const isExistPos = existingPositions.includes(p)
-                return (
-                  <button key={p} onClick={() => togglePosition(p)} style={{
-                    padding: '7px 11px', borderRadius: 10, cursor: 'pointer',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                    minWidth: 68, position: 'relative', opacity: isExistPos ? 0.4 : 1,
-                    border: `2px solid ${isActive ? (isOwn ? D.gold : D.blue) : D.borderSub}`,
-                    background: isActive ? (isOwn ? D.goldDim : D.blueBg) : 'transparent',
-                    transition: 'all 0.12s',
-                  }}>
-                    <span style={{
-                      fontFamily: 'monospace', fontWeight: 900, fontSize: 14,
-                      color: isActive ? (isOwn ? D.gold : D.blue) : D.muted,
-                    }}>
-                      #{p}
-                    </span>
-                    <span style={{
-                      fontSize: 9, fontWeight: 600, marginTop: 2,
-                      color: isActive ? (isOwn ? D.gold : D.blue) : '#3a4a6a',
-                    }}>
-                      {dateDisp}
-                    </span>
-                    {isActive && (
-                      <span style={{
-                        position: 'absolute', top: -5, right: -5, fontSize: 8,
-                        background: isOwn ? D.gold : D.blue, color: '#fff',
-                        borderRadius: 6, padding: '1px 4px', fontWeight: 900,
-                      }}>✓</span>
-                    )}
-                    {isOwn && (
-                      <span style={{
-                        position: 'absolute', top: -5, left: -5, fontSize: 8,
-                        background: D.gold, color: '#0a1222', borderRadius: 6,
-                        padding: '1px 4px', fontWeight: 900,
-                      }}>★</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-
-            {positions.length > 0 && (
-              <div style={{ marginTop: 12, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: D.gold, marginBottom: 8 }}>
-                  {positions.length} men chwazi:
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {positions.map(p => {
-                    const isOwn = hasOwnerSlot(plan) && p === slots
-                    return (
-                      <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: D.muted }}>
-                        <span style={{ color: isOwn ? D.gold : D.text }}>
-                          Men #{p} {isOwn ? '★ Pwopriyete' : ''}
-                        </span>
-                        <span style={{ display: 'flex', gap: 12 }}>
-                          <span>📅 {payoutDates[p]?.split('-').reverse().join('/') || '—'}</span>
-                          <span style={{ color: D.green }}>🏆 {fmt(isOwn ? ownerPayout(plan) : memberPayout(plan))} HTG</span>
-                        </span>
-                      </div>
-                    )
-                  })}
-                  {positions.length > 1 && (
-                    <div style={{ borderTop: `1px solid ${D.border}`, paddingTop: 6, marginTop: 4,
-                      display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                      <span style={{ color: D.muted }}>Total touche:</span>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold }}>
-                        {fmt(positions.reduce((a, p) => a + (hasOwnerSlot(plan) && p === slots ? ownerPayout(plan) : memberPayout(plan)), 0))} HTG
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {existingPositions.length > 0 && (
-              <div style={{ marginTop: 8, fontSize: 10, color: D.orange }}>
-                ⚠️ Kliyan sa deja gen men nan: {existingPositions.map(p=>`#${p}`).join(', ')}
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${D.borderSub}` }}>
-            {[['info', '👤 Enfòmasyon'], ['kyc', '🪪 KYC'], ['ref', '📞 Referans']].map(([t, l]) => (
-              <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>{l}</button>
-            ))}
-          </div>
-
-          {tab === 'info' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <div>
-                <label style={lbl}>Non Manm *</label>
-                <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Non ak Prenon" />
-              </div>
-              <div>
-                <label style={lbl}>Telefòn * {checkingPhone && <span style={{ color: D.muted, fontWeight: 400 }}>ap verifye...</span>}</label>
-                <input style={{ ...inp, fontSize: 16 }} inputMode="tel" value={form.phone}
-                  onChange={e => { set('phone', e.target.value); checkPhone(e.target.value) }}
-                  placeholder="+509 XXXX XXXX" />
-              </div>
-              {existingAccount && (
-                <div style={{ background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}40`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-                  <UserCheck size={18} style={{ color: D.teal, flexShrink: 0, marginTop: 1 }} />
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 12, fontWeight: 800, color: D.teal, margin: '0 0 4px' }}>♻️ Kont Sol egziste pou {existingAccount.memberName}</p>
-                    <p style={{ fontSize: 11, color: D.muted, margin: '0 0 4px' }}>Username: <strong style={{ color: D.text, fontFamily: 'monospace' }}>{existingAccount.username}</strong></p>
-                    <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>
-                      {existingAccount.positions?.length || 0} pozisyon deja •{' '}
-                      {positions.length > 1 ? `${positions.length} nouvo men` : '1 nouvo men'} ap ajoute.
-                    </p>
-                  </div>
-                </div>
-              )}
-              {positions.length > 0 && !existingAccount && (
-                <div style={{ background: D.purpleBg, border: `1px solid rgba(155,89,182,0.15)`, borderRadius: 10, padding: '9px 13px', fontSize: 11, color: D.muted, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Key size={13} style={{ color: D.purple, flexShrink: 0 }} />
-                  <span>
-                    <strong style={{ color: D.purple }}>Nouvo kont</strong> ap kreye ak{' '}
-                    <strong style={{ color: D.gold }}>{positions.length} men</strong> —
-                    yon sèl kont pou obsève tout men yo.
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {tab === 'kyc' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={lbl}>CIN (Kart Idantite)</label>
-                  <input style={inp} value={form.cin} onChange={e => set('cin', e.target.value)} placeholder="Ex: 1-23-456789-0" />
-                </div>
-                <div>
-                  <label style={lbl}>NIF (Fiskal)</label>
-                  <input style={inp} value={form.nif} onChange={e => set('nif', e.target.value)} placeholder="Ex: 000-123-456-7" />
-                </div>
-              </div>
-              <div>
-                <label style={lbl}>Adres Domisil</label>
-                <input style={inp} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Ex: Rue Capois, Pétionville" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={lbl}>Foto Kliyan</label>
-                  <label htmlFor="sol-photo-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
-                    {photoPreview ? <img src={photoPreview} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>📷</div><div style={{ fontSize: 9 }}>Klike pou foto</div></div>}
-                    <input id="sol-photo-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'photo')} />
-                  </label>
-                </div>
-                <div>
-                  <label style={lbl}>Foto Pyes Idantite</label>
-                  <label htmlFor="sol-id-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
-                    {idPhotoPreview ? <img src={idPhotoPreview} alt="id" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>🪪</div><div style={{ fontSize: 9 }}>CIN / Paspo</div></div>}
-                    <input id="sol-id-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'idPhoto')} />
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {tab === 'ref' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
-              <div>
-                <label style={lbl}>Non Moun Referans</label>
-                <input style={inp} value={form.referenceName} onChange={e => set('referenceName', e.target.value)} placeholder="Non ak Prenon referans" />
-              </div>
-              <div>
-                <label style={lbl}>Telefòn Referans</label>
-                <input style={inp} inputMode="tel" value={form.referencePhone} onChange={e => set('referencePhone', e.target.value)} placeholder="+509 XXXX XXXX" />
-              </div>
-              <div>
-                <label style={lbl}>Relasyon ak Kliyan</label>
-                <select style={{ ...inp, appearance: 'none', cursor: 'pointer' }} value={form.relationship} onChange={e => set('relationship', e.target.value)}>
-                  <option value="">— Chwazi relasyon —</option>
-                  {RELATIONSHIPS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
-                </select>
-              </div>
-              <div style={{ background: D.blueBg, border: `1px solid rgba(59,130,246,0.15)`, borderRadius: 10, padding: '10px 13px', fontSize: 11, color: D.muted }}>
-                <Shield size={12} style={{ color: D.blue, verticalAlign: 'middle', marginRight: 6 }} />
-                Referans la ka kontakte si manm lan pa reyajisab oswa gen pwoblèm peman.
-              </div>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-            <button disabled={loading || !positions.length} onClick={handleSave}
-              style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
-                cursor: loading ? 'default' : 'pointer',
-                background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
-                color: '#0a1222', fontWeight: 800, fontSize: 14,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-              {loading ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Users size={15} />}
-              {loading
-                ? 'Ap enskri...'
-                : existingAccount
-                  ? `Ajoute ${positions.length} Pozisyon`
-                  : `Enskri + ${positions.length > 1 ? `${positions.length} Men` : 'Kreye Kont'}`}
-            </button>
-          </div>
-        </div>
-      )}
-    </Modal>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-// MODAL: KREDANSYÈL — ak afichaj plizyè men
-// ─────────────────────────────────────────────────────────────
-function ModalMemberCredentials({ member, credentials, onClose, positions, payoutDates }) {
-  const [copied, setCopied] = useState(false)
-  const isExisting = credentials?.isExisting
-  const multiPos = positions && positions.length > 1
-
-  const posText = multiPos
-    ? positions.map(p => `  Men #${p}: ${payoutDates?.[p]?.split('-').reverse().join('/') || '—'}`).join('\n')
-    : `  Pozisyon #${member.position}`
-
-  const text = isExisting
-    ? `Non: ${member.name}\nItilizatè: ${credentials.username}\n(Nouvo men ajoute)\n${posText}\nURL: https://app.plusgroupe.com/app/sol/login`
-    : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\n${posText}\nURL: https://app.plusgroupe.com/app/sol/login`
-
-  const copy = () => navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
-
-  return (
-    <Modal onClose={onClose} title={isExisting ? '🔗 Pozisyon Ajoute!' : (multiPos ? `🔑 Kont Kreye — ${positions?.length} Men!` : '🔑 Kont Kliyan Kreye!')} width={420}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: isExisting ? 'rgba(20,184,166,0.1)' : D.greenBg, border: `1px solid ${isExisting ? D.teal : D.green}30`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <UserCheck size={22} style={{ color: isExisting ? D.teal : D.green, flexShrink: 0 }} />
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 800, color: isExisting ? D.teal : D.green, margin: 0 }}>
-              {isExisting
-                ? `${positions?.length || 1} men ajoute pou ${member.name}`
-                : multiPos
-                  ? `Kont kreye pou ${member.name} — ${positions.length} men!`
-                  : `Kont kreye pou ${member.name}`}
-            </p>
-            <p style={{ fontSize: 11, color: D.muted, margin: '2px 0 0' }}>
-              Yon sèl kont pou obsève tout men yo.
-            </p>
-          </div>
-        </div>
-
-        {/* Lis men yo */}
-        {positions && positions.length > 0 && (
-          <div style={{ background: D.goldDim, borderRadius: 12, padding: '11px 14px' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Trophy size={11}/> Men Enskri
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {positions.map(p => (
-                <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '5px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 7 }}>
-                  <span style={{ color: D.text, fontWeight: 600 }}>Men #{p}</span>
-                  <span style={{ color: D.muted }}>📅 {payoutDates?.[p]?.split('-').reverse().join('/') || '—'}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ background: D.purpleBg, border: `1px solid rgba(155,89,182,0.20)`, borderRadius: 14, padding: '16px' }}>
-          <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', margin: '0 0 12px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Key size={11} /> Enfòmasyon Koneksyon
-          </p>
-          <div>
-            <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>URL Login</div>
-            <div style={{ fontFamily: 'monospace', fontSize: 11, color: D.teal, background: 'rgba(0,0,0,0.25)', padding: '7px 12px', borderRadius: 8, marginBottom: 10, wordBreak: 'break-all' }}>app.plusgroupe.com/app/sol/login</div>
-            <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Non Itilizatè</div>
-            <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.text, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, wordBreak: 'break-all', marginBottom: 10 }}>{credentials?.username}</div>
-            {!isExisting && credentials?.password && (
-              <>
-                <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Modpas Pwovizwa</div>
-                <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 22, color: D.gold, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, letterSpacing: '0.15em', textAlign: 'center' }}>{credentials.password}</div>
-              </>
-            )}
-            {isExisting && (
-              <div style={{ background: D.tealBg, border: `1px solid ${D.teal}30`, borderRadius: 8, padding: '8px 12px', fontSize: 11, color: D.teal, marginTop: 6 }}>♻️ Kliyan kapab itilize menm modpas li deja genyen an.</div>
-            )}
-          </div>
-        </div>
-
-        {!isExisting && <p style={{ fontSize: 11, color: D.muted, margin: 0, background: D.redBg, borderRadius: 8, padding: '8px 12px' }}>⚠️ Note modpas sa kounye a. Kliyan dwe chanje l apre premye koneksyon.</p>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={copy} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.05)', color: copied ? D.green : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-            {copied ? '✅ Kopye!' : '📋 Kopye'}
-          </button>
-          <button onClick={onClose} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 13 }}>Fèmen</button>
-        </div>
-      </div>
-    </Modal>
   )
 }
