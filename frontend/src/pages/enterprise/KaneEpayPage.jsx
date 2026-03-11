@@ -1,5 +1,5 @@
 // src/pages/enterprise/KaneEpayPage.jsx
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
@@ -10,7 +10,7 @@ import {
   Plus, Search, ArrowDownCircle, ArrowUpCircle, Eye,
   X, Printer, ChevronLeft, Users, Wallet,
   TrendingUp, Activity, CreditCard, AlertCircle,
-  Bluetooth, BluetoothOff,
+  Bluetooth, BluetoothOff, Camera, IdCard,
 } from 'lucide-react'
 import {
   connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt
@@ -28,6 +28,19 @@ const kaneAPI = {
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (d) => {
   try { return format(new Date(d), 'dd/MM/yyyy HH:mm', { locale: fr }) } catch { return '' }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Jenere prefiks nimewo kont depi non biznis tenant la
+// "BlueCore Solutions" → "BS", "Plus Group" → "PG"
+// ─────────────────────────────────────────────────────────────
+function getAccountPrefix(tenant) {
+  const name = tenant?.businessName || tenant?.name || ''
+  const words = name.trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return 'KE'
+  if (words.length === 1) return words[0].substring(0, 2).toUpperCase()
+  // 2 premye lèt: premye lèt chak mo (jiska 2 mo)
+  return words.slice(0, 2).map(w => w[0].toUpperCase()).join('')
 }
 
 const PAYMENT_METHODS = [
@@ -59,6 +72,7 @@ const D = {
   green:      '#27ae60', greenBg: 'rgba(39,174,96,0.12)',
   red:        '#C0392B', redBg:   'rgba(192,57,43,0.10)',
   orange:     '#D97706', orangeBg:'rgba(217,119,6,0.10)',
+  blue:       '#3B82F6', blueBg:  'rgba(59,130,246,0.10)',
   text:       '#e8eaf0',
   muted:      '#6b7a99',
   label:      'rgba(201,168,76,0.75)',
@@ -77,20 +91,12 @@ const GLOBAL_STYLES = `
   .kane-modal input::placeholder,.kane-modal textarea::placeholder{color:#2a3a54}
   .kane-modal select option{background:#0d1b2a;color:#e8eaf0}
   .kane-row:hover{background:rgba(201,168,76,0.06)!important;}
+  .photo-upload-box:hover{border-color:rgba(201,168,76,0.5)!important;background:rgba(201,168,76,0.05)!important;}
 
-  /* Desktop: modal flote nan mitan */
   @media(min-width:600px){
-    .kane-sheet{
-      border-radius:20px!important;
-      margin:20px!important;
-      max-height:88vh!important;
-    }
-    .kane-overlay{
-      align-items:center!important;
-    }
+    .kane-sheet{ border-radius:20px!important; margin:20px!important; max-height:88vh!important; }
+    .kane-overlay{ align-items:center!important; }
   }
-
-  /* Mobil: responsive */
   @media(max-width:480px){
     .kane-header{flex-wrap:wrap!important;gap:8px!important;}
     .kane-header-actions{width:100%!important;justify-content:space-between!important;}
@@ -105,6 +111,7 @@ const GLOBAL_STYLES = `
     .kane-modal-title{font-size:13px!important;}
     .kane-form-row{flex-direction:column!important;}
     .kane-tx-amount{font-size:20px!important;}
+    .kane-photo-grid{grid-template-columns:1fr!important;}
   }
   @media(max-width:360px){
     .kane-stats{grid-template-columns:1fr!important;}
@@ -219,7 +226,7 @@ function buildReceiptHTML(account, transaction, tenant, type = 'ouverture') {
 // ─────────────────────────────────────────────────────────────
 // UI ATOMS
 // ─────────────────────────────────────────────────────────────
-function StatCard({ label, value, icon, color }) {
+function StatCard({ label, value, icon, color, sub }) {
   return (
     <div className="kane-stat-card" style={{
       background: D.card, borderRadius: 14, padding: '14px 16px',
@@ -237,6 +244,7 @@ function StatCard({ label, value, icon, color }) {
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em', color: D.muted, margin: '0 0 3px', whiteSpace: 'nowrap' }}>{label}</p>
         <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.text, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
+        {sub && <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>{sub}</p>}
       </div>
     </div>
   )
@@ -260,12 +268,8 @@ const Section = ({ icon, title, children }) => (
   </div>
 )
 
-// ─────────────────────────────────────────────────────────────
-// MODAL — ✅ FIX: pa gen double wrapper, SÈLMAN ti kwa fèmen
-// ─────────────────────────────────────────────────────────────
 function Modal({ onClose, children, title, width = 520 }) {
   return (
-    // ❌ Retire onClick sou overlay — modal fèmen SÈLMAN ak bouton X
     <div className="kane-overlay" style={{
       position: 'fixed', inset: 0, zIndex: 1000,
       background: D.overlay, backdropFilter: 'blur(4px)',
@@ -280,11 +284,9 @@ function Modal({ onClose, children, title, width = 520 }) {
         boxShadow: '0 -8px 40px rgba(0,0,0,0.75)',
         animation: 'sheetUp 0.26s cubic-bezier(0.32,0.72,0,1)',
       }}>
-        {/* Handle bar */}
         <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0' }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }} />
         </div>
-        {/* Header sticky */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '12px 18px 14px',
@@ -292,7 +294,6 @@ function Modal({ onClose, children, title, width = 520 }) {
           position: 'sticky', top: 0, background: D.card, zIndex: 1,
         }}>
           <h2 className="kane-modal-title" style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0 }}>{title}</h2>
-          {/* ✅ Sèlman bouton sa a ki ka fèmen modal la */}
           <button onClick={onClose} style={{
             width: 32, height: 32, borderRadius: 8, border: 'none',
             background: 'rgba(255,255,255,0.06)', color: D.muted, cursor: 'pointer',
@@ -305,11 +306,57 @@ function Modal({ onClose, children, title, width = 520 }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// PHOTO UPLOAD BOX — reutilizab
+// ─────────────────────────────────────────────────────────────
+function PhotoUploadBox({ label, icon, preview, inputId, onChange, hint }) {
+  return (
+    <div>
+      <label style={labelStyle}>{label}</label>
+      <label htmlFor={inputId} className="photo-upload-box" style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        height: 110, borderRadius: 12, cursor: 'pointer', overflow: 'hidden', position: 'relative',
+        border: `2px dashed ${preview ? D.gold : 'rgba(255,255,255,0.12)'}`,
+        background: preview ? 'transparent' : 'rgba(255,255,255,0.02)',
+        transition: 'all 0.18s',
+      }}>
+        {preview ? (
+          <>
+            <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.45)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0,
+              transition: 'opacity 0.18s',
+            }} className="photo-overlay">
+              <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>Chanje foto</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <span style={{ fontSize: 28, marginBottom: 6 }}>{icon}</span>
+            <span style={{ fontSize: 10, color: D.muted, fontWeight: 600, textAlign: 'center', padding: '0 8px' }}>
+              {hint || 'Klike pou chwazi foto'}
+            </span>
+          </>
+        )}
+        <input id={inputId} type="file" accept="image/*" style={{ display: 'none' }} onChange={onChange} />
+      </label>
+      {preview && (
+        <p style={{ fontSize: 10, color: D.green, margin: '4px 0 0', textAlign: 'center', fontWeight: 600 }}>
+          ✅ Foto chwazi
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════════
 // MODAL: NOUVO KONT
 // ═══════════════════════════════════════════════════════════════
 function ModalCreateAccount({ onClose, onSuccess, printer }) {
   const { tenant } = useAuthStore()
+  const prefix = getAccountPrefix(tenant)
+
   const [form, setForm] = useState({
     firstName: '', lastName: '', address: '', nifOrCin: '', phone: '',
     familyRelation: '', familyName: '',
@@ -319,6 +366,12 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
   const [errors,   setErrors]   = useState({})
   const [focusKey, setFocusKey] = useState(null)
 
+  // Photos
+  const [photoPreview,   setPhotoPreview]   = useState(null)
+  const [idPhotoPreview, setIdPhotoPreview] = useState(null)
+  const [photoB64,       setPhotoB64]       = useState(null)
+  const [idPhotoB64,     setIdPhotoB64]     = useState(null)
+
   const opening = Number(form.openingAmount || 0)
   const fee     = Number(form.kaneFee || 0)
   const locked  = Number(form.lockedAmount || 0)
@@ -326,6 +379,7 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
   const isValid = balance >= 0
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+
   const inp = (key, extra = {}) => ({
     ...inputStyle,
     ...(focusKey === key ? { borderColor: D.gold, boxShadow: '0 0 0 2px rgba(201,168,76,0.14)' } : {}),
@@ -333,6 +387,18 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
     onFocus: () => setFocusKey(key),
     onBlur:  () => setFocusKey(null),
   })
+
+  const handlePhoto = (e, type) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const b64 = ev.target.result
+      if (type === 'photo')   { setPhotoPreview(b64);   setPhotoB64(b64)   }
+      if (type === 'idPhoto') { setIdPhotoPreview(b64); setIdPhotoB64(b64) }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const validate = () => {
     const e = {}
@@ -370,11 +436,25 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
       familyRelation: form.familyRelation || undefined, familyName: form.familyName.trim() || undefined,
       openingAmount: opening, kaneFee: fee, lockedAmount: locked,
       method: form.method, reference: form.reference.trim() || undefined,
+      // Prefiks pou backend itilize nan nimewo kont
+      accountPrefix: prefix,
+      // Foto (base64) — backend dwe sove yo
+      photoUrl:   photoB64   || undefined,
+      idPhotoUrl: idPhotoB64 || undefined,
     })
   }
 
   return (
-    <Modal onClose={onClose} title="✚ Nouvo Kont Kanè Epay" width={560}>
+    <Modal onClose={onClose} title={`✚ Nouvo Kont Kanè Epay — ${prefix}`} width={580}>
+      {/* Afiche prefiks ki pral itilize */}
+      <div style={{ background: D.goldDim, border: `1px solid ${D.gold}30`, borderRadius: 10, padding: '8px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+        <span style={{ color: D.gold, fontWeight: 700 }}>Nimewo kont:</span>
+        <span style={{ fontFamily: 'monospace', fontWeight: 900, color: D.text, fontSize: 14 }}>
+          {prefix}-{new Date().getFullYear()}-XXXXX
+        </span>
+        <span style={{ color: D.muted, fontSize: 11 }}>(jenere otomatik)</span>
+      </div>
+
       <Section icon="👤" title="Enfòmasyon Titilè">
         <div className="kane-form-row" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 140px' }}>
@@ -404,6 +484,33 @@ function ModalCreateAccount({ onClose, onSuccess, printer }) {
           <label style={labelStyle}>Adrès</label>
           <input style={inp('address')} value={form.address} onChange={e => set('address', e.target.value)} placeholder="Vil, Depatman..." />
         </div>
+      </Section>
+
+      {/* ─── FOTO KYC ─── */}
+      <Section icon="📸" title="Foto KYC">
+        <div className="kane-photo-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <PhotoUploadBox
+            label="Foto Kliyan (Opsyonèl)"
+            icon="📷"
+            preview={photoPreview}
+            inputId="kane-photo-upload"
+            onChange={e => handlePhoto(e, 'photo')}
+            hint="Foto fas kliyan a"
+          />
+          <PhotoUploadBox
+            label="Foto Kat Idantite *"
+            icon="🪪"
+            preview={idPhotoPreview}
+            inputId="kane-id-upload"
+            onChange={e => handlePhoto(e, 'idPhoto')}
+            hint="CIN, Paspo, oswa lòt ID"
+          />
+        </div>
+        {!idPhotoPreview && (
+          <p style={{ fontSize: 10, color: D.orange, margin: '8px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <AlertCircle size={11} /> Foto kat idantite rekòmande pou KYC konplè
+          </p>
+        )}
       </Section>
 
       <Section icon="👨‍👩‍👧" title="Referans Fanmi">
@@ -643,9 +750,9 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
         {/* Kat kont */}
         <div style={{
           background: D.goldBtn, borderRadius: 14, padding: '14px 16px', color: '#0a1222',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10,
         }}>
-          <div style={{ minWidth: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
             <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{data.firstName} {data.lastName}</p>
             <p style={{ fontSize: 10, opacity: 0.7, margin: 0, fontFamily: 'monospace' }}>{data.accountNumber}</p>
             {data.nifOrCin       && <p style={{ fontSize: 10, opacity: 0.6, margin: '2px 0 0' }}>NIF: {data.nifOrCin}</p>}
@@ -658,6 +765,24 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
             {Number(data.lockedAmount) > 0 && <p style={{ fontSize: 9, opacity: 0.5, margin: '2px 0 0' }}>Bloke: {fmt(data.lockedAmount)} HTG</p>}
           </div>
         </div>
+
+        {/* Foto KYC si disponib */}
+        {(data.photoUrl || data.idPhotoUrl) && (
+          <div style={{ display: 'grid', gridTemplateColumns: data.photoUrl && data.idPhotoUrl ? '1fr 1fr' : '1fr', gap: 10 }}>
+            {data.photoUrl && (
+              <div>
+                <p style={{ ...labelStyle, marginBottom: 6 }}>Foto Kliyan</p>
+                <img src={data.photoUrl} alt="Foto kliyan" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10, border: `1px solid ${D.cardBorder}` }} />
+              </div>
+            )}
+            {data.idPhotoUrl && (
+              <div>
+                <p style={{ ...labelStyle, marginBottom: 6 }}>Kat Idantite</p>
+                <img src={data.idPhotoUrl} alt="Kat idantite" style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 10, border: `1px solid ${D.cardBorder}` }} />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Bouton aksyon */}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -724,24 +849,26 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
 export default function KaneEpayPage() {
   const qc      = useQueryClient()
   const printer = usePrinterState()
+  const { tenant } = useAuthStore()
 
   const [search, setSearch] = useState('')
   const [page,   setPage]   = useState(1)
   const [modal,  setModal]  = useState(null)
   const [selAcc, setSelAcc] = useState(null)
 
-  // Inject global styles yon sèl fwa
-  useState(() => {
+  useEffect(() => {
     const el = document.createElement('style')
     el.textContent = GLOBAL_STYLES
     document.head.appendChild(el)
     return () => document.head.removeChild(el)
-  })
+  }, [])
 
   const { data: statsData } = useQuery({
     queryKey: ['kane-stats'],
     queryFn: () => kaneAPI.getStats().then(r => r.data.stats),
+    refetchInterval: 60000,
   })
+
   const { data: listData, isLoading } = useQuery({
     queryKey: ['kane-accounts', search, page],
     queryFn: () => kaneAPI.getAll({ search: search || undefined, page, limit: 15 }).then(r => r.data),
@@ -761,6 +888,11 @@ export default function KaneEpayPage() {
   const openDetail  = (acc) => { setSelAcc(acc); setModal('detail')  }
   const openDepo    = (acc) => { setSelAcc(acc); setModal('depot')   }
   const openRetrait = (acc) => { setSelAcc(acc); setModal('retrait') }
+
+  // Stats kalkile
+  const todayDepo    = statsData?.todayDeposits    || statsData?.todayDepositAmount   || 0
+  const todayRetrait = statsData?.todayWithdrawals || statsData?.todayWithdrawAmount  || 0
+  const todayCount   = statsData?.todayTransactions || 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, fontFamily: 'DM Sans, sans-serif', padding: '16px', paddingBottom: 60 }}>
@@ -787,9 +919,7 @@ export default function KaneEpayPage() {
             {printer.connecting
               ? <span style={{ width: 13, height: 13, border: `2px solid ${D.muted}40`, borderTopColor: D.muted, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
               : printer.connected ? <Bluetooth size={14} /> : <BluetoothOff size={14} />}
-            <span style={{ display: printer.connected ? 'inline' : 'inline' }}>
-              {printer.connected ? 'OK' : 'Printer'}
-            </span>
+            <span>{printer.connected ? 'OK' : 'Printer'}</span>
           </button>
 
           <button className="kane-btn-new" onClick={() => setModal('create')} style={{
@@ -803,12 +933,53 @@ export default function KaneEpayPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="kane-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-        <StatCard label="Total Kont"   value={statsData?.totalAccounts    || 0}           icon={<Users size={18}/>}      color={D.gold}   />
-        <StatCard label="Kont Aktif"   value={statsData?.activeAccounts   || 0}           icon={<Activity size={18}/>}   color={D.green}  />
-        <StatCard label="Total Balans" value={`${fmt(statsData?.totalBalance || 0)} HTG`} icon={<Wallet size={18}/>}     color="#3B82F6"  />
-        <StatCard label="Jodi a"       value={statsData?.todayTransactions || 0}          icon={<TrendingUp size={18}/>} color={D.orange} />
+      {/* ─── STATS — 6 kart ─── */}
+      <div className="kane-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        {/* Ranje 1: Rezime jeneral */}
+        <StatCard
+          label="Total Kont"
+          value={statsData?.totalAccounts || 0}
+          icon={<Users size={18}/>}
+          color={D.gold}
+        />
+        <StatCard
+          label="Kont Aktif"
+          value={statsData?.activeAccounts || 0}
+          icon={<Activity size={18}/>}
+          color={D.green}
+        />
+        <StatCard
+          label="Total Balans"
+          value={`${fmt(statsData?.totalBalance || 0)}`}
+          sub="HTG"
+          icon={<Wallet size={18}/>}
+          color="#3B82F6"
+        />
+      </div>
+
+      {/* Ranje 2: Aktivite jodi a */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <StatCard
+          label="Depo Jodi a"
+          value={`${fmt(todayDepo)}`}
+          sub="HTG"
+          icon={<ArrowDownCircle size={18}/>}
+          color={D.green}
+        />
+        <StatCard
+          label="Retrè Jodi a"
+          value={`${fmt(todayRetrait)}`}
+          sub="HTG"
+          icon={<ArrowUpCircle size={18}/>}
+          color={D.red}
+        />
+        <StatCard
+          label="Tranzaksyon"
+          value={todayCount}
+          sub="jodi a"
+          icon={<TrendingUp size={18}/>}
+          color={D.orange}
+        />
       </div>
 
       {/* Rechèch */}
@@ -841,18 +1012,28 @@ export default function KaneEpayPage() {
                   boxShadow: D.shadow, transition: 'background 0.15s',
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold, fontSize: 11, marginBottom: 3 }}>{acc.accountNumber}</div>
-                    <div className="kane-acc-name" style={{ fontSize: 14, fontWeight: 700, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {acc.firstName} {acc.lastName}
+                  <div style={{ minWidth: 0, flex: 1, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    {/* Foto miniatiure si disponib */}
+                    {acc.photoUrl && (
+                      <img src={acc.photoUrl} alt="" style={{ width: 40, height: 40, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: `1px solid ${D.cardBorder}` }} />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold, fontSize: 11, marginBottom: 3 }}>{acc.accountNumber}</div>
+                      <div className="kane-acc-name" style={{ fontSize: 14, fontWeight: 700, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {acc.firstName} {acc.lastName}
+                      </div>
+                      {acc.phone && <div style={{ fontSize: 11, color: D.muted, marginTop: 1 }}>{acc.phone}</div>}
+                      <div style={{ fontSize: 10, color: D.muted, marginTop: 2, fontFamily: 'monospace' }}>{fmtDate(acc.createdAt)}</div>
                     </div>
-                    {acc.phone && <div style={{ fontSize: 11, color: D.muted, marginTop: 1 }}>{acc.phone}</div>}
-                    <div style={{ fontSize: 10, color: D.muted, marginTop: 2, fontFamily: 'monospace' }}>{fmtDate(acc.createdAt)}</div>
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div className="kane-acc-balance" style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, color: D.green }}>{fmt(acc.balance)}</div>
                     <div style={{ fontSize: 10, color: D.muted }}>HTG</div>
                     {Number(acc.lockedAmount) > 0 && <div style={{ fontSize: 10, color: D.orange, marginTop: 2 }}>🔒 {fmt(acc.lockedAmount)}</div>}
+                    {/* Badge KYC */}
+                    {acc.idPhotoUrl
+                      ? <div style={{ fontSize: 9, color: D.green, marginTop: 3, fontWeight: 700 }}>✅ KYC</div>
+                      : <div style={{ fontSize: 9, color: D.orange, marginTop: 3, fontWeight: 700 }}>⚠ KYC</div>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 10, borderTop: `1px solid ${D.cardBorder}`, paddingTop: 10 }}>
