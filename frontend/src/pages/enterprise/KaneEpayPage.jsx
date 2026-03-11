@@ -187,10 +187,16 @@ function printReceiptBrowser(html) {
   const w = window.open('', '_blank', 'width=340,height=620')
   if (!w) { toast.error('Pemit popup pou sit sa.'); return }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resi</title>
-    <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff}@media print{@page{margin:0;size:80mm auto}body{margin:0}}</style>
+    <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff}
+    @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style>
     </head><body>${html}</body></html>`)
   w.document.close()
-  w.onload = () => setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 1000) }, 200)
+  // Pa itilize onload — itilize setTimeout dirèkteman
+  setTimeout(() => {
+    w.focus()
+    w.print()
+    setTimeout(() => w.close(), 2000)
+  }, 300)
 }
 
 // ─── Printer hook ─────────────────────────────────────────────
