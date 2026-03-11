@@ -660,6 +660,9 @@ model SabotayPayment {
   memberId    String        @map("member_id")
   amount      Decimal       @db.Decimal(14, 2)
   paidDate    DateTime?     @map("paid_date") @db.Date
+  dueDate     DateTime?     @map("due_date") @db.Date
+  timing      String?
+  fineAmt     Decimal?      @map("fine_amt") @db.Decimal(14, 2)
   notes       String?
   createdBy   String?       @map("created_by")
   createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
