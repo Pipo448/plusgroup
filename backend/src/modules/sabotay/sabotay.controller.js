@@ -180,4 +180,28 @@ exports.getMemberAccount = async (req, res) => {
   } catch (e) {
     res.status(404).json({ success: false, message: e.message })
   }
+
+// POST /sabotay/plans/:id/close
+exports.closePlan = async (req, res) => {
+  try {
+    const { tenantId, userId } = getCtx(req)
+    const plan = await svc.closePlan(tenantId, req.params.id, userId)
+    res.json({ success: true, plan })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
+// POST /sabotay/plans/:planId/members/:memberId/action
+exports.memberAction = async (req, res) => {
+  try {
+    const { tenantId, userId } = getCtx(req)
+    const result = await svc.memberAction(
+      tenantId, req.params.planId, req.params.memberId, userId, req.body
+    )
+    res.json({ success: true, ...result })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
 }

@@ -8,848 +8,20 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-model SuperAdmin {
-  id           String   @id @default(uuid())
-  name         String   @db.VarChar(100)
-  email        String   @unique @db.VarChar(150)
-  passwordHash String   @map("password_hash")
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  tenants      Tenant[]
-
-  @@map("super_admins")
-}
-
-model SubscriptionPlan {
-  id            String               @id @default(uuid())
-  name          String               @db.VarChar(100)
-  nameFr        String?              @map("name_fr") @db.VarChar(100)
-  nameEn        String?              @map("name_en") @db.VarChar(100)
-  maxUsers      Int                  @default(5) @map("max_users")
-  maxProducts   Int                  @default(500) @map("max_products")
-  priceMonthly  Decimal              @map("price_monthly") @db.Decimal(10, 2)
-  priceAnnual   Decimal?             @map("price_annual") @db.Decimal(10, 2)
-  features      Json                 @default("[]")
-  isActive      Boolean              @default(true) @map("is_active")
-  createdAt     DateTime             @default(now()) @map("created_at")
-  updatedAt     DateTime             @updatedAt @map("updated_at")
-  maxBranches   Int                  @default(1) @map("max_branches")
-  subscriptions TenantSubscription[]
-  tenants       Tenant[]
-
-  @@map("subscription_plans")
-}
-
-model Tenant {
-  id                 String               @id @default(uuid())
-  name               String               @db.VarChar(200)
-  slug               String               @unique @db.VarChar(100)
-  logoUrl            String?              @map("logo_url")
-  primaryColor       String?              @default("#1E40AF") @map("primary_color") @db.VarChar(7)
-  address            String?
-  phone              String?              @db.VarChar(50)
-  email              String?              @db.VarChar(150)
-  website            String?              @db.VarChar(200)
-  defaultCurrency    DefaultCurrency      @default(HTG) @map("default_currency")
-  defaultLanguage    DefaultLanguage      @default(ht) @map("default_language")
-  exchangeRate       Decimal              @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
-  taxRate            Decimal              @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  planId             String?              @map("plan_id")
-  status             TenantStatus         @default(pending)
-  trialEndsAt        DateTime?            @map("trial_ends_at")
-  subscriptionEndsAt DateTime?            @map("subscription_ends_at")
-  createdBy          String?              @map("created_by")
-  createdAt          DateTime             @default(now()) @map("created_at")
-  updatedAt          DateTime             @updatedAt @map("updated_at")
-  receiptSize        String               @default("80mm") @map("receipt_size") @db.VarChar(10)
-  printerConnection  String               @default("usb") @map("printer_connection") @db.VarChar(20)
-  exchangeRates      String?              @default("{}")
-  showExchangeRate   Boolean              @default(false)
-  visibleCurrencies  String?              @default("[\"USD\"]")
-  showQrCode         Boolean              @default(true) @map("show_qr_code")
-  requireQuote       Boolean              @default(false) @map("require_quote")
-  allowedPages       Json?                @default("{}") @map("allowed_pages")
-  monthlyPrice       Int                  @default(0) @map("monthly_price")
-  activityLogs       ActivityLog[]
-  branches           Branch[]
-  clients            Client[]
-  documentSequences  DocumentSequence[]
-  hotelPayments      HotelPayment[]
-  hotelServices      HotelService[]
-  invoiceItems       InvoiceItem[]
-  invoices           Invoice[]
-  kaneAccounts       KaneEpay[]
-  kaneTransactions   KaneTransaction[]
-  notifications      Notification[]
-  payments           Payment[]
-  productCategories  ProductCategory[]
-  products           Product[]
-  quoteItems         QuoteItem[]
-  quotes             Quote[]
-  reservations       Reservation[]
-  roomTypes          RoomType[]
-  rooms              Room[]
-  sabotayPlans       SabotayPlan[]
-  stockMovements     StockMovement[]
-  subscriptions      TenantSubscription[]
-  creator            SuperAdmin?          @relation(fields: [createdBy], references: [id])
-  plan               SubscriptionPlan?    @relation(fields: [planId], references: [id])
-  users              User[]
-
-  @@map("tenants")
-}
-
-model TenantSubscription {
-  id           String           @id @default(uuid())
-  tenantId     String           @map("tenant_id")
-  planId       String           @map("plan_id")
-  billingCycle String?          @map("billing_cycle") @db.VarChar(10)
-  amountPaid   Decimal?         @map("amount_paid") @db.Decimal(10, 2)
-  currency     String           @default("USD") @db.VarChar(3)
-  startsAt     DateTime         @map("starts_at")
-  endsAt       DateTime         @map("ends_at")
-  paymentRef   String?          @map("payment_ref") @db.VarChar(200)
-  notes        String?
-  createdAt    DateTime         @default(now()) @map("created_at")
-  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("tenant_subscriptions")
-}
-
-model Branch {
-  id                String            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId          String            @map("tenant_id")
-  name              String            @db.VarChar(200)
-  slug              String            @db.VarChar(100)
-  description       String?
-  address           String?
-  phone             String?           @db.VarChar(50)
-  email             String?           @db.VarChar(150)
-  isActive          Boolean           @default(false) @map("is_active")
-  unlockedAt        DateTime?         @map("unlocked_at") @db.Timestamptz(6)
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  branchUsers       BranchUser[]
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  clients           Client[]
-  invoices          Invoice[]
-  kaneAccounts      KaneEpay[]
-  productCategories ProductCategory[]
-  products          Product[]
-  quotes            Quote[]
-  reservations      Reservation[]
-  rooms             Room[]
-  sabotayPlans      SabotayPlan[]
-  stockMovements    StockMovement[]
-
-  @@unique([tenantId, slug])
-  @@index([tenantId])
-  @@map("branches")
-}
-
-model BranchUser {
-  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
-  branchId  String   @map("branch_id")
-  userId    String   @map("user_id")
-  role      String   @default("cashier")
-  isAdmin   Boolean  @default(false) @map("is_admin")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([branchId, userId])
-  @@index([branchId])
-  @@index([userId])
-  @@map("branch_users")
-}
-
-model User {
-  id                      String            @id @default(uuid())
-  tenantId                String            @map("tenant_id")
-  fullName                String            @map("full_name") @db.VarChar(150)
-  email                   String            @db.VarChar(150)
-  passwordHash            String            @map("password_hash")
-  phone                   String?           @db.VarChar(50)
-  avatarUrl               String?           @map("avatar_url")
-  role                    UserRole          @default(cashier)
-  permissions             Json              @default("{}")
-  preferredLang           DefaultLanguage   @default(ht) @map("preferred_lang")
-  isActive                Boolean           @default(true) @map("is_active")
-  lastLoginAt             DateTime?         @map("last_login_at")
-  passwordResetToken      String?           @map("password_reset_token")
-  passwordResetExpires    DateTime?         @map("password_reset_expires")
-  createdBy               String?           @map("created_by")
-  createdAt               DateTime          @default(now()) @map("created_at")
-  updatedAt               DateTime          @updatedAt @map("updated_at")
-  passwordChangedAt       DateTime?         @map("password_changed_at") @db.Timestamptz(6)
-  activityLogs            ActivityLog[]
-  branchUsers             BranchUser[]
-  clients                 Client[]
-  hotelPaymentsCreated    HotelPayment[]    @relation("HotelPaymentCreatedBy")
-  hotelServicesCreated    HotelService[]    @relation("HotelServiceCreatedBy")
-  invoicesCancelled       Invoice[]         @relation("InvoiceCancelledBy")
-  invoicesCreated         Invoice[]         @relation("InvoiceCreatedBy")
-  kaneAccountsCreated     KaneEpay[]        @relation("KaneCreatedBy")
-  kaneTransactionsCreated KaneTransaction[] @relation("KaneTxCreatedBy")
-  notifications           Notification[]
-  payments                Payment[]
-  products                Product[]
-  quotesCreated           Quote[]           @relation("QuoteCreatedBy")
-  reservationsCreated     Reservation[]     @relation("ReservationCreatedBy")
-  sabotayMembersCreated   SabotayMember[]   @relation("SabotayMemberCreatedBy")
-  sabotayPaymentsCreated  SabotayPayment[]  @relation("SabotayPaymentCreatedBy")
-  sabotayPlansCreated     SabotayPlan[]     @relation("SabotayPlanCreatedBy")
-  stockMovements          StockMovement[]
-  tenant                  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, email])
-  @@map("users")
-}
-
-model ProductCategory {
-  id          String    @id @default(uuid())
-  tenantId    String    @map("tenant_id")
-  name        String    @db.VarChar(100)
-  nameFr      String?   @map("name_fr") @db.VarChar(100)
-  nameEn      String?   @map("name_en") @db.VarChar(100)
-  description String?
-  color       String?   @db.VarChar(7)
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  branchId    String?   @map("branch_id")
-  branch      Branch?   @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  products    Product[]
-
-  @@unique([tenantId, branchId, name])
-  @@unique([tenantId, name])
-  @@map("product_categories")
-}
-
-model Product {
-  id             String           @id @default(uuid())
-  tenantId       String           @map("tenant_id")
-  categoryId     String?          @map("category_id")
-  code           String?          @db.VarChar(100)
-  name           String           @db.VarChar(200)
-  nameFr         String?          @map("name_fr") @db.VarChar(200)
-  nameEn         String?          @map("name_en") @db.VarChar(200)
-  description    String?
-  unit           String           @default("unité") @db.VarChar(50)
-  priceHtg       Decimal          @default(0) @map("price_htg") @db.Decimal(12, 2)
-  priceUsd       Decimal          @default(0) @map("price_usd") @db.Decimal(12, 2)
-  costPriceHtg   Decimal          @default(0) @map("cost_price_htg") @db.Decimal(12, 2)
-  quantity       Decimal          @default(0) @db.Decimal(12, 3)
-  alertThreshold Decimal          @default(5) @map("alert_threshold") @db.Decimal(12, 3)
-  imageUrl       String?          @map("image_url")
-  isActive       Boolean          @default(true) @map("is_active")
-  isService      Boolean          @default(false) @map("is_service")
-  createdBy      String?          @map("created_by")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  branchId       String?          @map("branch_id")
-  hotelServices  HotelService[]
-  invoiceItems   InvoiceItem[]
-  branch         Branch?          @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  category       ProductCategory? @relation(fields: [categoryId], references: [id])
-  creator        User?            @relation(fields: [createdBy], references: [id])
-  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  quoteItems     QuoteItem[]
-  stockMovements StockMovement[]
-
-  @@unique([tenantId, code])
-  @@index([branchId])
-  @@map("products")
-}
-
-model Client {
-  id                String          @id @default(uuid())
-  tenantId          String          @map("tenant_id")
-  clientType        String          @default("individual") @map("client_type") @db.VarChar(20)
-  name              String          @db.VarChar(200)
-  companyName       String?         @map("company_name") @db.VarChar(200)
-  email             String?         @db.VarChar(150)
-  phone             String?         @db.VarChar(50)
-  phone2            String?         @db.VarChar(50)
-  address           String?
-  city              String?         @db.VarChar(100)
-  nif               String?         @db.VarChar(50)
-  creditLimit       Decimal         @default(0) @map("credit_limit") @db.Decimal(12, 2)
-  balance           Decimal         @default(0) @db.Decimal(12, 2)
-  preferredCurrency DefaultCurrency @default(HTG) @map("preferred_currency")
-  notes             String?
-  isActive          Boolean         @default(true) @map("is_active")
-  createdBy         String?         @map("created_by")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  branchId          String?         @map("branch_id")
-  branch            Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  creator           User?           @relation(fields: [createdBy], references: [id])
-  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoices          Invoice[]
-  quotes            Quote[]
-  reservations      Reservation[]
-
-  @@index([branchId])
-  @@map("clients")
-}
-
-model Quote {
-  id                   String          @id @default(uuid())
-  tenantId             String          @map("tenant_id")
-  quoteNumber          String          @map("quote_number") @db.VarChar(50)
-  clientId             String?         @map("client_id")
-  clientSnapshot       Json            @map("client_snapshot")
-  currency             DefaultCurrency @default(HTG)
-  exchangeRate         Decimal         @map("exchange_rate") @db.Decimal(10, 4)
-  subtotalHtg          Decimal         @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
-  subtotalUsd          Decimal         @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
-  discountType         String          @default("amount") @map("discount_type") @db.VarChar(10)
-  discountValue        Decimal         @default(0) @map("discount_value") @db.Decimal(10, 2)
-  discountHtg          Decimal         @default(0) @map("discount_htg") @db.Decimal(14, 2)
-  discountUsd          Decimal         @default(0) @map("discount_usd") @db.Decimal(14, 2)
-  taxRate              Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  taxHtg               Decimal         @default(0) @map("tax_htg") @db.Decimal(14, 2)
-  taxUsd               Decimal         @default(0) @map("tax_usd") @db.Decimal(14, 2)
-  totalHtg             Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
-  totalUsd             Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
-  status               QuoteStatus     @default(draft)
-  issueDate            DateTime        @default(now()) @map("issue_date") @db.Timestamptz(6)
-  expiryDate           DateTime?       @map("expiry_date") @db.Timestamptz(6)
-  notes                String?
-  terms                String?
-  createdBy            String?         @map("created_by")
-  convertedToInvoiceId String?         @map("converted_to_invoice_id")
-  convertedAt          DateTime?       @map("converted_at")
-  createdAt            DateTime        @default(now()) @map("created_at")
-  updatedAt            DateTime        @updatedAt @map("updated_at")
-  branchId             String?         @map("branch_id")
-  invoice              Invoice?
-  items                QuoteItem[]
-  branch               Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  client               Client?         @relation(fields: [clientId], references: [id])
-  creator              User?           @relation("QuoteCreatedBy", fields: [createdBy], references: [id])
-  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, quoteNumber])
-  @@index([branchId])
-  @@map("quotes")
-}
-
-model QuoteItem {
-  id              String   @id @default(uuid())
-  tenantId        String   @map("tenant_id")
-  quoteId         String   @map("quote_id")
-  productId       String?  @map("product_id")
-  productSnapshot Json     @map("product_snapshot")
-  quantity        Decimal  @db.Decimal(12, 3)
-  unitPriceHtg    Decimal  @map("unit_price_htg") @db.Decimal(12, 2)
-  unitPriceUsd    Decimal  @map("unit_price_usd") @db.Decimal(12, 2)
-  discountPct     Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
-  totalHtg        Decimal  @map("total_htg") @db.Decimal(14, 2)
-  totalUsd        Decimal  @map("total_usd") @db.Decimal(14, 2)
-  sortOrder       Int      @default(0) @map("sort_order")
-  notes           String?
-  createdAt       DateTime @default(now()) @map("created_at")
-  product         Product? @relation(fields: [productId], references: [id])
-  quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("quote_items")
-}
-
-model Invoice {
-  id               String          @id @default(uuid())
-  tenantId         String          @map("tenant_id")
-  invoiceNumber    String          @map("invoice_number") @db.VarChar(50)
-  quoteId          String?         @unique @map("quote_id")
-  clientId         String?         @map("client_id")
-  clientSnapshot   Json            @map("client_snapshot")
-  currency         DefaultCurrency @default(HTG)
-  exchangeRate     Decimal         @map("exchange_rate") @db.Decimal(10, 4)
-  subtotalHtg      Decimal         @default(0) @map("subtotal_htg") @db.Decimal(14, 2)
-  subtotalUsd      Decimal         @default(0) @map("subtotal_usd") @db.Decimal(14, 2)
-  discountType     String          @default("amount") @map("discount_type") @db.VarChar(10)
-  discountValue    Decimal         @default(0) @map("discount_value") @db.Decimal(10, 2)
-  discountHtg      Decimal         @default(0) @map("discount_htg") @db.Decimal(14, 2)
-  discountUsd      Decimal         @default(0) @map("discount_usd") @db.Decimal(14, 2)
-  taxRate          Decimal         @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  taxHtg           Decimal         @default(0) @map("tax_htg") @db.Decimal(14, 2)
-  taxUsd           Decimal         @default(0) @map("tax_usd") @db.Decimal(14, 2)
-  totalHtg         Decimal         @default(0) @map("total_htg") @db.Decimal(14, 2)
-  totalUsd         Decimal         @default(0) @map("total_usd") @db.Decimal(14, 2)
-  amountPaidHtg    Decimal         @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
-  amountPaidUsd    Decimal         @default(0) @map("amount_paid_usd") @db.Decimal(14, 2)
-  balanceDueHtg    Decimal         @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
-  balanceDueUsd    Decimal         @default(0) @map("balance_due_usd") @db.Decimal(14, 2)
-  status           InvoiceStatus   @default(unpaid)
-  issueDate        DateTime        @default(now()) @map("issue_date") @db.Timestamptz(6)
-  dueDate          DateTime?       @map("due_date") @db.Timestamptz(6)
-  notes            String?
-  terms            String?
-  stockDecremented Boolean         @default(false) @map("stock_decremented")
-  createdBy        String?         @map("created_by")
-  cancelledBy      String?         @map("cancelled_by")
-  cancelledAt      DateTime?       @map("cancelled_at")
-  cancelReason     String?         @map("cancel_reason")
-  createdAt        DateTime        @default(now()) @map("created_at")
-  updatedAt        DateTime        @updatedAt @map("updated_at")
-  branchId         String?         @map("branch_id")
-  items            InvoiceItem[]
-  branch           Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  canceller        User?           @relation("InvoiceCancelledBy", fields: [cancelledBy], references: [id])
-  client           Client?         @relation(fields: [clientId], references: [id])
-  creator          User?           @relation("InvoiceCreatedBy", fields: [createdBy], references: [id])
-  quote            Quote?          @relation(fields: [quoteId], references: [id], onDelete: Restrict)
-  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments         Payment[]
-  reservation      Reservation?
-
-  @@unique([tenantId, invoiceNumber])
-  @@index([branchId])
-  @@map("invoices")
-}
-
-model InvoiceItem {
-  id              String   @id @default(uuid())
-  tenantId        String   @map("tenant_id")
-  invoiceId       String   @map("invoice_id")
-  productId       String?  @map("product_id")
-  productSnapshot Json     @map("product_snapshot")
-  quantity        Decimal  @db.Decimal(12, 3)
-  unitPriceHtg    Decimal  @map("unit_price_htg") @db.Decimal(12, 2)
-  unitPriceUsd    Decimal  @map("unit_price_usd") @db.Decimal(12, 2)
-  discountPct     Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
-  totalHtg        Decimal  @map("total_htg") @db.Decimal(14, 2)
-  totalUsd        Decimal  @map("total_usd") @db.Decimal(14, 2)
-  stockBefore     Decimal? @map("stock_before") @db.Decimal(12, 3)
-  stockAfter      Decimal? @map("stock_after") @db.Decimal(12, 3)
-  sortOrder       Int      @default(0) @map("sort_order")
-  notes           String?
-  createdAt       DateTime @default(now()) @map("created_at")
-  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  product         Product? @relation(fields: [productId], references: [id])
-  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("invoice_items")
-}
-
-model Payment {
-  id           String          @id @default(uuid())
-  tenantId     String          @map("tenant_id")
-  invoiceId    String          @map("invoice_id")
-  amountHtg    Decimal         @default(0) @map("amount_htg") @db.Decimal(14, 2)
-  amountUsd    Decimal         @default(0) @map("amount_usd") @db.Decimal(14, 2)
-  currency     DefaultCurrency @default(HTG)
-  exchangeRate Decimal?        @map("exchange_rate") @db.Decimal(10, 4)
-  method       PaymentMethod   @default(cash)
-  reference    String?         @db.VarChar(200)
-  paymentDate  DateTime        @default(now()) @map("payment_date") @db.Timestamptz(6)
-  notes        String?
-  createdBy    String?         @map("created_by")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  creator      User?           @relation(fields: [createdBy], references: [id])
-  invoice      Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("payments")
-}
-
-model StockMovement {
-  id             String            @id @default(uuid())
-  tenantId       String            @map("tenant_id")
-  productId      String            @map("product_id")
-  movementType   StockMovementType @map("movement_type")
-  referenceId    String?           @map("reference_id")
-  referenceType  String?           @map("reference_type") @db.VarChar(50)
-  quantityBefore Decimal           @map("quantity_before") @db.Decimal(12, 3)
-  quantityChange Decimal           @map("quantity_change") @db.Decimal(12, 3)
-  quantityAfter  Decimal           @map("quantity_after") @db.Decimal(12, 3)
-  unitCostHtg    Decimal?          @map("unit_cost_htg") @db.Decimal(12, 2)
-  notes          String?
-  createdBy      String?           @map("created_by")
-  createdAt      DateTime          @default(now()) @map("created_at")
-  branchId       String?           @map("branch_id")
-  branch         Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  creator        User?             @relation(fields: [createdBy], references: [id])
-  product        Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
-  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@map("stock_movements")
-}
-
-model DocumentSequence {
-  id           String   @id @default(uuid())
-  tenantId     String   @map("tenant_id")
-  documentType String   @map("document_type") @db.VarChar(20)
-  prefix       String   @default("DOC") @db.VarChar(20)
-  lastNumber   Int      @default(0) @map("last_number")
-  yearReset    Boolean  @default(true) @map("year_reset")
-  currentYear  Int      @default(2024) @map("current_year")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, documentType])
-  @@map("document_sequences")
-}
-
-model ActivityLog {
-  id         String   @id @default(uuid())
-  tenantId   String?  @map("tenant_id")
-  userId     String?  @map("user_id")
-  action     String   @db.VarChar(100)
-  entityType String?  @map("entity_type") @db.VarChar(50)
-  entityId   String?  @map("entity_id")
-  oldData    Json?    @map("old_data")
-  newData    Json?    @map("new_data")
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent")
-  createdAt  DateTime @default(now()) @map("created_at")
-  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
-  user       User?    @relation(fields: [userId], references: [id])
-
-  @@map("activity_logs")
-}
-
-model Notification {
-  id         String    @id @default(uuid())
-  tenantId   String    @map("tenant_id")
-  userId     String?   @map("user_id")
-  type       String    @db.VarChar(50)
-  titleHt    String?   @map("title_ht")
-  titleFr    String?   @map("title_fr")
-  titleEn    String?   @map("title_en")
-  messageHt  String?   @map("message_ht")
-  messageFr  String?   @map("message_fr")
-  messageEn  String?   @map("message_en")
-  entityType String?   @map("entity_type") @db.VarChar(50)
-  entityId   String?   @map("entity_id")
-  isRead     Boolean   @default(false) @map("is_read")
-  readAt     DateTime? @map("read_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("notifications")
-}
-
-model KaneEpay {
-  id             String            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId       String            @map("tenant_id")
-  branchId       String?           @map("branch_id")
-  accountNumber  String            @map("account_number") @db.VarChar(30)
-  firstName      String            @map("first_name") @db.VarChar(100)
-  lastName       String            @map("last_name") @db.VarChar(100)
-  address        String?
-  nifOrCin       String?           @map("nif_or_cin") @db.VarChar(50)
-  phone          String?           @db.VarChar(50)
-  openingAmount  Decimal           @default(0) @map("opening_amount") @db.Decimal(14, 2)
-  kaneFee        Decimal           @default(0) @map("kane_fee") @db.Decimal(14, 2)
-  lockedAmount   Decimal           @default(0) @map("locked_amount") @db.Decimal(14, 2)
-  balance        Decimal           @default(0) @db.Decimal(14, 2)
-  isActive       Boolean           @default(true) @map("is_active")
-  createdBy      String?           @map("created_by")
-  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  familyRelation String?           @map("family_relation") @db.VarChar(100)
-  familyName     String?           @map("family_name") @db.VarChar(100)
-  photoUrl       String?           @map("photo_url")
-  idPhotoUrl     String?           @map("id_photo_url")
-  branch         Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_branch_fk")
-  creator        User?             @relation("KaneCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_creator_fk")
-  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_epay_accounts_tenant_fk")
-  transactions   KaneTransaction[]
-
-  @@unique([tenantId, accountNumber], map: "kane_epay_accounts_tenant_account_key")
-  @@index([tenantId, isActive], map: "kane_epay_accounts_active_idx")
-  @@index([branchId], map: "kane_epay_accounts_branch_idx")
-  @@index([tenantId], map: "kane_epay_accounts_tenant_idx")
-  @@map("kane_epay_accounts")
-}
-
-model KaneTransaction {
-  id            String              @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId      String              @map("tenant_id")
-  accountId     String              @map("account_id")
-  type          KaneTransactionType
-  amount        Decimal             @db.Decimal(14, 2)
-  balanceBefore Decimal             @map("balance_before") @db.Decimal(14, 2)
-  balanceAfter  Decimal             @map("balance_after") @db.Decimal(14, 2)
-  method        PaymentMethod       @default(cash)
-  reference     String?             @db.VarChar(200)
-  notes         String?
-  createdBy     String?             @map("created_by")
-  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  account       KaneEpay            @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_account_fk")
-  creator       User?               @relation("KaneTxCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "kane_transactions_creator_fk")
-  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_tenant_fk")
-
-  @@index([accountId], map: "kane_transactions_account_idx")
-  @@index([createdAt], map: "kane_transactions_created_idx")
-  @@index([tenantId], map: "kane_transactions_tenant_idx")
-  @@map("kane_transactions")
-}
-
-model SabotayPlan {
-  id           String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId     String           @map("tenant_id")
-  branchId     String?          @map("branch_id")
-  name         String           @db.VarChar(200)
-  frequency    String           @db.VarChar(20)
-  amount       Decimal          @db.Decimal(14, 2)
-  maxMembers   Int              @map("max_members")
-  fee          Decimal          @default(0) @db.Decimal(14, 2)
-  startDate    DateTime         @map("start_date") @db.Timestamptz(6)
-  status       String           @default("active") @db.VarChar(20)
-  notes        String?
-  createdBy    String?          @map("created_by")
-  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  feePerMember Decimal          @default(0) @map("fee_per_member") @db.Decimal(14, 2)
-  penalty      Decimal          @default(0) @db.Decimal(14, 2)
-  interval     Int              @default(1)
-  regleman     String?
-  dueTime      String           @default("08:00") @map("due_time") @db.VarChar(5)
-  members      SabotayMember[]
-  payments     SabotayPayment[]
-  branch       Branch?          @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  creator      User?            @relation("SabotayPlanCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([tenantId], map: "sabotay_plans_tenant_idx")
-  @@index([branchId], map: "sabotay_plans_branch_idx")
-  @@index([tenantId, status], map: "sabotay_plans_status_idx")
-  @@map("sabotay_plans")
-}
-
-model SabotayMember {
-  id          String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  planId      String           @map("plan_id")
-  name        String           @db.VarChar(200)
-  phone       String?          @db.VarChar(50)
-  position    Int
-  dueDate     DateTime?        @map("due_date") @db.Date
-  collectDate DateTime?        @map("collect_date") @db.Date
-  notes       String?
-  isActive    Boolean          @default(true) @map("is_active")
-  createdBy   String?          @map("created_by")
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  hasWon      Boolean          @default(false) @map("has_won")
-  isOwnerSlot Boolean          @default(false) @map("is_owner_slot")
-  fines       Json             @default("{}")
-  creator     User?            @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  plan        SabotayPlan      @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  payments    SabotayPayment[]
-
-  @@unique([planId, position], map: "sabotay_members_plan_position_key")
-  @@index([planId], map: "sabotay_members_plan_idx")
-  @@index([planId, isActive], map: "sabotay_members_active_idx")
-  @@map("sabotay_members")
-}
-
-model SabotayPayment {
-  id        String        @id @default(dbgenerated("(gen_random_uuid())::text"))
-  planId    String        @map("plan_id")
-  memberId  String        @map("member_id")
-  amount    Decimal       @db.Decimal(14, 2)
-  dueDate   DateTime      @map("due_date") @db.Date
-  paidAt    DateTime      @map("paid_at") @db.Timestamptz(6)
-  method    String        @default("cash") @db.VarChar(20)
-  notes     String?
-  createdBy String?       @map("created_by")
-  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  timing    String?       @db.VarChar(10)
-  fineAmt   Decimal       @default(0) @map("fine_amt") @db.Decimal(14, 2)
-  creator   User?         @relation("SabotayPaymentCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  member    SabotayMember @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  plan      SabotayPlan   @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([planId, memberId, dueDate], map: "sabotay_payments_unique_per_date")
-  @@index([planId], map: "sabotay_payments_plan_idx")
-  @@index([memberId], map: "sabotay_payments_member_idx")
-  @@index([dueDate], map: "sabotay_payments_date_idx")
-  @@map("sabotay_payments")
-}
-
-model SolMemberAccount {
-  id               String   @id @default(uuid())
-  username         String   @unique
-  passwordHash     String   @map("password_hash")
-  tenantId         String   @map("tenant_id")
-  memberId         String   @map("member_id")
-  memberName       String   @map("member_name")
-  memberPhone      String   @default("") @map("member_phone")
-  memberPosition   Int      @map("member_position")
-  planId           String   @map("plan_id")
-  planName         String   @map("plan_name")
-  planAmount       Float    @map("plan_amount")
-  planFee          Float    @default(0) @map("plan_fee")
-  planFrequency    String   @map("plan_frequency")
-  planMaxMembers   Int      @map("plan_max_members")
-  planCreatedAt    String   @map("plan_created_at")
-  planDueTime      String   @default("08:00") @map("plan_due_time")
-  payments         Json     @default("{}") @map("payments")
-  paymentTimings   Json     @default("{}") @map("payment_timings")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  planInterval     Int      @default(1) @map("plan_interval")
-  planFeePerMember Float    @default(0) @map("plan_fee_per_member")
-  planPenalty      Float    @default(0) @map("plan_penalty")
-  planRegleman     String?  @map("plan_regleman")
-  isOwnerSlot      Boolean  @default(false) @map("is_owner_slot")
-  hasWon           Boolean  @default(false) @map("has_won")
-  fines            Json     @default("{}")
-  plainPassword    String?  @map("plain_password")
-
-  @@index([tenantId], map: "sol_member_accounts_tenant_idx")
-  @@index([memberId], map: "sol_member_accounts_member_idx")
-  @@map("sol_member_accounts")
-}
-
-model RoomType {
-  id                    String   @id @default(uuid())
-  tenantId              String   @map("tenant_id")
-  name                  String   @db.VarChar(100)
-  description           String?
-  priceHtg              Decimal  @map("price_htg") @db.Decimal(12, 2)
-  priceUsd              Decimal  @default(0) @map("price_usd") @db.Decimal(12, 2)
-  maxAdults             Int      @default(2) @map("max_adults")
-  maxChildren           Int      @default(1) @map("max_children")
-  amenities             Json     @default("[]")
-  isActive              Boolean  @default(true) @map("is_active")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-  momentPriceHtg        Decimal? @map("moment_price_htg") @db.Decimal(12, 2)
-  momentPricePerHourHtg Decimal? @map("moment_price_per_hour_htg") @db.Decimal(12, 2)
-  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  rooms                 Room[]
-
-  @@index([tenantId])
-  @@map("room_types")
-}
-
-model Room {
-  id           String        @id @default(uuid())
-  tenantId     String        @map("tenant_id")
-  branchId     String?       @map("branch_id")
-  roomTypeId   String        @map("room_type_id")
-  number       String        @db.VarChar(20)
-  floor        Int           @default(1)
-  description  String?
-  status       RoomStatus    @default(available)
-  isActive     Boolean       @default(true) @map("is_active")
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  reservations Reservation[]
-  branch       Branch?       @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  roomType     RoomType      @relation(fields: [roomTypeId], references: [id])
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, branchId, number])
-  @@index([tenantId])
-  @@index([branchId])
-  @@map("rooms")
-}
-
-model Reservation {
-  id                    String            @id @default(uuid())
-  tenantId              String            @map("tenant_id")
-  branchId              String?           @map("branch_id")
-  reservationNumber     String            @map("reservation_number") @db.VarChar(50)
-  roomId                String            @map("room_id")
-  clientId              String?           @map("client_id")
-  clientSnapshot        Json              @map("client_snapshot")
-  adults                Int               @default(1)
-  children              Int               @default(0)
-  checkIn               DateTime          @map("check_in") @db.Timestamptz(6)
-  checkOut              DateTime          @map("check_out") @db.Timestamptz(6)
-  nights                Int
-  pricePerNight         Decimal           @map("price_per_night") @db.Decimal(12, 2)
-  roomTotalHtg          Decimal           @default(0) @map("room_total_htg") @db.Decimal(14, 2)
-  servicesTotalHtg      Decimal           @default(0) @map("services_total_htg") @db.Decimal(14, 2)
-  totalHtg              Decimal           @default(0) @map("total_htg") @db.Decimal(14, 2)
-  amountPaidHtg         Decimal           @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
-  balanceDueHtg         Decimal           @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
-  depositHtg            Decimal           @default(0) @map("deposit_htg") @db.Decimal(14, 2)
-  status                ReservationStatus @default(pending)
-  source                String?           @db.VarChar(50)
-  notes                 String?
-  invoiceId             String?           @unique @map("invoice_id")
-  createdBy             String?           @map("created_by")
-  checkedInAt           DateTime?         @map("checked_in_at") @db.Timestamptz(6)
-  checkedOutAt          DateTime?         @map("checked_out_at") @db.Timestamptz(6)
-  cancelledAt           DateTime?         @map("cancelled_at") @db.Timestamptz(6)
-  cancelReason          String?           @map("cancel_reason")
-  createdAt             DateTime          @default(now()) @map("created_at")
-  updatedAt             DateTime          @updatedAt @map("updated_at")
-  type                  String            @default("nuit") @db.VarChar(10)
-  momentDurationMinutes Int?              @map("moment_duration_minutes")
-  momentStartTime       DateTime?         @map("moment_start_time") @db.Timestamptz(6)
-  momentEndTime         DateTime?         @map("moment_end_time") @db.Timestamptz(6)
-  momentExtraHours      Int?              @map("moment_extra_hours")
-  momentExtraChargeHtg  Decimal?          @map("moment_extra_charge_htg") @db.Decimal(12, 2)
-  payments              HotelPayment[]
-  services              HotelService[]
-  branch                Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  client                Client?           @relation(fields: [clientId], references: [id])
-  creator               User?             @relation("ReservationCreatedBy", fields: [createdBy], references: [id])
-  invoice               Invoice?          @relation(fields: [invoiceId], references: [id])
-  room                  Room              @relation(fields: [roomId], references: [id])
-  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@unique([tenantId, reservationNumber])
-  @@index([tenantId])
-  @@index([branchId])
-  @@index([roomId])
-  @@map("reservations")
-}
-
-model HotelService {
-  id            String      @id @default(uuid())
-  tenantId      String      @map("tenant_id")
-  reservationId String      @map("reservation_id")
-  productId     String?     @map("product_id")
-  type          ServiceType @default(other)
-  description   String      @db.VarChar(200)
-  quantity      Decimal     @default(1) @db.Decimal(12, 3)
-  unitPriceHtg  Decimal     @map("unit_price_htg") @db.Decimal(12, 2)
-  totalHtg      Decimal     @map("total_htg") @db.Decimal(14, 2)
-  notes         String?
-  createdBy     String?     @map("created_by")
-  createdAt     DateTime    @default(now()) @map("created_at")
-  creator       User?       @relation("HotelServiceCreatedBy", fields: [createdBy], references: [id])
-  product       Product?    @relation(fields: [productId], references: [id])
-  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([reservationId])
-  @@index([tenantId])
-  @@map("hotel_services")
-}
-
-model HotelPayment {
-  id            String        @id @default(uuid())
-  tenantId      String        @map("tenant_id")
-  reservationId String        @map("reservation_id")
-  amountHtg     Decimal       @map("amount_htg") @db.Decimal(14, 2)
-  method        PaymentMethod @default(cash)
-  type          String        @default("payment") @db.VarChar(20)
-  reference     String?       @db.VarChar(200)
-  notes         String?
-  createdBy     String?       @map("created_by")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  creator       User?         @relation("HotelPaymentCreatedBy", fields: [createdBy], references: [id])
-  reservation   Reservation   @relation(fields: [reservationId], references: [id], onDelete: Cascade)
-  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  @@index([reservationId])
-  @@index([tenantId])
-  @@map("hotel_payments")
+model activity_logs {
+  id          String   @id
+  tenant_id   String?
+  user_id     String?
+  action      String   @db.VarChar(100)
+  entity_type String?  @db.VarChar(50)
+  entity_id   String?
+  old_data    Json?
+  new_data    Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+  tenants     tenants? @relation(fields: [tenant_id], references: [id])
+  users       users?   @relation(fields: [user_id], references: [id])
 }
 
 model admin_audit_logs {
@@ -865,11 +37,825 @@ model admin_audit_logs {
   @@index([tenant_id, created_at(sort: Desc)], map: "idx_audit_tenant")
 }
 
-enum TenantStatus {
-  pending
-  active
-  suspended
-  cancelled
+model branch_users {
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  branch_id  String
+  user_id    String
+  role       String   @default("cashier")
+  is_admin   Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  branches   branches @relation(fields: [branch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([branch_id, user_id])
+  @@index([branch_id])
+  @@index([user_id])
+}
+
+model branches {
+  id                 String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id          String
+  name               String               @db.VarChar(200)
+  slug               String               @db.VarChar(100)
+  description        String?
+  address            String?
+  phone              String?              @db.VarChar(50)
+  email              String?              @db.VarChar(150)
+  is_active          Boolean              @default(false)
+  unlocked_at        DateTime?            @db.Timestamptz(6)
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  branch_users       branch_users[]
+  tenants            tenants              @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients            clients[]
+  invoices           invoices[]
+  kane_epay_accounts kane_epay_accounts[]
+  product_categories product_categories[]
+  products           products[]
+  quotes             quotes[]
+  reservations       reservations[]
+  rooms              rooms[]
+  sabotay_plans      sabotay_plans[]
+  stock_movements    stock_movements[]
+
+  @@unique([tenant_id, slug])
+  @@index([tenant_id])
+}
+
+model clients {
+  id                 String          @id
+  tenant_id          String
+  client_type        String          @default("individual") @db.VarChar(20)
+  name               String          @db.VarChar(200)
+  company_name       String?         @db.VarChar(200)
+  email              String?         @db.VarChar(150)
+  phone              String?         @db.VarChar(50)
+  phone2             String?         @db.VarChar(50)
+  address            String?
+  city               String?         @db.VarChar(100)
+  nif                String?         @db.VarChar(50)
+  credit_limit       Decimal         @default(0) @db.Decimal(12, 2)
+  balance            Decimal         @default(0) @db.Decimal(12, 2)
+  preferred_currency DefaultCurrency @default(HTG)
+  notes              String?
+  is_active          Boolean         @default(true)
+  created_by         String?
+  created_at         DateTime        @default(now())
+  updated_at         DateTime
+  branch_id          String?
+  branches           branches?       @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  users              users?          @relation(fields: [created_by], references: [id])
+  tenants            tenants         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  invoices           invoices[]
+  quotes             quotes[]
+  reservations       reservations[]
+
+  @@index([branch_id])
+}
+
+model document_sequences {
+  id            String   @id
+  tenant_id     String
+  document_type String   @db.VarChar(20)
+  prefix        String   @default("DOC") @db.VarChar(20)
+  last_number   Int      @default(0)
+  year_reset    Boolean  @default(true)
+  current_year  Int      @default(2024)
+  created_at    DateTime @default(now())
+  updated_at    DateTime
+  tenants       tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, document_type])
+}
+
+model hotel_payments {
+  id             String        @id
+  tenant_id      String
+  reservation_id String
+  amount_htg     Decimal       @db.Decimal(14, 2)
+  method         PaymentMethod @default(cash)
+  type           String        @default("payment") @db.VarChar(20)
+  reference      String?       @db.VarChar(200)
+  notes          String?
+  created_by     String?
+  created_at     DateTime      @default(now())
+  users          users?        @relation(fields: [created_by], references: [id])
+  reservations   reservations  @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  tenants        tenants       @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([reservation_id])
+  @@index([tenant_id])
+}
+
+model hotel_services {
+  id             String       @id
+  tenant_id      String
+  reservation_id String
+  product_id     String?
+  type           ServiceType  @default(other)
+  description    String       @db.VarChar(200)
+  quantity       Decimal      @default(1) @db.Decimal(12, 3)
+  unit_price_htg Decimal      @db.Decimal(12, 2)
+  total_htg      Decimal      @db.Decimal(14, 2)
+  notes          String?
+  created_by     String?
+  created_at     DateTime     @default(now())
+  users          users?       @relation(fields: [created_by], references: [id])
+  products       products?    @relation(fields: [product_id], references: [id])
+  reservations   reservations @relation(fields: [reservation_id], references: [id], onDelete: Cascade)
+  tenants        tenants      @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@index([reservation_id])
+  @@index([tenant_id])
+}
+
+model invoice_items {
+  id               String    @id
+  tenant_id        String
+  invoice_id       String
+  product_id       String?
+  product_snapshot Json
+  quantity         Decimal   @db.Decimal(12, 3)
+  unit_price_htg   Decimal   @db.Decimal(12, 2)
+  unit_price_usd   Decimal   @db.Decimal(12, 2)
+  discount_pct     Decimal   @default(0) @db.Decimal(5, 2)
+  total_htg        Decimal   @db.Decimal(14, 2)
+  total_usd        Decimal   @db.Decimal(14, 2)
+  stock_before     Decimal?  @db.Decimal(12, 3)
+  stock_after      Decimal?  @db.Decimal(12, 3)
+  sort_order       Int       @default(0)
+  notes            String?
+  created_at       DateTime  @default(now())
+  invoices         invoices  @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  products         products? @relation(fields: [product_id], references: [id])
+  tenants          tenants   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model invoices {
+  id                                 String          @id
+  tenant_id                          String
+  invoice_number                     String          @db.VarChar(50)
+  quote_id                           String?         @unique
+  client_id                          String?
+  client_snapshot                    Json
+  currency                           DefaultCurrency @default(HTG)
+  exchange_rate                      Decimal         @db.Decimal(10, 4)
+  subtotal_htg                       Decimal         @default(0) @db.Decimal(14, 2)
+  subtotal_usd                       Decimal         @default(0) @db.Decimal(14, 2)
+  discount_type                      String          @default("amount") @db.VarChar(10)
+  discount_value                     Decimal         @default(0) @db.Decimal(10, 2)
+  discount_htg                       Decimal         @default(0) @db.Decimal(14, 2)
+  discount_usd                       Decimal         @default(0) @db.Decimal(14, 2)
+  tax_rate                           Decimal         @default(0) @db.Decimal(5, 2)
+  tax_htg                            Decimal         @default(0) @db.Decimal(14, 2)
+  tax_usd                            Decimal         @default(0) @db.Decimal(14, 2)
+  total_htg                          Decimal         @default(0) @db.Decimal(14, 2)
+  total_usd                          Decimal         @default(0) @db.Decimal(14, 2)
+  amount_paid_htg                    Decimal         @default(0) @db.Decimal(14, 2)
+  amount_paid_usd                    Decimal         @default(0) @db.Decimal(14, 2)
+  balance_due_htg                    Decimal         @default(0) @db.Decimal(14, 2)
+  balance_due_usd                    Decimal         @default(0) @db.Decimal(14, 2)
+  status                             InvoiceStatus   @default(unpaid)
+  issue_date                         DateTime        @default(now()) @db.Timestamptz(6)
+  due_date                           DateTime?       @db.Timestamptz(6)
+  notes                              String?
+  terms                              String?
+  stock_decremented                  Boolean         @default(false)
+  created_by                         String?
+  cancelled_by                       String?
+  cancelled_at                       DateTime?
+  cancel_reason                      String?
+  created_at                         DateTime        @default(now())
+  updated_at                         DateTime
+  branch_id                          String?
+  invoice_items                      invoice_items[]
+  branches                           branches?       @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  users_invoices_cancelled_byTousers users?          @relation("invoices_cancelled_byTousers", fields: [cancelled_by], references: [id])
+  clients                            clients?        @relation(fields: [client_id], references: [id])
+  users_invoices_created_byTousers   users?          @relation("invoices_created_byTousers", fields: [created_by], references: [id])
+  quotes                             quotes?         @relation(fields: [quote_id], references: [id], onDelete: Restrict)
+  tenants                            tenants         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  payments                           payments[]
+  reservations                       reservations?
+
+  @@unique([tenant_id, invoice_number])
+  @@index([branch_id])
+}
+
+model kane_epay_accounts {
+  id                String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id         String
+  branch_id         String?
+  account_number    String              @db.VarChar(30)
+  first_name        String              @db.VarChar(100)
+  last_name         String              @db.VarChar(100)
+  address           String?
+  nif_or_cin        String?             @db.VarChar(50)
+  phone             String?             @db.VarChar(50)
+  opening_amount    Decimal             @default(0) @db.Decimal(14, 2)
+  kane_fee          Decimal             @default(0) @db.Decimal(14, 2)
+  locked_amount     Decimal             @default(0) @db.Decimal(14, 2)
+  balance           Decimal             @default(0) @db.Decimal(14, 2)
+  is_active         Boolean             @default(true)
+  created_by        String?
+  created_at        DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime            @default(now()) @db.Timestamptz(6)
+  family_relation   String?             @db.VarChar(100)
+  family_name       String?             @db.VarChar(100)
+  photo_url         String?
+  id_photo_url      String?
+  branches          branches?           @relation(fields: [branch_id], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_branch_fk")
+  users             users?              @relation(fields: [created_by], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_creator_fk")
+  tenants           tenants             @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_epay_accounts_tenant_fk")
+  kane_transactions kane_transactions[]
+
+  @@unique([tenant_id, account_number], map: "kane_epay_accounts_tenant_account_key")
+  @@index([tenant_id, is_active], map: "kane_epay_accounts_active_idx")
+  @@index([branch_id], map: "kane_epay_accounts_branch_idx")
+  @@index([tenant_id], map: "kane_epay_accounts_tenant_idx")
+}
+
+model kane_transactions {
+  id                 String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id          String
+  account_id         String
+  type               KaneTransactionType
+  amount             Decimal             @db.Decimal(14, 2)
+  balance_before     Decimal             @db.Decimal(14, 2)
+  balance_after      Decimal             @db.Decimal(14, 2)
+  method             PaymentMethod       @default(cash)
+  reference          String?             @db.VarChar(200)
+  notes              String?
+  created_by         String?
+  created_at         DateTime            @default(now()) @db.Timestamptz(6)
+  kane_epay_accounts kane_epay_accounts  @relation(fields: [account_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_account_fk")
+  users              users?              @relation(fields: [created_by], references: [id], onUpdate: NoAction, map: "kane_transactions_creator_fk")
+  tenants            tenants             @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_tenant_fk")
+
+  @@index([account_id], map: "kane_transactions_account_idx")
+  @@index([created_at], map: "kane_transactions_created_idx")
+  @@index([tenant_id], map: "kane_transactions_tenant_idx")
+}
+
+model notifications {
+  id          String    @id
+  tenant_id   String
+  user_id     String?
+  type        String    @db.VarChar(50)
+  title_ht    String?
+  title_fr    String?
+  title_en    String?
+  message_ht  String?
+  message_fr  String?
+  message_en  String?
+  entity_type String?   @db.VarChar(50)
+  entity_id   String?
+  is_read     Boolean   @default(false)
+  read_at     DateTime?
+  created_at  DateTime  @default(now())
+  tenants     tenants   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  users       users?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model payments {
+  id            String          @id
+  tenant_id     String
+  invoice_id    String
+  amount_htg    Decimal         @default(0) @db.Decimal(14, 2)
+  amount_usd    Decimal         @default(0) @db.Decimal(14, 2)
+  currency      DefaultCurrency @default(HTG)
+  exchange_rate Decimal?        @db.Decimal(10, 4)
+  method        PaymentMethod   @default(cash)
+  reference     String?         @db.VarChar(200)
+  payment_date  DateTime        @default(now()) @db.Timestamptz(6)
+  notes         String?
+  created_by    String?
+  created_at    DateTime        @default(now())
+  users         users?          @relation(fields: [created_by], references: [id])
+  invoices      invoices        @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  tenants       tenants         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model product_categories {
+  id          String     @id
+  tenant_id   String
+  name        String     @db.VarChar(100)
+  name_fr     String?    @db.VarChar(100)
+  name_en     String?    @db.VarChar(100)
+  description String?
+  color       String?    @db.VarChar(7)
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now())
+  updated_at  DateTime
+  branch_id   String?
+  branches    branches?  @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  tenants     tenants    @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  products    products[]
+
+  @@unique([tenant_id, branch_id, name])
+  @@unique([tenant_id, name])
+}
+
+model products {
+  id                 String              @id
+  tenant_id          String
+  category_id        String?
+  code               String?             @db.VarChar(100)
+  name               String              @db.VarChar(200)
+  name_fr            String?             @db.VarChar(200)
+  name_en            String?             @db.VarChar(200)
+  description        String?
+  unit               String              @default("unité") @db.VarChar(50)
+  price_htg          Decimal             @default(0) @db.Decimal(12, 2)
+  price_usd          Decimal             @default(0) @db.Decimal(12, 2)
+  cost_price_htg     Decimal             @default(0) @db.Decimal(12, 2)
+  quantity           Decimal             @default(0) @db.Decimal(12, 3)
+  alert_threshold    Decimal             @default(5) @db.Decimal(12, 3)
+  image_url          String?
+  is_active          Boolean             @default(true)
+  is_service         Boolean             @default(false)
+  created_by         String?
+  created_at         DateTime            @default(now())
+  updated_at         DateTime
+  branch_id          String?
+  hotel_services     hotel_services[]
+  invoice_items      invoice_items[]
+  branches           branches?           @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  product_categories product_categories? @relation(fields: [category_id], references: [id])
+  users              users?              @relation(fields: [created_by], references: [id])
+  tenants            tenants             @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  quote_items        quote_items[]
+  stock_movements    stock_movements[]
+
+  @@unique([tenant_id, code])
+  @@index([branch_id])
+}
+
+model quote_items {
+  id               String    @id
+  tenant_id        String
+  quote_id         String
+  product_id       String?
+  product_snapshot Json
+  quantity         Decimal   @db.Decimal(12, 3)
+  unit_price_htg   Decimal   @db.Decimal(12, 2)
+  unit_price_usd   Decimal   @db.Decimal(12, 2)
+  discount_pct     Decimal   @default(0) @db.Decimal(5, 2)
+  total_htg        Decimal   @db.Decimal(14, 2)
+  total_usd        Decimal   @db.Decimal(14, 2)
+  sort_order       Int       @default(0)
+  notes            String?
+  created_at       DateTime  @default(now())
+  products         products? @relation(fields: [product_id], references: [id])
+  quotes           quotes    @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  tenants          tenants   @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model quotes {
+  id                      String          @id
+  tenant_id               String
+  quote_number            String          @db.VarChar(50)
+  client_id               String?
+  client_snapshot         Json
+  currency                DefaultCurrency @default(HTG)
+  exchange_rate           Decimal         @db.Decimal(10, 4)
+  subtotal_htg            Decimal         @default(0) @db.Decimal(14, 2)
+  subtotal_usd            Decimal         @default(0) @db.Decimal(14, 2)
+  discount_type           String          @default("amount") @db.VarChar(10)
+  discount_value          Decimal         @default(0) @db.Decimal(10, 2)
+  discount_htg            Decimal         @default(0) @db.Decimal(14, 2)
+  discount_usd            Decimal         @default(0) @db.Decimal(14, 2)
+  tax_rate                Decimal         @default(0) @db.Decimal(5, 2)
+  tax_htg                 Decimal         @default(0) @db.Decimal(14, 2)
+  tax_usd                 Decimal         @default(0) @db.Decimal(14, 2)
+  total_htg               Decimal         @default(0) @db.Decimal(14, 2)
+  total_usd               Decimal         @default(0) @db.Decimal(14, 2)
+  status                  QuoteStatus     @default(draft)
+  issue_date              DateTime        @default(now()) @db.Timestamptz(6)
+  expiry_date             DateTime?       @db.Timestamptz(6)
+  notes                   String?
+  terms                   String?
+  created_by              String?
+  converted_to_invoice_id String?
+  converted_at            DateTime?
+  created_at              DateTime        @default(now())
+  updated_at              DateTime
+  branch_id               String?
+  invoices                invoices?
+  quote_items             quote_items[]
+  branches                branches?       @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  clients                 clients?        @relation(fields: [client_id], references: [id])
+  users                   users?          @relation(fields: [created_by], references: [id])
+  tenants                 tenants         @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, quote_number])
+  @@index([branch_id])
+}
+
+model reservations {
+  id                      String            @id
+  tenant_id               String
+  branch_id               String?
+  reservation_number      String            @db.VarChar(50)
+  room_id                 String
+  client_id               String?
+  client_snapshot         Json
+  adults                  Int               @default(1)
+  children                Int               @default(0)
+  check_in                DateTime          @db.Timestamptz(6)
+  check_out               DateTime          @db.Timestamptz(6)
+  nights                  Int
+  price_per_night         Decimal           @db.Decimal(12, 2)
+  room_total_htg          Decimal           @default(0) @db.Decimal(14, 2)
+  services_total_htg      Decimal           @default(0) @db.Decimal(14, 2)
+  total_htg               Decimal           @default(0) @db.Decimal(14, 2)
+  amount_paid_htg         Decimal           @default(0) @db.Decimal(14, 2)
+  balance_due_htg         Decimal           @default(0) @db.Decimal(14, 2)
+  deposit_htg             Decimal           @default(0) @db.Decimal(14, 2)
+  status                  ReservationStatus @default(pending)
+  source                  String?           @db.VarChar(50)
+  notes                   String?
+  invoice_id              String?           @unique
+  created_by              String?
+  checked_in_at           DateTime?         @db.Timestamptz(6)
+  checked_out_at          DateTime?         @db.Timestamptz(6)
+  cancelled_at            DateTime?         @db.Timestamptz(6)
+  cancel_reason           String?
+  created_at              DateTime          @default(now())
+  updated_at              DateTime
+  type                    String            @default("nuit") @db.VarChar(10)
+  moment_duration_minutes Int?
+  moment_start_time       DateTime?         @db.Timestamptz(6)
+  moment_end_time         DateTime?         @db.Timestamptz(6)
+  moment_extra_hours      Int?
+  moment_extra_charge_htg Decimal?          @db.Decimal(12, 2)
+  hotel_payments          hotel_payments[]
+  hotel_services          hotel_services[]
+  branches                branches?         @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  clients                 clients?          @relation(fields: [client_id], references: [id])
+  users                   users?            @relation(fields: [created_by], references: [id])
+  invoices                invoices?         @relation(fields: [invoice_id], references: [id])
+  rooms                   rooms             @relation(fields: [room_id], references: [id])
+  tenants                 tenants           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, reservation_number])
+  @@index([branch_id])
+  @@index([room_id])
+  @@index([tenant_id])
+}
+
+model room_types {
+  id                        String   @id
+  tenant_id                 String
+  name                      String   @db.VarChar(100)
+  description               String?
+  price_htg                 Decimal  @db.Decimal(12, 2)
+  price_usd                 Decimal  @default(0) @db.Decimal(12, 2)
+  max_adults                Int      @default(2)
+  max_children              Int      @default(1)
+  amenities                 Json     @default("[]")
+  is_active                 Boolean  @default(true)
+  created_at                DateTime @default(now())
+  updated_at                DateTime
+  moment_price_htg          Decimal? @db.Decimal(12, 2)
+  moment_price_per_hour_htg Decimal? @db.Decimal(12, 2)
+  tenants                   tenants  @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+  rooms                     rooms[]
+
+  @@index([tenant_id])
+}
+
+model rooms {
+  id           String         @id
+  tenant_id    String
+  branch_id    String?
+  room_type_id String
+  number       String         @db.VarChar(20)
+  floor        Int            @default(1)
+  description  String?
+  status       RoomStatus     @default(available)
+  is_active    Boolean        @default(true)
+  created_at   DateTime       @default(now())
+  updated_at   DateTime
+  reservations reservations[]
+  branches     branches?      @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  room_types   room_types     @relation(fields: [room_type_id], references: [id])
+  tenants      tenants        @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, branch_id, number])
+  @@index([branch_id])
+  @@index([tenant_id])
+}
+
+model sabotay_members {
+  id               String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  plan_id          String
+  name             String             @db.VarChar(200)
+  phone            String?            @db.VarChar(50)
+  position         Int
+  due_date         DateTime?          @db.Date
+  collect_date     DateTime?          @db.Date
+  notes            String?
+  is_active        Boolean            @default(true)
+  created_by       String?
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  has_won          Boolean            @default(false)
+  is_owner_slot    Boolean            @default(false)
+  fines            Json               @default("{}")
+  status           String             @default("active") @db.VarChar(20)
+  users            users?             @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  sabotay_plans    sabotay_plans      @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sabotay_payments sabotay_payments[]
+
+  @@unique([plan_id, position], map: "sabotay_members_plan_position_key")
+  @@index([plan_id, is_active], map: "sabotay_members_active_idx")
+  @@index([plan_id], map: "sabotay_members_plan_idx")
+}
+
+model sabotay_payments {
+  id              String          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  plan_id         String
+  member_id       String
+  amount          Decimal         @db.Decimal(14, 2)
+  due_date        DateTime        @db.Date
+  paid_at         DateTime        @db.Timestamptz(6)
+  method          String          @default("cash") @db.VarChar(20)
+  notes           String?
+  created_by      String?
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  timing          String?         @db.VarChar(10)
+  fine_amt        Decimal         @default(0) @db.Decimal(14, 2)
+  users           users?          @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  sabotay_members sabotay_members @relation(fields: [member_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sabotay_plans   sabotay_plans   @relation(fields: [plan_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([plan_id, member_id, due_date], map: "sabotay_payments_unique_per_date")
+  @@index([due_date], map: "sabotay_payments_date_idx")
+  @@index([member_id], map: "sabotay_payments_member_idx")
+  @@index([plan_id], map: "sabotay_payments_plan_idx")
+}
+
+model sabotay_plans {
+  id               String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id        String
+  branch_id        String?
+  name             String             @db.VarChar(200)
+  frequency        String             @db.VarChar(20)
+  amount           Decimal            @db.Decimal(14, 2)
+  max_members      Int
+  fee              Decimal            @default(0) @db.Decimal(14, 2)
+  start_date       DateTime           @db.Timestamptz(6)
+  status           String             @default("active") @db.VarChar(20)
+  notes            String?
+  created_by       String?
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime           @default(now()) @db.Timestamptz(6)
+  fee_per_member   Decimal            @default(0) @db.Decimal(14, 2)
+  penalty          Decimal            @default(0) @db.Decimal(14, 2)
+  interval         Int                @default(1)
+  regleman         String?
+  due_time         String             @default("08:00") @db.VarChar(5)
+  warningDelayDays Int                @default(3)
+  sabotay_members  sabotay_members[]
+  sabotay_payments sabotay_payments[]
+  branches         branches?          @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  users            users?             @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  tenants          tenants            @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([branch_id], map: "sabotay_plans_branch_idx")
+  @@index([tenant_id, status], map: "sabotay_plans_status_idx")
+  @@index([tenant_id], map: "sabotay_plans_tenant_idx")
+}
+
+model sol_member_accounts {
+  id                   String                 @id
+  username             String                 @unique
+  password_hash        String
+  tenant_id            String
+  member_id            String
+  member_name          String
+  member_phone         String                 @default("")
+  member_position      Int
+  plan_id              String
+  plan_name            String
+  plan_amount          Float
+  plan_fee             Float                  @default(0)
+  plan_frequency       String
+  plan_max_members     Int
+  plan_created_at      String
+  plan_due_time        String                 @default("08:00")
+  payments             Json                   @default("{}")
+  payment_timings      Json                   @default("{}")
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  plan_interval        Int                    @default(1)
+  plan_fee_per_member  Float                  @default(0)
+  plan_penalty         Float                  @default(0)
+  plan_regleman        String?
+  is_owner_slot        Boolean                @default(false)
+  has_won              Boolean                @default(false)
+  fines                Json                   @default("{}")
+  plain_password       String?
+  sol_member_positions sol_member_positions[]
+
+  @@index([member_id], map: "sol_member_accounts_member_idx")
+  @@index([tenant_id], map: "sol_member_accounts_tenant_idx")
+}
+
+model sol_member_positions {
+  id                  String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  accountId           String
+  tenantId            String
+  memberId            String
+  memberPosition      Int
+  planId              String
+  planName            String?
+  planAmount          Decimal?            @default(0) @db.Decimal(12, 2)
+  planFee             Decimal?            @default(0) @db.Decimal(12, 2)
+  planFrequency       String?
+  planMaxMembers      Int?                @default(0)
+  planStartDate       String?
+  planDueTime         String?             @default("08:00")
+  planInterval        Int?                @default(1)
+  planFeePerMember    Decimal?            @default(0) @db.Decimal(12, 2)
+  planPenalty         Decimal?            @default(0) @db.Decimal(12, 2)
+  planRegleman        String?
+  isOwnerSlot         Boolean?            @default(false)
+  hasWon              Boolean?            @default(false)
+  preferredDate       String?
+  payments            Json?               @default("{}")
+  paymentTimings      Json?               @default("{}")
+  fines               Json?               @default("{}")
+  status              String?             @default("active") @db.VarChar(20)
+  createdAt           DateTime?           @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?           @default(now()) @db.Timestamp(6)
+  sol_member_accounts sol_member_accounts @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model stock_movements {
+  id              String            @id
+  tenant_id       String
+  product_id      String
+  movement_type   StockMovementType
+  reference_id    String?
+  reference_type  String?           @db.VarChar(50)
+  quantity_before Decimal           @db.Decimal(12, 3)
+  quantity_change Decimal           @db.Decimal(12, 3)
+  quantity_after  Decimal           @db.Decimal(12, 3)
+  unit_cost_htg   Decimal?          @db.Decimal(12, 2)
+  notes           String?
+  created_by      String?
+  created_at      DateTime          @default(now())
+  branch_id       String?
+  branches        branches?         @relation(fields: [branch_id], references: [id], onUpdate: NoAction)
+  users           users?            @relation(fields: [created_by], references: [id])
+  products        products          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  tenants         tenants           @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model subscription_plans {
+  id                   String                 @id
+  name                 String                 @db.VarChar(100)
+  name_fr              String?                @db.VarChar(100)
+  name_en              String?                @db.VarChar(100)
+  max_users            Int                    @default(5)
+  max_products         Int                    @default(500)
+  price_monthly        Decimal                @db.Decimal(10, 2)
+  price_annual         Decimal?               @db.Decimal(10, 2)
+  features             Json                   @default("[]")
+  is_active            Boolean                @default(true)
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  max_branches         Int                    @default(1)
+  tenant_subscriptions tenant_subscriptions[]
+  tenants              tenants[]
+}
+
+model super_admins {
+  id            String    @id
+  name          String    @db.VarChar(100)
+  email         String    @unique @db.VarChar(150)
+  password_hash String
+  is_active     Boolean   @default(true)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime
+  tenants       tenants[]
+}
+
+model tenant_subscriptions {
+  id                 String             @id
+  tenant_id          String
+  plan_id            String
+  billing_cycle      String?            @db.VarChar(10)
+  amount_paid        Decimal?           @db.Decimal(10, 2)
+  currency           String             @default("USD") @db.VarChar(3)
+  starts_at          DateTime
+  ends_at            DateTime
+  payment_ref        String?            @db.VarChar(200)
+  notes              String?
+  created_at         DateTime           @default(now())
+  subscription_plans subscription_plans @relation(fields: [plan_id], references: [id])
+  tenants            tenants            @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+}
+
+model tenants {
+  id                   String                 @id
+  name                 String                 @db.VarChar(200)
+  slug                 String                 @unique @db.VarChar(100)
+  logo_url             String?
+  primary_color        String?                @default("#1E40AF") @db.VarChar(7)
+  address              String?
+  phone                String?                @db.VarChar(50)
+  email                String?                @db.VarChar(150)
+  website              String?                @db.VarChar(200)
+  default_currency     DefaultCurrency        @default(HTG)
+  default_language     DefaultLanguage        @default(ht)
+  exchange_rate        Decimal                @default(125.00) @db.Decimal(10, 4)
+  tax_rate             Decimal                @default(0) @db.Decimal(5, 2)
+  plan_id              String?
+  status               TenantStatus           @default(pending)
+  trial_ends_at        DateTime?
+  subscription_ends_at DateTime?
+  created_by           String?
+  created_at           DateTime               @default(now())
+  updated_at           DateTime
+  receipt_size         String                 @default("80mm") @db.VarChar(10)
+  printer_connection   String                 @default("usb") @db.VarChar(20)
+  exchangeRates        String?                @default("{}")
+  showExchangeRate     Boolean                @default(false)
+  visibleCurrencies    String?                @default("[\"USD\"]")
+  show_qr_code         Boolean                @default(true)
+  require_quote        Boolean                @default(false)
+  allowed_pages        Json?                  @default("{}")
+  monthly_price        Int                    @default(0)
+  activity_logs        activity_logs[]
+  branches             branches[]
+  clients              clients[]
+  document_sequences   document_sequences[]
+  hotel_payments       hotel_payments[]
+  hotel_services       hotel_services[]
+  invoice_items        invoice_items[]
+  invoices             invoices[]
+  kane_epay_accounts   kane_epay_accounts[]
+  kane_transactions    kane_transactions[]
+  notifications        notifications[]
+  payments             payments[]
+  product_categories   product_categories[]
+  products             products[]
+  quote_items          quote_items[]
+  quotes               quotes[]
+  reservations         reservations[]
+  room_types           room_types[]
+  rooms                rooms[]
+  sabotay_plans        sabotay_plans[]
+  stock_movements      stock_movements[]
+  tenant_subscriptions tenant_subscriptions[]
+  super_admins         super_admins?          @relation(fields: [created_by], references: [id])
+  subscription_plans   subscription_plans?    @relation(fields: [plan_id], references: [id])
+  users                users[]
+}
+
+model users {
+  id                                    String               @id
+  tenant_id                             String
+  full_name                             String               @db.VarChar(150)
+  email                                 String               @db.VarChar(150)
+  password_hash                         String
+  phone                                 String?              @db.VarChar(50)
+  avatar_url                            String?
+  role                                  UserRole             @default(cashier)
+  permissions                           Json                 @default("{}")
+  preferred_lang                        DefaultLanguage      @default(ht)
+  is_active                             Boolean              @default(true)
+  last_login_at                         DateTime?
+  password_reset_token                  String?
+  password_reset_expires                DateTime?
+  created_by                            String?
+  created_at                            DateTime             @default(now())
+  updated_at                            DateTime
+  password_changed_at                   DateTime?            @db.Timestamptz(6)
+  activity_logs                         activity_logs[]
+  branch_users                          branch_users[]
+  clients                               clients[]
+  hotel_payments                        hotel_payments[]
+  hotel_services                        hotel_services[]
+  invoices_invoices_cancelled_byTousers invoices[]           @relation("invoices_cancelled_byTousers")
+  invoices_invoices_created_byTousers   invoices[]           @relation("invoices_created_byTousers")
+  kane_epay_accounts                    kane_epay_accounts[]
+  kane_transactions                     kane_transactions[]
+  notifications                         notifications[]
+  payments                              payments[]
+  products                              products[]
+  quotes                                quotes[]
+  reservations                          reservations[]
+  sabotay_members                       sabotay_members[]
+  sabotay_payments                      sabotay_payments[]
+  sabotay_plans                         sabotay_plans[]
+  stock_movements                       stock_movements[]
+  tenants                               tenants              @relation(fields: [tenant_id], references: [id], onDelete: Cascade)
+
+  @@unique([tenant_id, email])
 }
 
 enum DefaultCurrency {
@@ -883,28 +869,18 @@ enum DefaultLanguage {
   en
 }
 
-enum UserRole {
-  admin
-  cashier
-  stock_manager
-  viewer
-}
-
-enum QuoteStatus {
-  draft
-  sent
-  accepted
-  converted
-  cancelled
-  expired
-}
-
 enum InvoiceStatus {
   unpaid
   partial
   paid
   cancelled
   refunded
+}
+
+enum KaneTransactionType {
+  ouverture
+  depot
+  retrait
 }
 
 enum PaymentMethod {
@@ -917,27 +893,13 @@ enum PaymentMethod {
   other
 }
 
-enum StockMovementType {
-  sale
-  purchase
-  adjustment
-  return_item
-  loss
-  transfer
-}
-
-enum KaneTransactionType {
-  ouverture
-  depot
-  retrait
-}
-
-enum RoomStatus {
-  available
-  occupied
-  cleaning
-  maintenance
-  reserved
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  converted
+  cancelled
+  expired
 }
 
 enum ReservationStatus {
@@ -949,6 +911,14 @@ enum ReservationStatus {
   no_show
 }
 
+enum RoomStatus {
+  available
+  occupied
+  cleaning
+  maintenance
+  reserved
+}
+
 enum ServiceType {
   food
   drink
@@ -957,4 +927,27 @@ enum ServiceType {
   spa
   room_service
   other
+}
+
+enum StockMovementType {
+  sale
+  purchase
+  adjustment
+  return_item
+  loss
+  transfer
+}
+
+enum TenantStatus {
+  pending
+  active
+  suspended
+  cancelled
+}
+
+enum UserRole {
+  admin
+  cashier
+  stock_manager
+  viewer
 }

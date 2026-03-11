@@ -21,6 +21,12 @@ router.delete('/plans/:id',       ctrl.deletePlan)
 // ── Tiraj Avèg ────────────────────────────────────────────────
 // ✅ NOUVO: endpoint pou blind draw
 router.post('/plans/:id/blind-draw', ctrl.blindDraw)
+// ── Fèmen Plan (Admin) ─────────────────────────────────────────
+router.post('/plans/:id/close',                          ctrl.closePlan)
+
+// ── Aksyon sou Manm (bloke, debloke, kanpe, reprann) ──────────
+router.post('/plans/:planId/members/:memberId/action',   ctrl.memberAction)
+
 
 // ── Manm ──────────────────────────────────────────────────────
 router.get('/plans/:planId/members',            ctrl.getMembers)

@@ -912,6 +912,68 @@ async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
 // ─────────────────────────────────────────────────────────────
 // EXPORTS
 // ─────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────
+// FÈMEN PLAN — Admin sèlman
+// ─────────────────────────────────────────────────────────────
+async function closePlan(tenantId, planId, userId) {
+  const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+  if (!plan) throw new Error('Plan pa jwenn.')
+  if (plan.status === 'closed' || plan.status === 'finished')
+    throw new Error('Plan sa a deja fèmen.')
+
+  const updated = await prisma.sabotayPlan.update({
+    where: { id: planId },
+    data:  { status: 'closed' },
+    include: {
+      creator: { select: { fullName: true } },
+      _count:  { select: { members: true } },
+    }
+  })
+  return updated
+}
+
+// ─────────────────────────────────────────────────────────────
+// AKSYON SOU MANM — bloke, debloke, kanpe, reprann
+// ─────────────────────────────────────────────────────────────
+async function memberAction(tenantId, planId, memberId, userId, data) {
+  const { action, reason } = data
+
+  if (!['block','unblock','stop','resume'].includes(action))
+    throw new Error(`Aksyon invalide: ${action}`)
+
+  const member = await prisma.sabotayMember.findFirst({
+    where: { id: memberId, planId, plan: { tenantId } }
+  })
+  if (!member) throw new Error('Manm pa jwenn.')
+
+  // Map aksyon → nouvo statut
+  const statusMap = { block: 'blocked', unblock: 'active', stop: 'stopped', resume: 'active' }
+  const newStatus = statusMap[action]
+
+  const updated = await prisma.sabotayMember.update({
+    where: { id: memberId },
+    data: {
+      status:     newStatus,
+      // Si kanpe: mete isActive = false pou eskli l nan kalkil peman
+      isActive:   action === 'stop' ? false : true,
+      // Sove rezon nan notes si bay
+      ...(reason && { notes: reason }),
+    },
+    include: { payments: true }
+  })
+
+  // Sinkronize SolMemberPosition tou
+  try {
+    await prisma.solMemberPosition.updateMany({
+      where:  { memberId, planId },
+      data:   { status: newStatus }
+    })
+  } catch (_) {}
+
+  return { member: updated, action, newStatus }
+}
+
 module.exports = {
   getStats,
   getPlans,
@@ -931,4 +993,6 @@ module.exports = {
   // ── Nouvo
   findSolAccountByPhone,
   getSolAccountPositions,
+  closePlan,
+  memberAction,
 }
