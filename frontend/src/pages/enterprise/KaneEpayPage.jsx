@@ -390,12 +390,18 @@ function ModalCreate({ onClose, onSuccess, printer }) {
 
   const mutation = useMutation({
     mutationFn: (d) => kaneAPI.create(d),
-    onSuccess: async (res) => {
-      const acc = res.data.account
-      toast.success(`✅ Kont ${acc.accountNumber} kreye!`)
-      await printer.print(acc, { createdAt: new Date(), method: form.method, reference: form.reference }, tenant, 'ouverture')
-      onSuccess(); onClose()
-    },
+onSuccess: async (res) => {
+  const acc = res.data.account
+  toast.success(`✅ Kont ${acc.accountNumber} kreye!`)
+  onSuccess()   // ← refresh lis la PREMYE
+  onClose()     // ← fèmen modal la PREMYE
+  // Printer apre — erè li pa afekte kreyasyon an
+  try {
+    await printer.print(acc, { createdAt: new Date(), method: form.method, reference: form.reference }, tenant, 'ouverture')
+  } catch {
+    toast('Kont kreye ✅ — Printer pa disponib.', { icon: '⚠️' })
+  }
+},
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan enskripsyon.'),
   })
 
@@ -576,11 +582,16 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
   const mutation = useMutation({
     mutationFn: (d) => isW ? kaneAPI.withdraw(account.id, d) : kaneAPI.deposit(account.id, d),
     onSuccess: async (res) => {
-      const { transaction } = res.data
-      toast.success(`${isW ? 'Retrè' : 'Depo'} ${fmt(transaction.amount)} HTG ✅`)
-      await printer.print(account, transaction, tenant, type)
-      onSuccess(); onClose()
-    },
+  const { transaction } = res.data
+  toast.success(`${isW ? 'Retrè' : 'Depo'} ${fmt(transaction.amount)} HTG ✅`)
+  onSuccess()
+  onClose()
+  try {
+    await printer.print(account, transaction, tenant, type)
+  } catch {
+    // Silans — kont update deja
+  }
+},
     onError: (e) => toast.error(e.response?.data?.message || 'Erè tranzaksyon.'),
   })
 
