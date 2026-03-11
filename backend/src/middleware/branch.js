@@ -1,7 +1,6 @@
 // src/middleware/branch.js
 // ⚠️ NOUVO — Middleware pou ekstrè X-Branch-Id epi valide li
 // Ajoute req.branchId si header la prezan ak valid
-
 const prisma = require('../config/prisma')
 const { asyncHandler } = require('./errorHandler')
 
