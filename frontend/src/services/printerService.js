@@ -48,9 +48,10 @@ const encodeText = (text) => {
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
 
+// ✅ KOREKSYON: 58mm ak 57mm = 32 karak, 80mm = 48 karak
 const getWidth = (tenant) => {
   const size = (tenant && tenant.receiptSize) || '80mm'
-  return size === '57mm' ? 32 : 48
+  return (size === '57mm' || size === '58mm') ? 32 : 48
 }
 
 const makeLine = (left, right, width) => {
@@ -149,7 +150,6 @@ export const connectPrinter = async () => {
     _device = null
   })
 
-  // Eseye 3 UUID youn apre lòt
   const attempts = [
     [PRINTER_SERVICE_UUID,   PRINTER_CHAR_UUID  ],
     [PRINTER_SERVICE_UUID_2, PRINTER_CHAR_UUID_2],
@@ -364,7 +364,8 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   }
 
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 140) : []
+  // ✅ KOREKSYON: 58mm = piti logo
+  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
 
   const bytes = [
     ...CMD.INIT,
@@ -375,7 +376,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SOL --\n'), ...CMD.BOLD_OFF,
     ...(tenant?.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
     ...(tenant?.address ? [...encodeText(tenant.address + '\n')]           : []),
-    ...CMD.LINE_FEED,
+    // ✅ Yon sèl divider, pa double
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(type === 'peman' ? 'RESI PEMAN\n' : 'KONT MANM\n'),
@@ -401,11 +402,12 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...makeLine('Kontribisyon total:', fmt(amountPaid) + ' HTG', W), ...CMD.LINE_FEED,
     ] : [
       ...makeLine('Montan / peman:', fmt(plan.amount) + ' HTG', W), ...CMD.LINE_FEED,
-      ...makeLine('Peman fè:', totalPaid + '/' + plan.maxMembers, W), ...CMD.LINE_FEED,
+      ...makeLine('Peman fe:', totalPaid + '/' + plan.maxMembers, W), ...CMD.LINE_FEED,
       ...makeLine('Kontribye:', fmt(amountPaid) + ' HTG', W), ...CMD.LINE_FEED,
       ...divider('=', W), ...CMD.LINE_FEED,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-      ...encodeText('PRYIM: ' + fmt(payout) + ' HTG\n'),
+      // ✅ KOREKSYON: DOUBLE_HEIGHT olye DOUBLE_BOTH (pi piti), epi "Prim" an Kreyol
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('Prim: ' + fmt(payout) + ' HTG\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ]),
     ...divider('=', W), ...CMD.LINE_FEED,
@@ -436,7 +438,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
 
   const W = getWidth(tenant)
 
-  const TX_LABELS      = { ouverture: 'OUVERTURE KONT', depot: 'DEPO / DEPOT', retrait: 'RETRAIT / RETRÈ' }
+  const TX_LABELS      = { ouverture: 'OUVERTURE KONT', depot: 'DEPO / DEPOT', retrait: 'RETRAIT / RETRE' }
   const PAYMENT_LABELS = {
     cash: 'Kach/Cash', moncash: 'MonCash', natcash: 'NatCash',
     card: 'Kat/Carte', transfer: 'Virement', check: 'Chek/Cheque', other: 'Lot/Autre'
@@ -448,7 +450,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     : new Date().toLocaleDateString('fr-HT')
 
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 140) : []
+  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
   const txLabel   = TX_LABELS[type] || 'TRANZAKSYON'
 
   const bytes = [
@@ -460,7 +462,6 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('-- KANE EPAY --\n'), ...CMD.BOLD_OFF,
     ...(tenant?.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
     ...(tenant?.address ? [...encodeText(tenant.address + '\n')]           : []),
-    ...CMD.LINE_FEED,
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(txLabel + '\n'),
@@ -488,7 +489,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
     ...encodeText(
-      (type === 'ouverture' ? 'BALANS: ' : (type === 'retrait' ? 'RETRÈ: ' : 'DEPO: ')) +
+      (type === 'ouverture' ? 'BALANS: ' : (type === 'retrait' ? 'RETRE: ' : 'DEPO: ')) +
       fmt(type === 'ouverture' ? account.balance : transaction?.amount) + ' HTG\n'
     ),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
