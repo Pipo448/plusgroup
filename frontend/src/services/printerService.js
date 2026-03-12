@@ -237,98 +237,87 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
   const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
 
+  const issueDate = new Date(invoice.issueDate)
+  const dateStr   = issueDate.toLocaleDateString('fr-HT') + ' ' +
+    issueDate.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
+
   const bytes = [
     ...CMD.INIT,
-    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, ...CMD.LINE_FEED] : []),
-    // Header
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    // ── HEADER KONPAK ──
+    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes] : []),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...(branchName ? [...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('-- ' + branchName + ' --\n'), ...CMD.BOLD_OFF] : []),
-    ...(tenant?.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
-    ...(tenant?.address ? [...encodeText(tenant.address + '\n')]           : []),
-    // Titre resi
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-    ...encodeText('RESI\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    // Info fakti
+    ...CMD.BOLD_OFF,
+    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(' | ' + tenant.address + '\n'), ...CMD.NORMAL_FONT] :
+                          [...CMD.LINE_FEED]),
+    // ── INFO FAKTI ──
     ...CMD.ALIGN_LEFT,
-    ...makeLine('No. Fakti:', invoice.invoiceNumber || '', W), ...CMD.LINE_FEED,
-    ...makeLine('Dat:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
-    ...(cashierName ? [...makeLine('Kesye:', cashierName.substring(0, W - 8), W), ...CMD.LINE_FEED] : []),
-    // Kliyan
-    ...(snap.name ? [
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
-      ...CMD.BOLD_ON, ...encodeText('Kliyan: ' + snap.name.substring(0, W - 8) + '\n'), ...CMD.BOLD_OFF,
-      ...(snap.phone ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
-    ] : []),
-    // Atik yo
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
-    ...CMD.SMALL_FONT, ...CMD.BOLD_ON, ...encodeText(itemHeader + '\n'), ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText(invoice.invoiceNumber + '  ' + dateStr + '\n'),
+    ...(cashierName ? [...encodeText('Kesye: ' + cashierName.substring(0, W - 8) + '\n')] : []),
+    ...(snap.name   ? [...encodeText('Kliyan: ' + snap.name.substring(0, W - 8) + '\n')]  : []),
+    ...CMD.NORMAL_FONT,
+    // ── ATIK YO ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
+    ...CMD.SMALL_FONT,
+    ...encodeText(itemHeader + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
+    ...CMD.SMALL_FONT,
     ...(invoice.items || []).flatMap(item => {
-      const nom  = (item.product?.name || item.productSnapshot?.name || 'Atik').substring(0, C.name)
-      const qte  = String(Number(item.quantity)).padStart(C.qty)
-      const pri  = fmt(item.unitPriceHtg).padStart(C.price)
-      const tot  = fmt(item.totalHtg).padStart(C.total)
-      const row  = nom.padEnd(C.name) + qte + pri + tot
+      const nom    = (item.product?.name || item.productSnapshot?.name || 'Atik').substring(0, C.name)
+      const qte    = String(Number(item.quantity)).padStart(C.qty)
+      const pri    = fmt(item.unitPriceHtg).padStart(C.price)
+      const tot    = fmt(item.totalHtg).padStart(C.total)
+      const row    = nom.padEnd(C.name) + qte + pri + tot
       const result = [...encodeText(row.substring(0, W) + '\n')]
-      if (Number(item.discountPct) > 0) result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
+      if (Number(item.discountPct) > 0)
+        result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
       return result
     }),
     ...CMD.NORMAL_FONT,
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
-    // Remiz ak taks
-    ...(Number(invoice.discountHtg) > 0 ? [...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(Number(invoice.taxHtg) > 0      ? [...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    // Total — DOUBLE_HEIGHT (pa DOUBLE_BOTH) pou pi piti
+    // ── SOUS-TOTAL (si gen remiz/taks) ──
+    ...(Number(invoice.discountHtg) > 0 ? [
+      ...CMD.SMALL_FONT, ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+    ] : []),
+    ...(Number(invoice.taxHtg) > 0 ? [
+      ...CMD.SMALL_FONT, ...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+    ] : []),
+    // ── TOTAL ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    // Peman
-    ...CMD.ALIGN_LEFT,
+    ...CMD.BOLD_OFF,
+    // ── PEMAN ──
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
+    ...CMD.ALIGN_LEFT, ...CMD.SMALL_FONT,
     ...makeLine('Peye:', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
-    // Kob bay ak monnen
     ...(amountGiven > 0 ? [...makeLine('Kob bay:', fmt(amountGiven) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(change > 0      ? [...CMD.BOLD_ON, ...makeLine('Monnen:', fmt(change) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.BOLD_OFF] : []),
-    // Balans si pa fin peye
+    ...(change > 0      ? [...makeLine('Monnen:', fmt(change) + ' HTG', W), ...CMD.LINE_FEED]       : []),
     ...(Number(invoice.balanceDueHtg) > 0 ? [
-      ...CMD.BOLD_ON, ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.BOLD_OFF,
+      ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED
     ] : []),
-    // Metod peman
-    ...(lastPay ? [
-      ...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
-      ...(lastPay.reference ? [...makeLine('Ref:', lastPay.reference, W), ...CMD.LINE_FEED] : []),
-    ] : []),
-    // Statut
+    ...(lastPay ? [...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED] : []),
+    ...CMD.NORMAL_FONT,
+    // ── STATUT ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText(statusText + '\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    // QR code
+    ...CMD.BOLD_OFF,
+    // ── QR (ti grenn) ──
     ...(tenant?.showQrCode !== false ? [
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
       ...CMD.ALIGN_CENTER,
       ...makeQR(qrContent),
-      ...CMD.LINE_FEED,
       ...CMD.SMALL_FONT,
-      ...encodeText('Skane pou verifye\n'),
       ...encodeText(invoice.invoiceNumber + '\n'),
       ...CMD.NORMAL_FONT,
     ] : []),
-    // Pye paj
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText('Mesi!\n'),
-    ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
-    ...encodeText('Pwodwi pa PlusGroup\n'),
-    ...encodeText('Tel: +50942449024\n'),
+    // ── PYE PAJ ──
+    ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
+    ...encodeText('Mesi! — PlusGroup\n'),
     ...CMD.NORMAL_FONT,
-    ...CMD.LINE_FEED, ...CMD.LINE_FEED,
+    ...CMD.LINE_FEED,
     ...CMD.CUT,
   ]
 
