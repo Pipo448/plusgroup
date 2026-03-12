@@ -5,9 +5,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
+import { usePrinter } from '../../hooks/usePrinter'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -280,6 +281,9 @@ export default function InvoiceDetail() {
   const [printing, setPrinting]       = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
 
+  const { connected, connecting, printing: btPrinting, connect, disconnect, print } = usePrinter()
+  const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
+
   const showQrCode = tenant?.showQrCode !== false
 
   useEffect(() => {
@@ -483,7 +487,7 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {/* ✅ Yon sèl bouton — travay dirèkteman ak Sunmi V2 inner printer */}
+          {/* ✅ window.print() — laptop, tablet, nenpòt machin */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -493,6 +497,32 @@ export default function InvoiceDetail() {
             <Printer size={14} />
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
+
+          {/* ✅ Bluetooth ESC/POS — printer BT ekstèn */}
+          {hasBluetooth && (
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              {!connected ? (
+                <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
+                  style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <Bluetooth size={14} />
+                  {connecting ? 'Ap konekte...' : 'Konekte Printer BT'}
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => print(invoice, tenant, user)} disabled={btPrinting}
+                    className="btn-secondary btn-sm"
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
+                    <Printer size={14} />
+                    {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+                  </button>
+                  <button onClick={disconnect} title="Dekonekte printer"
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
+                    <BluetoothOff size={13}/>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
 
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
@@ -534,6 +564,13 @@ export default function InvoiceDetail() {
           )}
         </div>
       </div>
+
+      {connected && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
+          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
+          Printer BT konekte — Klike "Enprime BT" pou voye resi
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
@@ -651,6 +688,15 @@ export default function InvoiceDetail() {
               <Printer size={15} />
               {printing ? 'Ap enprime...' : 'Enprime Resi'}
             </button>
+
+            {connected && (
+              <button onClick={() => print(invoice, tenant, user)} disabled={btPrinting}
+                className="w-full mt-2"
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                <Printer size={15} />
+                {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+              </button>
+            )}
 
             {showQrCode && qrDataUrl && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
