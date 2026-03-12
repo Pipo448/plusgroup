@@ -5,10 +5,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { usePrinter } from '../../hooks/usePrinter'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
+import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -54,9 +53,7 @@ const toHaitiDate = (dateStr, fmt2) => {
   } catch { return '' }
 }
 
-// ── Chaje jsPDF + html2canvas dynamikman (pa bezwen enstale)
 const loadPdfLibs = async () => {
-  // Chaje html2canvas
   if (!window.html2canvas) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script')
@@ -66,7 +63,6 @@ const loadPdfLibs = async () => {
       document.head.appendChild(s)
     })
   }
-  // Chaje jsPDF
   if (!window.jspdf) {
     await new Promise((resolve, reject) => {
       const s = document.createElement('script')
@@ -103,22 +99,16 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         : 'IMPAYE / NON PAYE / UNPAID'
 
   const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
-
   const lastPayment = invoice.payments && invoice.payments.length > 0
-    ? invoice.payments[invoice.payments.length - 1]
-    : null
-
+    ? invoice.payments[invoice.payments.length - 1] : null
   const receiptWidth = tenant && tenant.receiptSize === '57mm' ? '57mm' : '80mm'
-
   const totalHtg = Number(invoice.totalHtg || 0)
   const paidHtg  = Number(invoice.amountPaidHtg || 0)
   const balHtg   = Number(invoice.balanceDueHtg || 0)
-
-  const rateUSD = Number(exchangeRates.USD || invoice.exchangeRate || 132)
-  const rateDOP = Number(exchangeRates.DOP || 0)
-
-  const toUSD = (htg) => rateUSD > 0 ? (htg / rateUSD).toFixed(2) : null
-  const toDOP = (htg) => rateDOP > 0 ? (htg / rateDOP).toFixed(2) : null
+  const rateUSD  = Number(exchangeRates.USD || invoice.exchangeRate || 132)
+  const rateDOP  = Number(exchangeRates.DOP || 0)
+  const toUSD    = (htg) => rateUSD > 0 ? (htg / rateUSD).toFixed(2) : null
+  const toDOP    = (htg) => rateDOP > 0 ? (htg / rateDOP).toFixed(2) : null
 
   return (
     <div id="printable-receipt" style={{
@@ -163,9 +153,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       {snap.name && (
         <div style={{ marginBottom: '5px', padding: '3px 5px', background: '#f8f8f8', borderRadius: '3px', fontSize: '9px', borderLeft: '2px solid #ccc' }}>
-          <div style={{ fontWeight: '700', fontSize: '10px' }}>
-            Kliyan / Client: {snap.name}
-          </div>
+          <div style={{ fontWeight: '700', fontSize: '10px' }}>Kliyan / Client: {snap.name}</div>
           {snap.phone && <div>Tel: {snap.phone}</div>}
           {snap.email && <div>{snap.email}</div>}
           {snap.nif   && <div>NIF: {snap.nif}</div>}
@@ -186,9 +174,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
               <div style={{ flex: 3 }}>
                 <div style={{ fontWeight: '600' }}>{(item.product && item.product.name) || (item.productSnapshot && item.productSnapshot.name)}</div>
-                {Number(item.discountPct) > 0 && (
-                  <div style={{ color: '#dc2626', fontSize: '8px' }}>Remiz: {item.discountPct}%</div>
-                )}
+                {Number(item.discountPct) > 0 && <div style={{ color: '#dc2626', fontSize: '8px' }}>Remiz: {item.discountPct}%</div>}
               </div>
               <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
               <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
@@ -220,14 +206,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           </div>
           {toUSD(totalHtg) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '2px' }}>
-              <span>aprox. USD:</span>
-              <span>${toUSD(totalHtg)}</span>
+              <span>aprox. USD:</span><span>${toUSD(totalHtg)}</span>
             </div>
           )}
           {toDOP(totalHtg) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '1px' }}>
-              <span>aprox. DOP:</span>
-              <span>RD${toDOP(totalHtg)}</span>
+              <span>aprox. DOP:</span><span>RD${toDOP(totalHtg)}</span>
             </div>
           )}
         </div>
@@ -259,9 +243,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       </div>
 
       <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
-        <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>
-          {statusLabel}
-        </span>
+        <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>{statusLabel}</span>
       </div>
 
       <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
@@ -275,15 +257,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       )}
 
       <div style={{ textAlign: 'center', fontSize: '9px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
-        <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>
-          Mesi! / Merci! / Thank you!
-        </div>
-        <div style={{ color: '#666', fontSize: '8px', lineHeight: '1.4' }}>
-          Vant final. / Vente finale. / All sales are final.
-        </div>
-        <div style={{ marginTop: '5px', fontSize: '8px', color: '#555', fontWeight: '600' }}>
-          Tel: +50942449024
-        </div>
+        <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>Mesi! / Merci! / Thank you!</div>
+        <div style={{ color: '#666', fontSize: '8px', lineHeight: '1.4' }}>Vant final. / Vente finale. / All sales are final.</div>
+        <div style={{ marginTop: '5px', fontSize: '8px', color: '#555', fontWeight: '600' }}>Tel: +50942449024</div>
       </div>
     </div>
   )
@@ -297,21 +273,18 @@ export default function InvoiceDetail() {
   const pdfMenuRef  = useRef(null)
   const { t, i18n } = useTranslation()
 
-  const [showPayment, setShowPayment]   = useState(false)
-  const [showPdfMenu, setShowPdfMenu]   = useState(false)
-  const [qrDataUrl, setQrDataUrl]       = useState(null)
-  const [logoBase64, setLogoBase64]     = useState(null)
+  const [showPayment, setShowPayment] = useState(false)
+  const [showPdfMenu, setShowPdfMenu] = useState(false)
+  const [qrDataUrl, setQrDataUrl]     = useState(null)
+  const [logoBase64, setLogoBase64]   = useState(null)
+  const [printing, setPrinting]       = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
-
-  const { connected, connecting, printing, connect, disconnect, print } = usePrinter()
-  const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
 
   const showQrCode = tenant?.showQrCode !== false
 
   useEffect(() => {
     const handler = (e) => {
-      if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target))
-        setShowPdfMenu(false)
+      if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target)) setShowPdfMenu(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -338,109 +311,94 @@ export default function InvoiceDetail() {
       `Date: ${toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}`,
       window.location.href,
     ].join('\n')
-
     QRCode.toDataURL(qrContent, { width: 200, margin: 1, color: { dark: '#1a1a1a', light: '#ffffff' } })
       .then(url => setQrDataUrl(url))
       .catch(err => console.error('QR Code error:', err))
   }, [invoice, showQrCode])
 
+  // ✅ SUNMI V2 INNER PRINTER — window.print() dirèk
+  // Sèl metòd ki travay nan Chrome Android san popup blocker
+  // CSS @media print kache tout UI, montre sèlman #printable-receipt
   const handlePrint = async () => {
-    const receiptEl = document.getElementById('printable-receipt')
-    if (!receiptEl) { toast.error('Resi pa disponib.'); return }
+    setPrinting(true)
+    const toastId = toast.loading('Ap prepare resi...')
+    try {
+      const receiptEl = document.getElementById('printable-receipt')
+      if (!receiptEl) throw new Error('Resi pa disponib')
 
-    const receiptSize = tenant?.receiptSize || '80mm'
-    const receiptHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
+      const receiptSize = tenant?.receiptSize || '80mm'
 
-    const printWindow = window.open('', '_blank', 'width=340,height=600,scrollbars=no')
-    if (!printWindow) {
-      toast.error('Navigate bloke popup. Pemit popup pou sit sa.')
-      return
-    }
+      // 1. Enjekte CSS print global (retire ansyen si li egziste)
+      const oldStyle = document.getElementById('_receipt_print_css')
+      if (oldStyle) oldStyle.remove()
+      const style = document.createElement('style')
+      style.id = '_receipt_print_css'
+      style.textContent = `
+        @media print {
+          @page { margin: 0; size: ${receiptSize} auto; }
+          body > *:not(#_receipt_print_root) { display: none !important; }
+          #_receipt_print_root { display: block !important; }
+          #printable-receipt { display: block !important; }
+        }
+      `
+      document.head.appendChild(style)
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>Resi ${invoice?.invoiceNumber || ''}</title>
-        <style>
-          * { box-sizing: border-box; }
-          body { margin: 0; padding: 0; background: #fff; font-family: 'Courier New', Courier, monospace; }
-          @media print {
-            @page { margin: 0; size: ${receiptSize} auto; }
-            body { margin: 0; }
-          }
-        </style>
-      </head>
-      <body>${receiptHTML}</body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.onload = () => {
-      setTimeout(() => {
-        printWindow.focus()
-        printWindow.print()
-        setTimeout(() => printWindow.close(), 1000)
-      }, 200)
+      // 2. Kreye wrapper print — ajoute dirèkteman nan <body>, PA anndan #root
+      // Konsa #root > * { display:none } pa kache li
+      let root = document.getElementById('_receipt_print_root')
+      if (!root) {
+        root = document.createElement('div')
+        root.id = '_receipt_print_root'
+        root.style.cssText = 'display:none;position:absolute;top:0;left:0;width:100%;background:#fff;'
+        document.body.appendChild(root)
+      }
+      // Kopi kontni resi a nan wrapper la
+      root.innerHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
+
+      // 3. Tann DOM aktyalize
+      await new Promise(r => setTimeout(r, 150))
+
+      // 4. Print — Chrome Android ap ouvri dialog printer dirèkteman
+      window.print()
+
+      toast.success('Resi voye bay printer!', { id: toastId })
+    } catch (err) {
+      toast.error('Ere enpresyon: ' + err.message, { id: toastId })
+    } finally {
+      setPrinting(false)
     }
   }
 
-  // ── DOWNLOAD PDF — 100% frontend, pa bezwen backend ──
   const downloadPdf = async (size) => {
     setShowPdfMenu(false)
     const toastId = toast.loading(`Ap prepare PDF ${size}...`)
-
     try {
-      // 1. Chaje librairi yo
       await loadPdfLibs()
-
-      // 2. Prepare eleman HTML pou capture
       const receiptEl = document.getElementById('printable-receipt')
       if (!receiptEl) throw new Error('Resi HTML pa trovab')
 
-      // Montre l tanporèman pou html2canvas ka wè l
       const prevDisplay = receiptEl.style.display
       receiptEl.style.display = 'block'
       receiptEl.style.position = 'fixed'
       receiptEl.style.left = '-9999px'
       receiptEl.style.top = '0'
 
-      // 3. Konvèti HTML → Canvas
       const canvas = await window.html2canvas(receiptEl, {
-        scale: 3,               // Rezolisyon wo pou PDF klè
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        logging: false,
+        scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false,
       })
 
-      // Remèt eleman an kache
       receiptEl.style.display = prevDisplay
       receiptEl.style.position = ''
       receiptEl.style.left = ''
       receiptEl.style.top = ''
 
-      // 4. Dimansyon PDF selon size
       const mmWidth  = size === '57mm' ? 57 : 80
-      const pxWidth  = canvas.width
-      const pxHeight = canvas.height
-      const mmHeight = (pxHeight / pxWidth) * mmWidth
-
-      // 5. Kreye PDF ak jsPDF
+      const mmHeight = (canvas.height / canvas.width) * mmWidth
       const { jsPDF } = window.jspdf
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: [mmWidth, mmHeight],
-      })
-
-      const imgData = canvas.toDataURL('image/png')
-      pdf.addImage(imgData, 'PNG', 0, 0, mmWidth, mmHeight)
-
-      // 6. Telechaje
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [mmWidth, mmHeight] })
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, mmWidth, mmHeight)
       pdf.save(`facture-${invoice.invoiceNumber}-${size}.pdf`)
       toast.success(`PDF ${size} telechaje!`, { id: toastId })
-
     } catch (err) {
       console.error('PDF error:', err)
       toast.error('Ere pandan jenere PDF. Eseye ankò.', { id: toastId })
@@ -494,6 +452,13 @@ export default function InvoiceDetail() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        @media print {
+          @page { margin: 0; }
+          /* Kache tout kontni #root eksepte wrapper print la */
+          #root > * { display: none !important; }
+          #_receipt_print_root { display: block !important; }
+          body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
+        }
       `}</style>
 
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -518,37 +483,17 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <button onClick={handlePrint} className="btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {/* ✅ Yon sèl bouton — travay dirèkteman ak Sunmi V2 inner printer */}
+          <button
+            onClick={handlePrint}
+            disabled={printing}
+            className="btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+          >
             <Printer size={14} />
-            Enprime Resi
+            {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
-          {hasBluetooth && (
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {!connected ? (
-                <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
-                  style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <Bluetooth size={14} />
-                  {connecting ? 'Ap konekte...' : 'Konekte Printer'}
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => print(invoice, tenant, user)} disabled={printing}
-                    className="btn-secondary btn-sm"
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
-                    <Printer size={14} />
-                    {printing ? 'Ap enprime...' : 'Enprime BT'}
-                  </button>
-                  <button onClick={disconnect} title="Dekonekte printer"
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
-                    <BluetoothOff size={13}/>
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ── PDF Dropdown ── */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -556,7 +501,6 @@ export default function InvoiceDetail() {
               Resi PDF
               <ChevronDown size={12} style={{ transition:'transform 0.2s', transform: showPdfMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
             </button>
-
             {showPdfMenu && (
               <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:50, background:'#fff', borderRadius:12, minWidth:210, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0', overflow:'hidden' }}>
                 <div style={{ padding:'8px 14px 5px', fontSize:10, fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>
@@ -590,13 +534,6 @@ export default function InvoiceDetail() {
           )}
         </div>
       </div>
-
-      {connected && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
-          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Printer konekte — Klike "Enprime BT" pou voye resi bay printer a
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
@@ -697,8 +634,7 @@ export default function InvoiceDetail() {
             )}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
               <div className="flex justify-between">
-                <span>Dat:</span>
-                <span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</span>
+                <span>Dat:</span><span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</span>
               </div>
               <div className="flex justify-between">
                 <span>Taux:</span>
@@ -706,13 +642,15 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
-            {connected && (
-              <button onClick={() => print(invoice, tenant, user)} disabled={printing}
-                className="btn-primary w-full mt-4" style={{ justifyContent:'center' }}>
-                <Printer size={15}/>
-                {printing ? 'Ap enprime...' : 'Enprime Resi Bluetooth'}
-              </button>
-            )}
+            <button
+              onClick={handlePrint}
+              disabled={printing}
+              className="btn-primary w-full mt-4"
+              style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <Printer size={15} />
+              {printing ? 'Ap enprime...' : 'Enprime Resi'}
+            </button>
 
             {showQrCode && qrDataUrl && (
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
@@ -778,23 +716,17 @@ export default function InvoiceDetail() {
                     <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG ap rete</span>
                   </div>
                 )}
-
                 {amtNum === balance && amtNum > 0 && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>Peman egzak</span>
                     <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
                   </div>
                 )}
-
                 {monnen > 0 && (
                   <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
                     <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase', letterSpacing:'0.06em' }}>
-                        Monnen pou remet
-                      </span>
-                      <span style={{ fontSize:11, color:'rgba(255,255,255,0.7)', fontFamily:'monospace' }}>
-                        {fmt(amtNum)} - {fmt(balance)}
-                      </span>
+                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Monnen pou remet</span>
+                      <span style={{ fontSize:11, color:'rgba(255,255,255,0.7)', fontFamily:'monospace' }}>{fmt(amtNum)} - {fmt(balance)}</span>
                     </div>
                     <div style={{ background:'#f0fdf4', padding:'14px', textAlign:'center' }}>
                       <p style={{ fontFamily:'monospace', fontSize:36, fontWeight:900, color:'#15803d', margin:0 }}>
@@ -838,9 +770,7 @@ export default function InvoiceDetail() {
                         <span style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
                         Ap anrejistre...
                       </span>
-                    : monnen > 0
-                      ? `Konfime ${fmt(balance)} HTG`
-                      : `Konfime ${fmt(amtNum)} HTG`
+                    : monnen > 0 ? `Konfime ${fmt(balance)} HTG` : `Konfime ${fmt(amtNum)} HTG`
                   }
                 </button>
               </div>
