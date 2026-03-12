@@ -195,7 +195,7 @@ const sendBytes = async (bytes) => {
 // ✅ PRINT INVOICE
 // ══════════════════════════════════════════════════════════════
 
-export const printInvoice = async (invoice, tenant, cashier = null) => {
+export const printInvoice = async (invoice, tenant, cashier = null, amountGiven = 0, change = 0) => {
   if (!_char) throw new Error('Printer pa konekte')
 
   const fmt = (n) => Number(n || 0)
@@ -208,31 +208,21 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const branchName  = invoice.branchName || invoice.branch?.name || localStorage.getItem('plusgroup-branch-name') || null
   const cashierName = cashier?.fullName  || cashier?.name        || localStorage.getItem('plusgroup-cashier-name') || null
 
-  const exchangeRates = (() => {
-    try {
-      const er = tenant?.exchangeRates
-      if (!er) return {}
-      return typeof er === 'object' ? er : JSON.parse(String(er))
-    } catch { return {} }
-  })()
-
-  const rateUSD  = Number(exchangeRates.USD || tenant?.exchangeRate || 0)
-  const rateDOP  = Number(exchangeRates.DOP || 0)
   const totalHtg = Number(invoice.totalHtg || 0)
 
   const lastPay = invoice.payments?.length > 0
     ? invoice.payments[invoice.payments.length - 1] : null
 
   const PAYMENT_LABELS = {
-    cash: 'Kach/Cash', moncash: 'MonCash', natcash: 'NatCash',
-    card: 'Kat/Carte', transfer: 'Virement', check: 'Chek/Cheque', other: 'Lot/Autre'
+    cash: 'Kach', moncash: 'MonCash', natcash: 'NatCash',
+    card: 'Kat', transfer: 'Viman', check: 'Chek', other: 'Lot'
   }
 
   const statusText =
-    invoice.status === 'paid'      ? 'PEYE / PAYE / PAID' :
-    invoice.status === 'partial'   ? 'PASYAL / PARTIEL / PARTIAL' :
-    invoice.status === 'cancelled' ? 'ANILE / ANNULE / CANCELLED' :
-    'IMPAYE / NON PAYE / UNPAID'
+    invoice.status === 'paid'      ? 'PEYE' :
+    invoice.status === 'partial'   ? 'PASYAL' :
+    invoice.status === 'cancelled' ? 'ANILE' :
+    'IMPAYE'
 
   const qrContent = window.location.origin + '/app/invoices/' + invoice.id + '\n' + invoice.invoiceNumber
   const isWide    = W >= 48
@@ -241,36 +231,40 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     : { name: 12, qty: 3, price: 7,  total: 8  }
 
   const itemHeader = isWide
-    ? 'Pwodui/Product'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri/Prix'.padStart(C.price) + 'Total'.padStart(C.total)
+    ? 'Pwodui'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Total'.padStart(C.total)
     : 'Atik'.padEnd(C.name) + 'Q'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
 
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 140) : []
+  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
 
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, ...CMD.LINE_FEED] : []),
+    // Header
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(branchName ? [...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('-- ' + branchName + ' --\n'), ...CMD.BOLD_OFF] : []),
     ...(tenant?.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
     ...(tenant?.address ? [...encodeText(tenant.address + '\n')]           : []),
-    ...CMD.LINE_FEED,
+    // Titre resi
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-    ...encodeText('Resi / Recu / Receipt\n'),
+    ...encodeText('RESI\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...divider('=', W), ...CMD.LINE_FEED,
+    // Info fakti
     ...CMD.ALIGN_LEFT,
-    ...makeLine('No. Fakti/Invoice:', invoice.invoiceNumber || '', W), ...CMD.LINE_FEED,
-    ...makeLine('Dat/Date:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
-    ...(cashierName ? [...makeLine('Kasye/Caissier:', cashierName.substring(0, W - 17), W), ...CMD.LINE_FEED] : []),
+    ...makeLine('No. Fakti:', invoice.invoiceNumber || '', W), ...CMD.LINE_FEED,
+    ...makeLine('Dat:', new Date(invoice.issueDate).toLocaleDateString('fr-HT') + ' ' + new Date(invoice.issueDate).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' }), W), ...CMD.LINE_FEED,
+    ...(cashierName ? [...makeLine('Kesye:', cashierName.substring(0, W - 8), W), ...CMD.LINE_FEED] : []),
+    // Kliyan
     ...(snap.name ? [
       ...divider('-', W), ...CMD.LINE_FEED,
-      ...CMD.BOLD_ON, ...encodeText('Kliyan/Client: ' + snap.name.substring(0, W - 15) + '\n'), ...CMD.BOLD_OFF,
+      ...CMD.BOLD_ON, ...encodeText('Kliyan: ' + snap.name.substring(0, W - 8) + '\n'), ...CMD.BOLD_OFF,
       ...(snap.phone ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
     ] : []),
+    // Atik yo
     ...divider('-', W), ...CMD.LINE_FEED,
     ...CMD.SMALL_FONT, ...CMD.BOLD_ON, ...encodeText(itemHeader + '\n'), ...CMD.BOLD_OFF,
     ...divider('-', W), ...CMD.LINE_FEED,
@@ -281,59 +275,60 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
       const tot  = fmt(item.totalHtg).padStart(C.total)
       const row  = nom.padEnd(C.name) + qte + pri + tot
       const result = [...encodeText(row.substring(0, W) + '\n')]
-      if (Number(item.discountPct) > 0) result.push(...encodeText('  Remiz/Remise: ' + item.discountPct + '%\n'))
+      if (Number(item.discountPct) > 0) result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
       return result
     }),
     ...CMD.NORMAL_FONT,
     ...divider('-', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_LEFT,
-    ...(Number(invoice.discountHtg) > 0 ? [...makeLine('Remiz/Remise/Disc.:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(Number(invoice.taxHtg) > 0      ? [...makeLine('Taks/Tax (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
+    // Remiz ak taks
+    ...(Number(invoice.discountHtg) > 0 ? [...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
+    ...(Number(invoice.taxHtg) > 0      ? [...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
+    // Total — DOUBLE_HEIGHT (pa DOUBLE_BOTH) pou pi piti
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...(fmt(totalHtg).length > 10 ? [...CMD.DOUBLE_HEIGHT] : [...CMD.DOUBLE_BOTH]),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...(rateUSD > 0 ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. USD: $' + (totalHtg / rateUSD).toFixed(2) + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(rateDOP > 0 ? [...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('aprox. DOP: RD$' + (totalHtg / rateDOP).toFixed(2) + '\n'), ...CMD.NORMAL_FONT] : []),
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_LEFT, ...CMD.BOLD_ON, ...encodeText('Peye/Paye/Paid: '), ...CMD.BOLD_OFF,
-    ...(fmt(invoice.amountPaidHtg).length > 10
-      ? [...CMD.SMALL_FONT, ...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n'), ...CMD.NORMAL_FONT]
-      : [...encodeText(fmt(invoice.amountPaidHtg) + ' HTG\n')]),
+    // Peman
+    ...CMD.ALIGN_LEFT,
+    ...makeLine('Peye:', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
+    // Kob bay ak monnen
+    ...(amountGiven > 0 ? [...makeLine('Kob bay:', fmt(amountGiven) + ' HTG', W), ...CMD.LINE_FEED] : []),
+    ...(change > 0      ? [...CMD.BOLD_ON, ...makeLine('Monnen:', fmt(change) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.BOLD_OFF] : []),
+    // Balans si pa fin peye
     ...(Number(invoice.balanceDueHtg) > 0 ? [
-      ...CMD.BOLD_ON, ...encodeText('Balans/Solde/Balance: '), ...CMD.BOLD_OFF,
-      ...(fmt(invoice.balanceDueHtg).length > 10
-        ? [...CMD.SMALL_FONT, ...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n'), ...CMD.NORMAL_FONT]
-        : [...encodeText(fmt(invoice.balanceDueHtg) + ' HTG\n')]),
+      ...CMD.BOLD_ON, ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.BOLD_OFF,
     ] : []),
+    // Metod peman
     ...(lastPay ? [
-      ...makeLine('Metod/Mode/Method:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
+      ...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
       ...(lastPay.reference ? [...makeLine('Ref:', lastPay.reference, W), ...CMD.LINE_FEED] : []),
     ] : []),
-    ...divider('-', W), ...CMD.LINE_FEED,
+    // Statut
+    ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(statusText + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...divider('-', W), ...CMD.LINE_FEED,
+    // QR code
     ...(tenant?.showQrCode !== false ? [
+      ...divider('-', W), ...CMD.LINE_FEED,
       ...CMD.ALIGN_CENTER,
       ...makeQR(qrContent),
       ...CMD.LINE_FEED,
       ...CMD.SMALL_FONT,
-      ...encodeText('Skane/Scanner/Scan to verify\n'),
+      ...encodeText('Skane pou verifye\n'),
       ...encodeText(invoice.invoiceNumber + '\n'),
       ...CMD.NORMAL_FONT,
     ] : []),
+    // Pye paj
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText('Mesi! / Merci! / Thank you!\n'),
+    ...encodeText('Mesi!\n'),
     ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
-    ...encodeText('Pwodwi pa / Propulse par / Powered by\n'),
-    ...CMD.BOLD_ON, ...encodeText('PlusGroup\n'), ...CMD.BOLD_OFF,
+    ...encodeText('Pwodwi pa PlusGroup\n'),
     ...encodeText('Tel: +50942449024\n'),
     ...CMD.NORMAL_FONT,
-    ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.LINE_FEED,
+    ...CMD.LINE_FEED, ...CMD.LINE_FEED,
     ...CMD.CUT,
   ]
 
