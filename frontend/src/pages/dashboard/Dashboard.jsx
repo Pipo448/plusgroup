@@ -28,19 +28,24 @@ const D = {
   text:'#0F1A5C', muted:'#6B7AAB',
   success:'#059669', successBg:'rgba(5,150,105,0.08)',
   warning:'#D97706',
-  shadow:'0 4px 20px rgba(27,42,143,0.10)',
+  shadow:'0 2px 12px rgba(27,42,143,0.08)',
 }
 
 const fmt = (n) => Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:2,maximumFractionDigits:2})
 const CURRENCY_SYMBOLS = { USD:'$', DOP:'RD$', EUR:'€', CAD:'CA$' }
+
 const convertFromHTG = (amountHTG, currency, exchangeRates={}) => {
   const rateToHTG = Number(exchangeRates[currency]||0)
   if (!rateToHTG) return null
   return { amount: amountHTG/rateToHTG, symbol: CURRENCY_SYMBOLS[currency]||currency }
 }
+
 const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
   if (!visibleCurrencies.length) return null
-  const parts = visibleCurrencies.map(cur=>convertFromHTG(amountHTG,cur,exchangeRates)).filter(Boolean).map(c=>`≈ ${c.symbol}${fmt(c.amount)}`)
+  const parts = visibleCurrencies
+    .map(cur => convertFromHTG(amountHTG, cur, exchangeRates))
+    .filter(Boolean)
+    .map(c => `≈ ${c.symbol}${fmt(c.amount)}`)
   return parts.length ? parts.join('  ') : null
 }
 
@@ -53,58 +58,89 @@ const LABELS = {
 
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
 
+// ✅ TickerBanner — static, pa gen animation ticker
+// Sou Sunmi v2 animation ticker = repaint kontini = scroll lou
 const TickerBanner = memo(() => (
-  <div style={{position:'fixed',bottom:0,left:0,right:0,zIndex:1000,background:'linear-gradient(90deg,#0F1A5C,#1B2A8F 30%,#8B0000 70%,#0F1A5C)',borderTop:'1px solid rgba(201,168,76,0.35)',height:30,overflow:'hidden',display:'flex',alignItems:'center',boxShadow:'0 -4px 20px rgba(0,0,0,0.25)'}}>
-    <div style={{display:'flex',alignItems:'center',whiteSpace:'nowrap',animation:'ticker 40s linear infinite',willChange:'transform'}}>
-      {[msg,msg,msg].map((m,i)=><span key={i} style={{color:'#C9A84C',fontSize:11,fontWeight:600,letterSpacing:'0.05em',fontFamily:'DM Sans,sans-serif',paddingRight:60,flexShrink:0}}>{m}</span>)}
-    </div>
-    <style>{`@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-33.333%)}}`}</style>
+  <div style={{
+    position:'fixed', bottom:0, left:0, right:0, zIndex:1000,
+    background:'linear-gradient(90deg,#0F1A5C,#1B2A8F 30%,#8B0000 70%,#0F1A5C)',
+    borderTop:'1px solid rgba(201,168,76,0.35)',
+    height:30, overflow:'hidden', display:'flex', alignItems:'center',
+    boxShadow:'0 -2px 10px rgba(0,0,0,0.15)', padding:'0 16px',
+  }}>
+    <span style={{
+      color:'#C9A84C', fontSize:11, fontWeight:600,
+      letterSpacing:'0.05em', fontFamily:'DM Sans,sans-serif',
+      overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+    }}>
+      {msg}
+    </span>
   </div>
 ))
 
 const CustomTooltip = memo(({ active, payload, label }) => {
   if (!active||!payload?.length) return null
   return (
-    <div style={{background:D.blueDk,borderRadius:12,padding:'10px 16px',border:`1px solid ${D.gold}40`,boxShadow:'0 8px 24px rgba(0,0,0,0.3)'}}>
-      <p style={{color:D.gold,fontSize:10,fontWeight:800,marginBottom:4,textTransform:'uppercase'}}>{label}</p>
-      <p style={{fontFamily:'monospace',fontWeight:800,color:'#fff',fontSize:14}}>{fmt(payload[0]?.value)} <span style={{color:D.gold,fontSize:10}}>HTG</span></p>
+    <div style={{background:D.blueDk, borderRadius:12, padding:'10px 16px', border:`1px solid ${D.gold}40`, boxShadow:'0 8px 24px rgba(0,0,0,0.3)'}}>
+      <p style={{color:D.gold, fontSize:10, fontWeight:800, marginBottom:4, textTransform:'uppercase'}}>{label}</p>
+      <p style={{fontFamily:'monospace', fontWeight:800, color:'#fff', fontSize:14}}>{fmt(payload[0]?.value)} <span style={{color:D.gold, fontSize:10}}>HTG</span></p>
     </div>
   )
 })
 
 const StatCard = memo(({ label, val, icon, color, sub }) => (
-  <div className="stat-card" style={{borderRadius:16,padding:'16px 14px',background:'rgba(255,255,255,0.05)',outline:'1.5px solid rgba(255,255,255,0.10)',boxShadow:'0 2px 8px rgba(0,0,0,0.10)',minWidth:140,position:'relative',overflow:'hidden'}}>
-    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
-      <div style={{width:30,height:30,borderRadius:8,background:`${color}22`,display:'flex',alignItems:'center',justifyContent:'center',border:`1px solid ${color}30`}}><span style={{color}}>{icon}</span></div>
-      <span style={{fontSize:10,fontWeight:800,color,textTransform:'uppercase',letterSpacing:'0.07em',opacity:0.9}}>{label}</span>
+  <div style={{
+    borderRadius:16, padding:'16px 14px',
+    background:'rgba(255,255,255,0.05)',
+    outline:'1.5px solid rgba(255,255,255,0.10)',
+    boxShadow:'0 2px 8px rgba(0,0,0,0.10)',
+    minWidth:140, position:'relative', overflow:'hidden',
+  }}>
+    <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+      <div style={{width:30, height:30, borderRadius:8, background:`${color}22`, display:'flex', alignItems:'center', justifyContent:'center', border:`1px solid ${color}30`}}>
+        <span style={{color}}>{icon}</span>
+      </div>
+      <span style={{fontSize:10, fontWeight:800, color, textTransform:'uppercase', letterSpacing:'0.07em', opacity:0.9}}>{label}</span>
     </div>
-    <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:800,color:'#fff',fontSize:14,margin:0}}>{val}</p>
-    {sub&&<p style={{fontSize:10,color:'rgba(255,255,255,0.45)',margin:'4px 0 0'}}>{sub}</p>}
+    <p style={{fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#fff', fontSize:14, margin:0}}>{val}</p>
+    {sub && <p style={{fontSize:10, color:'rgba(255,255,255,0.45)', margin:'4px 0 0'}}>{sub}</p>}
   </div>
 ))
 
 const KpiCard = memo(({ label, value, count, icon, color, link }) => (
-  <Link to={link} style={{textDecoration:'none',display:'block'}}>
-    <div className="kpi-card" style={{background:D.white,borderRadius:18,padding:'18px 16px',boxShadow:D.shadow,cursor:'pointer',height:'100%',minWidth:160,position:'relative',overflow:'hidden',border:`1px solid ${D.border}`}}>
-      <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,${color}40,${color}20)`}}/>
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:14,marginTop:6}}>
-        <div style={{width:46,height:46,borderRadius:14,flexShrink:0,background:`linear-gradient(135deg,${color},${color}BB)`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${color}35`}}><span style={{color:'#fff'}}>{icon}</span></div>
-        <ArrowRight size={13} style={{color:D.muted,marginTop:4}}/>
+  <Link to={link} style={{textDecoration:'none', display:'block'}}>
+    <div style={{
+      background:D.white, borderRadius:18, padding:'18px 16px',
+      boxShadow:D.shadow, height:'100%', minWidth:160,
+      position:'relative', overflow:'hidden',
+      border:`1px solid ${D.border}`,
+    }}>
+      <div style={{position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,${color}40,${color}20)`}}/>
+      <div style={{display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:14, marginTop:6}}>
+        <div style={{width:46, height:46, borderRadius:14, flexShrink:0, background:`linear-gradient(135deg,${color},${color}BB)`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 14px ${color}35`}}>
+          <span style={{color:'#fff'}}>{icon}</span>
+        </div>
+        <ArrowRight size={13} style={{color:D.muted, marginTop:4}}/>
       </div>
-      <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',letterSpacing:'0.08em',color:D.muted,marginBottom:5}}>{label}</p>
-      <p style={{fontFamily:'IBM Plex Mono,monospace',fontWeight:900,fontSize:15,color,margin:0}}>{value}</p>
-      <p style={{fontSize:11,color:D.muted,margin:'4px 0 0',opacity:0.75}}>{count}</p>
+      <p style={{fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.08em', color:D.muted, marginBottom:5}}>{label}</p>
+      <p style={{fontFamily:'IBM Plex Mono,monospace', fontWeight:900, fontSize:15, color, margin:0}}>{value}</p>
+      <p style={{fontSize:11, color:D.muted, margin:'4px 0 0', opacity:0.75}}>{count}</p>
     </div>
   </Link>
 ))
 
+// ✅ ColorTile — retire tous animations hover scale
 const ColorTile = memo(({ icon, name, badge, gradient, onClick }) => (
-  <div onClick={onClick} className="color-tile" style={{background:gradient,borderRadius:18,padding:'18px 10px 14px',display:'flex',flexDirection:'column',alignItems:'center',gap:8,cursor:'pointer',outline:'2px solid rgba(255,255,255,0.10)',position:'relative',overflow:'hidden',boxShadow:'0 4px 14px rgba(0,0,0,0.15)'}}>
-    <div style={{position:'absolute',top:-24,right:-24,width:65,height:65,borderRadius:'50%',background:'rgba(255,255,255,0.10)',pointerEvents:'none'}}/>
-    <div style={{position:'absolute',bottom:-18,left:-18,width:50,height:50,borderRadius:'50%',background:'rgba(255,255,255,0.07)',pointerEvents:'none'}}/>
-    <div style={{fontSize:28,lineHeight:1}}>{icon}</div>
-    <div style={{fontSize:11,fontWeight:800,color:'rgba(255,255,255,0.92)',textAlign:'center',lineHeight:1.25}}>{name}</div>
-    <div style={{background:'rgba(0,0,0,0.22)',borderRadius:20,padding:'2px 9px',fontSize:10,color:'rgba(255,255,255,0.80)',fontWeight:700}}>{badge}</div>
+  <div onClick={onClick} style={{
+    background:gradient, borderRadius:18, padding:'18px 10px 14px',
+    display:'flex', flexDirection:'column', alignItems:'center', gap:8,
+    cursor:'pointer', outline:'2px solid rgba(255,255,255,0.10)',
+    position:'relative', overflow:'hidden',
+    boxShadow:'0 2px 8px rgba(0,0,0,0.12)',
+  }}>
+    <div style={{fontSize:28, lineHeight:1}}>{icon}</div>
+    <div style={{fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.92)', textAlign:'center', lineHeight:1.25}}>{name}</div>
+    <div style={{background:'rgba(0,0,0,0.22)', borderRadius:20, padding:'2px 9px', fontSize:10, color:'rgba(255,255,255,0.80)', fontWeight:700}}>{badge}</div>
   </div>
 ))
 
@@ -113,15 +149,14 @@ export default function Dashboard() {
   const { user, tenant } = useAuthStore()
   const navigate = useNavigate()
 
-  const showRate     = tenant?.showExchangeRate !== false
+  const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates || {}
-  const visibleCurrs = Array.isArray(tenant?.visibleCurrencies) ? tenant.visibleCurrencies : []
-  const branchId     = localStorage.getItem('plusgroup-branch-id') || undefined
-  const isAdmin      = user?.role === 'admin'
-  const lang         = (i18nInst?.language || 'ht').substring(0,2)
-  const lbl          = (key) => LABELS[key]?.[lang] || LABELS[key]?.ht || key
+  const visibleCurrs  = Array.isArray(tenant?.visibleCurrencies) ? tenant.visibleCurrencies : []
+  const branchId      = localStorage.getItem('plusgroup-branch-id') || undefined
+  const isAdmin       = user?.role === 'admin'
+  const lang          = (i18nInst?.language || 'ht').substring(0,2)
+  const lbl           = (key) => LABELS[key]?.[lang] || LABELS[key]?.ht || key
 
-  // ✅ YON SÈL useQuery olye 5 — 5 HTTP calls → 1
   const { data } = useQuery({
     queryKey: ['dashboard-full', branchId],
     queryFn:  () => api.get('/dashboard/full', {
@@ -172,25 +207,8 @@ export default function Dashboard() {
   ], [dashboard?.totalUnpaid?._count, lowStock.length])
 
   return (
-    <div style={{display:'flex',flexDirection:'column',gap:20,fontFamily:'DM Sans,sans-serif',paddingBottom:40}}>
+    <div style={{display:'flex', flexDirection:'column', gap:20, fontFamily:'DM Sans,sans-serif', paddingBottom:40}}>
       <style>{`
-        @keyframes slideDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
-        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-33.333%)}}
-        @keyframes borderRun{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
-
-        .stat-card{transition:transform 0.2s,box-shadow 0.2s,outline 0.2s}
-        .stat-card:hover{transform:translateY(-4px) scale(1.02);outline:1.5px solid rgba(201,168,76,0.75)!important;box-shadow:0 12px 30px rgba(0,0,0,0.15)!important}
-        .kpi-card{transition:transform 0.2s,box-shadow 0.2s}
-        .kpi-card:hover{transform:translateY(-5px) scale(1.02);outline:2px solid rgba(201,168,76,0.8)!important;box-shadow:0 16px 40px rgba(27,42,143,0.18)!important}
-        .color-tile{transition:transform 0.2s,box-shadow 0.2s}
-        .color-tile:hover{transform:translateY(-7px) scale(1.05);outline:2px solid rgba(201,168,76,0.9)!important;box-shadow:0 18px 40px rgba(0,0,0,0.30)!important}
-        .color-tile:active{transform:scale(0.97)}
-        .inv-row{transition:background 0.15s}
-        .inv-row:hover{background:linear-gradient(90deg,rgba(201,168,76,0.06),rgba(27,42,143,0.07))!important;box-shadow:inset 3px 0 0 rgba(201,168,76,0.7)}
-        .chart-card-wrap:hover{outline:1.5px solid rgba(201,168,76,0.4);box-shadow:0 8px 32px rgba(27,42,143,0.18)!important}
-
         .hero-stats-scroll{overflow-x:auto;margin:0 -28px;padding:0 28px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
         .hero-stats-scroll::-webkit-scrollbar{display:none}
         .hero-stats-inner{display:grid;grid-template-columns:repeat(4,minmax(155px,1fr));gap:12px;min-width:600px}
@@ -201,80 +219,110 @@ export default function Dashboard() {
         .hero-header-row{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:22px}
         .invoice-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
         .invoice-table-wrap table{min-width:560px}
-        .color-tile-anim{animation:fadeUp 0.4s ease both}
-        .gold-border-card{position:relative}
-        .gold-border-card::before{content:'';position:absolute;inset:0;border-radius:inherit;padding:1.5px;background:linear-gradient(135deg,rgba(201,168,76,0.6),rgba(245,104,12,0.3),rgba(201,168,76,0.15),rgba(245,104,12,0.5));background-size:300% 300%;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:destination-out;mask-composite:exclude;animation:borderRun 4s ease infinite;pointer-events:none}
         .color-grid-wrap{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
-
-        @media(max-width:900px){.chart-stock-grid{grid-template-columns:1fr}.hero-stats-inner{grid-template-columns:repeat(4,minmax(140px,1fr))}.color-grid-wrap{grid-template-columns:repeat(4,1fr)}}
+        .inv-row:hover{background:rgba(201,168,76,0.06)!important}
+        @media(max-width:900px){.chart-stock-grid{grid-template-columns:1fr}.color-grid-wrap{grid-template-columns:repeat(4,1fr)}}
         @media(max-width:600px){.hero-stats-scroll{margin:0 -16px;padding:0 16px 4px}.hero-header-row{flex-direction:column;gap:12px;margin-bottom:16px}.hero-title{font-size:22px!important}.hero-banner{padding:20px 16px!important}.color-grid-wrap{grid-template-columns:repeat(3,1fr);gap:9px}.dash-actions-row{flex-wrap:wrap}}
       `}</style>
 
+      {/* Subscription banner */}
       {subBanner && (
-        <div style={{borderRadius:16,padding:'14px 20px',display:'flex',alignItems:'center',gap:14,flexWrap:'wrap',background:subBanner.expired?'linear-gradient(135deg,#8B0000,#C0392B)':'linear-gradient(135deg,#8B6914,#C9A84C)',boxShadow:subBanner.expired?'0 4px 20px rgba(192,57,43,0.35)':'0 4px 20px rgba(201,168,76,0.35)',border:'1px solid rgba(255,255,255,0.15)',animation:'slideDown 0.3s ease'}}>
-          <span style={{fontSize:24}}>{subBanner.expired?'🔒':'⏰'}</span>
+        <div style={{
+          borderRadius:16, padding:'14px 20px',
+          display:'flex', alignItems:'center', gap:14, flexWrap:'wrap',
+          background: subBanner.expired ? 'linear-gradient(135deg,#8B0000,#C0392B)' : 'linear-gradient(135deg,#8B6914,#C9A84C)',
+          boxShadow: subBanner.expired ? '0 4px 20px rgba(192,57,43,0.35)' : '0 4px 20px rgba(201,168,76,0.35)',
+          border:'1px solid rgba(255,255,255,0.15)',
+        }}>
+          <span style={{fontSize:24}}>{subBanner.expired ? '🔒' : '⏰'}</span>
           <div style={{flex:1}}>
-            <p style={{color:'#fff',fontWeight:800,fontSize:13,margin:'0 0 2px'}}>{subBanner.expired?t('dashboard.subscriptionExpired'):t('dashboard.subscriptionExpiring',{days:subBanner.daysLeft})}</p>
-            <p style={{color:'rgba(255,255,255,0.75)',fontSize:11,margin:0}}>{t('dashboard.contactAdmin')}</p>
+            <p style={{color:'#fff', fontWeight:800, fontSize:13, margin:'0 0 2px'}}>
+              {subBanner.expired ? t('dashboard.subscriptionExpired') : t('dashboard.subscriptionExpiring', {days:subBanner.daysLeft})}
+            </p>
+            <p style={{color:'rgba(255,255,255,0.75)', fontSize:11, margin:0}}>{t('dashboard.contactAdmin')}</p>
           </div>
-          <a href={`https://wa.me/50942449024?text=${encodeURIComponent(`🏢 *PLUS GROUP*\n\n📋 *Entreprise:* ${tenant?.name||'N/A'}\n\nBonjou, mwen vle renouvle abònman mwen an. Mèsi!`)}`} target="_blank" rel="noreferrer" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'8px 18px',borderRadius:10,background:'rgba(255,255,255,0.95)',color:'#8B0000',fontSize:12,fontWeight:800,textDecoration:'none',flexShrink:0}}>
+          <a href={`https://wa.me/50942449024?text=${encodeURIComponent(`🏢 *PLUS GROUP*\n\n📋 *Entreprise:* ${tenant?.name||'N/A'}\n\nBonjou, mwen vle renouvle abònman mwen an. Mèsi!`)}`}
+            target="_blank" rel="noreferrer"
+            style={{display:'inline-flex', alignItems:'center', gap:6, padding:'8px 18px', borderRadius:10, background:'rgba(255,255,255,0.95)', color:'#8B0000', fontSize:12, fontWeight:800, textDecoration:'none', flexShrink:0}}>
             📱 Renouvle via WhatsApp
           </a>
         </div>
       )}
 
-      {/* Hero Banner */}
-      <div className="hero-banner" style={{borderRadius:24,padding:'28px',position:'relative',overflow:'hidden',background:`linear-gradient(145deg,${D.blueDk} 0%,${D.blue} 50%,${D.blueLt} 100%)`,boxShadow:'0 20px 60px rgba(27,42,143,0.35)'}}>
-        <div style={{position:'absolute',top:-60,right:-60,width:220,height:220,borderRadius:'50%',background:`radial-gradient(circle,${D.gold}25,transparent 70%)`,pointerEvents:'none'}}/>
-        <div style={{position:'absolute',bottom:-50,left:20,width:200,height:200,borderRadius:'50%',background:`radial-gradient(circle,${D.red}20,transparent 70%)`,pointerEvents:'none'}}/>
-        <div style={{position:'absolute',top:0,left:0,right:0,height:3,background:`linear-gradient(90deg,transparent,${D.goldDk} 20%,${D.gold} 45%,${D.goldLt} 55%,${D.gold} 70%,${D.goldDk} 85%,transparent)`,animation:'shimmer 4s linear infinite',backgroundSize:'200% 100%'}}/>
-        <div className="hero-header-row" style={{position:'relative',zIndex:1}}>
+      {/* ✅ Hero Banner — retire shimmer animation */}
+      <div className="hero-banner" style={{
+        borderRadius:24, padding:'28px', position:'relative', overflow:'hidden',
+        background:`linear-gradient(145deg,${D.blueDk} 0%,${D.blue} 50%,${D.blueLt} 100%)`,
+        boxShadow:'0 8px 30px rgba(27,42,143,0.25)',
+      }}>
+        <div style={{position:'absolute', top:-60, right:-60, width:220, height:220, borderRadius:'50%', background:`radial-gradient(circle,${D.gold}20,transparent 70%)`, pointerEvents:'none'}}/>
+        <div style={{position:'absolute', bottom:-50, left:20, width:200, height:200, borderRadius:'50%', background:`radial-gradient(circle,${D.red}15,transparent 70%)`, pointerEvents:'none'}}/>
+        {/* ✅ Accent line static — pa gen shimmer */}
+        <div style={{position:'absolute', top:0, left:0, right:0, height:3, background:`linear-gradient(90deg,transparent,${D.gold},transparent)`, pointerEvents:'none'}}/>
+
+        <div className="hero-header-row" style={{position:'relative', zIndex:1}}>
           <div>
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-              <Crown size={14} style={{color:D.gold,filter:`drop-shadow(0 0 6px ${D.gold})`}}/>
-              <span style={{fontSize:10,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.12em',color:D.gold}}>{tenant?.name||'PLUS GROUP'} · {t('dashboard.tableBoard')}</span>
+            <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:8}}>
+              <Crown size={14} style={{color:D.gold}}/>
+              <span style={{fontSize:10, fontWeight:900, textTransform:'uppercase', letterSpacing:'0.12em', color:D.gold}}>
+                {tenant?.name||'PLUS GROUP'} · {t('dashboard.tableBoard')}
+              </span>
             </div>
-            <h1 className="hero-title" style={{fontSize:28,fontWeight:900,color:'#fff',margin:'0 0 6px'}}>
-              {(()=>{const h=parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince',hour:'numeric',hour12:false}));const greet=h<12?t('dashboard.greetingMorning'):h<18?t('dashboard.greetingAfternoon'):t('dashboard.greetingEvening');return <>{greet}, {user?.fullName?.split(' ')[0]}! 👋</>})()}
+            <h1 className="hero-title" style={{fontSize:28, fontWeight:900, color:'#fff', margin:'0 0 6px'}}>
+              {(()=>{
+                const h = parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince',hour:'numeric',hour12:false}))
+                const greet = h<12 ? t('dashboard.greetingMorning') : h<18 ? t('dashboard.greetingAfternoon') : t('dashboard.greetingEvening')
+                return <>{greet}, {user?.fullName?.split(' ')[0]}! 👋</>
+              })()}
             </h1>
-            <p style={{fontSize:12,color:'rgba(255,255,255,0.5)',margin:0,textTransform:'capitalize'}}>{format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})),'EEEE d MMMM yyyy',{locale:fr})}</p>
+            <p style={{fontSize:12, color:'rgba(255,255,255,0.5)', margin:0, textTransform:'capitalize'}}>
+              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})),'EEEE d MMMM yyyy',{locale:fr})}
+            </p>
           </div>
-          <Link to="/app/quotes/new" style={{display:'flex',alignItems:'center',gap:7,padding:'10px 20px',borderRadius:12,textDecoration:'none',background:`linear-gradient(135deg,${D.gold},${D.goldDk})`,color:'#0F1A5C',fontWeight:800,fontSize:12,boxShadow:`0 4px 20px ${D.gold}50`,alignSelf:'flex-start'}}>
+          <Link to="/app/quotes/new" style={{
+            display:'flex', alignItems:'center', gap:7, padding:'10px 20px', borderRadius:12,
+            textDecoration:'none', background:`linear-gradient(135deg,${D.gold},${D.goldDk})`,
+            color:'#0F1A5C', fontWeight:800, fontSize:12,
+            boxShadow:`0 4px 16px ${D.gold}40`, alignSelf:'flex-start',
+          }}>
             <Plus size={14}/> {t('dashboard.newQuote')}
           </Link>
         </div>
-        <div className="hero-stats-scroll" style={{position:'relative',zIndex:1}}>
+
+        <div className="hero-stats-scroll" style={{position:'relative', zIndex:1}}>
           <div className="hero-stats-inner">
-            <StatCard label={lbl('salesToday')} val={`${fmt(totalVentesJodi)} HTG`} icon={<TrendingUp size={15}/>}  color={D.gold}    sub={showRate&&fmtConv(totalVentesJodi,exchangeRates,visibleCurrs)}/>
-            <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399"  sub={showRate&&fmtConv(totalPayeJodi,exchangeRates,visibleCurrs)||`${today?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
-            <StatCard label={lbl('balance')}    val={`${fmt(totalImpayeJodi)} HTG`} icon={<Clock size={15}/>}        color={D.redLt}  sub={showRate&&fmtConv(totalImpayeJodi,exchangeRates,visibleCurrs)||`${today?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
-            <StatCard label={lbl('partial')}    val={`${fmt(totalPasyalJodi)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd"  sub={showRate&&fmtConv(totalPasyalJodi,exchangeRates,visibleCurrs)||`${today?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
+            <StatCard label={lbl('salesToday')} val={`${fmt(totalVentesJodi)} HTG`} icon={<TrendingUp size={15}/>}  color={D.gold}   sub={showRate&&fmtConv(totalVentesJodi,exchangeRates,visibleCurrs)}/>
+            <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPayeJodi,exchangeRates,visibleCurrs)||`${today?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
+            <StatCard label={lbl('balance')}    val={`${fmt(totalImpayeJodi)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpayeJodi,exchangeRates,visibleCurrs)||`${today?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
+            <StatCard label={lbl('partial')}    val={`${fmt(totalPasyalJodi)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyalJodi,exchangeRates,visibleCurrs)||`${today?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
           </div>
         </div>
       </div>
 
       {/* Aksè Rapid */}
       <div>
-        <h2 style={{fontSize:13,fontWeight:900,color:D.text,margin:'0 0 4px',textTransform:'uppercase',letterSpacing:'0.09em'}}>🎨 Aksè Rapid</h2>
-        <p style={{fontSize:11,color:D.muted,margin:'0 0 14px'}}>Klike sou yon modil pou louvri l dirèkteman</p>
+        <h2 style={{fontSize:13, fontWeight:900, color:D.text, margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'0.09em'}}>🎨 Aksè Rapid</h2>
+        <p style={{fontSize:11, color:D.muted, margin:'0 0 14px'}}>Klike sou yon modil pou louvri l dirèkteman</p>
         <div className="color-grid-wrap">
-          {COLOR_TILES.map((tile,i)=>(
-            <div key={tile.path} className="color-tile-anim" style={{animationDelay:`${i*0.05}s`}}>
-              <ColorTile icon={tile.icon} name={tile.name} badge={tile.badge} gradient={tile.gradient} onClick={()=>navigate(tile.path)}/>
-            </div>
+          {COLOR_TILES.map((tile) => (
+            <ColorTile key={tile.path} icon={tile.icon} name={tile.name} badge={tile.badge} gradient={tile.gradient} onClick={() => navigate(tile.path)}/>
           ))}
         </div>
       </div>
 
       {/* Grafik + Low Stock */}
       <div className="chart-stock-grid">
-        <div className="chart-card-wrap gold-border-card" style={{background:D.white,borderRadius:20,padding:'20px 20px 14px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18,flexWrap:'wrap',gap:8}}>
+        {/* ✅ Chart — static border olye gold-border-card animation */}
+        <div style={{
+          background:D.white, borderRadius:20, padding:'20px 20px 14px',
+          boxShadow:D.shadow, border:`1.5px solid ${D.gold}30`,
+        }}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:18, flexWrap:'wrap', gap:8}}>
             <div>
-              <h3 style={{fontSize:15,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
-              <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.salesChart')}</p>
+              <h3 style={{fontSize:15, fontWeight:800, color:D.text, margin:'0 0 2px'}}>{t('dashboard.sales7days')}</h3>
+              <p style={{fontSize:11, color:D.muted, margin:0}}>{t('dashboard.salesChart')}</p>
             </div>
-            <Link to="/app/reports" style={{display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:700,color:D.blue,textDecoration:'none',padding:'5px 12px',borderRadius:8,background:D.blueDim,border:`1px solid ${D.border}`}}>
+            <Link to="/app/reports" style={{display:'flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:D.blue, textDecoration:'none', padding:'5px 12px', borderRadius:8, background:D.blueDim, border:`1px solid ${D.border}`}}>
               {t('dashboard.seeReport')} <ArrowRight size={12}/>
             </Link>
           </div>
@@ -286,7 +334,9 @@ export default function Dashboard() {
                   <YAxis axisLine={false} tickLine={false} tick={{fontSize:10,fill:D.muted}} tickFormatter={v=>v>=1000?`${(v/1000).toFixed(0)}k`:v} width={38}/>
                   <Tooltip content={<CustomTooltip/>} cursor={{fill:`${D.blue}06`,radius:6}}/>
                   <Bar dataKey="ventes" radius={[8,8,0,0]}>
-                    {chartData.map((entry,i)=><Cell key={i} fill={entry.ventes===Math.max(...chartData.map(d=>d.ventes))&&entry.ventes>0?'url(#barGold)':'url(#barBlue)'}/>)}
+                    {chartData.map((entry,i) => (
+                      <Cell key={i} fill={entry.ventes===Math.max(...chartData.map(d=>d.ventes))&&entry.ventes>0?'url(#barGold)':'url(#barBlue)'}/>
+                    ))}
                   </Bar>
                   <defs>
                     <linearGradient id="barGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={D.gold}/><stop offset="100%" stopColor={D.goldDk}/></linearGradient>
@@ -294,37 +344,42 @@ export default function Dashboard() {
                   </defs>
                 </BarChart>
               </ResponsiveContainer>
-            : <div style={{height:195,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <p style={{color:D.muted,fontSize:12,fontWeight:600,textAlign:'center'}}>📊 {t('dashboard.adminOnly')||'Grafik disponib pou admin sèlman'}</p>
+            : <div style={{height:195, display:'flex', alignItems:'center', justifyContent:'center'}}>
+                <p style={{color:D.muted, fontSize:12, fontWeight:600, textAlign:'center'}}>📊 {t('dashboard.adminOnly')||'Grafik disponib pou admin sèlman'}</p>
               </div>
           }
         </div>
 
-        <div style={{background:D.white,borderRadius:20,padding:'20px',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        {/* Low Stock */}
+        <div style={{background:D.white, borderRadius:20, padding:'20px', boxShadow:D.shadow, border:`1px solid ${D.border}`}}>
+          <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14}}>
             <div>
-              <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 2px'}}>{t('dashboard.lowStock')}</h3>
-              <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.needRestock')}</p>
+              <h3 style={{fontSize:14, fontWeight:800, color:D.text, margin:'0 0 2px'}}>{t('dashboard.lowStock')}</h3>
+              <p style={{fontSize:11, color:D.muted, margin:0}}>{t('dashboard.needRestock')}</p>
             </div>
-            <Link to="/app/products" style={{fontSize:11,fontWeight:700,color:D.red,textDecoration:'none',display:'flex',alignItems:'center',gap:3,padding:'4px 10px',borderRadius:8,background:D.redDim}}>
+            <Link to="/app/products" style={{fontSize:11, fontWeight:700, color:D.red, textDecoration:'none', display:'flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:8, background:D.redDim}}>
               {t('dashboard.seeAll')} <ArrowRight size={12}/>
             </Link>
           </div>
           {!lowStock.length
-            ? <div style={{textAlign:'center',padding:'24px 0'}}>
-                <div style={{width:44,height:44,borderRadius:14,background:D.successBg,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 10px'}}><Package size={20} style={{color:D.success}}/></div>
-                <p style={{fontSize:12,fontWeight:700,color:D.success,margin:'0 0 2px'}}>{t('dashboard.stockOk')}</p>
-                <p style={{fontSize:11,color:D.muted,margin:0}}>{t('dashboard.noAlerts')}</p>
+            ? <div style={{textAlign:'center', padding:'24px 0'}}>
+                <div style={{width:44, height:44, borderRadius:14, background:D.successBg, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 10px'}}>
+                  <Package size={20} style={{color:D.success}}/>
+                </div>
+                <p style={{fontSize:12, fontWeight:700, color:D.success, margin:'0 0 2px'}}>{t('dashboard.stockOk')}</p>
+                <p style={{fontSize:11, color:D.muted, margin:0}}>{t('dashboard.noAlerts')}</p>
               </div>
-            : <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                {lowStock.slice(0,5).map(p=>(
-                  <div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 12px',borderRadius:12,background:'rgba(192,57,43,0.05)',border:`1px solid ${D.border}`}}>
-                    <AlertTriangle size={13} style={{color:D.red,flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <p style={{fontSize:12,fontWeight:700,color:D.text,margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</p>
-                      <p style={{fontSize:10,color:D.muted,margin:0,fontFamily:'monospace'}}>{p.code}</p>
+            : <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                {lowStock.slice(0,5).map(p => (
+                  <div key={p.id} style={{display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:'rgba(192,57,43,0.05)', border:`1px solid ${D.border}`}}>
+                    <AlertTriangle size={13} style={{color:D.red, flexShrink:0}}/>
+                    <div style={{flex:1, minWidth:0}}>
+                      <p style={{fontSize:12, fontWeight:700, color:D.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{p.name}</p>
+                      <p style={{fontSize:10, color:D.muted, margin:0, fontFamily:'monospace'}}>{p.code}</p>
                     </div>
-                    <span style={{fontSize:11,fontFamily:'monospace',fontWeight:800,color:D.red,background:D.redDim,padding:'2px 8px',borderRadius:99,flexShrink:0}}>{Number(p.quantity)}/{Number(p.alertThreshold)}</span>
+                    <span style={{fontSize:11, fontFamily:'monospace', fontWeight:800, color:D.red, background:D.redDim, padding:'2px 8px', borderRadius:99, flexShrink:0}}>
+                      {Number(p.quantity)}/{Number(p.alertThreshold)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -342,39 +397,50 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Dènye Fakti */}
-      <div className="gold-border-card" style={{background:D.white,borderRadius:20,overflow:'hidden',boxShadow:D.shadow,border:`1px solid ${D.border}`}}>
-        <div className="dash-section-header" style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:`2px solid ${D.blueDim}`,background:`linear-gradient(135deg,${D.blueDim},${D.goldDim})`}}>
-          <div style={{display:'flex',alignItems:'center',gap:12}}>
-            <div style={{width:36,height:36,borderRadius:10,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,display:'flex',alignItems:'center',justifyContent:'center',boxShadow:`0 4px 14px ${D.blue}40`}}><Receipt size={16} style={{color:'#fff'}}/></div>
+      {/* ✅ Dènye Fakti — retire gold-border-card animation */}
+      <div style={{background:D.white, borderRadius:20, overflow:'hidden', boxShadow:D.shadow, border:`1.5px solid ${D.gold}25`}}>
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:`2px solid ${D.blueDim}`, background:`linear-gradient(135deg,${D.blueDim},${D.goldDim})`}}>
+          <div style={{display:'flex', alignItems:'center', gap:12}}>
+            <div style={{width:36, height:36, borderRadius:10, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 14px ${D.blue}40`}}>
+              <Receipt size={16} style={{color:'#fff'}}/>
+            </div>
             <div>
-              <h3 style={{fontSize:14,fontWeight:800,color:D.text,margin:'0 0 1px'}}>{t('dashboard.lastInvoices')}</h3>
-              <p style={{fontSize:10,color:D.muted,margin:0}}>{t('dashboard.lastActivity')}</p>
+              <h3 style={{fontSize:14, fontWeight:800, color:D.text, margin:'0 0 1px'}}>{t('dashboard.lastInvoices')}</h3>
+              <p style={{fontSize:10, color:D.muted, margin:0}}>{t('dashboard.lastActivity')}</p>
             </div>
           </div>
-          <div className="dash-actions-row" style={{display:'flex',gap:8}}>
-            <Link to="/app/quotes/new" style={{display:'flex',alignItems:'center',gap:6,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:800,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff',boxShadow:`0 3px 12px ${D.blue}40`}}><Plus size={13}/> {t('dashboard.newQuoteBtn')}</Link>
-            <Link to="/app/invoices" style={{display:'flex',alignItems:'center',gap:5,padding:'7px 14px',borderRadius:10,textDecoration:'none',fontSize:12,fontWeight:700,background:D.blueDim,color:D.blue,border:`1px solid ${D.border}`}}>{t('dashboard.seeAll')} <ArrowRight size={12}/></Link>
+          <div className="dash-actions-row" style={{display:'flex', gap:8}}>
+            <Link to="/app/quotes/new" style={{display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:10, textDecoration:'none', fontSize:12, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', boxShadow:`0 3px 12px ${D.blue}40`}}>
+              <Plus size={13}/> {t('dashboard.newQuoteBtn')}
+            </Link>
+            <Link to="/app/invoices" style={{display:'flex', alignItems:'center', gap:5, padding:'7px 14px', borderRadius:10, textDecoration:'none', fontSize:12, fontWeight:700, background:D.blueDim, color:D.blue, border:`1px solid ${D.border}`}}>
+              {t('dashboard.seeAll')} <ArrowRight size={12}/>
+            </Link>
           </div>
         </div>
+
         {!dashboard?.recentInvoices?.length
-          ? <div style={{textAlign:'center',padding:'40px 20px'}}>
-              <div style={{width:56,height:56,borderRadius:18,background:D.blueDim,display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 12px'}}><Receipt size={24} style={{color:D.blue}}/></div>
-              <p style={{fontWeight:800,color:D.text,fontSize:14,margin:'0 0 4px'}}>{t('dashboard.noInvoices')}</p>
-              <p style={{color:D.muted,fontSize:12,margin:'0 0 16px'}}>{t('dashboard.createQuoteToStart')}</p>
-              <Link to="/app/quotes/new" style={{display:'inline-flex',alignItems:'center',gap:6,padding:'9px 18px',borderRadius:12,textDecoration:'none',fontSize:12,fontWeight:800,background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,color:'#fff'}}><Plus size={14}/> {t('dashboard.createFirstQuote')}</Link>
+          ? <div style={{textAlign:'center', padding:'40px 20px'}}>
+              <div style={{width:56, height:56, borderRadius:18, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 12px'}}>
+                <Receipt size={24} style={{color:D.blue}}/>
+              </div>
+              <p style={{fontWeight:800, color:D.text, fontSize:14, margin:'0 0 4px'}}>{t('dashboard.noInvoices')}</p>
+              <p style={{color:D.muted, fontSize:12, margin:'0 0 16px'}}>{t('dashboard.createQuoteToStart')}</p>
+              <Link to="/app/quotes/new" style={{display:'inline-flex', alignItems:'center', gap:6, padding:'9px 18px', borderRadius:12, textDecoration:'none', fontSize:12, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff'}}>
+                <Plus size={14}/> {t('dashboard.createFirstQuote')}
+              </Link>
             </div>
           : <div className="invoice-table-wrap">
-              <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <table style={{width:'100%', borderCollapse:'collapse'}}>
                 <thead>
                   <tr style={{background:D.blueDim}}>
-                    {[t('dashboard.number'),t('dashboard.client'),t('common.total'),t('dashboard.status'),t('dashboard.date'),''].map((h,i)=>(
-                      <th key={i} style={{padding:'10px 16px',textAlign:i>=2&&i<5?'center':i===5?'right':'left',fontSize:10,fontWeight:800,color:D.blue,textTransform:'uppercase',letterSpacing:'0.07em',borderBottom:`1px solid ${D.border}`,whiteSpace:'nowrap'}}>{h}</th>
+                    {[t('dashboard.number'),t('dashboard.client'),t('common.total'),t('dashboard.status'),t('dashboard.date'),''].map((h,i) => (
+                      <th key={i} style={{padding:'10px 16px', textAlign:i>=2&&i<5?'center':i===5?'right':'left', fontSize:10, fontWeight:800, color:D.blue, textTransform:'uppercase', letterSpacing:'0.07em', borderBottom:`1px solid ${D.border}`, whiteSpace:'nowrap'}}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {(dashboard?.recentInvoices||[]).map((inv,idx)=>(
+                  {(dashboard?.recentInvoices||[]).map((inv,idx) => (
                     <InvoiceRow key={inv.id} inv={inv} idx={idx} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
                   ))}
                 </tbody>
@@ -391,26 +457,28 @@ export default function Dashboard() {
 
 const InvoiceRow = memo(function InvoiceRow({ inv, idx, showRate, exchangeRates, visibleCurrs }) {
   const { t } = useTranslation()
-  const convStr = showRate ? fmtConv(Number(inv.totalHtg||0),exchangeRates,visibleCurrs) : null
+  const convStr = showRate ? fmtConv(Number(inv.totalHtg||0), exchangeRates, visibleCurrs) : null
   const statusMap = {
-    unpaid:    { bg:'rgba(192,57,43,0.08)',  color:'#C0392B', label:t('dashboard.unpaidLabel') },
-    partial:   { bg:'rgba(217,119,6,0.10)',  color:'#D97706', label:t('dashboard.partialLabel') },
-    paid:      { bg:'rgba(5,150,105,0.08)',  color:'#059669', label:t('dashboard.paidLabel') },
-    cancelled: { bg:'rgba(100,100,100,0.08)',color:'#666',    label:t('dashboard.cancelledLabel') },
+    unpaid:    { bg:'rgba(192,57,43,0.08)',   color:'#C0392B', label:t('dashboard.unpaidLabel')    },
+    partial:   { bg:'rgba(217,119,6,0.10)',   color:'#D97706', label:t('dashboard.partialLabel')   },
+    paid:      { bg:'rgba(5,150,105,0.08)',   color:'#059669', label:t('dashboard.paidLabel')      },
+    cancelled: { bg:'rgba(100,100,100,0.08)', color:'#666',    label:t('dashboard.cancelledLabel') },
   }
-  const s = statusMap[inv.status]||statusMap.unpaid
+  const s = statusMap[inv.status] || statusMap.unpaid
   return (
-    <tr className="inv-row" style={{background:idx%2===0?'#fff':'rgba(244,246,255,0.5)',borderBottom:`1px solid ${D.border}`,cursor:'pointer'}}>
-      <td style={{padding:'12px 16px'}}><span style={{fontFamily:'monospace',fontWeight:800,color:D.blue,fontSize:12}}>{inv.invoiceNumber}</span></td>
-      <td style={{padding:'12px 16px',fontSize:13,fontWeight:600,color:D.text}}>{inv.client?.name||'—'}</td>
-      <td style={{padding:'12px 16px',textAlign:'center'}}>
-        <div><span style={{fontFamily:'monospace',fontWeight:800,color:D.text,fontSize:13}}>{Number(inv.totalHtg||0).toLocaleString('fr-HT',{minimumFractionDigits:2})}</span><span style={{color:D.muted,fontSize:10,marginLeft:3}}>HTG</span></div>
-        {convStr&&<div style={{fontSize:10,color:D.muted,fontFamily:'monospace',marginTop:2}}>{convStr}</div>}
+    <tr className="inv-row" style={{background:idx%2===0?'#fff':'rgba(244,246,255,0.5)', borderBottom:`1px solid ${D.border}`, cursor:'pointer'}}>
+      <td style={{padding:'12px 16px'}}><span style={{fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12}}>{inv.invoiceNumber}</span></td>
+      <td style={{padding:'12px 16px', fontSize:13, fontWeight:600, color:D.text}}>{inv.client?.name||'—'}</td>
+      <td style={{padding:'12px 16px', textAlign:'center'}}>
+        <div><span style={{fontFamily:'monospace', fontWeight:800, color:D.text, fontSize:13}}>{Number(inv.totalHtg||0).toLocaleString('fr-HT',{minimumFractionDigits:2})}</span><span style={{color:D.muted, fontSize:10, marginLeft:3}}>HTG</span></div>
+        {convStr && <div style={{fontSize:10, color:D.muted, fontFamily:'monospace', marginTop:2}}>{convStr}</div>}
       </td>
-      <td style={{padding:'12px 16px',textAlign:'center'}}><span style={{fontSize:10,fontWeight:800,padding:'3px 10px',borderRadius:99,background:s.bg,color:s.color,letterSpacing:'0.05em',textTransform:'uppercase'}}>{s.label}</span></td>
-      <td style={{padding:'12px 16px',textAlign:'center',fontSize:11,color:D.muted,fontFamily:'monospace'}}>{format(new Date(inv.issueDate),'dd/MM/yy')}</td>
-      <td style={{padding:'12px 16px',textAlign:'right'}}>
-        <Link to={`/app/invoices/${inv.id}`} style={{width:30,height:30,borderRadius:8,display:'inline-flex',alignItems:'center',justifyContent:'center',background:D.blueDim,color:D.blue,textDecoration:'none'}}><ArrowRight size={13}/></Link>
+      <td style={{padding:'12px 16px', textAlign:'center'}}><span style={{fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase'}}>{s.label}</span></td>
+      <td style={{padding:'12px 16px', textAlign:'center', fontSize:11, color:D.muted, fontFamily:'monospace'}}>{format(new Date(inv.issueDate),'dd/MM/yy')}</td>
+      <td style={{padding:'12px 16px', textAlign:'right'}}>
+        <Link to={`/app/invoices/${inv.id}`} style={{width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:D.blueDim, color:D.blue, textDecoration:'none'}}>
+          <ArrowRight size={13}/>
+        </Link>
       </td>
     </tr>
   )
