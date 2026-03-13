@@ -9,8 +9,10 @@ import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
-import bannerImg from '/assets/banner.webp'
-import logoImg   from '/assets/logo.webp'
+// ✅ KOREKSYON: fichye yo nan /public/assets/ — pa itilize import
+// Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
+const bannerImg = '/assets/banner.webp'
+const logoImg   = '/assets/logo.webp'
 
 const LANGS = [
   { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
@@ -122,7 +124,6 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
 
-      {/* Background static — pa gen filter animation */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
         backgroundImage:`url(${bannerImg})`,
@@ -130,16 +131,13 @@ export default function LoginPage() {
         filter:'brightness(0.45)',
       }}/>
 
-      {/* Overlay gradient static */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
         background:'linear-gradient(135deg, rgba(26,20,100,0.75) 0%, rgba(180,60,0,0.55) 100%)',
       }}/>
 
-      {/* Accent line static — pa gen shimmer */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)' }}/>
 
-      {/* Language picker */}
       <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
         <button onClick={() => setShowLang(!showLang)} style={{
           display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:12,
@@ -170,7 +168,6 @@ export default function LoginPage() {
         )}
       </div>
 
-      {/* Card */}
       <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:5 }}>
 
         <div style={{ textAlign:'center', marginBottom:28 }}>
