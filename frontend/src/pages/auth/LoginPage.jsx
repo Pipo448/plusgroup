@@ -9,7 +9,6 @@ import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
-// ✅ Imaj yo — mete fichye yo nan /public/assets/
 import bannerImg from '/assets/banner.webp'
 import logoImg   from '/assets/logo.webp'
 
@@ -25,24 +24,47 @@ const TEXTS = {
   en: { title:'Sign in', slug:'Company Name (slug)', email:'Email', password:'Password', submit:'Sign In', loading:'Signing in...', forgot:'Forgot password?', reset:'Reset', example:'Example', demo:'Demo', slugRequired:'Slug required', emailRequired:'Email required', emailInvalid:'Invalid email', passRequired:'Password required' },
 }
 
+// ✅ Detekte aparèy fèb — Sunmi v2 gen 2GB RAM, 2 kò
+const isLowEnd = () => {
+  if (typeof navigator === 'undefined') return false
+  const mem   = navigator.deviceMemory       // Chrome/Android sèlman
+  const cores = navigator.hardwareConcurrency
+  if (mem   && mem   <= 2) return true
+  if (cores && cores <= 2) return true
+  return false
+}
+
+// ✅ Particles — deaktive sou aparèy fèb, redui sou lòt yo
 function Particles() {
   const canvasRef = useRef(null)
+
   useEffect(() => {
+    if (isLowEnd()) return  // ← Sunmi v2 sote entèman
+
     const canvas = canvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     let W = canvas.width  = window.innerWidth
     let H = canvas.height = window.innerHeight
-    const particles = Array.from({length: 60}, () => ({
+
+    // 30 patikil olye 60 (2× pi vit)
+    const particles = Array.from({ length: 30 }, () => ({
       x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 3 + 1,
-      dx: (Math.random() - 0.5) * 0.6,
-      dy: (Math.random() - 0.5) * 0.6,
-      opacity: Math.random() * 0.5 + 0.15,
+      r: Math.random() * 2 + 1,
+      dx: (Math.random() - 0.5) * 0.4,
+      dy: (Math.random() - 0.5) * 0.4,
+      opacity: Math.random() * 0.4 + 0.1,
       color: Math.random() > 0.5 ? '#FF6600' : '#ffffff',
     }))
+
     let raf
+    let frame = 0
+
     const draw = () => {
+      frame++
+      // 30fps olye 60fps — sote 1 frame sou 2
+      if (frame % 2 !== 0) { raf = requestAnimationFrame(draw); return }
+
       ctx.clearRect(0, 0, W, H)
       particles.forEach(p => {
         p.x += p.dx; p.y += p.dy
@@ -54,17 +76,19 @@ function Particles() {
         ctx.globalAlpha = p.opacity
         ctx.fill()
       })
+
       ctx.globalAlpha = 1
+      // Distans 80px olye 120px — 3,600 → 435 konparezon
       for (let i = 0; i < particles.length; i++) {
         for (let j = i + 1; j < particles.length; j++) {
           const dx = particles[i].x - particles[j].x
           const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx*dx + dy*dy)
-          if (dist < 120) {
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 80) {
             ctx.beginPath()
             ctx.moveTo(particles[i].x, particles[i].y)
             ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = 'rgba(255,255,255,' + (0.08 * (1 - dist/120)) + ')'
+            ctx.strokeStyle = 'rgba(255,255,255,' + (0.06 * (1 - dist / 80)) + ')'
             ctx.lineWidth = 0.5
             ctx.stroke()
           }
@@ -72,11 +96,13 @@ function Particles() {
       }
       raf = requestAnimationFrame(draw)
     }
+
     draw()
     const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
     window.addEventListener('resize', onResize)
     return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize) }
   }, [])
+
   return <canvas ref={canvasRef} style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none' }}/>
 }
 
@@ -179,7 +205,6 @@ export default function LoginPage() {
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
 
-      {/* ✅ Background banner — sèlman src URL, pa base64 */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
         backgroundImage: `url(${bannerImg})`,
@@ -194,9 +219,9 @@ export default function LoginPage() {
 
       <Particles/>
 
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)', animation:'shimmer 3s linear infinite', backgroundSize:'200% 100%' }}/>
+      {/* ✅ Shimmer retire — pa gen CSS animation inutile */}
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)' }}/>
 
-      {/* Language picker */}
       <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
         <button onClick={() => setShowLang(!showLang)} style={{
           display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:12,
@@ -226,16 +251,14 @@ export default function LoginPage() {
         )}
       </div>
 
-      {/* Card */}
       <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:5 }}>
 
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          {/* ✅ Logo — sèlman src URL, pa base64 */}
           <img src={logoImg} alt="PLUS GROUP Logo"
             style={{ height:90, width:'auto', marginBottom:12, filter:'drop-shadow(0 4px 20px rgba(255,102,0,0.5))' }}
           />
           <h1 style={{ color:'#fff', fontSize:32, fontWeight:900, margin:'0 0 4px', textShadow:'0 2px 12px rgba(0,0,0,0.5)' }}>PLUS GROUP</h1>
-          <p style={{ color:'#FF6600', fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', margin:0, textShadow:'0 1px 6px rgba(0,0,0,0.4)' }}>
+          <p style={{ color:'#FF6600', fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', margin:0 }}>
             Innov@tion & Tech — SaaS
           </p>
         </div>
@@ -335,18 +358,17 @@ export default function LoginPage() {
       </div>
 
       <style>{`
-        @keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes spin    { to{transform:rotate(360deg)} }
-        * { box-sizing:border-box }
-        ::placeholder { color:rgba(255,255,255,0.35) !important }
+        @keyframes spin { to { transform: rotate(360deg) } }
+        * { box-sizing: border-box }
+        ::placeholder { color: rgba(255,255,255,0.35) !important }
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus { 
-          -webkit-box-shadow:0 0 0 30px rgba(20,15,60,0.8) inset !important; 
-          -webkit-text-fill-color:#FFFFFF !important;
-          caret-color:#FF6600 !important;
+        input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 30px rgba(20,15,60,0.8) inset !important;
+          -webkit-text-fill-color: #FFFFFF !important;
+          caret-color: #FF6600 !important;
         }
-        input { color:#FFFFFF !important; }
+        input { color: #FFFFFF !important; }
       `}</style>
     </div>
   )
