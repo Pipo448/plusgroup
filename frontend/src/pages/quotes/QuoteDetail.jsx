@@ -3,23 +3,28 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { quoteAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
+import { useMemo, memo } from 'react'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Edit2, Send, CheckCircle, XCircle, Printer, FileCheck } from 'lucide-react'
+import { ArrowLeft, Edit2, FileCheck } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-
-// ── Konvèsyon HTG → lòt devise
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
+
+// ✅ Deyò component — pa rekrye
+const parseCurrencies = (raw) => {
+  if (Array.isArray(raw)) return raw
+  if (typeof raw === 'string') {
+    if (raw.startsWith('[')) { try { return JSON.parse(raw) } catch { return [] } }
+    if (raw.trim().length > 0) return [raw.trim()]
+  }
+  return []
+}
 
 const convertFromHTG = (amountHTG, currency, exchangeRates = {}) => {
   const rateToHTG = Number(exchangeRates[currency] || 0)
   if (!rateToHTG) return null
-  return {
-    amount: amountHTG / rateToHTG,
-    symbol: CURRENCY_SYMBOLS[currency] || currency,
-    currency,
-  }
+  return { amount: amountHTG / rateToHTG, symbol: CURRENCY_SYMBOLS[currency] || currency, currency }
 }
 
 const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
@@ -34,27 +39,48 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
 const STATUS_BADGES = { draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', converted:'badge-purple', cancelled:'badge-red' }
 const STATUS_LABELS = { draft:'Bouyon', sent:'Voye', accepted:'Aksepte', converted:'Konvèti', cancelled:'Anile' }
 
+// ✅ WithConv — deyò component prensipal, memo
+const WithConv = memo(function WithConv({ htg, showRate, exchangeRates, visibleCurrs, large }) {
+  const lines = useMemo(
+    () => showRate ? fmtConv(Number(htg), exchangeRates, visibleCurrs) : null,
+    [htg, showRate, exchangeRates, visibleCurrs]
+  )
+  return (
+    <div style={{ textAlign:'right' }}>
+      <span className={`font-mono${large ? ' font-bold text-brand-700' : ''}`}>{fmt(htg)} HTG</span>
+      {lines && lines.map((line, i) => (
+        <div key={i} style={{ fontSize:11, color:'#94a3b8', fontFamily:'monospace', marginTop:1 }}>{line}</div>
+      ))}
+    </div>
+  )
+})
+
 export default function QuoteDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
   const { tenant } = useAuthStore()
   const qc         = useQueryClient()
 
-  // ── Paramèt taux depuis tenant (Settings)
   const showRate      = tenant?.showExchangeRate !== false
-  const exchangeRates = tenant?.exchangeRates     || {}
-  const visibleCurrs  = tenant?.visibleCurrencies  || []
+  const exchangeRates = tenant?.exchangeRates || {}
+  // ✅ parseCurrencies — jere string ak array
+  const visibleCurrs  = useMemo(
+    () => parseCurrencies(tenant?.visibleCurrencies),
+    [tenant?.visibleCurrencies]
+  )
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ['quote', id],
-    queryFn:  () => quoteAPI.getOne(id).then(r => r.data.quote)
+    queryFn:  () => quoteAPI.getOne(id).then(r => r.data.quote),
+    staleTime: 30_000, // ✅ cache 30 sèk
   })
 
   const convertMutation = useMutation({
     mutationFn: () => quoteAPI.convert(id),
     onSuccess:  (res) => {
       toast.success('Devis konvèti an facture!')
-      navigate(`/invoices/${res.data.invoice.id}`)
+      // ✅ Kòrèk path
+      navigate(`/app/invoices/${res.data.invoice.id}`)
     }
   })
 
@@ -63,53 +89,47 @@ export default function QuoteDetail() {
     onSuccess:  () => { toast.success('Devis anile.'); qc.invalidateQueries(['quote', id]) }
   })
 
-  if (isLoading) return <div className="flex justify-center py-20"><div className="spinner" /></div>
+  if (isLoading) return <div className="flex justify-center py-20"><div className="spinner"/></div>
   if (!quote)    return null
 
   const snap = quote.clientSnapshot || {}
 
-  // ── Mini komponan: montan + liy konvèsyon anba
-  const WithConv = ({ htg, className = '', large = false }) => {
-    const lines = showRate ? fmtConv(Number(htg), exchangeRates, visibleCurrs) : null
-    return (
-      <div className={className} style={{ textAlign: 'right' }}>
-        <span className={`font-mono${large ? ' font-bold text-brand-700' : ''}`}>{fmt(htg)} HTG</span>
-        {lines && lines.map((line, i) => (
-          <div key={i} style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', marginTop: 1 }}>{line}</div>
-        ))}
-      </div>
-    )
-  }
-
   return (
     <div className="animate-fade-in max-w-4xl">
 
-      {/* ── Header */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/quotes')} className="btn-ghost p-2"><ArrowLeft size={18} /></button>
+          <button onClick={() => navigate('/app/quotes')} className="btn-ghost p-2">
+            <ArrowLeft size={18}/>
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-display font-bold">{quote.quoteNumber}</h1>
-              <span className={STATUS_BADGES[quote.status] || 'badge-gray'}>{STATUS_LABELS[quote.status]}</span>
+              <span className={STATUS_BADGES[quote.status] || 'badge-gray'}>
+                {STATUS_LABELS[quote.status]}
+              </span>
             </div>
             <p className="text-slate-500 text-sm">{format(new Date(quote.issueDate), 'dd MMMM yyyy')}</p>
           </div>
         </div>
         <div className="flex gap-2">
-          {['draft', 'sent'].includes(quote.status) && (
-            <Link to={`/quotes/${id}/edit`} className="btn-secondary btn-sm"><Edit2 size={14} /> Modifye</Link>
+          {['draft','sent'].includes(quote.status) && (
+            <Link to={`/app/quotes/${id}/edit`} className="btn-secondary btn-sm">
+              <Edit2 size={14}/> Modifye
+            </Link>
           )}
-          {['draft', 'sent', 'accepted'].includes(quote.status) && (
-            <button onClick={() => { if (confirm('Konvèti an facture?')) convertMutation.mutate() }}
+          {['draft','sent','accepted'].includes(quote.status) && (
+            <button
+              onClick={() => { if (confirm('Konvèti an facture?')) convertMutation.mutate() }}
               disabled={convertMutation.isPending}
               className="btn-primary">
-              <FileCheck size={16} /> Konvèti an Facture
+              <FileCheck size={16}/> Konvèti an Facture
             </button>
           )}
           {quote.status === 'converted' && quote.invoice && (
-            <Link to={`/invoices/${quote.invoice.id}`} className="btn-primary">
-              <FileCheck size={16} /> Wè Facture {quote.invoice.invoiceNumber}
+            <Link to={`/app/invoices/${quote.invoice.id}`} className="btn-primary">
+              <FileCheck size={16}/> Wè Facture {quote.invoice.invoiceNumber}
             </Link>
           )}
         </div>
@@ -118,7 +138,7 @@ export default function QuoteDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
 
-          {/* ── Kliyan */}
+          {/* Kliyan */}
           <div className="card p-5">
             <h3 className="section-title">Kliyan</h3>
             {snap.name
@@ -131,10 +151,12 @@ export default function QuoteDetail() {
             }
           </div>
 
-          {/* ── Atik yo */}
+          {/* Atik yo */}
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">Atik yo ({quote.items?.length || 0})</h3>
+              <h3 className="font-display font-bold text-slate-800">
+                Atik yo ({quote.items?.length || 0})
+              </h3>
             </div>
             <table className="table">
               <thead>
@@ -147,26 +169,16 @@ export default function QuoteDetail() {
                 </tr>
               </thead>
               <tbody>
-                {quote.items?.map((item, i) => {
-                  const lines = showRate ? fmtConv(Number(item.totalHtg), exchangeRates, visibleCurrs) : null
-                  return (
-                    <tr key={i}>
-                      <td>
-                        <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
-                        <p className="text-xs text-slate-400 font-mono">{item.product?.code || item.productSnapshot?.code}</p>
-                      </td>
-                      <td className="text-center font-mono">{Number(item.quantity)}</td>
-                      <td className="text-right font-mono">{fmt(item.unitPriceHtg)} HTG</td>
-                      <td className="text-center text-slate-500">{Number(item.discountPct) > 0 ? `${item.discountPct}%` : '—'}</td>
-                      <td className="text-right">
-                        <span className="font-mono font-semibold">{fmt(item.totalHtg)} HTG</span>
-                        {lines && lines.map((line, j) => (
-                          <div key={j} style={{ fontSize: 10, color: '#94a3b8', fontFamily: 'monospace' }}>{line}</div>
-                        ))}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {quote.items?.map((item, i) => (
+                  // ✅ QuoteItemRow — memo pou evite re-render
+                  <QuoteItemRow
+                    key={item.id || i}
+                    item={item}
+                    showRate={showRate}
+                    exchangeRates={exchangeRates}
+                    visibleCurrs={visibleCurrs}
+                  />
+                ))}
               </tbody>
             </table>
           </div>
@@ -179,53 +191,49 @@ export default function QuoteDetail() {
           )}
         </div>
 
-        {/* ── Kolòn dwat: Totaux */}
+        {/* Totaux */}
         <div>
           <div className="card p-5">
             <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
             <div className="space-y-2.5 text-sm">
 
-              {/* Sous-total */}
               <div className="flex justify-between items-start">
                 <span className="text-slate-500">Sous-total</span>
-                <WithConv htg={quote.subtotalHtg} />
+                <WithConv htg={quote.subtotalHtg} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
               </div>
 
-              {/* Remiz */}
               {Number(quote.discountHtg) > 0 && (
                 <div className="flex justify-between items-start text-red-600">
                   <span>Remiz</span>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign:'right' }}>
                     <span className="font-mono">-{fmt(quote.discountHtg)} HTG</span>
                     {showRate && fmtConv(Number(quote.discountHtg), exchangeRates, visibleCurrs)?.map((line, i) => (
-                      <div key={i} style={{ fontSize: 10, color: '#f87171', fontFamily: 'monospace' }}>-{line.replace('≈ ', '')}</div>
+                      <div key={i} style={{ fontSize:10, color:'#f87171', fontFamily:'monospace' }}>
+                        -{line.replace('≈ ', '')}
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* TVA */}
               {Number(quote.taxHtg) > 0 && (
                 <div className="flex justify-between items-start">
                   <span>TVA ({Number(quote.taxRate)}%)</span>
-                  <WithConv htg={quote.taxHtg} />
+                  <WithConv htg={quote.taxHtg} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
                 </div>
               )}
 
-              {/* TOTAL */}
               <div className="flex justify-between items-start font-bold text-base pt-2 border-t border-slate-200 mt-2">
                 <span>TOTAL</span>
-                <WithConv htg={quote.totalHtg} large />
+                <WithConv htg={quote.totalHtg} large showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
               </div>
             </div>
 
             {/* Taux reference */}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
               <div className="flex justify-between">
-                <span>Devise:</span>
-                <span>{quote.currency}</span>
+                <span>Devise:</span><span>{quote.currency}</span>
               </div>
-              {/* Montre taux pou chak devise vizib */}
               {showRate && visibleCurrs.map(cur => {
                 const r = Number(exchangeRates[cur])
                 if (!r) return null
@@ -236,7 +244,6 @@ export default function QuoteDetail() {
                   </div>
                 )
               })}
-              {/* Fallback si pa gen taux nan Settings */}
               {(!showRate || !visibleCurrs.length) && (
                 <div className="flex justify-between">
                   <span>Taux:</span>
@@ -256,3 +263,30 @@ export default function QuoteDetail() {
     </div>
   )
 }
+
+// ✅ Separe row — memo pou evite re-render tout tablo
+const QuoteItemRow = memo(function QuoteItemRow({ item, showRate, exchangeRates, visibleCurrs }) {
+  const lines = useMemo(
+    () => showRate ? fmtConv(Number(item.totalHtg), exchangeRates, visibleCurrs) : null,
+    [item.totalHtg, showRate, exchangeRates, visibleCurrs]
+  )
+  return (
+    <tr>
+      <td>
+        <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
+        <p className="text-xs text-slate-400 font-mono">{item.product?.code || item.productSnapshot?.code}</p>
+      </td>
+      <td className="text-center font-mono">{Number(item.quantity)}</td>
+      <td className="text-right font-mono">{fmt(item.unitPriceHtg)} HTG</td>
+      <td className="text-center text-slate-500">
+        {Number(item.discountPct) > 0 ? `${item.discountPct}%` : '—'}
+      </td>
+      <td className="text-right">
+        <span className="font-mono font-semibold">{fmt(item.totalHtg)} HTG</span>
+        {lines && lines.map((line, j) => (
+          <div key={j} style={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }}>{line}</div>
+        ))}
+      </td>
+    </tr>
+  )
+})
