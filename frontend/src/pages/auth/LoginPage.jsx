@@ -1,5 +1,5 @@
 // src/pages/auth/LoginPage.jsx
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
@@ -22,88 +22,6 @@ const TEXTS = {
   ht: { title:'Konekte nan kont ou', slug:'Non Entreprise (slug)', email:'Email', password:'Modpas', submit:'Konekte', loading:'Koneksyon...', forgot:'Ou bliye modpas ou?', reset:'Reyinisyalize', example:'Egzanp', demo:'Demo', slugRequired:'Slug obligatwa', emailRequired:'Email obligatwa', emailInvalid:'Email pa valid', passRequired:'Modpas obligatwa' },
   fr: { title:'Connectez-vous', slug:'Nom Entreprise (slug)', email:'Email', password:'Mot de passe', submit:'Connexion', loading:'Connexion...', forgot:'Mot de passe oublié?', reset:'Réinitialiser', example:'Exemple', demo:'Démo', slugRequired:'Slug obligatoire', emailRequired:'Email obligatoire', emailInvalid:'Email invalide', passRequired:'Mot de passe obligatoire' },
   en: { title:'Sign in', slug:'Company Name (slug)', email:'Email', password:'Password', submit:'Sign In', loading:'Signing in...', forgot:'Forgot password?', reset:'Reset', example:'Example', demo:'Demo', slugRequired:'Slug required', emailRequired:'Email required', emailInvalid:'Invalid email', passRequired:'Password required' },
-}
-
-// ✅ Detekte aparèy fèb — Sunmi v2 gen 2GB RAM, 2 kò
-const isLowEnd = () => {
-  if (typeof navigator === 'undefined') return false
-  const mem   = navigator.deviceMemory       // Chrome/Android sèlman
-  const cores = navigator.hardwareConcurrency
-  if (mem   && mem   <= 2) return true
-  if (cores && cores <= 2) return true
-  return false
-}
-
-// ✅ Particles — deaktive sou aparèy fèb, redui sou lòt yo
-function Particles() {
-  const canvasRef = useRef(null)
-
-  useEffect(() => {
-    if (isLowEnd()) return  // ← Sunmi v2 sote entèman
-
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    let W = canvas.width  = window.innerWidth
-    let H = canvas.height = window.innerHeight
-
-    // 30 patikil olye 60 (2× pi vit)
-    const particles = Array.from({ length: 30 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 2 + 1,
-      dx: (Math.random() - 0.5) * 0.4,
-      dy: (Math.random() - 0.5) * 0.4,
-      opacity: Math.random() * 0.4 + 0.1,
-      color: Math.random() > 0.5 ? '#FF6600' : '#ffffff',
-    }))
-
-    let raf
-    let frame = 0
-
-    const draw = () => {
-      frame++
-      // 30fps olye 60fps — sote 1 frame sou 2
-      if (frame % 2 !== 0) { raf = requestAnimationFrame(draw); return }
-
-      ctx.clearRect(0, 0, W, H)
-      particles.forEach(p => {
-        p.x += p.dx; p.y += p.dy
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0
-        ctx.beginPath()
-        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-        ctx.fillStyle = p.color
-        ctx.globalAlpha = p.opacity
-        ctx.fill()
-      })
-
-      ctx.globalAlpha = 1
-      // Distans 80px olye 120px — 3,600 → 435 konparezon
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x
-          const dy = particles[i].y - particles[j].y
-          const dist = Math.sqrt(dx * dx + dy * dy)
-          if (dist < 80) {
-            ctx.beginPath()
-            ctx.moveTo(particles[i].x, particles[i].y)
-            ctx.lineTo(particles[j].x, particles[j].y)
-            ctx.strokeStyle = 'rgba(255,255,255,' + (0.06 * (1 - dist / 80)) + ')'
-            ctx.lineWidth = 0.5
-            ctx.stroke()
-          }
-        }
-      }
-      raf = requestAnimationFrame(draw)
-    }
-
-    draw()
-    const onResize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
-    window.addEventListener('resize', onResize)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', onResize) }
-  }, [])
-
-  return <canvas ref={canvasRef} style={{ position:'absolute', inset:0, zIndex:1, pointerEvents:'none' }}/>
 }
 
 export default function LoginPage() {
@@ -198,42 +116,43 @@ export default function LoginPage() {
     background:'rgba(20,15,60,0.55)', color:'#FFFFFF',
     WebkitTextFillColor:'#FFFFFF',
     fontSize:14, fontFamily:'DM Sans, sans-serif', boxSizing:'border-box',
-    backdropFilter:'blur(8px)', transition:'border-color 0.2s',
-    caretColor:'#FF6600',
+    transition:'border-color 0.2s', caretColor:'#FF6600',
   }
 
   return (
     <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
 
+      {/* Background static — pa gen filter animation */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
-        backgroundImage: `url(${bannerImg})`,
+        backgroundImage:`url(${bannerImg})`,
         backgroundSize:'cover', backgroundPosition:'center',
         filter:'brightness(0.45)',
       }}/>
 
+      {/* Overlay gradient static */}
       <div style={{
         position:'absolute', inset:0, zIndex:0,
         background:'linear-gradient(135deg, rgba(26,20,100,0.75) 0%, rgba(180,60,0,0.55) 100%)',
       }}/>
 
-      <Particles/>
-
-      {/* ✅ Shimmer retire — pa gen CSS animation inutile */}
+      {/* Accent line static — pa gen shimmer */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)' }}/>
 
+      {/* Language picker */}
       <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
         <button onClick={() => setShowLang(!showLang)} style={{
           display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:12,
           border:'1px solid rgba(255,255,255,0.3)', background:'rgba(255,255,255,0.1)',
-          color:'rgba(255,255,255,0.9)', cursor:'pointer', fontSize:12, fontWeight:700, backdropFilter:'blur(10px)',
+          color:'rgba(255,255,255,0.9)', cursor:'pointer', fontSize:12, fontWeight:700,
         }}>
-          <Globe size={14}/><span style={{ fontSize:15 }}>{currentLang.flag}</span>
+          <Globe size={14}/>
+          <span style={{ fontSize:15 }}>{currentLang.flag}</span>
           <span style={{ fontSize:11 }}>{currentLang.code.toUpperCase()}</span>
           <ChevronDown size={12} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
         </button>
         {showLang && (
-          <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, background:'rgba(10,10,40,0.97)', borderRadius:12, minWidth:170, boxShadow:'0 16px 48px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.15)', overflow:'hidden', backdropFilter:'blur(20px)' }}>
+          <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, background:'rgba(10,10,40,0.97)', borderRadius:12, minWidth:170, boxShadow:'0 16px 48px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.15)', overflow:'hidden' }}>
             {LANGS.map(lang => (
               <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
                 width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 16px', border:'none', cursor:'pointer',
@@ -251,6 +170,7 @@ export default function LoginPage() {
         )}
       </div>
 
+      {/* Card */}
       <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:5 }}>
 
         <div style={{ textAlign:'center', marginBottom:28 }}>
@@ -313,7 +233,10 @@ export default function LoginPage() {
                   onFocus={e => e.target.style.borderColor='#FF6600'}
                   onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
                 />
-                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0 }}>
+                <button type="button" onClick={() => setShow(!show)} style={{
+                  position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                  background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0,
+                }}>
                   {show ? <EyeOff size={16}/> : <Eye size={16}/>}
                 </button>
               </div>
@@ -326,11 +249,7 @@ export default function LoginPage() {
               color:'#fff', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
               fontWeight:900, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               boxShadow: loading ? 'none' : '0 6px 24px rgba(255,102,0,0.5)',
-              transition:'transform 0.15s, box-shadow 0.15s',
-            }}
-            onMouseEnter={e => { if(!loading) { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 10px 32px rgba(255,102,0,0.6)' }}}
-            onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow=loading?'none':'0 6px 24px rgba(255,102,0,0.5)' }}
-            >
+            }}>
               {loading
                 ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>{tx.loading}</>
                 : <><LogIn size={18}/>{tx.submit}</>
@@ -348,7 +267,9 @@ export default function LoginPage() {
 
           <p style={{ textAlign:'center', fontSize:12, color:'rgba(255,255,255,0.4)', margin:'14px 0 0' }}>
             {tx.forgot}{' '}
-            <button style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6600', textDecoration:'underline', fontSize:12, padding:0 }}>{tx.reset}</button>
+            <button style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6600', textDecoration:'underline', fontSize:12, padding:0 }}>
+              {tx.reset}
+            </button>
           </p>
         </div>
 
