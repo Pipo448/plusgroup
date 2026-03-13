@@ -43,6 +43,10 @@ export default defineConfig({
         }
       }
     },
+    minify: 'terser',
+    terserOptions: {
+      compress: { drop_console: true }
+    },
     chunkSizeWarningLimit: 600,
   },
   server: {
