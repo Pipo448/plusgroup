@@ -7,15 +7,14 @@ import {
   Warehouse, TrendingUp, Settings, LogOut, Bell,
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
-  Wallet, Hotel, CalendarDays, Tag 
+  Wallet, Hotel, CalendarDays, Tag
 } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
 import NotificationBell from '../NotificationBell'
 
-// ── Palèt koulè ──────────────────────────────────────────────
 const C = {
   sidebarBg:   '#16192a',
   sidebarTop:  '#0f1117',
@@ -27,7 +26,6 @@ const C = {
   enterprise:  '#C9A84C',
   entDim:      'rgba(201,168,76,0.15)',
   entBorder:   'rgba(201,168,76,0.28)',
-  // ✅ Hotel — bleu syèl
   hotel:       '#0EA5E9',
   hotelDim:    'rgba(14,165,233,0.15)',
   hotelBorder: 'rgba(14,165,233,0.28)',
@@ -57,7 +55,6 @@ const ENTERPRISE_ITEMS = [
   { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
 ]
 
-// ✅ Hotel nav items
 const HOTEL_ITEMS = [
   { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
   { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
@@ -90,11 +87,12 @@ const safeJson = (val, fallback) => {
   try { return JSON.parse(val) } catch { return fallback }
 }
 
-// ── Styles nav item ───────────────────────────────────────────
+// ✅ Style fonksyon yo — rete menm jan
 const navLinkStyle = (isActive) => ({
   display: 'flex', alignItems: 'center', gap: 10,
   padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none', transition: 'all 0.2s',
+  textDecoration: 'none',
+  // ✅ Retire transition sou tout pou pèfòmans — mete sèlman sou koulè
   background: isActive
     ? `linear-gradient(90deg, rgba(245,104,12,0.18) 0%, rgba(245,104,12,0.05) 100%)`
     : 'transparent',
@@ -102,13 +100,12 @@ const navLinkStyle = (isActive) => ({
   borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
   fontWeight: isActive ? 700 : 500,
   fontSize: 13,
-  boxShadow: isActive ? `inset 0 0 20px rgba(245,104,12,0.04)` : 'none',
 })
 
 const enterpriseLinkStyle = (isActive) => ({
   display: 'flex', alignItems: 'center', gap: 10,
   padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none', transition: 'all 0.2s',
+  textDecoration: 'none',
   background: isActive ? C.entDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
@@ -117,11 +114,10 @@ const enterpriseLinkStyle = (isActive) => ({
   cursor: 'pointer',
 })
 
-// ✅ Style Hotel nav items
 const hotelLinkStyle = (isActive) => ({
   display: 'flex', alignItems: 'center', gap: 10,
   padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none', transition: 'all 0.2s',
+  textDecoration: 'none',
   background: isActive ? C.hotelDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
@@ -131,7 +127,7 @@ const hotelLinkStyle = (isActive) => ({
 })
 
 export default function AppLayout() {
-  const { user, tenant, token, setAuth, logout } = useAuthStore()
+  const { user, tenant, token, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -139,27 +135,82 @@ export default function AppLayout() {
   const [showLang, setShowLang]         = useState(false)
   const [showBranches, setShowBranches] = useState(false)
   const [branches, setBranches]         = useState([])
-  const [isDesktop, setIsDesktop]       = useState(window.innerWidth >= 1024)
+  const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
   const langRef   = useRef(null)
   const branchRef = useRef(null)
+  // ✅ Track si me() deja rele — evite double call
+  const meCalled  = useRef(false)
 
-  const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+  const currentLang = useMemo(
+    () => LANGS.find(l => l.code === i18n.language) || LANGS[0],
+    [i18n.language]
+  )
 
-  const isAdmin      = user?.role === 'admin' || user?.isAdmin === true
-  const planName     = tenant?.plan?.name || ''
-  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-    .includes(planName.toLowerCase().trim())
+  const isAdmin = useMemo(
+    () => user?.role === 'admin' || user?.isAdmin === true,
+    [user?.role, user?.isAdmin]
+  )
 
-  const isPageAllowed = (pageKey) => {
+  const isEnterprise = useMemo(() => {
+    const planName = tenant?.plan?.name || ''
+    return ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
+      .includes(planName.toLowerCase().trim())
+  }, [tenant?.plan?.name])
+
+  const planName = tenant?.plan?.name || ''
+
+  // ✅ useMemo pou evite recalcul chak render
+  const isPageAllowed = useCallback((pageKey) => {
     const ap = tenant?.allowedPages
     if (!ap || typeof ap !== 'object') return true
     if (ap[pageKey] === false) return false
     return true
-  }
+  }, [tenant?.allowedPages])
 
-  const currentBranchId   = localStorage.getItem('plusgroup-branch-id')
-  const currentBranchName = localStorage.getItem('plusgroup-branch-name')
+  const currentBranchId   = useMemo(
+    () => localStorage.getItem('plusgroup-branch-id'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+  const currentBranchName = useMemo(
+    () => localStorage.getItem('plusgroup-branch-name'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
 
+  // ✅ Branch ID header — sèlman yon fwa
+  useEffect(() => {
+    const branchId = localStorage.getItem('plusgroup-branch-id')
+    if (branchId) api.defaults.headers.common['X-Branch-Id'] = branchId
+    else delete api.defaults.headers.common['X-Branch-Id']
+  }, [])
+
+  // ✅ Tenant slug header — sèlman si slug chanje
+  useEffect(() => {
+    if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
+  }, [tenant?.slug])
+
+  // ✅ authAPI.me() — yon sèl fwa pa sesyon, pa chak navigation
+  useEffect(() => {
+    if (!token || meCalled.current) return
+    meCalled.current = true
+
+    authAPI.me()
+      .then(res => {
+        if (res.data?.tenant?.slug) {
+          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+          useAuthStore.getState().refreshTenant(res.data.tenant)
+        }
+      })
+      .catch(err => {
+        if (err.response?.status === 401) {
+          logout()
+          navigate('/login', { replace: true })
+        }
+      })
+  }, [token]) // eslint-disable-line
+
+  // ✅ Branches — sèlman pou admin, sèlman yon fwa
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll()
@@ -167,15 +218,11 @@ export default function AppLayout() {
       .catch(() => {})
   }, [isAdmin, token])
 
-  useEffect(() => {
-    const branchId = localStorage.getItem('plusgroup-branch-id')
-    if (branchId) api.defaults.headers.common['X-Branch-Id'] = branchId
-    else delete api.defaults.headers.common['X-Branch-Id']
-  }, [])
-
+  // ✅ Kombine 2 mousedown listeners nan yon sèl
   useEffect(() => {
     const onDoc = (e) => {
       if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
+      if (langRef.current && !langRef.current.contains(e.target)) setShowLang(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -188,52 +235,26 @@ export default function AppLayout() {
   }, [])
 
   useEffect(() => {
-    const onDoc = (e) => {
-      if (langRef.current && !langRef.current.contains(e.target)) setShowLang(false)
-    }
-    document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [])
-
-  useEffect(() => {
     if (!isDesktop) document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open, isDesktop])
 
-  useEffect(() => {
-    if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
-  }, [tenant?.slug])
-
-  useEffect(() => {
-    if (!token) return
-    authAPI.me()
-      .then(res => {
-        if (res.data?.tenant?.slug) {
-          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-          useAuthStore.getState().refreshTenant(res.data.tenant)
-        }
-      })
-      .catch(err => {
-        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
-      })
-  }, [token])
-
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
     logout()
     toast.success('Ou dekonekte.')
     navigate('/login')
-  }
+  }, [logout, navigate])
 
-  const changeLanguage = (code) => {
+  const changeLanguage = useCallback((code) => {
     i18n.changeLanguage(code)
     localStorage.setItem('plusgroup-lang', code)
     setShowLang(false)
-  }
+  }, [i18n])
 
-  const handleSwitchBranch = (branch) => {
+  const handleSwitchBranch = useCallback((branch) => {
     if (!branch.isActive) { toast.error('Branch sa a bloke.'); return }
     if (branch.id === currentBranchId) { setShowBranches(false); return }
     localStorage.setItem('plusgroup-branch-id', branch.id)
@@ -242,27 +263,29 @@ export default function AppLayout() {
     setShowBranches(false)
     toast.success(`Branch: ${branch.name}`)
     window.location.href = '/app/dashboard'
-  }
+  }, [currentBranchId])
 
-  const handleClearBranch = () => {
+  const handleClearBranch = useCallback(() => {
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
     setShowBranches(false)
     toast.success('Wè tout branch yo')
     window.location.href = '/app/dashboard'
-  }
+  }, [])
 
-  const exchangeRates     = safeJson(tenant?.exchangeRates, {})
-  const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
+  // ✅ useMemo pou rateItems — pa recalcule chak render
+  const rateItems = useMemo(() => {
+    const exchangeRates     = safeJson(tenant?.exchangeRates, {})
+    const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
+    return visibleCurrencies.map(cur => {
+      const rate = Number(exchangeRates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
+      if (!rate) return null
+      return { cur, rate }
+    }).filter(Boolean)
+  }, [tenant?.exchangeRates, tenant?.visibleCurrencies, tenant?.exchangeRate])
 
-  const rateItems = visibleCurrencies.map(cur => {
-    const rate = Number(exchangeRates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
-    if (!rate) return null
-    return { cur, rate }
-  }).filter(Boolean)
-
-  const tenantLogoUrl = logoSrc(tenant?.logoUrl)
+  const tenantLogoUrl = useMemo(() => logoSrc(tenant?.logoUrl), [tenant?.logoUrl])
 
   if (loading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background: C.sidebarTop }}>
@@ -281,8 +304,8 @@ export default function AppLayout() {
     display:    'flex',
     flexDirection: 'column',
     transform:  isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
-    transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
-    boxShadow:  '4px 0 40px rgba(0,0,0,0.55)',
+    transition: 'transform 0.25s ease',  // ✅ Senplifye transition
+    boxShadow:  '4px 0 24px rgba(0,0,0,0.4)',  // ✅ Redui shadow
     borderRight:`1px solid ${C.border}`,
     flexShrink: 0,
   }
@@ -290,30 +313,26 @@ export default function AppLayout() {
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
 
+      {/* ✅ Retire backdrop-filter — li te lou anpil */}
       {open && !isDesktop && (
         <div onClick={() => setOpen(false)} style={{
           position:'fixed', inset:0, zIndex:35,
-          background:'rgba(0,0,0,0.75)', backdropFilter:'blur(2px)',
+          background:'rgba(0,0,0,0.7)',
+          // ❌ Retire: backdropFilter:'blur(2px)'
         }}/>
       )}
 
-      {/* ══════════════════════════════════════════════
-          SIDEBAR
-      ══════════════════════════════════════════════ */}
       <aside style={sidebarStyle}>
 
+        {/* ✅ Retire animasyon shimmer — remplace ak gradient statik */}
         <div style={{
           height: 3, flexShrink: 0,
-          background: `linear-gradient(90deg, transparent, #b34200 10%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 90%, transparent)`,
-          animation: 'shimmer 3s linear infinite',
-          backgroundSize: '200% 100%',
+          background: `linear-gradient(90deg, #b34200 0%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 100%)`,
+          // ❌ Retire: animation: 'shimmer 3s linear infinite'
+          // ❌ Retire: backgroundSize: '200% 100%'
         }}/>
 
-        <div style={{
-          position:'absolute', top:-60, left:-40, width:220, height:220,
-          background:`radial-gradient(circle, rgba(245,104,12,0.10) 0%, transparent 70%)`,
-          pointerEvents:'none', zIndex:0,
-        }}/>
+        {/* ✅ Retire radial-gradient dekoratif — pa nesesè */}
 
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
@@ -337,14 +356,14 @@ export default function AppLayout() {
               ? <img src={tenantLogoUrl} alt="logo" style={{
                   width:44, height:44, borderRadius:12, objectFit:'contain',
                   background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0,
-                  boxShadow:`0 0 0 2px ${C.goldBorder}, 0 4px 16px rgba(0,0,0,0.3)`,
+                  boxShadow:`0 0 0 2px ${C.goldBorder}`,
+                  // ✅ Retire: boxShadow double — pi lejè
                 }}/>
               : <div style={{
                   width:44, height:44, borderRadius:12, flexShrink:0,
                   background:`linear-gradient(135deg, ${C.gold}, ${C.goldLt})`,
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:20, fontWeight:900, color:'#fff',
-                  boxShadow:`0 4px 20px rgba(245,104,12,0.45)`,
                 }}>
                   {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </div>
@@ -378,7 +397,7 @@ export default function AppLayout() {
                       : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
                     border: `1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`,
                     borderRadius:8, padding:'5px 7px', cursor:'pointer',
-                    display:'flex', alignItems:'center', gap:3, transition:'all 0.2s',
+                    display:'flex', alignItems:'center', gap:3,
                   }}
                 >
                   <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }} />
@@ -401,11 +420,9 @@ export default function AppLayout() {
                     </div>
 
                     <button onClick={handleClearBranch}
-                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)`, transition:'background 0.15s' }}
-                      onMouseEnter={e => { if (currentBranchId) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                      onMouseLeave={e => { if (currentBranchId) e.currentTarget.style.background = 'transparent' }}
+                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}
                     >
-                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold, boxShadow:`0 0 6px ${C.gold}` }} />
+                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold }} />
                       <div style={{ flex:1, textAlign:'left' }}>
                         <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
                         <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
@@ -417,11 +434,9 @@ export default function AppLayout() {
                       const isCurrent = branch.id === currentBranchId
                       return (
                         <button key={branch.id} onClick={() => handleSwitchBranch(branch)} disabled={!branch.isActive}
-                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)`, transition:'background 0.15s' }}
-                          onMouseEnter={e => { if (branch.isActive && !isCurrent) e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
-                          onMouseLeave={e => { if (!isCurrent) e.currentTarget.style.background = 'transparent' }}
+                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}
                         >
-                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red, boxShadow: branch.isActive ? `0 0 6px ${C.green}` : 'none' }} />
+                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red }} />
                           <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
                             <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
                             <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
@@ -466,7 +481,6 @@ export default function AppLayout() {
 
         {/* ── NAV ── */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none' }}>
-          <style>{`.nav-scroll::-webkit-scrollbar { display:none; }`}</style>
 
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
@@ -486,20 +500,19 @@ export default function AppLayout() {
                   <Icon size={15} style={{
                     flexShrink:0,
                     color: locked ? '#475569' : isActive ? C.gold : C.mutedMd,
-                    filter: (!locked && isActive) ? `drop-shadow(0 0 5px ${C.gold}80)` : 'none',
-                    transition:'all 0.2s',
+                    // ✅ Retire filter drop-shadow — lou sou CPU
                   }}/>
                   <span style={{ flex:1 }}>{t(labelKey)}</span>
                   {locked
                     ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, boxShadow:`0 0 8px ${C.gold}`, flexShrink:0 }}/>
+                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>
+                    // ✅ Retire boxShadow glow sou dot la
                   }
                 </>)}
               </NavLink>
             )
           })}
 
-          {/* Branches (admin sèlman) */}
           {isAdmin && isPageAllowed('branches') && (
             <NavLink to="/app/branches" onClick={() => setOpen(false)}
               style={({ isActive }) => ({
@@ -510,22 +523,22 @@ export default function AppLayout() {
               {({ isActive }) => (<>
                 <GitBranch size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
                 <span style={{ flex:1 }}>{t('nav.branches') || 'Branches'}</span>
-                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}`, flexShrink:0 }}/>}
+                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
               </>)}
             </NavLink>
           )}
 
           {/* ── ANTREPRIZ ── */}
           <div style={{
-            margin:'14px 4px 8px',
-            paddingTop:12,
+            margin:'14px 4px 8px', paddingTop:12,
             borderTop:`1px solid rgba(201,168,76,0.15)`,
             display:'flex', alignItems:'center', gap:8,
           }}>
             <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
               ✦ Antrepriz
             </span>
-            <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, animation:'pulse 2s infinite' }}/>
+            {/* ✅ Retire animation pulse — remplace ak dot statik */}
+            <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
           </div>
 
           {ENTERPRISE_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
@@ -543,63 +556,61 @@ export default function AppLayout() {
                   <span style={{ flex:1 }}>{label}</span>
                   {locked
                     ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, boxShadow:`0 0 8px ${C.enterprise}`, flexShrink:0 }}/>
+                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
                   }
                 </>)}
               </NavLink>
             )
           })}
 
-          {/* ✅ ── HOTEL ── */}
-{(() => {
-  const hotelLocked = !isPageAllowed('hotel')
-  return (
-    <>
-      <div style={{
-        margin:'14px 4px 8px',
-        paddingTop:12,
-        borderTop:`1px solid rgba(14,165,233,0.15)`,
-        display:'flex', alignItems:'center', gap:8,
-        opacity: hotelLocked ? 0.4 : 1,
-      }}>
-        <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-          🏨 Hotel
-        </span>
-        <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, animation:'pulseBlue 2s infinite' }}/>
-      </div>
+          {/* ── HOTEL ── */}
+          {(() => {
+            const hotelLocked = !isPageAllowed('hotel')
+            return (
+              <>
+                <div style={{
+                  margin:'14px 4px 8px', paddingTop:12,
+                  borderTop:`1px solid rgba(14,165,233,0.15)`,
+                  display:'flex', alignItems:'center', gap:8,
+                  opacity: hotelLocked ? 0.4 : 1,
+                }}>
+                  <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+                    🏨 Hotel
+                  </span>
+                  {/* ✅ Retire animation pulseBlue */}
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
+                </div>
 
-      {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
-        <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
-          onClick={(e) => { if (hotelLocked) { e.preventDefault(); return } setOpen(false) }}
-          style={({ isActive }) => ({
-            ...hotelLinkStyle(hotelLocked ? false : isActive),
-            opacity: hotelLocked ? 0.4 : 1,
-            cursor:  hotelLocked ? 'not-allowed' : 'pointer',
-          })}>
-          {({ isActive }) => (<>
-            <Icon size={15} style={{
-              flexShrink:0,
-              color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd,
-              filter: (!hotelLocked && isActive) ? `drop-shadow(0 0 5px ${C.hotel}80)` : 'none',
-              transition:'all 0.2s',
-            }}/>
-            <span style={{ flex:1 }}>{label}</span>
-            {hotelLocked
-              ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-              : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, boxShadow:`0 0 8px ${C.hotel}`, flexShrink:0 }}/>
-            }
-          </>)}
-        </NavLink>
-      ))}
-    </>
-  )
-})()}
+                {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
+                  <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
+                    onClick={(e) => { if (hotelLocked) { e.preventDefault(); return } setOpen(false) }}
+                    style={({ isActive }) => ({
+                      ...hotelLinkStyle(hotelLocked ? false : isActive),
+                      opacity: hotelLocked ? 0.4 : 1,
+                      cursor:  hotelLocked ? 'not-allowed' : 'pointer',
+                    })}>
+                    {({ isActive }) => (<>
+                      <Icon size={15} style={{
+                        flexShrink:0,
+                        color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd,
+                        // ✅ Retire filter drop-shadow
+                      }}/>
+                      <span style={{ flex:1 }}>{label}</span>
+                      {hotelLocked
+                        ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                        : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>
+                      }
+                    </>)}
+                  </NavLink>
+                ))}
+              </>
+            )
+          })()}
         </nav>
 
         {/* ── SETTINGS + USER ── */}
         <div style={{
-          padding:'10px 10px 12px',
-          paddingBottom: 38,
+          padding:'10px 10px 12px', paddingBottom: 38,
           borderTop:`1px solid ${C.border}`,
           position:'relative', zIndex:1,
         }}>
@@ -611,7 +622,6 @@ export default function AppLayout() {
               color: isActive ? '#fff' : C.muted,
               borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
               fontSize:13, fontWeight: isActive ? 700 : 500,
-              transition:'all 0.2s',
             })}>
             {({ isActive }) => (<>
               <Settings size={15} style={{ color: isActive ? C.gold : C.mutedMd, flexShrink:0 }}/>
@@ -622,7 +632,7 @@ export default function AppLayout() {
           <div style={{
             display:'flex', alignItems:'center', gap:10,
             padding:'10px 12px', borderRadius:12,
-            background:`linear-gradient(135deg, rgba(245,104,12,0.10), rgba(245,104,12,0.03))`,
+            background:`rgba(245,104,12,0.08)`,
             border:`1px solid ${C.goldBorder}`,
           }}>
             <div style={{
@@ -630,7 +640,6 @@ export default function AppLayout() {
               background:`linear-gradient(135deg, #ef4444, #dc2626)`,
               display:'flex', alignItems:'center', justifyContent:'center',
               color:'#fff', fontWeight:800, fontSize:14,
-              boxShadow:'0 3px 10px rgba(239,68,68,0.35)',
             }}>
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
@@ -645,11 +654,7 @@ export default function AppLayout() {
             <button onClick={handleLogout} title="Dekonekte" style={{
               background:'none', border:'none', cursor:'pointer',
               color:C.muted, padding:4, borderRadius:6, display:'flex',
-              transition:'color 0.2s',
-            }}
-              onMouseEnter={e => e.currentTarget.style.color = C.red}
-              onMouseLeave={e => e.currentTarget.style.color = C.muted}
-            >
+            }}>
               <LogOut size={15}/>
             </button>
           </div>
@@ -662,10 +667,9 @@ export default function AppLayout() {
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
         <header style={{
-          minHeight:58,
-          background:'#fff',
+          minHeight:58, background:'#fff',
           borderBottom:`1px solid rgba(245,104,12,0.15)`,
-          boxShadow:'0 2px 20px rgba(0,0,0,0.06)',
+          boxShadow:'0 1px 8px rgba(0,0,0,0.06)',  // ✅ Redui shadow
           display:'flex', alignItems:'center', gap:6,
           padding:'0 12px', flexShrink:0, position:'relative', zIndex:10,
           flexWrap:'wrap',
@@ -681,7 +685,7 @@ export default function AppLayout() {
           {rateItems.map(({ cur, rate }) => (
             <div key={cur} style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #f5680c40', fontSize:11, flexShrink:0 }}>
               <span style={{ color:'#b34200', fontWeight:700 }}>1 {cur}</span>
-              <span style={{ color:C.gold }}>  =</span>
+              <span style={{ color:C.gold }}>=</span>
               <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>{rate.toFixed(2)} HTG</span>
             </div>
           ))}
@@ -720,11 +724,9 @@ export default function AppLayout() {
         </main>
       </div>
 
+      {/* ✅ Sèlman spin ki rete — retire shimmer, pulse, pulseBlue */}
       <style>{`
-        @keyframes shimmer   { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes pulse     { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.4)} 50%{box-shadow:0 0 0 5px rgba(201,168,76,0)} }
-        @keyframes pulseBlue { 0%,100%{box-shadow:0 0 0 0 rgba(14,165,233,0.4)} 50%{box-shadow:0 0 0 5px rgba(14,165,233,0)} }
-        @keyframes spin      { to { transform: rotate(360deg) } }
+        @keyframes spin { to { transform: rotate(360deg) } }
         aside::-webkit-scrollbar { display:none; }
         nav::-webkit-scrollbar   { display:none; }
       `}</style>
