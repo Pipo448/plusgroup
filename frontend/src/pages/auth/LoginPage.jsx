@@ -10,8 +10,8 @@ import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
 // ✅ Imaj yo — mete fichye yo nan /public/assets/
-import bannerImg from '/assets/Banner_PLus_Group_1.webp'  // ← .webp
-import logoImg   from '/assets/PLUS_LOGO_officiel_officiel_gros_plan.webp'  // ← .webp
+import bannerImg from '/assets/banner.webp'
+import logoImg   from '/assets/logo.webp'
 
 const LANGS = [
   { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
