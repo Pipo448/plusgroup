@@ -6,7 +6,7 @@ const PRINTER_SERVICE_UUID   = '000018f0-0000-1000-8000-00805f9b34fb'
 const PRINTER_CHAR_UUID      = '00002af1-0000-1000-8000-00805f9b34fb'
 const PRINTER_SERVICE_UUID_2 = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
 const PRINTER_CHAR_UUID_2    = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
-const PRINTER_SERVICE_UUID_3 = '49535343-fe7d-4ae5-8fa9-9fafd205e455' // Rongta, Xprinter
+const PRINTER_SERVICE_UUID_3 = '49535343-fe7d-4ae5-8fa9-9fafd205e455'
 const PRINTER_CHAR_UUID_3    = '49535343-8841-43f4-a8d4-ecbe34729bb3'
 
 let _device = null
@@ -48,7 +48,6 @@ const encodeText = (text) => {
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
 
-// ✅ KOREKSYON: 58mm ak 57mm = 32 karak, 80mm = 48 karak
 const getWidth = (tenant) => {
   const size = (tenant && tenant.receiptSize) || '80mm'
   return (size === '57mm' || size === '58mm') ? 32 : 48
@@ -124,6 +123,16 @@ const logoToEscPos = async (base64url, targetWidth) => {
     return []
   }
 }
+
+// ✅ TIMEOUT LOGO — 3s maksimòm, apre sa kontinye san logo
+const logoWithTimeout = (logoUrl, width, ms = 3000) =>
+  Promise.race([
+    logoToEscPos(logoUrl, width),
+    new Promise(resolve => setTimeout(() => {
+      console.warn('Logo timeout — kontinye san logo')
+      resolve([])
+    }, ms))
+  ])
 
 // ══════════════════════════════════════════════════════════════
 // ── KONEKSYON BLUETOOTH
@@ -234,8 +243,9 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ? 'Pwodui'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Total'.padStart(C.total)
     : 'Atik'.padEnd(C.name) + 'Q'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
 
+  // ✅ Logo ak timeout 3s
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
 
   const issueDate = new Date(invoice.issueDate)
   const dateStr   = issueDate.toLocaleDateString('fr-HT') + ' ' +
@@ -243,15 +253,13 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
 
   const bytes = [
     ...CMD.INIT,
-    // ── HEADER KONPAK ──
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes] : []),
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.BOLD_OFF,
     ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(' | ' + tenant.address + '\n'), ...CMD.NORMAL_FONT] :
-                          [...CMD.LINE_FEED]),
-    // ── INFO FAKTI ──
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(' | ' + tenant.address + '\n'), ...CMD.NORMAL_FONT]
+                        : [...CMD.LINE_FEED]),
     ...CMD.ALIGN_LEFT,
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
     ...CMD.SMALL_FONT,
@@ -259,7 +267,6 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ...(cashierName ? [...encodeText('Kesye: ' + cashierName.substring(0, W - 8) + '\n')] : []),
     ...(snap.name   ? [...encodeText('Kliyan: ' + snap.name.substring(0, W - 8) + '\n')]  : []),
     ...CMD.NORMAL_FONT,
-    // ── ATIK YO ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
     ...CMD.SMALL_FONT,
     ...encodeText(itemHeader + '\n'),
@@ -277,35 +284,31 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
       return result
     }),
     ...CMD.NORMAL_FONT,
-    // ── SOUS-TOTAL (si gen remiz/taks) ──
     ...(Number(invoice.discountHtg) > 0 ? [
       ...CMD.SMALL_FONT, ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
     ] : []),
     ...(Number(invoice.taxHtg) > 0 ? [
       ...CMD.SMALL_FONT, ...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
     ] : []),
-    // ── TOTAL ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
     ...CMD.BOLD_OFF,
-    // ── PEMAN ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_LEFT, ...CMD.SMALL_FONT,
     ...makeLine('Peye:', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
+    // ✅ amountGiven + change kounye a parèt sou resi
     ...(amountGiven > 0 ? [...makeLine('Kob bay:', fmt(amountGiven) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(change > 0      ? [...makeLine('Monnen:', fmt(change) + ' HTG', W), ...CMD.LINE_FEED]       : []),
+    ...(change      > 0 ? [...makeLine('Monnen:', fmt(change)      + ' HTG', W), ...CMD.LINE_FEED] : []),
     ...(Number(invoice.balanceDueHtg) > 0 ? [
       ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED
     ] : []),
     ...(lastPay ? [...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED] : []),
     ...CMD.NORMAL_FONT,
-    // ── STATUT ──
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText(statusText + '\n'),
     ...CMD.BOLD_OFF,
-    // ── QR (ti grenn) ──
     ...(tenant?.showQrCode !== false ? [
       ...CMD.ALIGN_CENTER,
       ...makeQR(qrContent),
@@ -313,7 +316,6 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
       ...encodeText(invoice.invoiceNumber + '\n'),
       ...CMD.NORMAL_FONT,
     ] : []),
-    // ── PYE PAJ ──
     ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
     ...encodeText('Mesi! — PlusGroup\n'),
     ...CMD.NORMAL_FONT,
@@ -347,9 +349,9 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     biweekly: 'Chak 15 Jou', monthly: 'Chak Mwa', weekdays: 'Lendi-Vandredi',
   }
 
+  // ✅ Logo ak timeout 3s
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  // ✅ KOREKSYON: 58mm = piti logo
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
 
   const bytes = [
     ...CMD.INIT,
@@ -360,7 +362,6 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SOL --\n'), ...CMD.BOLD_OFF,
     ...(tenant?.phone   ? [...encodeText('Tel: ' + tenant.phone + '\n')]   : []),
     ...(tenant?.address ? [...encodeText(tenant.address + '\n')]           : []),
-    // ✅ Yon sèl divider, pa double
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(type === 'peman' ? 'RESI PEMAN\n' : 'KONT MANM\n'),
@@ -389,7 +390,6 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...makeLine('Peman fe:', totalPaid + '/' + plan.maxMembers, W), ...CMD.LINE_FEED,
       ...makeLine('Kontribye:', fmt(amountPaid) + ' HTG', W), ...CMD.LINE_FEED,
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
-      // ✅ KOREKSYON: DOUBLE_HEIGHT olye DOUBLE_BOTH (pi piti), epi "Prim" an Kreyol
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
       ...encodeText('Prim: ' + fmt(payout) + ' HTG\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
@@ -433,8 +433,9 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
       new Date(transaction.createdAt).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
     : new Date().toLocaleDateString('fr-HT')
 
+  // ✅ Logo ak timeout 3s
   const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoToEscPos(logoUrl, W === 48 ? 200 : 120) : []
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
   const txLabel   = TX_LABELS[type] || 'TRANZAKSYON'
 
   const bytes = [
@@ -458,9 +459,9 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...CMD.BOLD_ON,
     ...encodeText((account.firstName + ' ' + account.lastName).substring(0, W) + '\n'),
     ...CMD.BOLD_OFF,
-    ...(account.address        ? [...encodeText(account.address.substring(0, W) + '\n')]                                                               : []),
-    ...(account.nifOrCin       ? [...encodeText('NIF/CIN: ' + account.nifOrCin + '\n')]                                                                : []),
-    ...(account.phone          ? [...encodeText('Tel: ' + account.phone + '\n')]                                                                       : []),
+    ...(account.address        ? [...encodeText(account.address.substring(0, W) + '\n')]                                                                : []),
+    ...(account.nifOrCin       ? [...encodeText('NIF/CIN: ' + account.nifOrCin + '\n')]                                                                 : []),
+    ...(account.phone          ? [...encodeText('Tel: ' + account.phone + '\n')]                                                                        : []),
     ...(account.familyRelation ? [...encodeText('Referans: ' + account.familyRelation + (account.familyName ? ' — ' + account.familyName : '') + '\n')] : []),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('-', W), ...CMD.LINE_FEED,
     ...(type === 'ouverture' ? [
