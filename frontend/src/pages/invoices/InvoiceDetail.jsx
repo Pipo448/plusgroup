@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinter } from '../../hooks/usePrinter'
+import { isAndroid } from '../../services/printerService'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
+import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -281,9 +282,11 @@ export default function InvoiceDetail() {
   const [printing, setPrinting]       = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
 
-  const { connected, connecting, printing: btPrinting, connect, disconnect, print } = usePrinter()
-  const hasBluetooth = typeof navigator !== 'undefined' && !!navigator.bluetooth
+  // ✅ usePrinter — pou Sunmi RawBT + BT ekstèn
+  const { printing: btPrinting, print } = usePrinter()
 
+  // ✅ Detekte si sou Android pou montre bouton Sunmi
+  const onAndroid  = isAndroid()
   const showQrCode = tenant?.showQrCode !== false
 
   useEffect(() => {
@@ -320,19 +323,14 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice, showQrCode])
 
-  // ✅ SUNMI V2 INNER PRINTER — window.print() dirèk
-  // Sèl metòd ki travay nan Chrome Android san popup blocker
-  // CSS @media print kache tout UI, montre sèlman #printable-receipt
+  // ✅ window.print() — laptop, PDF, tablet
   const handlePrint = async () => {
     setPrinting(true)
     const toastId = toast.loading('Ap prepare resi...')
     try {
       const receiptEl = document.getElementById('printable-receipt')
       if (!receiptEl) throw new Error('Resi pa disponib')
-
       const receiptSize = tenant?.receiptSize || '80mm'
-
-      // 1. Enjekte CSS print global (retire ansyen si li egziste)
       const oldStyle = document.getElementById('_receipt_print_css')
       if (oldStyle) oldStyle.remove()
       const style = document.createElement('style')
@@ -346,9 +344,6 @@ export default function InvoiceDetail() {
         }
       `
       document.head.appendChild(style)
-
-      // 2. Kreye wrapper print — ajoute dirèkteman nan <body>, PA anndan #root
-      // Konsa #root > * { display:none } pa kache li
       let root = document.getElementById('_receipt_print_root')
       if (!root) {
         root = document.createElement('div')
@@ -356,21 +351,20 @@ export default function InvoiceDetail() {
         root.style.cssText = 'display:none;position:absolute;top:0;left:0;width:100%;background:#fff;'
         document.body.appendChild(root)
       }
-      // Kopi kontni resi a nan wrapper la
       root.innerHTML = receiptEl.outerHTML.replace('display: none', 'display: block')
-
-      // 3. Tann DOM aktyalize
       await new Promise(r => setTimeout(r, 150))
-
-      // 4. Print — Chrome Android ap ouvri dialog printer dirèkteman
       window.print()
-
       toast.success('Resi voye bay printer!', { id: toastId })
     } catch (err) {
       toast.error('Ere enpresyon: ' + err.message, { id: toastId })
     } finally {
       setPrinting(false)
     }
+  }
+
+  // ✅ RawBT — Sunmi V2 inner printer
+  const handleSunmiPrint = () => {
+    print(invoice, tenant, user)
   }
 
   const downloadPdf = async (size) => {
@@ -380,22 +374,18 @@ export default function InvoiceDetail() {
       await loadPdfLibs()
       const receiptEl = document.getElementById('printable-receipt')
       if (!receiptEl) throw new Error('Resi HTML pa trovab')
-
       const prevDisplay = receiptEl.style.display
       receiptEl.style.display = 'block'
       receiptEl.style.position = 'fixed'
       receiptEl.style.left = '-9999px'
       receiptEl.style.top = '0'
-
       const canvas = await window.html2canvas(receiptEl, {
         scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false,
       })
-
       receiptEl.style.display = prevDisplay
       receiptEl.style.position = ''
       receiptEl.style.left = ''
       receiptEl.style.top = ''
-
       const mmWidth  = size === '57mm' ? 57 : 80
       const mmHeight = (canvas.height / canvas.width) * mmWidth
       const { jsPDF } = window.jspdf
@@ -455,10 +445,8 @@ export default function InvoiceDetail() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @media print {
           @page { margin: 0; }
-          /* Kache tout kontni #root eksepte wrapper print la */
           #root > * { display: none !important; }
           #_receipt_print_root { display: block !important; }
           body, html { background: #fff !important; margin: 0 !important; padding: 0 !important; }
@@ -487,7 +475,8 @@ export default function InvoiceDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          {/* ✅ window.print() — laptop, tablet, nenpòt machin */}
+
+          {/* ✅ window.print() — laptop, PDF, nenpòt */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -498,30 +487,17 @@ export default function InvoiceDetail() {
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
-          {/* ✅ Bluetooth ESC/POS — printer BT ekstèn */}
-          {hasBluetooth && (
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-              {!connected ? (
-                <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
-                  style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <Bluetooth size={14} />
-                  {connecting ? 'Ap konekte...' : 'Konekte Printer BT'}
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => print(invoice, tenant, user)} disabled={btPrinting}
-                    className="btn-secondary btn-sm"
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
-                    <Printer size={14} />
-                    {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
-                  </button>
-                  <button onClick={disconnect} title="Dekonekte printer"
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
-                    <BluetoothOff size={13}/>
-                  </button>
-                </>
-              )}
-            </div>
+          {/* ✅ RawBT — Sunmi V2 inner printer — montre sèlman sou Android */}
+          {onAndroid && (
+            <button
+              onClick={handleSunmiPrint}
+              disabled={btPrinting}
+              className="btn-secondary btn-sm"
+              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}
+            >
+              <Printer size={14} />
+              {btPrinting ? 'Ap enprime...' : '🖨 Enprime Sunmi'}
+            </button>
           )}
 
           <div className="relative" ref={pdfMenuRef}>
@@ -564,13 +540,6 @@ export default function InvoiceDetail() {
           )}
         </div>
       </div>
-
-      {connected && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
-          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Printer BT konekte — Klike "Enprime BT" pou voye resi
-        </div>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
@@ -679,6 +648,7 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
+            {/* ✅ Sidebar — Enprime Resi (window.print) */}
             <button
               onClick={handlePrint}
               disabled={printing}
@@ -689,12 +659,16 @@ export default function InvoiceDetail() {
               {printing ? 'Ap enprime...' : 'Enprime Resi'}
             </button>
 
-            {connected && (
-              <button onClick={() => print(invoice, tenant, user)} disabled={btPrinting}
+            {/* ✅ Sidebar — Enprime Sunmi (RawBT) — sèlman sou Android */}
+            {onAndroid && (
+              <button
+                onClick={handleSunmiPrint}
+                disabled={btPrinting}
                 className="w-full mt-2"
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}>
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
+              >
                 <Printer size={15} />
-                {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+                {btPrinting ? 'Ap enprime...' : '🖨 Enprime Sunmi'}
               </button>
             )}
 
@@ -755,7 +729,6 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, amountHtg: e.target.value }))}
                   style={{ fontSize:22, fontWeight:800, textAlign:'center' }}
                 />
-
                 {amtNum > 0 && amtNum < balance && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                     <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>Peman pasyal</span>
