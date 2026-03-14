@@ -76,7 +76,7 @@ const getOne = async (tenantId, id) => {
         include: { product: { select: { id: true, name: true, code: true, unit: true } } },
         orderBy: { sortOrder: 'asc' }
       },
-      payments:  { orderBy: { paymentDate: 'desc' } },
+      payments: { orderBy: { paymentDate: 'asc' } },
       quote:     { select: { id: true, quoteNumber: true, notes: true, terms: true } },
       creator:   { select: { fullName: true } },
       canceller: { select: { fullName: true } },

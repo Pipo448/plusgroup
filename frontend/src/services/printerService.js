@@ -243,7 +243,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const balanceHtg = Number(invoice.balanceDueHtg || 0)
 
   // ✅ Dènye peman — lis kòb kliyan bay ak monnen
-  const lastPay    = invoice.payments?.length > 0
+  const lastPay = invoice.payments?.length > 0
     ? invoice.payments[invoice.payments.length - 1] : null
   const amountGiven = Number(lastPay?.amountGiven || 0)
   const change      = Number(lastPay?.change      || 0)
