@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  base: './',
   plugins: [react()],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
@@ -12,11 +13,8 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          // Core React
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Data fetching
           'vendor-query': ['@tanstack/react-query'],
-          // Enterprise paj lou yo — chak gen pwòp chunk
           'chunk-sabotay':  ['./src/pages/enterprise/SabotayPage'],
           'chunk-hotel':    [
             './src/pages/hotel/HotelDashboard',
@@ -56,7 +54,6 @@ export default defineConfig({
         target: 'http://localhost:5000',
         changeOrigin: true
       },
-      // ✅ Pèmèt frontend ka chaje logo direkteman via proxy
       '/uploads': {
         target: 'http://localhost:5000',
         changeOrigin: true
