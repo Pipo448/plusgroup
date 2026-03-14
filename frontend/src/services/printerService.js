@@ -1,7 +1,4 @@
 // src/services/printerService.js
-// ESC/POS via:
-//   1. RawBT Intent    — Sunmi V2 inner printer (Android 7, Chrome) ✅
-//   2. Web Bluetooth   — printer BT ekstèn (Goojprt, Epson, Xprinter...)
 
 const PRINTER_SERVICE_UUID   = '000018f0-0000-1000-8000-00805f9b34fb'
 const PRINTER_CHAR_UUID      = '00002af1-0000-1000-8000-00805f9b34fb'
@@ -41,18 +38,50 @@ const CMD = {
 // ── UTILITÈ
 // ══════════════════════════════════════════════════════════════
 
+// ✅ Map aksantye Kreyòl → ASCII — pa pèdi lèt enpòtan yo
+const ACCENT_MAP = {
+  'à':'a','â':'a','ä':'a','á':'a','ã':'a',
+  'è':'e','é':'e','ê':'e','ë':'e',
+  'ì':'i','í':'i','î':'i','ï':'i',
+  'ò':'o','ó':'o','ô':'o','õ':'o','ö':'o',
+  'ù':'u','ú':'u','û':'u','ü':'u',
+  'ç':'c','ñ':'n',
+  'À':'A','Â':'A','Á':'A','È':'E','É':'E','Ê':'E',
+  'Î':'I','Ï':'I','Ô':'O','Ù':'U','Û':'U','Ç':'C',
+}
+
 const encodeText = (text) => {
   const clean = String(text)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    // ✅ Remplace aksantye avan retire yo — kenbe lisibilite
+    .replace(/[àâäáã]/g, 'a')
+    .replace(/[èéêë]/g,  'e')
+    .replace(/[ìíîï]/g,  'i')
+    .replace(/[òóôõö]/g, 'o')
+    .replace(/[ùúûü]/g,  'u')
+    .replace(/[ÀÂÁ]/g,   'A')
+    .replace(/[ÈÉÊË]/g,  'E')
+    .replace(/[ÌÍÎÏ]/g,  'I')
+    .replace(/[ÒÓÔÕÖ]/g, 'O')
+    .replace(/[ÙÚÛÜ]/g,  'U')
+    .replace(/ç/g,       'c')
+    .replace(/Ç/g,       'C')
+    .replace(/ñ/g,       'n')
+    // ✅ Retire rès karaktè non-ASCII
     .replace(/[^\x00-\x7F]/g, '?')
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
 
-// ✅ Default 58mm pou Sunmi V2
+// ✅ Cache logo konvèti — pa re-konvèti chak print
+const _logoCache = new Map()
+
+// ✅ isAndroid — cache yon fwa sèlman
+const _isAndroid = /android/i.test(navigator.userAgent)
+export const isAndroid = () => _isAndroid
+
+// ✅ getWidth — konsolide 57mm ak 58mm ansanm
 const getWidth = (tenant) => {
-  const size = (tenant && tenant.receiptSize) || '58mm'
-  return (size === '57mm' || size === '58mm') ? 32 : 48
+  const size = (tenant?.receiptSize) || '58mm'
+  return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
 }
 
 const makeLine = (left, right, width) => {
@@ -126,30 +155,28 @@ const logoToEscPos = async (base64url, targetWidth) => {
   }
 }
 
-const logoWithTimeout = (logoUrl, width, ms = 3000) =>
-  Promise.race([
+// ✅ logoWithTimeout + CACHE — pa re-konvèti si menm URL
+const logoWithTimeout = async (logoUrl, width, ms = 3000) => {
+  const cacheKey = `${logoUrl}_${width}`
+  if (_logoCache.has(cacheKey)) return _logoCache.get(cacheKey)
+
+  const result = await Promise.race([
     logoToEscPos(logoUrl, width),
     new Promise(resolve => setTimeout(() => { console.warn('Logo timeout'); resolve([]) }, ms))
   ])
 
+  // ✅ Cache sèlman si gen rezilta
+  if (result.length > 0) _logoCache.set(cacheKey, result)
+  return result
+}
+
 // ══════════════════════════════════════════════════════════════
-// ── RAWBT — SUNMI V2 INNER PRINTER ✅
-// ── Travay sou Android 7 + Chrome san plugin, san HTTP, san pò
+// ── RAWBT — SUNMI V2 INNER PRINTER
 // ══════════════════════════════════════════════════════════════
 
-// Detekte si nou sou Android Chrome (= Sunmi V2 kontèks)
-export const isAndroid = () => /android/i.test(navigator.userAgent)
-
-// Voye bytes ESC/POS bay RawBT via Android Intent URL
-// Chrome konnen ouvri "intent:" URL epi pase li bay bon app la
 const sendViaRawBT = (bytes) => {
-  // 1. Konvèti bytes → binary string → base64
   const binary = bytes.map(b => String.fromCharCode(b & 0xFF)).join('')
   const b64    = btoa(binary)
-
-  // 2. Konstrui Intent URL pou RawBT
-  // scheme=rawbt → RawBT rekonèt li kòm bytes ESC/POS
-  // package=ru.a402d.rawbtprinter → si RawBT pa enstale, Chrome voye nan Play Store
   window.location.href =
     'intent:' + b64 +
     '#Intent;' +
@@ -159,7 +186,7 @@ const sendViaRawBT = (bytes) => {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── BLUETOOTH (printer ekstèn — pa Sunmi inner)
+// ── BLUETOOTH (printer ekstèn)
 // ══════════════════════════════════════════════════════════════
 
 export const connectPrinter = async () => {
@@ -206,21 +233,21 @@ const sendViaBluetooth = async (bytes) => {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── DISPATCH: chwazi metòd otomatikman
-//    Android → RawBT (Sunmi inner printer)
-//    Lòt     → Bluetooth ESC/POS
+// ── DISPATCH — chwazi metòd otomatikman
 // ══════════════════════════════════════════════════════════════
 
 const dispatch = async (bytes) => {
-  if (isAndroid()) {
-    sendViaRawBT(bytes)  // redirijè paj → RawBT → inner printer
+  // ✅ Cache isAndroid — pa rele regex chak fwa
+  if (_isAndroid) {
+    sendViaRawBT(bytes)
     return
   }
   if (_char) {
     await sendViaBluetooth(bytes)
     return
   }
-  throw new Error('Okenn printer disponib. Konekte yon printer Bluetooth.')
+  // ✅ Mesaj erè pi kle
+  throw new Error('Okenn printer disponib. Sou Android: itilize bouton Sunmi. Sou PC/Mac: konekte yon printer Bluetooth dabò.')
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -232,16 +259,17 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
-  const W         = getWidth(tenant)
-  const snap      = invoice.clientSnapshot || {}
+  const W           = getWidth(tenant)
+  const snap        = invoice.clientSnapshot || {}
   const cashierName = cashier?.fullName || cashier?.name || localStorage.getItem('plusgroup-cashier-name') || null
-  const totalHtg  = Number(invoice.totalHtg || 0)
-  const lastPay   = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
+  const totalHtg    = Number(invoice.totalHtg || 0)
+  const lastPay     = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
 
   const PAYMENT_LABELS = {
     cash:'Kach', moncash:'MonCash', natcash:'NatCash',
     card:'Kat', transfer:'Viman', check:'Chek', other:'Lot'
   }
+
   const statusText =
     invoice.status === 'paid'      ? 'PEYE' :
     invoice.status === 'partial'   ? 'PASYAL' :
@@ -255,8 +283,9 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ? 'Pwodui'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Total'.padStart(C.total)
     : 'Atik'.padEnd(C.name)   + 'Q'.padStart(C.qty)   + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
 
-  const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
+  const logoUrl   = tenant?.logoUrl || tenant?.logo
+  const logoW     = W === 48 ? 200 : 120
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, logoW) : []
 
   const issueDate = new Date(invoice.issueDate)
   const dateStr   = issueDate.toLocaleDateString('fr-HT') + ' ' +
@@ -295,8 +324,16 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
       return result
     }),
     ...CMD.NORMAL_FONT,
-    ...(Number(invoice.discountHtg) > 0 ? [...CMD.SMALL_FONT, ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT] : []),
-    ...(Number(invoice.taxHtg)      > 0 ? [...CMD.SMALL_FONT, ...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W), ...CMD.LINE_FEED, ...CMD.NORMAL_FONT] : []),
+    ...(Number(invoice.discountHtg) > 0 ? [
+      ...CMD.SMALL_FONT,
+      ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W),
+      ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+    ] : []),
+    ...(Number(invoice.taxHtg) > 0 ? [
+      ...CMD.SMALL_FONT,
+      ...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W),
+      ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+    ] : []),
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
@@ -305,12 +342,18 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ...CMD.ALIGN_LEFT, ...CMD.SMALL_FONT,
     ...makeLine('Peye:', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
     ...(amountGiven > 0 ? [...makeLine('Kob bay:', fmt(amountGiven) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(change      > 0 ? [...makeLine('Monnen:', fmt(change) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(Number(invoice.balanceDueHtg) > 0 ? [...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(lastPay ? [...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED] : []),
+    ...(change      > 0 ? [...makeLine('Monnen:', fmt(change) + ' HTG', W),     ...CMD.LINE_FEED] : []),
+    ...(Number(invoice.balanceDueHtg) > 0 ? [
+      ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED
+    ] : []),
+    ...(lastPay ? [
+      ...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED
+    ] : []),
     ...CMD.NORMAL_FONT,
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText(statusText + '\n'), ...CMD.BOLD_OFF,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+    ...encodeText(statusText + '\n'),
+    ...CMD.BOLD_OFF,
     ...(tenant?.showQrCode !== false ? [
       ...CMD.ALIGN_CENTER, ...makeQR(qrContent),
       ...CMD.SMALL_FONT, ...encodeText(invoice.invoiceNumber + '\n'), ...CMD.NORMAL_FONT,
@@ -339,10 +382,16 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const totalPaid  = Object.keys(member.payments || {}).filter(d => member.payments[d]).length
   const amountPaid = totalPaid * plan.amount
   const totalAmt   = paidDates.length * plan.amount
-  const FREQ       = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
 
-  const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
+  const FREQ = {
+    daily:'Chak Jou', weekly_saturday:'Chak Samdi',
+    weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou',
+    monthly:'Chak Mwa', weekdays:'Lendi-Vandredi'
+  }
+
+  const logoUrl   = tenant?.logoUrl || tenant?.logo
+  const logoW     = W === 48 ? 200 : 120
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, logoW) : []
 
   const bytes = [
     ...CMD.INIT,
@@ -356,7 +405,8 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(type === 'peman' ? 'RESI PEMAN\n' : 'KONT MANM\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_LEFT,
     ...makeLine('Plan:', plan.name.substring(0, W - 6), W), ...CMD.LINE_FEED,
     ...makeLine('Dat:', txDate, W), ...CMD.LINE_FEED,
@@ -368,7 +418,9 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...divider('-', W), ...CMD.LINE_FEED,
     ...(type === 'peman' ? [
       ...CMD.BOLD_ON, ...encodeText('Dat Peye:\n'), ...CMD.BOLD_OFF,
-      ...paidDates.flatMap(d => [...encodeText('  ' + d.split('-').reverse().join('/') + ' — ' + fmt(plan.amount) + ' HTG\n')]),
+      ...paidDates.flatMap(d => [
+        ...encodeText('  ' + d.split('-').reverse().join('/') + ' — ' + fmt(plan.amount) + ' HTG\n')
+      ]),
       ...divider('=', W), ...CMD.LINE_FEED,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
       ...encodeText('TOTAL: ' + fmt(totalAmt) + ' HTG\n'),
@@ -384,11 +436,12 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ]),
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('Mesi! / Merci! / Thank you!\n'), ...CMD.BOLD_OFF,
-    ...CMD.SMALL_FONT, ...encodeText('Pwodwi pa / Powered by\n'),
-    ...CMD.BOLD_ON, ...encodeText('PlusGroup\n'), ...CMD.BOLD_OFF,
-    ...encodeText('Tel: +50942449024\n'),
-    ...CMD.NORMAL_FONT, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.CUT,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+    ...encodeText('Mesi! / Merci!\n'),
+    ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText('PlusGroup — Tel: +50942449024\n'),
+    ...CMD.NORMAL_FONT, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.CUT,
   ]
 
   await dispatch(bytes)
@@ -404,16 +457,25 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
   const W = getWidth(tenant)
-  const TX_LABELS      = { ouverture:'OUVERTURE KONT', depot:'DEPO / DEPOT', retrait:'RETRAIT / RETRE' }
-  const PAYMENT_LABELS = { cash:'Kach/Cash', moncash:'MonCash', natcash:'NatCash', card:'Kat/Carte', transfer:'Virement', check:'Chek/Cheque', other:'Lot/Autre' }
+
+  const TX_LABELS = {
+    ouverture:'OUVERTURE KONT',
+    depot:'DEPO / DEPOT',
+    retrait:'RETRAIT / RETRE'
+  }
+  const PAYMENT_LABELS = {
+    cash:'Kach/Cash', moncash:'MonCash', natcash:'NatCash',
+    card:'Kat/Carte', transfer:'Virement', check:'Chek/Cheque', other:'Lot/Autre'
+  }
 
   const txDate = transaction?.createdAt
     ? new Date(transaction.createdAt).toLocaleDateString('fr-HT') + ' ' +
       new Date(transaction.createdAt).toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
     : new Date().toLocaleDateString('fr-HT')
 
-  const logoUrl   = tenant && (tenant.logoUrl || tenant.logo)
-  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W === 48 ? 200 : 120) : []
+  const logoUrl   = tenant?.logoUrl || tenant?.logo
+  const logoW     = W === 48 ? 200 : 120
+  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, logoW) : []
 
   const bytes = [
     ...CMD.INIT,
@@ -427,7 +489,8 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText((TX_LABELS[type] || 'TRANZAKSYON') + '\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...divider('=', W), ...CMD.LINE_FEED,
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_LEFT,
     ...makeLine('No. Kont:', account.accountNumber || '', W), ...CMD.LINE_FEED,
     ...makeLine('Dat:', txDate, W), ...CMD.LINE_FEED,
@@ -435,10 +498,10 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...CMD.BOLD_ON,
     ...encodeText((account.firstName + ' ' + account.lastName).substring(0, W) + '\n'),
     ...CMD.BOLD_OFF,
-    ...(account.address        ? [...encodeText(account.address.substring(0, W) + '\n')] : []),
-    ...(account.nifOrCin       ? [...encodeText('NIF/CIN: ' + account.nifOrCin + '\n')] : []),
-    ...(account.phone          ? [...encodeText('Tel: ' + account.phone + '\n')] : []),
-    ...(account.familyRelation ? [...encodeText('Referans: ' + account.familyRelation + (account.familyName ? ' — ' + account.familyName : '') + '\n')] : []),
+    ...(account.address        ? [...encodeText(account.address.substring(0, W) + '\n')]          : []),
+    ...(account.nifOrCin       ? [...encodeText('NIF/CIN: ' + account.nifOrCin + '\n')]           : []),
+    ...(account.phone          ? [...encodeText('Tel: ' + account.phone + '\n')]                  : []),
+    ...(account.familyRelation ? [...encodeText('Ref: ' + account.familyRelation + (account.familyName ? ' — ' + account.familyName : '') + '\n')] : []),
     ...divider('-', W), ...CMD.LINE_FEED,
     ...(type === 'ouverture' ? [
       ...makeLine('Montan depoze:', fmt(account.openingAmount) + ' HTG', W), ...CMD.LINE_FEED,
@@ -454,18 +517,22 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
       fmt(type === 'ouverture' ? account.balance : transaction?.amount) + ' HTG\n'
     ),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...(type !== 'ouverture' ? [...CMD.ALIGN_LEFT, ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' HTG', W), ...CMD.LINE_FEED] : []),
+    ...(type !== 'ouverture' ? [
+      ...CMD.ALIGN_LEFT,
+      ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' HTG', W), ...CMD.LINE_FEED
+    ] : []),
     ...(transaction?.method ? [
       ...divider('-', W), ...CMD.LINE_FEED,
       ...makeLine('Metod:', PAYMENT_LABELS[transaction.method] || transaction.method, W), ...CMD.LINE_FEED,
       ...(transaction.reference ? [...makeLine('Ref:', transaction.reference, W), ...CMD.LINE_FEED] : []),
     ] : []),
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('Mesi! / Merci! / Thank you!\n'), ...CMD.BOLD_OFF,
-    ...CMD.SMALL_FONT, ...encodeText('Pwodwi pa / Powered by\n'),
-    ...CMD.BOLD_ON, ...encodeText('PlusGroup\n'), ...CMD.BOLD_OFF,
-    ...encodeText('Tel: +50942449024\n'),
-    ...CMD.NORMAL_FONT, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.CUT,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+    ...encodeText('Mesi! / Merci!\n'),
+    ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText('PlusGroup — Tel: +50942449024\n'),
+    ...CMD.NORMAL_FONT, ...CMD.LINE_FEED, ...CMD.LINE_FEED, ...CMD.CUT,
   ]
 
   await dispatch(bytes)
