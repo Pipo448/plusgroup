@@ -9,11 +9,21 @@ import {
   printKaneReceipt,
 } from '../services/printerService'
 import toast from 'react-hot-toast'
+import { usePrinterStore } from '../stores/printerStore'
 
 export const usePrinter = () => {
-  const [connected,  setConnected]  = useState(isPrinterConnected())
-  const [connecting, setConnecting] = useState(false)
-  const [printing,   setPrinting]   = useState(false)
+  const store = usePrinterStore()
+  return {
+    connected:   store.connected,
+    connecting:  store.connecting,
+    printing:    store.printing,
+    connect:     store.connect,
+    disconnect:  store.disconnect,
+    print:       store.print,
+    printSabotay: store.printSabotay,
+    printKane:   store.printKane,
+  }
+}
 
   // ── KONEKSYON ──────────────────────────────────────────────
   const connect = useCallback(async () => {

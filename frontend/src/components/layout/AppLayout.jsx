@@ -4,15 +4,18 @@ import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard, Package, Users, FileText, Receipt,
-  Warehouse, TrendingUp, Settings, LogOut, Bell,
+  Warehouse, TrendingUp, Settings, LogOut,
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
-  Wallet, Hotel, CalendarDays, Tag
+  Wallet, Hotel, CalendarDays, Tag,
+  Bluetooth, BluetoothOff, Printer,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
+import { usePrinterStore } from '../../stores/printerStore'
+import { isAndroid } from '../../services/printerService'
 import NotificationBell from '../NotificationBell'
 
 const C = {
@@ -87,12 +90,10 @@ const safeJson = (val, fallback) => {
   try { return JSON.parse(val) } catch { return fallback }
 }
 
-// ✅ Style fonksyon yo — rete menm jan
 const navLinkStyle = (isActive) => ({
   display: 'flex', alignItems: 'center', gap: 10,
   padding: '9px 14px', borderRadius: 10, marginBottom: 3,
   textDecoration: 'none',
-  // ✅ Retire transition sou tout pou pèfòmans — mete sèlman sou koulè
   background: isActive
     ? `linear-gradient(90deg, rgba(245,104,12,0.18) 0%, rgba(245,104,12,0.05) 100%)`
     : 'transparent',
@@ -138,8 +139,26 @@ export default function AppLayout() {
   const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
   const langRef   = useRef(null)
   const branchRef = useRef(null)
-  // ✅ Track si me() deja rele — evite double call
   const meCalled  = useRef(false)
+
+  // ✅ Printer global store
+  const {
+    connected:  btConnected,
+    connecting: btConnecting,
+    printing:   btPrinting,
+    connect:    btConnect,
+    disconnect: btDisconnect,
+    deviceName,
+  } = usePrinterStore()
+
+  // ✅ Cache yon fwa — pa rele regex chak render
+  const onAndroid = useMemo(() => isAndroid(), [])
+
+  // ✅ Montre bouton BT sèlman si navigator.bluetooth disponib
+  const hasBluetooth = useMemo(
+    () => typeof navigator !== 'undefined' && !!navigator.bluetooth,
+    []
+  )
 
   const currentLang = useMemo(
     () => LANGS.find(l => l.code === i18n.language) || LANGS[0],
@@ -159,7 +178,6 @@ export default function AppLayout() {
 
   const planName = tenant?.plan?.name || ''
 
-  // ✅ useMemo pou evite recalcul chak render
   const isPageAllowed = useCallback((pageKey) => {
     const ap = tenant?.allowedPages
     if (!ap || typeof ap !== 'object') return true
@@ -167,7 +185,7 @@ export default function AppLayout() {
     return true
   }, [tenant?.allowedPages])
 
-  const currentBranchId   = useMemo(
+  const currentBranchId = useMemo(
     () => localStorage.getItem('plusgroup-branch-id'),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -178,23 +196,19 @@ export default function AppLayout() {
     []
   )
 
-  // ✅ Branch ID header — sèlman yon fwa
   useEffect(() => {
     const branchId = localStorage.getItem('plusgroup-branch-id')
     if (branchId) api.defaults.headers.common['X-Branch-Id'] = branchId
     else delete api.defaults.headers.common['X-Branch-Id']
   }, [])
 
-  // ✅ Tenant slug header — sèlman si slug chanje
   useEffect(() => {
     if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
   }, [tenant?.slug])
 
-  // ✅ authAPI.me() — yon sèl fwa pa sesyon, pa chak navigation
   useEffect(() => {
     if (!token || meCalled.current) return
     meCalled.current = true
-
     authAPI.me()
       .then(res => {
         if (res.data?.tenant?.slug) {
@@ -210,7 +224,6 @@ export default function AppLayout() {
       })
   }, [token]) // eslint-disable-line
 
-  // ✅ Branches — sèlman pou admin, sèlman yon fwa
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll()
@@ -218,7 +231,6 @@ export default function AppLayout() {
       .catch(() => {})
   }, [isAdmin, token])
 
-  // ✅ Kombine 2 mousedown listeners nan yon sèl
   useEffect(() => {
     const onDoc = (e) => {
       if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
@@ -274,7 +286,6 @@ export default function AppLayout() {
     window.location.href = '/app/dashboard'
   }, [])
 
-  // ✅ useMemo pou rateItems — pa recalcule chak render
   const rateItems = useMemo(() => {
     const exchangeRates     = safeJson(tenant?.exchangeRates, {})
     const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
@@ -295,44 +306,36 @@ export default function AppLayout() {
   )
 
   const sidebarStyle = {
-    position:   isDesktop ? 'relative' : 'fixed',
-    inset:      isDesktop ? 'auto' : '0 auto 0 0',
-    zIndex:     40,
-    width:      248,
-    minHeight:  '100vh',
-    background: `linear-gradient(170deg, ${C.sidebarTop} 0%, ${C.sidebarBg} 50%, #1a1f35 100%)`,
-    display:    'flex',
+    position:      isDesktop ? 'relative' : 'fixed',
+    inset:         isDesktop ? 'auto' : '0 auto 0 0',
+    zIndex:        40,
+    width:         248,
+    minHeight:     '100vh',
+    background:    `linear-gradient(170deg, ${C.sidebarTop} 0%, ${C.sidebarBg} 50%, #1a1f35 100%)`,
+    display:       'flex',
     flexDirection: 'column',
-    transform:  isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
-    transition: 'transform 0.25s ease',  // ✅ Senplifye transition
-    boxShadow:  '4px 0 24px rgba(0,0,0,0.4)',  // ✅ Redui shadow
-    borderRight:`1px solid ${C.border}`,
-    flexShrink: 0,
+    transform:     isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
+    transition:    'transform 0.25s ease',
+    boxShadow:     '4px 0 24px rgba(0,0,0,0.4)',
+    borderRight:   `1px solid ${C.border}`,
+    flexShrink:    0,
   }
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
 
-      {/* ✅ Retire backdrop-filter — li te lou anpil */}
       {open && !isDesktop && (
         <div onClick={() => setOpen(false)} style={{
           position:'fixed', inset:0, zIndex:35,
           background:'rgba(0,0,0,0.7)',
-          // ❌ Retire: backdropFilter:'blur(2px)'
         }}/>
       )}
 
       <aside style={sidebarStyle}>
-
-        {/* ✅ Retire animasyon shimmer — remplace ak gradient statik */}
         <div style={{
           height: 3, flexShrink: 0,
           background: `linear-gradient(90deg, #b34200 0%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 100%)`,
-          // ❌ Retire: animation: 'shimmer 3s linear infinite'
-          // ❌ Retire: backgroundSize: '200% 100%'
         }}/>
-
-        {/* ✅ Retire radial-gradient dekoratif — pa nesesè */}
 
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{
@@ -345,19 +348,13 @@ export default function AppLayout() {
         )}
 
         {/* ── LOGO ZONE ── */}
-        <div style={{
-          padding: '18px 16px 14px',
-          borderBottom: `1px solid ${C.border}`,
-          position: 'relative', zIndex: 1,
-        }}>
+        <div style={{ padding:'18px 16px 14px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{
                   width:44, height:44, borderRadius:12, objectFit:'contain',
                   background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0,
                   boxShadow:`0 0 0 2px ${C.goldBorder}`,
-                  // ✅ Retire: boxShadow double — pi lejè
                 }}/>
               : <div style={{
                   width:44, height:44, borderRadius:12, flexShrink:0,
@@ -370,10 +367,7 @@ export default function AppLayout() {
             }
 
             <div style={{ minWidth:0, flex:1 }}>
-              <p style={{
-                color: C.white, fontWeight:800, fontSize:13, margin:0,
-                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-              }}>
+              <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {tenant?.name || 'PLUS GROUP'}
               </p>
               {currentBranchName
@@ -392,37 +386,30 @@ export default function AppLayout() {
                   onClick={() => setShowBranches(!showBranches)}
                   title="Chanje branch"
                   style={{
-                    background: showBranches
-                      ? `rgba(245,104,12,0.18)`
-                      : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
+                    background: showBranches ? `rgba(245,104,12,0.18)` : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
                     border: `1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`,
                     borderRadius:8, padding:'5px 7px', cursor:'pointer',
                     display:'flex', alignItems:'center', gap:3,
                   }}
                 >
-                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }} />
+                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }}/>
                   <ChevronDown size={11} style={{
                     color: showBranches ? C.gold : currentBranchId ? C.green : C.muted,
                     transform: showBranches ? 'rotate(180deg)' : 'none',
                     transition: 'transform 0.2s',
-                  }} />
+                  }}/>
                 </button>
 
                 {showBranches && (
-                  <div style={{
-                    position:'fixed', top:70, left:252, minWidth:220, zIndex:9999,
-                    background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`,
-                    borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden',
-                  }}>
+                  <div style={{ position:'fixed', top:70, left:252, minWidth:220, zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
                     <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
-                      <GitBranch size={12} style={{ color:C.gold }} />
+                      <GitBranch size={12} style={{ color:C.gold }}/>
                       <span style={{ color:C.gold, fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Chanje Branch</span>
                     </div>
 
                     <button onClick={handleClearBranch}
-                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}
-                    >
-                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold }} />
+                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold }}/>
                       <div style={{ flex:1, textAlign:'left' }}>
                         <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
                         <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
@@ -434,9 +421,8 @@ export default function AppLayout() {
                       const isCurrent = branch.id === currentBranchId
                       return (
                         <button key={branch.id} onClick={() => handleSwitchBranch(branch)} disabled={!branch.isActive}
-                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}
-                        >
-                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red }} />
+                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red }}/>
                           <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
                             <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
                             <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
@@ -444,8 +430,8 @@ export default function AppLayout() {
                           {isCurrent
                             ? <span style={{ fontSize:10, color:C.green, fontWeight:700, flexShrink:0 }}>✓</span>
                             : !branch.isActive
-                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }} />
-                              : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }} />
+                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
+                              : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }}/>
                           }
                         </button>
                       )
@@ -453,7 +439,7 @@ export default function AppLayout() {
 
                     <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
                       style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.10)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
-                      <GitBranch size={11} /> Jere Branch yo →
+                      <GitBranch size={11}/> Jere Branch yo →
                     </button>
                   </div>
                 )}
@@ -461,13 +447,7 @@ export default function AppLayout() {
             )}
           </div>
 
-          <div style={{
-            marginTop:10,
-            display:'flex', alignItems:'center', justifyContent:'space-between',
-            padding:'5px 10px', borderRadius:8,
-            background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${isEnterprise ? C.entBorder : C.border}`,
-          }}>
+          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)', border: `1px solid ${isEnterprise ? C.entBorder : C.border}` }}>
             <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : C.muted, fontWeight:700 }}>
               {planName || 'Free'}
             </span>
@@ -481,7 +461,6 @@ export default function AppLayout() {
 
         {/* ── NAV ── */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none' }}>
-
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
           </p>
@@ -497,16 +476,11 @@ export default function AppLayout() {
                   cursor:  locked ? 'not-allowed' : 'pointer',
                 })}>
                 {({ isActive }) => (<>
-                  <Icon size={15} style={{
-                    flexShrink:0,
-                    color: locked ? '#475569' : isActive ? C.gold : C.mutedMd,
-                    // ✅ Retire filter drop-shadow — lou sou CPU
-                  }}/>
+                  <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.mutedMd }}/>
                   <span style={{ flex:1 }}>{t(labelKey)}</span>
                   {locked
                     ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
                     : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>
-                    // ✅ Retire boxShadow glow sou dot la
                   }
                 </>)}
               </NavLink>
@@ -529,15 +503,8 @@ export default function AppLayout() {
           )}
 
           {/* ── ANTREPRIZ ── */}
-          <div style={{
-            margin:'14px 4px 8px', paddingTop:12,
-            borderTop:`1px solid rgba(201,168,76,0.15)`,
-            display:'flex', alignItems:'center', gap:8,
-          }}>
-            <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-              ✦ Antrepriz
-            </span>
-            {/* ✅ Retire animation pulse — remplace ak dot statik */}
+          <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(201,168,76,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>✦ Antrepriz</span>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
           </div>
 
@@ -568,19 +535,10 @@ export default function AppLayout() {
             const hotelLocked = !isPageAllowed('hotel')
             return (
               <>
-                <div style={{
-                  margin:'14px 4px 8px', paddingTop:12,
-                  borderTop:`1px solid rgba(14,165,233,0.15)`,
-                  display:'flex', alignItems:'center', gap:8,
-                  opacity: hotelLocked ? 0.4 : 1,
-                }}>
-                  <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-                    🏨 Hotel
-                  </span>
-                  {/* ✅ Retire animation pulseBlue */}
+                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: hotelLocked ? 0.4 : 1 }}>
+                  <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏨 Hotel</span>
                   <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
                 </div>
-
                 {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
                   <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
                     onClick={(e) => { if (hotelLocked) { e.preventDefault(); return } setOpen(false) }}
@@ -590,11 +548,7 @@ export default function AppLayout() {
                       cursor:  hotelLocked ? 'not-allowed' : 'pointer',
                     })}>
                     {({ isActive }) => (<>
-                      <Icon size={15} style={{
-                        flexShrink:0,
-                        color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd,
-                        // ✅ Retire filter drop-shadow
-                      }}/>
+                      <Icon size={15} style={{ flexShrink:0, color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd }}/>
                       <span style={{ flex:1 }}>{label}</span>
                       {hotelLocked
                         ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
@@ -609,11 +563,7 @@ export default function AppLayout() {
         </nav>
 
         {/* ── SETTINGS + USER ── */}
-        <div style={{
-          padding:'10px 10px 12px', paddingBottom: 38,
-          borderTop:`1px solid ${C.border}`,
-          position:'relative', zIndex:1,
-        }}>
+        <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <NavLink to="/app/settings" onClick={() => setOpen(false)}
             style={({ isActive }) => ({
               display:'flex', alignItems:'center', gap:10,
@@ -629,18 +579,8 @@ export default function AppLayout() {
             </>)}
           </NavLink>
 
-          <div style={{
-            display:'flex', alignItems:'center', gap:10,
-            padding:'10px 12px', borderRadius:12,
-            background:`rgba(245,104,12,0.08)`,
-            border:`1px solid ${C.goldBorder}`,
-          }}>
-            <div style={{
-              width:34, height:34, borderRadius:10, flexShrink:0,
-              background:`linear-gradient(135deg, #ef4444, #dc2626)`,
-              display:'flex', alignItems:'center', justifyContent:'center',
-              color:'#fff', fontWeight:800, fontSize:14,
-            }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`rgba(245,104,12,0.08)`, border:`1px solid ${C.goldBorder}` }}>
+            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg, #ef4444, #dc2626)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:14 }}>
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
@@ -651,10 +591,7 @@ export default function AppLayout() {
                 {ROLE_LABELS[user?.role] || user?.role}
               </p>
             </div>
-            <button onClick={handleLogout} title="Dekonekte" style={{
-              background:'none', border:'none', cursor:'pointer',
-              color:C.muted, padding:4, borderRadius:6, display:'flex',
-            }}>
+            <button onClick={handleLogout} title="Dekonekte" style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, borderRadius:6, display:'flex' }}>
               <LogOut size={15}/>
             </button>
           </div>
@@ -669,7 +606,7 @@ export default function AppLayout() {
         <header style={{
           minHeight:58, background:'#fff',
           borderBottom:`1px solid rgba(245,104,12,0.15)`,
-          boxShadow:'0 1px 8px rgba(0,0,0,0.06)',  // ✅ Redui shadow
+          boxShadow:'0 1px 8px rgba(0,0,0,0.06)',
           display:'flex', alignItems:'center', gap:6,
           padding:'0 12px', flexShrink:0, position:'relative', zIndex:10,
           flexWrap:'wrap',
@@ -692,6 +629,99 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
+          {/* ══════════════════════════════════════════
+              ✅ BLUETOOTH PRINTER — Global header
+              Konekte yon fwa, sèvi pou tout paj
+          ══════════════════════════════════════════ */}
+
+          {/* Sou Android — montre Sunmi indicator */}
+          {onAndroid && (
+            <div style={{
+              display:'flex', alignItems:'center', gap:5,
+              padding:'4px 10px', borderRadius:10,
+              background:'rgba(5,150,105,0.08)',
+              border:'1px solid rgba(5,150,105,0.2)',
+              flexShrink:0,
+            }}>
+              <Printer size={13} style={{ color:'#059669' }}/>
+              <span style={{ fontSize:11, fontWeight:700, color:'#059669' }}>Sunmi</span>
+            </div>
+          )}
+
+          {/* Sou non-Android avèk Web Bluetooth — bouton konekte/dekonekte */}
+          {!onAndroid && hasBluetooth && (
+            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
+              {!btConnected ? (
+                /* ── PA konekte — bouton konekte */
+                <button
+                  onClick={btConnect}
+                  disabled={btConnecting}
+                  title="Konekte printer Bluetooth"
+                  style={{
+                    display:'flex', alignItems:'center', gap:6,
+                    padding:'5px 12px', borderRadius:10,
+                    border:'1px solid rgba(27,42,143,0.2)',
+                    background: btConnecting ? 'rgba(27,42,143,0.05)' : 'transparent',
+                    color: btConnecting ? '#94a3b8' : '#1B2A8F',
+                    cursor: btConnecting ? 'not-allowed' : 'pointer',
+                    fontSize:12, fontWeight:700,
+                  }}
+                >
+                  <Bluetooth size={14}/>
+                  {btConnecting ? 'Koneksyon...' : 'BT Printer'}
+                </button>
+              ) : (
+                /* ── Konekte — indicator + bouton dekonekte */
+                <>
+                  <div style={{
+                    display:'flex', alignItems:'center', gap:5,
+                    padding:'5px 10px', borderRadius:10,
+                    background:'rgba(5,150,105,0.08)',
+                    border:'1px solid rgba(5,150,105,0.25)',
+                  }}>
+                    {/* Dot vèt + glow */}
+                    <div style={{
+                      width:7, height:7, borderRadius:'50%',
+                      background:'#059669',
+                      boxShadow:'0 0 6px rgba(5,150,105,0.6)',
+                    }}/>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#059669', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {deviceName || 'Printer'}
+                    </span>
+                    {/* Spinner pandan enpresyon */}
+                    {btPrinting && (
+                      <div style={{
+                        width:11, height:11,
+                        border:'2px solid rgba(5,150,105,0.25)',
+                        borderTopColor:'#059669',
+                        borderRadius:'50%',
+                        animation:'spin 0.8s linear infinite',
+                        flexShrink:0,
+                      }}/>
+                    )}
+                  </div>
+                  {/* Bouton dekonekte */}
+                  <button
+                    onClick={btDisconnect}
+                    title="Dekonekte printer"
+                    style={{
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                      width:30, height:30, borderRadius:8,
+                      background:'rgba(192,57,43,0.07)',
+                      border:'1px solid rgba(192,57,43,0.2)',
+                      color:'#C0392B', cursor:'pointer',
+                    }}
+                  >
+                    <BluetoothOff size={13}/>
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════ */}
+
+          {/* Lang selector */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
@@ -716,15 +746,14 @@ export default function AppLayout() {
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
-          <NotificationBell lang={i18n.language} />
+          <NotificationBell lang={i18n.language}/>
         </header>
 
         <main style={{ flex:1, overflowY:'auto' }}>
-          <div style={{ padding:'16px', paddingBottom: 46 }}><Outlet /></div>
+          <div style={{ padding:'16px', paddingBottom:46 }}><Outlet /></div>
         </main>
       </div>
 
-      {/* ✅ Sèlman spin ki rete — retire shimmer, pulse, pulseBlue */}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         aside::-webkit-scrollbar { display:none; }

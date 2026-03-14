@@ -5,7 +5,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { usePrinter } from '../../hooks/usePrinter'
+import { usePrinterStore } from '../../stores/printerStore'
 import { isAndroid } from '../../services/printerService'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
@@ -290,7 +290,7 @@ export default function InvoiceDetail() {
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
 
   // ✅ usePrinter — pou Sunmi RawBT + BT ekstèn
-  const { connected, connecting, printing: btPrinting, connect, disconnect, print } = usePrinter()
+  const { connected, printing: btPrinting, print } = usePrinterStore()
 
   // ✅ Detekte si sou Android pou montre bouton Sunmi
   const onAndroid  = isAndroid()
