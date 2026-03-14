@@ -132,29 +132,21 @@ export default function ReportsPage() {
             <input
               type="date"
               className="input"
-              style={{
-                flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13,
-                ...(isCashier ? { background: '#f8fafc', cursor: 'not-allowed', opacity: 0.65 } : {})
-              }}
+              style={{ flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13 }}
               value={dateFrom}
               min={isCashier ? minCashierDate : undefined}
               max={dateTo}
               onChange={e => handleDateFrom(e.target.value)}
-              readOnly={isCashier}
             />
             <span style={{ color: '#94a3b8', fontSize: 16, flexShrink: 0 }}>→</span>
             <input
               type="date"
               className="input"
-              style={{
-                flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13,
-                ...(isCashier ? { background: '#f8fafc', cursor: 'not-allowed', opacity: 0.65 } : {})
-              }}
+              style={{ flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13 }}
               value={dateTo}
               min={dateFrom}
               max={todayStr}
               onChange={e => handleDateTo(e.target.value)}
-              readOnly={isCashier}
             />
           </div>
         </div>
