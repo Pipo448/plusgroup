@@ -92,13 +92,11 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     } catch(e) { return {} }
   })()
 
-  const statusLabel = isPaid
-    ? 'PEYE / PAYE / PAID'
-    : isCancelled
-      ? 'ANILE / ANNULE / CANCELLED'
-      : isPartial
-        ? 'PASYAL / PARTIEL / PARTIAL'
-        : 'IMPAYE / NON PAYE / UNPAID'
+  // ✅ Kreyol + Fransè sèlman
+  const statusLabel = isPaid      ? 'PEYE / PAYE'
+    : isCancelled                 ? 'ANILE / ANNULE'
+    : isPartial                   ? 'PASYAL / PARTIEL'
+    :                               'IMPAYE / NON PAYE'
 
   const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
   const lastPayment = invoice.payments && invoice.payments.length > 0
@@ -122,30 +120,32 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       padding: '3mm 3mm',
       background: '#fff',
       color: '#1a1a1a',
-      fontSize: '10px',
-      lineHeight: '1.4',
+      fontSize: '14px',
+      lineHeight: '1.6',
     }}>
-      <div style={{ textAlign: 'center', marginBottom: '5px', borderBottom: '1px dashed #ccc', paddingBottom: '5px' }}>
+      {/* HEADER */}
+      <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
         {logoBase64 && (
           <img src={logoBase64} alt="Logo"
-            style={{ height: '36px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto 4px' }}
+            style={{ height: '40px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto 5px' }}
           />
         )}
-        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '13px', letterSpacing: '0.5px', color: '#111' }}>
+        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '16px', letterSpacing: '0.5px', color: '#111' }}>
           {(tenant && (tenant.businessName || tenant.name)) || 'PlusGroup'}
         </div>
-        {tenant && tenant.phone   && <div style={{ fontSize: '9px', color: '#555' }}>Tel: {tenant.phone}</div>}
-        {tenant && tenant.address && <div style={{ fontSize: '9px', color: '#555' }}>{tenant.address}</div>}
+        {tenant && tenant.phone   && <div style={{ fontSize: '13px', color: '#555' }}>Tel: {tenant.phone}</div>}
+        {tenant && tenant.address && <div style={{ fontSize: '13px', color: '#555' }}>{tenant.address}</div>}
       </div>
 
-      <div style={{ textAlign: 'center', margin: '5px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '11px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '4px' }}>
-        Resi / Recu / Receipt
+      <div style={{ textAlign: 'center', margin: '6px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '14px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
+        Resi / Reçu
       </div>
 
-      <div style={{ marginBottom: '5px', fontSize: '9px' }}>
+      {/* INFO FAKTI */}
+      <div style={{ marginBottom: '6px', fontSize: '13px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: '#555' }}>No. Fakti / Facture / Invoice:</span>
-          <span style={{ fontWeight: '800', fontFamily: 'Arial', fontSize: '10px' }}>{invoice.invoiceNumber}</span>
+          <span style={{ color: '#555' }}>No. Fakti / Facture:</span>
+          <span style={{ fontWeight: '800', fontFamily: 'Arial', fontSize: '14px' }}>{invoice.invoiceNumber}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <span style={{ color: '#555' }}>Dat / Date:</span>
@@ -153,30 +153,32 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         </div>
       </div>
 
+      {/* KLIYAN */}
       {snap.name && (
-        <div style={{ marginBottom: '5px', padding: '3px 5px', background: '#f8f8f8', borderRadius: '3px', fontSize: '9px', borderLeft: '2px solid #ccc' }}>
-          <div style={{ fontWeight: '700', fontSize: '10px' }}>Kliyan / Client: {snap.name}</div>
+        <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#f8f8f8', borderRadius: '3px', fontSize: '13px', borderLeft: '2px solid #ccc' }}>
+          <div style={{ fontWeight: '700', fontSize: '14px' }}>Kliyan / Client: {snap.name}</div>
           {snap.phone && <div>Tel: {snap.phone}</div>}
           {snap.email && <div>{snap.email}</div>}
           {snap.nif   && <div>NIF: {snap.nif}</div>}
         </div>
       )}
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      <div style={{ fontSize: '9px', marginBottom: '4px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '3px', paddingBottom: '2px', borderBottom: '1px solid #ddd', fontSize: '8px' }}>
-          <span style={{ flex: 3 }}>Pwodui / Produit / Product</span>
+      {/* ATIK YO */}
+      <div style={{ fontSize: '13px', marginBottom: '5px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '4px', paddingBottom: '3px', borderBottom: '1px solid #ddd', fontSize: '12px' }}>
+          <span style={{ flex: 3 }}>Pwodui / Produit</span>
           <span style={{ flex: 1, textAlign: 'center' }}>Qte</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>Pri (HTG)</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>Total HTG</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>Pri HTG</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>Total</span>
         </div>
         {invoice.items && invoice.items.map(function(item, i) {
           return (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0', borderBottom: '1px dotted #eee' }}>
+            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px dotted #eee' }}>
               <div style={{ flex: 3 }}>
                 <div style={{ fontWeight: '600' }}>{(item.product && item.product.name) || (item.productSnapshot && item.productSnapshot.name)}</div>
-                {Number(item.discountPct) > 0 && <div style={{ color: '#dc2626', fontSize: '8px' }}>Remiz: {item.discountPct}%</div>}
+                {Number(item.discountPct) > 0 && <div style={{ color: '#dc2626', fontSize: '12px' }}>Remiz: {item.discountPct}%</div>}
               </div>
               <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
               <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
@@ -186,53 +188,55 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         })}
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
 
-      <div style={{ fontSize: '9px', marginBottom: '5px' }}>
+      {/* TOTAUX */}
+      <div style={{ fontSize: '13px', marginBottom: '6px' }}>
         {Number(invoice.discountHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '2px' }}>
-            <span>Remiz / Remise / Discount:</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '3px' }}>
+            <span>Remiz / Remise:</span>
             <span>-{fmt(invoice.discountHtg)} HTG</span>
           </div>
         )}
         {Number(invoice.taxHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-            <span>Taks / Taxe / Tax ({Number(invoice.taxRate || 0)}%):</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+            <span>Taks / Taxe ({Number(invoice.taxRate || 0)}%):</span>
             <span>{fmt(invoice.taxHtg)} HTG</span>
           </div>
         )}
-        <div style={{ borderTop: '2px solid #111', marginTop: '4px', paddingTop: '5px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '12px', fontFamily: 'Arial' }}>
+        <div style={{ borderTop: '2px solid #111', marginTop: '5px', paddingTop: '6px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '16px', fontFamily: 'Arial' }}>
             <span>TOTAL:</span>
             <span>{fmt(totalHtg)} HTG</span>
           </div>
           {toUSD(totalHtg) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '2px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#555', marginTop: '2px' }}>
               <span>aprox. USD:</span><span>${toUSD(totalHtg)}</span>
             </div>
           )}
           {toDOP(totalHtg) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#555', marginTop: '1px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#555', marginTop: '2px' }}>
               <span>aprox. DOP:</span><span>RD${toDOP(totalHtg)}</span>
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ fontSize: '9px', marginBottom: '5px', padding: '4px 6px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
-          <span style={{ color: '#555' }}>Peye / Paye / Paid:</span>
+      {/* PEMAN */}
+      <div style={{ fontSize: '13px', marginBottom: '6px', padding: '5px 7px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+          <span style={{ color: '#555' }}>Peye / Payé:</span>
           <span style={{ fontWeight: '700', color: '#16a34a' }}>{fmt(paidHtg)} HTG</span>
         </div>
         {balHtg > 0 && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#555' }}>Balans / Solde / Balance:</span>
+            <span style={{ color: '#555' }}>Balans / Solde:</span>
             <span style={{ fontWeight: '800', color: '#dc2626' }}>{fmt(balHtg)} HTG</span>
           </div>
         )}
         {lastPayment && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-            <span style={{ color: '#555' }}>Metod / Mode / Method:</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
+            <span style={{ color: '#555' }}>Metod / Mode:</span>
             <span style={{ fontWeight: '600', textTransform: 'uppercase' }}>{lastPayment.method}</span>
           </div>
         )}
@@ -244,24 +248,27 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         )}
       </div>
 
-      <div style={{ textAlign: 'center', margin: '6px 0', padding: '5px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
-        <span style={{ fontWeight: '900', fontSize: '11px', color: statusColor, fontFamily: 'Arial' }}>{statusLabel}</span>
+      {/* STATUT */}
+      <div style={{ textAlign: 'center', margin: '7px 0', padding: '6px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
+        <span style={{ fontWeight: '900', fontSize: '15px', color: statusColor, fontFamily: 'Arial' }}>{statusLabel}</span>
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+      <div style={{ borderTop: '1px dashed #aaa', margin: '7px 0' }} />
 
+      {/* QR */}
       {showQrCode && qrDataUrl && (
-        <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-          <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 3px' }} />
-          <div style={{ fontSize: '8px', color: '#888' }}>Skane / Scanner / Scan to verify</div>
-          <div style={{ fontSize: '8px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
+        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+          <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 4px' }} />
+          <div style={{ fontSize: '11px', color: '#888' }}>Skane / Scanner pou verifye</div>
+          <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
         </div>
       )}
 
-      <div style={{ textAlign: 'center', fontSize: '9px', borderTop: '1px dashed #ccc', paddingTop: '5px' }}>
-        <div style={{ fontWeight: '700', fontSize: '10px', marginBottom: '2px' }}>Mesi! / Merci! / Thank you!</div>
-        <div style={{ color: '#666', fontSize: '8px', lineHeight: '1.4' }}>Vant final. / Vente finale. / All sales are final.</div>
-        <div style={{ marginTop: '5px', fontSize: '8px', color: '#555', fontWeight: '600' }}>Tel: +50942449024</div>
+      {/* PYE PAJ */}
+      <div style={{ textAlign: 'center', fontSize: '13px', borderTop: '1px dashed #ccc', paddingTop: '6px' }}>
+        <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '3px' }}>Mesi! / Merci!</div>
+        <div style={{ color: '#666', fontSize: '12px', lineHeight: '1.5' }}>Vant final. / Vente finale.</div>
+        <div style={{ marginTop: '5px', fontSize: '12px', color: '#555', fontWeight: '600' }}>Tel: +50942449024</div>
       </div>
     </div>
   )
