@@ -59,7 +59,10 @@ export default function ReportsPage() {
     enabled:  activeTab === 'sales'
   })
 
-  const { data: stockReport } = useQuery({
+  const handleTabChange = (key) => {
+    if (key === 'stock' && isCashier) return // ✅ Bloke aksè dirèk
+    setActiveTab(key)
+  }
     queryKey: ['stock-report'],
     queryFn:  () => reportAPI.getStock().then(r => r.data.report),
     enabled:  activeTab === 'stock'
@@ -72,10 +75,10 @@ export default function ReportsPage() {
   })
 
   const TABS = [
-    { key: 'sales', labelKey: 'reports.sales',      icon: <TrendingUp size={15} /> },
-    { key: 'stock', labelKey: 'reports.stock',       icon: <Package    size={15} /> },
-    { key: 'top',   labelKey: 'reports.topProducts', icon: <Award      size={15} /> },
-  ]
+    { key: 'sales', labelKey: 'reports.sales',      icon: <TrendingUp size={15} />, adminOnly: false },
+    { key: 'stock', labelKey: 'reports.stock',       icon: <Package    size={15} />, adminOnly: true  },
+    { key: 'top',   labelKey: 'reports.topProducts', icon: <Award      size={15} />, adminOnly: false },
+  ].filter(tab => !tab.adminOnly || !isCashier)
 
   return (
     <div className="animate-fade-in">
@@ -91,7 +94,7 @@ export default function ReportsPage() {
         width: 'fit-content', maxWidth: '100%',
       }}>
         {TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+          <button key={tab.key} onClick={() => handleTabChange(tab.key)} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
             fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0,
