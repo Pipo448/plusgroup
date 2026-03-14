@@ -1,6 +1,5 @@
 // src/modules/invoices/invoice.service.js
 const prisma = require('../../config/prisma');
-// ⚠️ KORIJE — enpòte helpers notifikasyon
 const {
   notifyNewInvoice,
   notifyInvoicePaid,
@@ -150,7 +149,6 @@ const createDirect = async (tenantId, userId, data) => {
             }
           });
 
-          // ⚠️ NOUVO — alèt stòk ba apre vant (pa bloke transaction)
           if (product.alertThreshold && Math.max(0, stockAfter) <= Number(product.alertThreshold)) {
             notifyLowStock({
               tenantId,
@@ -177,7 +175,6 @@ const createDirect = async (tenantId, userId, data) => {
     return inv;
   });
 
-  // ⚠️ NOUVO — notifye admin: nouvo fakti kreye (apre transaction fini)
   notifyNewInvoice({
     tenantId,
     invoiceNumber,
@@ -264,14 +261,27 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   const amountHtg = Number(data.amountHtg || 0);
   const amountUsd = Number(data.amountUsd || 0);
 
+  // ✅ Valide method — 'credit' aksepte; tout lòt valè enkoni → 'cash'
+  const VALID_METHODS = ['cash', 'card', 'transfer', 'moncash', 'natcash', 'check', 'credit', 'other'];
+  const method = VALID_METHODS.includes(data.method) ? data.method : 'cash';
+
+  // ✅ dueDate — dat limit peman kredi, sove sou peman an
+  const dueDate = data.dueDate ? new Date(data.dueDate) : null;
+
   const payment = await prisma.payment.create({
     data: {
-      tenantId, invoiceId, amountHtg, amountUsd,
-      currency: data.currency || invoice.currency,
+      tenantId,
+      invoiceId,
+      amountHtg,
+      amountUsd,
+      currency:     data.currency    || invoice.currency,
       exchangeRate: data.exchangeRate || invoice.exchangeRate,
-      method: data.method || 'cash', reference: data.reference,
-      paymentDate: data.paymentDate ? new Date(data.paymentDate) : new Date(),
-      notes: data.notes, createdBy: userId
+      method,
+      reference:   data.reference   || null,
+      paymentDate: data.paymentDate  ? new Date(data.paymentDate) : new Date(),
+      dueDate,                                    // ✅ AJOUTE
+      notes:       data.notes        || null,
+      createdBy:   userId,
     }
   });
 
@@ -291,21 +301,23 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   await prisma.invoice.update({
     where: { id: invoiceId },
     data: {
-      amountPaidHtg: totalPaidHtg, amountPaidUsd: totalPaidUsd,
-      balanceDueHtg: Math.max(0, balanceDueHtg), balanceDueUsd: Math.max(0, balanceDueUsd),
-      status: newStatus
+      amountPaidHtg: totalPaidHtg,
+      amountPaidUsd: totalPaidUsd,
+      balanceDueHtg: Math.max(0, balanceDueHtg),
+      balanceDueUsd: Math.max(0, balanceDueUsd),
+      status: newStatus,
+      // ✅ Si se kredi (gen balans), sove dueDate sou fakti a tou pou resi HTML la
+      ...(dueDate && balanceDueHtg > 0 ? { dueDate } : {}),
     }
   });
 
-  // ⚠️ NOUVO — notifye pèman resevwa
   notifyPaymentReceived({
     tenantId,
     invoiceNumber: invoice.invoiceNumber,
     amountHtg,
-    method: data.method || 'cash'
+    method
   }).catch(() => {});
 
-  // ⚠️ NOUVO — notifye si fakti fin peye nèt
   if (newStatus === 'paid') {
     notifyInvoicePaid({
       tenantId,
