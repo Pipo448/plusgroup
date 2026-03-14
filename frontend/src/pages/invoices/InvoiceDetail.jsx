@@ -76,10 +76,6 @@ const loadPdfLibs = async () => {
   }
 }
 
-// ============================================================
-// REMPLACE sèlman fonksyon PrintableReceipt nan InvoiceDetail.jsx
-// ============================================================
-
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode }) {
   if (!invoice) return null
 
@@ -129,7 +125,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     card: 'Kat / Carte', transfer: 'Virement', check: 'Chek / Chèque', other: 'Lòt / Autre'
   }
 
-  // ── Styles de base
   const base = {
     fontFamily: "'Arial', 'Helvetica', sans-serif",
     width:      receiptWidth,
@@ -160,7 +155,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     </div>
   )
 
-  const fmt = (n) => Number(n || 0)
+  const fmtR = (n) => Number(n || 0)
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
@@ -195,7 +190,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           </div>
         )}
 
-        {/* Non biznis toujou monte si gen logo */}
         {logoBase64 && (
           <div style={{ fontWeight: '900', fontSize: is57 ? '15px' : '20px', letterSpacing: '0.5px', marginBottom: '2px' }}>
             {businessName}
@@ -248,7 +242,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       {/* ══════════ ATIK YO ══════════ */}
       <div style={{ marginBottom: '4px' }}>
-        {/* Entete tablo */}
         <div style={{
           display:       'flex',
           justifyContent:'space-between',
@@ -264,7 +257,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           <span style={{ flex: 2, textAlign: 'right' }}>Total</span>
         </div>
 
-        {/* Ranje atik yo */}
         {invoice.items?.map((item, i) => {
           const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
           return (
@@ -279,10 +271,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
               <span style={{ flex: 3, fontWeight: '500' }}>{nom}</span>
               <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
               <span style={{ flex: 2, textAlign: 'right', fontFamily: 'monospace' }}>
-                {fmt(item.unitPriceHtg)} G
+                {fmtR(item.unitPriceHtg)} G
               </span>
               <span style={{ flex: 2, textAlign: 'right', fontFamily: 'monospace', fontWeight: '700' }}>
-                {fmt(item.totalHtg)} G
+                {fmtR(item.totalHtg)} G
               </span>
             </div>
           )
@@ -294,57 +286,62 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       {/* ══════════ TOTAUX ══════════ */}
       <div style={{ marginBottom: '4px', fontSize: is57 ? '10px' : '11px' }}>
         {Number(invoice.discountHtg) > 0 && (
-          <Row left="Remiz / Remise:" right={`-${fmt(invoice.discountHtg)} G`} color="#dc2626" />
+          <Row left="Remiz / Remise:" right={`-${fmtR(invoice.discountHtg)} G`} color="#dc2626" />
         )}
         {Number(invoice.taxHtg) > 0 && (
-          <Row left={`Taks / Taxe (${Number(invoice.taxRate || 0)}%):`} right={`${fmt(invoice.taxHtg)} G`} />
+          <Row left={`Taks / Taxe (${Number(invoice.taxRate || 0)}%):`} right={`${fmtR(invoice.taxHtg)} G`} />
         )}
       </div>
 
-      {/* TOTAL GRAND */}
+      {/* ✅ TOTAL GRAND + deviz sou menm liy */}
       <div style={{ marginBottom: '4px' }}>
-        <Row
-          left="TOTAL / TOTAL:"
-          right={`${fmt(totalHtg)} G`}
-          bold large
-        />
-        {toUSD(totalHtg) && (
-          <div style={{ fontSize: '9px', color: '#555', textAlign: 'right' }}>
-            ≈ ${toUSD(totalHtg)} USD
+        <div style={{
+          display:        'flex',
+          justifyContent: 'space-between',
+          alignItems:     'baseline',
+          fontWeight:     '900',
+          fontSize:       is57 ? '13px' : '14px',
+          color:          '#111',
+          marginBottom:   '2px',
+        }}>
+          <span>TOTAL / TOTAL:</span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <span style={{ fontFamily: 'monospace', fontWeight: '800' }}>{fmtR(totalHtg)} G</span>
+            {toUSD(totalHtg) && (
+              <span style={{ fontSize: '9px', color: '#555', fontFamily: 'monospace' }}>
+                ≈ ${toUSD(totalHtg)} USD
+              </span>
+            )}
+            {toDOP(totalHtg) && (
+              <span style={{ fontSize: '9px', color: '#555', fontFamily: 'monospace' }}>
+                ≈ RD${toDOP(totalHtg)} DOP
+              </span>
+            )}
           </div>
-        )}
-        {toDOP(totalHtg) && (
-          <div style={{ fontSize: '9px', color: '#555', textAlign: 'right' }}>
-            ≈ RD${toDOP(totalHtg)} DOP
-          </div>
-        )}
+        </div>
       </div>
 
       {HR_DASHED}
 
       {/* ══════════ PEMAN ══════════ */}
       <div style={{ marginBottom: '4px', fontSize: is57 ? '10px' : '11px' }}>
-        {/* Kob kliyan bay — sèlman si gen amountGiven */}
+
+        {/* Kob kliyan bay */}
         {amountGiven > 0 && (
           <Row
             left={is57 ? 'Kòb kliyan bay' : 'Montant reçu / Kòb kliyan bay:'}
-            right={`${fmt(amountGiven)} G`}
+            right={`${fmtR(amountGiven)} G`}
             bold
           />
         )}
 
         {/* Monnen */}
         {change > 0 && (
-          <>
-            <Row
-              left={is57 ? 'Monnen' : 'Monnaie / Monnen remèt:'}
-              right={`${fmt(change)} G`}
-              bold
-            />
-            {is57 && (
-              <Row left="Monnaie rendue:" right={`${fmt(change)} G`} />
-            )}
-          </>
+          <Row
+            left={is57 ? 'Monnen' : 'Monnaie / Monnen remèt:'}
+            right={`${fmtR(change)} G`}
+            bold
+          />
         )}
 
         {/* Metod peman */}
@@ -358,14 +355,49 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           <Row left="Réf:" right={lastPayment.reference} />
         )}
 
-        {/* Peman pasyal */}
+        {/* ✅ BALANS AK SIY NEGATIF */}
         {balHtg > 0 && (
-          <Row
-            left="Balans / Solde dû:"
-            right={`${fmt(balHtg)} G`}
-            bold
-            color="#dc2626"
-          />
+          <div style={{ marginTop: 4 }}>
+            <div style={{
+              display:        'flex',
+              justifyContent: 'space-between',
+              alignItems:     'baseline',
+              fontWeight:     '700',
+              color:          '#dc2626',
+              marginBottom:   '2px',
+            }}>
+              <span>Balans / Solde dû:</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: '800' }}>-{fmtR(balHtg)} G</span>
+                {toUSD(balHtg) && (
+                  <span style={{ fontSize: '9px', color: '#dc2626', opacity: 0.7, fontFamily: 'monospace' }}>
+                    ≈ -${toUSD(balHtg)} USD
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ✅ DAT PEMAN KREDI */}
+        {invoice.dueDate && balHtg > 0 && (
+          <>
+            {HR_DASHED}
+            <div style={{
+              background:   'rgba(217,119,6,0.07)',
+              border:       '1px dashed #d97706',
+              borderRadius: 6,
+              padding:      '5px 8px',
+              marginTop:    4,
+            }}>
+              <Row
+                left={is57 ? '📅 Dat pou peye:' : '📅 Date limite paiement:'}
+                right={toHaitiDate(invoice.dueDate, 'dd/MM/yyyy')}
+                bold
+                color="#d97706"
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -382,7 +414,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         margin:         '5px 0',
       }}>
         <span>{statusLabel}:</span>
-        <span style={{ fontFamily: 'monospace' }}>{fmt(isPaid ? totalHtg : paidHtg)} G</span>
+        <span style={{ fontFamily: 'monospace' }}>{fmtR(isPaid ? totalHtg : paidHtg)} G</span>
       </div>
 
       {HR_SOLID}
@@ -409,7 +441,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         borderTop:  '1px dashed #ccc',
         paddingTop: '6px',
       }}>
-        {/* Mesi */}
         <div style={{ fontWeight: '700', fontSize: is57 ? '11px' : '12px', marginBottom: '3px' }}>
           Mési paske ou achte lakay nou
         </div>
@@ -417,14 +448,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           Merci pour votre achat
         </div>
 
-        {/* Avis retou */}
         <div style={{ borderTop: '1px dotted #ccc', paddingTop: '4px', marginBottom: '4px', fontStyle: 'italic', color: '#555' }}>
           Tout machandiz vann pa reprann ni chanje.
           <br />
           Les marchandises vendues ne sont ni reprises ni échangées.
         </div>
 
-        {/* Promo Plus Group */}
         <div style={{ borderTop: '1px dotted #ccc', paddingTop: '4px', fontWeight: '600', color: '#333' }}>
           Produit par / Pwodwi pa
           <br />
@@ -452,7 +481,9 @@ export default function InvoiceDetail() {
   const [qrDataUrl, setQrDataUrl]     = useState(null)
   const [logoBase64, setLogoBase64]   = useState(null)
   const [printing, setPrinting]       = useState(false)
-  const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
+
+  // ✅ dueDate ajoute pou peman kredi
+  const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '', dueDate: '' })
 
   const {
     connected,
@@ -464,8 +495,6 @@ export default function InvoiceDetail() {
     deviceName,
   } = usePrinterStore()
 
-  // ✅ isSunmi — detekte Sunmi V2 espesifikman (pa jis Android)
-  // Telefon Android nòmal pap wè bouton Sunmi — y ap wè bouton BT
   const onSunmi    = isSunmi()
   const showQrCode = tenant?.showQrCode !== false
 
@@ -583,7 +612,7 @@ export default function InvoiceDetail() {
       toast.success('Peman anrejistre!')
       qc.invalidateQueries(['invoice', id])
       setShowPayment(false)
-      setPayData({ amountHtg: '', method: 'cash', reference: '' })
+      setPayData({ amountHtg: '', method: 'cash', reference: '', dueDate: '' })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Ere pandan peman.')
   })
@@ -595,7 +624,7 @@ export default function InvoiceDetail() {
 
   const openPaymentModal = () => {
     const bal = Number(invoice?.balanceDueHtg || 0)
-    setPayData({ amountHtg: bal > 0 ? String(bal) : '', method: 'cash', reference: '' })
+    setPayData({ amountHtg: bal > 0 ? String(bal) : '', method: 'cash', reference: '', dueDate: '' })
     setShowPayment(true)
   }
 
@@ -657,7 +686,6 @@ export default function InvoiceDetail() {
 
         <div className="flex gap-2 flex-wrap">
 
-          {/* window.print() — laptop, PDF, tablet, nenpòt aparey */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -668,7 +696,6 @@ export default function InvoiceDetail() {
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
-          {/* ✅ RawBT — Sunmi V2 inner printer — sèlman si userAgent gen "sunmi" */}
           {onSunmi && (
             <button
               onClick={handleSunmiPrint}
@@ -681,7 +708,6 @@ export default function InvoiceDetail() {
             </button>
           )}
 
-          {/* ✅ Bluetooth ESC/POS — sou tout aparey ki pa Sunmi (PC, Mac, telefon Android nòmal) */}
           {!onSunmi && typeof navigator !== 'undefined' && !!navigator.bluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
@@ -707,7 +733,6 @@ export default function InvoiceDetail() {
             </div>
           )}
 
-          {/* PDF Download */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -749,7 +774,6 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* ✅ Indicator BT konekte — sèlman sou aparey ki pa Sunmi */}
       {!onSunmi && connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
@@ -818,6 +842,19 @@ export default function InvoiceDetail() {
               </table>
             </div>
           )}
+
+          {/* ✅ Afiche dat limit peman si gen dueDate ak balans */}
+          {invoice.dueDate && balance > 0 && (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'rgba(217,119,6,0.07)', border:'1px solid rgba(217,119,6,0.3)', borderRadius:12 }}>
+              <span style={{ fontSize:20 }}>📅</span>
+              <div>
+                <p style={{ fontSize:12, fontWeight:800, color:'#d97706', margin:0 }}>Dat limit peman kredi</p>
+                <p style={{ fontSize:14, fontWeight:700, color:'#92400e', margin:'2px 0 0', fontFamily:'monospace' }}>
+                  {toHaitiDate(invoice.dueDate, 'dd MMMM yyyy')}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Kolòn dwat */}
@@ -840,7 +877,8 @@ export default function InvoiceDetail() {
               {balance > 0 && (
                 <div className="flex justify-between text-red-600">
                   <span className="flex items-center gap-1.5"><Clock size={14} /> Balans</span>
-                  <span className="font-mono font-bold">{fmt(balance)} HTG</span>
+                  {/* ✅ Siy negatif nan sidebar tou */}
+                  <span className="font-mono font-bold">-{fmt(balance)} HTG</span>
                 </div>
               )}
             </div>
@@ -859,13 +897,18 @@ export default function InvoiceDetail() {
               <div className="flex justify-between">
                 <span>Dat:</span><span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</span>
               </div>
+              {invoice.dueDate && balance > 0 && (
+                <div className="flex justify-between" style={{ color:'#d97706', fontWeight:700 }}>
+                  <span>📅 Limit:</span>
+                  <span className="font-mono">{toHaitiDate(invoice.dueDate, 'dd/MM/yyyy')}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Taux:</span>
                 <span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span>
               </div>
             </div>
 
-            {/* Sidebar — Enprime Resi (window.print) */}
             <button
               onClick={handlePrint}
               disabled={printing}
@@ -876,7 +919,6 @@ export default function InvoiceDetail() {
               {printing ? 'Ap enprime...' : 'Enprime Resi'}
             </button>
 
-            {/* Sidebar — Sunmi (sèlman si userAgent gen "sunmi") */}
             {onSunmi && (
               <button
                 onClick={handleSunmiPrint}
@@ -889,7 +931,6 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {/* Sidebar — BT enprime (aparey ki pa Sunmi, si konekte) */}
             {!onSunmi && connected && (
               <button
                 onClick={() => print(invoice, tenant, user)}
@@ -913,7 +954,7 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* Modal Peman */}
+      {/* ══════════ MODAL PEMAN ══════════ */}
       {showPayment && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPayment(false)}>
           <div className="modal max-w-md">
@@ -939,7 +980,8 @@ export default function InvoiceDetail() {
                 )}
                 <div style={{ borderTop:'1px solid #fecaca', marginTop:8, paddingTop:8 }} className="flex justify-between items-center">
                   <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans ki rete:</span>
-                  <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>{fmt(balance)} HTG</span>
+                  {/* ✅ Siy negatif nan modal tou */}
+                  <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>-{fmt(balance)} HTG</span>
                 </div>
               </div>
 
@@ -1001,6 +1043,27 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
               </div>
 
+              {/* ✅ DAT KREDI — montre sèlman si se peman pasyal */}
+              {amtNum > 0 && amtNum < balance && (
+                <div>
+                  <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
+                    <span>📅</span> Dat kliyan ap vin peye balans la
+                  </label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={payData.dueDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setPayData(d => ({ ...d, dueDate: e.target.value }))}
+                  />
+                  {!payData.dueDate && (
+                    <p style={{ fontSize:11, color:'#d97706', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>
+                      <span>⚠️</span> Rekòmande pou kredi — bay dat limit peman an
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
                 <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={paymentMutation.isPending}>
                   Anile
@@ -1009,7 +1072,11 @@ export default function InvoiceDetail() {
                   onClick={() => {
                     if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
                     const amtToRecord = monnen > 0 ? balance : amtNum
-                    paymentMutation.mutate({ ...payData, amountHtg: amtToRecord })
+                    paymentMutation.mutate({
+                      ...payData,
+                      amountHtg: amtToRecord,
+                      dueDate: payData.dueDate || undefined,
+                    })
                   }}
                   disabled={paymentMutation.isPending || amtNum <= 0}
                   className="btn-primary"

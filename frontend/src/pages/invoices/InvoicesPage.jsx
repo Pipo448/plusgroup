@@ -25,8 +25,6 @@ const D = {
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
-// ✅ STATUS_MAP deyò component — pa rekrye chak render
-// (NB: label yo statik isit — si ou bezwen i18n dinamik, mete nan useMemo)
 const STATUS_KEYS = ['unpaid','partial','paid','cancelled','refunded']
 
 const parseCurrencies = (raw) => {
@@ -55,7 +53,6 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
   return parts.length ? parts.join('  ') : null
 }
 
-// ✅ useDebounce — evite API call chak lèt
 function useDebounce(value, delay = 400) {
   const [debouncedValue, setDebouncedValue] = useState(value)
   useEffect(() => {
@@ -83,7 +80,6 @@ export default function InvoicesPage() {
   const isMobile  = useIsMobile()
   const { tenant } = useAuthStore()
 
-  // ✅ DEBOUNCE — tann 400ms anvan API call
   const debouncedSearch = useDebounce(search, 400)
 
   const showRate      = tenant?.showExchangeRate !== false
@@ -91,7 +87,6 @@ export default function InvoicesPage() {
   const visibleCurrs  = useMemo(() => parseCurrencies(tenant?.visibleCurrencies), [tenant?.visibleCurrencies])
   const requireQuote  = tenant?.requireQuote === true
 
-  // ✅ STATUS_MAP avèk useMemo — tradiksyon yo aktyalize si lang chanje
   const STATUS_MAP = useMemo(() => ({
     unpaid:    { label: t('invoices.unpaid'),    color: D.red,     bg: D.redDim },
     partial:   { label: t('invoices.partial'),   color: D.warning, bg: D.warningBg },
@@ -101,7 +96,7 @@ export default function InvoicesPage() {
   }), [t])
 
   const { data: rawData, isLoading } = useQuery({
-    queryKey: ['invoices', debouncedSearch, status, page], // ✅ debounced
+    queryKey: ['invoices', debouncedSearch, status, page],
     queryFn: () => invoiceAPI.getAll({ search: debouncedSearch, status, page, limit: 15 }).then(r => {
       const d = r.data || {}
       return {
@@ -111,12 +106,11 @@ export default function InvoicesPage() {
       }
     }),
     keepPreviousData: true,
-    staleTime: 20_000,  // ✅ cache 20 sèk — pa re-fetch si menm params
+    staleTime: 20_000,
   })
 
   const data = rawData || { invoices: [], total: 0, pages: 1 }
 
-  // ✅ useCallback sou handlers pou evite rekrye chak render
   const handleSearchChange = useCallback((e) => {
     setSearch(e.target.value)
     setPage(1)
@@ -262,8 +256,6 @@ export default function InvoicesPage() {
         ::-webkit-scrollbar{height:4px}
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:rgba(27,42,143,0.2);border-radius:99px}
-
-        /* ✅ CSS hover sou InvRow — retire useState pou hover */
         .inv-row { transition: background 0.15s; }
         .inv-row:hover { background: rgba(27,42,143,0.07) !important; }
         .inv-row:hover .inv-eye {
@@ -275,7 +267,6 @@ export default function InvoicesPage() {
   )
 }
 
-// ✅ Separe EmptyState — evite duplika kòd
 function EmptyState({ requireQuote, D, t, desktop }) {
   return (
     <div style={{ padding:'60px 20px', textAlign:'center', ...(desktop ? {} : { background:D.white, borderRadius:16, border:`1px solid ${D.border}` }) }}>
@@ -296,9 +287,8 @@ function EmptyState({ requireQuote, D, t, desktop }) {
   )
 }
 
-// ✅ memo — pa re-render si props pa chanje
+// ✅ InvCard — deviz sou menm liy ak montan HTG, siy negatif sou balans
 const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRates, visibleCurrs }) {
-  // ✅ useMemo — pa recalcule konvèsyon chak render
   const { totalConv, payedConv, balanceConv } = useMemo(() => ({
     totalConv:   showRate ? fmtConv(Number(inv.totalHtg),      exchangeRates, visibleCurrs) : null,
     payedConv:   showRate ? fmtConv(Number(inv.amountPaidHtg), exchangeRates, visibleCurrs) : null,
@@ -306,6 +296,7 @@ const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRat
   }), [inv.totalHtg, inv.amountPaidHtg, inv.balanceDueHtg, showRate, exchangeRates, visibleCurrs])
 
   const dateStr = useMemo(() => format(new Date(inv.issueDate), 'dd/MM/yy'), [inv.issueDate])
+  const hasBalance = Number(inv.balanceDueHtg) > 0
 
   return (
     <div style={{ background:D.white, borderRadius:14, border:`1px solid ${D.border}`, boxShadow:D.shadow, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
@@ -328,27 +319,44 @@ const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRat
       <div style={{ height:1, background:D.border }}/>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
+
+        {/* ✅ TOTAL — deviz sou menm liy */}
         <div style={{ textAlign:'center' }}>
           <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{t('invoices.colTotal')}</p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, color:D.text, fontSize:13, margin:0 }}>{fmt(inv.totalHtg)}</p>
-          {totalConv && <p style={{ fontFamily:'monospace', fontSize:9, color:D.muted, margin:'2px 0 0' }}>{totalConv}</p>}
+          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
+            <p style={{ fontFamily:'monospace', fontWeight:800, color:D.text, fontSize:13, margin:0 }}>{fmt(inv.totalHtg)}</p>
+            {totalConv && <span style={{ fontFamily:'monospace', fontSize:9, color:D.muted }}>{totalConv}</span>}
+          </div>
         </div>
+
+        {/* ✅ PEYE — deviz sou menm liy */}
         <div style={{ textAlign:'center', borderLeft:`1px solid ${D.border}`, borderRight:`1px solid ${D.border}` }}>
           <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{t('invoices.colPaid')}</p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, color:D.success, fontSize:13, margin:0 }}>{fmt(inv.amountPaidHtg)}</p>
-          {payedConv && <p style={{ fontFamily:'monospace', fontSize:9, color:D.muted, margin:'2px 0 0' }}>{payedConv}</p>}
+          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
+            <p style={{ fontFamily:'monospace', fontWeight:800, color:D.success, fontSize:13, margin:0 }}>{fmt(inv.amountPaidHtg)}</p>
+            {payedConv && <span style={{ fontFamily:'monospace', fontSize:9, color:D.muted }}>{payedConv}</span>}
+          </div>
         </div>
+
+        {/* ✅ BALANS — siy negatif + deviz sou menm liy */}
         <div style={{ textAlign:'center' }}>
           <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{t('invoices.colBalance')}</p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, color:Number(inv.balanceDueHtg) > 0 ? D.red : D.muted, fontSize:13, margin:0 }}>{fmt(inv.balanceDueHtg)}</p>
-          {balanceConv && Number(inv.balanceDueHtg) > 0 && <p style={{ fontFamily:'monospace', fontSize:9, color:D.red, opacity:0.7, margin:'2px 0 0' }}>{balanceConv}</p>}
+          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
+            <p style={{ fontFamily:'monospace', fontWeight:800, color: hasBalance ? D.red : D.muted, fontSize:13, margin:0 }}>
+              {hasBalance ? `-${fmt(inv.balanceDueHtg)}` : fmt(inv.balanceDueHtg)}
+            </p>
+            {balanceConv && hasBalance && (
+              <span style={{ fontFamily:'monospace', fontSize:9, color:D.red, opacity:0.7 }}>{balanceConv}</span>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   )
 })
 
-// ✅ memo + RETIRE useState hover — itilize CSS .inv-row:hover
+// ✅ InvRow — deviz sou menm liy ak montan HTG, siy negatif sou balans
 const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRates, visibleCurrs }) {
   const { totalConv, payedConv, balanceConv } = useMemo(() => ({
     totalConv:   showRate ? fmtConv(Number(inv.totalHtg),      exchangeRates, visibleCurrs) : null,
@@ -356,7 +364,8 @@ const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRat
     balanceConv: showRate ? fmtConv(Number(inv.balanceDueHtg), exchangeRates, visibleCurrs) : null,
   }), [inv.totalHtg, inv.amountPaidHtg, inv.balanceDueHtg, showRate, exchangeRates, visibleCurrs])
 
-  const dateStr = useMemo(() => format(new Date(inv.issueDate), 'dd/MM/yy'), [inv.issueDate])
+  const dateStr    = useMemo(() => format(new Date(inv.issueDate), 'dd/MM/yy'), [inv.issueDate])
+  const hasBalance = Number(inv.balanceDueHtg) > 0
 
   return (
     <div className="inv-row"
@@ -365,19 +374,32 @@ const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRat
       <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{inv.invoiceNumber}</span>
       <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{inv.client?.name || '—'}</span>
 
+      {/* ✅ TOTAL — deviz sou menm liy */}
       <div style={{ textAlign:'center' }}>
-        <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(inv.totalHtg)}</span>
-        {totalConv && <div style={{ fontSize:10, color:D.muted, fontFamily:'monospace', marginTop:2 }}>{totalConv}</div>}
+        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(inv.totalHtg)}</span>
+          {totalConv && <span style={{ fontSize:10, color:D.muted, fontFamily:'monospace' }}>{totalConv}</span>}
+        </div>
       </div>
 
+      {/* ✅ PEYE — deviz sou menm liy */}
       <div style={{ textAlign:'center' }}>
-        <span style={{ fontFamily:'monospace', color:D.success, fontWeight:700, fontSize:12 }}>{fmt(inv.amountPaidHtg)}</span>
-        {payedConv && <div style={{ fontSize:10, color:D.muted, fontFamily:'monospace', marginTop:2 }}>{payedConv}</div>}
+        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:'monospace', color:D.success, fontWeight:700, fontSize:12 }}>{fmt(inv.amountPaidHtg)}</span>
+          {payedConv && <span style={{ fontSize:10, color:D.muted, fontFamily:'monospace' }}>{payedConv}</span>}
+        </div>
       </div>
 
+      {/* ✅ BALANS — siy negatif + deviz sou menm liy */}
       <div style={{ textAlign:'center' }}>
-        <span style={{ fontFamily:'monospace', color:Number(inv.balanceDueHtg) > 0 ? D.red : D.muted, fontWeight:700, fontSize:12 }}>{fmt(inv.balanceDueHtg)}</span>
-        {balanceConv && Number(inv.balanceDueHtg) > 0 && <div style={{ fontSize:10, color:D.red, opacity:0.7, fontFamily:'monospace', marginTop:2 }}>{balanceConv}</div>}
+        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
+          <span style={{ fontFamily:'monospace', color: hasBalance ? D.red : D.muted, fontWeight:700, fontSize:12 }}>
+            {hasBalance ? `-${fmt(inv.balanceDueHtg)}` : fmt(inv.balanceDueHtg)}
+          </span>
+          {balanceConv && hasBalance && (
+            <span style={{ fontSize:10, color:D.red, opacity:0.7, fontFamily:'monospace' }}>{balanceConv}</span>
+          )}
+        </div>
       </div>
 
       <div style={{ textAlign:'center' }}>
@@ -387,7 +409,6 @@ const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRat
       <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{dateStr}</span>
 
       <div style={{ textAlign:'right' }}>
-        {/* ✅ CSS class pou hover — pa useState */}
         <Link to={`/app/invoices/${inv.id}`} className="inv-eye"
           style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:D.blueDim, color:D.blue, textDecoration:'none', transition:'all 0.2s' }}>
           <Eye size={13}/>
