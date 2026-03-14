@@ -76,8 +76,13 @@ const loadPdfLibs = async () => {
   }
 }
 
+// ============================================================
+// REMPLACE sèlman fonksyon PrintableReceipt nan InvoiceDetail.jsx
+// ============================================================
+
 function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode }) {
   if (!invoice) return null
+
   const snap        = invoice.clientSnapshot || {}
   const isPaid      = invoice.status === 'paid'
   const isCancelled = invoice.status === 'cancelled'
@@ -89,18 +94,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       if (!er) return {}
       if (typeof er === 'object') return er
       return JSON.parse(String(er))
-    } catch(e) { return {} }
+    } catch (e) { return {} }
   })()
 
-  const statusLabel = isPaid      ? 'PEYE / PAYE'
-    : isCancelled                 ? 'ANILE / ANNULE'
-    : isPartial                   ? 'PASYAL / PARTIEL'
-    :                               'IMPAYE / NON PAYE'
+  const receiptWidth = tenant?.receiptSize === '57mm' ? '57mm' : '80mm'
+  const is57         = receiptWidth === '57mm'
 
-  const statusColor = isPaid ? '#16a34a' : isCancelled ? '#6b7280' : isPartial ? '#d97706' : '#dc2626'
-  const lastPayment = invoice.payments && invoice.payments.length > 0
-    ? invoice.payments[invoice.payments.length - 1] : null
-  const receiptWidth = tenant && tenant.receiptSize === '57mm' ? '57mm' : '80mm'
   const totalHtg = Number(invoice.totalHtg || 0)
   const paidHtg  = Number(invoice.amountPaidHtg || 0)
   const balHtg   = Number(invoice.balanceDueHtg || 0)
@@ -109,166 +108,332 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
   const toUSD    = (htg) => rateUSD > 0 ? (htg / rateUSD).toFixed(2) : null
   const toDOP    = (htg) => rateDOP > 0 ? (htg / rateDOP).toFixed(2) : null
 
-  return (
-    <div id="printable-receipt" style={{
-      display: 'none',
-      fontFamily: "'Courier New', Courier, monospace",
-      width: receiptWidth,
-      maxWidth: receiptWidth,
-      margin: '0 auto',
-      padding: '3mm 3mm',
-      background: '#fff',
-      color: '#1a1a1a',
-      fontSize: '14px',
-      lineHeight: '1.6',
+  const lastPayment = invoice.payments?.length > 0
+    ? invoice.payments[invoice.payments.length - 1] : null
+
+  const amountGiven = lastPayment?.amountGiven || 0
+  const change      = lastPayment?.change || 0
+
+  const statusLabel = isPaid      ? 'TOTAL PAYÉ / TOTAL PEYE'
+    : isCancelled                 ? 'ANILÉ / ANNULÉ'
+    : isPartial                   ? 'PASYAL / PARTIEL'
+    :                               'IMPAYÉ / IMPAYE'
+
+  const statusColor = isPaid      ? '#111'
+    : isCancelled                 ? '#6b7280'
+    : isPartial                   ? '#d97706'
+    :                               '#dc2626'
+
+  const PAYMENT_METHOD_LABELS = {
+    cash: 'Kach / Cash', moncash: 'MonCash', natcash: 'NatCash',
+    card: 'Kat / Carte', transfer: 'Virement', check: 'Chek / Chèque', other: 'Lòt / Autre'
+  }
+
+  // ── Styles de base
+  const base = {
+    fontFamily: "'Arial', 'Helvetica', sans-serif",
+    width:      receiptWidth,
+    maxWidth:   receiptWidth,
+    margin:     '0 auto',
+    padding:    is57 ? '4mm 3mm' : '5mm 5mm',
+    background: '#fff',
+    color:      '#111',
+    fontSize:   is57 ? '11px' : '12px',
+    lineHeight: '1.5',
+  }
+
+  const HR_SOLID  = <div style={{ borderTop: '1.5px solid #111', margin: '5px 0' }} />
+  const HR_DASHED = <div style={{ borderTop: '1px dashed #aaa', margin: '5px 0' }} />
+
+  const Row = ({ left, right, bold, large, color }) => (
+    <div style={{
+      display:        'flex',
+      justifyContent: 'space-between',
+      alignItems:     'baseline',
+      fontWeight:     bold ? '700' : '400',
+      fontSize:       large ? (is57 ? '13px' : '14px') : 'inherit',
+      color:          color || '#111',
+      marginBottom:   '2px',
     }}>
-      {/* HEADER */}
-      <div style={{ textAlign: 'center', marginBottom: '6px', borderBottom: '1px dashed #ccc', paddingBottom: '6px' }}>
-        {logoBase64 && (
-          <img src={logoBase64} alt="Logo"
-            style={{ height: '40px', maxWidth: '100%', objectFit: 'contain', display: 'block', margin: '0 auto 5px' }}
+      <span>{left}</span>
+      <span style={{ fontFamily: 'monospace', fontWeight: bold ? '800' : '500' }}>{right}</span>
+    </div>
+  )
+
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
+
+  const businessName = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const tagline      = tenant?.tagline || tenant?.description || ''
+
+  return (
+    <div id="printable-receipt" style={{ display: 'none', ...base }}>
+
+      {/* ══════════ HEADER ══════════ */}
+      <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+        {logoBase64 ? (
+          <img
+            src={logoBase64}
+            alt="Logo"
+            style={{
+              height:      is57 ? '35px' : '45px',
+              maxWidth:    '100%',
+              objectFit:   'contain',
+              display:     'block',
+              margin:      '0 auto 5px',
+            }}
           />
+        ) : (
+          <div style={{
+            fontWeight:    '900',
+            fontSize:      is57 ? '17px' : '22px',
+            letterSpacing: '0.5px',
+            marginBottom:  '3px',
+          }}>
+            {businessName}
+          </div>
         )}
-        <div style={{ fontFamily: 'Arial, sans-serif', fontWeight: '900', fontSize: '16px', letterSpacing: '0.5px', color: '#111' }}>
-          {(tenant && (tenant.businessName || tenant.name)) || 'PlusGroup'}
-        </div>
-        {tenant && tenant.phone   && <div style={{ fontSize: '13px', color: '#555' }}>Tel: {tenant.phone}</div>}
-        {tenant && tenant.address && <div style={{ fontSize: '13px', color: '#555' }}>{tenant.address}</div>}
+
+        {/* Non biznis toujou monte si gen logo */}
+        {logoBase64 && (
+          <div style={{ fontWeight: '900', fontSize: is57 ? '15px' : '20px', letterSpacing: '0.5px', marginBottom: '2px' }}>
+            {businessName}
+          </div>
+        )}
+
+        {tagline && (
+          <div style={{ fontSize: is57 ? '10px' : '11px', color: '#555', marginBottom: '2px' }}>
+            {tagline}
+          </div>
+        )}
+
+        {tenant?.address && (
+          <div style={{ fontSize: is57 ? '10px' : '11px', color: '#555' }}>
+            {tenant.address}
+          </div>
+        )}
+
+        {tenant?.phone && (
+          <div style={{ fontSize: is57 ? '10px' : '11px', color: '#555' }}>
+            Tel: {tenant.phone}
+          </div>
+        )}
       </div>
 
-      <div style={{ textAlign: 'center', margin: '6px 0', fontFamily: 'Arial, sans-serif', fontWeight: '800', fontSize: '14px', letterSpacing: '1px', color: '#111', borderBottom: '1px solid #ccc', paddingBottom: '5px' }}>
-        Resi / Reçu
+      {HR_SOLID}
+
+      {/* ══════════ INFO FAKTI ══════════ */}
+      <div style={{ marginBottom: '4px', fontSize: is57 ? '10px' : '11px' }}>
+        <div><strong>Dat / Date:</strong> {toHaitiDate(invoice.issueDate, 'dd-MM-yyyy')}</div>
+        <div><strong>Resi N° / Reçu N°:</strong> {invoice.invoiceNumber}</div>
+        {snap.name && (
+          <div><strong>Kliyan / Client:</strong> {snap.name}</div>
+        )}
+        {!is57 && snap.phone && (
+          <div style={{ color: '#555' }}>Tél: {snap.phone}</div>
+        )}
+        {!is57 && (
+          <div>
+            <strong>Kesye / Caissier:</strong>{' '}
+            {invoice.cashierName || invoice.createdByName || 'Admin'}
+          </div>
+        )}
+        {snap.nif && (
+          <div style={{ color: '#555', fontSize: '9px' }}>NIF: {snap.nif}</div>
+        )}
       </div>
 
-      {/* INFO FAKTI */}
-      <div style={{ marginBottom: '6px', fontSize: '13px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: '#555' }}>No. Fakti / Facture:</span>
-          <span style={{ fontWeight: '800', fontFamily: 'Arial', fontSize: '14px' }}>{invoice.invoiceNumber}</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ color: '#555' }}>Dat / Date:</span>
-          <span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy HH:mm')}</span>
-        </div>
-      </div>
+      {HR_DASHED}
 
-      {/* KLIYAN */}
-      {snap.name && (
-        <div style={{ marginBottom: '6px', padding: '4px 6px', background: '#f8f8f8', borderRadius: '3px', fontSize: '13px', borderLeft: '2px solid #ccc' }}>
-          <div style={{ fontWeight: '700', fontSize: '14px' }}>Kliyan / Client: {snap.name}</div>
-          {snap.phone && <div>Tel: {snap.phone}</div>}
-          {snap.email && <div>{snap.email}</div>}
-          {snap.nif   && <div>NIF: {snap.nif}</div>}
-        </div>
-      )}
-
-      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
-
-      {/* ATIK YO */}
-      <div style={{ fontSize: '13px', marginBottom: '5px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '700', marginBottom: '4px', paddingBottom: '3px', borderBottom: '1px solid #ddd', fontSize: '12px' }}>
-          <span style={{ flex: 3 }}>Pwodui / Produit</span>
-          <span style={{ flex: 1, textAlign: 'center' }}>Qte</span>
-          <span style={{ flex: 2, textAlign: 'right' }}>Pri HTG</span>
+      {/* ══════════ ATIK YO ══════════ */}
+      <div style={{ marginBottom: '4px' }}>
+        {/* Entete tablo */}
+        <div style={{
+          display:       'flex',
+          justifyContent:'space-between',
+          fontWeight:    '700',
+          fontSize:      is57 ? '10px' : '11px',
+          borderBottom:  '1px dashed #aaa',
+          paddingBottom: '3px',
+          marginBottom:  '3px',
+        }}>
+          <span style={{ flex: 3 }}>{is57 ? 'Pwodwi / Produit' : 'Produit'}</span>
+          <span style={{ flex: 1, textAlign: 'center' }}>{is57 ? 'Qty' : 'Qté'}</span>
+          <span style={{ flex: 2, textAlign: 'right' }}>{is57 ? 'Pri' : 'Prix'}</span>
           <span style={{ flex: 2, textAlign: 'right' }}>Total</span>
         </div>
-        {invoice.items && invoice.items.map(function(item, i) {
+
+        {/* Ranje atik yo */}
+        {invoice.items?.map((item, i) => {
+          const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
           return (
-            <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px dotted #eee' }}>
-              <div style={{ flex: 3 }}>
-                <div style={{ fontWeight: '600' }}>{(item.product && item.product.name) || (item.productSnapshot && item.productSnapshot.name)}</div>
-                {Number(item.discountPct) > 0 && <div style={{ color: '#dc2626', fontSize: '12px' }}>Remiz: {item.discountPct}%</div>}
-              </div>
+            <div key={i} style={{
+              display:       'flex',
+              justifyContent:'space-between',
+              alignItems:    'baseline',
+              fontSize:      is57 ? '10px' : '11px',
+              padding:       '2px 0',
+              borderBottom:  '1px dotted #ddd',
+            }}>
+              <span style={{ flex: 3, fontWeight: '500' }}>{nom}</span>
               <span style={{ flex: 1, textAlign: 'center' }}>{Number(item.quantity)}</span>
-              <span style={{ flex: 2, textAlign: 'right' }}>{fmt(item.unitPriceHtg)}</span>
-              <span style={{ flex: 2, textAlign: 'right', fontWeight: '700' }}>{fmt(item.totalHtg)}</span>
+              <span style={{ flex: 2, textAlign: 'right', fontFamily: 'monospace' }}>
+                {fmt(item.unitPriceHtg)} G
+              </span>
+              <span style={{ flex: 2, textAlign: 'right', fontFamily: 'monospace', fontWeight: '700' }}>
+                {fmt(item.totalHtg)} G
+              </span>
             </div>
           )
         })}
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '6px 0' }} />
+      {HR_DASHED}
 
-      {/* TOTAUX */}
-      <div style={{ fontSize: '13px', marginBottom: '6px' }}>
+      {/* ══════════ TOTAUX ══════════ */}
+      <div style={{ marginBottom: '4px', fontSize: is57 ? '10px' : '11px' }}>
         {Number(invoice.discountHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', color: '#dc2626', marginBottom: '3px' }}>
-            <span>Remiz / Remise:</span>
-            <span>-{fmt(invoice.discountHtg)} HTG</span>
-          </div>
+          <Row left="Remiz / Remise:" right={`-${fmt(invoice.discountHtg)} G`} color="#dc2626" />
         )}
         {Number(invoice.taxHtg) > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-            <span>Taks / Taxe ({Number(invoice.taxRate || 0)}%):</span>
-            <span>{fmt(invoice.taxHtg)} HTG</span>
-          </div>
+          <Row left={`Taks / Taxe (${Number(invoice.taxRate || 0)}%):`} right={`${fmt(invoice.taxHtg)} G`} />
         )}
-        <div style={{ borderTop: '2px solid #111', marginTop: '5px', paddingTop: '6px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '900', fontSize: '16px', fontFamily: 'Arial' }}>
-            <span>TOTAL:</span>
-            <span>{fmt(totalHtg)} HTG</span>
-          </div>
-          {toUSD(totalHtg) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#555', marginTop: '2px' }}>
-              <span>aprox. USD:</span><span>${toUSD(totalHtg)}</span>
-            </div>
-          )}
-          {toDOP(totalHtg) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#555', marginTop: '2px' }}>
-              <span>aprox. DOP:</span><span>RD${toDOP(totalHtg)}</span>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* PEMAN */}
-      <div style={{ fontSize: '13px', marginBottom: '6px', padding: '5px 7px', background: '#f0fdf4', borderRadius: '4px', border: '1px solid #bbf7d0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-          <span style={{ color: '#555' }}>Peye / Payé:</span>
-          <span style={{ fontWeight: '700', color: '#16a34a' }}>{fmt(paidHtg)} HTG</span>
-        </div>
+      {/* TOTAL GRAND */}
+      <div style={{ marginBottom: '4px' }}>
+        <Row
+          left="TOTAL / TOTAL:"
+          right={`${fmt(totalHtg)} G`}
+          bold large
+        />
+        {toUSD(totalHtg) && (
+          <div style={{ fontSize: '9px', color: '#555', textAlign: 'right' }}>
+            ≈ ${toUSD(totalHtg)} USD
+          </div>
+        )}
+        {toDOP(totalHtg) && (
+          <div style={{ fontSize: '9px', color: '#555', textAlign: 'right' }}>
+            ≈ RD${toDOP(totalHtg)} DOP
+          </div>
+        )}
+      </div>
+
+      {HR_DASHED}
+
+      {/* ══════════ PEMAN ══════════ */}
+      <div style={{ marginBottom: '4px', fontSize: is57 ? '10px' : '11px' }}>
+        {/* Kob kliyan bay — sèlman si gen amountGiven */}
+        {amountGiven > 0 && (
+          <Row
+            left={is57 ? 'Kòb kliyan bay' : 'Montant reçu / Kòb kliyan bay:'}
+            right={`${fmt(amountGiven)} G`}
+            bold
+          />
+        )}
+
+        {/* Monnen */}
+        {change > 0 && (
+          <>
+            <Row
+              left={is57 ? 'Monnen' : 'Monnaie / Monnen remèt:'}
+              right={`${fmt(change)} G`}
+              bold
+            />
+            {is57 && (
+              <Row left="Monnaie rendue:" right={`${fmt(change)} G`} />
+            )}
+          </>
+        )}
+
+        {/* Metod peman */}
+        {lastPayment?.method && (
+          <Row
+            left={is57 ? 'Metod / Mode:' : 'Méthode / Metod:'}
+            right={PAYMENT_METHOD_LABELS[lastPayment.method] || lastPayment.method}
+          />
+        )}
+        {lastPayment?.reference && (
+          <Row left="Réf:" right={lastPayment.reference} />
+        )}
+
+        {/* Peman pasyal */}
         {balHtg > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#555' }}>Balans / Solde:</span>
-            <span style={{ fontWeight: '800', color: '#dc2626' }}>{fmt(balHtg)} HTG</span>
-          </div>
-        )}
-        {lastPayment && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
-            <span style={{ color: '#555' }}>Metod / Mode:</span>
-            <span style={{ fontWeight: '600', textTransform: 'uppercase' }}>{lastPayment.method}</span>
-          </div>
-        )}
-        {lastPayment && lastPayment.reference && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#555' }}>Ref:</span>
-            <span>{lastPayment.reference}</span>
-          </div>
+          <Row
+            left="Balans / Solde dû:"
+            right={`${fmt(balHtg)} G`}
+            bold
+            color="#dc2626"
+          />
         )}
       </div>
 
-      {/* STATUT */}
-      <div style={{ textAlign: 'center', margin: '7px 0', padding: '6px', background: statusColor + '15', border: '1.5px solid ' + statusColor, borderRadius: '5px' }}>
-        <span style={{ fontWeight: '900', fontSize: '15px', color: statusColor, fontFamily: 'Arial' }}>{statusLabel}</span>
+      {HR_SOLID}
+
+      {/* ══════════ STATUT FINAL ══════════ */}
+      <div style={{
+        display:        'flex',
+        justifyContent: 'space-between',
+        alignItems:     'baseline',
+        fontWeight:     '900',
+        fontSize:       is57 ? '12px' : '14px',
+        color:          statusColor,
+        margin:         '5px 0',
+      }}>
+        <span>{statusLabel}:</span>
+        <span style={{ fontFamily: 'monospace' }}>{fmt(isPaid ? totalHtg : paidHtg)} G</span>
       </div>
 
-      <div style={{ borderTop: '1px dashed #aaa', margin: '7px 0' }} />
+      {HR_SOLID}
 
-      {/* QR */}
+      {/* ══════════ QR CODE ══════════ */}
       {showQrCode && qrDataUrl && (
-        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <img src={qrDataUrl} alt="QR" style={{ width: '90px', height: '90px', display: 'block', margin: '0 auto 4px' }} />
-          <div style={{ fontSize: '11px', color: '#888' }}>Skane / Scanner pou verifye</div>
-          <div style={{ fontSize: '11px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
+        <div style={{ textAlign: 'center', margin: '6px 0' }}>
+          <img
+            src={qrDataUrl}
+            alt="QR"
+            style={{ width: is57 ? '70px' : '85px', height: is57 ? '70px' : '85px', display: 'block', margin: '0 auto 3px' }}
+          />
+          <div style={{ fontSize: '9px', color: '#aaa', fontFamily: 'monospace' }}>{invoice.invoiceNumber}</div>
         </div>
       )}
 
-      {/* PYE PAJ */}
-      <div style={{ textAlign: 'center', fontSize: '13px', borderTop: '1px dashed #ccc', paddingTop: '6px' }}>
-        <div style={{ fontWeight: '700', fontSize: '14px', marginBottom: '3px' }}>Mesi! / Merci!</div>
-        <div style={{ color: '#666', fontSize: '12px', lineHeight: '1.5' }}>Vant final. / Vente finale.</div>
-        <div style={{ marginTop: '5px', fontSize: '12px', color: '#555', fontWeight: '600' }}>Tel: +50942449024</div>
+      {/* ══════════ FOOTER ══════════ */}
+      <div style={{
+        textAlign:  'center',
+        fontSize:   is57 ? '9px' : '10px',
+        color:      '#444',
+        lineHeight: '1.6',
+        marginTop:  '6px',
+        borderTop:  '1px dashed #ccc',
+        paddingTop: '6px',
+      }}>
+        {/* Mesi */}
+        <div style={{ fontWeight: '700', fontSize: is57 ? '11px' : '12px', marginBottom: '3px' }}>
+          Mési paske ou achte lakay nou
+        </div>
+        <div style={{ marginBottom: '4px' }}>
+          Merci pour votre achat
+        </div>
+
+        {/* Avis retou */}
+        <div style={{ borderTop: '1px dotted #ccc', paddingTop: '4px', marginBottom: '4px', fontStyle: 'italic', color: '#555' }}>
+          Machandiz vann pa retounen.
+          <br />
+          Marchandise vendue non retournable.
+        </div>
+
+        {/* Promo Plus Group */}
+        <div style={{ borderTop: '1px dotted #ccc', paddingTop: '4px', fontWeight: '600', color: '#333' }}>
+          Produit par / Pwodwi pa
+          <br />
+          <strong>Plus Group</strong>
+          <br />
+          +509 4244-9024
+        </div>
       </div>
+
     </div>
   )
 }
