@@ -419,9 +419,9 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
         {/* Avis retou */}
         <div style={{ borderTop: '1px dotted #ccc', paddingTop: '4px', marginBottom: '4px', fontStyle: 'italic', color: '#555' }}>
-          Machandiz vann pa retounen.
+          Tout machandiz vann pa reprann ni chanje.
           <br />
-          Marchandise vendue non retournable.
+          Les marchandises vendues ne sont ni reprises ni échangées.
         </div>
 
         {/* Promo Plus Group */}
@@ -437,6 +437,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     </div>
   )
 }
+
 
 export default function InvoiceDetail() {
   const { id }      = useParams()
