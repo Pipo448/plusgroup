@@ -92,7 +92,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     } catch(e) { return {} }
   })()
 
-  // ✅ Kreyol + Fransè sèlman
   const statusLabel = isPaid      ? 'PEYE / PAYE'
     : isCancelled                 ? 'ANILE / ANNULE'
     : isPartial                   ? 'PASYAL / PARTIEL'
@@ -289,10 +288,18 @@ export default function InvoiceDetail() {
   const [printing, setPrinting]       = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
 
-  // ✅ usePrinter — pou Sunmi RawBT + BT ekstèn
-  const { connected, printing: btPrinting, print } = usePrinterStore()
+  // ✅ usePrinterStore global — konekte yon fwa, sèvi pou tout paj
+  const {
+    connected,
+    connecting,
+    printing:   btPrinting,
+    connect,
+    disconnect,
+    print,
+    deviceName,
+  } = usePrinterStore()
 
-  // ✅ Detekte si sou Android pou montre bouton Sunmi
+  // ✅ Cache yon fwa — pa rele chak render
   const onAndroid  = isAndroid()
   const showQrCode = tenant?.showQrCode !== false
 
@@ -473,12 +480,14 @@ export default function InvoiceDetail() {
                 {isPaid ? 'Peye' : isCancelled ? 'Anile' : invoice.status === 'partial' ? 'Pasyal' : 'Impaye'}
               </span>
             </div>
-            <p className="text-slate-500 text-sm">
-              Soti devis:{' '}
-              <Link to={`/app/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
-                {invoice.quote?.quoteNumber}
-              </Link>
-            </p>
+            {invoice.quoteId && (
+              <p className="text-slate-500 text-sm">
+                Soti devis:{' '}
+                <Link to={`/app/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
+                  {invoice.quote?.quoteNumber}
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
@@ -495,7 +504,7 @@ export default function InvoiceDetail() {
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
-          {/* ✅ RawBT — Sunmi V2 inner printer — montre sèlman sou Android */}
+          {/* ✅ RawBT — Sunmi V2 inner printer — sèlman sou Android */}
           {onAndroid && (
             <button
               onClick={handleSunmiPrint}
@@ -509,7 +518,7 @@ export default function InvoiceDetail() {
           )}
 
           {/* ✅ Bluetooth ESC/POS — printer BT ekstèn — sèlman sou non-Android */}
-          {!onAndroid && navigator.bluetooth && (
+          {!onAndroid && typeof navigator !== 'undefined' && !!navigator.bluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
                 <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
@@ -523,7 +532,7 @@ export default function InvoiceDetail() {
                     className="btn-secondary btn-sm"
                     style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
                     <Printer size={14} />
-                    {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+                    {btPrinting ? 'Ap enprime...' : `Enprime BT${deviceName ? ` (${deviceName})` : ''}`}
                   </button>
                   <button onClick={disconnect} title="Dekonekte printer"
                     style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
@@ -534,6 +543,7 @@ export default function InvoiceDetail() {
             </div>
           )}
 
+          {/* PDF Download */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -575,10 +585,11 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
+      {/* ✅ Indicator BT konekte — sèlman sou non-Android */}
       {!onAndroid && connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Printer BT konekte — Klike "Enprime BT" pou voye resi
+          Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} — Klike "Enprime BT" pou voye resi
         </div>
       )}
 
@@ -645,6 +656,7 @@ export default function InvoiceDetail() {
           )}
         </div>
 
+        {/* Kolòn dwat */}
         <div className="space-y-4">
           <div className="card p-5">
             <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
@@ -689,18 +701,18 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
-            {/* ✅ Sidebar — Enprime Resi (window.print) */}
+            {/* Sidebar — Enprime Resi (window.print) */}
             <button
               onClick={handlePrint}
               disabled={printing}
               className="btn-primary w-full mt-4"
-              style={{ justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}
             >
               <Printer size={15} />
               {printing ? 'Ap enprime...' : 'Enprime Resi'}
             </button>
 
-            {/* ✅ Sidebar — Enprime Sunmi (RawBT) — sèlman sou Android */}
+            {/* Sidebar — Sunmi (Android sèlman) */}
             {onAndroid && (
               <button
                 onClick={handleSunmiPrint}
@@ -713,17 +725,31 @@ export default function InvoiceDetail() {
               </button>
             )}
 
+            {/* Sidebar — BT enprime (non-Android, si konekte) */}
+            {!onAndroid && connected && (
+              <button
+                onClick={() => print(invoice, tenant, user)}
+                disabled={btPrinting}
+                className="w-full mt-2"
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
+              >
+                <Printer size={15} />
+                {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+              </button>
+            )}
+
             {showQrCode && qrDataUrl && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f1f5f9', textAlign: 'center' }}>
-                <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>QR Verifikasyon</p>
-                <img src={qrDataUrl} alt="QR Code" style={{ width: 90, height: 90, margin: '0 auto', display: 'block', borderRadius: 8, border: '1px solid #e2e8f0' }} />
-                <p style={{ fontSize: 9, color: '#cbd5e1', marginTop: 4 }}>{invoice.invoiceNumber}</p>
+              <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #f1f5f9', textAlign:'center' }}>
+                <p style={{ fontSize:10, color:'#94a3b8', marginBottom:6, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>QR Verifikasyon</p>
+                <img src={qrDataUrl} alt="QR Code" style={{ width:90, height:90, margin:'0 auto', display:'block', borderRadius:8, border:'1px solid #e2e8f0' }} />
+                <p style={{ fontSize:9, color:'#cbd5e1', marginTop:4 }}>{invoice.invoiceNumber}</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {/* Modal Peman */}
       {showPayment && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPayment(false)}>
           <div className="modal max-w-md">
