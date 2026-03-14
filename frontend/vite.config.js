@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  base: './',
+  base: '/',   // ✅ KORIJE: './' → '/' — evite 404 assets sou deep routes
   plugins: [react()],
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') }
