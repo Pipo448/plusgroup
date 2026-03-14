@@ -448,7 +448,9 @@ model Payment {
   method       PaymentMethod   @default(cash)
   reference    String?         @db.VarChar(200)
   paymentDate  DateTime        @default(now()) @map("payment_date") @db.Timestamptz(6)
-  dueDate      DateTime?       @map("due_date") @db.Timestamptz(6)   // ✅ AJOUTE
+  dueDate      DateTime?       @map("due_date") @db.Timestamptz(6)    // ✅ dat limit kredi
+  amountGiven  Decimal         @default(0) @map("amount_given") @db.Decimal(14, 2)  // ✅ kòb kliyan bay
+  change       Decimal         @default(0) @db.Decimal(14, 2)          // ✅ monnen remèt
   notes        String?
   createdBy    String?         @map("created_by")
   createdAt    DateTime        @default(now()) @map("created_at")
@@ -942,6 +944,7 @@ enum PaymentMethod {
   credit    // ✅ AJOUTE
   other
 }
+
 
 enum StockMovementType {
   sale

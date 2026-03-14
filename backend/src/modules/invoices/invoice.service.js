@@ -277,11 +277,13 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
       currency:     data.currency    || invoice.currency,
       exchangeRate: data.exchangeRate || invoice.exchangeRate,
       method,
-      reference:   data.reference   || null,
-      paymentDate: data.paymentDate  ? new Date(data.paymentDate) : new Date(),
-      dueDate,                                    // ✅ AJOUTE
-      notes:       data.notes        || null,
-      createdBy:   userId,
+      reference:    data.reference   || null,
+      paymentDate:  data.paymentDate  ? new Date(data.paymentDate) : new Date(),
+      dueDate,
+      amountGiven:  Number(data.amountGiven || 0),   // ✅ kòb kliyan te bay
+      change:       Number(data.change || 0),         // ✅ monnen remèt
+      notes:        data.notes        || null,
+      createdBy:    userId,
     }
   });
 
