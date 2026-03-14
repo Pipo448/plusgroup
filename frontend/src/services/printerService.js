@@ -248,7 +248,7 @@ const dispatch = async (bytes) => {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ✅ PRINT INVOICE
+// ✅ PRINT INVOICE — matche nouvo design bileng + kredi
 // ══════════════════════════════════════════════════════════════
 
 export const printInvoice = async (invoice, tenant, cashier = null, amountGiven = 0, change = 0) => {
@@ -256,108 +256,231 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
-  const W           = getWidth(tenant)
-  const snap        = invoice.clientSnapshot || {}
-  const cashierName = cashier?.fullName || cashier?.name || localStorage.getItem('plusgroup-cashier-name') || null
-  const totalHtg    = Number(invoice.totalHtg || 0)
-  const lastPay     = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
+  const W            = getWidth(tenant)
+  const isWide       = W >= 48
+  const snap         = invoice.clientSnapshot || {}
+  const cashierName  = cashier?.fullName || cashier?.name || localStorage.getItem('plusgroup-cashier-name') || null
+  const totalHtg     = Number(invoice.totalHtg || 0)
+  const paidHtg      = Number(invoice.amountPaidHtg || 0)
+  const balanceHtg   = Number(invoice.balanceDueHtg || 0)
+  const lastPay      = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
+  const isCredit     = invoice.paymentType === 'credit' || invoice.isCredit === true || balanceHtg > 0 && paidHtg === 0
+  const isPartial    = invoice.status === 'partial'
+  const isPaid       = invoice.status === 'paid'
+  const isCancelled  = invoice.status === 'cancelled'
+
+  // ✅ Taux echanj
+  const exchangeRates = (() => {
+    try {
+      const er = tenant?.exchangeRates
+      if (!er) return {}
+      if (typeof er === 'object') return er
+      return JSON.parse(String(er))
+    } catch { return {} }
+  })()
+  const rateUSD = Number(exchangeRates.USD || invoice.exchangeRate || 132)
+  const rateDOP = Number(exchangeRates.DOP || 0)
+  const toUSD   = (htg) => rateUSD > 0 ? (htg / rateUSD).toFixed(2) : null
+  const toDOP   = (htg) => rateDOP > 0 ? (htg / rateDOP).toFixed(2) : null
 
   const PAYMENT_LABELS = {
-    cash:'Kach', moncash:'MonCash', natcash:'NatCash',
-    card:'Kat', transfer:'Viman', check:'Chek', other:'Lot'
+    cash:'Kach / Cash', moncash:'MonCash', natcash:'NatCash',
+    card:'Kat / Carte', transfer:'Virement', check:'Chek / Cheque', other:'Lòt / Autre'
   }
 
-  const statusText =
-    invoice.status === 'paid'      ? 'PEYE' :
-    invoice.status === 'partial'   ? 'PASYAL' :
-    invoice.status === 'cancelled' ? 'ANILE' : 'IMPAYE'
+  // ✅ Statut bileng
+  const statusLine =
+    isPaid      ? 'TOTAL PAYE / TOTAL PAYE' :
+    isCancelled ? 'ANILE / ANNULE' :
+    isPartial   ? 'PASYAL / PARTIEL' :
+    isCredit    ? 'KREDI / CREDIT' : 'IMPAYE / NON PAYE'
 
-  const isWide = W >= 48
+  // ✅ Kolonn tablo atik
   const C = isWide
-    ? { name:20, qty:4, price:10, total:12 }
-    : { name:12, qty:3, price:7,  total:8  }
+    ? { name: 20, qty: 4, price: 10, total: 12 }
+    : { name: 12, qty: 3, price:  8, total:  9 }
+
   const itemHeader = isWide
-    ? 'Pwodui'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Pri'.padStart(C.price) + 'Total'.padStart(C.total)
-    : 'Atik'.padEnd(C.name)   + 'Q'.padStart(C.qty)   + 'Pri'.padStart(C.price) + 'Tot'.padStart(C.total)
+    ? 'Produit'.padEnd(C.name) + 'Qte'.padStart(C.qty) + 'Prix'.padStart(C.price) + 'Total'.padStart(C.total)
+    : 'Pwodwi'.padEnd(C.name) + 'Q'.padStart(C.qty)   + 'Pri'.padStart(C.price)   + 'Tot'.padStart(C.total)
 
   const logoUrl   = tenant?.logoUrl || tenant?.logo
-  const logoW     = W === 48 ? 200 : 120
+  const logoW     = isWide ? 200 : 120
   const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, logoW) : []
 
   const issueDate = new Date(invoice.issueDate)
-  const dateStr   = issueDate.toLocaleDateString('fr-HT') + ' ' +
-    issueDate.toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+  const dateStr   = issueDate.toLocaleDateString('fr-HT')
 
   const qrContent = window.location.origin + '/app/invoices/' + invoice.id + '\n' + invoice.invoiceNumber
+  const bizName   = tenant?.businessName || tenant?.name || 'PLUS GROUP'
 
   const bytes = [
     ...CMD.INIT,
-    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
-    ...CMD.BOLD_OFF,
-    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(' | ' + tenant.address + '\n'), ...CMD.NORMAL_FONT] : [...CMD.LINE_FEED]),
+
+    // ── HEADER ──────────────────────────────────────────────
+    ...CMD.ALIGN_CENTER,
+    ...(logoBytes.length > 0 ? [...logoBytes, ...CMD.LINE_FEED] : []),
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...encodeText(bizName + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(tenant?.tagline   ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline + '\n'),   ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address   ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'),   ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.phone     ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+
+    // ── SEPARASYON ──────────────────────────────────────────
     ...CMD.ALIGN_LEFT,
-    ...divider('-', W), ...CMD.LINE_FEED,
+    ...divider('=', W), ...CMD.LINE_FEED,
+
+    // ── INFO FAKTI ──────────────────────────────────────────
     ...CMD.SMALL_FONT,
-    ...encodeText(invoice.invoiceNumber + '  ' + dateStr + '\n'),
-    ...(cashierName ? [...encodeText('Kesye: ' + cashierName.substring(0, W - 8) + '\n')] : []),
-    ...(snap.name   ? [...encodeText('Kliyan: ' + snap.name.substring(0, W - 8) + '\n')]  : []),
+    ...encodeText('Dat / Date: ' + dateStr + '\n'),
+    ...encodeText('Resi N / Recu N: ' + invoice.invoiceNumber + '\n'),
+    ...(snap.name       ? [...encodeText('Kliyan / Client: ' + snap.name.substring(0, W - 16) + '\n')] : []),
+    ...(snap.phone      ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
+    ...(snap.nif        ? [...encodeText('NIF: ' + snap.nif + '\n')] : []),
+    ...(cashierName     ? [...encodeText((isWide ? 'Kesye / Caissier: ' : 'Kesye: ') + cashierName.substring(0, W - 18) + '\n')] : []),
     ...CMD.NORMAL_FONT,
+
+    // ── SEPARASYON ──────────────────────────────────────────
     ...divider('-', W), ...CMD.LINE_FEED,
-    ...CMD.SMALL_FONT, ...encodeText(itemHeader + '\n'),
-    ...divider('-', W), ...CMD.LINE_FEED,
+
+    // ── TABLO ATIK ──────────────────────────────────────────
     ...CMD.SMALL_FONT,
+    ...encodeText(itemHeader + '\n'),
+    ...divider('-', W), ...CMD.LINE_FEED,
     ...(invoice.items || []).flatMap(item => {
       const nom = (item.product?.name || item.productSnapshot?.name || 'Atik').substring(0, C.name)
       const row = nom.padEnd(C.name) +
         String(Number(item.quantity)).padStart(C.qty) +
-        fmt(item.unitPriceHtg).padStart(C.price) +
-        fmt(item.totalHtg).padStart(C.total)
+        (fmt(item.unitPriceHtg) + ' G').padStart(C.price) +
+        (fmt(item.totalHtg) + ' G').padStart(C.total)
       const result = [...encodeText(row.substring(0, W) + '\n')]
       if (Number(item.discountPct) > 0)
-        result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
+        result.push(...encodeText('  Remiz / Remise: ' + item.discountPct + '%\n'))
       return result
     }),
     ...CMD.NORMAL_FONT,
+
+    // ── REMIZ + TAKS ────────────────────────────────────────
     ...(Number(invoice.discountHtg) > 0 ? [
       ...CMD.SMALL_FONT,
-      ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' HTG', W),
-      ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+      ...makeLine('Remiz / Remise:', '-' + fmt(invoice.discountHtg) + ' G', W), ...CMD.LINE_FEED,
+      ...CMD.NORMAL_FONT,
     ] : []),
     ...(Number(invoice.taxHtg) > 0 ? [
       ...CMD.SMALL_FONT,
-      ...makeLine('Taks (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' HTG', W),
-      ...CMD.LINE_FEED, ...CMD.NORMAL_FONT
+      ...makeLine('Taks / Taxe (' + Number(invoice.taxRate) + '%):', fmt(invoice.taxHtg) + ' G', W), ...CMD.LINE_FEED,
+      ...CMD.NORMAL_FONT,
     ] : []),
+
+    // ── TOTAL ───────────────────────────────────────────────
     ...divider('=', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText('TOTAL: ' + fmt(totalHtg) + ' HTG\n'),
+    ...CMD.BOLD_ON,
+    ...makeLine('TOTAL / TOTAL:', fmt(totalHtg) + ' G', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_OFF,
-    ...divider('-', W), ...CMD.LINE_FEED,
-    ...CMD.ALIGN_LEFT, ...CMD.SMALL_FONT,
-    ...makeLine('Peye:', fmt(invoice.amountPaidHtg) + ' HTG', W), ...CMD.LINE_FEED,
-    ...(amountGiven > 0 ? [...makeLine('Kob bay:', fmt(amountGiven) + ' HTG', W), ...CMD.LINE_FEED] : []),
-    ...(change      > 0 ? [...makeLine('Monnen:', fmt(change) + ' HTG', W),     ...CMD.LINE_FEED] : []),
-    ...(Number(invoice.balanceDueHtg) > 0 ? [
-      ...makeLine('Balans restan:', fmt(invoice.balanceDueHtg) + ' HTG', W), ...CMD.LINE_FEED
+    ...(toUSD(totalHtg) ? [
+      ...CMD.SMALL_FONT,
+      ...encodeText('  = $' + toUSD(totalHtg) + ' USD\n'),
+      ...CMD.NORMAL_FONT,
     ] : []),
-    ...(lastPay ? [
-      ...makeLine('Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED
+    ...(toDOP(totalHtg) ? [
+      ...CMD.SMALL_FONT,
+      ...encodeText('  = RD$' + toDOP(totalHtg) + ' DOP\n'),
+      ...CMD.NORMAL_FONT,
+    ] : []),
+    ...divider('-', W), ...CMD.LINE_FEED,
+
+    // ── PEMAN ───────────────────────────────────────────────
+    ...CMD.SMALL_FONT,
+    // Kob kliyan bay
+    ...(amountGiven > 0 ? [
+      ...makeLine(isWide ? 'Montant recu / Kob kliyan bay:' : 'Kob kliyan bay', fmt(amountGiven) + ' G', W), ...CMD.LINE_FEED,
+    ] : []),
+    // Monnen
+    ...(change > 0 ? [
+      ...makeLine(isWide ? 'Monnaie / Monnen remet:' : 'Monnen', fmt(change) + ' G', W), ...CMD.LINE_FEED,
+    ] : []),
+    // Metod peman
+    ...(lastPay?.method ? [
+      ...makeLine(isWide ? 'Methode / Metod:' : 'Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
+    ] : []),
+    // Referans
+    ...(lastPay?.reference ? [
+      ...makeLine('Ref:', lastPay.reference.substring(0, W - 6), W), ...CMD.LINE_FEED,
+    ] : []),
+    // Peman deja fe (si pasyal)
+    ...(isPartial && paidHtg > 0 ? [
+      ...makeLine(isWide ? 'Deja paye / Deja peye:' : 'Deja peye:', fmt(paidHtg) + ' G', W), ...CMD.LINE_FEED,
     ] : []),
     ...CMD.NORMAL_FONT,
+
+    // ✅ SEKSYON KREDI ─────────────────────────────────────
+    ...(balanceHtg > 0 ? [
+      ...divider('-', W), ...CMD.LINE_FEED,
+      ...CMD.BOLD_ON,
+      ...makeLine(
+        isWide ? 'Balans / Solde du:' : 'Balans:',
+        fmt(balanceHtg) + ' G',
+        W
+      ), ...CMD.LINE_FEED,
+      ...CMD.BOLD_OFF,
+      // ✅ Si se kredi oswa pasyal — ajoute avètisman
+      ...(isCredit || isPartial ? [
+        ...CMD.SMALL_FONT,
+        ...CMD.ALIGN_CENTER,
+        ...encodeText('*** KREDI / CREDIT ***\n'),
+        ...encodeText('Peman an dwe fe nan dat:' + '\n'),
+        ...(invoice.dueDate ? [
+          ...encodeText(new Date(invoice.dueDate).toLocaleDateString('fr-HT') + '\n'),
+        ] : [
+          ...encodeText('Pi vit posib / Aussitot possible\n'),
+        ]),
+        ...CMD.ALIGN_LEFT,
+        ...CMD.NORMAL_FONT,
+      ] : []),
+    ] : []),
+
+    // ── STATUT FINAL ────────────────────────────────────────
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText(statusText + '\n'),
+    ...encodeText(statusLine + '\n'),
     ...CMD.BOLD_OFF,
+    ...CMD.ALIGN_LEFT,
+    ...CMD.BOLD_ON,
+    ...makeLine(
+      isPaid ? 'TOTAL PAYE:' : isPartial ? 'PAYE:' : isCredit ? 'MONTANT DU:' : 'TOTAL:',
+      fmt(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg) + ' G',
+      W
+    ), ...CMD.LINE_FEED,
+    ...CMD.BOLD_OFF,
+
+    // ── QR CODE ─────────────────────────────────────────────
     ...(tenant?.showQrCode !== false ? [
-      ...CMD.ALIGN_CENTER, ...makeQR(qrContent),
+      ...CMD.ALIGN_CENTER,
+      ...makeQR(qrContent),
       ...CMD.SMALL_FONT, ...encodeText(invoice.invoiceNumber + '\n'), ...CMD.NORMAL_FONT,
     ] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
-    ...encodeText('Mesi! — PlusGroup\n'),
-    ...CMD.NORMAL_FONT, ...CMD.LINE_FEED, ...CMD.CUT,
+
+    // ── FOOTER ──────────────────────────────────────────────
+    ...CMD.ALIGN_CENTER,
+    ...divider('-', W), ...CMD.LINE_FEED,
+    ...CMD.BOLD_ON,
+    ...encodeText('Mesi paske ou achte lakay nou\n'),
+    ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText('Merci pour votre achat\n'),
+    ...divider('-', W), ...CMD.LINE_FEED,
+    ...encodeText('Machandiz vann pa retounen.\n'),
+    ...encodeText('Marchandise vendue non retournable.\n'),
+    ...divider('-', W), ...CMD.LINE_FEED,
+    ...encodeText('Produit par / Pwodwi pa\n'),
+    ...CMD.NORMAL_FONT, ...CMD.BOLD_ON,
+    ...encodeText('Plus Group\n'),
+    ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
+    ...encodeText('+509 4244-9024\n'),
+    ...CMD.NORMAL_FONT,
+    ...CMD.LINE_FEED, ...CMD.LINE_FEED,
+    ...CMD.CUT,
   ]
 
   await dispatch(bytes)
