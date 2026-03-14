@@ -498,6 +498,22 @@ export default function InvoiceDetail() {
   const onSunmi    = isSunmi()
   const showQrCode = tenant?.showQrCode !== false
 
+  // ✅ Detekte BT san krash — iOS Safari ak vye navigatè pa sipote navigator.bluetooth
+  const btSupported = (() => {
+    try { return !onSunmi && typeof navigator !== 'undefined' && !!navigator.bluetooth }
+    catch { return false }
+  })()
+
+  // ✅ Wrapper connect ak try/catch an plis pou evite krash nenpòt ki kote
+  const handleConnect = async () => {
+    try {
+      await connect()
+    } catch (err) {
+      console.error('BT connect wrapper error:', err)
+      toast.error('Bluetooth echwe. Asire Chrome ak BT aktive.')
+    }
+  }
+
   useEffect(() => {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target)) setShowPdfMenu(false)
@@ -661,20 +677,23 @@ export default function InvoiceDetail() {
         }
       `}</style>
 
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
+      {/* ══════════ HEADER — responsiv mobil ══════════ */}
+      <div style={{ marginBottom: 24 }}>
+
+        {/* Ranje 1 — Titre + badge */}
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
           <button onClick={() => navigate('/app/invoices')} className="btn-ghost p-2">
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-display font-bold">{invoice.invoiceNumber}</h1>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+              <h1 className="text-2xl font-display font-bold" style={{ margin:0 }}>{invoice.invoiceNumber}</h1>
               <span className={`badge ${isPaid ? 'badge-green' : isCancelled ? 'badge-gray' : invoice.status === 'partial' ? 'badge-yellow' : 'badge-red'}`}>
                 {isPaid ? 'Peye' : isCancelled ? 'Anile' : invoice.status === 'partial' ? 'Pasyal' : 'Impaye'}
               </span>
             </div>
             {invoice.quoteId && (
-              <p className="text-slate-500 text-sm">
+              <p className="text-slate-500 text-sm" style={{ margin:'2px 0 0' }}>
                 Soti devis:{' '}
                 <Link to={`/app/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
                   {invoice.quote?.quoteNumber}
@@ -684,60 +703,81 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
+        {/* Ranje 2 — Bouton aksyon yo — wrap sou mobil */}
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
 
+          {/* Enprime window.print */}
           <button
             onClick={handlePrint}
             disabled={printing}
             className="btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ display:'flex', alignItems:'center', gap:6 }}
           >
             <Printer size={14} />
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
+          {/* Sunmi — sèlman si onSunmi */}
           {onSunmi && (
             <button
               onClick={handleSunmiPrint}
               disabled={btPrinting}
               className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}
+              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}
             >
               <Printer size={14} />
-              {btPrinting ? 'Ap enprime...' : '🖨 Enprime Sunmi'}
+              {btPrinting ? 'Ap enprime...' : '🖨 Sunmi'}
             </button>
           )}
 
-          {!onSunmi && typeof navigator !== 'undefined' && !!navigator.bluetooth && (
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+          {/* ✅ Bluetooth — sèlman si btSupported (safe check) */}
+          {btSupported && (
+            <>
               {!connected ? (
-                <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
-                  style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <button
+                  onClick={handleConnect}
+                  disabled={connecting}
+                  className="btn-secondary btn-sm"
+                  style={{ display:'flex', alignItems:'center', gap:6 }}
+                >
                   <Bluetooth size={14} />
-                  {connecting ? 'Ap konekte...' : 'Konekte Printer BT'}
+                  {connecting
+                    ? <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+                        <span style={{ width:10, height:10, border:'2px solid #94a3b8', borderTopColor:'#1B2A8F', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
+                        Ap konekte...
+                      </span>
+                    : 'Konekte BT'
+                  }
                 </button>
               ) : (
-                <>
-                  <button onClick={() => print(invoice, tenant, user)} disabled={btPrinting}
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <button
+                    onClick={() => { try { print(invoice, tenant, user) } catch(e) { toast.error('Erè BT print') } }}
+                    disabled={btPrinting}
                     className="btn-secondary btn-sm"
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', borderColor:'rgba(5,150,105,0.3)' }}>
+                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}
+                  >
                     <Printer size={14} />
-                    {btPrinting ? 'Ap enprime...' : `Enprime BT${deviceName ? ` (${deviceName})` : ''}`}
+                    {btPrinting ? 'Ap enprime...' : `BT${deviceName ? ` (${deviceName.slice(0,10)})` : ''}`}
                   </button>
-                  <button onClick={disconnect} title="Dekonekte printer"
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:32, height:32, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
+                  <button
+                    onClick={() => { try { disconnect() } catch(e) { console.error(e) } }}
+                    title="Dekonekte printer"
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer', flexShrink:0 }}
+                  >
                     <BluetoothOff size={13}/>
                   </button>
-                </>
+                </div>
               )}
-            </div>
+            </>
           )}
 
+          {/* PDF */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
               <Download size={14} />
-              Resi PDF
+              PDF
               <ChevronDown size={12} style={{ transition:'transform 0.2s', transform: showPdfMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
             </button>
             {showPdfMenu && (
@@ -758,26 +798,29 @@ export default function InvoiceDetail() {
             )}
           </div>
 
+          {/* Peman */}
           {!isCancelled && !isPaid && hasRole(['admin','cashier']) && (
-            <button onClick={openPaymentModal} className="btn-primary">
+            <button onClick={openPaymentModal} className="btn-primary" style={{ display:'flex', alignItems:'center', gap:6 }}>
               <Plus size={16} /> Anrejistre Peman
             </button>
           )}
+
+          {/* Anile */}
           {!isCancelled && hasRole('admin') && (
             <button onClick={() => {
               const reason = prompt('Rezon anilasyon:')
               if (reason !== null) cancelMutation.mutate(reason)
-            }} className="btn-danger btn-sm">
+            }} className="btn-danger btn-sm" style={{ display:'flex', alignItems:'center', gap:6 }}>
               <XCircle size={14} /> Anile
             </button>
           )}
         </div>
       </div>
 
-      {!onSunmi && connected && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
-          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
-          Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} — Klike "Enprime BT" pou voye resi
+      {btSupported && connected && (
+        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600, flexWrap:'wrap' }}>
+          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite', flexShrink:0 }}/>
+          Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} — Klike "BT" pou enprime
         </div>
       )}
 
@@ -931,9 +974,9 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {!onSunmi && connected && (
+            {btSupported && connected && (
               <button
-                onClick={() => print(invoice, tenant, user)}
+                onClick={() => { try { print(invoice, tenant, user) } catch(e) { toast.error('Erè BT print') } }}
                 disabled={btPrinting}
                 className="w-full mt-2"
                 style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
