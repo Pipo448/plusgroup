@@ -59,10 +59,7 @@ export default function ReportsPage() {
     enabled:  activeTab === 'sales'
   })
 
-  const handleTabChange = (key) => {
-    if (key === 'stock' && isCashier) return // ✅ Bloke aksè dirèk
-    setActiveTab(key)
-  }
+  const { data: stockReport } = useQuery({
     queryKey: ['stock-report'],
     queryFn:  () => reportAPI.getStock().then(r => r.data.report),
     enabled:  activeTab === 'stock'
@@ -73,6 +70,11 @@ export default function ReportsPage() {
     queryFn:  () => reportAPI.getTopProducts({ dateFrom, dateTo, limit: 10 }).then(r => r.data.topProducts),
     enabled:  activeTab === 'top'
   })
+
+  const handleTabChange = (key) => {
+    if (key === 'stock' && isCashier) return
+    setActiveTab(key)
+  }
 
   const TABS = [
     { key: 'sales', labelKey: 'reports.sales',      icon: <TrendingUp size={15} />, adminOnly: false },
