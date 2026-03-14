@@ -18,9 +18,15 @@ const PERIOD_PRESETS = [
 
 const COLORS = ['#1E40AF', '#6366f1', '#10b981', '#f59e0b', '#ef4444']
 
+const fmtUSD = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
+
 export default function ReportsPage() {
   const { t } = useTranslation()
-  const { hasRole } = useAuthStore()
+  const { hasRole, tenant } = useAuthStore()
+
+  // ✅ To chanj — soti nan tenant (menm to ki nan navbar la)
+  const exchangeRate = Number(tenant?.exchangeRate || 132)
+  const htgToUsd     = (htg) => (Number(htg || 0) / exchangeRate)
 
   const isCashier      = !hasRole('admin')
   const MAX_DAYS       = 2
@@ -163,9 +169,9 @@ export default function ReportsPage() {
             gap: 12,
           }}>
             {[
-              { label: t('reports.totalSales'),   val: `${fmt(salesReport?.totals?._sum?.totalHtg)} HTG`,      color: '#1B2A8F', bg: '#eff2ff' },
-              { label: t('reports.totalUsd'),     val: `${fmt(salesReport?.totals?._sum?.totalUsd)} USD`,      color: '#7c3aed', bg: '#f5f3ff' },
-              { label: t('reports.invoiceCount'), val: salesReport?.totals?._count || 0,                       color: '#059669', bg: '#ecfdf5' },
+              { label: t('reports.totalSales'),   val: `${fmt(salesReport?.totals?._sum?.totalHtg)} HTG`,                                           color: '#1B2A8F', bg: '#eff2ff' },
+              { label: t('reports.totalUsd'),     val: `$${fmtUSD(htgToUsd(salesReport?.totals?._sum?.totalHtg))} USD`,                             color: '#7c3aed', bg: '#f5f3ff' },
+              { label: t('reports.invoiceCount'), val: salesReport?.totals?._count || 0,                                                             color: '#059669', bg: '#ecfdf5' },
               { label: t('reports.paid'),         val: `${fmt(salesReport?.totals?._sum?.amountPaidHtg)} HTG`, color: '#059669', bg: '#ecfdf5' },
             ].map((s, i) => (
               <div key={i} className="card" style={{ padding: '14px 16px' }}>
@@ -179,6 +185,10 @@ export default function ReportsPage() {
               </div>
             ))}
           </div>
+          {/* ✅ Afiche to chanj ki itilize */}
+          <p style={{ fontSize: 11, color: '#94a3b8', marginTop: -4 }}>
+            1 USD = {fmt(exchangeRate)} HTG (to aktyèl)
+          </p>
 
           {salesReport?.byStatus && (
             <div style={{
