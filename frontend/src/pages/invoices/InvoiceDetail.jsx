@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinterStore } from '../../stores/printerStore'
-import { isAndroid } from '../../services/printerService'
+import { isAndroid, isSunmi } from '../../services/printerService'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
@@ -288,7 +288,6 @@ export default function InvoiceDetail() {
   const [printing, setPrinting]       = useState(false)
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '' })
 
-  // ✅ usePrinterStore global — konekte yon fwa, sèvi pou tout paj
   const {
     connected,
     connecting,
@@ -299,8 +298,9 @@ export default function InvoiceDetail() {
     deviceName,
   } = usePrinterStore()
 
-  // ✅ Cache yon fwa — pa rele chak render
-  const onAndroid  = isAndroid()
+  // ✅ isSunmi — detekte Sunmi V2 espesifikman (pa jis Android)
+  // Telefon Android nòmal pap wè bouton Sunmi — y ap wè bouton BT
+  const onSunmi    = isSunmi()
   const showQrCode = tenant?.showQrCode !== false
 
   useEffect(() => {
@@ -337,7 +337,6 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice, showQrCode])
 
-  // ✅ window.print() — laptop, PDF, tablet
   const handlePrint = async () => {
     setPrinting(true)
     const toastId = toast.loading('Ap prepare resi...')
@@ -376,7 +375,6 @@ export default function InvoiceDetail() {
     }
   }
 
-  // ✅ RawBT — Sunmi V2 inner printer
   const handleSunmiPrint = () => {
     print(invoice, tenant, user)
   }
@@ -493,7 +491,7 @@ export default function InvoiceDetail() {
 
         <div className="flex gap-2 flex-wrap">
 
-          {/* ✅ window.print() — laptop, PDF, nenpòt */}
+          {/* window.print() — laptop, PDF, tablet, nenpòt aparey */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -504,8 +502,8 @@ export default function InvoiceDetail() {
             {printing ? 'Ap enprime...' : 'Enprime Resi'}
           </button>
 
-          {/* ✅ RawBT — Sunmi V2 inner printer — sèlman sou Android */}
-          {onAndroid && (
+          {/* ✅ RawBT — Sunmi V2 inner printer — sèlman si userAgent gen "sunmi" */}
+          {onSunmi && (
             <button
               onClick={handleSunmiPrint}
               disabled={btPrinting}
@@ -517,8 +515,8 @@ export default function InvoiceDetail() {
             </button>
           )}
 
-          {/* ✅ Bluetooth ESC/POS — printer BT ekstèn — sèlman sou non-Android */}
-          {!onAndroid && typeof navigator !== 'undefined' && !!navigator.bluetooth && (
+          {/* ✅ Bluetooth ESC/POS — sou tout aparey ki pa Sunmi (PC, Mac, telefon Android nòmal) */}
+          {!onSunmi && typeof navigator !== 'undefined' && !!navigator.bluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6 }}>
               {!connected ? (
                 <button onClick={connect} disabled={connecting} className="btn-secondary btn-sm"
@@ -585,8 +583,8 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* ✅ Indicator BT konekte — sèlman sou non-Android */}
-      {!onAndroid && connected && (
+      {/* ✅ Indicator BT konekte — sèlman sou aparey ki pa Sunmi */}
+      {!onSunmi && connected && (
         <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600 }}>
           <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite' }}/>
           Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} — Klike "Enprime BT" pou voye resi
@@ -712,8 +710,8 @@ export default function InvoiceDetail() {
               {printing ? 'Ap enprime...' : 'Enprime Resi'}
             </button>
 
-            {/* Sidebar — Sunmi (Android sèlman) */}
-            {onAndroid && (
+            {/* Sidebar — Sunmi (sèlman si userAgent gen "sunmi") */}
+            {onSunmi && (
               <button
                 onClick={handleSunmiPrint}
                 disabled={btPrinting}
@@ -725,8 +723,8 @@ export default function InvoiceDetail() {
               </button>
             )}
 
-            {/* Sidebar — BT enprime (non-Android, si konekte) */}
-            {!onAndroid && connected && (
+            {/* Sidebar — BT enprime (aparey ki pa Sunmi, si konekte) */}
+            {!onSunmi && connected && (
               <button
                 onClick={() => print(invoice, tenant, user)}
                 disabled={btPrinting}

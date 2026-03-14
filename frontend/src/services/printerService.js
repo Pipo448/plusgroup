@@ -38,7 +38,6 @@ const CMD = {
 // ── UTILITÈ
 // ══════════════════════════════════════════════════════════════
 
-// ✅ Map aksantye Kreyòl → ASCII — pa pèdi lèt enpòtan yo
 const ACCENT_MAP = {
   'à':'a','â':'a','ä':'a','á':'a','ã':'a',
   'è':'e','é':'e','ê':'e','ë':'e',
@@ -52,7 +51,6 @@ const ACCENT_MAP = {
 
 const encodeText = (text) => {
   const clean = String(text)
-    // ✅ Remplace aksantye avan retire yo — kenbe lisibilite
     .replace(/[àâäáã]/g, 'a')
     .replace(/[èéêë]/g,  'e')
     .replace(/[ìíîï]/g,  'i')
@@ -66,19 +64,21 @@ const encodeText = (text) => {
     .replace(/ç/g,       'c')
     .replace(/Ç/g,       'C')
     .replace(/ñ/g,       'n')
-    // ✅ Retire rès karaktè non-ASCII
     .replace(/[^\x00-\x7F]/g, '?')
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
 
-// ✅ Cache logo konvèti — pa re-konvèti chak print
 const _logoCache = new Map()
 
-// ✅ isAndroid — cache yon fwa sèlman
-const _isAndroid = /android/i.test(navigator.userAgent)
-export const isAndroid = () => _isAndroid
+// ✅ Detekte Sunmi espesifikman (pa jis Android an jeneral)
+// Sunmi V2 gen "SUNMI" nan userAgent li — telefon nòmal pa gen sa
+const _ua        = navigator.userAgent
+const _isAndroid = /android/i.test(_ua)
+const _isSunmi   = /sunmi/i.test(_ua)
 
-// ✅ getWidth — konsolide 57mm ak 58mm ansanm
+export const isAndroid = () => _isAndroid
+export const isSunmi   = () => _isSunmi
+
 const getWidth = (tenant) => {
   const size = (tenant?.receiptSize) || '58mm'
   return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
@@ -155,7 +155,6 @@ const logoToEscPos = async (base64url, targetWidth) => {
   }
 }
 
-// ✅ logoWithTimeout + CACHE — pa re-konvèti si menm URL
 const logoWithTimeout = async (logoUrl, width, ms = 3000) => {
   const cacheKey = `${logoUrl}_${width}`
   if (_logoCache.has(cacheKey)) return _logoCache.get(cacheKey)
@@ -165,7 +164,6 @@ const logoWithTimeout = async (logoUrl, width, ms = 3000) => {
     new Promise(resolve => setTimeout(() => { console.warn('Logo timeout'); resolve([]) }, ms))
   ])
 
-  // ✅ Cache sèlman si gen rezilta
   if (result.length > 0) _logoCache.set(cacheKey, result)
   return result
 }
@@ -237,8 +235,8 @@ const sendViaBluetooth = async (bytes) => {
 // ══════════════════════════════════════════════════════════════
 
 const dispatch = async (bytes) => {
-  // ✅ Cache isAndroid — pa rele regex chak fwa
-  if (_isAndroid) {
+  // ✅ Sunmi sèlman — RawBT inner printer
+  if (_isSunmi) {
     sendViaRawBT(bytes)
     return
   }
@@ -246,8 +244,7 @@ const dispatch = async (bytes) => {
     await sendViaBluetooth(bytes)
     return
   }
-  // ✅ Mesaj erè pi kle
-  throw new Error('Okenn printer disponib. Sou Android: itilize bouton Sunmi. Sou PC/Mac: konekte yon printer Bluetooth dabò.')
+  throw new Error('Okenn printer disponib. Sou Sunmi: itilize bouton Sunmi. Sou lòt aparey: konekte yon printer Bluetooth dabò.')
 }
 
 // ══════════════════════════════════════════════════════════════
