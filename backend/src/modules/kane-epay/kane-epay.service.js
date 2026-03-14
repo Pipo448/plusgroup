@@ -2,6 +2,16 @@
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
+// ── Haiti = UTC-5 — minwi Haiti = 05:00 UTC ──────────────────
+function haitiTodayStart() {
+  const now  = new Date()
+  const yyyy = now.toLocaleString('en-US', { timeZone: 'America/Port-au-Prince', year:  'numeric' })
+  const mm   = now.toLocaleString('en-US', { timeZone: 'America/Port-au-Prince', month: '2-digit' })
+  const dd   = now.toLocaleString('en-US', { timeZone: 'America/Port-au-Prince', day:   '2-digit' })
+  // minwi Haiti = 05:00 UTC
+  return new Date(`${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}T05:00:00.000Z`)
+}
+
 // ── Jenere nimewo kont — prefiks dinamik ──────────────────────
 async function generateAccountNumber(tenantId, accountPrefix) {
   const year    = new Date().getFullYear()
@@ -217,13 +227,19 @@ async function withdraw(tenantId, accountId, userId, data) {
   })
 }
 
-// ── Estatistik ────────────────────────────────────────────────
+// ── Estatistik ✅ KORIJE — itilize timezone Haiti ─────────────
 async function getStats(tenantId, branchId) {
   const where      = { tenantId, ...(branchId && { branchId }) }
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
 
-  const txWhere = { tenantId, createdAt: { gte: todayStart } }
+  // ✅ Minwi Haiti kòrèk (UTC-5 = 05:00 UTC)
+  const todayStart = haitiTodayStart()
+
+  // ✅ Filtre branch sou tranzaksyon tou
+  const txWhere = {
+    tenantId,
+    ...(branchId && { account: { branchId } }),
+    createdAt: { gte: todayStart },
+  }
 
   const [
     totalAccounts,
@@ -232,6 +248,8 @@ async function getStats(tenantId, branchId) {
     todayTxCount,
     todayDepositAgg,
     todayWithdrawAgg,
+    // ✅ Kont ki kreye jodi a
+    todayNewAccounts,
   ] = await Promise.all([
     prisma.kaneEpay.count({ where }),
     prisma.kaneEpay.count({ where: { ...where, isActive: true } }),
@@ -239,6 +257,7 @@ async function getStats(tenantId, branchId) {
     prisma.kaneTransaction.count({ where: txWhere }),
     prisma.kaneTransaction.aggregate({ where: { ...txWhere, type: 'depot'   }, _sum: { amount: true } }),
     prisma.kaneTransaction.aggregate({ where: { ...txWhere, type: 'retrait' }, _sum: { amount: true } }),
+    prisma.kaneEpay.count({ where: { ...where, createdAt: { gte: todayStart } } }),
   ])
 
   return {
@@ -248,6 +267,7 @@ async function getStats(tenantId, branchId) {
     todayTransactions:   todayTxCount,
     todayDepositAmount:  Number(todayDepositAgg._sum.amount    || 0),
     todayWithdrawAmount: Number(todayWithdrawAgg._sum.amount   || 0),
+    todayNewAccounts,  // ✅ nouvo
   }
 }
 

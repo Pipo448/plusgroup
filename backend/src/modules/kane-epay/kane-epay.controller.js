@@ -3,7 +3,7 @@ const svc = require('./kane-epay.service')
 
 const getTenantAndBranch = (req) => ({
   tenantId: req.tenant.id,
-  branchId: req.headers['x-branch-id'] || null,
+  branchId: req.branchId || null,
   userId:   req.user.id,
 })
 
