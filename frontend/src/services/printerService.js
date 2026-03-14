@@ -1,11 +1,29 @@
 // src/services/printerService.js
 
-const PRINTER_SERVICE_UUID   = '000018f0-0000-1000-8000-00805f9b34fb'
-const PRINTER_CHAR_UUID      = '00002af1-0000-1000-8000-00805f9b34fb'
-const PRINTER_SERVICE_UUID_2 = 'e7810a71-73ae-499d-8c15-faa9aef0c3f2'
-const PRINTER_CHAR_UUID_2    = 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f'
-const PRINTER_SERVICE_UUID_3 = '49535343-fe7d-4ae5-8fa9-9fafd205e455'
-const PRINTER_CHAR_UUID_3    = '49535343-8841-43f4-a8d4-ecbe34729bb3'
+// ══════════════════════════════════════════════════════════════
+// UUID YO — list konplè pou kouvri majorite ESC/POS BT printers
+// ══════════════════════════════════════════════════════════════
+
+const KNOWN_PAIRS = [
+  // ✅ Standard ESC/POS BLE (Goojprt PT-210, PT-200, beaucoup lòt)
+  { svc: '000018f0-0000-1000-8000-00805f9b34fb', chr: '00002af1-0000-1000-8000-00805f9b34fb' },
+  // ✅ Xprinter, iDPRT, Rongta
+  { svc: 'e7810a71-73ae-499d-8c15-faa9aef0c3f2', chr: 'bef8d6c9-9c21-4c9e-b632-bd58c1009f9f' },
+  // ✅ ISSC / Microchip BLE UART
+  { svc: '49535343-fe7d-4ae5-8fa9-9fafd205e455', chr: '49535343-8841-43f4-a8d4-ecbe34729bb3' },
+  // ✅ Nordic UART (nRF51/52 — Peripage, Cat printer, kèk Goojprt)
+  { svc: '6e400001-b5a3-f393-e0a9-e50e24dcca9e', chr: '6e400002-b5a3-f393-e0a9-e50e24dcca9e' },
+  // ✅ FF00 series (Gprinter, Hoin, lòt mak chinwa bon mache)
+  { svc: '0000ff00-0000-1000-8000-00805f9b34fb', chr: '0000ff02-0000-1000-8000-00805f9b34fb' },
+  { svc: '0000ff00-0000-1000-8000-00805f9b34fb', chr: '0000ff01-0000-1000-8000-00805f9b34fb' },
+  // ✅ FFE0 series (HM-10 BLE module — trè kòmòn nan printer bon mache)
+  { svc: '0000ffe0-0000-1000-8000-00805f9b34fb', chr: '0000ffe1-0000-1000-8000-00805f9b34fb' },
+  // ✅ ADF (Adafruit BLE UART Friend)
+  { svc: '6e400001-b5a3-f393-e0a9-e50e24dcca9e', chr: '6e400003-b5a3-f393-e0a9-e50e24dcca9e' },
+]
+
+// Extraire tous les UUIDs de services pour optionalServices
+const ALL_SERVICE_UUIDS = [...new Set(KNOWN_PAIRS.map(p => p.svc))]
 
 let _device = null
 let _char   = null
@@ -38,17 +56,6 @@ const CMD = {
 // ── UTILITÈ
 // ══════════════════════════════════════════════════════════════
 
-const ACCENT_MAP = {
-  'à':'a','â':'a','ä':'a','á':'a','ã':'a',
-  'è':'e','é':'e','ê':'e','ë':'e',
-  'ì':'i','í':'i','î':'i','ï':'i',
-  'ò':'o','ó':'o','ô':'o','õ':'o','ö':'o',
-  'ù':'u','ú':'u','û':'u','ü':'u',
-  'ç':'c','ñ':'n',
-  'À':'A','Â':'A','Á':'A','È':'E','É':'E','Ê':'E',
-  'Î':'I','Ï':'I','Ô':'O','Ù':'U','Û':'U','Ç':'C',
-}
-
 const encodeText = (text) => {
   const clean = String(text)
     .replace(/[àâäáã]/g, 'a')
@@ -70,8 +77,7 @@ const encodeText = (text) => {
 
 const _logoCache = new Map()
 
-// ✅ Detekte Sunmi espesifikman (pa jis Android an jeneral)
-// Sunmi V2 gen "SUNMI" nan userAgent li — telefon nòmal pa gen sa
+// ✅ Detekte Sunmi espesifikman
 const _ua        = navigator.userAgent
 const _isAndroid = /android/i.test(_ua)
 const _isSunmi   = /sunmi/i.test(_ua)
@@ -158,12 +164,10 @@ const logoToEscPos = async (base64url, targetWidth) => {
 const logoWithTimeout = async (logoUrl, width, ms = 3000) => {
   const cacheKey = `${logoUrl}_${width}`
   if (_logoCache.has(cacheKey)) return _logoCache.get(cacheKey)
-
   const result = await Promise.race([
     logoToEscPos(logoUrl, width),
     new Promise(resolve => setTimeout(() => { console.warn('Logo timeout'); resolve([]) }, ms))
   ])
-
   if (result.length > 0) _logoCache.set(cacheKey, result)
   return result
 }
@@ -184,58 +188,116 @@ const sendViaRawBT = (bytes) => {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ── BLUETOOTH (printer ekstèn)
+// ── BLUETOOTH — koneksyon avèk auto-discovery
 // ══════════════════════════════════════════════════════════════
 
 export const connectPrinter = async () => {
   if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
 
+  // Demande aparèy — montre tout aparèy BT + ajoute tout UUID kòm optionalServices
   _device = await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
-    optionalServices: [PRINTER_SERVICE_UUID, PRINTER_SERVICE_UUID_2, PRINTER_SERVICE_UUID_3]
+    optionalServices: ALL_SERVICE_UUIDS,
   })
 
   const server = await _device.gatt.connect()
-  _device.addEventListener('gattserverdisconnected', () => { _char = null; _device = null })
 
-  for (const [svcUUID, charUUID] of [
-    [PRINTER_SERVICE_UUID,   PRINTER_CHAR_UUID  ],
-    [PRINTER_SERVICE_UUID_2, PRINTER_CHAR_UUID_2],
-    [PRINTER_SERVICE_UUID_3, PRINTER_CHAR_UUID_3],
-  ]) {
+  // Netwaye si aparèy dekonekte
+  _device.addEventListener('gattserverdisconnected', () => {
+    console.warn('BT: gattserverdisconnected')
+    _char = null
+    _device = null
+  })
+
+  // ── ESTRATEJI 1: Eseye UUID koni yo ─────────────────────
+  for (const { svc, chr } of KNOWN_PAIRS) {
     try {
-      const svc = await server.getPrimaryService(svcUUID)
-      _char     = await svc.getCharacteristic(charUUID)
-      return _device.name || 'Bluetooth Printer'
-    } catch { /* eseye pwochen */ }
+      const service    = await server.getPrimaryService(svc)
+      const candidate  = await service.getCharacteristic(chr)
+      // Verifye karakteristik lan gen pwopriyete pou ekri
+      const props = candidate.properties
+      if (props.write || props.writeWithoutResponse) {
+        _char = candidate
+        console.info('BT: UUID jwenn —', svc, '/', chr)
+        return _device.name || 'Bluetooth Printer'
+      }
+    } catch { /* pa jwenn — eseye pwochen */ }
   }
 
-  _char = null; _device = null
+  // ── ESTRATEJI 2: Auto-discovery — lis tout sèvis + karakteristik ─
+  console.warn('BT: UUID koni pa jwenn — ap eseye auto-discovery...')
+  try {
+    const services = await server.getPrimaryServices()
+    for (const service of services) {
+      try {
+        const characteristics = await service.getCharacteristics()
+        for (const chr of characteristics) {
+          const props = chr.properties
+          if (props.write || props.writeWithoutResponse) {
+            _char = chr
+            console.info('BT auto-discovery: sèvis =', service.uuid, '/ chr =', chr.uuid)
+            return _device.name || 'Bluetooth Printer'
+          }
+        }
+      } catch { /* sèvis sa pa aksesib */ }
+    }
+  } catch (e) {
+    console.error('BT auto-discovery echwe:', e)
+  }
+
+  // Tout estrateji echwe
+  _char   = null
+  _device = null
   throw new Error('PRINTER_UUID_NOT_FOUND')
 }
 
 export const disconnectPrinter = () => {
-  if (_device?.gatt?.connected) _device.gatt.disconnect()
-  _char = null; _device = null
+  try {
+    if (_device?.gatt?.connected) _device.gatt.disconnect()
+  } catch (e) {
+    console.warn('BT disconnect error:', e)
+  }
+  _char   = null
+  _device = null
 }
 
-export const isPrinterConnected = () => !!_char && !!(_device?.gatt?.connected)
+export const isPrinterConnected = () => {
+  try {
+    return !!_char && !!(_device?.gatt?.connected)
+  } catch {
+    return false
+  }
+}
 
+// ── Voye bytes pa chunk avèk writeWithoutResponse kòm fallback ──
 const sendViaBluetooth = async (bytes) => {
   if (!_char) throw new Error('Printer pa konekte')
-  const CHUNK = 100
+
+  const CHUNK     = 100
+  const useNoResp = !_char.properties.write && _char.properties.writeWithoutResponse
+
   for (let i = 0; i < bytes.length; i += CHUNK) {
-    await _char.writeValue(new Uint8Array(bytes.slice(i, i + CHUNK)))
+    const chunk = new Uint8Array(bytes.slice(i, i + CHUNK))
+    try {
+      if (useNoResp) {
+        await _char.writeValueWithoutResponse(chunk)
+      } else {
+        await _char.writeValue(chunk)
+      }
+    } catch (e) {
+      // Si writeValue echwe, eseye writeWithoutResponse kòm dènye recours
+      try {
+        await _char.writeValueWithoutResponse(chunk)
+      } catch (e2) {
+        throw new Error('Echwe voye done bay printer: ' + e2.message)
+      }
+    }
     await new Promise(r => setTimeout(r, 20))
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// ── DISPATCH — chwazi metòd otomatikman
-// ══════════════════════════════════════════════════════════════
-
+// ── Dispatch otomatik ────────────────────────────────────────
 const dispatch = async (bytes) => {
-  // ✅ Sunmi sèlman — RawBT inner printer
   if (_isSunmi) {
     sendViaRawBT(bytes)
     return
@@ -244,11 +306,11 @@ const dispatch = async (bytes) => {
     await sendViaBluetooth(bytes)
     return
   }
-  throw new Error('Okenn printer disponib. Sou Sunmi: itilize bouton Sunmi. Sou lòt aparey: konekte yon printer Bluetooth dabò.')
+  throw new Error('Okenn printer disponib. Konekte yon printer Bluetooth dabò.')
 }
 
 // ══════════════════════════════════════════════════════════════
-// ✅ PRINT INVOICE — matche nouvo design bileng + kredi
+// ✅ PRINT INVOICE
 // ══════════════════════════════════════════════════════════════
 
 export const printInvoice = async (invoice, tenant, cashier = null, amountGiven = 0, change = 0) => {
@@ -264,12 +326,12 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
   const paidHtg      = Number(invoice.amountPaidHtg || 0)
   const balanceHtg   = Number(invoice.balanceDueHtg || 0)
   const lastPay      = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
-  const isCredit     = invoice.paymentType === 'credit' || invoice.isCredit === true || balanceHtg > 0 && paidHtg === 0
+  const isCredit     = invoice.paymentType === 'credit' || invoice.isCredit === true || (balanceHtg > 0 && paidHtg === 0)
   const isPartial    = invoice.status === 'partial'
   const isPaid       = invoice.status === 'paid'
   const isCancelled  = invoice.status === 'cancelled'
 
-  // ✅ Taux echanj
+  // Taux echanj
   const exchangeRates = (() => {
     try {
       const er = tenant?.exchangeRates
@@ -285,17 +347,15 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
 
   const PAYMENT_LABELS = {
     cash:'Kach / Cash', moncash:'MonCash', natcash:'NatCash',
-    card:'Kat / Carte', transfer:'Virement', check:'Chek / Cheque', other:'Lòt / Autre'
+    card:'Kat / Carte', transfer:'Virement', check:'Chek / Cheque', other:'Lot / Autre'
   }
 
-  // ✅ Statut bileng
   const statusLine =
     isPaid      ? 'TOTAL PAYE / TOTAL PAYE' :
     isCancelled ? 'ANILE / ANNULE' :
     isPartial   ? 'PASYAL / PARTIEL' :
     isCredit    ? 'KREDI / CREDIT' : 'IMPAYE / NON PAYE'
 
-  // ✅ Kolonn tablo atik
   const C = isWide
     ? { name: 20, qty: 4, price: 10, total: 12 }
     : { name: 12, qty: 3, price:  8, total:  9 }
@@ -310,7 +370,6 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
 
   const issueDate = new Date(invoice.issueDate)
   const dateStr   = issueDate.toLocaleDateString('fr-HT')
-
   const qrContent = window.location.origin + '/app/invoices/' + invoice.id + '\n' + invoice.invoiceNumber
   const bizName   = tenant?.businessName || tenant?.name || 'PLUS GROUP'
 
@@ -323,9 +382,9 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ...CMD.BOLD_ON,
     ...encodeText(bizName + '\n'),
     ...CMD.BOLD_OFF,
-    ...(tenant?.tagline   ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline + '\n'),   ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address   ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'),   ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.phone     ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.tagline ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
 
     // ── SEPARASYON ──────────────────────────────────────────
     ...CMD.ALIGN_LEFT,
@@ -335,10 +394,10 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
     ...CMD.SMALL_FONT,
     ...encodeText('Dat / Date: ' + dateStr + '\n'),
     ...encodeText('Resi N / Recu N: ' + invoice.invoiceNumber + '\n'),
-    ...(snap.name       ? [...encodeText('Kliyan / Client: ' + snap.name.substring(0, W - 16) + '\n')] : []),
-    ...(snap.phone      ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
-    ...(snap.nif        ? [...encodeText('NIF: ' + snap.nif + '\n')] : []),
-    ...(cashierName     ? [...encodeText((isWide ? 'Kesye / Caissier: ' : 'Kesye: ') + cashierName.substring(0, W - 18) + '\n')] : []),
+    ...(snap.name      ? [...encodeText('Kliyan / Client: ' + snap.name.substring(0, W - 16) + '\n')] : []),
+    ...(snap.phone     ? [...encodeText('Tel: ' + snap.phone + '\n')] : []),
+    ...(snap.nif       ? [...encodeText('NIF: ' + snap.nif + '\n')] : []),
+    ...(cashierName    ? [...encodeText((isWide ? 'Kesye / Caissier: ' : 'Kesye: ') + cashierName.substring(0, W - 18) + '\n')] : []),
     ...CMD.NORMAL_FONT,
 
     // ── SEPARASYON ──────────────────────────────────────────
@@ -373,68 +432,60 @@ export const printInvoice = async (invoice, tenant, cashier = null, amountGiven 
       ...CMD.NORMAL_FONT,
     ] : []),
 
-    // ── TOTAL ───────────────────────────────────────────────
+    // ── TOTAL + DEVIZ SOU MENM LIY ──────────────────────────
     ...divider('=', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_ON,
     ...makeLine('TOTAL / TOTAL:', fmt(totalHtg) + ' G', W), ...CMD.LINE_FEED,
     ...CMD.BOLD_OFF,
-    ...(toUSD(totalHtg) ? [
-      ...CMD.SMALL_FONT,
-      ...encodeText('  = $' + toUSD(totalHtg) + ' USD\n'),
-      ...CMD.NORMAL_FONT,
-    ] : []),
-    ...(toDOP(totalHtg) ? [
-      ...CMD.SMALL_FONT,
-      ...encodeText('  = RD$' + toDOP(totalHtg) + ' DOP\n'),
-      ...CMD.NORMAL_FONT,
-    ] : []),
+    ...(toUSD(totalHtg) ? [...CMD.SMALL_FONT, ...encodeText('  = $' + toUSD(totalHtg) + ' USD  '), ...CMD.NORMAL_FONT] : []),
+    ...(toDOP(totalHtg) ? [...CMD.SMALL_FONT, ...encodeText('RD$' + toDOP(totalHtg) + ' DOP\n'), ...CMD.NORMAL_FONT] : []),
+    // Si gen USD men pa DOP, ajoute newline
+    ...(toUSD(totalHtg) && !toDOP(totalHtg) ? [...CMD.LINE_FEED] : []),
+
     ...divider('-', W), ...CMD.LINE_FEED,
 
     // ── PEMAN ───────────────────────────────────────────────
     ...CMD.SMALL_FONT,
-    // Kob kliyan bay
     ...(amountGiven > 0 ? [
-      ...makeLine(isWide ? 'Montant recu / Kob kliyan bay:' : 'Kob kliyan bay', fmt(amountGiven) + ' G', W), ...CMD.LINE_FEED,
+      ...makeLine(isWide ? 'Montant recu / Kob kliyan bay:' : 'Kob kliyan bay:', fmt(amountGiven) + ' G', W), ...CMD.LINE_FEED,
     ] : []),
-    // Monnen
     ...(change > 0 ? [
-      ...makeLine(isWide ? 'Monnaie / Monnen remet:' : 'Monnen', fmt(change) + ' G', W), ...CMD.LINE_FEED,
+      ...makeLine(isWide ? 'Monnaie / Monnen remet:' : 'Monnen:', fmt(change) + ' G', W), ...CMD.LINE_FEED,
     ] : []),
-    // Metod peman
     ...(lastPay?.method ? [
       ...makeLine(isWide ? 'Methode / Metod:' : 'Metod:', PAYMENT_LABELS[lastPay.method] || lastPay.method, W), ...CMD.LINE_FEED,
     ] : []),
-    // Referans
     ...(lastPay?.reference ? [
       ...makeLine('Ref:', lastPay.reference.substring(0, W - 6), W), ...CMD.LINE_FEED,
     ] : []),
-    // Peman deja fe (si pasyal)
     ...(isPartial && paidHtg > 0 ? [
       ...makeLine(isWide ? 'Deja paye / Deja peye:' : 'Deja peye:', fmt(paidHtg) + ' G', W), ...CMD.LINE_FEED,
     ] : []),
     ...CMD.NORMAL_FONT,
 
-    // ✅ SEKSYON KREDI ─────────────────────────────────────
+    // ── BALANS / KREDI (siy negatif) ─────────────────────────
     ...(balanceHtg > 0 ? [
       ...divider('-', W), ...CMD.LINE_FEED,
       ...CMD.BOLD_ON,
       ...makeLine(
         isWide ? 'Balans / Solde du:' : 'Balans:',
-        fmt(balanceHtg) + ' G',
+        '-' + fmt(balanceHtg) + ' G',   // ✅ siy negatif
         W
       ), ...CMD.LINE_FEED,
       ...CMD.BOLD_OFF,
-      // ✅ Si se kredi oswa pasyal — ajoute avètisman
-      ...(isCredit || isPartial ? [
+      // Dat limit kredi si disponib
+      ...(invoice.dueDate ? [
         ...CMD.SMALL_FONT,
         ...CMD.ALIGN_CENTER,
         ...encodeText('*** KREDI / CREDIT ***\n'),
-        ...encodeText('Peman an dwe fe nan dat:' + '\n'),
-        ...(invoice.dueDate ? [
-          ...encodeText(new Date(invoice.dueDate).toLocaleDateString('fr-HT') + '\n'),
-        ] : [
-          ...encodeText('Pi vit posib / Aussitot possible\n'),
-        ]),
+        ...encodeText('Dat limit: ' + new Date(invoice.dueDate).toLocaleDateString('fr-HT') + '\n'),
+        ...CMD.ALIGN_LEFT,
+        ...CMD.NORMAL_FONT,
+      ] : (isCredit || isPartial) ? [
+        ...CMD.SMALL_FONT,
+        ...CMD.ALIGN_CENTER,
+        ...encodeText('*** KREDI / CREDIT ***\n'),
+        ...encodeText('Peye pi vit posib / Aussitot possible\n'),
         ...CMD.ALIGN_LEFT,
         ...CMD.NORMAL_FONT,
       ] : []),
@@ -640,7 +691,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(type !== 'ouverture' ? [
       ...CMD.ALIGN_LEFT,
-      ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' HTG', W), ...CMD.LINE_FEED
+      ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' HTG', W), ...CMD.LINE_FEED,
     ] : []),
     ...(transaction?.method ? [
       ...divider('-', W), ...CMD.LINE_FEED,
