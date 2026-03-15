@@ -96,6 +96,7 @@ model Tenant {
   creator            SuperAdmin?          @relation(fields: [createdBy], references: [id])
   plan               SubscriptionPlan?    @relation(fields: [planId], references: [id])
   users              User[]
+  pushSubscriptions  PushSubscription[]
 
   @@map("tenants")
 }
@@ -203,6 +204,7 @@ model User {
   sabotayPlansCreated     SabotayPlan[]     @relation("SabotayPlanCreatedBy")
   stockMovements          StockMovement[]
   tenant                  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pushSubscriptions       PushSubscription[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -986,4 +988,20 @@ enum ServiceType {
   spa
   room_service
   other
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String?
+  endpoint  String   @unique
+  p256dh    String   @default("")
+  auth      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("push_subscriptions")
 }
