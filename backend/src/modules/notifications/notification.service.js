@@ -2,6 +2,27 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
+// ✅ Enpòte push service
+const pushSvc = require('../push/push.service');
+
+// ─────────────────────────────────────────────
+// ✅ Voye Push bay tout admin yon tenant
+// ─────────────────────────────────────────────
+async function sendPushToAdmins(tenantId, { title, body, tag, url }) {
+  try {
+    await pushSvc.notify(tenantId, {
+      title,
+      body,
+      tag:         tag  || 'plusgroup-notif',
+      url:         url  || '/app/dashboard',
+      roleFilter:  'admin',   // ← sèlman admin yo resevwa push
+    })
+  } catch (err) {
+    // Pa janm kase flux prensipal la si push echwe
+    console.warn('[Push] Echwe voye push:', err?.message)
+  }
+}
+
 // ─────────────────────────────────────────────
 // KREYE yon notifikasyon (itilize pa lòt sèvis)
 // ─────────────────────────────────────────────
@@ -41,7 +62,6 @@ async function markAsRead({ id, tenantId, userId }) {
   return prisma.notification.update({ where: { id }, data: { isRead: true, readAt: new Date() } });
 }
 
-// MACHE TOUT kòm li
 async function markAllAsRead({ tenantId, userId }) {
   return prisma.notification.updateMany({
     where: { tenantId, isRead: false, OR: [{ userId }, { userId: null }] },
@@ -49,7 +69,6 @@ async function markAllAsRead({ tenantId, userId }) {
   });
 }
 
-// EFASE yon notifikasyon
 async function deleteNotification({ id, tenantId, userId }) {
   const notif = await prisma.notification.findFirst({
     where: { id, tenantId, OR: [{ userId }, { userId: null }] },
@@ -58,7 +77,6 @@ async function deleteNotification({ id, tenantId, userId }) {
   return prisma.notification.delete({ where: { id } });
 }
 
-// KONTE pa li ankò
 async function getUnreadCount({ tenantId, userId }) {
   return prisma.notification.count({
     where: { tenantId, isRead: false, OR: [{ userId }, { userId: null }] },
@@ -66,59 +84,105 @@ async function getUnreadCount({ tenantId, userId }) {
 }
 
 // ─────────────────────────────────────────────
-// HELPERS — kreye notif otomatik
+// HELPERS — kreye notif + voye push bay admin
 // ─────────────────────────────────────────────
+
 async function notifyNewInvoice({ tenantId, invoiceNumber, clientName, totalHtg }) {
-  return createNotification({
-    tenantId, type: 'invoice_created',
-    titleHt: `Nouvo Fakti #${invoiceNumber}`,
-    titleFr: `Nouvelle Facture #${invoiceNumber}`,
-    titleEn: `New Invoice #${invoiceNumber}`,
-    messageHt: `Fakti pou ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`,
-    messageFr: `Facture pour ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`,
-    messageEn: `Invoice for ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`,
-    entityType: 'invoice',
-  });
+  const title = `Nouvo Fakti #${invoiceNumber}`
+  const body  = `Fakti pou ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`
+
+  // ✅ Kreye notif BD + voye push paralèl
+  await Promise.all([
+    createNotification({
+      tenantId, type: 'invoice_created',
+      titleHt: title,
+      titleFr: `Nouvelle Facture #${invoiceNumber}`,
+      titleEn: `New Invoice #${invoiceNumber}`,
+      messageHt: body,
+      messageFr: `Facture pour ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`,
+      messageEn: `Invoice for ${clientName} — ${Number(totalHtg).toLocaleString('fr-HT')} HTG`,
+      entityType: 'invoice',
+    }),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'invoice-new',
+      url: '/app/invoices',
+    }),
+  ])
 }
 
 async function notifyInvoicePaid({ tenantId, invoiceNumber, clientName }) {
-  return createNotification({
-    tenantId, type: 'invoice_paid',
-    titleHt: `Fakti #${invoiceNumber} Peye ✅`,
-    titleFr: `Facture #${invoiceNumber} Payée ✅`,
-    titleEn: `Invoice #${invoiceNumber} Paid ✅`,
-    messageHt: `${clientName} fin peye fakti a nèt`,
-    messageFr: `${clientName} a réglé la facture`,
-    messageEn: `${clientName} fully paid the invoice`,
-    entityType: 'invoice',
-  });
+  const title = `Fakti #${invoiceNumber} Peye ✅`
+  const body  = `${clientName} fin peye fakti a nèt`
+
+  await Promise.all([
+    createNotification({
+      tenantId, type: 'invoice_paid',
+      titleHt: title,
+      titleFr: `Facture #${invoiceNumber} Payée ✅`,
+      titleEn: `Invoice #${invoiceNumber} Paid ✅`,
+      messageHt: body,
+      messageFr: `${clientName} a réglé la facture`,
+      messageEn: `${clientName} fully paid the invoice`,
+      entityType: 'invoice',
+    }),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'invoice-paid',
+      url: '/app/invoices',
+    }),
+  ])
 }
 
 async function notifyLowStock({ tenantId, productName, currentQty, threshold }) {
-  return createNotification({
-    tenantId, type: 'low_stock',
-    titleHt: `Stock Ba ⚠️ — ${productName}`,
-    titleFr: `Stock Faible ⚠️ — ${productName}`,
-    titleEn: `Low Stock ⚠️ — ${productName}`,
-    messageHt: `Rès: ${currentQty} (limit: ${threshold})`,
-    messageFr: `Restant: ${currentQty} (seuil: ${threshold})`,
-    messageEn: `Remaining: ${currentQty} (threshold: ${threshold})`,
-    entityType: 'product',
-  });
+  const title = `Stòk Ba ⚠️ — ${productName}`
+  const body  = `Rès: ${currentQty} (limit: ${threshold})`
+
+  await Promise.all([
+    createNotification({
+      tenantId, type: 'low_stock',
+      titleHt: title,
+      titleFr: `Stock Faible ⚠️ — ${productName}`,
+      titleEn: `Low Stock ⚠️ — ${productName}`,
+      messageHt: body,
+      messageFr: `Restant: ${currentQty} (seuil: ${threshold})`,
+      messageEn: `Remaining: ${currentQty} (threshold: ${threshold})`,
+      entityType: 'product',
+    }),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'low-stock',
+      url: '/app/stock',
+    }),
+  ])
 }
 
 async function notifyPaymentReceived({ tenantId, invoiceNumber, amountHtg, method }) {
-  const labels = { cash: 'Kach', moncash: 'MonCash', natcash: 'NatCash', card: 'Kat', transfer: 'Transfè', check: 'Chèk', other: 'Lòt' };
-  return createNotification({
-    tenantId, type: 'payment_received',
-    titleHt: `Pèman Resevwa 💰`,
-    titleFr: `Paiement Reçu 💰`,
-    titleEn: `Payment Received 💰`,
-    messageHt: `Fakti #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${labels[method] || method}`,
-    messageFr: `Facture #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${labels[method] || method}`,
-    messageEn: `Invoice #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${method}`,
-    entityType: 'payment',
-  });
+  const labels = { cash: 'Kach', moncash: 'MonCash', natcash: 'NatCash', card: 'Kat', transfer: 'Transfè', check: 'Chèk', other: 'Lòt' }
+  const title  = `Pèman Resevwa 💰`
+  const body   = `Fakti #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${labels[method] || method}`
+
+  await Promise.all([
+    createNotification({
+      tenantId, type: 'payment_received',
+      titleHt: title,
+      titleFr: `Paiement Reçu 💰`,
+      titleEn: `Payment Received 💰`,
+      messageHt: body,
+      messageFr: `Facture #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${labels[method] || method}`,
+      messageEn: `Invoice #${invoiceNumber} — ${Number(amountHtg).toLocaleString('fr-HT')} HTG via ${method}`,
+      entityType: 'payment',
+    }),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'payment-received',
+      url: '/app/invoices',
+    }),
+  ])
 }
 
 module.exports = {

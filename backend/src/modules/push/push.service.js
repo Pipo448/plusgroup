@@ -65,13 +65,24 @@ async function sendToOne(sub, payload) {
 async function sendToTenant(tenantId, payload, options = {}) {
   const { roleFilter, userIdFilter } = options
 
-  const where = { tenantId }
+  let where = { tenantId }
 
-  // ✅ Opsyonèl — sèlman admin, oswa yon itilizatè espesifik
   if (userIdFilter) {
+    // Sèlman yon itilizatè espesifik
     where.userId = userIdFilter
   } else if (roleFilter) {
-    where.user = { role: { in: Array.isArray(roleFilter) ? roleFilter : [roleFilter] } }
+    // ✅ Jwenn userId admin yo premye, epi filtre sou yo
+    const adminUsers = await prisma.user.findMany({
+      where: {
+        tenantId,
+        role: { in: Array.isArray(roleFilter) ? roleFilter : [roleFilter] },
+        isActive: true,
+      },
+      select: { id: true }
+    })
+    const adminIds = adminUsers.map(u => u.id)
+    if (!adminIds.length) return { sent: 0, failed: 0 }
+    where.userId = { in: adminIds }
   }
 
   const subs = await prisma.pushSubscription.findMany({ where })
