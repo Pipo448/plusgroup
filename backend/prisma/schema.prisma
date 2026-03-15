@@ -991,7 +991,7 @@ enum ServiceType {
 }
 
 model PushSubscription {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))  // ← chanje sa
   tenantId  String
   userId    String?
   endpoint  String   @unique
