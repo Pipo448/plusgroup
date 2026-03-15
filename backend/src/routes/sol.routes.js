@@ -7,8 +7,14 @@ const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const { PrismaClient } = require('@prisma/client')
 
-const router = express.Router()
-const prisma = new PrismaClient()
+const router   = express.Router()
+const prisma   = new PrismaClient()
+
+// ✅ Sol Push Service
+const solPushSvc  = require('../modules/sabotay/sol-push.service')
+
+// ✅ Sol Exchange Service — Mache Men Sol
+const exchangeSvc = require('../modules/sabotay/sol-exchange.service')
 
 const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me'
 
@@ -148,7 +154,6 @@ router.post('/auth/change-password', authMember, async (req, res) => {
     const newHash = await bcrypt.hash(newPassword, 10)
     await prisma.solMemberAccount.update({
       where: { id: account.id },
-      // ✅ Efase plainPassword lè manm chanje modpas li — sekiri
       data:  { passwordHash: newHash, plainPassword: null },
     })
 
@@ -268,7 +273,7 @@ router.post('/accounts', authAdmin, async (req, res) => {
       data: {
         username:         credentials.username.toLowerCase().trim(),
         passwordHash,
-        plainPassword:    rawPassword,  // ✅ Sove modpas klè pou admin ka wè l
+        plainPassword:    rawPassword,
         tenantId,
         memberId:         sabotayMember.id,
         memberName:       sabotayMember.name,
@@ -320,8 +325,7 @@ router.get('/members/:memberId/check', authAdmin, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// ✅ NOUVO: GET /api/sol/accounts?tenantId=xxx&planId=xxx  (admin)
-// Admin ka wè tout kont Sol ak credentials yo
+// GET /api/sol/accounts?tenantId=xxx&planId=xxx  (admin)
 // ══════════════════════════════════════════════════════════════
 router.get('/accounts', authAdmin, async (req, res) => {
   try {
@@ -336,14 +340,14 @@ router.get('/accounts', authAdmin, async (req, res) => {
         ...(planId && { planId }),
       },
       select: {
-        id:            true,
-        username:      true,
-        plainPassword: true,   // ← modpas klè pou admin
-        memberName:    true,
-        memberPhone:   true,
-        memberPosition:true,
-        planName:      true,
-        createdAt:     true,
+        id:             true,
+        username:       true,
+        plainPassword:  true,
+        memberName:     true,
+        memberPhone:    true,
+        memberPosition: true,
+        planName:       true,
+        createdAt:      true,
       },
       orderBy: { memberPosition: 'asc' },
     })
@@ -356,8 +360,7 @@ router.get('/accounts', authAdmin, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// ✅ NOUVO: PATCH /api/sol/accounts/:accountId/reset-password  (admin)
-// Admin ka reset modpas yon manm
+// PATCH /api/sol/accounts/:accountId/reset-password  (admin)
 // ══════════════════════════════════════════════════════════════
 router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) => {
   try {
@@ -381,6 +384,155 @@ router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) 
   } catch (err) {
     console.error('[SOL RESET PW]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════
+// ✅ PUSH NOTIFICATIONS — Manm Sol
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/sol/push/vapid-public-key  (piblik)
+router.get('/push/vapid-public-key', (req, res) => {
+  res.json({
+    success:   true,
+    publicKey: process.env.VAPID_PUBLIC_KEY ||
+      'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
+  })
+})
+
+// POST /api/sol/push/subscribe
+router.post('/push/subscribe', authMember, async (req, res) => {
+  try {
+    const { subscription } = req.body
+    if (!subscription) {
+      return res.status(400).json({ message: 'Subscription obligatwa' })
+    }
+    const account = await prisma.solMemberAccount.findUnique({
+      where: { id: req.solMember.accountId }
+    })
+    if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
+
+    await solPushSvc.saveSolSubscription(
+      account.tenantId,
+      account.id,
+      account.memberId,
+      subscription
+    )
+    return res.json({ success: true, message: 'Push subscription anrejistre.' })
+  } catch (err) {
+    console.error('[SOL PUSH SUBSCRIBE]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// DELETE /api/sol/push/unsubscribe
+router.delete('/push/unsubscribe', authMember, async (req, res) => {
+  try {
+    const { endpoint } = req.body
+    if (endpoint) await solPushSvc.removeSolSubscription(endpoint)
+    return res.json({ success: true })
+  } catch (err) {
+    console.error('[SOL PUSH UNSUBSCRIBE]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════
+// ✅ MACHE MEN SOL — Echanj Pozisyon
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/sol/exchange/:planId/offers — wè ofri piblik yo
+router.get('/exchange/:planId/offers', authMember, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { tenantId, accountId } = req.solMember
+    const offers = await exchangeSvc.getPublicOffers(tenantId, planId, accountId)
+    return res.json({ success: true, offers })
+  } catch (err) {
+    console.error('[SOL EXCHANGE OFFERS]', err)
+    return res.status(500).json({ message: err.message || 'Erè sèvè' })
+  }
+})
+
+// GET /api/sol/exchange/:planId/my — istwa echanj manm nan
+router.get('/exchange/:planId/my', authMember, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { tenantId, accountId } = req.solMember
+    const exchanges = await exchangeSvc.getMemberExchanges(tenantId, accountId, planId)
+    return res.json({ success: true, exchanges })
+  } catch (err) {
+    console.error('[SOL EXCHANGE MY]', err)
+    return res.status(500).json({ message: err.message || 'Erè sèvè' })
+  }
+})
+
+// POST /api/sol/exchange/:planId/initiate — inisye yon ofri
+router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { tenantId, accountId } = req.solMember
+    const exchange = await exchangeSvc.initiateExchange(tenantId, planId, accountId, req.body)
+    return res.status(201).json({ success: true, exchange })
+  } catch (err) {
+    console.error('[SOL EXCHANGE INITIATE]', err)
+    return res.status(400).json({ message: err.message || 'Erè' })
+  }
+})
+
+// POST /api/sol/exchange/:exchangeId/accept — aksepte yon ofri
+router.post('/exchange/:exchangeId/accept', authMember, async (req, res) => {
+  try {
+    const { exchangeId } = req.params
+    const { tenantId, accountId } = req.solMember
+    const result = await exchangeSvc.acceptExchange(tenantId, exchangeId, accountId)
+    return res.json({ success: true, ...result })
+  } catch (err) {
+    console.error('[SOL EXCHANGE ACCEPT]', err)
+    return res.status(400).json({ message: err.message || 'Erè' })
+  }
+})
+
+// POST /api/sol/exchange/:exchangeId/reject — refize / anile yon ofri
+router.post('/exchange/:exchangeId/reject', authMember, async (req, res) => {
+  try {
+    const { exchangeId } = req.params
+    const { tenantId, accountId } = req.solMember
+    const result = await exchangeSvc.rejectExchange(tenantId, exchangeId, accountId)
+    return res.json({ success: true, ...result })
+  } catch (err) {
+    console.error('[SOL EXCHANGE REJECT]', err)
+    return res.status(400).json({ message: err.message || 'Erè' })
+  }
+})
+
+// ── ADMIN: GET /api/sol/admin/exchange — tout echanj
+router.get('/admin/exchange', authAdmin, async (req, res) => {
+  try {
+    const { tenantId, planId, status, page, limit } = req.query
+    if (!tenantId) return res.status(400).json({ message: 'tenantId obligatwa' })
+    const result = await exchangeSvc.getAdminExchanges(
+      tenantId, planId,
+      { status, page: Number(page) || 1, limit: Number(limit) || 20 }
+    )
+    return res.json({ success: true, ...result })
+  } catch (err) {
+    console.error('[SOL ADMIN EXCHANGE]', err)
+    return res.status(500).json({ message: err.message || 'Erè sèvè' })
+  }
+})
+
+// ── ADMIN: PATCH /api/sol/admin/exchange/:planId/config — konfigire % frè
+router.patch('/admin/exchange/:planId/config', authAdmin, async (req, res) => {
+  try {
+    const { planId }   = req.params
+    const { tenantId } = req.query
+    if (!tenantId) return res.status(400).json({ message: 'tenantId obligatwa' })
+    const plan = await exchangeSvc.updateExchangeConfig(tenantId, planId, null, req.body)
+    return res.json({ success: true, plan })
+  } catch (err) {
+    console.error('[SOL ADMIN EXCHANGE CONFIG]', err)
+    return res.status(400).json({ message: err.message || 'Erè' })
   }
 })
 

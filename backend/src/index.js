@@ -37,6 +37,9 @@ const hotelRoutes = require('./modules/hotel/hotel.routes')
 const dashboardFullRoute = require('./modules/reports/dashboard-full.route');
 const pushRoutes = require('./modules/push/push.routes')
 
+// ✅ Scheduler — cron jobs (Sabotay Sol reminders)
+const { startScheduler } = require('./jobs/scheduler')
+
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
 // ⚠️  sabotayRouter RETIRE nan enterprise.routes — sabotayRoutes dirèk la pran plas li
@@ -147,15 +150,15 @@ app.use(`${API}/branches`,      branchRoutes);
 app.use(`${API}/notifications`, notifRoutes);
 app.use(`${API}/kane-epay`,     kaneEpayRoutes);
 app.use(`${API}/hotel`,         hotelRoutes)
-app.use(`${API}/dashboard`, dashboardFullRoute);
-app.use('/api/v1/push', pushRoutes)
+app.use(`${API}/dashboard`,     dashboardFullRoute);
+app.use('/api/v1/push',         pushRoutes);
 
-// ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay (retire doublon /api/sabotay ak enterprise)
+// ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay
 app.use(`${API}/sabotay`,       sabotayRoutes);
 
 // ✅ Sol Member Portal
 app.use(`${API}/sol`,           solRoutes);
-app.use('/api/sol',   solRoutes); 
+app.use('/api/sol',             solRoutes);
 
 // ✅ Enterprise routes (san sabotay — li deja anrejistre anwo a)
 app.use(`${API}/kane`,    kaneRouter);
@@ -176,6 +179,9 @@ server.listen(PORT, () => {
   logger.info(`📦 Environnement: ${process.env.NODE_ENV}`);
   logger.info(`🌐 URL: ${process.env.API_URL}`);
   logger.info(`✅ CORS aktivé pou: localhost, plusgroup-frontend.onrender.com, app.plusgroupe.com`);
+
+  // ✅ Kòmanse cron jobs — apre sèvè a leve
+  startScheduler();
 });
 
 module.exports = app;
