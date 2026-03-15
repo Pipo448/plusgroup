@@ -1828,7 +1828,7 @@ function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
   const available = useMemo(() => {
     const taken = new Set((plan.members || []).map(m => m.position))
     // Sol ouvè: pwochain pozisyon lib oswa nouvo
-const maxPos = Math.max(...[(plan.members || []).map(m => m.position)].flat(), 0)
+ const maxPos = Math.max(...[(plan.members || []).map(m => m.position)].flat(), 0)
 const nextPos = maxPos + 1
 const libPos = Array.from({length: maxPos}, (_, i) => i + 1).filter(p => !taken.has(p))
 const allPos = [...libPos, nextPos]
@@ -1915,22 +1915,14 @@ return allPos
     cursor: 'pointer', overflow: 'hidden', position: 'relative',
   }
 
-  const handleSave_REPLACEMENT = `
   const handleSave = () => {
     if (!form.name)        return toast.error('Non manm obligatwa.')
     if (!form.phone)       return toast.error('Telefòn obligatwa.')
     if (!positions.length) return toast.error('Chwazi omwen yon plas.')
 
+    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
     const firstPos    = positions[0]
     const isOwnerSlot = hasOwnerSlot(plan) && firstPos === 1
-
-    // ✅ Bouton konfime pou men pwopriyete a
-    if (isOwnerSlot && !showOwnerConfirm) {
-      setShowOwnerConfirm(true)
-      return
-    }
-
-    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
 
     onSave({
       ...form,
@@ -1950,7 +1942,6 @@ return allPos
       })
     })
   }
-`
 
   return (
     <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={520}>
@@ -2105,19 +2096,6 @@ return allPos
             </div>
           </div>
         )}
-
-{showOwnerConfirm && (
-  <div style={{background:'rgba(201,168,76,0.12)',border:'1px solid rgba(201,168,76,0.4)',borderRadius:14,padding:'16px 15px',marginBottom:4}}>
-    <p style={{fontSize:13,fontWeight:800,color:D.gold,margin:'0 0 8px'}}>⭐ Konfime Men Pwopriyete Sol</p>
-    <p style={{fontSize:11,color:D.muted,margin:'0 0 12px',lineHeight:1.7}}>
-      Pozisyon #1 se <strong style={{color:D.gold}}>Men Pwopriyete Sol la</strong>. Li ap kolekte <strong style={{color:D.text}}>totalite kòb</strong> sol la san frè. Pa ka chanje apre.
-    </p>
-    <div style={{display:'flex',gap:8}}>
-      <button onClick={()=>setShowOwnerConfirm(false)} style={{flex:1,padding:'10px',borderRadius:9,border:'1px solid rgba(255,255,255,0.09)',background:'transparent',color:D.muted,cursor:'pointer',fontWeight:700,fontSize:12}}>← Tounen</button>
-      <button onClick={()=>{ setShowOwnerConfirm(false); handleSave() }} disabled={loading} style={{flex:2,padding:'10px',borderRadius:9,border:'none',cursor:'pointer',background:D.goldBtn,color:'#0a1222',fontWeight:800,fontSize:12}}>⭐ Wi, Kreye Men Pwopriyete</button>
-    </div>
-  </div>
-)}
 
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
           <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
