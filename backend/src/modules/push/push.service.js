@@ -1,4 +1,4 @@
-// backend/src/services/push.service.js
+// backend/src/modules/push/push.service.js
 const webpush = require('web-push')
 
 // ✅ VAPID keys — mete nan .env ou a
@@ -12,7 +12,7 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY || 'HSdko7FKgd6KMUdAq49UR1QvCOLKxeHqcSkTap7ul50'
 )
 
-const prisma = require('../config/prisma')
+const prisma = require('../../config/prisma')
 
 // ── Sove subscription ─────────────────────────────────────────
 async function saveSubscription(tenantId, userId, subscription) {

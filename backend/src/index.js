@@ -35,7 +35,7 @@ const sabotayRoutes = require('./modules/sabotay/sabotay.routes');
 const solRoutes = require('./routes/sol.routes');
 const hotelRoutes = require('./modules/hotel/hotel.routes')
 const dashboardFullRoute = require('./modules/reports/dashboard-full.route');
-const pushRoutes = require('./routes/push.routes')
+const pushRoutes = require('./modules/push/push.routes')
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');

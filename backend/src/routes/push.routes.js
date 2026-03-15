@@ -1,9 +1,9 @@
-// backend/src/routes/push.routes.js
+// backend/src/modules/push/push.routes.js
 const express = require('express')
 const router  = express.Router()
-const { identifyTenant, authenticate } = require('../middleware/auth')
-const { asyncHandler } = require('../middleware/errorHandler')
-const pushSvc = require('../services/push.service')
+const { identifyTenant, authenticate } = require('../../middleware/auth')
+const { asyncHandler } = require('../../middleware/errorHandler')
+const pushSvc = require('./push.service')
 
 router.use(identifyTenant, authenticate)
 
