@@ -2106,14 +2106,33 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                       <Eye size={14}/>
                     </button>
                     {/* Aksyon Admin: bloke/debloke/kanpe */}
-                    <button onClick={()=>setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
-                      title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
-                      style={{width:30,height:30,borderRadius:8,border:'none',
-                        background: mStatus === 'blocked' ? D.greenBg : isStopped ? D.blueBg : D.redBg,
-                        color: mStatus === 'blocked' ? D.green : isStopped ? D.blue : D.red,
-                        cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                      {mStatus === 'blocked' ? <Unlock size={13}/> : isStopped ? <UserCheck size={13}/> : <Lock size={13}/>}
-                    </button>
+                    {!m.hasWon && (
+                      <button onClick={()=>setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
+                        title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
+                        style={{width:30,height:30,borderRadius:8,border:'none',
+                          background: mStatus === 'blocked' ? D.greenBg : isStopped ? D.blueBg : D.redBg,
+                          color: mStatus === 'blocked' ? D.green : isStopped ? D.blue : D.red,
+                          cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        {mStatus === 'blocked' ? <Unlock size={13}/> : isStopped ? <UserCheck size={13}/> : <Lock size={13}/>}
+                      </button>
+                    )}
+                    {/* Bouton Konfime Touche */}
+                    {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
+                      <button onClick={() => setConfirmingPayout(m)} title="Konfime Touche"
+                        style={{width:30,height:30,borderRadius:8,border:'none',
+                          background:'rgba(201,168,76,0.2)',color:D.gold,
+                          cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                        <Trophy size={13}/>
+                      </button>
+                    )}
+                    {/* Badge si deja touche */}
+                    {m.hasWon && (
+                      <span style={{fontSize:9,background:D.goldDim,color:D.gold,
+                        padding:'2px 7px',borderRadius:10,fontWeight:800,flexShrink:0,
+                        display:'flex',alignItems:'center'}}>
+                        🏆 Touche
+                      </span>
+                    )}
                   </div>
                 </div>
                 {due>0&&!isStopped&&(
@@ -2128,26 +2147,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           })}
         </div>
       )}
-
-      {/* Bouton Konfime Touche — si se dat touche jodi a oswa pase */}
-{!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
-  <button
-    onClick={() => setConfirmingPayout(m)}
-    title="Konfime Touche"
-    style={{width:30,height:30,borderRadius:8,border:'none',
-      background:'rgba(201,168,76,0.2)',color:D.gold,
-      cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
-    <Trophy size={13}/>
-  </button>
-)}
-{/* Badge si deja touche */}
-{m.hasWon && (
-  <span style={{fontSize:9,background:D.goldDim,color:D.gold,
-    padding:'2px 7px',borderRadius:10,fontWeight:800,flexShrink:0}}>
-    🏆 Touche
-  </span>
-)}
-
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
 
       {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='regleman'&&(
