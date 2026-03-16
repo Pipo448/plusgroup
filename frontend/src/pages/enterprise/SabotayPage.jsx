@@ -1869,7 +1869,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const payoutMap = useMemo(()=>getPayoutDateMap(plan),[plan])
-  const [confirmingPayout, setConfirmingPayout] = useState(null) // memberId
 
   const todayWinPos = Object.entries(payoutMap).find(([pos, d])=>d===today)
   const todayWinner = todayWinPos ? plan.members?.find(m=>m.position===Number(todayWinPos[0])) : null
