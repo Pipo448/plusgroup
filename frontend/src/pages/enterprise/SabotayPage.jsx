@@ -73,9 +73,8 @@ function memberPayout(plan) {
 }
 function ownerPayout(plan) {
   const members = (plan.members || []).filter(m => m.status !== 'stopped')
-  return Number(plan.amount) * members.length
+  return Math.max(0, Number(plan.amount) * members.length - Number(plan.feePerMember || 0))
 }
-
 // ─────────────────────────────────────────────────────────────
 // KALANDRIYE DINAMIK — pwolonje selon manm ki antre
 // Manm ki antre yo jwenn dat selon lòd enskripsyon yo
@@ -1974,22 +1973,24 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                   <div className="member-pos-badge" style={{width:34,height:34,borderRadius:10,flexShrink:0,
                     background:isOwn?D.goldBtn:D.goldDim,border:`1px solid ${D.border}`,
                     display:'flex',alignItems:'center',justifyContent:'center'}}>
-                    <span style={{fontFamily:'monospace',fontWeight:900,fontSize:12,color:isOwn?'#0a1222':D.gold}}>#{m.position}</span>
+                    <span style={{fontFamily:'monospace',fontWeight:900,fontSize:11,color:isOwn?'#0a1222':D.gold}}>
+  {isOwn ? '★' : `#${hasOwnerSlot(plan) ? m.position - 1 : m.position}`}
+</span>
                   </div>
                   <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:1}}>
-                      <span className="member-name" style={{fontSize:13,fontWeight:700,
-                        color:isStopped?D.orange:isOwn?D.gold:D.text,
-                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
-                        {m.name}{isOwn&&' ★'}
-                      </span>
-                      <MemberStatusBadge status={mStatus} small />
-                      {hasMultiSlot&&(
-                        <span style={{fontSize:9,background:D.purpleBg,color:D.purple,
-                          padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>
-                          {samePhoneSlots.length} men
-                        </span>
-                      )}
+                     <span className="member-name" style={{fontSize:13,fontWeight:700,
+  color:isStopped?D.orange:isOwn?D.gold:D.text,
+  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
+  {isOwn ? 'Pwopriyete Sol' : m.name}
+</span>
+{isOwn && (
+  <span style={{fontSize:10,color:D.gold,opacity:0.65,
+    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130,
+    display:'block'}}>
+    ({m.name})
+  </span>
+)}
                       {isWin&&!isOwn&&<span style={{fontSize:9,background:D.greenBg,color:D.green,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>🏆</span>}
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
