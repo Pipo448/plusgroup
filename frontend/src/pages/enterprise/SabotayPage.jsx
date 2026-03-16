@@ -1863,6 +1863,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const [viewMemberSlots,setSlots] = useState(null)
   const [payMember,setPay]         = useState(null)
   const [actionModal,setAction]    = useState(null) // {member, action}
+  const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [tab,setTab]               = useState('members')
   const today = new Date().toISOString().split('T')[0]
 
