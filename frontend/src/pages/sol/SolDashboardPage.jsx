@@ -1,6 +1,7 @@
 // src/pages/sol/SolDashboardPage.jsx
 // Tableau de bord manm Sabotay Sol
 // Wout: /app/sol/dashboard
+//hh1
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -9,6 +10,7 @@ import {
   LogOut, RefreshCw, Trophy, CheckCircle, Clock, Star, Bell, Key,
   ChevronLeft, ChevronRight,
 } from 'lucide-react'
+import SolExchangeMarket from '../../components/SolExchangeMarket'
 
 // ─────────────────────────────────────────────────────────────
 // DESIGN TOKENS
@@ -790,7 +792,7 @@ export default function SolDashboardPage() {
 
         {/* TABS — plein lajè */}
         <div className="sol-tabs">
-          {[['history', '📋 Istwa'], ['calendar', '📅 Kalandriye']].map(([t, l]) => (
+         {[['history', '📋 Istwa'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Mache']].map(([t, l]) => (
             <button
               key={t}
               className="sol-tab-btn"
@@ -854,7 +856,12 @@ export default function SolDashboardPage() {
           <SolCalendar dates={dates} member={member} plan={plan} today={today} />
         )}
 
-        {/* BOUTON CHANJE MODPAS */}
+        {/* MACHE ECHANJ */}
+        {tab === 'exchange' && (
+          <SolExchangeMarket token={token} member={member} plan={plan} />
+        )}
+
+         {/* BOUTON CHANJE MODPAS */}
         <button
           onClick={() => setShowChangePw(true)}
           style={{

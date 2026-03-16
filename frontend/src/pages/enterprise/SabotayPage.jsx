@@ -1491,6 +1491,317 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
 // ─────────────────────────────────────────────────────────────
 // PANEL DETAY PLAN
 // ─────────────────────────────────────────────────────────────
+function ExchangeTab({ plan }) {
+  const { token } = useAuthStore.getState ? useAuthStore.getState() : useAuthStore()
+  const slug      = localStorage.getItem('plusgroup-slug')
+ 
+  const authH = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-Slug': slug || '',
+  }
+ 
+  // ── Fetch exchanges ──
+  const { data: exchanges = [], isLoading, refetch } = useQuery({
+    queryKey: ['sol-exchanges', plan.id],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/sol/admin/exchange?planId=${plan.id}`, { headers: authH })
+      const d   = await res.json()
+      return d.exchanges || d || []
+    },
+    refetchInterval: 30000,
+  })
+ 
+  // ── Config frè ──
+  const [showConfig, setShowConfig] = useState(false)
+  const [cfg, setCfg] = useState({
+    exchangeFeePct:      plan.exchangeFeePct      ?? 10,
+    exchangeFeeAdminPct: plan.exchangeFeeAdminPct ?? 50,
+  })
+  const qc = useQueryClient()
+ 
+  const saveConfig = useMutation({
+    mutationFn: () => fetch(`${API_URL}/sol/admin/exchange/${plan.id}/config`, {
+      method: 'PATCH',
+      headers: authH,
+      body: JSON.stringify(cfg),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries(['sabotay-plans'])
+      setShowConfig(false)
+      toast.success('✅ Konfigirasyon sove!')
+    },
+    onError: e => toast.error(e.message),
+  })
+ 
+  // ── Status badges ──
+  const STATUS = {
+    pending:  { label: 'Annatandan', color: D.orange, bg: D.orangeBg, icon: '⏳' },
+    accepted: { label: 'Aksepte',    color: D.green,  bg: D.greenBg,  icon: '✅' },
+    rejected: { label: 'Refize',     color: D.red,    bg: D.redBg,    icon: '❌' },
+    cancelled:{ label: 'Anile',      color: D.muted,  bg: 'rgba(255,255,255,0.04)', icon: '🚫' },
+  }
+ 
+  const pending  = exchanges.filter(e => e.status === 'pending')
+  const history  = exchanges.filter(e => e.status !== 'pending')
+ 
+  // Kalkil frè pou yon echanj
+  const calcFee = (ex) => {
+    const feePct   = (plan.exchangeFeePct      ?? 10) / 100
+    const adminPct = (plan.exchangeFeeAdminPct ?? 50) / 100
+    const diff     = Math.abs(ex.receiverPosition - ex.initiatorPosition)
+    const base     = diff * Number(plan.amount) * feePct
+    return {
+      total:    Math.round(base),
+      toAdmin:  Math.round(base * adminPct),
+      toMember: Math.round(base * (1 - adminPct)),
+    }
+  }
+ 
+  const getMember = (pos) => plan.members?.find(m => m.position === pos)
+ 
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+ 
+      {/* ── HEADER: stats + config ── */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { label: 'Total', val: exchanges.length, color: D.blue },
+            { label: 'Annatandan', val: pending.length, color: D.orange },
+            { label: 'Aksepte', val: exchanges.filter(e => e.status === 'accepted').length, color: D.green },
+          ].map(({ label, val, color }) => (
+            <div key={label} style={{
+              background: D.card, border: `1px solid ${D.border}`, borderRadius: 9,
+              padding: '7px 12px', textAlign: 'center',
+            }}>
+              <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14, color }}>{val}</div>
+              <div style={{ fontSize: 9, color: D.muted, fontWeight: 600 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setShowConfig(s => !s)} style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          padding: '8px 12px', borderRadius: 9,
+          border: `1px solid ${D.border}`, background: 'transparent',
+          color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 12,
+        }}>
+          <Settings size={13} /> Konfigire Frè
+        </button>
+      </div>
+ 
+      {/* ── CONFIG PANEL ── */}
+      {showConfig && (
+        <div style={{
+          background: 'rgba(59,130,246,0.06)', border: `1px solid rgba(59,130,246,0.2)`,
+          borderRadius: 12, padding: '14px 16px',
+        }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: D.blue, textTransform: 'uppercase',
+            letterSpacing: '0.07em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Settings size={12} /> Konfigirasyon Frè Echanj
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={lbl}>Frè Total Echanj (%)</label>
+              <input type="number" min="0" max="100" style={{ ...inp, color: D.orange }}
+                value={cfg.exchangeFeePct}
+                onChange={e => setCfg(p => ({ ...p, exchangeFeePct: Number(e.target.value) }))} />
+              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0', lineHeight: 1.5 }}>
+                Kalkile sou diferans pozisyon × montan plan
+              </p>
+            </div>
+            <div>
+              <label style={lbl}>Pati Admin (%)</label>
+              <input type="number" min="0" max="100" style={{ ...inp, color: D.gold }}
+                value={cfg.exchangeFeeAdminPct}
+                onChange={e => setCfg(p => ({ ...p, exchangeFeeAdminPct: Number(e.target.value) }))} />
+              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0', lineHeight: 1.5 }}>
+                Rès la ale bay manm ki desann nan
+              </p>
+            </div>
+          </div>
+          {/* Egzanp */}
+          <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: 9, padding: '9px 12px',
+            fontSize: 11, color: D.muted, marginBottom: 12, lineHeight: 1.7 }}>
+            <strong style={{ color: D.text }}>Egzanp:</strong> Men #2 vle achte Men #8 (diferans: 6 plas)
+            <br />
+            Frè total = 6 × {fmt(plan.amount)} × {cfg.exchangeFeePct}% ={' '}
+            <strong style={{ color: D.orange }}>
+              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100))} HTG
+            </strong>
+            <br />
+            → Admin: <strong style={{ color: D.gold }}>
+              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100 * cfg.exchangeFeeAdminPct / 100))} HTG
+            </strong>{' '}
+            | Manm ki desann: <strong style={{ color: D.green }}>
+              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100 * (1 - cfg.exchangeFeeAdminPct / 100)))} HTG
+            </strong>
+          </div>
+          <div style={{ display: 'flex', gap: 9 }}>
+            <button onClick={() => setShowConfig(false)} style={{
+              flex: 1, padding: '9px', borderRadius: 9, border: `1px solid ${D.borderSub}`,
+              background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700,
+            }}>Anile</button>
+            <button onClick={() => saveConfig.mutate()} disabled={saveConfig.isPending} style={{
+              flex: 2, padding: '9px', borderRadius: 9, border: 'none', cursor: 'pointer',
+              background: saveConfig.isPending ? 'rgba(59,130,246,0.3)' : `linear-gradient(135deg,${D.blue},#1d4ed8)`,
+              color: '#fff', fontWeight: 800, fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            }}>
+              {saveConfig.isPending ? <Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Settings size={13} />}
+              {saveConfig.isPending ? 'Ap sove...' : 'Sove Konfigirasyon'}
+            </button>
+          </div>
+        </div>
+      )}
+ 
+      {/* ── ECHANJ ANNATANDAN ── */}
+      {pending.length > 0 && (
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 800, color: D.orange, textTransform: 'uppercase',
+            letterSpacing: '0.07em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+            ⏳ Annatandan ({pending.length})
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {pending.map(ex => {
+              const fee      = calcFee(ex)
+              const mInit    = getMember(ex.initiatorPosition)
+              const mRecv    = getMember(ex.receiverPosition)
+              const isUp     = ex.receiverPosition < ex.initiatorPosition // moun ki MONTE
+ 
+              return (
+                <div key={ex.id} style={{
+                  background: D.card, border: `1px solid ${D.orange}30`,
+                  borderRadius: 12, padding: '13px 15px',
+                }}>
+                  {/* Tèt: 2 manm + flèch */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+                    {/* Inisiateur */}
+                    <div style={{ flex: 1, minWidth: 90, background: 'rgba(255,255,255,0.03)',
+                      borderRadius: 9, padding: '7px 10px' }}>
+                      <div style={{ fontSize: 10, color: D.muted, marginBottom: 2 }}>Inisye</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: D.text }}>
+                        #{ex.initiatorPosition} {mInit?.name || '—'}
+                      </div>
+                      <div style={{ fontSize: 10, color: D.muted }}>{mInit?.phone || ''}</div>
+                    </div>
+ 
+                    {/* Flèch echanj */}
+                    <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                      <div style={{ fontSize: 18 }}>⇄</div>
+                      <div style={{ fontSize: 9, color: D.orange, fontWeight: 700 }}>
+                        Frè: {fmt(fee.total)} HTG
+                      </div>
+                    </div>
+ 
+                    {/* Reseveur */}
+                    <div style={{ flex: 1, minWidth: 90, background: 'rgba(255,255,255,0.03)',
+                      borderRadius: 9, padding: '7px 10px' }}>
+                      <div style={{ fontSize: 10, color: D.muted, marginBottom: 2 }}>Lòt Manm</div>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: D.text }}>
+                        #{ex.receiverPosition} {mRecv?.name || '—'}
+                      </div>
+                      <div style={{ fontSize: 10, color: D.muted }}>{mRecv?.phone || ''}</div>
+                    </div>
+                  </div>
+ 
+                  {/* Detay frè */}
+                  <div style={{ background: 'rgba(0,0,0,0.15)', borderRadius: 8,
+                    padding: '7px 11px', fontSize: 10, color: D.muted,
+                    display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 10 }}>
+                    <span>Frè total: <strong style={{ color: D.orange }}>{fmt(fee.total)} HTG</strong></span>
+                    <span>→ Admin: <strong style={{ color: D.gold }}>{fmt(fee.toAdmin)} HTG</strong></span>
+                    <span>→ Manm desann: <strong style={{ color: D.green }}>{fmt(fee.toMember)} HTG</strong></span>
+                  </div>
+ 
+                  {/* Status badge */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ fontSize: 10, color: D.muted }}>
+                      📅 {new Date(ex.createdAt).toLocaleDateString('fr-HT')}
+                    </span>
+                    <span style={{
+                      fontSize: 9, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
+                      background: STATUS[ex.status]?.bg, color: STATUS[ex.status]?.color,
+                    }}>
+                      {STATUS[ex.status]?.icon} {STATUS[ex.status]?.label}
+                    </span>
+                    {ex.initiatorAccepted && !ex.receiverAccepted && (
+                      <span style={{ fontSize: 9, color: D.blue }}>Annatandan akseptasyon lòt manm</span>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+ 
+      {/* ── ISTWA ECHANJ ── */}
+      {history.length > 0 && (
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 800, color: D.muted, textTransform: 'uppercase',
+            letterSpacing: '0.07em', margin: '0 0 8px' }}>
+            Istwa ({history.length})
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {history.map(ex => {
+              const fee   = calcFee(ex)
+              const mInit = getMember(ex.initiatorPosition)
+              const mRecv = getMember(ex.receiverPosition)
+              const st    = STATUS[ex.status] || STATUS.cancelled
+              return (
+                <div key={ex.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                  background: 'rgba(255,255,255,0.02)', borderRadius: 10,
+                  padding: '9px 13px', border: `1px solid ${D.borderSub}`,
+                }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: D.text, minWidth: 80 }}>
+                    #{ex.initiatorPosition} → #{ex.receiverPosition}
+                  </span>
+                  <span style={{ fontSize: 11, color: D.muted, flex: 1, minWidth: 100 }}>
+                    {mInit?.name || '?'} ⇄ {mRecv?.name || '?'}
+                  </span>
+                  {ex.status === 'accepted' && (
+                    <span style={{ fontSize: 10, color: D.green, fontFamily: 'monospace', fontWeight: 700 }}>
+                      {fmt(fee.total)} HTG
+                    </span>
+                  )}
+                  <span style={{
+                    fontSize: 9, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
+                    background: st.bg, color: st.color, flexShrink: 0,
+                  }}>
+                    {st.icon} {st.label}
+                  </span>
+                  <span style={{ fontSize: 9, color: D.muted, flexShrink: 0 }}>
+                    {new Date(ex.createdAt).toLocaleDateString('fr-HT')}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+ 
+      {/* ── EMPTY STATE ── */}
+      {!isLoading && exchanges.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '32px 0', color: D.muted }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🔄</div>
+          <p style={{ margin: 0, fontSize: 13 }}>Pa gen echanj pozisyon pou plan sa a.</p>
+          <p style={{ margin: '6px 0 0', fontSize: 11 }}>
+            Manm yo ka inisye echanj sou pòtal Sol yo.
+          </p>
+        </div>
+      )}
+ 
+      {isLoading && (
+        <div style={{ textAlign: 'center', padding: 24 }}>
+          <Loader size={22} style={{ color: D.gold, animation: 'spin 0.8s linear infinite' }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,onClosePlan,onMemberAction,printer}) {
   const [viewMember,setView]       = useState(null)
   const [viewMemberSlots,setSlots] = useState(null)
@@ -1613,15 +1924,15 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       </div>
 
       <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
-        {[['members','👥 Manm'],['calendar','📅 Kalandriye'],['regleman','📜 Regleman']].map(([t,l])=>(
-          <button key={t} className="tab-btn" onClick={()=>setTab(t)} style={{
+        {[['members','👥 Manm'],['calendar','📅 Kalandriye'],['exchange','🔄 Echanj'],['regleman','📜 Regleman']].map(
+          ([t,l]) => <button key={t} className="tab-btn" onClick={()=>setTab(t)} style={{
             padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,
             border:`1px solid ${tab===t?D.gold:D.borderSub}`,
             background:tab===t?D.goldDim:'transparent',
             color:tab===t?D.gold:D.muted,transition:'all 0.15s'}}>
             {l}
           </button>
-        ))}
+        )}
         <div style={{flex:1}}/>
         <button onClick={onBlindDraw} disabled={plan.status==='closed'||plan.status==='finished'}
           style={{padding:'8px 13px',borderRadius:9,border:`1px solid ${D.blue}40`,
@@ -1746,7 +2057,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
 
-      {tab==='regleman'&&(
+      {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='regleman'&&(
         <div style={{background:D.tealBg,border:`1px solid ${D.teal}25`,borderRadius:14,padding:'18px 20px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <p style={{fontSize:11,fontWeight:800,color:D.teal,textTransform:'uppercase',
@@ -1807,6 +2118,8 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
     </div>
   )
 }
+
+
 
 // ─────────────────────────────────────────────────────────────
 // RELASYON
