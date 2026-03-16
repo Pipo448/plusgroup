@@ -68,12 +68,24 @@ function totalSlots(plan) {
 }
 
 function memberPayout(plan) {
-  const members = (plan.members || []).filter(m => m.status !== 'stopped')
-  return Math.max(0, Number(plan.amount) * members.length - Number(plan.feePerMember || 0))
+  const slots = totalActiveSlots(plan)
+  return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
 }
+
 function ownerPayout(plan) {
-  const members = (plan.members || []).filter(m => m.status !== 'stopped')
-  return Math.max(0, Number(plan.amount) * members.length - Number(plan.feePerMember || 0))
+  const slots = totalActiveSlots(plan)
+  return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
+}
+
+function totalActiveSlots(plan) {
+  return (plan.members || [])
+    .filter(m => m.status !== 'stopped')
+    .reduce((acc, m) => {
+      const slots = (m.positions && Array.isArray(m.positions) && m.positions.length > 1)
+        ? m.positions.length
+        : 1
+      return acc + slots
+    }, 0)
 }
 // ─────────────────────────────────────────────────────────────
 // KALANDRIYE DINAMIK — pwolonje selon manm ki antre
@@ -1851,6 +1863,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const stoppedCount  = (plan.members || []).filter(m => m.status === 'stopped').length
   const displayMembers = useMemo(() => {
   return (plan.members || []).flatMap(m => {
+    // Metòd 1: positions array dirèk sou manm nan
     if (m.positions && Array.isArray(m.positions) && m.positions.length > 1) {
       return m.positions.map(pos => ({
         ...m,
@@ -1858,7 +1871,9 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
         _virtualKey: `${m.id}-${pos}`,
       }))
     }
-    return [{ ...m, _virtualKey: m.id }]
+    // Metòd 2: backend retounen chak men kòm yon rekò separe — 
+    // lis la deja ekspanse, jis ajoute _virtualKey
+    return [{ ...m, _virtualKey: `${m.id}-${m.position}` }]
   })
 }, [plan.members])
 
