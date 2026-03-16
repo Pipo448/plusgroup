@@ -58,7 +58,7 @@ function hasOwnerSlot(plan) {
 
 // Sol ouvè: kantite manm pa fikse — sèlman ceux ki deja antre
 function totalSlots(plan) {
-  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped').length
+  const activeMembers = displayMembers.filter(m => m.status !== 'stopped').length
   if (plan.status === 'closed' || plan.status === 'finished') {
     // Lè plan fèmen: sèvi ak kantite manm ki te antre yo
     return Math.max(activeMembers, plan.members?.length || 0)
@@ -1300,6 +1300,29 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
 
         {/* Statut manm */}
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          {multiSlots && (
+  <div style={{display:'flex',gap:6,marginBottom:4,flexWrap:'wrap'}}>
+    <span style={{fontSize:10,color:D.muted,fontWeight:700,
+      alignSelf:'center',marginRight:4}}>MEN:</span>
+    {allMemberSlots.map((slot, idx) => (
+      <button key={slot.id || idx} onClick={() => setActiveSlotIdx(idx)} style={{
+        padding:'6px 13px', borderRadius:8, cursor:'pointer',
+        fontSize:11, fontWeight:700, border:'none',
+        background: activeSlotIdx===idx ? D.blueBg : 'rgba(255,255,255,0.05)',
+        color: activeSlotIdx===idx ? D.blue : D.muted,
+        outline: activeSlotIdx===idx ? `1.5px solid ${D.blue}` : '1.5px solid transparent',
+        transition:'all 0.15s',
+      }}>
+        Men #{slot.position}
+        {getPayoutDate(plan, slot.position) && (
+          <span style={{fontSize:9,color:D.muted,marginLeft:5}}>
+            📅 {getPayoutDate(plan, slot.position)?.split('-').reverse().join('/')}
+          </span>
+        )}
+      </button>
+    ))}
+  </div>
+)}
           <MemberStatusBadge status={memberStatus} />
         </div>
 
@@ -1826,6 +1849,18 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const blockedCount  = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'blocked').length
   const lateCount     = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'late').length
   const stoppedCount  = (plan.members || []).filter(m => m.status === 'stopped').length
+  const displayMembers = useMemo(() => {
+  return (plan.members || []).flatMap(m => {
+    if (m.positions && Array.isArray(m.positions) && m.positions.length > 1) {
+      return m.positions.map(pos => ({
+        ...m,
+        position: pos,
+        _virtualKey: `${m.id}-${pos}`,
+      }))
+    }
+    return [{ ...m, _virtualKey: m.id }]
+  })
+}, [plan.members])
 
   const handleViewMember = (m) => {
     const slots = getMemberSlots(plan, m.phone)
@@ -1949,7 +1984,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
               <Users size={32} style={{opacity:0.3,display:'block',margin:'0 auto 8px'}}/>
               <p style={{margin:0}}>Pa gen manm. Enskri premye kliyan ou!</p>
             </div>
-          ):plan.members.map(m=>{
+          ):displayMembers.map(m=>{
             const due=allDates.filter(d=>d<=today).length
             const paid=allDates.filter(d=>m.payments?.[d]).length
             const payoutDate=payoutMap[m.position]
@@ -1962,7 +1997,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
             const isStopped = m.status === 'stopped'
 
             return (
-              <div key={m.id} className="member-row" style={{
+              <div key={m._virtualKey || m.id} className="member-row" style={{
                 background:isStopped?'rgba(243,156,18,0.05)':
                   isOwn?'linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04))':
                   isWin?'linear-gradient(135deg,rgba(39,174,96,0.10),rgba(201,168,76,0.06))':D.card,
