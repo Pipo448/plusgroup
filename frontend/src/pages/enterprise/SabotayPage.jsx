@@ -2152,9 +2152,16 @@ function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
     const ownerSlotAvailable = hasOwnerSlot(plan) && !taken.has(1)
 
     // Pozisyon lib (gap + prochèn) — exclure #1 si owner slot
-    const gaps    = Array.from({ length: maxPos }, (_, i) => i + 1)
-      .filter(p => !taken.has(p) && p !== 1)
-    const allPos  = [...gaps, nextPos]
+    const PREVIEW_SLOTS = 10
+const gaps = Array.from({ length: maxPos }, (_, i) => i + 1)
+  .filter(p => !taken.has(p) && p !== 1)
+
+  const futureSlots = Array.from(
+  { length: PREVIEW_SLOTS },
+  (_, i) => maxPos + 1 + i
+)
+
+const allPos = [...gaps, ...futureSlots]
 
     const availableSlots = allPos.map(pos => ({
       position: pos,
