@@ -69,7 +69,7 @@ function totalSlots(plan) {
 
 function memberPayout(plan) {
   const members = (plan.members || []).filter(m => m.status !== 'stopped')
-  return Number(plan.amount) * members.length - Number(plan.feePerMember || 0)
+  return Math.max(0, Number(plan.amount) * members.length - Number(plan.feePerMember || 0))
 }
 function ownerPayout(plan) {
   const members = (plan.members || []).filter(m => m.status !== 'stopped')
@@ -1820,32 +1820,42 @@ const RELATIONSHIPS = [
   { val: 'koleg',     label: '💼 Kolèg Travay'       },
   { val: 'lot',       label: '🔗 Lòt'                },
 ]
-
 // ─────────────────────────────────────────────────────────────
 // MODAL: ENSKRI MANM SOL
+// - Chwazi dat (pa pozisyon) — sistèm kalkile pozisyon otomatik
+// - Bouton separe pou Men Pwopriyete (plas #1)
+// - Multi-men: chwazi 2+ dat → 1 kont Sol
+// - Kalkil payout PROJETE (ak nouvo manm yo)
 // ─────────────────────────────────────────────────────────────
 function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
-  const available = useMemo(() => {
-    const taken = new Set((plan.members || []).map(m => m.position))
-    // Sol ouvè: pwochain pozisyon lib oswa nouvo
- const maxPos = Math.max(...[(plan.members || []).map(m => m.position)].flat(), 0)
-const nextPos = maxPos + 1
-const libPos = Array.from({length: maxPos}, (_, i) => i + 1).filter(p => !taken.has(p))
-const allPos = [...libPos, nextPos]
-if (hasOwnerSlot(plan) && !taken.has(1)) {
-  return [1, ...allPos.filter(p => p !== 1)]
-}
-return allPos
+
+  // === SLOTS DISPONIB (pozisyon + dat korespondan) ===
+  const { availableSlots, ownerSlotAvailable } = useMemo(() => {
+    const taken     = new Set((plan.members || []).map(m => m.position))
+    const maxPos    = Math.max(0, ...(plan.members || []).map(m => m.position))
+    const nextPos   = maxPos + 1
+
+    // Pwopriyete disponib sèlman si feePerMember===amount ak plas #1 lib
+    const ownerSlotAvailable = hasOwnerSlot(plan) && !taken.has(1)
+
+    // Pozisyon lib (gap + prochèn) — exclure #1 si owner slot
+    const gaps    = Array.from({ length: maxPos }, (_, i) => i + 1)
+      .filter(p => !taken.has(p) && p !== 1)
+    const allPos  = [...gaps, nextPos]
+
+    const availableSlots = allPos.map(pos => ({
+      position: pos,
+      date: getPayoutDate(plan, pos),
+    }))
+
+    return { availableSlots, ownerSlotAvailable }
   }, [plan])
 
-  const payoutDates = useMemo(() => {
-    const map = {}
-    available.forEach(pos => { map[pos] = getPayoutDate(plan, pos) })
-    return map
-  }, [plan, available])
-
-  const [positions,  setPositions]  = useState(available[0] ? [available[0]] : [])
-  const [tab,        setTab]        = useState('info')
+  // === STATE ===
+  const [selectedSlots,    setSelectedSlots]    = useState([])   // [{position, date}]
+  const [ownerMode,        setOwnerMode]        = useState(false)
+  const [showOwnerConfirm, setShowOwnerConfirm] = useState(false)
+  const [tab,              setTab]              = useState('info')
   const [form, setForm] = useState({
     name: '', phone: '',
     cin: '', nif: '', address: '',
@@ -1857,33 +1867,41 @@ return allPos
   const [idPhotoPreview, setIdPhotoPreview] = useState(null)
   const [photoB64,       setPhotoB64]       = useState(null)
   const [idPhotoB64,     setIdPhotoB64]     = useState(null)
-  const [existingAccount, setExistingAccount] = useState(null)
-  const [checkingPhone,   setCheckingPhone]   = useState(false)
-  const [showOwnerConfirm, setShowOwnerConfirm] = useState(false)
+  const [existingAccount,  setExistingAccount]  = useState(null)
+  const [checkingPhone,    setCheckingPhone]    = useState(false)
 
-  const existingPositions = useMemo(()=>{
-    if (!form.phone) return []
-    return (plan.members || []).filter(m => m.phone === form.phone).map(m => m.position)
-  }, [form.phone, plan.members])
+  // Pozisyon chwazi (owner = [1], sinon slots chwazi yo)
+  const positions = ownerMode ? [1] : selectedSlots.map(s => s.position)
 
-  const togglePosition = (p) => {
-    setPositions(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])
+  // === KALKIL PAYOUT PROJETE (ak nouvo manm yo konte ladan) ===
+  const currentActive       = (plan.members || []).filter(m => m.status !== 'stopped').length
+  const projectedTotal      = currentActive + positions.length
+  const projectedMemberPay  = Math.max(0, Number(plan.amount) * projectedTotal - Number(plan.feePerMember || 0))
+  const projectedOwnerPay   = Number(plan.amount) * projectedTotal
+  const totalPerCycle       = positions.length * Number(plan.amount)
+
+  // === HELPERS ===
+  const toggleSlot = (slot) => {
+    setOwnerMode(false)
+    setSelectedSlots(prev =>
+      prev.find(s => s.position === slot.position)
+        ? prev.filter(s => s.position !== slot.position)
+        : [...prev, slot]
+    )
   }
 
   const checkPhone = useCallback(async (phone) => {
     if (phone.replace(/\D/g, '').length < 8) { setExistingAccount(null); return }
     setCheckingPhone(true)
     try {
-      const slug = localStorage.getItem('plusgroup-slug')
+      const slug    = localStorage.getItem('plusgroup-slug')
       const { token } = useAuthStore.getState()
       const res = await fetch(
         `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
         { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
       )
-      if (res.ok) {
-        const data = await res.json()
-        setExistingAccount(data.account || null)
-      } else { setExistingAccount(null) }
+      const data = await res.json()
+      setExistingAccount(res.ok ? (data.account || null) : null)
     } catch { setExistingAccount(null) }
     finally { setCheckingPhone(false) }
   }, [])
@@ -1899,6 +1917,49 @@ return allPos
     reader.readAsDataURL(file)
   }
 
+  const doSave = (isOwnerSlot, finalPositions) => {
+    const firstPos   = finalPositions[0]
+    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
+    const payoutDatesMap = {}
+    finalPositions.forEach(p => { payoutDatesMap[p] = getPayoutDate(plan, p) })
+
+    onSave({
+      ...form,
+      position: firstPos,
+      positions: finalPositions,
+      credentials,
+      isOwnerSlot,
+      cin:            form.cin            || null,
+      nif:            form.nif            || null,
+      address:        form.address        || null,
+      photoUrl:       photoB64            || null,
+      idPhotoUrl:     idPhotoB64          || null,
+      referenceName:  form.referenceName  || null,
+      referencePhone: form.referencePhone || null,
+      relationship:   form.relationship   || null,
+      preferredDate:  payoutDatesMap[firstPos] || null,
+      _cb: (saved) => onShowCreds({
+        member: saved || { ...form, position: firstPos, positions: finalPositions },
+        credentials: existingAccount
+          ? { username: existingAccount.username, password: null, isExisting: true }
+          : credentials,
+        positions:    finalPositions,
+        payoutDates:  payoutDatesMap,
+      }),
+    })
+  }
+
+  const handleSubmit = () => {
+    if (!form.name)  return toast.error('Non manm obligatwa.')
+    if (!form.phone) return toast.error('Telefòn obligatwa.')
+    if (ownerMode) {
+      setShowOwnerConfirm(true)
+    } else {
+      if (!selectedSlots.length) return toast.error('Chwazi omwen yon dat.')
+      doSave(false, positions)
+    }
+  }
+
   const tabStyle = (active) => ({
     flex: 1, padding: '8px 6px', borderRadius: 8, cursor: 'pointer',
     fontSize: 11, fontWeight: 700, border: 'none',
@@ -1908,116 +1969,118 @@ return allPos
     transition: 'all 0.15s',
   })
 
-  const tabImgBox = {
-    width: '100%', height: 90, borderRadius: 10, objectFit: 'cover',
+  const imgBox = {
+    width: '100%', height: 90, borderRadius: 10,
     border: `1px solid ${D.border}`, background: 'rgba(0,0,0,0.3)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', overflow: 'hidden', position: 'relative',
-  }
-
-  const handleSave = () => {
-    if (!form.name)        return toast.error('Non manm obligatwa.')
-    if (!form.phone)       return toast.error('Telefòn obligatwa.')
-    if (!positions.length) return toast.error('Chwazi omwen yon plas.')
-
-    const firstPos    = positions[0]
-    const isOwnerSlot = hasOwnerSlot(plan) && firstPos === 1
-
-    if (isOwnerSlot && !showOwnerConfirm) {
-      setShowOwnerConfirm(true)
-      return
-    }
-
-    const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
-    onSave({
-
-      ...form,
-      position: firstPos, positions,
-      credentials, isOwnerSlot,
-      cin: form.cin || null, nif: form.nif || null, address: form.address || null,
-      photoUrl: photoB64 || null, idPhotoUrl: idPhotoB64 || null,
-      referenceName: form.referenceName || null, referencePhone: form.referencePhone || null,
-      relationship: form.relationship || null,
-      preferredDate: payoutDates[firstPos] || null,
-      _cb: (saved) => onShowCreds({
-        member: saved || { ...form, position: firstPos, positions },
-        credentials: existingAccount
-          ? { username: existingAccount.username, password: null, isExisting: true }
-          : credentials,
-        positions, payoutDates,
-      })
-    })
+    cursor: 'pointer', overflow: 'hidden',
   }
 
   return (
     <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={520}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* Info sol ouvè */}
-        <div style={{background:D.blueBg,border:`1px solid rgba(59,130,246,0.2)`,borderRadius:10,
-          padding:'9px 13px',fontSize:11,color:D.muted,display:'flex',gap:7,alignItems:'center'}}>
-          <Info size={13} style={{color:D.blue,flexShrink:0}}/>
-          <span>
-            Sol sa a <strong style={{color:D.blue}}>ouvè</strong> — kalandriye ap pwolonje otomatik ak chak nouvo manm.
-            Moun ki te antre anvan yo pa pèdi plas yo.
-          </span>
-        </div>
+        {/* ── BOUTON MEN PWOPRIYETE (si disponib) ── */}
+        {ownerSlotAvailable && (
+          <button
+            onClick={() => { setOwnerMode(o => !o); setSelectedSlots([]) }}
+            style={{
+              width: '100%', padding: '11px 14px', borderRadius: 12,
+              border: `2px solid ${ownerMode ? D.gold : `${D.gold}50`}`,
+              background: ownerMode ? D.goldBtn : D.goldDim,
+              color: ownerMode ? '#0a1222' : D.gold,
+              cursor: 'pointer', fontWeight: 800, fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              transition: 'all 0.18s',
+            }}
+          >
+            <Star size={14} />
+            {ownerMode ? '⭐ Mode Pwopriyete Aktif — Plas #1' : 'Enskri kòm Pwopriyete Sol (Plas #1)'}
+          </button>
+        )}
 
-        {/* Chwazi pozisyon */}
-        <div style={{ background: D.goldDim, borderRadius: 12, padding: '12px 14px' }}>
-          <label style={{ ...lbl, marginBottom: 4 }}>Chwazi Plas</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
-            {available.map(p => {
-              const isOwn    = false
-              const pDate    = payoutDates[p]
-              const dateDisp = pDate ? pDate.split('-').reverse().join('/') : '—'
-              const isActive = positions.includes(p)
-              const isNew    = p === Math.max(...available)
-              const isExistPos = existingPositions.includes(p)
-              return (
-                <button key={p} onClick={() => togglePosition(p)} style={{
-                  padding: '7px 11px', borderRadius: 10, cursor: isExistPos ? 'not-allowed' : 'pointer',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  minWidth: 68, position: 'relative', opacity: isExistPos ? 0.4 : 1,
-                  border: `2px solid ${isActive ? D.blue : isNew ? `${D.gold}50` : D.borderSub}`,
-                  background: isActive ? D.blueBg : isNew ? 'rgba(201,168,76,0.05)' : 'transparent',
-                  transition: 'all 0.12s',
-                }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14,
-                    color: isActive ? D.blue : isNew ? D.gold : D.muted }}>
-                    #{p}
-                  </span>
-                  <span style={{ fontSize: 9, fontWeight: 600, marginTop: 2,
-                    color: isActive ? D.blue : '#3a4a6a' }}>
-                    {dateDisp}
-                  </span>
-                  {isNew && !isActive && (
-                    <span style={{ fontSize: 8, color: D.gold, marginTop: 1 }}>NOUVO</span>
-                  )}
-                  {isActive && (
-                    <span style={{ position: 'absolute', top: -5, right: -5, fontSize: 8,
-                      background: D.blue, color: '#fff', borderRadius: 6, padding: '1px 4px', fontWeight: 900 }}>✓</span>
-                  )}
-                </button>
-              )
-            })}
+        {/* Detay owner mode */}
+        {ownerMode && (
+          <div style={{ background: 'rgba(201,168,76,0.07)', border: `1px solid ${D.gold}40`,
+            borderRadius: 10, padding: '10px 13px', fontSize: 11, color: D.muted, lineHeight: 1.7 }}>
+            <span style={{ color: D.gold, fontWeight: 700 }}>Pwopriyete</span> kolekte totalite kòb sol la —
+            {' '}<strong style={{ color: D.gold }}>{fmt(projectedOwnerPay)} HTG</strong>{' '}
+            (fè a kouvri kontribisyon li, li pa peye separeman).
           </div>
+        )}
 
-          {positions.length > 0 && (
-            <div style={{ marginTop: 10, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '9px 12px' }}>
-              {positions.map(p => (
-                <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: D.muted, marginBottom: 4 }}>
-                  <span style={{ color: D.text }}>Men #{p}</span>
-                  <span style={{ display: 'flex', gap: 12 }}>
-                    <span>📅 {payoutDates[p]?.split('-').reverse().join('/') || '—'}</span>
-                    <span style={{ color: D.green }}>🏆 {fmt(memberPayout(plan))} HTG</span>
-                  </span>
-                </div>
-              ))}
+        {/* ── CHWAZI DAT (sèlman si pa owner mode) ── */}
+        {!ownerMode && (
+          <div style={{ background: D.goldDim, borderRadius: 12, padding: '12px 14px' }}>
+            <label style={{ ...lbl, marginBottom: 8 }}>📅 Chwazi Dat Touche</label>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+              {availableSlots.map(slot => {
+                const isActive  = !!selectedSlots.find(s => s.position === slot.position)
+                const dateDisp  = slot.date ? slot.date.split('-').reverse().join('/') : '—'
+                const isNewest  = slot.position === Math.max(...availableSlots.map(s => s.position))
+                return (
+                  <button key={slot.position} onClick={() => toggleSlot(slot)} style={{
+                    padding: '9px 11px', borderRadius: 10, cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 76,
+                    position: 'relative', transition: 'all 0.12s',
+                    border: `2px solid ${isActive ? D.blue : isNewest ? `${D.gold}50` : D.borderSub}`,
+                    background: isActive ? D.blueBg : isNewest ? 'rgba(201,168,76,0.05)' : 'transparent',
+                  }}>
+                    <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 11,
+                      color: isActive ? D.blue : isNewest ? D.gold : D.text }}>
+                      {dateDisp}
+                    </span>
+                    <span style={{ fontSize: 9, color: isActive ? D.blue : D.muted, marginTop: 2 }}>
+                      Men #{slot.position}
+                    </span>
+                    {isNewest && !isActive && (
+                      <span style={{ fontSize: 8, color: D.gold }}>NOUVO</span>
+                    )}
+                    {isActive && (
+                      <span style={{
+                        position: 'absolute', top: -5, right: -5,
+                        background: D.blue, color: '#fff',
+                        borderRadius: 6, padding: '1px 4px', fontSize: 8, fontWeight: 900,
+                      }}>✓</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
-          )}
-        </div>
 
+            {/* Rezime men chwazi */}
+            {selectedSlots.length > 0 && (
+              <div style={{ marginTop: 10, background: 'rgba(0,0,0,0.2)', borderRadius: 10, padding: '9px 12px' }}>
+                {selectedSlots.map(s => (
+                  <div key={s.position} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    fontSize: 11, color: D.muted, marginBottom: 3,
+                  }}>
+                    <span style={{ color: D.text, fontWeight: 600 }}>Men #{s.position}</span>
+                    <span style={{ display: 'flex', gap: 10 }}>
+                      <span>📅 {s.date?.split('-').reverse().join('/') || '—'}</span>
+                      <span style={{ color: D.green }}>🏆 {fmt(projectedMemberPay)} HTG</span>
+                    </span>
+                  </div>
+                ))}
+                {selectedSlots.length > 1 && (
+                  <div style={{
+                    borderTop: `1px solid ${D.borderSub}`, paddingTop: 6, marginTop: 5,
+                    display: 'flex', justifyContent: 'space-between', fontSize: 11,
+                  }}>
+                    <span style={{ color: D.muted }}>Peman pa sik:</span>
+                    <span style={{ color: D.orange, fontWeight: 700 }}>
+                      {selectedSlots.length} × {fmt(plan.amount)} HTG = {fmt(totalPerCycle)} HTG
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TABS ── */}
         <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${D.borderSub}` }}>
           {[['info', '👤 Enfòmasyon'], ['kyc', '🪪 KYC'], ['ref', '📞 Referans']].map(([t, l]) => (
             <button key={t} onClick={() => setTab(t)} style={tabStyle(tab === t)}>{l}</button>
@@ -2028,20 +2091,33 @@ return allPos
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div>
               <label style={lbl}>Non Manm *</label>
-              <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Non ak Prenon" />
+              <input style={inp} value={form.name}
+                onChange={e => set('name', e.target.value)} placeholder="Non ak Prenon" />
             </div>
             <div>
-              <label style={lbl}>Telefòn * {checkingPhone && <span style={{ color: D.muted, fontWeight: 400 }}>ap verifye...</span>}</label>
+              <label style={lbl}>
+                Telefòn *{' '}
+                {checkingPhone && <span style={{ color: D.muted, fontWeight: 400 }}>ap verifye...</span>}
+              </label>
               <input style={{ ...inp, fontSize: 16 }} inputMode="tel" value={form.phone}
                 onChange={e => { set('phone', e.target.value); checkPhone(e.target.value) }}
                 placeholder="+509 XXXX XXXX" />
             </div>
             {existingAccount && (
-              <div style={{ background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}40`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+              <div style={{
+                background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}40`,
+                borderRadius: 10, padding: '10px 13px',
+                display: 'flex', alignItems: 'flex-start', gap: 9,
+              }}>
                 <UserCheck size={18} style={{ color: D.teal, flexShrink: 0, marginTop: 1 }} />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 12, fontWeight: 800, color: D.teal, margin: '0 0 4px' }}>♻️ Kont Sol egziste pou {existingAccount.memberName}</p>
-                  <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Username: <strong style={{ color: D.text, fontFamily: 'monospace' }}>{existingAccount.username}</strong></p>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 800, color: D.teal, margin: '0 0 3px' }}>
+                    ♻️ Kont Sol egziste — {existingAccount.memberName}
+                  </p>
+                  <p style={{ fontSize: 11, color: D.muted, margin: 0, lineHeight: 1.6 }}>
+                    Nouvo men ap ajoute nan <strong style={{ color: D.text }}>menm kont lan</strong>.<br />
+                    Username: <strong style={{ color: D.text, fontFamily: 'monospace' }}>{existingAccount.username}</strong>
+                  </p>
                 </div>
               </div>
             )}
@@ -2067,15 +2143,19 @@ return allPos
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
                 <label style={lbl}>Foto Kliyan</label>
-                <label htmlFor="sol-photo-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
-                  {photoPreview ? <img src={photoPreview} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>📷</div><div style={{ fontSize: 9 }}>Klike pou foto</div></div>}
+                <label htmlFor="sol-photo-upload" style={{ ...imgBox, cursor: 'pointer' }}>
+                  {photoPreview
+                    ? <img src={photoPreview} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24 }}>📷</div><div style={{ fontSize: 9 }}>Klike pou foto</div></div>}
                   <input id="sol-photo-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'photo')} />
                 </label>
               </div>
               <div>
                 <label style={lbl}>Foto Pyes Idantite</label>
-                <label htmlFor="sol-id-upload" style={{ ...tabImgBox, cursor: 'pointer' }}>
-                  {idPhotoPreview ? <img src={idPhotoPreview} alt="id" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24, marginBottom: 4 }}>🪪</div><div style={{ fontSize: 9 }}>CIN / Paspo</div></div>}
+                <label htmlFor="sol-id-upload" style={{ ...imgBox, cursor: 'pointer' }}>
+                  {idPhotoPreview
+                    ? <img src={idPhotoPreview} alt="id" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <div style={{ textAlign: 'center', color: D.muted }}><div style={{ fontSize: 24 }}>🪪</div><div style={{ fontSize: 9 }}>CIN / Paspo</div></div>}
                   <input id="sol-id-upload" type="file" accept="image/*" style={{ display: 'none' }} onChange={e => handlePhoto(e, 'idPhoto')} />
                 </label>
               </div>
@@ -2087,15 +2167,18 @@ return allPos
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             <div>
               <label style={lbl}>Non Moun Referans</label>
-              <input style={inp} value={form.referenceName} onChange={e => set('referenceName', e.target.value)} placeholder="Non ak Prenon referans" />
+              <input style={inp} value={form.referenceName}
+                onChange={e => set('referenceName', e.target.value)} placeholder="Non ak Prenon referans" />
             </div>
             <div>
               <label style={lbl}>Telefòn Referans</label>
-              <input style={inp} inputMode="tel" value={form.referencePhone} onChange={e => set('referencePhone', e.target.value)} placeholder="+509 XXXX XXXX" />
+              <input style={inp} inputMode="tel" value={form.referencePhone}
+                onChange={e => set('referencePhone', e.target.value)} placeholder="+509 XXXX XXXX" />
             </div>
             <div>
               <label style={lbl}>Relasyon</label>
-              <select style={{ ...inp, appearance: 'none', cursor: 'pointer' }} value={form.relationship} onChange={e => set('relationship', e.target.value)}>
+              <select style={{ ...inp, appearance: 'none', cursor: 'pointer' }}
+                value={form.relationship} onChange={e => set('relationship', e.target.value)}>
                 <option value="">— Chwazi relasyon —</option>
                 {RELATIONSHIPS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
               </select>
@@ -2103,53 +2186,86 @@ return allPos
           </div>
         )}
 
-        {showOwnerConfirm && (
-          <div style={{background:'rgba(201,168,76,0.12)',border:'1px solid rgba(201,168,76,0.4)',borderRadius:14,padding:'16px 15px',marginBottom:4}}>
-            <p style={{fontSize:13,fontWeight:800,color:D.gold,margin:'0 0 8px'}}>⭐ Konfime Men Pwopriyete Sol</p>
-            <p style={{fontSize:11,color:D.muted,margin:'0 0 12px',lineHeight:1.7}}>
-              Pozisyon #1 se <strong style={{color:D.gold}}>Men Pwopriyete Sol la</strong>. Li ap kolekte <strong style={{color:D.text}}>totalite kòb</strong> sol la san frè. Pa ka chanje apre.
+        {/* ── KONFIRMASYON 2 ETAP — MEN PWOPRIYETE ── */}
+        {ownerMode && showOwnerConfirm && (
+          <div style={{
+            background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.4)',
+            borderRadius: 14, padding: '16px 15px',
+          }}>
+            <p style={{ fontSize: 13, fontWeight: 800, color: D.gold, margin: '0 0 8px' }}>
+              ⭐ Konfime Men Pwopriyete Sol
             </p>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={()=>setShowOwnerConfirm(false)} style={{flex:1,padding:'10px',borderRadius:9,border:`1px solid ${D.borderSub}`,background:'transparent',color:D.muted,cursor:'pointer',fontWeight:700,fontSize:12}}>← Tounen</button>
-              <button disabled={loading} onClick={()=>{
-                setShowOwnerConfirm(false)
-                const firstPos = positions[0]
-                const isOwnerSlot = hasOwnerSlot(plan) && firstPos === 1
-                const credentials = existingAccount ? null : generateCredentials(form.name, form.phone)
-                onSave({
-                  ...form,
-                  position: firstPos, positions,
-                  credentials, isOwnerSlot,
-                  cin: form.cin || null, nif: form.nif || null, address: form.address || null,
-                  photoUrl: photoB64 || null, idPhotoUrl: idPhotoB64 || null,
-                  referenceName: form.referenceName || null, referencePhone: form.referencePhone || null,
-                  relationship: form.relationship || null,
-                  preferredDate: payoutDates[firstPos] || null,
-                  _cb: (saved) => onShowCreds({
-                    member: saved || { ...form, position: firstPos, positions },
-                    credentials: existingAccount
-                      ? { username: existingAccount.username, password: null, isExisting: true }
-                      : credentials,
-                    positions, payoutDates,
-                  })
-                })
-              }} style={{flex:2,padding:'10px',borderRadius:9,border:'none',cursor:'pointer',background:D.goldBtn,color:'#0a1222',fontWeight:800,fontSize:12}}>⭐ Wi, Kreye Men Pwopriyete</button>
+            <p style={{ fontSize: 11, color: D.muted, margin: '0 0 12px', lineHeight: 1.7 }}>
+              Plas #1 se <strong style={{ color: D.gold }}>Men Pwopriyete Sol la</strong>.
+              Li ap kolekte <strong style={{ color: D.text }}>{fmt(projectedOwnerPay)} HTG</strong>{' '}
+              san frè. Lòt manm yo ap touche{' '}
+              <strong style={{ color: D.green }}>{fmt(projectedMemberPay)} HTG</strong> chak.
+              Desizyon sa <strong style={{ color: D.red }}>pa ka chanje</strong> apre.
+            </p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setShowOwnerConfirm(false)} style={{
+                flex: 1, padding: '10px', borderRadius: 9,
+                border: `1px solid ${D.borderSub}`, background: 'transparent',
+                color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 12,
+              }}>← Tounen</button>
+              <button
+                disabled={loading}
+                onClick={() => {
+                  setShowOwnerConfirm(false)
+                  doSave(true, [1])
+                }}
+                style={{
+                  flex: 2, padding: '10px', borderRadius: 9, border: 'none',
+                  cursor: 'pointer', background: D.goldBtn, color: '#0a1222',
+                  fontWeight: 800, fontSize: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                {loading ? <Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Star size={13} />}
+                Wi, Kreye Men Pwopriyete
+              </button>
             </div>
           </div>
         )}
 
+        {/* ── BOUTON FINAL ── */}
         <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button disabled={loading || !positions.length} onClick={handleSave}
-            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+          <button onClick={onClose} style={{
+            flex: 1, padding: '12px', borderRadius: 10,
+            border: `1px solid ${D.borderSub}`, background: 'transparent',
+            color: D.muted, cursor: 'pointer', fontWeight: 700,
+          }}>Anile</button>
+
+          <button
+            disabled={loading || showOwnerConfirm || (!ownerMode && selectedSlots.length === 0)}
+            onClick={handleSubmit}
+            style={{
+              flex: 2, padding: '12px', borderRadius: 10, border: 'none',
               cursor: loading ? 'default' : 'pointer',
               background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
               color: '#0a1222', fontWeight: 800, fontSize: 14,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            {loading ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Users size={15} />}
-            {loading ? 'Ap enskri...' : `Enskri — ${positions.length} Men`}
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              opacity: (!ownerMode && selectedSlots.length === 0) ? 0.5 : 1,
+              transition: 'all 0.15s',
+            }}
+          >
+            {loading
+              ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
+              : ownerMode
+                ? <Star size={15} />
+                : <Users size={15} />}
+            {loading
+              ? 'Ap enskri...'
+              : ownerMode
+                ? 'Enskri Pwopriyete Sol'
+                : selectedSlots.length > 1
+                  ? `Enskri — ${selectedSlots.length} Men (${fmt(totalPerCycle)} HTG/sik)`
+                  : selectedSlots.length === 1
+                    ? 'Enskri — 1 Men'
+                    : 'Chwazi Dat Anvan'}
           </button>
         </div>
+
       </div>
     </Modal>
   )
