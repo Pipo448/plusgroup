@@ -868,7 +868,27 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
     const timings={}; sel.forEach(d=>{timings[d]=getPaymentTiming(plan,d)})
     const fines={}
     if(applyFine&&hasPenalty) lateDates.forEach(d=>{fines[d]=Number(plan.penalty)})
-    onSave(sel,timings,fines)
+
+    // Mache peye manm prensipal la
+    onSave(member.id, sel, timings, fines)
+
+    // Mache peye lòt men ki gen menm telefòn tou (si yo pa peye deja)
+    const samePhoneMembers = (plan.members||[]).filter(
+      m => m.phone === member.phone && m.id !== member.id && m.status !== 'stopped'
+    )
+    for (const otherMember of samePhoneMembers) {
+      const otherUnpaid = sel.filter(d => !otherMember.payments?.[d])
+      if (otherUnpaid.length > 0) {
+        const otherTimings = {}
+        otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
+        onSave(otherMember.id, otherUnpaid, otherTimings, {})
+      }
+    }
+
+    if (samePhoneMembers.length > 0) {
+      toast.success(`✅ Peman anrejistre pou ${samePhoneMembers.length + 1} men!`)
+    }
+
     await printer.print(plan,member,sel,tenant,'peman')
   }
 
@@ -1539,10 +1559,12 @@ function ExchangeTab({ plan }) {
   const { data: exchanges = [], isLoading, refetch } = useQuery({
     queryKey: ['sol-exchanges', plan.id],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/sol/admin/exchange?planId=${plan.id}`, { headers: authH })
-      const d   = await res.json()
-      return d.exchanges || d || []
-    },
+  const res = await fetch(`${API_URL}/sol/admin/exchange?planId=${plan.id}`, { headers: authH })
+  const d   = await res.json()
+  const result = d.exchanges || d || []
+  return Array.isArray(result) ? result : []
+},
+
     refetchInterval: 30000,
   })
  
@@ -1846,6 +1868,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const payoutMap = useMemo(()=>getPayoutDateMap(plan),[plan])
+  const [confirmingPayout, setConfirmingPayout] = useState(null) // memberId
 
   const todayWinPos = Object.entries(payoutMap).find(([pos, d])=>d===today)
   const todayWinner = todayWinPos ? plan.members?.find(m=>m.position===Number(todayWinPos[0])) : null
@@ -2106,6 +2129,25 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
         </div>
       )}
 
+      {/* Bouton Konfime Touche — si se dat touche jodi a oswa pase */}
+{!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
+  <button
+    onClick={() => setConfirmingPayout(m)}
+    title="Konfime Touche"
+    style={{width:30,height:30,borderRadius:8,border:'none',
+      background:'rgba(201,168,76,0.2)',color:D.gold,
+      cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <Trophy size={13}/>
+  </button>
+)}
+{/* Badge si deja touche */}
+{m.hasWon && (
+  <span style={{fontSize:9,background:D.goldDim,color:D.gold,
+    padding:'2px 7px',borderRadius:10,fontWeight:800,flexShrink:0}}>
+    🏆 Touche
+  </span>
+)}
+
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
 
       {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='regleman'&&(
@@ -2136,11 +2178,12 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       {payMember&&(
         <ModalMarkPayment member={payMember} plan={plan} onClose={()=>setPay(null)}
           printer={printer}
-          onSave={(dates,timings,fines)=>{
-            onPaymentSaved(payMember.id,dates,timings,fines)
-            setPay(null)
-          }}/>
-      )}
+        onSave={(memberId,dates,timings,fines)=>{
+  onPaymentSaved(memberId,dates,timings,fines)
+  setPay(null)
+}}
+/>
+)}
 
       {viewMember&&(
         <MemberVirtualAccount
@@ -2169,6 +2212,46 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
     </div>
   )
 }
+
+{confirmingPayout && (
+  <Modal onClose={() => setConfirmingPayout(null)}
+    title={`🏆 Konfime Touche — ${confirmingPayout.name}`} width={420}>
+    <div style={{display:'flex',flexDirection:'column',gap:14}}>
+      <div style={{background:D.goldDim,border:`1px solid ${D.gold}40`,
+        borderRadius:12,padding:'14px 16px',textAlign:'center'}}>
+        <Trophy size={32} style={{color:D.gold,marginBottom:8}}/>
+        <p style={{fontSize:16,fontWeight:900,color:D.gold,margin:'0 0 4px'}}>
+          {confirmingPayout.name}
+        </p>
+        <p style={{fontSize:13,color:D.green,fontWeight:800,margin:0}}>
+          {fmt(memberPayout(plan))} HTG
+        </p>
+      </div>
+      <p style={{fontSize:12,color:D.muted,margin:0,lineHeight:1.7,
+        background:'rgba(255,255,255,0.03)',borderRadius:10,padding:'10px 13px'}}>
+        Aksyon sa ap <strong style={{color:D.text}}>mache manm sa kòm touche</strong> epi
+        voye yon <strong style={{color:D.teal}}>notifikasyon</strong> nan kont Sol li.
+      </p>
+      <div style={{display:'flex',gap:10}}>
+        <button onClick={() => setConfirmingPayout(null)}
+          style={{flex:1,padding:'12px',borderRadius:10,
+            border:`1px solid ${D.borderSub}`,background:'transparent',
+            color:D.muted,cursor:'pointer',fontWeight:700}}>
+          Anile
+        </button>
+        <button onClick={() => {
+          onMemberAction(confirmingPayout.id, 'payout', '')
+          setConfirmingPayout(null)
+        }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
+          cursor:'pointer',background:D.goldBtn,color:'#0a1222',
+          fontWeight:800,fontSize:14,
+          display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
+          <Trophy size={15}/> Konfime Touche
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
 
 
 
@@ -2863,7 +2946,7 @@ export default function SabotayPage() {
             memberAction.mutate({ planId: activePlan.id, memberId, action, reason })
           }
           onPaymentSaved={(memberId,dates,timings,fines)=>
-            markPayment.mutate({memberId,dates,timings,fines})}
+  markPayment.mutate({memberId,dates,timings,fines})}
         />
       ) : (
         <>

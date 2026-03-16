@@ -934,7 +934,7 @@ async function closePlan(tenantId, planId, userId) {
 async function memberAction(tenantId, planId, memberId, userId, data) {
   const { action, reason } = data
 
-  if (!['block','unblock','stop','resume'].includes(action))
+  if (!['block','unblock','stop','resume','payout'].includes(action))
     throw new Error(`Aksyon invalide: ${action}`)
 
   const member = await prisma.sabotayMember.findFirst({
@@ -943,8 +943,33 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   if (!member) throw new Error('Manm pa jwenn.')
 
   // Map aksyon → nouvo statut
-  const statusMap = { block: 'blocked', unblock: 'active', stop: 'stopped', resume: 'active' }
+  const statusMap = { block: 'blocked', unblock: 'active', stop: 'stopped', resume: 'active', payout: 'active' }
   const newStatus = statusMap[action]
+  // Si payout: mache hasWon = true + voye notifikasyon Sol
+if (action === 'payout') {
+  await prisma.sabotayMember.update({
+    where: { id: memberId },
+    data:  { hasWon: true }
+  })
+  // Notifikasyon nan kont Sol
+  try {
+    const solPos = await prisma.solMemberPosition.findFirst({
+      where: { memberId, planId },
+      include: { account: true }
+    })
+    if (solPos?.account) {
+      await prisma.solNotification.create({
+        data: {
+          accountId: solPos.account.id,
+          type:      'payout',
+          titleHt:   '🏆 Ou touche Sol ou a!',
+          messageHt: `Felisitasyon! Ou resevwa kòb sol ou a pou plan ${plan?.name || ''}. Kontakte jesyonè sol la pou detay.`,
+        }
+      }).catch(() => {}) // pa bloke si tab la pa egziste
+    }
+  } catch(_) {}
+  return { member: updated, action, newStatus: 'active' }
+}
 
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
