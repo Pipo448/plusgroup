@@ -342,12 +342,9 @@ async function getMembers(tenantId, planId) {
 // ─────────────────────────────────────────────────────────────
 async function addMember(tenantId, planId, userId, data) {
   const {
-    name, phone, position, notes, isOwnerSlot, hasWon, fines, credentials,
-    // ── KYC
+    name, phone, position, positions, notes, isOwnerSlot, hasWon, fines, credentials,
     cin, nif, address, photoUrl, idPhotoUrl,
-    // ── Referans
     referenceName, referencePhone, relationship,
-    // ── Dat manm prefere pou touche (kalkile nan frontend, sove pou referans)
     preferredDate,
   } = data
 
@@ -355,72 +352,40 @@ async function addMember(tenantId, planId, userId, data) {
   if (!phone)    throw new Error('Telefòn manm obligatwa.')
   if (!position) throw new Error('Pozisyon obligatwa.')
 
-  // ── Verifye plan + limit plas
   const plan = await prisma.sabotayPlan.findFirst({
     where:   { id: planId, tenantId },
     include: { _count: { select: { members: { where: { isActive: true } } } } }
   })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  const ownerSlot    = Number(plan.feePerMember || 0) === Number(plan.amount) ? 1 : 0
-  const maxSlots     = plan.maxMembers + ownerSlot
-  const currentCount = plan._count.members
+  // ── Detèmine lis pozisyon pou kreye
+  const positionsToCreate = (
+    positions && Array.isArray(positions) && positions.length > 1
+  ) ? positions : [Number(position)]
 
-  if (currentCount >= maxSlots) {
-    throw new Error(`Plan plen! Maks ${maxSlots} manm rive.`)
+  // ── Verifye chak pozisyon lib anvan kreye
+  for (const pos of positionsToCreate) {
+    const posExists = await prisma.sabotayMember.findFirst({
+      where: { planId, position: Number(pos), isActive: true }
+    })
+    if (posExists) throw new Error(`Pozisyon #${pos} deja pran pa ${posExists.name}.`)
   }
 
-  // ── Verifye pozisyon pa pran deja
-  const posExists = await prisma.sabotayMember.findFirst({
-    where: { planId, position: Number(position), isActive: true }
-  })
-  if (posExists) throw new Error(`Pozisyon #${position} deja pran pa ${posExists.name}.`)
+  // ── Kont Sol — kreye/jwenn yon sèl fwa pou tout pozisyon yo
+  let solAccount  = null
+  let rawPassword = null
 
-  // ── Kalkile dat peman ak dat touche pou pozisyon sa a
-  const dueDate     = computePaymentDate(plan.startDate, plan.frequency, Number(position), Number(plan.interval || 1))
-  const collectDate = computeCollectDate(plan.startDate, plan.frequency, Number(position), plan.maxMembers, Number(plan.interval || 1))
-
-  // ── 1. Kreye SabotayMember (tablo prensipal — pa chanje)
-  const member = await prisma.sabotayMember.create({
-    data: {
-      planId,
-      name:        name.trim(),
-      phone:       phone.trim(),
-      position:    Number(position),
-      dueDate:     new Date(dueDate),
-      collectDate: new Date(collectDate),
-      notes:       notes       || null,
-      isActive:    true,
-      createdBy:   userId,
-      isOwnerSlot: isOwnerSlot || false,
-      hasWon:      hasWon      || false,
-      fines:       fines       || {},
-    },
-    include: {
-      payments: true,
-      creator:  { select: { fullName: true } },
-    }
-  })
-
-  // ── 2. Kont Sol — sèlman pou manm ki pa isOwnerSlot
   if (!isOwnerSlot) {
     try {
       const bcrypt     = require('bcryptjs')
       const cleanPhone = phone.trim()
 
-      // ── Chèche si kont Sol deja egziste pou telefòn sa a nan tenant sa a
-      //    (menm moun ka enskri nan plizyè plan — yon sèl kont)
-      let solAccount = await prisma.solMemberAccount.findFirst({
+      solAccount = await prisma.solMemberAccount.findFirst({
         where: { tenantId, memberPhone: cleanPhone }
       })
 
-      let rawPassword = null // pou retounen bay frontend si kont nouvo
-
       if (solAccount) {
-        // ── KONT DEJA EGZISTE — pa rekree, jis mete ajou KYC si gen nouvo enfòmasyon
-        console.log(`[sabotay] ♻️  Kont Sol egziste — username: ${solAccount.username}`)
-
-        // Sèlman ajoute champ ki pa la deja (pa ekraze ansyen enfòmasyon)
+        // Mete ajou KYC si gen nouvo enfòmasyon
         const updates = {}
         if (cin            && !solAccount.cin)            updates.cin            = cin
         if (nif            && !solAccount.nif)            updates.nif            = nif
@@ -436,18 +401,14 @@ async function addMember(tenantId, planId, userId, data) {
             where: { id: solAccount.id },
             data:  updates,
           })
-          console.log(`[sabotay] 📝 KYC mete ajou pou ${solAccount.username}`)
         }
-
       } else {
-        // ── KREYE NOUVO KONT SOL
         const rawUsername = credentials?.username
           ? credentials.username.toLowerCase().trim()
-          : generateUsername(name, Number(position))
+          : generateUsername(name, Number(positionsToCreate[0]))
 
         rawPassword = credentials?.password || generatePassword(8)
 
-        // Asire unicite username (ajoute suffix si deja egziste)
         const usernameExists = await prisma.solMemberAccount.findFirst({
           where: { username: rawUsername }
         })
@@ -459,73 +420,107 @@ async function addMember(tenantId, planId, userId, data) {
 
         solAccount = await prisma.solMemberAccount.create({
           data: {
-            username:       finalUsername,
+            username:      finalUsername,
             passwordHash,
-            plainPassword:  rawPassword,   // Admin ka wè l nan dashboard
+            plainPassword: rawPassword,
             tenantId,
-            memberName:     name.trim(),
-            memberPhone:    cleanPhone,
-            // KYC
+            memberName:    name.trim(),
+            memberPhone:   cleanPhone,
             cin:            cin            || null,
             nif:            nif            || null,
             address:        address        || null,
             photoUrl:       photoUrl       || null,
             idPhotoUrl:     idPhotoUrl     || null,
-            // Referans
             referenceName:  referenceName  || null,
             referencePhone: referencePhone || null,
             relationship:   relationship   || null,
           }
         })
-
-        console.log(`[sabotay] ✅ Nouvo kont Sol — username: ${finalUsername} | pw: ${rawPassword}`)
       }
-
-      // ── 3. Kreye SolMemberPosition — yon nouvo ranje pou chak enskripsyon
-      //       (kit kont la te deja egziste oswa li nouvo)
-      await prisma.solMemberPosition.create({
-        data: {
-          accountId:        solAccount.id,
-          tenantId,
-          memberId:         member.id,
-          memberPosition:   member.position,
-          planId:           plan.id,
-          // Snapshot plan pou afiche san rèkèt anplis
-          planName:         plan.name,
-          planAmount:       Number(plan.amount),
-          planFee:          Number(plan.fee           || 0),
-          planFrequency:    plan.frequency,
-          planMaxMembers:   plan.maxMembers,
-          planStartDate:    plan.startDate.toISOString().split('T')[0],
-          planDueTime:      plan.dueTime              || '08:00',
-          planInterval:     Number(plan.interval      || 1),
-          planFeePerMember: Number(plan.feePerMember  || 0),
-          planPenalty:      Number(plan.penalty       || 0),
-          planRegleman:     plan.regleman             || null,
-          isOwnerSlot:      false,
-          hasWon:           false,
-          // Dat manm te chwazi pou touche (= collectDate kalkile pou pozisyon an)
-          preferredDate:    preferredDate             || collectDate,
-          payments:         {},
-          paymentTimings:   {},
-          fines:            {},
-        }
-      })
-
-      // ── Ajoute enfòmasyon kont nan obje member pou frontend ka montre credentials
-      member._solAccount = {
-        username:     solAccount.username,
-        plainPassword: rawPassword || null, // null si kont te deja egziste
-        isExisting:   rawPassword === null, // true = kont te deja la, jis pozisyon ajoute
-      }
-
     } catch (err) {
-      console.error('[sabotay] ❌ Kont Sol pa kreye/mete ajou:', err.message)
-      // Erè kont Sol pa bloke enskripsyon manm la
+      console.error('[sabotay] ❌ Kont Sol erè:', err.message)
     }
   }
 
-  return member
+  // ── Kreye 1 SabotayMember + 1 SolMemberPosition pou CHAK pozisyon
+  const createdMembers = []
+
+  for (const pos of positionsToCreate) {
+    const dueDate     = computePaymentDate(plan.startDate, plan.frequency, Number(pos), Number(plan.interval || 1))
+    const collectDate = computeCollectDate(plan.startDate, plan.frequency, Number(pos), plan.maxMembers, Number(plan.interval || 1))
+
+    const member = await prisma.sabotayMember.create({
+      data: {
+        planId,
+        name:        name.trim(),
+        phone:       phone.trim(),
+        position:    Number(pos),
+        dueDate:     new Date(dueDate),
+        collectDate: new Date(collectDate),
+        notes:       notes       || null,
+        isActive:    true,
+        createdBy:   userId,
+        isOwnerSlot: isOwnerSlot || false,
+        hasWon:      hasWon      || false,
+        fines:       fines       || {},
+      },
+      include: {
+        payments: true,
+        creator:  { select: { fullName: true } },
+      }
+    })
+
+    // ── SolMemberPosition pou chak pozisyon
+    if (!isOwnerSlot && solAccount) {
+      try {
+        await prisma.solMemberPosition.create({
+          data: {
+            accountId:        solAccount.id,
+            tenantId,
+            memberId:         member.id,
+            memberPosition:   member.position,
+            planId:           plan.id,
+            planName:         plan.name,
+            planAmount:       Number(plan.amount),
+            planFee:          Number(plan.fee           || 0),
+            planFrequency:    plan.frequency,
+            planMaxMembers:   plan.maxMembers,
+            planStartDate:    plan.startDate.toISOString().split('T')[0],
+            planDueTime:      plan.dueTime              || '08:00',
+            planInterval:     Number(plan.interval      || 1),
+            planFeePerMember: Number(plan.feePerMember  || 0),
+            planPenalty:      Number(plan.penalty       || 0),
+            planRegleman:     plan.regleman             || null,
+            isOwnerSlot:      false,
+            hasWon:           false,
+            preferredDate:    collectDate,
+            payments:         {},
+            paymentTimings:   {},
+            fines:            {},
+          }
+        })
+      } catch (err) {
+        console.error('[sabotay] ❌ SolMemberPosition erè pos', pos, ':', err.message)
+      }
+    }
+
+    createdMembers.push(member)
+  }
+
+  // ── Retounen premye manm ak info kont pou frontend
+  const firstMember = createdMembers[0]
+  if (solAccount) {
+    firstMember._solAccount = {
+      username:      solAccount.username,
+      plainPassword: rawPassword || null,
+      isExisting:    rawPassword === null,
+    }
+  }
+
+  // Ajoute positions array pou frontend ka afiche tabs
+  firstMember.positions = positionsToCreate
+
+  return firstMember
 }
 
 async function updateMember(tenantId, planId, memberId, data) {
