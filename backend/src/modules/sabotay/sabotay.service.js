@@ -924,10 +924,33 @@ async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
 // FÈMEN PLAN — Admin sèlman
 // ─────────────────────────────────────────────────────────────
 async function closePlan(tenantId, planId, userId) {
-  const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+  const plan = await prisma.sabotayPlan.findFirst({
+    where: { id: planId, tenantId },
+    include: { members: { where: { isActive: true }, orderBy: { position: 'asc' } } }
+  })
   if (!plan) throw new Error('Plan pa jwenn.')
   if (plan.status === 'closed' || plan.status === 'finished')
     throw new Error('Plan sa a deja fèmen.')
+
+  // ── Konpakte pozisyon yo — retire vid yo ──
+  const activeMembers = plan.members.filter(m => m.status !== 'stopped')
+  
+  // Sòt pozisyon yo epi reafekte yo 1, 2, 3...
+  let newPosition = 1
+  for (const member of activeMembers) {
+    if (member.position !== newPosition) {
+      await prisma.sabotayMember.update({
+        where: { id: member.id },
+        data:  { position: newPosition }
+      })
+      // Mete ajou SolMemberPosition tou
+      await prisma.solMemberPosition.updateMany({
+        where: { memberId: member.id, planId },
+        data:  { memberPosition: newPosition }
+      }).catch(() => {})
+    }
+    newPosition++
+  }
 
   const updated = await prisma.sabotayPlan.update({
     where: { id: planId },
