@@ -621,6 +621,7 @@ model SabotayPlan {
   interval            Int                   @default(1)
   regleman            String?
   dueTime             String                @default("08:00") @map("due_time") @db.VarChar(5)
+  dueTimeEnd          String?               @default("15:00")
   warningDelayDays    Int                   @default(3) @map("warningDelayDays")
   // ✅ Frè Mache Men Sol
   exchangeFeePct      Decimal               @default(10) @map("exchange_fee_pct") @db.Decimal(5, 2)
