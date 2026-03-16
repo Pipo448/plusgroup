@@ -1,0 +1,13 @@
+{
+  "name": "Sol PlusGroup",
+  "short_name": "Sol",
+  "description": "Jesyon Sol ou — PlusGroup",
+  "start_url": "/app/sol/dashboard",
+  "display": "standalone",
+  "background_color": "#060f1e",
+  "theme_color": "#C9A84C",
+  "icons": [
+    { "src": "/logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1502,6 +1502,37 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
           <Printer size={14}/> Enprime Kont
         </button>
 
+{activeMember._credentials && (
+  <div style={{background:'rgba(155,89,182,0.08)',border:`1px solid rgba(155,89,182,0.2)`,
+    borderRadius:12,padding:'12px 14px'}}>
+    <p style={{fontSize:10,fontWeight:800,color:'#9b59b6',textTransform:'uppercase',
+      letterSpacing:'0.06em',margin:'0 0 10px',display:'flex',alignItems:'center',gap:6}}>
+      <Key size={11}/> Enfòmasyon Koneksyon Sol
+    </p>
+    <div style={{display:'flex',flexDirection:'column',gap:8}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+        background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 12px'}}>
+        <span style={{fontSize:10,color:D.muted,fontWeight:700}}>ITILIZATÈ</span>
+        <span style={{fontFamily:'monospace',fontWeight:800,fontSize:13,color:D.text}}>
+          {activeMember._credentials.username}
+        </span>
+      </div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+        background:'rgba(0,0,0,0.2)',borderRadius:8,padding:'8px 12px'}}>
+        <span style={{fontSize:10,color:D.muted,fontWeight:700}}>MODPAS</span>
+        <span style={{fontFamily:'monospace',fontWeight:800,fontSize:13,
+          color: activeMember._credentials.password ? D.gold : D.muted}}>
+          {activeMember._credentials.password || '(chanje pa kliyan)'}
+        </span>
+      </div>
+      <div style={{fontSize:10,color:D.muted,background:'rgba(0,0,0,0.15)',
+        borderRadius:8,padding:'7px 10px'}}>
+        🌐 app.plusgroupe.com/app/sol/login
+      </div>
+    </div>
+  </div>
+)}
+
         {/* Istwa peman */}
         <div>
           <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:D.muted,margin:'0 0 8px',letterSpacing:'0.06em'}}>

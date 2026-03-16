@@ -153,9 +153,9 @@ async function getPlans(tenantId, branchId, params = {}) {
   ])
 
   // Transfòme payments array → { payments: {}, paymentTimings: {} }
-  const plansFormatted = plans.map(plan => ({
+  const plansFormatted = await Promise.all(plans.map(async plan => ({
     ...plan,
-    members: plan.members.map(member => {
+    members: await Promise.all(plan.members.map(async member => {
       const payments       = {}
       const paymentTimings = {}
       for (const p of member.payments) {
@@ -163,13 +163,23 @@ async function getPlans(tenantId, branchId, params = {}) {
         payments[dateKey]        = true
         paymentTimings[dateKey]  = p.timing || 'onTime'
       }
-      return { ...member, payments, paymentTimings }
-    })
+      const solAccount = await prisma.solMemberAccount.findFirst({
+  where: { tenantId, memberPhone: member.phone },
+  select: { username: true, plainPassword: true }
+})
+return {
+  ...member,
+  payments,
+  paymentTimings,
+  _credentials: solAccount ? {
+    username: solAccount.username,
+    password: solAccount.plainPassword
+  } : null
+}
   }))
-
+  })))
   return { plans: plansFormatted, total, page: Number(page), limit: Number(limit) }
 }
-
 async function getPlanById(tenantId, planId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },

@@ -154,7 +154,7 @@ router.post('/auth/change-password', authMember, async (req, res) => {
     const newHash = await bcrypt.hash(newPassword, 10)
     await prisma.solMemberAccount.update({
       where: { id: account.id },
-      data:  { passwordHash: newHash, plainPassword: null },
+      data: { passwordHash: newHash, plainPassword: newPassword },
     })
 
     return res.json({ message: 'Modpas chanje avèk siksè' })

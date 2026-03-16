@@ -528,6 +528,48 @@ export default function SolDashboardPage() {
   }, [])
 
   const token = localStorage.getItem('sol_token')
+  // ── Anrejistre Service Worker + Push Subscription ──
+useEffect(() => {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+
+  const VAPID_PUBLIC_KEY = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
+
+  const urlBase64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4)
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const rawData = window.atob(base64)
+    return new Uint8Array([...rawData].map(c => c.charCodeAt(0)))
+  }
+
+  navigator.serviceWorker.register('/sw.js')
+    .then(async reg => {
+      // Mande pèmisyon notifikasyon
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') return
+
+      // Verifye si subscription deja egziste
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        })
+      }
+
+      // Voye subscription bay backend
+      if (token) {
+        await fetch(`${SOL_API}/api/sol/push/subscribe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ subscription: sub }),
+        }).catch(() => {})
+      }
+    })
+    .catch(err => console.warn('SW:', err.message))
+}, [token])
 
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
