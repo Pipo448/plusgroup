@@ -2206,52 +2206,53 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           onConfirm={(action, reason) => {
             onMemberAction(actionModal.member.id, action, reason)
             setAction(null)
-          }}
+         }}
         />
       )}
+
+      {confirmingPayout && (
+        <Modal onClose={() => setConfirmingPayout(null)}
+          title={`🏆 Konfime Touche — ${confirmingPayout.name}`} width={420}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <div style={{background:D.goldDim,border:`1px solid ${D.gold}40`,
+              borderRadius:12,padding:'14px 16px',textAlign:'center'}}>
+              <Trophy size={32} style={{color:D.gold,marginBottom:8}}/>
+              <p style={{fontSize:16,fontWeight:900,color:D.gold,margin:'0 0 4px'}}>
+                {confirmingPayout.name}
+              </p>
+              <p style={{fontSize:13,color:D.green,fontWeight:800,margin:0}}>
+                {fmt(memberPayout(plan))} HTG
+              </p>
+            </div>
+            <p style={{fontSize:12,color:D.muted,margin:0,lineHeight:1.7,
+              background:'rgba(255,255,255,0.03)',borderRadius:10,padding:'10px 13px'}}>
+              Aksyon sa ap <strong style={{color:D.text}}>mache manm sa kòm touche</strong> epi
+              voye yon <strong style={{color:D.teal}}>notifikasyon</strong> nan kont Sol li.
+            </p>
+            <div style={{display:'flex',gap:10}}>
+              <button onClick={() => setConfirmingPayout(null)}
+                style={{flex:1,padding:'12px',borderRadius:10,
+                  border:`1px solid ${D.borderSub}`,background:'transparent',
+                  color:D.muted,cursor:'pointer',fontWeight:700}}>
+                Anile
+              </button>
+              <button onClick={() => {
+                onMemberAction(confirmingPayout.id, 'payout', '')
+                setConfirmingPayout(null)
+              }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
+                cursor:'pointer',background:D.goldBtn,color:'#0a1222',
+                fontWeight:800,fontSize:14,
+                display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
+                <Trophy size={15}/> Konfime Touche
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
     </div>
   )
 }
-
-{confirmingPayout && (
-  <Modal onClose={() => setConfirmingPayout(null)}
-    title={`🏆 Konfime Touche — ${confirmingPayout.name}`} width={420}>
-    <div style={{display:'flex',flexDirection:'column',gap:14}}>
-      <div style={{background:D.goldDim,border:`1px solid ${D.gold}40`,
-        borderRadius:12,padding:'14px 16px',textAlign:'center'}}>
-        <Trophy size={32} style={{color:D.gold,marginBottom:8}}/>
-        <p style={{fontSize:16,fontWeight:900,color:D.gold,margin:'0 0 4px'}}>
-          {confirmingPayout.name}
-        </p>
-        <p style={{fontSize:13,color:D.green,fontWeight:800,margin:0}}>
-          {fmt(memberPayout(plan))} HTG
-        </p>
-      </div>
-      <p style={{fontSize:12,color:D.muted,margin:0,lineHeight:1.7,
-        background:'rgba(255,255,255,0.03)',borderRadius:10,padding:'10px 13px'}}>
-        Aksyon sa ap <strong style={{color:D.text}}>mache manm sa kòm touche</strong> epi
-        voye yon <strong style={{color:D.teal}}>notifikasyon</strong> nan kont Sol li.
-      </p>
-      <div style={{display:'flex',gap:10}}>
-        <button onClick={() => setConfirmingPayout(null)}
-          style={{flex:1,padding:'12px',borderRadius:10,
-            border:`1px solid ${D.borderSub}`,background:'transparent',
-            color:D.muted,cursor:'pointer',fontWeight:700}}>
-          Anile
-        </button>
-        <button onClick={() => {
-          onMemberAction(confirmingPayout.id, 'payout', '')
-          setConfirmingPayout(null)
-        }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
-          cursor:'pointer',background:D.goldBtn,color:'#0a1222',
-          fontWeight:800,fontSize:14,
-          display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
-          <Trophy size={15}/> Konfime Touche
-        </button>
-      </div>
-    </div>
-  </Modal>
-)}
 
 
 
