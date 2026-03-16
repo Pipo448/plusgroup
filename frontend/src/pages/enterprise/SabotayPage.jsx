@@ -1603,16 +1603,16 @@ function ExchangeTab({ plan }) {
  
   // Kalkil frè pou yon echanj
   const calcFee = (ex) => {
-    const feePct   = (plan.exchangeFeePct      ?? 10) / 100
-    const adminPct = (plan.exchangeFeeAdminPct ?? 50) / 100
-    const diff     = Math.abs(ex.receiverPosition - ex.initiatorPosition)
-    const base     = diff * Number(plan.amount) * feePct
-    return {
-      total:    Math.round(base),
-      toAdmin:  Math.round(base * adminPct),
-      toMember: Math.round(base * (1 - adminPct)),
-    }
+  const feePerSlot = plan.exchangeFeePct ?? 10
+  const adminPct   = (plan.exchangeFeeAdminPct ?? 50) / 100
+  const diff       = Math.abs(ex.receiverPosition - ex.initiatorPosition)
+  const base       = diff * feePerSlot
+  return {
+    total:    Math.round(base),
+    toAdmin:  Math.round(base * adminPct),
+    toMember: Math.round(base * (1 - adminPct)),
   }
+}
  
   const getMember = (pos) => plan.members?.find(m => m.position === pos)
  
@@ -1658,13 +1658,13 @@ function ExchangeTab({ plan }) {
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div>
-              <label style={lbl}>Frè Total Echanj (%)</label>
-              <input type="number" min="0" max="100" style={{ ...inp, color: D.orange }}
-                value={cfg.exchangeFeePct}
-                onChange={e => setCfg(p => ({ ...p, exchangeFeePct: Number(e.target.value) }))} />
-              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0', lineHeight: 1.5 }}>
-                Kalkile sou diferans pozisyon × montan plan
-              </p>
+              <label style={lbl}>Frè Echanj pa Plas (HTG)</label>
+<input type="number" min="0" style={{ ...inp, color: D.orange }}
+  value={cfg.exchangeFeePct}
+  onChange={e => setCfg(p => ({ ...p, exchangeFeePct: Number(e.target.value) }))} />
+<p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0', lineHeight: 1.5 }}>
+  Frè fiks pa diferans plas (HTG)
+</p>
             </div>
             <div>
               <label style={lbl}>Pati Admin (%)</label>
@@ -1681,17 +1681,17 @@ function ExchangeTab({ plan }) {
             fontSize: 11, color: D.muted, marginBottom: 12, lineHeight: 1.7 }}>
             <strong style={{ color: D.text }}>Egzanp:</strong> Men #2 vle achte Men #8 (diferans: 6 plas)
             <br />
-            Frè total = 6 × {fmt(plan.amount)} × {cfg.exchangeFeePct}% ={' '}
-            <strong style={{ color: D.orange }}>
-              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100))} HTG
-            </strong>
-            <br />
-            → Admin: <strong style={{ color: D.gold }}>
-              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100 * cfg.exchangeFeeAdminPct / 100))} HTG
-            </strong>{' '}
-            | Manm ki desann: <strong style={{ color: D.green }}>
-              {fmt(Math.round(6 * Number(plan.amount) * cfg.exchangeFeePct / 100 * (1 - cfg.exchangeFeeAdminPct / 100)))} HTG
-            </strong>
+            Frè total = 6 plas × {fmt(cfg.exchangeFeePct)} HTG ={' '}
+<strong style={{ color: D.orange }}>
+  {fmt(6 * cfg.exchangeFeePct)} HTG
+</strong>
+<br />
+→ Admin: <strong style={{ color: D.gold }}>
+  {fmt(Math.round(6 * cfg.exchangeFeePct * cfg.exchangeFeeAdminPct / 100))} HTG
+</strong>{' '}
+| Manm ki desann: <strong style={{ color: D.green }}>
+  {fmt(Math.round(6 * cfg.exchangeFeePct * (1 - cfg.exchangeFeeAdminPct / 100)))} HTG
+</strong>
           </div>
           <div style={{ display: 'flex', gap: 9 }}>
             <button onClick={() => setShowConfig(false)} style={{
