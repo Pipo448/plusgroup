@@ -207,7 +207,7 @@ async function getPlanById(tenantId, planId) {
 async function createPlan(tenantId, branchId, userId, data) {
   const {
     name, frequency, amount, maxMembers, fee, startDate, notes,
-    feePerMember, penalty, interval, dueTime, regleman,
+    feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman,
   } = data
 
   if (!name)      throw new Error('Non plan obligatwa.')
@@ -232,6 +232,7 @@ async function createPlan(tenantId, branchId, userId, data) {
       penalty:      Number(penalty      || 0),
       interval:     Number(interval     || 1),
       dueTime:      dueTime   || '08:00',
+      dueTimeEnd: dueTimeEnd || '15:00',
       regleman:     regleman  || null,
     },
     include: {
@@ -260,6 +261,7 @@ async function updatePlan(tenantId, planId, userId, data) {
       ...(data.penalty      !== undefined && { penalty:      Number(data.penalty) }),
       ...(data.interval     !== undefined && { interval:     Number(data.interval) }),
       ...(data.dueTime      !== undefined && { dueTime:      data.dueTime }),
+      ...(data.dueTimeEnd   !== undefined && { dueTimeEnd:   data.dueTimeEnd }),
       ...(data.regleman     !== undefined && { regleman:     data.regleman }),
     },
     include: {

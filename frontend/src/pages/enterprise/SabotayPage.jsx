@@ -266,13 +266,20 @@ function freqFullLabel(plan) {
 function getPaymentTiming(plan, paymentDate) {
   const today = new Date().toISOString().split('T')[0]
   if (paymentDate < today) return 'late'
-  const now = new Date()
-  const [dueH,dueM] = (plan.dueTime||'08:00').split(':').map(Number)
-  const nowMins = now.getHours()*60+now.getMinutes()
-  const dueMins = dueH*60+dueM
-  if (nowMins < dueMins-15) return 'early'
-  if (nowMins <= dueMins+60) return 'onTime'
-  return 'late'
+
+  const now     = new Date()
+  const nowMins = now.getHours() * 60 + now.getMinutes()
+
+  // Enteval: 8:00 AM → 15:00 PM (konfigirab via plan)
+  const [startH, startM] = (plan.dueTime     || '08:00').split(':').map(Number)
+  const [endH,   endM  ] = (plan.dueTimeEnd  || '15:00').split(':').map(Number)
+
+  const startMins = startH * 60 + startM
+  const endMins   = endH   * 60 + endM
+
+  if (nowMins < startMins) return 'early'          // Anvan 8:00 — bonè
+  if (nowMins <= endMins)  return 'onTime'          // 8:00–15:00 — atètan
+  return 'late'                                     // Apre 15:00 — reta
 }
 
 function getMemberScore(member) {
@@ -536,7 +543,8 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
   const isEdit = !!initialData
   const [form,setForm] = useState({
     name:'',amount:'',feePerMember:'',penalty:'',warningDelayDays:3,
-    frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',regleman:'',startDate:'',
+    frequency:'daily',interval:1,maxMembers:'',dueTime:'08:00',
+    dueTimeEnd:'15:00',regleman:'',startDate:'',
     ...(initialData||{}),
     startDate: initialData?.startDate
       ? new Date(initialData.startDate).toISOString().split('T')[0]
@@ -573,6 +581,14 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
               <label style={lbl}>Lè Peman *</label>
               <input type="time" style={{...inp,color:D.purple,fontWeight:700}}
                 value={form.dueTime} onChange={e=>set('dueTime',e.target.value)}/>
+            </div>
+            <div>
+              <label style={lbl}>Limit Lè (Reta apre) *</label>
+              <input type="time" style={{...inp,color:D.red,fontWeight:700}}
+                value={form.dueTimeEnd} onChange={e=>set('dueTimeEnd',e.target.value)}/>
+              <p style={{fontSize:10,color:D.muted,margin:'4px 0 0'}}>
+                Apre lè sa → peman = Reta
+              </p>
             </div>
             <div>
               <label style={lbl}>Dat Kòmanse Sol *</label>
@@ -694,12 +710,14 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
           <button disabled={loading} onClick={()=>{
             if(!form.name||!form.amount) return toast.error('Non ak montan obligatwa.')
             onSave({...form,amount:Number(form.amount),feePerMember:Number(form.feePerMember||0),
-              penalty:Number(form.penalty||0),
-              warningDelayDays:Number(form.warningDelayDays||0),
-              maxMembers:Number(form.maxMembers||0),
-              dueTime:form.dueTime||'08:00',interval:intervalN,
-              startDate:form.startDate||new Date().toISOString().split('T')[0],
-              status:'open'})
+  penalty:Number(form.penalty||0),
+  warningDelayDays:Number(form.warningDelayDays||0),
+  maxMembers:Number(form.maxMembers||0),
+  dueTime:form.dueTime||'08:00',
+  dueTimeEnd:form.dueTimeEnd||'15:00',
+  interval:intervalN,
+  startDate:form.startDate||new Date().toISOString().split('T')[0],
+  status:'open'})
           }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
             cursor:loading?'default':'pointer',
             background:loading?'rgba(201,168,76,0.3)':D.goldBtn,
