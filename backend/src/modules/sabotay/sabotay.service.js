@@ -2,39 +2,20 @@
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-// ─────────────────────────────────────────────────────────────
-// HELPERS — Kalkile dat peman
-// ─────────────────────────────────────────────────────────────
-
 function computePaymentDate(startDate, frequency, position, interval = 1) {
   const start = new Date(startDate)
-  const pos   = position - 1 // 0-indexed
-
+  const pos   = position - 1
   switch (frequency) {
-    case 'daily':
-      start.setDate(start.getDate() + pos * interval)
-      break
+    case 'daily':           start.setDate(start.getDate() + pos * interval); break
     case 'saturday':
-    case 'weekly_saturday':
-      start.setDate(start.getDate() + pos * 7 * interval)
-      break
+    case 'weekly_saturday': start.setDate(start.getDate() + pos * 7 * interval); break
     case 'weekly':
-    case 'weekly_monday':
-      start.setDate(start.getDate() + pos * 5 * interval)
-      break
-    case 'biweekly':
-      start.setDate(start.getDate() + pos * 15 * interval)
-      break
-    case 'monthly':
-      start.setMonth(start.getMonth() + pos * interval)
-      break
-    case 'weekdays':
-      start.setDate(start.getDate() + pos * interval)
-      break
-    default:
-      start.setDate(start.getDate() + pos * 7 * interval)
+    case 'weekly_monday':   start.setDate(start.getDate() + pos * 5 * interval); break
+    case 'biweekly':        start.setDate(start.getDate() + pos * 15 * interval); break
+    case 'monthly':         start.setMonth(start.getMonth() + pos * interval); break
+    case 'weekdays':        start.setDate(start.getDate() + pos * interval); break
+    default:                start.setDate(start.getDate() + pos * 7 * interval)
   }
-
   return start.toISOString().split('T')[0]
 }
 
@@ -54,78 +35,42 @@ function computeCollectDate(startDate, frequency, position, totalMembers, interv
   return start.toISOString().split('T')[0]
 }
 
-// ─────────────────────────────────────────────────────────────
-// HELPERS — Jenere credentials Sol
-// ─────────────────────────────────────────────────────────────
-
-// username: premye mo non + pozisyon 4 chif  →  ex: marie0003
 function generateUsername(name, position) {
-  const first = name
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .split(' ')[0]
-    .replace(/[^a-z0-9]/g, '')
+  const first = name.trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .split(' ')[0].replace(/[^a-z0-9]/g, '')
   const pos = String(position).padStart(4, '0')
   return `${first}${pos}`
 }
 
-// modpas 8 karaktè — retire karaktè konfizyon (0/O, 1/l/I)
 function generatePassword(length = 8) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
   let pass = ''
-  for (let i = 0; i < length; i++) {
-    pass += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
+  for (let i = 0; i < length; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length))
   return pass
 }
 
-// ─────────────────────────────────────────────────────────────
-// STATS
-// ─────────────────────────────────────────────────────────────
 async function getStats(tenantId, branchId) {
   const where = { tenantId, ...(branchId && { branchId }) }
-
   const [totalPlans, activePlans, totalMembers, paymentsToday] = await Promise.all([
     prisma.sabotayPlan.count({ where }),
     prisma.sabotayPlan.count({ where: { ...where, status: 'active' } }),
-    prisma.sabotayMember.count({
-      where: { plan: { tenantId, ...(branchId && { branchId }) }, isActive: true }
-    }),
-    prisma.sabotayPayment.count({
-      where: {
-        plan: { tenantId },
-        paidDate: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }
-      }
-    }),
+    prisma.sabotayMember.count({ where: { plan: { tenantId, ...(branchId && { branchId }) }, isActive: true } }),
+    prisma.sabotayPayment.count({ where: { plan: { tenantId }, paidDate: { gte: new Date(new Date().setHours(0,0,0,0)) } } }),
   ])
-
-  const fundsAgg = await prisma.sabotayPayment.aggregate({
-    where: { plan: { tenantId } },
-    _sum: { amount: true }
-  })
-
-  return {
-    totalPlans, activePlans, totalMembers, paymentsToday,
-    totalFunds: Number(fundsAgg._sum.amount || 0),
-  }
+  const fundsAgg = await prisma.sabotayPayment.aggregate({ where: { plan: { tenantId } }, _sum: { amount: true } })
+  return { totalPlans, activePlans, totalMembers, paymentsToday, totalFunds: Number(fundsAgg._sum.amount || 0) }
 }
 
-// ─────────────────────────────────────────────────────────────
-// PLANS
-// ─────────────────────────────────────────────────────────────
 async function getPlans(tenantId, branchId, params = {}) {
   const { search, status, page = 1, limit = 20 } = params
   const skip = (Number(page) - 1) * Number(limit)
-
   const where = {
     tenantId,
     ...(branchId && { branchId }),
     ...(status   && { status }),
     ...(search   && { name: { contains: search, mode: 'insensitive' } }),
   }
-
   const [plans, total] = await Promise.all([
     prisma.sabotayPlan.findMany({
       where,
@@ -134,14 +79,7 @@ async function getPlans(tenantId, branchId, params = {}) {
         _count:  { select: { members: true, payments: true } },
         members: {
           where:   { isActive: true },
-          include: {
-            payments: {
-              select: {
-                id: true, dueDate: true, paidDate: true,
-                amount: true, timing: true, fineAmt: true,
-              }
-            }
-          },
+          include: { payments: { select: { id: true, dueDate: true, paidDate: true, amount: true, timing: true, fineAmt: true } } },
           orderBy: { position: 'asc' },
         },
       },
@@ -152,212 +90,139 @@ async function getPlans(tenantId, branchId, params = {}) {
     prisma.sabotayPlan.count({ where }),
   ])
 
-  // Transfòme payments array → { payments: {}, paymentTimings: {} }
   const plansFormatted = await Promise.all(plans.map(async plan => ({
     ...plan,
     members: await Promise.all(plan.members.map(async member => {
-      const payments       = {}
-      const paymentTimings = {}
+      const payments = {}, paymentTimings = {}
       for (const p of member.payments) {
-        const dateKey            = new Date(p.dueDate).toISOString().split('T')[0]
-        payments[dateKey]        = true
-        paymentTimings[dateKey]  = p.timing || 'onTime'
+        const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
+        payments[dateKey] = true
+        paymentTimings[dateKey] = p.timing || 'onTime'
       }
       const solAccount = await prisma.solMemberAccount.findFirst({
-  where: { tenantId, memberPhone: member.phone },
-  select: { username: true, plainPassword: true }
-})
-return {
-  ...member,
-  payments,
-  paymentTimings,
-  _credentials: solAccount ? {
-    username: solAccount.username,
-    password: solAccount.plainPassword
-  } : null
-}
-  }))
+        where: { tenantId, memberPhone: member.phone },
+        select: { username: true, plainPassword: true }
+      })
+      return {
+        ...member, payments, paymentTimings,
+        _credentials: solAccount ? { username: solAccount.username, password: solAccount.plainPassword } : null
+      }
+    }))
   })))
   return { plans: plansFormatted, total, page: Number(page), limit: Number(limit) }
 }
+
 async function getPlanById(tenantId, planId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
     include: {
       creator: { select: { fullName: true } },
-      members: {
-        where:   { isActive: true },
-        include: { payments: { orderBy: { dueDate: 'asc' } } },
-        orderBy: { position: 'asc' },
-      },
-      payments: {
-        include: {
-          member:  { select: { id: true, name: true, phone: true, position: true } },
-          creator: { select: { fullName: true } },
-        },
-        orderBy: { dueDate: 'asc' },
-      },
+      members: { where: { isActive: true }, include: { payments: { orderBy: { dueDate: 'asc' } } }, orderBy: { position: 'asc' } },
+      payments: { include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } }, orderBy: { dueDate: 'asc' } },
     }
   })
-
   if (!plan) throw new Error('Plan pa jwenn.')
   return plan
 }
 
 async function createPlan(tenantId, branchId, userId, data) {
-  const {
-    name, frequency, amount, maxMembers, fee, startDate, notes,
-    feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman,
-  } = data
-
+  const { name, frequency, amount, maxMembers, fee, startDate, notes, feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman } = data
   if (!name)      throw new Error('Non plan obligatwa.')
   if (!frequency) throw new Error('Frekans obligatwa.')
-  if (!amount || Number(amount) <= 0)     throw new Error('Montan dwe plis ke 0.')
+  if (!amount || Number(amount) <= 0) throw new Error('Montan dwe plis ke 0.')
   if (!maxMembers || Number(maxMembers) < 2) throw new Error('Dwe gen omwen 2 manm.')
 
   const plan = await prisma.sabotayPlan.create({
     data: {
-      tenantId,
-      branchId:     branchId || null,
-      name:         name.trim(),
-      frequency,
-      amount:       Number(amount),
-      maxMembers:   Number(maxMembers),
-      fee:          Number(fee || 0),
-      startDate:    startDate ? new Date(startDate) : new Date(),
-      notes:        notes     || null,
-      status:       'active',
-      createdBy:    userId,
-      feePerMember: Number(feePerMember || 0),
-      penalty:      Number(penalty      || 0),
-      interval:     Number(interval     || 1),
-      dueTime:      dueTime   || '08:00',
-      dueTimeEnd: dueTimeEnd || '15:00',
-      regleman:     regleman  || null,
+      tenantId, branchId: branchId || null, name: name.trim(), frequency,
+      amount: Number(amount), maxMembers: Number(maxMembers), fee: Number(fee || 0),
+      startDate: startDate ? new Date(startDate) : new Date(),
+      notes: notes || null, status: 'active', createdBy: userId,
+      feePerMember: Number(feePerMember || 0), penalty: Number(penalty || 0),
+      interval: Number(interval || 1), dueTime: dueTime || '08:00',
+      dueTimeEnd: dueTimeEnd || '15:00', regleman: regleman || null,
     },
-    include: {
-      creator: { select: { fullName: true } },
-      _count:  { select: { members: true } },
-    }
+    include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
-
   return plan
 }
 
 async function updatePlan(tenantId, planId, userId, data) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
-
   const updated = await prisma.sabotayPlan.update({
     where: { id: planId },
     data: {
       ...(data.name         && { name: data.name.trim() }),
       ...(data.status       && { status: data.status }),
       ...(data.notes        !== undefined && { notes: data.notes }),
-      ...(data.fee          !== undefined && { fee:          Number(data.fee) }),
-      ...(data.maxMembers   && { maxMembers:   Number(data.maxMembers) }),
-      ...(data.startDate    && { startDate:    new Date(data.startDate) }),
+      ...(data.fee          !== undefined && { fee: Number(data.fee) }),
+      ...(data.maxMembers   && { maxMembers: Number(data.maxMembers) }),
+      ...(data.startDate    && { startDate: new Date(data.startDate) }),
       ...(data.feePerMember !== undefined && { feePerMember: Number(data.feePerMember) }),
-      ...(data.penalty      !== undefined && { penalty:      Number(data.penalty) }),
-      ...(data.interval     !== undefined && { interval:     Number(data.interval) }),
-      ...(data.dueTime      !== undefined && { dueTime:      data.dueTime }),
-      ...(data.dueTimeEnd   !== undefined && { dueTimeEnd:   data.dueTimeEnd }),
-      ...(data.regleman     !== undefined && { regleman:     data.regleman }),
+      ...(data.penalty      !== undefined && { penalty: Number(data.penalty) }),
+      ...(data.interval     !== undefined && { interval: Number(data.interval) }),
+      ...(data.dueTime      !== undefined && { dueTime: data.dueTime }),
+      ...(data.dueTimeEnd   !== undefined && { dueTimeEnd: data.dueTimeEnd }),
+      ...(data.regleman     !== undefined && { regleman: data.regleman }),
     },
-    include: {
-      creator: { select: { fullName: true } },
-      _count:  { select: { members: true } },
-    }
+    include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
-
   return updated
 }
 
 async function deletePlan(tenantId, planId) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
-
   const paymentCount = await prisma.sabotayPayment.count({ where: { planId } })
-  if (paymentCount > 0)
-    throw new Error('Pa ka efase yon plan ki gen peman deja. Mete l inaktif olye.')
-
+  if (paymentCount > 0) throw new Error('Pa ka efase yon plan ki gen peman deja. Mete l inaktif olye.')
   await prisma.sabotayPlan.delete({ where: { id: planId } })
 }
 
-// ─────────────────────────────────────────────────────────────
-// TIRAJ AVÈG
-// ─────────────────────────────────────────────────────────────
 async function blindDraw(tenantId, planId, userId, data) {
   const { winnerId } = data
-
   const plan = await prisma.sabotayPlan.findFirst({
-    where:   { id: planId, tenantId },
+    where: { id: planId, tenantId },
     include: { members: { where: { isActive: true, hasWon: false } } }
   })
   if (!plan) throw new Error('Plan pa jwenn.')
-
   let winner
   if (winnerId) {
-    winner = await prisma.sabotayMember.findFirst({
-      where: { id: winnerId, planId, isActive: true }
-    })
+    winner = await prisma.sabotayMember.findFirst({ where: { id: winnerId, planId, isActive: true } })
     if (!winner) throw new Error('Manm pa jwenn.')
   } else {
     const eligible = plan.members.filter(m => !m.hasWon)
     if (!eligible.length) throw new Error('Tout manm fin touche deja.')
     winner = eligible[Math.floor(Math.random() * eligible.length)]
   }
-
-  const updatedWinner = await prisma.sabotayMember.update({
-    where: { id: winner.id },
-    data:  { hasWon: true },
-  })
-
+  const updatedWinner = await prisma.sabotayMember.update({ where: { id: winner.id }, data: { hasWon: true } })
   const totalMembers = plan.members.length
   const feePerMember = Number(plan.feePerMember || 0)
-  const amount       = Number(plan.amount)
-  const pool         = amount * totalMembers
-  const payout       = pool - feePerMember
-
+  const amount = Number(plan.amount)
+  const pool = amount * totalMembers
+  const payout = pool - feePerMember
   await _checkAndNotifyCollection(tenantId, plan, new Date().toISOString().split('T')[0])
-
-  return {
-    winner:      updatedWinner,
-    payout,
-    pool,
-    feePerMember,
-    message: `${updatedWinner.name} ap touche ${payout.toLocaleString('fr-HT')} HTG!`,
-  }
+  return { winner: updatedWinner, payout, pool, feePerMember, message: `${updatedWinner.name} ap touche ${payout.toLocaleString('fr-HT')} HTG!` }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MANM
-// ─────────────────────────────────────────────────────────────
 async function getMembers(tenantId, planId) {
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
-
   const members = await prisma.sabotayMember.findMany({
-    where:   { planId, isActive: true },
-    include: {
-      payments: { orderBy: { dueDate: 'asc' } },
-      creator:  { select: { fullName: true } },
-    },
+    where: { planId, isActive: true },
+    include: { payments: { orderBy: { dueDate: 'asc' } }, creator: { select: { fullName: true } } },
     orderBy: { position: 'asc' },
   })
-
   return members
 }
 
 // ─────────────────────────────────────────────────────────────
-// ADD MEMBER — ✅ REFACTORE: 1 kont → plizyè pozisyon
+// ADD MEMBER
 // ─────────────────────────────────────────────────────────────
 async function addMember(tenantId, planId, userId, data) {
   const {
     name, phone, position, positions, notes, isOwnerSlot, hasWon, fines, credentials,
-    cin, nif, address, photoUrl, idPhotoUrl,
-    referenceName, referencePhone, relationship,
-    preferredDate,
+    cin, nif, address, photoUrl, idPhotoUrl, referenceName, referencePhone, relationship, preferredDate,
   } = data
 
   if (!name)     throw new Error('Non manm obligatwa.')
@@ -365,25 +230,20 @@ async function addMember(tenantId, planId, userId, data) {
   if (!position) throw new Error('Pozisyon obligatwa.')
 
   const plan = await prisma.sabotayPlan.findFirst({
-    where:   { id: planId, tenantId },
+    where: { id: planId, tenantId },
     include: { _count: { select: { members: { where: { isActive: true } } } } }
   })
   if (!plan) throw new Error('Plan pa jwenn.')
 
-  // ── Detèmine lis pozisyon pou kreye
-  const positionsToCreate = (
-    positions && Array.isArray(positions) && positions.length > 1
-  ) ? positions : [Number(position)]
+  const positionsToCreate = (positions && Array.isArray(positions) && positions.length > 1)
+    ? positions : [Number(position)]
 
-  // ── Verifye chak pozisyon lib anvan kreye
   for (const pos of positionsToCreate) {
-    const posExists = await prisma.sabotayMember.findFirst({
-      where: { planId, position: Number(pos), isActive: true }
-    })
+    const posExists = await prisma.sabotayMember.findFirst({ where: { planId, position: Number(pos), isActive: true } })
     if (posExists) throw new Error(`Pozisyon #${pos} deja pran pa ${posExists.name}.`)
   }
 
-  // ── Kont Sol — kreye/jwenn yon sèl fwa pou tout pozisyon yo
+  // ── Kont Sol
   let solAccount  = null
   let rawPassword = null
 
@@ -392,12 +252,9 @@ async function addMember(tenantId, planId, userId, data) {
       const bcrypt     = require('bcryptjs')
       const cleanPhone = phone.trim()
 
-      solAccount = await prisma.solMemberAccount.findFirst({
-        where: { tenantId, memberPhone: cleanPhone }
-      })
+      solAccount = await prisma.solMemberAccount.findFirst({ where: { tenantId, memberPhone: cleanPhone } })
 
       if (solAccount) {
-        // Mete ajou KYC si gen nouvo enfòmasyon
         const updates = {}
         if (cin            && !solAccount.cin)            updates.cin            = cin
         if (nif            && !solAccount.nif)            updates.nif            = nif
@@ -407,12 +264,8 @@ async function addMember(tenantId, planId, userId, data) {
         if (referenceName  && !solAccount.referenceName)  updates.referenceName  = referenceName
         if (referencePhone && !solAccount.referencePhone) updates.referencePhone = referencePhone
         if (relationship   && !solAccount.relationship)   updates.relationship   = relationship
-
         if (Object.keys(updates).length > 0) {
-          solAccount = await prisma.solMemberAccount.update({
-            where: { id: solAccount.id },
-            data:  updates,
-          })
+          solAccount = await prisma.solMemberAccount.update({ where: { id: solAccount.id }, data: updates })
         }
       } else {
         const rawUsername = credentials?.username
@@ -421,40 +274,29 @@ async function addMember(tenantId, planId, userId, data) {
 
         rawPassword = credentials?.password || generatePassword(8)
 
-        const usernameExists = await prisma.solMemberAccount.findFirst({
-          where: { username: rawUsername }
-        })
-        const finalUsername = usernameExists
-          ? `${rawUsername}${Date.now().toString().slice(-4)}`
-          : rawUsername
+        const usernameExists = await prisma.solMemberAccount.findFirst({ where: { username: rawUsername } })
+        const finalUsername  = usernameExists ? `${rawUsername}${Date.now().toString().slice(-4)}` : rawUsername
 
         const passwordHash = await bcrypt.hash(rawPassword, 10)
 
         solAccount = await prisma.solMemberAccount.create({
           data: {
-            username:      finalUsername,
-            passwordHash,
-            plainPassword: rawPassword,
-            tenantId,
-            memberName:    name.trim(),
-            memberPhone:   cleanPhone,
-            cin:            cin            || null,
-            nif:            nif            || null,
-            address:        address        || null,
-            photoUrl:       photoUrl       || null,
-            idPhotoUrl:     idPhotoUrl     || null,
-            referenceName:  referenceName  || null,
-            referencePhone: referencePhone || null,
-            relationship:   relationship   || null,
+            username: finalUsername, passwordHash, plainPassword: rawPassword,
+            tenantId, memberName: name.trim(), memberPhone: cleanPhone,
+            cin: cin || null, nif: nif || null, address: address || null,
+            photoUrl: photoUrl || null, idPhotoUrl: idPhotoUrl || null,
+            referenceName: referenceName || null, referencePhone: referencePhone || null,
+            relationship: relationship || null,
           }
         })
       }
     } catch (err) {
-  console.error('[sabotay] ❌ Kont Sol erè DETAY:', err) // ← chanje .message → err konplè
-  throw err // ← AJOUTE SA pou erè a monte
-}
+      console.error('[sabotay] ❌ Kont Sol erè DETAY:', err)
+      // Pa throw — kontinye kreye manm menm si Sol echwe
+    }
+  } // ← FIN if (!isOwnerSlot)
 
-  // ── Kreye 1 SabotayMember + 1 SolMemberPosition pou CHAK pozisyon
+  // ── Kreye SabotayMember pou chak pozisyon
   const createdMembers = []
 
   for (const pos of positionsToCreate) {
@@ -463,63 +305,36 @@ async function addMember(tenantId, planId, userId, data) {
 
     const member = await prisma.sabotayMember.create({
       data: {
-        planId,
-        name:        name.trim(),
-        phone:       phone.trim(),
-        position:    Number(pos),
-        dueDate:     new Date(dueDate),
-        collectDate: new Date(collectDate),
-        notes:       notes       || null,
-        isActive:    true,
-        createdBy:   userId,
-        isOwnerSlot: isOwnerSlot || false,
-        hasWon:      hasWon      || false,
-        fines:       fines       || {},
+        planId, name: name.trim(), phone: phone.trim(),
+        position: Number(pos), dueDate: new Date(dueDate), collectDate: new Date(collectDate),
+        notes: notes || null, isActive: true, createdBy: userId,
+        isOwnerSlot: isOwnerSlot || false, hasWon: hasWon || false, fines: fines || {},
       },
-      include: {
-        payments: true,
-        creator:  { select: { fullName: true } },
-      }
+      include: { payments: true, creator: { select: { fullName: true } } }
     })
 
-    // ── SolMemberPosition pou chak pozisyon
     if (!isOwnerSlot && solAccount) {
       try {
         await prisma.solMemberPosition.create({
           data: {
-            accountId:        solAccount.id,
-            tenantId,
-            memberId:         member.id,
-            memberPosition:   member.position,
-            planId:           plan.id,
-            planName:         plan.name,
-            planAmount:       Number(plan.amount),
-            planFee:          Number(plan.fee           || 0),
-            planFrequency:    plan.frequency,
-            planMaxMembers:   plan.maxMembers,
-            planStartDate:    plan.startDate.toISOString().split('T')[0],
-            planDueTime:      plan.dueTime              || '08:00',
-            planInterval:     Number(plan.interval      || 1),
-            planFeePerMember: Number(plan.feePerMember  || 0),
-            planPenalty:      Number(plan.penalty       || 0),
-            planRegleman:     plan.regleman             || null,
-            isOwnerSlot:      false,
-            hasWon:           false,
-            preferredDate:    collectDate,
-            payments:         {},
-            paymentTimings:   {},
-            fines:            {},
+            accountId: solAccount.id, tenantId, memberId: member.id,
+            memberPosition: member.position, planId: plan.id, planName: plan.name,
+            planAmount: Number(plan.amount), planFee: Number(plan.fee || 0),
+            planFrequency: plan.frequency, planMaxMembers: plan.maxMembers,
+            planStartDate: plan.startDate.toISOString().split('T')[0],
+            planDueTime: plan.dueTime || '08:00', planInterval: Number(plan.interval || 1),
+            planFeePerMember: Number(plan.feePerMember || 0), planPenalty: Number(plan.penalty || 0),
+            planRegleman: plan.regleman || null, isOwnerSlot: false, hasWon: false,
+            preferredDate: collectDate, payments: {}, paymentTimings: {}, fines: {},
           }
         })
       } catch (err) {
         console.error('[sabotay] ❌ SolMemberPosition erè pos', pos, ':', err.message)
       }
     }
-
     createdMembers.push(member)
   }
 
-  // ── Retounen premye manm ak info kont pou frontend
   const firstMember = createdMembers[0]
   if (solAccount) {
     firstMember._solAccount = {
@@ -528,203 +343,127 @@ async function addMember(tenantId, planId, userId, data) {
       isExisting:    rawPassword === null,
     }
   }
-
-  // Ajoute positions array pou frontend ka afiche tabs
   firstMember.positions = positionsToCreate
-
   return firstMember
 }
 
 async function updateMember(tenantId, planId, memberId, data) {
-  const member = await prisma.sabotayMember.findFirst({
-    where: { id: memberId, planId, plan: { tenantId } }
-  })
+  const member = await prisma.sabotayMember.findFirst({ where: { id: memberId, planId, plan: { tenantId } } })
   if (!member) throw new Error('Manm pa jwenn.')
-
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
     data: {
       ...(data.name     && { name: data.name.trim() }),
       ...(data.phone    && { phone: data.phone.trim() }),
-      ...(data.notes    !== undefined && { notes:     data.notes }),
-      ...(data.isActive !== undefined && { isActive:  data.isActive }),
-      ...(data.hasWon   !== undefined && { hasWon:    data.hasWon }),
-      ...(data.fines    !== undefined && { fines:     data.fines }),
+      ...(data.notes    !== undefined && { notes:    data.notes }),
+      ...(data.isActive !== undefined && { isActive: data.isActive }),
+      ...(data.hasWon   !== undefined && { hasWon:   data.hasWon }),
+      ...(data.fines    !== undefined && { fines:    data.fines }),
     },
     include: { payments: true }
   })
-
   return updated
 }
 
 async function removeMember(tenantId, planId, memberId) {
   const member = await prisma.sabotayMember.findFirst({
-    where:   { id: memberId, planId, plan: { tenantId } },
+    where: { id: memberId, planId, plan: { tenantId } },
     include: { _count: { select: { payments: true } } }
   })
   if (!member) throw new Error('Manm pa jwenn.')
-
   if (member._count.payments > 0) {
-    // Si manm gen peman — mete l inaktif olye efase
     await prisma.sabotayMember.update({ where: { id: memberId }, data: { isActive: false } })
   } else {
     await prisma.sabotayMember.delete({ where: { id: memberId } })
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// PEMAN — ✅ Aksepte plizyè dat yon sèl kou (dates array)
-// ─────────────────────────────────────────────────────────────
 async function getPayments(tenantId, planId, params = {}) {
   const { memberId, month, year } = params
-
   const where = {
-    planId,
-    plan: { tenantId },
+    planId, plan: { tenantId },
     ...(memberId && { memberId }),
-    ...(month && year && {
-      dueDate: {
-        gte: new Date(`${year}-${String(month).padStart(2, '0')}-01`),
-        lt:  new Date(`${year}-${String(Number(month) + 1).padStart(2, '0')}-01`),
-      }
-    }),
+    ...(month && year && { dueDate: { gte: new Date(`${year}-${String(month).padStart(2,'0')}-01`), lt: new Date(`${year}-${String(Number(month)+1).padStart(2,'0')}-01`) } }),
   }
-
   const payments = await prisma.sabotayPayment.findMany({
     where,
-    include: {
-      member:  { select: { id: true, name: true, phone: true, position: true } },
-      creator: { select: { fullName: true } },
-    },
+    include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } },
     orderBy: { dueDate: 'asc' },
   })
-
   return payments
 }
 
 async function markPaid(tenantId, planId, memberId, userId, data) {
   const { dates, timings, fines, method, notes } = data
-
   const datesToProcess = dates || (data.dueDate ? [data.dueDate] : [])
   if (!datesToProcess.length) throw new Error('Omwen yon dat peman obligatwa.')
 
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
   if (!plan) throw new Error('Plan pa jwenn.')
-
-  const member = await prisma.sabotayMember.findFirst({
-    where: { id: memberId, planId, isActive: true }
-  })
+  const member = await prisma.sabotayMember.findFirst({ where: { id: memberId, planId, isActive: true } })
   if (!member) throw new Error('Manm pa jwenn oswa inaktif.')
 
   const createdPayments = []
   const updatedFines    = { ...(member.fines || {}) }
 
   for (const dueDate of datesToProcess) {
-    // Pa doble peman pou menm dat
-    const exists = await prisma.sabotayPayment.findFirst({
-      where: { planId, memberId, dueDate: new Date(dueDate) }
-    })
+    const exists = await prisma.sabotayPayment.findFirst({ where: { planId, memberId, dueDate: new Date(dueDate) } })
     if (exists) continue
-
     const timing  = timings?.[dueDate] || data.timing  || null
     const fineAmt = fines?.[dueDate]   || (data.fineAmt || 0)
-
     const payment = await prisma.sabotayPayment.create({
       data: {
-        planId,
-        memberId,
-        amount:    Number(plan.amount),
-        dueDate:   new Date(dueDate),
-        paidDate:    new Date(),
-        method:    method  || 'cash',
-        notes:     notes   || null,
-        createdBy: userId,
-        fineAmt:   Number(fineAmt),
-        timing:    timing  || null,
+        planId, memberId, amount: Number(plan.amount), dueDate: new Date(dueDate), paidDate: new Date(),
+        method: method || 'cash', notes: notes || null, createdBy: userId,
+        fineAmt: Number(fineAmt), timing: timing || null,
       },
-      include: {
-        member:  { select: { id: true, name: true, phone: true, position: true } },
-        creator: { select: { fullName: true } },
-      }
+      include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } }
     })
-
     createdPayments.push(payment)
-
-    if (Number(fineAmt) > 0) {
-      updatedFines[dueDate] = Number(fineAmt)
-    }
+    if (Number(fineAmt) > 0) updatedFines[dueDate] = Number(fineAmt)
   }
 
-  // Mete ajou fines sou manm si gen nouvo amand
   if (Object.keys(updatedFines).length > Object.keys(member.fines || {}).length) {
-    await prisma.sabotayMember.update({
-      where: { id: memberId },
-      data:  { fines: updatedFines }
-    })
+    await prisma.sabotayMember.update({ where: { id: memberId }, data: { fines: updatedFines } })
   }
 
-  // ── Sinkronize peman yo nan SolMemberPosition tou
   if (createdPayments.length > 0) {
     try {
-      const solPos = await prisma.solMemberPosition.findFirst({
-        where: { memberId, planId }
-      })
+      const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId } })
       if (solPos) {
-        const newPayments       = { ...(solPos.payments       || {}) }
+        const newPayments = { ...(solPos.payments || {}) }
         const newPaymentTimings = { ...(solPos.paymentTimings || {}) }
         for (const p of createdPayments) {
           const dk = new Date(p.dueDate).toISOString().split('T')[0]
-          newPayments[dk]       = true
+          newPayments[dk] = true
           newPaymentTimings[dk] = p.timing || 'onTime'
         }
-        await prisma.solMemberPosition.update({
-          where: { id: solPos.id },
-          data:  { payments: newPayments, paymentTimings: newPaymentTimings }
-        })
+        await prisma.solMemberPosition.update({ where: { id: solPos.id }, data: { payments: newPayments, paymentTimings: newPaymentTimings } })
       }
     } catch (err) {
       console.warn('[sabotay] Sinkwonizasyon SolMemberPosition echwe:', err.message)
     }
   }
 
-  if (datesToProcess.length > 0) {
-    await _checkAndNotifyCollection(tenantId, plan, datesToProcess[datesToProcess.length - 1])
-  }
-
+  if (datesToProcess.length > 0) await _checkAndNotifyCollection(tenantId, plan, datesToProcess[datesToProcess.length - 1])
   return { payments: createdPayments, count: createdPayments.length }
 }
 
 async function unmarkPaid(tenantId, paymentId) {
-  const payment = await prisma.sabotayPayment.findFirst({
-    where: { id: paymentId, plan: { tenantId } }
-  })
+  const payment = await prisma.sabotayPayment.findFirst({ where: { id: paymentId, plan: { tenantId } } })
   if (!payment) throw new Error('Peman pa jwenn.')
   await prisma.sabotayPayment.delete({ where: { id: paymentId } })
 }
 
-// ─────────────────────────────────────────────────────────────
-// KONT VITYÈL MANM
-// ─────────────────────────────────────────────────────────────
 async function getMemberAccount(tenantId, planId, memberId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
-    include: {
-      members: {
-        where:  { isActive: true },
-        select: { id: true }
-      }
-    }
+    include: { members: { where: { isActive: true }, select: { id: true } } }
   })
   if (!plan) throw new Error('Plan pa jwenn.')
-
   const member = await prisma.sabotayMember.findFirst({
-    where:   { id: memberId, planId },
-    include: {
-      payments: {
-        orderBy: { dueDate: 'asc' },
-        include: { creator: { select: { fullName: true } } }
-      }
-    }
+    where: { id: memberId, planId },
+    include: { payments: { orderBy: { dueDate: 'asc' }, include: { creator: { select: { fullName: true } } } } }
   })
   if (!member) throw new Error('Manm pa jwenn.')
 
@@ -746,9 +485,9 @@ async function getMemberAccount(tenantId, planId, memberId) {
     toCollect = amount * totalMembers - Number(plan.fee || 0)
   }
 
-  const progressPct = totalMembers > 0
-    ? Math.round((member.payments.length / totalMembers) * 100) : 0
+  const progressPct = totalMembers > 0 ? Math.round((member.payments.length / totalMembers) * 100) : 0
   const totalFines  = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
+  const today = new Date().toISOString().split('T')[0]
 
   const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
@@ -756,215 +495,100 @@ async function getMemberAccount(tenantId, planId, memberId) {
     return d.toISOString().split('T')[0]
   })
 
-  const today = new Date().toISOString().split('T')[0]
-
   const paymentHistory = allDueDates.map((dueDate, i) => {
     const paid  = member.payments.find(p => p.dueDate.toISOString().split('T')[0] === dueDate)
     const isPast = dueDate <= today
     return {
-      index:     i + 1,
-      dueDate,
-      amount,
-      isPaid:    !!paid,
-      isLate:    isPast && !paid,
-      paidDate:    paid?.paidDate    || null,
-      method:    paid?.method    || null,
-      paymentId: paid?.id        || null,
-      fineAmt:   paid?.fineAmt   || (member.fines?.[dueDate] || 0),
-      timing:    paid?.timing    || null,
+      index: i + 1, dueDate, amount,
+      isPaid: !!paid, isLate: isPast && !paid,
+      paidDate: paid?.paidDate || null, method: paid?.method || null,
+      paymentId: paid?.id || null, fineAmt: paid?.fineAmt || (member.fines?.[dueDate] || 0),
+      timing: paid?.timing || null,
     }
   })
 
   return {
-    plan: {
-      id:          plan.id,
-      name:        plan.name,
-      frequency:   plan.frequency,
-      amount,
-      fee:         Number(plan.fee || 0),
-      maxMembers:  plan.maxMembers,
-      startDate:   plan.startDate,
-      feePerMember,
-      penalty:     penaltyRate,
-      interval:    planInterval,
-      dueTime:     plan.dueTime  || '08:00',
-      regleman:    plan.regleman || null,
-    },
-    member: {
-      id:          member.id,
-      name:        member.name,
-      phone:       member.phone,
-      position:    member.position,
-      dueDate:     member.dueDate,
-      collectDate: member.collectDate,
-      joinedAt:    member.createdAt,
-      isOwnerSlot: member.isOwnerSlot || false,
-      hasWon:      member.hasWon      || false,
-      fines:       member.fines       || {},
-    },
-    summary: {
-      totalExpected,
-      totalPaid,
-      remaining:   Math.max(0, totalExpected - totalPaid),
-      toCollect,
-      progressPct,
-      paidCount:   member.payments.length,
-      totalRounds: totalMembers,
-      totalFines,
-    },
+    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', regleman: plan.regleman || null },
+    member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {} },
+    summary: { totalExpected, totalPaid, remaining: Math.max(0, totalExpected - totalPaid), toCollect, progressPct, paidCount: member.payments.length, totalRounds: totalMembers, totalFines },
     paymentHistory,
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// NOUVO: Jwenn kont Sol pa telefòn (pou deteksyon pandan enskripsyon)
-// Rele pa: GET /api/v1/sabotay/sol-account?phone=...
-// ─────────────────────────────────────────────────────────────
 async function findSolAccountByPhone(tenantId, phone) {
   if (!phone) return null
   const clean = phone.replace(/\s/g, '').trim()
-
   const account = await prisma.solMemberAccount.findFirst({
     where: { tenantId, memberPhone: clean },
-    include: {
-      positions: {
-        orderBy: { createdAt: 'desc' },
-        select: {
-          id: true, planName: true, memberPosition: true,
-          planAmount: true, planFrequency: true,
-          hasWon: true, preferredDate: true, createdAt: true,
-        }
-      }
-    }
+    include: { positions: { orderBy: { createdAt: 'desc' }, select: { id: true, planName: true, memberPosition: true, planAmount: true, planFrequency: true, hasWon: true, preferredDate: true, createdAt: true } } }
   })
-
   return account
 }
 
-// ─────────────────────────────────────────────────────────────
-// NOUVO: Wè tout pozisyon yon kont Sol (pou SolDashboard kliyan)
-// Rele pa: GET /api/v1/sol/members/me (après login)
-// ─────────────────────────────────────────────────────────────
 async function getSolAccountPositions(tenantId, username) {
   const account = await prisma.solMemberAccount.findFirst({
     where: { username, tenantId },
-    include: {
-      positions: {
-        orderBy: { createdAt: 'desc' }
-      }
-    }
+    include: { positions: { orderBy: { createdAt: 'desc' } } }
   })
   if (!account) throw new Error('Kont Sol pa jwenn.')
   return account
 }
 
-// ─────────────────────────────────────────────────────────────
-// NOTIFIKASYON ENTÈN
-// ─────────────────────────────────────────────────────────────
 async function _checkAndNotifyCollection(tenantId, plan, dueDate) {
   try {
-    const totalActive = await prisma.sabotayMember.count({
-      where: { planId: plan.id, isActive: true }
-    })
-
-    const paidCount = await prisma.sabotayPayment.count({
-      where: { planId: plan.id, dueDate: new Date(dueDate) }
-    })
-
+    const totalActive = await prisma.sabotayMember.count({ where: { planId: plan.id, isActive: true } })
+    const paidCount   = await prisma.sabotayPayment.count({ where: { planId: plan.id, dueDate: new Date(dueDate) } })
     if (paidCount < totalActive) return
-
-    const round = await prisma.sabotayPayment.count({
-      where: { planId: plan.id, dueDate: { lte: new Date(dueDate) } }
-    })
+    const round    = await prisma.sabotayPayment.count({ where: { planId: plan.id, dueDate: { lte: new Date(dueDate) } } })
     const roundNum = Math.ceil(round / totalActive)
-
-    const winner = await prisma.sabotayMember.findFirst({
-      where: { planId: plan.id, position: roundNum, isActive: true }
-    })
+    const winner   = await prisma.sabotayMember.findFirst({ where: { planId: plan.id, position: roundNum, isActive: true } })
     if (!winner) return
-
-    const admins = await prisma.user.findMany({
-      where:  { tenantId, role: 'admin', isActive: true },
-      select: { id: true }
-    })
-
+    const admins = await prisma.user.findMany({ where: { tenantId, role: 'admin', isActive: true }, select: { id: true } })
     const feePerMember     = Number(plan.feePerMember || 0)
     const amount           = Number(plan.amount)
-    const collectionAmount = feePerMember === amount
-      ? amount * totalActive
-      : amount * totalActive - Number(plan.fee || 0)
-
-    await Promise.all(admins.map(admin =>
-      prisma.notification.create({
-        data: {
-          tenantId,
-          userId:     admin.id,
-          type:       'sabotay_collection',
-          titleHt:    `🏆 Sol Konplè — ${plan.name}`,
-          titleFr:    `🏆 Sol Complété — ${plan.name}`,
-          titleEn:    `🏆 Sol Round Complete — ${plan.name}`,
-          messageHt:  `Tout manm fin peye. ${winner.name} (Pozisyon #${winner.position}) ap touche ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
-          messageFr:  `Tous les membres ont payé. ${winner.name} (Position #${winner.position}) reçoit ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
-          messageEn:  `All members paid. ${winner.name} (Position #${winner.position}) collects ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
-          entityType: 'sabotay_plan',
-          entityId:   plan.id,
-        }
-      })
-    ))
+    const collectionAmount = feePerMember === amount ? amount * totalActive : amount * totalActive - Number(plan.fee || 0)
+    await Promise.all(admins.map(admin => prisma.notification.create({
+      data: {
+        tenantId, userId: admin.id, type: 'sabotay_collection',
+        titleHt: `🏆 Sol Konplè — ${plan.name}`, titleFr: `🏆 Sol Complété — ${plan.name}`, titleEn: `🏆 Sol Round Complete — ${plan.name}`,
+        messageHt: `Tout manm fin peye. ${winner.name} (Pozisyon #${winner.position}) ap touche ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
+        messageFr: `Tous les membres ont payé. ${winner.name} (Position #${winner.position}) reçoit ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
+        messageEn: `All members paid. ${winner.name} (Position #${winner.position}) collects ${collectionAmount.toLocaleString('fr-HT')} HTG.`,
+        entityType: 'sabotay_plan', entityId: plan.id,
+      }
+    })))
   } catch (err) {
     console.error('[sabotay] Notifikasyon erè:', err.message)
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// EXPORTS
-// ─────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────
-// FÈMEN PLAN — Admin sèlman
-// ─────────────────────────────────────────────────────────────
 async function closePlan(tenantId, planId, userId) {
   const plan = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
     include: { members: { where: { isActive: true }, orderBy: { position: 'asc' } } }
   })
   if (!plan) throw new Error('Plan pa jwenn.')
-  if (plan.status === 'closed' || plan.status === 'finished')
-    throw new Error('Plan sa a deja fèmen.')
+  if (plan.status === 'closed' || plan.status === 'finished') throw new Error('Plan sa a deja fèmen.')
 
-  // ── Konpakte pozisyon yo — retire vid yo ──
   const activeMembers = plan.members.filter(m => m.status !== 'stopped')
-  
-  // Sòt pozisyon yo epi reafekte yo 1, 2, 3...
   let newPosition = 1
   for (const member of activeMembers) {
     if (member.position !== newPosition) {
-      await prisma.sabotayMember.update({
-        where: { id: member.id },
-        data:  { position: newPosition }
-      })
-      // Mete ajou SolMemberPosition tou
-      await prisma.solMemberPosition.updateMany({
-        where: { memberId: member.id, planId },
-        data:  { memberPosition: newPosition }
-      }).catch(() => {})
+      await prisma.sabotayMember.update({ where: { id: member.id }, data: { position: newPosition } })
+      await prisma.solMemberPosition.updateMany({ where: { memberId: member.id, planId }, data: { memberPosition: newPosition } }).catch(() => {})
     }
     newPosition++
   }
 
   const updated = await prisma.sabotayPlan.update({
-    where: { id: planId },
-    data:  { status: 'closed' },
-    include: {
-      creator: { select: { fullName: true } },
-      _count:  { select: { members: true } },
-    }
+    where: { id: planId }, data: { status: 'closed' },
+    include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
   return updated
 }
 
 // ─────────────────────────────────────────────────────────────
-// AKSYON SOU MANM — bloke, debloke, kanpe, reprann
+// AKSYON SOU MANM — ✅ KORIJE: updated defini anvan itilize
 // ─────────────────────────────────────────────────────────────
 async function memberAction(tenantId, planId, memberId, userId, data) {
   const { action, reason } = data
@@ -977,77 +601,55 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   })
   if (!member) throw new Error('Manm pa jwenn.')
 
-  // Map aksyon → nouvo statut
   const statusMap = { block: 'blocked', unblock: 'active', stop: 'stopped', resume: 'active', payout: 'active' }
   const newStatus = statusMap[action]
-  // Si payout: mache hasWon = true + voye notifikasyon Sol
-if (action === 'payout') {
-  await prisma.sabotayMember.update({
-    where: { id: memberId },
-    data:  { hasWon: true }
-  })
-  // Notifikasyon nan kont Sol
-  try {
-    const solPos = await prisma.solMemberPosition.findFirst({
-      where: { memberId, planId },
-      include: { account: true }
-    })
-    if (solPos?.account) {
-      await prisma.solNotification.create({
-        data: {
-          accountId: solPos.account.id,
-          type:      'payout',
-          titleHt:   '🏆 Ou touche Sol ou a!',
-          messageHt: `Felisitasyon! Ou resevwa kòb sol ou a pou plan ${plan?.name || ''}. Kontakte jesyonè sol la pou detay.`,
-        }
-      }).catch(() => {}) // pa bloke si tab la pa egziste
-    }
-  } catch(_) {}
-  return { member: updated, action, newStatus: 'active' }
-}
 
+  // ── Si payout ──
+  if (action === 'payout') {
+    const updatedMember = await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data:  { hasWon: true }
+    })
+    try {
+      const solPos = await prisma.solMemberPosition.findFirst({
+        where: { memberId, planId },
+        include: { account: true }
+      })
+      if (solPos?.account) {
+        await prisma.solNotification.create({
+          data: {
+            accountId: solPos.account.id,
+            type:      'payout',
+            titleHt:   '🏆 Ou touche Sol ou a!',
+            messageHt: `Felisitasyon! Ou resevwa kòb sol ou a. Kontakte jesyonè sol la pou detay.`,
+          }
+        }).catch(() => {})
+      }
+    } catch(_) {}
+    return { member: updatedMember, action, newStatus: 'active' }
+  }
+
+  // ── Lòt aksyon ──
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
     data: {
-      status:     newStatus,
-      // Si kanpe: mete isActive = false pou eskli l nan kalkil peman
-      isActive:   action === 'stop' ? false : true,
-      // Sove rezon nan notes si bay
+      status:   newStatus,
+      isActive: action === 'stop' ? false : true,
       ...(reason && { notes: reason }),
     },
     include: { payments: true }
   })
 
-  // Sinkronize SolMemberPosition tou
   try {
-    await prisma.solMemberPosition.updateMany({
-      where:  { memberId, planId },
-      data:   { status: newStatus }
-    })
+    await prisma.solMemberPosition.updateMany({ where: { memberId, planId }, data: { status: newStatus } })
   } catch (_) {}
 
   return { member: updated, action, newStatus }
 }
 
 module.exports = {
-  getStats,
-  getPlans,
-  getPlanById,
-  createPlan,
-  updatePlan,
-  deletePlan,
-  blindDraw,
-  getMembers,
-  addMember,
-  updateMember,
-  removeMember,
-  getPayments,
-  markPaid,
-  unmarkPaid,
-  getMemberAccount,
-  // ── Nouvo
-  findSolAccountByPhone,
-  getSolAccountPositions,
-  closePlan,
-  memberAction,
+  getStats, getPlans, getPlanById, createPlan, updatePlan, deletePlan,
+  blindDraw, getMembers, addMember, updateMember, removeMember,
+  getPayments, markPaid, unmarkPaid, getMemberAccount,
+  findSolAccountByPhone, getSolAccountPositions, closePlan, memberAction,
 }
