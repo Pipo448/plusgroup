@@ -450,9 +450,9 @@ async function addMember(tenantId, planId, userId, data) {
         })
       }
     } catch (err) {
-      console.error('[sabotay] ❌ Kont Sol erè:', err.message)
-    }
-  }
+  console.error('[sabotay] ❌ Kont Sol erè DETAY:', err) // ← chanje .message → err konplè
+  throw err // ← AJOUTE SA pou erè a monte
+}
 
   // ── Kreye 1 SabotayMember + 1 SolMemberPosition pou CHAK pozisyon
   const createdMembers = []
