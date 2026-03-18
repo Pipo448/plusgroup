@@ -2930,7 +2930,15 @@ export default function SabotayPage() {
     },
     onSuccess: (r, vars) => {
       qc.invalidateQueries(['sabotay-plans'])
-      if (typeof vars._cb === 'function') vars._cb(r.member || r)
+
+      const saved = r.member || r
+
+      // ✅ Enprime resi enskripsyon otomatikman
+      if (saved && activePlan) {
+        printer.print(activePlan, saved, [], tenant, 'kont')
+      }
+
+      if (typeof vars._cb === 'function') vars._cb(saved)
       else setAddMember(false)
     },
     onError: (e) => toast.error(e.message),
