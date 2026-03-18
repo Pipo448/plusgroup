@@ -205,12 +205,11 @@ const allSlots = await prisma.sabotayMember.findMany({
 
     // ✅ Kalkile ANVAN return
     const activeMemberCount = await prisma.sabotayMember.count({
-      where: {
-        planId:   plan.id,
-        isActive: true,
-        status:   { not: 'stopped' },
-      },
-    })
+  where: {
+    planId:   plan.id,
+    isActive: true,
+  },
+}).catch(() => 0)
 
     return res.json({
       member: {
