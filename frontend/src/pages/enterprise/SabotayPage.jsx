@@ -3375,8 +3375,22 @@ export default function SabotayPage() {
               <p style={{color:D.muted,margin:'3px 0 0',fontSize:12}}>Jesyon Sol — PlusGroup</p>
             </div>
             <div className="page-head-actions" style={{display:'flex',alignItems:'center',gap:8}}>
-              <PrinterBtn printer={printer}/>
-              <ReceiptSizeBtn />
+             <button
+  onClick={printer.connected ? printer.disconnect : printer.connect}
+  disabled={printer.connecting}
+  style={{
+    display:'flex', alignItems:'center', gap:5, padding:'9px 13px',
+    borderRadius:10, border:'none', cursor:'pointer', fontWeight:700,
+    fontSize:12, transition:'all 0.2s', flexShrink:0,
+    background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)',
+    color: printer.connected ? D.green : D.muted,
+  }}>
+  {printer.connecting
+    ? <span style={{width:13,height:13,border:`2px solid ${D.muted}40`,borderTopColor:D.muted,borderRadius:'50%',animation:'spin 0.8s linear infinite',display:'inline-block'}}/>
+    : printer.connected ? <Bluetooth size={14}/> : <BluetoothOff size={14}/>}
+  <span className="printer-label">{printer.connected ? 'Printer OK' : 'Printer'}</span>
+</button>
+<ReceiptSizeBtn />
               <button className="btn-new-plan" onClick={()=>setShowCreate(true)} style={{
                 display:'flex',alignItems:'center',gap:7,padding:'10px 16px',borderRadius:11,
                 border:'none',cursor:'pointer',fontWeight:800,fontSize:13,
