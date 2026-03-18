@@ -2623,7 +2623,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 // RELASYON
 // ─────────────────────────────────────────────────────────────
 const RELATIONSHIPS = [
-  { val: 'conjoint',  label: '💑 Konjwen / Konjwèt' },
+  { val: 'conjoint',  label: '💑 Konjwen / Konjwen' },
   { val: 'parent',    label: '👪 Manman / Papa'      },
   { val: 'fre_se',    label: '👫 Frè / Sè'           },
   { val: 'pitit',     label: '👶 Pitit'               },
