@@ -2895,18 +2895,46 @@ export default function SabotayPage() {
   })
 
   const addMember = useMutation({
-    mutationFn:(data)=>{
-      const {_cb,...body} = data
-      return apiFetch(`/sabotay/plans/${activePlan?.id}/members`,{method:'POST',body:JSON.stringify(body)})
+    mutationFn: async (data) => {
+      const { _cb, ...body } = data
+      // 1. Kreye manm nan Sabotay
+      const r = await apiFetch(
+        `/sabotay/plans/${activePlan?.id}/members`,
+        { method: 'POST', body: JSON.stringify(body) }
+      )
+      const savedMember = r.member || r
+
+      // 2. Kreye kont Sol otomatikman (si credentials disponib)
+      if (body.credentials && savedMember?.id) {
+        try {
+          const { token } = useAuthStore.getState()
+          await fetch(`${SOL_API}/api/sol/accounts`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              memberId:    savedMember.id,
+              tenantId:    tenant?.id,
+              dueTime:     activePlan?.dueTime || '08:00',
+              credentials: body.credentials,
+            }),
+          })
+        } catch (err) {
+          console.error('[SOL ACCOUNT CREATE]', err)
+          // Pa bloke — manm kreye, jis kont Sol pa t kreye
+        }
+      }
+      return r
     },
-    onSuccess:(r,vars)=>{
+    onSuccess: (r, vars) => {
       qc.invalidateQueries(['sabotay-plans'])
-      if(typeof vars._cb==='function') vars._cb(r.member||r)
+      if (typeof vars._cb === 'function') vars._cb(r.member || r)
       else setAddMember(false)
     },
-    onError:(e)=>toast.error(e.message),
+    onError: (e) => toast.error(e.message),
   })
-
   const markPayment = useMutation({
     mutationFn:({memberId,...data})=>apiFetch(`/sabotay/plans/${activePlan?.id}/members/${memberId}/pay`,{method:'POST',body:JSON.stringify(data)}),
     onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); toast.success('✅ Peman anrejistre!') },
