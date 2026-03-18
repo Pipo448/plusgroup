@@ -2537,32 +2537,33 @@ const RELATIONSHIPS = [
 function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) {
 
   // === SLOTS DISPONIB (pozisyon + dat korespondan) ===
-  const { availableSlots, ownerSlotAvailable } = useMemo(() => {
-    const taken     = new Set((plan.members || []).map(m => m.position))
-    const maxPos    = Math.max(0, ...(plan.members || []).map(m => m.position))
-    const nextPos   = maxPos + 1
+  const { availableSlots, ownerSlotAvailable, ownerMember } = useMemo(() => {
+    const taken   = new Set((plan.members || []).map(m => m.position))
+    const maxPos  = Math.max(0, ...(plan.members || []).map(m => m.position))
 
-    // Pwopriyete disponib sèlman si feePerMember===amount ak plas #1 lib
+    // Pwopriyete egziste deja?
+    const ownerMember = (plan.members || []).find(m => m.isOwnerSlot)
+
+    // Owner slot disponib si: feePerMember===amount AK plas #1 lib
     const ownerSlotAvailable = hasOwnerSlot(plan) && !taken.has(1)
 
-    // Pozisyon lib (gap + prochèn) — exclure #1 si owner slot
     const PREVIEW_SLOTS = 10
-const gaps = Array.from({ length: maxPos }, (_, i) => i + 1)
-  .filter(p => !taken.has(p) && p !== 1)
+    const gaps = Array.from({ length: maxPos }, (_, i) => i + 1)
+      .filter(p => !taken.has(p) && p !== 1)
 
-  const futureSlots = Array.from(
-  { length: PREVIEW_SLOTS },
-  (_, i) => maxPos + 1 + i
-)
+    const futureSlots = Array.from(
+      { length: PREVIEW_SLOTS },
+      (_, i) => maxPos + 1 + i
+    )
 
-const allPos = [...gaps, ...futureSlots]
+    const allPos = [...gaps, ...futureSlots]
 
     const availableSlots = allPos.map(pos => ({
       position: pos,
       date: getPayoutDate(plan, pos),
     }))
 
-    return { availableSlots, ownerSlotAvailable }
+    return { availableSlots, ownerSlotAvailable, ownerMember }
   }, [plan])
 
   // === STATE ===
@@ -2693,6 +2694,22 @@ const allPos = [...gaps, ...futureSlots]
   return (
     <Modal onClose={onClose} title="👤 Enskri Manm Sol" width={520}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* ✅ Si Pwopriyete deja egziste — montre mesaj pou pran lòt men */}
+{!ownerSlotAvailable && hasOwnerSlot(plan) && ownerMember && (
+  <div style={{ background: D.goldDim, border: `1px solid ${D.gold}40`,
+    borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 9 }}>
+    <Star size={16} style={{ color: D.gold, flexShrink: 0 }} />
+    <div>
+      <p style={{ fontSize: 12, fontWeight: 800, color: D.gold, margin: '0 0 2px' }}>
+        Pwopriyete Sol — {ownerMember.name}
+      </p>
+      <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
+        Tape menm nimewo telefòn pwopriyete a pou nouvo men yo ajoute nan menm kont Sol la.
+      </p>
+    </div>
+  </div>
+)}
 
         {/* ── BOUTON MEN PWOPRIYETE (si disponib) ── */}
         {ownerSlotAvailable && (

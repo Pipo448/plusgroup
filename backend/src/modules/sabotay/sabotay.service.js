@@ -253,8 +253,15 @@ async function addMember(tenantId, planId, userId, data) {
     try {
       const bcrypt     = require('bcryptjs')
       const cleanPhone = phone.trim()
-
       solAccount = await prisma.solMemberAccount.findFirst({ where: { tenantId, memberPhone: cleanPhone } })
+
+      if (solAccount) {
+        console.log(`[addMember] Kont Sol egziste pou ${phone} — ajoute men #${positionsToCreate} nan kont ${solAccount.username}`)
+        // ... update fields si necesè
+      } else {
+        console.log(`[addMember] Nouvo kont Sol pou ${phone}`)
+        // ... kreye kont
+      }
 
       if (solAccount) {
         const updates = {}
