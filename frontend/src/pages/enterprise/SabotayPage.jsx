@@ -932,6 +932,22 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
     await printer.print(plan,member,sel,tenant,'peman')
   }
 
+// Ofri PDF tou
+setTimeout(() => {
+  if (window.confirm('Ou vle telechaje PDF resi peman an tou?')) {
+    const html = buildReceiptHTML(plan, member, sel, tenant, 'peman')
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+      <title>Resi ${member.name}</title>
+      <style>* { box-sizing: border-box; } body { font-family: 'Courier New', monospace; background: #fff; }
+      @media print { @page { margin: 0; size: 80mm auto; } }</style>
+    </head><body>${html}</body></html>`
+    const blob = new Blob([fullHtml], { type: 'text/html' })
+    const url  = URL.createObjectURL(blob)
+    const win  = window.open(url, '_blank')
+    if (win) win.onload = () => { setTimeout(() => { win.print(); URL.revokeObjectURL(url) }, 500) }
+  }
+}, 300)
+
   return (
     <Modal onClose={onClose} title={`✅ Mache Peye — ${member.name}`} width={480}>
       <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -1541,6 +1557,42 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
           fontWeight:700,fontSize:13,opacity:printer.printing?0.5:1}}>
           <Printer size={14}/> Enprime Kont
         </button>
+
+        <button onClick={() => {
+  const html = buildReceiptHTML(plan, activeMember, [], tenant, 'kont')
+  const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title>Kont ${activeMember.name}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #fff; font-family: 'Courier New', monospace; }
+      @media print {
+        @page { margin: 0; size: 80mm auto; }
+        body { margin: 0; }
+      }
+    </style>
+  </head><body>${html}</body></html>`
+
+  const blob = new Blob([fullHtml], { type: 'text/html' })
+  const url  = URL.createObjectURL(blob)
+  const win  = window.open(url, '_blank')
+  if (win) {
+    win.onload = () => {
+      setTimeout(() => {
+        win.print()
+        URL.revokeObjectURL(url)
+      }, 500)
+    }
+  }
+}} style={{
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+  padding: '11px', borderRadius: 10,
+  border: `1px solid rgba(59,130,246,0.25)`,
+  background: 'rgba(59,130,246,0.06)', color: D.blue,
+  cursor: 'pointer', fontWeight: 700, fontSize: 13,
+  opacity: 1, marginTop: 8,
+}}>
+  📄 Telechaje / Enprime PDF
+</button>
 
 {activeMember._credentials && (
   <div style={{background:'rgba(155,89,182,0.08)',border:`1px solid rgba(155,89,182,0.2)`,
