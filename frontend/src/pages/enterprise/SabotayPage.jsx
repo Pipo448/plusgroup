@@ -2219,11 +2219,29 @@ function AdminCashConfig({ plan, authH }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// PRINTER BTN — defini ICI anvan PlanDetail
+// ─────────────────────────────────────────────────────────────
+function PrinterBtn({printer}) {
+  return (
+    <button onClick={printer.connected?printer.disconnect:printer.connect} disabled={printer.connecting}
+      style={{display:'flex',alignItems:'center',gap:5,padding:'9px 13px',borderRadius:10,border:'none',
+        cursor:'pointer',fontWeight:700,fontSize:12,transition:'all 0.2s',flexShrink:0,
+        background:printer.connected?'rgba(39,174,96,0.15)':'rgba(255,255,255,0.06)',
+        color:printer.connected?D.green:D.muted}}>
+      {printer.connecting
+        ?<span style={{width:13,height:13,border:`2px solid ${D.muted}40`,borderTopColor:D.muted,borderRadius:'50%',animation:'spin 0.8s linear infinite',display:'inline-block'}}/>
+        :printer.connected?<Bluetooth size={14}/>:<BluetoothOff size={14}/>}
+      <span className="printer-label">{printer.connected?'Printer OK':'Printer'}</span>
+    </button>
+  )
+}
+
 function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,onClosePlan,onMemberAction,printer}) {
   const [viewMember,setView]       = useState(null)
   const [viewMemberSlots,setSlots] = useState(null)
   const [payMember,setPay]         = useState(null)
-  const [actionModal,setAction]    = useState(null) // {member, action}
+  const [actionModal,setAction]    = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [tab,setTab]               = useState('members')
   const today = new Date().toISOString().split('T')[0]
@@ -2241,25 +2259,19 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
     acc+allDates.filter(d=>d<=today).length*plan.amount, 0)||0
   const payout  = memberPayout(plan)
 
-  // Konte bloke ak reta
   const blockedCount  = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'blocked').length
   const lateCount     = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'late').length
   const stoppedCount  = (plan.members || []).filter(m => m.status === 'stopped').length
   const displayMembers = useMemo(() => {
-  return (plan.members || []).flatMap(m => {
-    // Metòd 1: positions array dirèk sou manm nan
-    if (m.positions && Array.isArray(m.positions) && m.positions.length > 1) {
-      return m.positions.map(pos => ({
-        ...m,
-        position: pos,
-        _virtualKey: `${m.id}-${pos}`,
-      }))
-    }
-    // Metòd 2: backend retounen chak men kòm yon rekò separe — 
-    // lis la deja ekspanse, jis ajoute _virtualKey
-    return [{ ...m, _virtualKey: `${m.id}-${m.position}` }]
-  })
-}, [plan.members])
+    return (plan.members || []).flatMap(m => {
+      if (m.positions && Array.isArray(m.positions) && m.positions.length > 1) {
+        return m.positions.map(pos => ({
+          ...m, position: pos, _virtualKey: `${m.id}-${pos}`,
+        }))
+      }
+      return [{ ...m, _virtualKey: `${m.id}-${m.position}` }]
+    })
+  }, [plan.members])
 
   const handleViewMember = (m) => {
     const slots = getMemberSlots(plan, m.phone)
@@ -2287,7 +2299,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
           <Edit3 size={14}/>
         </button>
-        {/* Bouton Fèmen Plan (admin sèlman) */}
         {plan.status !== 'closed' && plan.status !== 'finished' && (
           <button onClick={onClosePlan} title="Fèmen Plan" style={{width:34,height:34,borderRadius:9,
             border:`1px solid ${D.red}40`,background:D.redBg,color:D.red,cursor:'pointer',
@@ -2304,7 +2315,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
         )}
       </div>
 
-      {/* Avètisman si bloke/reta */}
       {(blockedCount > 0 || lateCount > 0) && (
         <div style={{background:D.redBg,border:`1px solid ${D.red}30`,borderRadius:12,
           padding:'10px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',fontSize:11}}>
@@ -2318,7 +2328,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
         </div>
       )}
 
-      {/* Plan fèmen banner */}
       {(plan.status === 'closed' || plan.status === 'finished') && (
         <div style={{background:'rgba(231,76,60,0.08)',border:`1px solid ${D.red}30`,borderRadius:12,
           padding:'11px 14px',marginBottom:12,display:'flex',alignItems:'center',gap:10,fontSize:12}}>
@@ -2345,10 +2354,10 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 
       <div className="detail-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:9,marginBottom:16}}>
         {[
-          {label:'Manm Aktif',     val:`${activeMembers.length}`, color:D.blue },
-          {label:'Kolekte',        val:`${fmt(totColl)} HTG`,      color:D.green},
-          {label:'Rès Atann',      val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
-          {label:'Manm Touche',    val:`${fmt(payout)} HTG`,       color:D.gold },
+          {label:'Manm Aktif',  val:`${activeMembers.length}`, color:D.blue },
+          {label:'Kolekte',     val:`${fmt(totColl)} HTG`,      color:D.green},
+          {label:'Rès Atann',   val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
+          {label:'Manm Touche', val:`${fmt(payout)} HTG`,       color:D.gold },
         ].map(({label,val,color})=>(
           <div key={label} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:10,padding:'11px 13px',textAlign:'center'}}>
             <div style={{fontSize:9,color:D.muted,textTransform:'uppercase',fontWeight:700,marginBottom:3}}>{label}</div>
@@ -2409,23 +2418,23 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                     background:isOwn?D.goldBtn:D.goldDim,border:`1px solid ${D.border}`,
                     display:'flex',alignItems:'center',justifyContent:'center'}}>
                     <span style={{fontFamily:'monospace',fontWeight:900,fontSize:11,color:isOwn?'#0a1222':D.gold}}>
-  {isOwn ? '★' : `#${hasOwnerSlot(plan) ? m.position - 1 : m.position}`}
-</span>
+                      {isOwn ? '★' : `#${hasOwnerSlot(plan) ? m.position - 1 : m.position}`}
+                    </span>
                   </div>
                   <div style={{flex:1,minWidth:0,overflow:'hidden'}}>
                     <div style={{display:'flex',alignItems:'center',gap:5,flexWrap:'wrap',marginBottom:1}}>
-                     <span className="member-name" style={{fontSize:13,fontWeight:700,
-  color:isStopped?D.orange:isOwn?D.gold:D.text,
-  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
-  {isOwn ? 'Pwopriyete Sol' : m.name}
-</span>
-{isOwn && (
-  <span style={{fontSize:10,color:D.gold,opacity:0.65,
-    overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130,
-    display:'block'}}>
-    ({m.name})
-  </span>
-)}
+                      <span className="member-name" style={{fontSize:13,fontWeight:700,
+                        color:isStopped?D.orange:isOwn?D.gold:D.text,
+                        overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130}}>
+                        {isOwn ? 'Pwopriyete Sol' : m.name}
+                      </span>
+                      {isOwn && (
+                        <span style={{fontSize:10,color:D.gold,opacity:0.65,
+                          overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:130,
+                          display:'block'}}>
+                          ({m.name})
+                        </span>
+                      )}
                       {isWin&&!isOwn&&<span style={{fontSize:9,background:D.greenBg,color:D.green,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>🏆</span>}
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap'}}>
@@ -2455,19 +2464,16 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                     )}
                   </div>
                   <div className="member-btns" style={{display:'flex',gap:4,flexShrink:0}}>
-                    {/* Mache Peye — sèlman si pa fèmen */}
                     {!isStopped && plan.status !== 'finished' && (
                       <button onClick={()=>setPay(m)} title="Mache Peye"
                         style={{width:30,height:30,borderRadius:8,border:'none',background:D.greenBg,color:D.green,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                         <CheckCircle size={14}/>
                       </button>
                     )}
-                    {/* Wè Kont */}
                     <button onClick={()=>handleViewMember(m)} title="Kont Vityèl"
                       style={{width:30,height:30,borderRadius:8,border:'none',background:D.goldDim,color:D.gold,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
                       <Eye size={14}/>
                     </button>
-                    {/* Aksyon Admin: bloke/debloke/kanpe */}
                     {!m.hasWon && (
                       <button onClick={()=>setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
                         title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
@@ -2478,7 +2484,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                         {mStatus === 'blocked' ? <Unlock size={13}/> : isStopped ? <UserCheck size={13}/> : <Lock size={13}/>}
                       </button>
                     )}
-                    {/* Bouton Konfime Touche */}
                     {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
                       <button onClick={() => setConfirmingPayout(m)} title="Konfime Touche"
                         style={{width:30,height:30,borderRadius:8,border:'none',
@@ -2487,7 +2492,6 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
                         <Trophy size={13}/>
                       </button>
                     )}
-                    {/* Badge si deja touche */}
                     {m.hasWon && (
                       <span style={{fontSize:9,background:D.goldDim,color:D.gold,
                         padding:'2px 7px',borderRadius:10,fontWeight:800,flexShrink:0,
@@ -2510,10 +2514,9 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
         </div>
       )}
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
-
-      {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='cash'&&(
-  <AdminCashTab plan={plan} />
-)}{tab==='regleman'&&(
+      {tab==='exchange'&&<ExchangeTab plan={plan}/>}
+      {tab==='cash'&&<AdminCashTab plan={plan} />}
+      {tab==='regleman'&&(
         <div style={{background:D.tealBg,border:`1px solid ${D.teal}25`,borderRadius:14,padding:'18px 20px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <p style={{fontSize:11,fontWeight:800,color:D.teal,textTransform:'uppercase',
@@ -2541,12 +2544,12 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       {payMember&&(
         <ModalMarkPayment member={payMember} plan={plan} onClose={()=>setPay(null)}
           printer={printer}
-        onSave={(memberId,dates,timings,fines)=>{
-  onPaymentSaved(memberId,dates,timings,fines)
-  setPay(null)
-}}
-/>
-)}
+          onSave={(memberId,dates,timings,fines)=>{
+            onPaymentSaved(memberId,dates,timings,fines)
+            setPay(null)
+          }}
+        />
+      )}
 
       {viewMember&&(
         <MemberVirtualAccount
@@ -2569,7 +2572,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           onConfirm={(action, reason) => {
             onMemberAction(actionModal.member.id, action, reason)
             setAction(null)
-         }}
+          }}
         />
       )}
 
@@ -2612,12 +2615,9 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           </div>
         </Modal>
       )}
-
     </div>
   )
 }
-
-
 
 // ─────────────────────────────────────────────────────────────
 // RELASYON
