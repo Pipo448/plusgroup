@@ -374,7 +374,7 @@ function printReceiptBrowser(html) {
   setTimeout(()=>{w.focus();w.print();setTimeout(()=>w.close(),2000)},300)
 }
 
-function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
+function buildReceiptHTML(plan, member, paidDates=[], tenant, type='pèman') {
   const biz    = tenant?.businessName||tenant?.name||'PLUS GROUP'
   const logo   = tenant?.logoUrl?`<img src="${tenant.logoUrl}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`:`<div style="font-size:20px;text-align:center">🏦</div>`
   const txDate = new Date().toLocaleDateString('fr-HT')+' '+new Date().toLocaleTimeString('fr-HT',{hour:'2-digit',minute:'2-digit'})
@@ -387,34 +387,47 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
   const activeMbrs = (plan.members||[]).filter(m=>m.status!=='stopped').length
 
+  const MSG_REFERRAL = `Envite yon moun serye k ap fè biznis rejwenn nou, epi w ap benefisye yon bonis ki evalye soti nan 1 pou rive 5% de kòb manm sa pral touche a. Ekri nou sou WhatsApp +50942449024.`
+
   return `<div style="width:80mm;padding:4mm 3mm;background:#fff;color:#1a1a1a;font-family:'Courier New',monospace;font-size:10px;line-height:1.5">
-    <div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:5px;margin-bottom:5px">
+    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:5px;margin-bottom:5px">
       ${logo}
       <div style="font-family:Arial;font-weight:900;font-size:13px">${biz}</div>
-      <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- SABOTAY SOL --</div>
+      <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- SABOTAY-SÒL --</div>
       ${tenant?.phone?`<div style="font-size:9px;color:#555">Tel: ${tenant.phone}</div>`:''}
+      ${tenant?.address?`<div style="font-size:9px;color:#555">${tenant.address}</div>`:''}
     </div>
+
     <div style="text-align:center;font-family:Arial;font-weight:800;font-size:11px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:5px">
-      ${type==='peman'?'RESI PEMAN':type==='tirage'?'RESI TIRAJ AVÈG':type==='kanpe'?'KONFIRMASYON KANPE':'KONT MANM'}
+      ${type==='peman'
+        ? 'RESI PÈMAN'
+        : type==='tiraj'
+          ? 'RESI TIRAJ AVÈG'
+          : type==='kanpe'
+            ? 'KONFIMASYON KANPE'
+            : 'KONT MANM KREYE'}
     </div>
+
     <div style="font-size:9px;margin-bottom:5px">
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Plan:</span><span style="font-weight:700">${plan.name}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Frekans:</span><span>${FREQ_LABELS[plan.frequency]?.ht||plan.frequency}${interval>1?` (touche chak ${interval}yèm)`:''}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Manm Aktif:</span><span>${activeMbrs}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:#555">Dat:</span><span>${txDate}</span></div>
     </div>
+
     <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner?'#C9A84C':'#ccc'};margin-bottom:5px;font-size:9px">
       <div style="font-weight:700">${member.name}${isOwner?' ★':''}</div>
       ${member.phone?`<div>${member.phone}</div>`:''}
       <div>Pozisyon #${member.position}</div>
     </div>
+
     <div style="border-top:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
       ${type==='peman'?`
         <div style="font-weight:700;margin-bottom:3px">Dat Peye:</div>
         ${paidDates.map(d=>`<div style="display:flex;justify-content:space-between"><span>${d.split('-').reverse().join('/')}</span><span style="font-weight:600;color:#16a34a">+${fmtAmt(plan.amount)} HTG</span></div>`).join('')}
         ${fineTotal>0?`<div style="display:flex;justify-content:space-between;color:#e74c3c"><span>Amand:</span><span>+${fmtAmt(fineTotal)} HTG</span></div>`:''}
         <div style="border-top:2px solid #111;padding-top:4px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-family:Arial;font-weight:900;font-size:12px">TOTAL</span>
+          <span style="font-family:Arial;font-weight:900;font-size:12px">TOTAL PEYE</span>
           <span style="font-family:Arial;font-weight:900;font-size:13px;color:#16a34a">${fmtAmt(paidDates.length*plan.amount+fineTotal)} HTG</span>
         </div>
       `:type==='tirage'?`
@@ -422,7 +435,7 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
           <div style="font-size:9px;color:#555;margin-bottom:4px">Moun Chwazi pa Tiraj:</div>
           <div style="font-family:Arial;font-weight:900;font-size:14px">${member.name}</div>
           <div style="font-size:9px;color:#555">Pozisyon #${member.position}</div>
-          <div style="margin-top:6px;font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">Touche: ${fmtAmt(payout)} HTG</div>
+          <div style="margin-top:6px;font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">Pryim Sol: ${fmtAmt(payout)} HTG</div>
         </div>
       `:type==='kanpe'?`
         <div style="text-align:center;padding:8px 0;color:#e74c3c">
@@ -430,8 +443,9 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
           <div style="font-size:9px;margin-top:4px">Li ka resevwa kòb li lè sol la fini.</div>
         </div>
       `:`
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Peman fè:</span><span>${totalPaid}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Kontribye:</span><span style="font-weight:700;color:#16a34a">${fmtAmt(amtPaid)} HTG</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Montan / Peman:</span><span style="font-weight:700">${fmtAmt(plan.amount)} HTG</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Peman Fèt:</span><span>${totalPaid}/${activeMbrs}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Total Kontribye:</span><span style="font-weight:700;color:#16a34a">${fmtAmt(amtPaid)} HTG</span></div>
         ${fineTotal>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px;color:#e74c3c"><span>Total Amand:</span><span>${fmtAmt(fineTotal)} HTG</span></div>`:''}
         <div style="border-top:2px solid #111;padding-top:4px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
           <span style="font-family:Arial;font-weight:900;font-size:12px">PRYIM SOL</span>
@@ -439,7 +453,13 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
         </div>
       `}
     </div>
+
     ${plan.regleman?`<div style="border-top:1px dashed #ccc;padding-top:4px;margin-top:4px;font-size:8px;color:#555"><div style="font-weight:700;margin-bottom:2px">Regleman Sol:</div>${plan.regleman.substring(0,200)}</div>`:''}
+
+    <div style="border-top:1px dashed #ccc;padding-top:5px;margin-top:5px;font-size:8px;color:#444;text-align:center;line-height:1.6">
+      <div style="font-style:italic;margin-bottom:4px">${MSG_REFERRAL}</div>
+    </div>
+
     <div style="text-align:center;font-size:9px;border-top:1px dashed #ccc;padding-top:5px;margin-top:5px">
       <div style="font-weight:700;font-size:10px">Mèsi! / Merci!</div>
       <div style="color:#666;font-size:8px;margin-top:2px">PlusGroup — Tel: +50942449024</div>
