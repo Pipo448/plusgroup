@@ -68,11 +68,13 @@ function totalSlots(plan) {
 }
 
 function memberPayout(plan) {
+  // Tout moun (enkli pwopriyete) touche menm montan
   const slots = totalActiveSlots(plan)
   return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
 }
 
 function ownerPayout(plan) {
+  // Pwopriyete touche menm montan ke lòt manm
   const slots = totalActiveSlots(plan)
   return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
 }
