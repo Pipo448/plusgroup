@@ -175,4 +175,17 @@ router.get('/sol-account', async (req, res) => {
   }
 })
 
+// GET /api/v1/sabotay/admin-cash?planId=xxx
+router.get('/admin-cash', async (req, res) => {
+  try {
+    const { tenantId } = req.user
+    const { planId }   = req.query
+    const result = await svc.getAdminCash(tenantId, planId || null)
+    return res.json({ success: true, ...result })
+  } catch (err) {
+    console.error('[ADMIN CASH]', err)
+    return res.status(500).json({ message: err.message })
+  }
+})
+
 module.exports = router
