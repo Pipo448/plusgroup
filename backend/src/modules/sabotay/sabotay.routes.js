@@ -152,4 +152,19 @@ router.delete('/payments/:paymentId',                    ctrl.unmarkPaid)
 
 router.get('/plans/:planId/members/:memberId/account',   ctrl.getMemberAccount)
 
+// GET /api/v1/sabotay/sol-account?phone=xxx
+router.get('/sol-account', auth, async (req, res) => {
+  try {
+    const { phone } = req.query
+    if (!phone) return res.json({ account: null })
+
+    const { tenantId } = req.user
+    const account = await sabotaySvc.findSolAccountByPhone(tenantId, phone)
+    return res.json({ account: account || null })
+  } catch (err) {
+    console.error('[SOL ACCOUNT BY PHONE]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
 module.exports = router

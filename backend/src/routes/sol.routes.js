@@ -536,4 +536,27 @@ router.patch('/admin/exchange/:planId/config', authAdmin, async (req, res) => {
   }
 })
 
+// ══════════════════════════════════════════════════════════════
+// GET /api/sol/account-by-phone?phone=xxx&tenantId=xxx  (admin)
+// ══════════════════════════════════════════════════════════════
+router.get('/account-by-phone', authAdmin, async (req, res) => {
+  try {
+    const { phone, tenantId } = req.query
+    if (!phone) return res.json({ account: null })
+
+    const clean = phone.replace(/\s/g, '').trim()
+    const account = await prisma.solMemberAccount.findFirst({
+      where: { memberPhone: clean, ...(tenantId && { tenantId }) },
+      select: {
+        id: true, username: true, plainPassword: true,
+        memberName: true, memberPhone: true, tenantId: true,
+      }
+    })
+    return res.json({ account: account || null })
+  } catch (err) {
+    console.error('[SOL ACCOUNT BY PHONE]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
 module.exports = router

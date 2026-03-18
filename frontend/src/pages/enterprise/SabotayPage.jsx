@@ -2400,9 +2400,9 @@ const allPos = [...gaps, ...futureSlots]
       const slug    = localStorage.getItem('plusgroup-slug')
       const { token } = useAuthStore.getState()
       const res = await fetch(
-        `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
-        { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
-      )
+  `${API_URL}/sabotay/sol-account?phone=${encodeURIComponent(phone)}`,
+  { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
+)
       const data = await res.json()
       setExistingAccount(res.ok ? (data.account || null) : null)
     } catch { setExistingAccount(null) }
