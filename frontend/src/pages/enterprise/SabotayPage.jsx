@@ -2281,6 +2281,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           <p style={{color:D.muted,margin:0,fontSize:11}}>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
         </div>
         <PrinterBtn printer={printer}/>
+        <ReceiptSizeBtn />
         <button onClick={onEditPlan} title="Modifye Plan" style={{width:34,height:34,borderRadius:9,
           border:`1px solid ${D.border}`,background:'transparent',color:D.muted,cursor:'pointer',
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
