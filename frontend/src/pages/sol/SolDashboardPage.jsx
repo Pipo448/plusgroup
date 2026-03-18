@@ -630,15 +630,21 @@ useEffect(() => {
   const todayLocal = new Date()
   const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
 
-  const dates       = getPaymentDates(plan.frequency, plan.createdAt, plan.maxMembers)
-  const winDate     = dates[member.position - 1]
-  const totalPaid   = dates.filter(d => member.payments?.[d]).length
-  const totalDue    = dates.filter(d => d <= today).length
-  const amountPaid  = totalPaid * plan.amount
-  const amountDue   = totalDue  * plan.amount
-  const payout      = (plan.amount * plan.maxMembers) - (plan.fee || 0)
-  const progress    = plan.maxMembers > 0 ? (totalPaid / plan.maxMembers) * 100 : 0
-  const isWinner    = winDate === today
+  // ✅ Itilize activeMemberCount (dinamik) oswa maxMembers si plan fèmen
+const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 10
+
+const dates       = getPaymentDates(plan.frequency, plan.createdAt, activeMemberCount)
+const winDate     = dates[member.position - 1]
+const totalPaid   = dates.filter(d => member.payments?.[d]).length
+const totalDue    = dates.filter(d => d <= today).length
+const amountPaid  = totalPaid * plan.amount
+const amountDue   = totalDue  * plan.amount
+const payout      = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
+const progress    = activeMemberCount > 0 ? (totalPaid / activeMemberCount) * 100 : 0
+const isWinner    = winDate === today
+
+// ✅ Tout men manm nan (allSlots)
+const allSlots    = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   // Skò pèfòmans
   const timings  = Object.values(member.paymentTimings || {})
@@ -765,6 +771,11 @@ useEffect(() => {
               </p>
               <p style={{ fontSize: 11, opacity: 0.6, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Pozisyon #{member.position} • {plan.name}
+                {allSlots.length > 1 && (
+  <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
+    {allSlots.length} men • Peye {fmt(allSlots.length * plan.amount)} HTG/sik
+  </p>
+)}
               </p>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -779,8 +790,11 @@ useEffect(() => {
         <div className="sol-stats-grid">
           {[
             { label: 'Rès pou Peye', val: `${fmt(Math.max(0, amountDue - amountPaid))} HTG`, color: D.red  },
-            { label: 'Ap Touche',    val: `${fmt(payout)} HTG`,                               color: D.gold },
-            { label: 'Dat Touche',   val: winDate ? winDate.split('-').reverse().join('/') : '—', color: D.blue },
+            ...allSlots.map(slot => ({
+  label: `🏆 Men #${slot.position}`,
+  val:   `${fmt(payout)} HTG • ${dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}`,
+  color: D.gold,
+})),
             { label: 'Frekans',      val: FREQ_LABELS[plan.frequency] || plan.frequency,      color: D.muted},
           ].map(({ label, val, color }) => (
             <div key={label} style={{

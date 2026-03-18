@@ -174,13 +174,23 @@ router.get('/members/me', authMember, async (req, res) => {
     })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
 
-    const sabotayMember = await prisma.sabotayMember.findUnique({
-      where: { id: account.memberId },
-      include: {
-        plan:     true,
-        payments: { orderBy: { dueDate: 'asc' } },
-      },
-    })
+    // Men prensipal la
+const sabotayMember = await prisma.sabotayMember.findUnique({
+  where: { id: account.memberId },
+  include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } },
+})
+if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn' })
+
+// Tout lòt men ki gen menm telefòn nan menm plan
+const allSlots = await prisma.sabotayMember.findMany({
+  where: {
+    phone: sabotayMember.phone,
+    planId: sabotayMember.planId,
+    isActive: true,
+  },
+  include: { payments: { orderBy: { dueDate: 'asc' } } },
+  orderBy: { position: 'asc' },
+})
     if (!sabotayMember) {
       return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
     }
@@ -193,6 +203,15 @@ router.get('/members/me', authMember, async (req, res) => {
       select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
+    // ✅ Kalkile ANVAN return
+    const activeMemberCount = await prisma.sabotayMember.count({
+      where: {
+        planId:   plan.id,
+        isActive: true,
+        status:   { not: 'stopped' },
+      },
+    })
+
     return res.json({
       member: {
         id:             sabotayMember.id,
@@ -201,20 +220,30 @@ router.get('/members/me', authMember, async (req, res) => {
         position:       sabotayMember.position,
         payments,
         paymentTimings,
+        allSlots: allSlots.map(s => {
+          const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
+          return {
+            id:             s.id,
+            position:       s.position,
+            payments:       sp,
+            paymentTimings: st,
+          }
+        }),
       },
       plan: {
-        id:            plan.id,
-        name:          plan.name,
-        amount:        Number(plan.amount),
-        fee:           Number(plan.fee),
-        frequency:     plan.frequency,
-        maxMembers:    plan.maxMembers,
-        createdAt:     plan.startDate.toISOString().split('T')[0],
-        dueTime:       account.planDueTime      || '08:00',
-        interval:      account.planInterval     || 1,
-        feePerMember:  account.planFeePerMember || 0,
-        penalty:       account.planPenalty      || 0,
-        regleman:      account.planRegleman     || null,
+        id:               plan.id,
+        name:             plan.name,
+        amount:           Number(plan.amount),
+        fee:              Number(plan.fee),
+        frequency:        plan.frequency,
+        maxMembers:       plan.maxMembers,
+        activeMemberCount: activeMemberCount,
+        createdAt:        plan.startDate.toISOString().split('T')[0],
+        dueTime:          account.planDueTime      || '08:00',
+        interval:         account.planInterval     || 1,
+        feePerMember:     account.planFeePerMember || 0,
+        penalty:          account.planPenalty      || 0,
+        regleman:         account.planRegleman     || null,
       },
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
@@ -223,7 +252,6 @@ router.get('/members/me', authMember, async (req, res) => {
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
-
 // ══════════════════════════════════════════════════════════════
 // POST /api/sol/accounts   (admin sèlman)
 // ══════════════════════════════════════════════════════════════
