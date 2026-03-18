@@ -1073,3 +1073,19 @@ enum ServiceType {
   room_service
   other
 }
+
+model SabotayAdminCash {
+  id          String   @id @default(cuid())
+  tenantId    String
+  planId      String
+  planName    String
+  type        String   // 'stop_penalty' | 'exchange_fee' | 'late_fine' | 'fee_per_member'
+  amount      Float
+  memberId    String?
+  memberName  String?
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([planId])
+}

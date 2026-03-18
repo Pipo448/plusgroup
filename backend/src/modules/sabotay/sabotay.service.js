@@ -420,6 +420,15 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
       include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } }
     })
     createdPayments.push(payment)
+     if (Number(fineAmt) > 0) {
+      await addToAdminCash(
+        tenantId, planId, plan.name,
+        'late_fine',
+        Number(fineAmt),
+        memberId, member.name,
+        `Amand reta ${dueDate}`
+      ).catch(() => {})
+    }
     if (Number(fineAmt) > 0) updatedFines[dueDate] = Number(fineAmt)
   }
 
@@ -590,6 +599,70 @@ async function closePlan(tenantId, planId, userId) {
 // ─────────────────────────────────────────────────────────────
 // AKSYON SOU MANM — ✅ KORIJE: updated defini anvan itilize
 // ─────────────────────────────────────────────────────────────
+
+// KÈS ADMIN — Ajoute yon mouvman
+// ─────────────────────────────────────────────────────────────
+async function addToAdminCash(tenantId, planId, planName, type, amount, memberId, memberName, description) {
+  if (!amount || amount <= 0) return null
+  try {
+    return await prisma.sabotayAdminCash.create({
+      data: {
+        tenantId, planId, planName,
+        type, amount: Number(amount),
+        memberId:    memberId    || null,
+        memberName:  memberName  || null,
+        description: description || null,
+      }
+    })
+  } catch (err) {
+    console.error('[AdminCash] Erè:', err.message)
+    return null
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// KÈS ADMIN — Rezime pa tenant + pa plan
+// ─────────────────────────────────────────────────────────────
+async function getAdminCash(tenantId, planId) {
+  const where = { tenantId, ...(planId && { planId }) }
+
+  const [entries, totalAgg] = await Promise.all([
+    prisma.sabotayAdminCash.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    }),
+    prisma.sabotayAdminCash.aggregate({
+      where,
+      _sum: { amount: true },
+    }),
+  ])
+
+  // Rezime pa plan
+  const byPlan = {}
+  for (const e of entries) {
+    if (!byPlan[e.planId]) {
+      byPlan[e.planId] = { planId: e.planId, planName: e.planName, total: 0, entries: [] }
+    }
+    byPlan[e.planId].total += e.amount
+    byPlan[e.planId].entries.push(e)
+  }
+
+  // Rezime pa tip
+  const byType = {}
+  for (const e of entries) {
+    if (!byType[e.type]) byType[e.type] = 0
+    byType[e.type] += e.amount
+  }
+
+  return {
+    totalGlobal: Number(totalAgg._sum.amount || 0),
+    byType,
+    byPlan: Object.values(byPlan),
+    entries,
+  }
+}
+
 async function memberAction(tenantId, planId, memberId, userId, data) {
   const { action, reason } = data
 
@@ -597,14 +670,18 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     throw new Error(`Aksyon invalide: ${action}`)
 
   const member = await prisma.sabotayMember.findFirst({
-    where: { id: memberId, planId, plan: { tenantId } }
+    where: { id: memberId, planId, plan: { tenantId } },
+    include: { payments: true }
   })
   if (!member) throw new Error('Manm pa jwenn.')
 
-  const statusMap = { block: 'blocked', unblock: 'active', stop: 'stopped', resume: 'active', payout: 'active' }
+  const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+  if (!plan) throw new Error('Plan pa jwenn.')
+
+  const statusMap = { block:'blocked', unblock:'active', stop:'stopped', resume:'active', payout:'active' }
   const newStatus = statusMap[action]
 
-  // ── Si payout ──
+  // ── PAYOUT ──
   if (action === 'payout') {
     const updatedMember = await prisma.sabotayMember.update({
       where: { id: memberId },
@@ -612,8 +689,7 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     })
     try {
       const solPos = await prisma.solMemberPosition.findFirst({
-        where: { memberId, planId },
-        include: { account: true }
+        where: { memberId, planId }, include: { account: true }
       })
       if (solPos?.account) {
         await prisma.solNotification.create({
@@ -621,7 +697,7 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
             accountId: solPos.account.id,
             type:      'payout',
             titleHt:   '🏆 Ou touche Sol ou a!',
-            messageHt: `Felisitasyon! Ou resevwa kòb sol ou a. Kontakte jesyonè sol la pou detay.`,
+            messageHt: `Felisitasyon! Ou resevwa kob sol ou a. Kontakte jesyone sol la pou detay.`,
           }
         }).catch(() => {})
       }
@@ -629,7 +705,47 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     return { member: updatedMember, action, newStatus: 'active' }
   }
 
-  // ── Lòt aksyon ──
+  // ── STOP — Kalkile penalite + Kès Admin ──
+  if (action === 'stop') {
+    const stopPenaltyPct = Number(plan.stopPenaltyPct || 0)
+    const totalPaid = member.payments.reduce((s, p) => s + Number(p.amount), 0)
+    const penaltyAmt = stopPenaltyPct > 0
+      ? Math.round(totalPaid * (stopPenaltyPct / 100))
+      : 0
+
+    // Ajoute nan Kès Admin si gen penalite
+    if (penaltyAmt > 0) {
+      await addToAdminCash(
+        tenantId, planId, plan.name,
+        'stop_penalty',
+        penaltyAmt,
+        memberId, member.name,
+        `Penalite kanpe ${stopPenaltyPct}% de ${totalPaid} HTG kontribye`
+      )
+    }
+
+    // Notifye manm via kont Sol
+    try {
+      const solPos = await prisma.solMemberPosition.findFirst({
+        where: { memberId, planId }, include: { account: true }
+      })
+      if (solPos?.account) {
+        const netPayout = totalPaid - penaltyAmt
+        await prisma.solNotification.create({
+          data: {
+            accountId: solPos.account.id,
+            type:      'stop_penalty',
+            titleHt:   '⏸️ Ou kanpe nan Sol la',
+            messageHt: penaltyAmt > 0
+              ? `Ou kanpe patisipasyon ou. Penalite: ${penaltyAmt} HTG (${stopPenaltyPct}%). Ou ap resevwa ${netPayout} HTG le sol la fini.`
+              : `Ou kanpe patisipasyon ou nan ${plan.name}. Ou ap resevwa ${totalPaid} HTG le sol la fini.`,
+          }
+        }).catch(() => {})
+      }
+    } catch(_) {}
+  }
+
+  // ── Lòt aksyon (block, unblock, resume) ──
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
     data: {
@@ -641,7 +757,9 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   })
 
   try {
-    await prisma.solMemberPosition.updateMany({ where: { memberId, planId }, data: { status: newStatus } })
+    await prisma.solMemberPosition.updateMany({
+      where: { memberId, planId }, data: { status: newStatus }
+    })
   } catch (_) {}
 
   return { member: updated, action, newStatus }
@@ -651,5 +769,6 @@ module.exports = {
   getStats, getPlans, getPlanById, createPlan, updatePlan, deletePlan,
   blindDraw, getMembers, addMember, updateMember, removeMember,
   getPayments, markPaid, unmarkPaid, getMemberAccount,
-  findSolAccountByPhone, getSolAccountPositions, closePlan, memberAction,
+  findSolAccountByPhone, getSolAccountPositions, closePlan,
+  memberAction, getAdminCash, addToAdminCash,
 }
