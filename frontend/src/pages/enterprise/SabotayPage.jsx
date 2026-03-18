@@ -546,28 +546,28 @@ function PlanStatusBadge({ status }) {
 // ── RECEIPT SIZE SELECTOR ──
 function ReceiptSizeBtn() {
   const [size, setSize] = useState(
-    localStorage.getItem('receipt_size') || '80mm'
+    () => localStorage.getItem('receipt_size') || '80mm'
   )
   const toggle = () => {
     const next = size === '80mm' ? '57mm' : '80mm'
     setSize(next)
     localStorage.setItem('receipt_size', next)
-    toast(`📄 Resi: ${next}`, { icon: '🖨️' })
+    toast(`🖨️ Resi: ${next}`, { icon: '📄' })
   }
   return (
-    <button onClick={toggle} style={{
+    <button onClick={toggle} title={`Fòma resi: ${size}`} style={{
       display: 'flex', alignItems: 'center', gap: 5,
-      padding: '9px 13px', borderRadius: 10, border: 'none',
-      cursor: 'pointer', fontWeight: 700, fontSize: 12,
-      background: size === '57mm' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.06)',
-      color: size === '57mm' ? D.blue : D.muted,
+      padding: '9px 11px', borderRadius: 10,
+      border: `1px solid ${size === '57mm' ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.09)'}`,
+      background: size === '57mm' ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.05)',
+      color: size === '57mm' ? '#3B82F6' : '#6b7a99',
+      cursor: 'pointer', fontWeight: 700, fontSize: 11,
       transition: 'all 0.2s', flexShrink: 0,
     }}>
       🖨️ {size}
     </button>
   )
 }
-
 function Modal({onClose,title,children,width=540}) {
   return (
     <div style={{position:'fixed',inset:0,zIndex:1000,background:'rgba(0,0,0,0.88)',backdropFilter:'blur(4px)',
@@ -2280,7 +2280,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           </div>
           <p style={{color:D.muted,margin:0,fontSize:11}}>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
         </div>
-        <PrinterBtn printer={printer}/> <ReceiptSizeBtn />
+        <PrinterBtn printer={printer}/>
         <button onClick={onEditPlan} title="Modifye Plan" style={{width:34,height:34,borderRadius:9,
           border:`1px solid ${D.border}`,background:'transparent',color:D.muted,cursor:'pointer',
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -3374,7 +3374,8 @@ export default function SabotayPage() {
               <p style={{color:D.muted,margin:'3px 0 0',fontSize:12}}>Jesyon Sol — PlusGroup</p>
             </div>
             <div className="page-head-actions" style={{display:'flex',alignItems:'center',gap:8}}>
-              <PrinterBtn printer={printer}/> <ReceiptSizeBtn />
+              <PrinterBtn printer={printer}/>
+              <ReceiptSizeBtn />
               <button className="btn-new-plan" onClick={()=>setShowCreate(true)} style={{
                 display:'flex',alignItems:'center',gap:7,padding:'10px 16px',borderRadius:11,
                 border:'none',cursor:'pointer',fontWeight:800,fontSize:13,
