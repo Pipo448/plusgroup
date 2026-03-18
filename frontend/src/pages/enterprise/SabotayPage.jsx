@@ -1927,6 +1927,195 @@ function ExchangeTab({ plan }) {
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// KÈS ADMIN TAB
+// ─────────────────────────────────────────────────────────────
+function AdminCashTab({ plan }) {
+  const { token } = useAuthStore.getState()
+  const slug = localStorage.getItem('plusgroup-slug')
+  const authH = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${token}`,
+    'X-Tenant-Slug': slug || '',
+  }
+
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['admin-cash', plan.id],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/sabotay/admin-cash?planId=${plan.id}`, { headers: authH })
+      return res.json()
+    },
+    refetchInterval: 30000,
+  })
+
+  const TYPE_LABELS = {
+    stop_penalty: { label: 'Penalite Kanpe',     color: D.orange, icon: '⏸️' },
+    exchange_fee:  { label: 'Frè Echanj',         color: D.blue,   icon: '🔄' },
+    late_fine:     { label: 'Amand Reta',          color: D.red,    icon: '⚠️' },
+    fee_per_member:{ label: 'Frè Pwopriyete',     color: D.gold,   icon: '⭐' },
+  }
+
+  if (isLoading) return (
+    <div style={{ textAlign: 'center', padding: 32 }}>
+      <Loader size={22} style={{ color: D.gold, animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  )
+
+  const total     = data?.totalGlobal || 0
+  const byType    = data?.byType      || {}
+  const entries   = data?.entries     || []
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* TOTAL GLOBAL */}
+      <div style={{ background: 'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.05))',
+        border: `1px solid ${D.gold}40`, borderRadius: 14, padding: '16px 18px',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <p style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase',
+            letterSpacing: '0.07em', margin: '0 0 4px' }}>💰 Total Kès Admin</p>
+          <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Plan: {plan.name}</p>
+        </div>
+        <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 22, color: D.gold }}>
+          {fmt(total)} HTG
+        </div>
+      </div>
+
+      {/* REZIME PA TIP */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 8 }}>
+        {Object.entries(TYPE_LABELS).map(([type, cfg]) => (
+          <div key={type} style={{ background: D.card, border: `1px solid ${D.border}`,
+            borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 16, marginBottom: 4 }}>{cfg.icon}</div>
+            <div style={{ fontSize: 9, color: D.muted, fontWeight: 700,
+              textTransform: 'uppercase', marginBottom: 4 }}>{cfg.label}</div>
+            <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13,
+              color: byType[type] > 0 ? cfg.color : D.muted }}>
+              {fmt(byType[type] || 0)} HTG
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ISTWA MOUVMAN */}
+      <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '11px 14px', borderBottom: `1px solid ${D.border}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: D.muted,
+            textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+            Istwa ({entries.length})
+          </p>
+          <button onClick={refetch} style={{ width: 28, height: 28, borderRadius: 7,
+            border: `1px solid ${D.border}`, background: 'transparent',
+            color: D.muted, cursor: 'pointer', display: 'flex',
+            alignItems: 'center', justifyContent: 'center' }}>
+            <RefreshCw size={12} />
+          </button>
+        </div>
+
+        {entries.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '28px 0', color: D.muted }}>
+            <p style={{ margin: 0, fontSize: 13 }}>Pa gen mouvman pou kounye a.</p>
+          </div>
+        ) : (
+          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {entries.map(e => {
+              const cfg = TYPE_LABELS[e.type] || { label: e.type, color: D.muted, icon: '💵' }
+              return (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', padding: '10px 14px',
+                  borderBottom: `1px solid ${D.borderSub}`, gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{cfg.icon}</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: D.text,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {e.memberName || '—'}
+                      </div>
+                      <div style={{ fontSize: 10, color: D.muted }}>{cfg.label}</div>
+                      {e.description && (
+                        <div style={{ fontSize: 9, color: D.muted,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {e.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 800,
+                      fontSize: 13, color: cfg.color }}>
+                      +{fmt(e.amount)} HTG
+                    </div>
+                    <div style={{ fontSize: 9, color: D.muted }}>
+                      {new Date(e.createdAt).toLocaleDateString('fr-HT')}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* KONFIGIRASYON % PENALITE */}
+      <AdminCashConfig plan={plan} authH={authH} />
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// KONFIGIRASYON PENALITE KANPE
+// ─────────────────────────────────────────────────────────────
+function AdminCashConfig({ plan, authH }) {
+  const qc = useQueryClient()
+  const [pct, setPct] = useState(plan.stopPenaltyPct || 0)
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      await fetch(`${API_URL}/sabotay/plans/${plan.id}`, {
+        method: 'PUT',
+        headers: authH,
+        body: JSON.stringify({ stopPenaltyPct: Number(pct) }),
+      })
+      qc.invalidateQueries(['sabotay-plans'])
+      toast.success('✅ % Penalite sove!')
+    } catch { toast.error('Erè sove') }
+    finally { setSaving(false) }
+  }
+
+  return (
+    <div style={{ background: 'rgba(243,156,18,0.06)', border: `1px solid ${D.orange}30`,
+      borderRadius: 12, padding: '14px 16px' }}>
+      <p style={{ fontSize: 10, fontWeight: 800, color: D.orange, textTransform: 'uppercase',
+        letterSpacing: '0.07em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+        ⚙️ Konfigirasyon Penalite Kanpe
+      </p>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <label style={{ ...lbl }}>% Penalite si Manm Kanpe</label>
+          <input type="number" min="0" max="100" style={{ ...inp, color: D.orange }}
+            value={pct} onChange={e => setPct(e.target.value)} />
+          <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>
+            {Number(pct) > 0
+              ? `Egzanp: Manm ki kontribye 1000 HTG → Penalite ${fmt(1000 * Number(pct) / 100)} HTG`
+              : 'Pa gen penalite (0%)'}
+          </p>
+        </div>
+        <button onClick={save} disabled={saving} style={{ padding: '10px 16px', borderRadius: 10,
+          border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222',
+          fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6,
+          minHeight: 42, flexShrink: 0 }}>
+          {saving ? <Loader size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : null}
+          {saving ? 'Ap sove...' : 'Sove'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPlan,onClosePlan,onMemberAction,printer}) {
   const [viewMember,setView]       = useState(null)
   const [viewMemberSlots,setSlots] = useState(null)
@@ -2065,7 +2254,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       </div>
 
       <div style={{display:'flex',gap:6,marginBottom:14,alignItems:'center',flexWrap:'wrap'}}>
-        {[['members','👥 Manm'],['calendar','📅 Kalandriye'],['exchange','🔄 Echanj'],['regleman','📜 Regleman']].map(
+        {[['members','👥 Manm'],['calendar','📅 Kalandriye'],['exchange','🔄 Echanj'],['regleman','📜 Regleman'],['cash','💰 Kès']].map(
           ([t,l]) => <button key={t} className="tab-btn" onClick={()=>setTab(t)} style={{
             padding:'8px 14px',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:700,
             border:`1px solid ${tab===t?D.gold:D.borderSub}`,
@@ -2218,7 +2407,9 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       )}
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
 
-      {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='regleman'&&(
+      {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='cash'&&(
+  <AdminCashTab plan={activePlan} />
+)}{tab==='regleman'&&(
         <div style={{background:D.tealBg,border:`1px solid ${D.teal}25`,borderRadius:14,padding:'18px 20px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <p style={{fontSize:11,fontWeight:800,color:D.teal,textTransform:'uppercase',
