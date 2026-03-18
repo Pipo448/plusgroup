@@ -141,7 +141,7 @@ async function createPlan(tenantId, branchId, userId, data) {
       feePerMember: Number(feePerMember || 0), penalty: Number(penalty || 0),
       interval: Number(interval || 1), dueTime: dueTime || '08:00',
       dueTimeEnd: dueTimeEnd || '15:00', regleman: regleman || null,
-      stopPenaltyPct: Number(stopPenaltyPct || 0),
+      //stopPenaltyPct: Number(stopPenaltyPct || 0),
     },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
