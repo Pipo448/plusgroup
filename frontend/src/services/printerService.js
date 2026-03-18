@@ -459,7 +459,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
 // ✅ PRINT SABOTAY SOL — Kreyol sèlman
 // ══════════════════════════════════════════════════════════════
 
-export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman') => {
+export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'pèman') => {
   const fmt = (n) => Number(n || 0)
     .toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
@@ -467,7 +467,8 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const W         = getWidth(tenant)
   const txDate    = new Date().toLocaleDateString('fr-HT') + ' ' +
     new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
-  const payout    = (plan.amount * plan.maxMembers) - (plan.fee || 0)
+  const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0
+  const payout    = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
   const totalPaid = Object.keys(member.payments || {}).filter(d => member.payments[d]).length
   const amtPaid   = totalPaid * plan.amount
   const totalAmt  = paidDates.length * plan.amount
@@ -487,12 +488,17 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SOL --\n'), ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SÒL --\n'), ...CMD.BOLD_OFF,
     ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'),         ...CMD.NORMAL_FONT] : []),
     ...divider('=', W), LF,
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-    ...encodeText(type === 'peman' ? 'RESI PEMAN\n' : 'KONT MANM\n'),
+    ...encodeText(
+      type === 'pèman'  ? 'RESI PÈMAN\n'        :
+      type === 'tiraj' ? 'RESI TIRAJ AVÈG\n'   :
+      type === 'kanpe'  ? 'KANPE PATISIPASYON\n' :
+                          'KONT MANM KREYE\n'
+    ),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...divider('=', W), LF,
     ...CMD.ALIGN_LEFT,
@@ -504,7 +510,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...makeLine('Pozisyon:', '#' + member.position, W), LF,
     ...makeLine('Frekans:', FREQ[plan.frequency] || plan.frequency, W), LF,
     ...divider('-', W), LF,
-    ...(type === 'peman' ? [
+    ...(type === 'pèman' ? [
       ...CMD.BOLD_ON, ...encodeText('Dat Peye:\n'), ...CMD.BOLD_OFF,
       ...paidDates.flatMap(d => [
         ...CMD.SMALL_FONT,
@@ -513,107 +519,47 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ]),
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-      ...encodeText('TOTAL: ' + fmt(totalAmt) + ' G\n'),
+      ...encodeText('TOTAL PEYE: ' + fmt(totalAmt) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
       ...makeLine('Kontribisyon total:', fmt(amtPaid) + ' G', W), LF,
+    ] : type === 'tiraj' ? [
+      ...CMD.ALIGN_CENTER,
+      ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
+      ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+      ...CMD.SMALL_FONT, ...encodeText('Pozisyon #' + member.position + '\n'), ...CMD.NORMAL_FONT,
+      ...divider('=', W), LF,
+      ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('PRIM SÒL: ' + fmt(payout) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+    ] : type === 'kanpe' ? [
+      ...CMD.ALIGN_CENTER,
+      ...CMD.BOLD_ON, ...encodeText('Manm sa a kanpe.\n'), ...CMD.BOLD_OFF,
+      ...CMD.SMALL_FONT, ...encodeText('Li ka resevwa kob li lè sòl la fini.\n'), ...CMD.NORMAL_FONT,
+      ...CMD.ALIGN_LEFT,
     ] : [
-      ...makeLine('Montan / peman:', fmt(plan.amount) + ' G', W), LF,
-      ...makeLine('Peman fe:', totalPaid + '/' + plan.maxMembers, W), LF,
-      ...makeLine('Kontribye:', fmt(amtPaid) + ' G', W), LF,
+      // kont — KONT MANM KREYE
+      ...makeLine('Montan / Pèman:', fmt(plan.amount) + ' G', W), LF,
+      ...makeLine('Pèman Fèt:', totalPaid + '/' + activeMemberCount, W), LF,
+      ...makeLine('Total Kontribye:', fmt(amtPaid) + ' G', W), LF,
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('Pri: ' + fmt(payout) + ' G\n'),
+      ...encodeText('PRIM SÒL: ' + fmt(payout) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ]),
-    ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText('Mesi!\n'),
-    ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
-    ...encodeText('PlusGroup — Tel: +50942449024\n'),
-    ...CMD.NORMAL_FONT, LF, LF, ...CMD.CUT,
-  ]
-
-  await dispatch(bytes)
-}
-
-// ══════════════════════════════════════════════════════════════
-// ✅ PRINT KANÈ EPAY — Kreyol sèlman
-// ══════════════════════════════════════════════════════════════
-
-export const printKaneReceipt = async (account, transaction, tenant, type = 'ouverture') => {
-  const fmt = (n) => Number(n || 0)
-    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-    .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
-
-  const W = getWidth(tenant)
-
-  const TX_LABELS = { ouverture:'OUVETI KONT', depot:'DEPO', retrait:'RETRE' }
-  const METOD     = {
-    cash:'Kach', moncash:'MonCash', natcash:'NatCash',
-    card:'Kat kredi', transfer:'Virement', check:'Chek',
-    credit:'Kredi', other:'Lot',
-  }
-
-  const txDate = transaction?.createdAt
-    ? new Date(transaction.createdAt).toLocaleDateString('fr-HT') + ' ' +
-      new Date(transaction.createdAt).toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
-    : new Date().toLocaleDateString('fr-HT')
-
-  const logoBytes = tenant?.logoUrl
-    ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
-
-  const bytes = [
-    ...CMD.INIT,
-    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-    ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.BOLD_ON, ...encodeText('-- KANE EPAY --\n'), ...CMD.BOLD_OFF,
-    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'),         ...CMD.NORMAL_FONT] : []),
-    ...divider('=', W), LF,
-    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-    ...encodeText((TX_LABELS[type] || 'TRANZAKSYON') + '\n'),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...divider('=', W), LF,
-    ...CMD.ALIGN_LEFT,
-    ...makeLine('No. Kont:', account.accountNumber || '', W), LF,
-    ...makeLine('Dat:', txDate, W), LF,
-    ...divider('-', W), LF,
-    ...CMD.BOLD_ON,
-    ...encodeText((account.firstName + ' ' + account.lastName).substring(0, W) + '\n'),
-    ...CMD.BOLD_OFF,
-    ...(account.address        ? [...CMD.SMALL_FONT, ...encodeText(account.address.substring(0, W) + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(account.nifOrCin       ? [...CMD.SMALL_FONT, ...encodeText('NIF/CIN: ' + account.nifOrCin + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(account.phone          ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + account.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(account.familyRelation ? [...CMD.SMALL_FONT, ...encodeText('Ref: ' + account.familyRelation + (account.familyName ? ' - ' + account.familyName : '') + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...divider('-', W), LF,
-    ...(type === 'ouverture' ? [
-      ...makeLine('Montan depoze:', fmt(account.openingAmount) + ' G', W), LF,
-      ...makeLine('Fre kane:', '- ' + fmt(account.kaneFee || 0) + ' G', W), LF,
-      ...makeLine('Montan bloke:', '- ' + fmt(account.lockedAmount || 0) + ' G', W), LF,
-    ] : [
-      ...makeLine('Balans anvan:', fmt(transaction?.balanceBefore) + ' G', W), LF,
-    ]),
-    ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-    ...encodeText(
-      (type === 'ouverture' ? 'BALANS: ' : type === 'retrait' ? 'RETRE: ' : 'DEPO: ') +
-      fmt(type === 'ouverture' ? account.balance : transaction?.amount) + ' G\n'
-    ),
-    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...(type !== 'ouverture' ? [
       ...CMD.ALIGN_LEFT,
-      ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' G', W), LF,
-    ] : []),
-    ...(transaction?.method ? [
-      ...divider('-', W), LF,
-      ...makeLine('Metod:', METOD[transaction.method] || transaction.method, W), LF,
-      ...(transaction.reference ? [...makeLine('Ref:', transaction.reference, W), LF] : []),
-    ] : []),
+    ]),
+    ...divider('-', W), LF,
+    ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
+    ...encodeText('Envite yon moun serye k ap fè biznis\n'),
+    ...encodeText('rejwenn nou, epi w ap benefisye\n'),
+    ...encodeText('yon bonis ki evalye de 1 a 5%\n'),
+    ...encodeText('de kob manm sa pral touche a.\n'),
+    ...encodeText('Ekri nou sou WhatsApp:\n'),
+    ...CMD.BOLD_ON, ...encodeText('+50942449024\n'), ...CMD.BOLD_OFF,
+    ...CMD.NORMAL_FONT,
     ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-    ...encodeText('Mesi!\n'),
+    ...CMD.BOLD_ON,
+    ...encodeText('Mèsi! / Merci!\n'),
     ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
     ...encodeText('PlusGroup — Tel: +50942449024\n'),
     ...CMD.NORMAL_FONT, LF, LF, ...CMD.CUT,
