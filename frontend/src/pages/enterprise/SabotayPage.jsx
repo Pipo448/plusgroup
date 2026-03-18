@@ -2408,7 +2408,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       {tab==='calendar'&&<PlanCalendar plan={plan}/>}
 
       {tab==='exchange'&&<ExchangeTab plan={plan}/>}{tab==='cash'&&(
-  <AdminCashTab plan={activePlan} />
+  <AdminCashTab plan={plan} />
 )}{tab==='regleman'&&(
         <div style={{background:D.tealBg,border:`1px solid ${D.teal}25`,borderRadius:14,padding:'18px 20px'}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
