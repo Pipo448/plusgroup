@@ -22,6 +22,7 @@ const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me
 // HELPER: Kalkile timing (early / onTime / late)
 // ─────────────────────────────────────────────────────────────
 function computeTiming(dueDate, paidAt) {
+  if (!paidAt) return 'onTime'
   const due  = new Date(dueDate).toISOString().split('T')[0]
   const paid = new Date(paidAt).toISOString().split('T')[0]
   if (paid < due) return 'early'
@@ -29,16 +30,17 @@ function computeTiming(dueDate, paidAt) {
   return 'onTime'
 }
 
-// ─────────────────────────────────────────────────────────────
-// HELPER: Bati maps payments + paymentTimings
-// ─────────────────────────────────────────────────────────────
 function buildPaymentMaps(sabotayPayments) {
   const payments       = {}
   const paymentTimings = {}
   for (const p of sabotayPayments) {
-    const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
-    payments[dateKey]       = true
-    paymentTimings[dateKey] = computeTiming(p.dueDate, p.paidAt)
+    try {
+      const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
+      payments[dateKey]       = true
+      // ✅ paidDate oswa paidAt — sipòte toulède
+      const paidAt = p.paidDate || p.paidAt || p.dueDate
+      paymentTimings[dateKey] = computeTiming(p.dueDate, paidAt)
+    } catch(_) {}
   }
   return { payments, paymentTimings }
 }
@@ -191,9 +193,6 @@ const allSlots = await prisma.sabotayMember.findMany({
   include: { payments: { orderBy: { dueDate: 'asc' } } },
   orderBy: { position: 'asc' },
 })
-    if (!sabotayMember) {
-      return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
-    }
 
     const plan = sabotayMember.plan
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
