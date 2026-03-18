@@ -126,7 +126,7 @@ async function getPlanById(tenantId, planId) {
 }
 
 async function createPlan(tenantId, branchId, userId, data) {
-  const { name, frequency, amount, maxMembers, fee, startDate, notes, feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman } = data
+ const { name, frequency, amount, maxMembers, fee, startDate, notes, feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman, stopPenaltyPct } = data
   if (!name)      throw new Error('Non plan obligatwa.')
   if (!frequency) throw new Error('Frekans obligatwa.')
   if (!amount || Number(amount) <= 0) throw new Error('Montan dwe plis ke 0.')
@@ -141,6 +141,7 @@ async function createPlan(tenantId, branchId, userId, data) {
       feePerMember: Number(feePerMember || 0), penalty: Number(penalty || 0),
       interval: Number(interval || 1), dueTime: dueTime || '08:00',
       dueTimeEnd: dueTimeEnd || '15:00', regleman: regleman || null,
+      stopPenaltyPct: Number(stopPenaltyPct || 0),
     },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
@@ -165,6 +166,7 @@ async function updatePlan(tenantId, planId, userId, data) {
       ...(data.dueTime      !== undefined && { dueTime: data.dueTime }),
       ...(data.dueTimeEnd   !== undefined && { dueTimeEnd: data.dueTimeEnd }),
       ...(data.regleman     !== undefined && { regleman: data.regleman }),
+      ...(data.stopPenaltyPct !== undefined && { stopPenaltyPct: Number(data.stopPenaltyPct) }),
     },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
