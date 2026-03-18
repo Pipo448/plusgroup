@@ -559,4 +559,16 @@ router.get('/account-by-phone', authAdmin, async (req, res) => {
   }
 })
 
+// DEBUG TEMP — retire apre
+router.get('/debug/accounts', async (req, res) => {
+  try {
+    const accounts = await prisma.solMemberAccount.findMany({
+      select: { username: true, memberName: true, tenantId: true, passwordHash: true }
+    })
+    return res.json({ count: accounts.length, accounts })
+  } catch (err) {
+    return res.status(500).json({ error: err.message })
+  }
+})
+
 module.exports = router
