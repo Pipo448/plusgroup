@@ -464,7 +464,15 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     .toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
-  const W         = getWidth(tenant)
+  // ✅ Detekte lajè — localStorage an premye, apre tenant config
+  const savedSize   = typeof localStorage !== 'undefined'
+    ? localStorage.getItem('receipt_size') : null
+  const receiptSize = savedSize || tenant?.receiptSize || '80mm'
+  const is57mm      = receiptSize === '57mm' || receiptSize === '58mm'
+
+  // Override getWidth ak nouvo lojik
+  const W = is57mm ? 32 : 48
+
   const txDate    = new Date().toLocaleDateString('fr-HT') + ' ' +
     new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
   const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0

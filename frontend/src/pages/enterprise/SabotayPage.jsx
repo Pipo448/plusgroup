@@ -376,7 +376,11 @@ function printReceiptBrowser(html) {
   setTimeout(()=>{w.focus();w.print();setTimeout(()=>w.close(),2000)},300)
 }
 
-function buildReceiptHTML(plan, member, paidDates=[], tenant, type='pèman') {
+function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
+  // ✅ Detekte lajè printer otomatik
+  const receiptSize = tenant?.receiptSize || '80mm'
+  const W = (receiptSize === '57mm' || receiptSize === '58mm') ? '64mm' : '80mm'
+  const CHARS = W === '64mm' ? 32 : 42  // karaktè pa liy
   const biz    = tenant?.businessName||tenant?.name||'PLUS GROUP'
   const logo   = tenant?.logoUrl?`<img src="${tenant.logoUrl}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`:`<div style="font-size:20px;text-align:center">🏦</div>`
   const txDate = new Date().toLocaleDateString('fr-HT')+' '+new Date().toLocaleTimeString('fr-HT',{hour:'2-digit',minute:'2-digit'})
@@ -391,8 +395,7 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='pèman') {
 
   const MSG_REFERRAL = `Envite yon moun serye k ap fè biznis rejwenn nou, epi w ap benefisye yon bonis ki evalye soti nan 1 pou rive 5% de kòb manm sa pral touche a. Ekri nou sou WhatsApp +50942449024.`
 
-  return `<div style="width:80mm;padding:4mm 3mm;background:#fff;color:#1a1a1a;font-family:'Courier New',monospace;font-size:10px;line-height:1.5">
-    <div style="text-align:center;border-bottom:2px solid #333;padding-bottom:5px;margin-bottom:5px">
+ return `<div style="width:${W};max-width:${W};padding:3mm 2mm;background:#fff;color:#1a1a1a;font-family:'Courier New',monospace;font-size:${W==='64mm'?'8.5px':'10px'};line-height:1.5">
       ${logo}
       <div style="font-family:Arial;font-weight:900;font-size:13px">${biz}</div>
       <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- SABOTAY-SÒL --</div>
@@ -411,10 +414,16 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='pèman') {
     </div>
 
     <div style="font-size:9px;margin-bottom:5px">
-      <div style="display:flex;justify-content:space-between"><span style="color:#555">Plan:</span><span style="font-weight:700">${plan.name}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:#555">Frekans:</span><span>${FREQ_LABELS[plan.frequency]?.ht||plan.frequency}${interval>1?` (touche chak ${interval}yèm)`:''}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:#555">Manm Aktif:</span><span>${activeMbrs}</span></div>
-      <div style="display:flex;justify-content:space-between"><span style="color:#555">Dat:</span><span>${txDate}</span></div>
+      <table style="width:100%;border-collapse:collapse">
+        <tr><td style="color:#555;white-space:nowrap;padding-right:6px">Plan:</td>
+            <td style="font-weight:700;text-align:right;word-break:break-word">${plan.name}</td></tr>
+        <tr><td style="color:#555;white-space:nowrap;padding-right:6px">Frekans:</td>
+            <td style="text-align:right">${FREQ_LABELS[plan.frequency]?.ht||plan.frequency}${interval>1?` (chak ${interval}yèm)`:''}</td></tr>
+        <tr><td style="color:#555;white-space:nowrap;padding-right:6px">Manm Aktif:</td>
+            <td style="text-align:right">${activeMbrs}</td></tr>
+        <tr><td style="color:#555;white-space:nowrap;padding-right:6px">Dat:</td>
+            <td style="text-align:right">${txDate}</td></tr>
+      </table>
     </div>
 
     <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner?'#C9A84C':'#ccc'};margin-bottom:5px;font-size:9px">
@@ -426,33 +435,63 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='pèman') {
     <div style="border-top:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
       ${type==='peman'?`
         <div style="font-weight:700;margin-bottom:3px">Dat Peye:</div>
-        ${paidDates.map(d=>`<div style="display:flex;justify-content:space-between"><span>${d.split('-').reverse().join('/')}</span><span style="font-weight:600;color:#16a34a">+${fmtAmt(plan.amount)} HTG</span></div>`).join('')}
-        ${fineTotal>0?`<div style="display:flex;justify-content:space-between;color:#e74c3c"><span>Amand:</span><span>+${fmtAmt(fineTotal)} HTG</span></div>`:''}
-        <div style="border-top:2px solid #111;padding-top:4px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-family:Arial;font-weight:900;font-size:12px">TOTAL PEYE</span>
-          <span style="font-family:Arial;font-weight:900;font-size:13px;color:#16a34a">${fmtAmt(paidDates.length*plan.amount+fineTotal)} HTG</span>
-        </div>
+        <table style="width:100%;border-collapse:collapse">
+          ${paidDates.map(d=>`
+            <tr>
+              <td style="font-family:monospace">${d.split('-').reverse().join('/')}</td>
+              <td style="text-align:right;font-weight:600;color:#16a34a">+${fmtAmt(plan.amount)} HTG</td>
+            </tr>
+          `).join('')}
+          ${fineTotal>0?`
+            <tr>
+              <td style="color:#e74c3c">Amand:</td>
+              <td style="text-align:right;color:#e74c3c">+${fmtAmt(fineTotal)} HTG</td>
+            </tr>
+          `:''}
+          <tr><td colspan="2" style="border-top:2px solid #111;padding-top:3px"></td></tr>
+          <tr>
+            <td style="font-family:Arial;font-weight:900;font-size:11px">TOTAL PEYE</td>
+            <td style="text-align:right;font-family:Arial;font-weight:900;font-size:12px;color:#16a34a">${fmtAmt(paidDates.length*plan.amount+fineTotal)} HTG</td>
+          </tr>
+        </table>
       `:type==='tirage'?`
         <div style="text-align:center;padding:8px 0">
           <div style="font-size:9px;color:#555;margin-bottom:4px">Moun Chwazi pa Tiraj:</div>
           <div style="font-family:Arial;font-weight:900;font-size:14px">${member.name}</div>
           <div style="font-size:9px;color:#555">Pozisyon #${member.position}</div>
-          <div style="margin-top:6px;font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">Pryim Sol: ${fmtAmt(payout)} HTG</div>
+          <div style="margin-top:6px;font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">Prim Sol: ${fmtAmt(payout)} HTG</div>
         </div>
       `:type==='kanpe'?`
         <div style="text-align:center;padding:8px 0;color:#e74c3c">
           <div style="font-weight:700">Manm sa a kanpe nan sol la.</div>
-          <div style="font-size:9px;margin-top:4px">Li ka resevwa kòb li lè sol la fini.</div>
+          <div style="font-size:9px;margin-top:4px">Li ka resevwa kob li le sol la fini.</div>
         </div>
       `:`
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Montan / Peman:</span><span style="font-weight:700">${fmtAmt(plan.amount)} HTG</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Peman Fèt:</span><span>${totalPaid}/${activeMbrs}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="color:#555">Total Kontribye:</span><span style="font-weight:700;color:#16a34a">${fmtAmt(amtPaid)} HTG</span></div>
-        ${fineTotal>0?`<div style="display:flex;justify-content:space-between;margin-bottom:2px;color:#e74c3c"><span>Total Amand:</span><span>${fmtAmt(fineTotal)} HTG</span></div>`:''}
-        <div style="border-top:2px solid #111;padding-top:4px;margin-top:4px;display:flex;justify-content:space-between;align-items:center">
-          <span style="font-family:Arial;font-weight:900;font-size:12px">PRYIM SOL</span>
-          <span style="font-family:Arial;font-weight:900;font-size:13px;color:#C9A84C">${fmtAmt(payout)} HTG</span>
-        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <tr>
+            <td style="color:#555;white-space:nowrap;padding-right:6px">Montan / Peman:</td>
+            <td style="text-align:right;font-weight:700">${fmtAmt(plan.amount)} HTG</td>
+          </tr>
+          <tr>
+            <td style="color:#555;white-space:nowrap;padding-right:6px">Peman Fet:</td>
+            <td style="text-align:right">${totalPaid}/${activeMbrs}</td>
+          </tr>
+          <tr>
+            <td style="color:#555;white-space:nowrap;padding-right:6px">Total Kontribye:</td>
+            <td style="text-align:right;font-weight:700;color:#16a34a">${fmtAmt(amtPaid)} HTG</td>
+          </tr>
+          ${fineTotal>0?`
+          <tr>
+            <td style="color:#e74c3c;white-space:nowrap;padding-right:6px">Total Amand:</td>
+            <td style="text-align:right;color:#e74c3c">${fmtAmt(fineTotal)} HTG</td>
+          </tr>
+          `:''}
+          <tr><td colspan="2" style="border-top:2px solid #111;padding-top:3px"></td></tr>
+          <tr>
+            <td style="font-family:Arial;font-weight:900;font-size:11px">PRYIM SOL</td>
+            <td style="text-align:right;font-family:Arial;font-weight:900;font-size:12px;color:#C9A84C">${fmtAmt(payout)} HTG</td>
+          </tr>
+        </table>
       `}
     </div>
 
@@ -504,17 +543,27 @@ function PlanStatusBadge({ status }) {
   )
 }
 
-function PrinterBtn({printer}) {
+// ── RECEIPT SIZE SELECTOR ──
+function ReceiptSizeBtn() {
+  const [size, setSize] = useState(
+    localStorage.getItem('receipt_size') || '80mm'
+  )
+  const toggle = () => {
+    const next = size === '80mm' ? '57mm' : '80mm'
+    setSize(next)
+    localStorage.setItem('receipt_size', next)
+    toast(`📄 Resi: ${next}`, { icon: '🖨️' })
+  }
   return (
-    <button onClick={printer.connected?printer.disconnect:printer.connect} disabled={printer.connecting}
-      style={{display:'flex',alignItems:'center',gap:5,padding:'9px 13px',borderRadius:10,border:'none',
-        cursor:'pointer',fontWeight:700,fontSize:12,transition:'all 0.2s',flexShrink:0,
-        background:printer.connected?'rgba(39,174,96,0.15)':'rgba(255,255,255,0.06)',
-        color:printer.connected?D.green:D.muted}}>
-      {printer.connecting
-        ?<span style={{width:13,height:13,border:`2px solid ${D.muted}40`,borderTopColor:D.muted,borderRadius:'50%',animation:'spin 0.8s linear infinite',display:'inline-block'}}/>
-        :printer.connected?<Bluetooth size={14}/>:<BluetoothOff size={14}/>}
-      <span className="printer-label">{printer.connected?'Printer OK':'Printer'}</span>
+    <button onClick={toggle} style={{
+      display: 'flex', alignItems: 'center', gap: 5,
+      padding: '9px 13px', borderRadius: 10, border: 'none',
+      cursor: 'pointer', fontWeight: 700, fontSize: 12,
+      background: size === '57mm' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.06)',
+      color: size === '57mm' ? D.blue : D.muted,
+      transition: 'all 0.2s', flexShrink: 0,
+    }}>
+      🖨️ {size}
     </button>
   )
 }
@@ -2231,7 +2280,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
           </div>
           <p style={{color:D.muted,margin:0,fontSize:11}}>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
         </div>
-        <PrinterBtn printer={printer}/>
+        <PrinterBtn printer={printer}/> <ReceiptSizeBtn />
         <button onClick={onEditPlan} title="Modifye Plan" style={{width:34,height:34,borderRadius:9,
           border:`1px solid ${D.border}`,background:'transparent',color:D.muted,cursor:'pointer',
           display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
@@ -3325,7 +3374,7 @@ export default function SabotayPage() {
               <p style={{color:D.muted,margin:'3px 0 0',fontSize:12}}>Jesyon Sol — PlusGroup</p>
             </div>
             <div className="page-head-actions" style={{display:'flex',alignItems:'center',gap:8}}>
-              <PrinterBtn printer={printer}/>
+              <PrinterBtn printer={printer}/> <ReceiptSizeBtn />
               <button className="btn-new-plan" onClick={()=>setShowCreate(true)} style={{
                 display:'flex',alignItems:'center',gap:7,padding:'10px 16px',borderRadius:11,
                 border:'none',cursor:'pointer',fontWeight:800,fontSize:13,
