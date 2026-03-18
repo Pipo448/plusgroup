@@ -153,13 +153,21 @@ router.delete('/payments/:paymentId',                    ctrl.unmarkPaid)
 router.get('/plans/:planId/members/:memberId/account',   ctrl.getMemberAccount)
 
 // GET /api/v1/sabotay/sol-account?phone=xxx
-router.get('/sol-account', auth, async (req, res) => {
+router.get('/sol-account', async (req, res) => {
   try {
     const { phone } = req.query
     if (!phone) return res.json({ account: null })
 
     const { tenantId } = req.user
-    const account = await sabotaySvc.findSolAccountByPhone(tenantId, phone)
+    const clean = phone.replace(/\s/g, '').trim()
+
+    const account = await prisma.solMemberAccount.findFirst({
+      where: { memberPhone: clean, tenantId },
+      select: {
+        id: true, username: true, plainPassword: true,
+        memberName: true, memberPhone: true, tenantId: true,
+      }
+    })
     return res.json({ account: account || null })
   } catch (err) {
     console.error('[SOL ACCOUNT BY PHONE]', err)
