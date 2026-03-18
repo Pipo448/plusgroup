@@ -495,7 +495,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(
       type === 'peman'  ? 'RESI PEMAN\n'        :
-      type === 'tirage' ? 'RESI TIRAJ AVEG\n'   :
+      type === 'tiraj' ? 'RESI TIRAJ AVEG\n'   :
       type === 'kanpe'  ? 'KANPE PATISIPASYON\n' :
                           'KONT MANM KREYE\n'
     ),
@@ -522,14 +522,14 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...encodeText('TOTAL PEYE: ' + fmt(totalAmt) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
       ...makeLine('Kontribisyon total:', fmt(amtPaid) + ' G', W), LF,
-    ] : type === 'tirage' ? [
+    ] : type === 'tiraj' ? [
       ...CMD.ALIGN_CENTER,
       ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
       ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
       ...CMD.SMALL_FONT, ...encodeText('Pozisyon #' + member.position + '\n'), ...CMD.NORMAL_FONT,
       ...divider('=', W), LF,
       ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('PRYIM SOL: ' + fmt(payout) + ' G\n'),
+      ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
       ...CMD.ALIGN_LEFT,
     ] : type === 'kanpe' ? [
@@ -544,7 +544,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...makeLine('Total Kontribye:', fmt(amtPaid) + ' G', W), LF,
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('PRYIM SOL: ' + fmt(payout) + ' G\n'),
+      ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
       ...CMD.ALIGN_LEFT,
     ]),
@@ -552,7 +552,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
     ...encodeText('Envite yon moun serye k ap fe biznis\n'),
     ...encodeText('rejwenn nou, epi w ap benefisye\n'),
-    ...encodeText('yon bonis ki evalye de 1 a 5%\n'),
+    ...encodeText('yon bonis ki evalye soti 1% rive 5%\n'),
     ...encodeText('de kob manm sa pral touche a.\n'),
     ...encodeText('Ekri nou sou WhatsApp:\n'),
     ...CMD.BOLD_ON, ...encodeText('+50942449024\n'), ...CMD.BOLD_OFF,
