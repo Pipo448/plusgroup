@@ -625,13 +625,14 @@ useEffect(() => {
   if (!data) return null
 
   const { member, plan, tenant } = data
+  if (!member || !plan) return null
 
   // Today lokal (evite UTC offset bug Ayiti UTC-5)
   const todayLocal = new Date()
   const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
 
   // ✅ Itilize activeMemberCount (dinamik) oswa maxMembers si plan fèmen
-const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 10
+const activeMemberCount = data?.plan?.activeMemberCount || data?.plan?.maxMembers || 10
 
 const dates       = getPaymentDates(plan.frequency, plan.createdAt, activeMemberCount)
 const winDate     = dates[member.position - 1]

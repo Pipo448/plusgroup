@@ -85,20 +85,20 @@ model Tenant {
   payments             Payment[]
   productCategories    ProductCategory[]
   products             Product[]
+  push_subscriptions   PushSubscription[]
   quoteItems           QuoteItem[]
   quotes               Quote[]
   reservations         Reservation[]
   roomTypes            RoomType[]
   rooms                Room[]
   sabotayPlans         SabotayPlan[]
+  solExchanges         SolPositionExchange[]
+  solPushSubscriptions SolPushSubscription[]
   stockMovements       StockMovement[]
   subscriptions        TenantSubscription[]
   creator              SuperAdmin?           @relation(fields: [createdBy], references: [id])
   plan                 SubscriptionPlan?     @relation(fields: [planId], references: [id])
   users                User[]
-  pushSubscriptions    PushSubscription[]
-  solPushSubscriptions SolPushSubscription[]
-  solExchanges         SolPositionExchange[]
 
   @@map("tenants")
 }
@@ -169,44 +169,44 @@ model BranchUser {
 }
 
 model User {
-  id                      String            @id @default(uuid())
-  tenantId                String            @map("tenant_id")
-  fullName                String            @map("full_name") @db.VarChar(150)
-  email                   String            @db.VarChar(150)
-  passwordHash            String            @map("password_hash")
-  phone                   String?           @db.VarChar(50)
-  avatarUrl               String?           @map("avatar_url")
-  role                    UserRole          @default(cashier)
-  permissions             Json              @default("{}")
-  preferredLang           DefaultLanguage   @default(ht) @map("preferred_lang")
-  isActive                Boolean           @default(true) @map("is_active")
-  lastLoginAt             DateTime?         @map("last_login_at")
-  passwordResetToken      String?           @map("password_reset_token")
-  passwordResetExpires    DateTime?         @map("password_reset_expires")
-  createdBy               String?           @map("created_by")
-  createdAt               DateTime          @default(now()) @map("created_at")
-  updatedAt               DateTime          @updatedAt @map("updated_at")
-  passwordChangedAt       DateTime?         @map("password_changed_at") @db.Timestamptz(6)
+  id                      String             @id @default(uuid())
+  tenantId                String             @map("tenant_id")
+  fullName                String             @map("full_name") @db.VarChar(150)
+  email                   String             @db.VarChar(150)
+  passwordHash            String             @map("password_hash")
+  phone                   String?            @db.VarChar(50)
+  avatarUrl               String?            @map("avatar_url")
+  role                    UserRole           @default(cashier)
+  permissions             Json               @default("{}")
+  preferredLang           DefaultLanguage    @default(ht) @map("preferred_lang")
+  isActive                Boolean            @default(true) @map("is_active")
+  lastLoginAt             DateTime?          @map("last_login_at")
+  passwordResetToken      String?            @map("password_reset_token")
+  passwordResetExpires    DateTime?          @map("password_reset_expires")
+  createdBy               String?            @map("created_by")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+  passwordChangedAt       DateTime?          @map("password_changed_at") @db.Timestamptz(6)
   activityLogs            ActivityLog[]
   branchUsers             BranchUser[]
   clients                 Client[]
-  hotelPaymentsCreated    HotelPayment[]    @relation("HotelPaymentCreatedBy")
-  hotelServicesCreated    HotelService[]    @relation("HotelServiceCreatedBy")
-  invoicesCancelled       Invoice[]         @relation("InvoiceCancelledBy")
-  invoicesCreated         Invoice[]         @relation("InvoiceCreatedBy")
-  kaneAccountsCreated     KaneEpay[]        @relation("KaneCreatedBy")
-  kaneTransactionsCreated KaneTransaction[] @relation("KaneTxCreatedBy")
+  hotelPaymentsCreated    HotelPayment[]     @relation("HotelPaymentCreatedBy")
+  hotelServicesCreated    HotelService[]     @relation("HotelServiceCreatedBy")
+  invoicesCancelled       Invoice[]          @relation("InvoiceCancelledBy")
+  invoicesCreated         Invoice[]          @relation("InvoiceCreatedBy")
+  kaneAccountsCreated     KaneEpay[]         @relation("KaneCreatedBy")
+  kaneTransactionsCreated KaneTransaction[]  @relation("KaneTxCreatedBy")
   notifications           Notification[]
   payments                Payment[]
   products                Product[]
-  quotesCreated           Quote[]           @relation("QuoteCreatedBy")
-  reservationsCreated     Reservation[]     @relation("ReservationCreatedBy")
-  sabotayMembersCreated   SabotayMember[]   @relation("SabotayMemberCreatedBy")
-  sabotayPaymentsCreated  SabotayPayment[]  @relation("SabotayPaymentCreatedBy")
-  sabotayPlansCreated     SabotayPlan[]     @relation("SabotayPlanCreatedBy")
+  push_subscriptions      PushSubscription[]
+  quotesCreated           Quote[]            @relation("QuoteCreatedBy")
+  reservationsCreated     Reservation[]      @relation("ReservationCreatedBy")
+  sabotayMembersCreated   SabotayMember[]    @relation("SabotayMemberCreatedBy")
+  sabotayPaymentsCreated  SabotayPayment[]   @relation("SabotayPaymentCreatedBy")
+  sabotayPlansCreated     SabotayPlan[]      @relation("SabotayPlanCreatedBy")
   stockMovements          StockMovement[]
-  tenant                  Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  pushSubscriptions       PushSubscription[]
+  tenant                  Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@map("users")
@@ -452,12 +452,12 @@ model Payment {
   method       PaymentMethod   @default(cash)
   reference    String?         @db.VarChar(200)
   paymentDate  DateTime        @default(now()) @map("payment_date") @db.Timestamptz(6)
-  dueDate      DateTime?       @map("due_date") @db.Timestamptz(6)
-  amountGiven  Decimal         @default(0) @map("amount_given") @db.Decimal(14, 2)
-  change       Decimal         @default(0) @db.Decimal(14, 2)
   notes        String?
   createdBy    String?         @map("created_by")
   createdAt    DateTime        @default(now()) @map("created_at")
+  dueDate      DateTime?       @map("due_date") @db.Timestamptz(6)
+  amountGiven  Decimal?        @default(0) @map("amount_given") @db.Decimal(14, 2)
+  change       Decimal?        @default(0) @db.Decimal(14, 2)
   creator      User?           @relation(fields: [createdBy], references: [id])
   invoice      Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -621,17 +621,17 @@ model SabotayPlan {
   interval            Int                   @default(1)
   regleman            String?
   dueTime             String                @default("08:00") @map("due_time") @db.VarChar(5)
-  dueTimeEnd          String?               @default("15:00")
   warningDelayDays    Int                   @default(3) @map("warningDelayDays")
-  // ✅ Frè Mache Men Sol
-  exchangeFeePct      Decimal               @default(10) @map("exchange_fee_pct") @db.Decimal(5, 2)
-  exchangeFeeAdminPct Decimal               @default(50) @map("exchange_fee_admin_pct") @db.Decimal(5, 2)
+  exchangeFeePct      Decimal?              @default(10) @map("exchange_fee_pct") @db.Decimal(5, 2)
+  exchangeFeeAdminPct Decimal?              @default(50) @map("exchange_fee_admin_pct") @db.Decimal(5, 2)
+  dueTimeEnd          String?               @default("15:00")
+  stopPenaltyPct      Float?                @default(0)
   members             SabotayMember[]
   payments            SabotayPayment[]
-  exchanges           SolPositionExchange[]
   branch              Branch?               @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   creator             User?                 @relation("SabotayPlanCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
   tenant              Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  exchanges           SolPositionExchange[]
 
   @@index([tenantId], map: "sabotay_plans_tenant_idx")
   @@index([branchId], map: "sabotay_plans_branch_idx")
@@ -655,7 +655,7 @@ model SabotayMember {
   hasWon      Boolean          @default(false) @map("has_won")
   isOwnerSlot Boolean          @default(false) @map("is_owner_slot")
   fines       Json             @default("{}")
-  status      String           @default("active")
+  status      String           @default("active") @db.VarChar(20)
   creator     User?            @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
   plan        SabotayPlan      @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   payments    SabotayPayment[]
@@ -671,21 +671,24 @@ model SabotayPayment {
   planId    String        @map("plan_id")
   memberId  String        @map("member_id")
   amount    Decimal       @db.Decimal(14, 2)
-  paidDate  DateTime?     @map("paid_date") @db.Date
-  dueDate   DateTime?     @map("due_date") @db.Date
-  timing    String?
-  fineAmt   Decimal?      @map("fine_amt") @db.Decimal(14, 2)
-  method    String?       @default("cash")
+  dueDate   DateTime      @map("due_date") @db.Date
+  paid_at   DateTime?     @db.Timestamptz(6)
+  method    String        @default("cash") @db.VarChar(20)
   notes     String?
   createdBy String?       @map("created_by")
   createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  timing    String?       @db.VarChar(10)
+  fineAmt   Decimal       @default(0) @map("fine_amt") @db.Decimal(14, 2)
+  paidDate  DateTime?     @map("paid_date") @db.Date
+  updatedAt DateTime?     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   creator   User?         @relation("SabotayPaymentCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
   member    SabotayMember @relation(fields: [memberId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   plan      SabotayPlan   @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
+  @@unique([planId, memberId, dueDate], map: "sabotay_payments_unique_per_date")
   @@index([planId], map: "sabotay_payments_plan_idx")
   @@index([memberId], map: "sabotay_payments_member_idx")
+  @@index([dueDate], map: "sabotay_payments_date_idx")
   @@map("sabotay_payments")
 }
 
@@ -693,7 +696,6 @@ model SolMemberAccount {
   id                   String                @id @default(uuid())
   username             String                @unique
   passwordHash         String                @map("password_hash")
-  plainPassword        String?               @map("plain_password")
   tenantId             String                @map("tenant_id")
   memberId             String?               @map("member_id")
   memberName           String                @map("member_name")
@@ -707,22 +709,23 @@ model SolMemberAccount {
   planMaxMembers       Int?                  @map("plan_max_members")
   planCreatedAt        String?               @map("plan_created_at")
   planDueTime          String                @default("08:00") @map("plan_due_time")
+  payments             Json                  @default("{}") @map("payments")
+  paymentTimings       Json                  @default("{}") @map("payment_timings")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
   planInterval         Int                   @default(1) @map("plan_interval")
   planFeePerMember     Float                 @default(0) @map("plan_fee_per_member")
   planPenalty          Float                 @default(0) @map("plan_penalty")
   planRegleman         String?               @map("plan_regleman")
   isOwnerSlot          Boolean               @default(false) @map("is_owner_slot")
   hasWon               Boolean               @default(false) @map("has_won")
-  payments             Json                  @default("{}") @map("payments")
-  paymentTimings       Json                  @default("{}") @map("payment_timings")
   fines                Json                  @default("{}")
+  plainPassword        String?               @map("plain_password")
   status               String                @default("active")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  positions            SolMemberPosition[]
-  solPushSubscriptions SolPushSubscription[]
+  sol_member_positions SolMemberPosition[]
   exchangesInitiated   SolPositionExchange[] @relation("ExchangeInitiator")
   exchangesReceived    SolPositionExchange[] @relation("ExchangeTarget")
+  solPushSubscriptions SolPushSubscription[]
 
   @@index([tenantId], map: "sol_member_accounts_tenant_idx")
   @@index([memberId], map: "sol_member_accounts_member_idx")
@@ -870,7 +873,128 @@ model HotelPayment {
   @@map("hotel_payments")
 }
 
-model AdminAuditLog {
+model SolMemberPosition {
+  id                  String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  accountId           String
+  tenantId            String
+  memberId            String
+  memberPosition      Int
+  planId              String
+  planName            String?
+  planAmount          Decimal?         @default(0) @db.Decimal(12, 2)
+  planFee             Decimal?         @default(0) @db.Decimal(12, 2)
+  planFrequency       String?
+  planMaxMembers      Int?             @default(0)
+  planStartDate       String?
+  planDueTime         String?          @default("08:00")
+  planInterval        Int?             @default(1)
+  planFeePerMember    Decimal?         @default(0) @db.Decimal(12, 2)
+  planPenalty         Decimal?         @default(0) @db.Decimal(12, 2)
+  planRegleman        String?
+  isOwnerSlot         Boolean?         @default(false)
+  hasWon              Boolean?         @default(false)
+  preferredDate       String?
+  payments            Json?            @default("{}")
+  paymentTimings      Json?            @default("{}")
+  fines               Json?            @default("{}")
+  status              String?          @default("active") @db.VarChar(20)
+  createdAt           DateTime?        @default(now()) @db.Timestamp(6)
+  updatedAt           DateTime?        @default(now()) @db.Timestamp(6)
+  sol_member_accounts SolMemberAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("sol_member_positions")
+}
+
+model PushSubscription {
+  id        String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id String
+  user_id   String?
+  endpoint  String    @unique
+  p256dh    String    @default("")
+  auth      String    @default("")
+  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime? @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenants   Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users     User?     @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([endpoint], map: "idx_push_subs_endpoint")
+  @@index([tenant_id], map: "idx_push_subs_tenant")
+  @@index([user_id], map: "idx_push_subs_user")
+  @@map("push_subscriptions")
+}
+
+model SolPushSubscription {
+  id        String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId  String           @map("tenant_id")
+  accountId String           @map("account_id")
+  memberId  String           @map("member_id")
+  endpoint  String           @unique
+  p256dh    String           @default("") @map("p256dh")
+  auth      String           @default("")
+  createdAt DateTime?        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime?        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  account   SolMemberAccount @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenantId], map: "idx_sol_push_tenant")
+  @@index([accountId], map: "idx_sol_push_account")
+  @@index([memberId], map: "idx_sol_push_member")
+  @@index([endpoint], map: "idx_sol_push_endpoint")
+  @@map("sol_push_subscriptions")
+}
+
+model SolPositionExchange {
+  id              String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId        String            @map("tenant_id")
+  planId          String            @map("plan_id")
+  initiatorId     String            @map("initiator_id")
+  initiatorPos    Int               @map("initiator_pos")
+  targetId        String?           @map("target_id")
+  targetPos       Int?              @map("target_pos")
+  offerType       String            @default("buy") @map("offer_type")
+  newInitiatorPos Int?              @map("new_initiator_pos")
+  newTargetPos    Int?              @map("new_target_pos")
+  feePct          Decimal?          @default(0) @map("fee_pct") @db.Decimal(5, 2)
+  feeAdminPct     Decimal?          @default(50) @map("fee_admin_pct") @db.Decimal(5, 2)
+  feeAmount       Decimal?          @default(0) @map("fee_amount") @db.Decimal(14, 2)
+  feeAdminAmt     Decimal?          @default(0) @map("fee_admin_amt") @db.Decimal(14, 2)
+  feeSellerAmt    Decimal?          @default(0) @map("fee_seller_amt") @db.Decimal(14, 2)
+  positionDiff    Int?              @default(0) @map("position_diff")
+  status          String            @default("pending")
+  notes           String?
+  expiresAt       DateTime?         @default(dbgenerated("(now() + '48:00:00'::interval)")) @map("expires_at") @db.Timestamptz(6)
+  createdAt       DateTime?         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime?         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  initiator       SolMemberAccount  @relation("ExchangeInitiator", fields: [initiatorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plan            SabotayPlan       @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  target          SolMemberAccount? @relation("ExchangeTarget", fields: [targetId], references: [id], onUpdate: NoAction)
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenantId], map: "idx_sol_exc_tenant")
+  @@index([planId], map: "idx_sol_exc_plan")
+  @@index([initiatorId], map: "idx_sol_exc_init")
+  @@index([targetId], map: "idx_sol_exc_target")
+  @@index([status], map: "idx_sol_exc_status")
+  @@map("sol_position_exchanges")
+}
+
+model SabotayAdminCash {
+  id          String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId    String
+  planId      String
+  planName    String
+  type        String
+  amount      Float
+  memberId    String?
+  memberName  String?
+  description String?
+  createdAt   DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([tenantId])
+  @@index([planId])
+}
+
+model admin_audit_logs {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   tenant_id    String?   @db.Uuid
   action       String    @db.VarChar(100)
@@ -882,102 +1006,6 @@ model AdminAuditLog {
 
   @@index([tenant_id, created_at(sort: Desc)], map: "idx_audit_tenant")
 }
-
-model SolMemberPosition {
-  id             String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  accountId      String           @map("account_id")
-  tenantId       String           @map("tenant_id")
-  memberId       String           @map("member_id")
-  memberPosition Int              @map("member_position")
-  planId         String           @map("plan_id")
-  planName       String?          @map("plan_name")
-  planAmount     Float            @default(0) @map("plan_amount")
-  status         String           @default("active")
-  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  account        SolMemberAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId])
-  @@index([memberId])
-  @@index([planId])
-  @@map("sol_member_positions")
-}
-
-// ✅ Push Subscriptions — Admin/User (PlusGroup app)
-model PushSubscription {
-  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId  String
-  userId    String?
-  endpoint  String   @unique
-  p256dh    String   @default("")
-  auth      String   @default("")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@map("push_subscriptions")
-}
-
-// ✅ Push Subscriptions — Manm Sol (pòtal Sol)
-model SolPushSubscription {
-  id        String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId  String           @map("tenant_id")
-  accountId String           @map("account_id")
-  memberId  String           @map("member_id")
-  endpoint  String           @unique
-  p256dh    String           @default("") @map("p256dh")
-  auth      String           @default("")
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
-  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  account   SolMemberAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId], map: "idx_sol_push_tenant")
-  @@index([accountId], map: "idx_sol_push_account")
-  @@index([memberId], map: "idx_sol_push_member")
-  @@map("sol_push_subscriptions")
-}
-
-// ✅ Echanj Pozisyon Sol — Mache Men Sol
-model SolPositionExchange {
-  id              String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId        String           @map("tenant_id")
-  planId          String           @map("plan_id")
-  initiatorId     String           @map("initiator_id")
-  initiatorPos    Int              @map("initiator_pos")
-  targetId        String?          @map("target_id")
-  targetPos       Int?             @map("target_pos")
-  offerType       String           @default("buy") @map("offer_type")
-  newInitiatorPos Int?             @map("new_initiator_pos")
-  newTargetPos    Int?             @map("new_target_pos")
-  feePct          Decimal          @default(0) @map("fee_pct") @db.Decimal(5, 2)
-  feeAdminPct     Decimal          @default(50) @map("fee_admin_pct") @db.Decimal(5, 2)
-  feeAmount       Decimal          @default(0) @map("fee_amount") @db.Decimal(14, 2)
-  feeAdminAmt     Decimal          @default(0) @map("fee_admin_amt") @db.Decimal(14, 2)
-  feeSellerAmt    Decimal          @default(0) @map("fee_seller_amt") @db.Decimal(14, 2)
-  positionDiff    Int              @default(0) @map("position_diff")
-  status          String           @default("pending")
-  notes           String?
-  expiresAt       DateTime         @default(dbgenerated("(now() + interval '48 hours')")) @map("expires_at")
-  createdAt       DateTime         @default(now()) @map("created_at")
-  updatedAt       DateTime         @updatedAt @map("updated_at")
-  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan            SabotayPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
-  initiator       SolMemberAccount @relation("ExchangeInitiator", fields: [initiatorId], references: [id], onDelete: Cascade)
-  target          SolMemberAccount? @relation("ExchangeTarget", fields: [targetId], references: [id], onDelete: SetNull)
-
-  @@index([tenantId], map: "idx_sol_exc_tenant")
-  @@index([planId], map: "idx_sol_exc_plan")
-  @@index([initiatorId], map: "idx_sol_exc_init")
-  @@index([targetId], map: "idx_sol_exc_target")
-  @@index([status], map: "idx_sol_exc_status")
-  @@map("sol_position_exchanges")
-}
-
-// ─────────────────────────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────────────────────────
 
 enum TenantStatus {
   pending
@@ -1028,8 +1056,8 @@ enum PaymentMethod {
   moncash
   natcash
   check
-  credit
   other
+  credit
 }
 
 enum StockMovementType {
@@ -1072,20 +1100,4 @@ enum ServiceType {
   spa
   room_service
   other
-}
-
-model SabotayAdminCash {
-  id          String   @id @default(cuid())
-  tenantId    String
-  planId      String
-  planName    String
-  type        String   // 'stop_penalty' | 'exchange_fee' | 'late_fine' | 'fee_per_member'
-  amount      Float
-  memberId    String?
-  memberName  String?
-  description String?
-  createdAt   DateTime @default(now())
-
-  @@index([tenantId])
-  @@index([planId])
 }
