@@ -561,7 +561,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...CMD.BOLD_ON,
     ...encodeText('Mesi! / Merci!\n'),
     ...CMD.BOLD_OFF, ...CMD.SMALL_FONT,
-    ...encodeText('PlusGroup — Tel: +50942449024\n'),
+    ...encodeText('PlusGroup Tel: +50942449024\n'),
     ...CMD.NORMAL_FONT, LF, LF, ...CMD.CUT,
   ]
 
