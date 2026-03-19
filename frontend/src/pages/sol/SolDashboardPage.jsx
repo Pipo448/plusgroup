@@ -1,243 +1,169 @@
 // src/pages/sol/SolDashboardPage.jsx
-// Tableau de bord manm Sabotay Sol
+// Tableau de bord manm Sabotay Sol — Design Pwofesyonèl v2
 // Wout: /app/sol/dashboard
-//hh1
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   LogOut, RefreshCw, Trophy, CheckCircle, Clock, Star, Bell, Key,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, Wallet, TrendingUp, CreditCard, Shield,
 } from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
-// ─────────────────────────────────────────────────────────────
-// DESIGN TOKENS
-// ─────────────────────────────────────────────────────────────
 const D = {
-  bg:        '#060f1e',
-  card:      '#0d1b2a',
-  border:    'rgba(201,168,76,0.18)',
-  borderSub: 'rgba(255,255,255,0.07)',
+  bg:        '#04090f',
+  bgGrad:    'radial-gradient(ellipse at 20% 0%, #0a1628 0%, #04090f 60%)',
+  card:      '#0a1520',
+  cardHov:   '#0f1e2e',
+  border:    'rgba(201,168,76,0.15)',
+  borderSub: 'rgba(255,255,255,0.06)',
   gold:      '#C9A84C',
-  goldBtn:   'linear-gradient(135deg,#C9A84C,#8B6914)',
-  goldDim:   'rgba(201,168,76,0.10)',
-  green:     '#27ae60', greenBg:  'rgba(39,174,96,0.12)',
-  red:       '#e74c3c', redBg:    'rgba(231,76,60,0.10)',
-  orange:    '#f39c12', orangeBg: 'rgba(243,156,18,0.10)',
-  blue:      '#3B82F6', blueBg:   'rgba(59,130,246,0.10)',
-  text:      '#e8eaf0',
-  muted:     '#6b7a99',
+  goldLight: '#E8C87A',
+  goldBtn:   'linear-gradient(135deg,#E8C87A 0%,#C9A84C 50%,#8B6914 100%)',
+  goldDim:   'rgba(201,168,76,0.08)',
+  green:     '#22c55e', greenBg: 'rgba(34,197,94,0.10)',
+  red:       '#ef4444', redBg:   'rgba(239,68,68,0.10)',
+  orange:    '#f59e0b', orangeBg:'rgba(245,158,11,0.10)',
+  blue:      '#60a5fa', blueBg:  'rgba(96,165,250,0.10)',
+  teal:      '#14b8a6', tealBg:  'rgba(20,184,166,0.08)',
+  text:      '#f0f4ff',
+  muted:     '#5a6a82',
+  mutedLt:   '#8899aa',
 }
 
-// ─────────────────────────────────────────────────────────────
-// GLOBAL STYLES — responsivite mobile
-// ─────────────────────────────────────────────────────────────
 const GLOBAL_STYLES = `
-  *, *::before, *::after { box-sizing: border-box; }
-
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @keyframes spin    { to { transform: rotate(360deg) } }
-  @keyframes fadeUp  { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
-  @keyframes shimmer { from { opacity:0.6 } to { opacity:1 } }
-
-  /* ── Scrollbar piti */
-  .sol-scroll::-webkit-scrollbar { width: 3px; height: 3px; }
-  .sol-scroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
-
-  /* ── Placeholders */
-  .sol-inp::placeholder { color: #2a3a54; }
-  .sol-inp:focus { border-color: rgba(201,168,76,0.5) !important; outline: none; }
-
-  /* ── Touch tap highlight retire */
-  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-
-  /* ── Stats grid: 2 kolòn sou >=360px, 1 kolòn anba */
-  .sol-stats-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  @media (max-width: 340px) {
-    .sol-stats-grid { grid-template-columns: 1fr; }
-  }
-
-  /* ── Payment history row */
-  .sol-pay-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    gap: 8px;
-    min-width: 0;
-  }
-  .sol-pay-left {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    flex: 1;
-    min-width: 0;
-  }
-  .sol-pay-right {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  /* ── Tabs: plein largeur mobile */
-  .sol-tabs {
-    display: flex;
-    gap: 6px;
-    margin-bottom: 12px;
-  }
-  .sol-tab-btn {
-    flex: 1;
-    padding: 10px 8px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 700;
-    text-align: center;
-    transition: all 0.15s;
-    white-space: nowrap;
-  }
-
-  /* ── Header */
-  .sol-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px;
-    gap: 8px;
-  }
-  .sol-header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-    flex: 1;
-  }
-  .sol-header-title {
-    font-size: 12px;
-    font-weight: 800;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .sol-header-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-  }
-
-  /* ── Kont card header */
-  .sol-kont-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-  .sol-kont-amount {
-    font-family: monospace;
-    font-weight: 900;
-    font-size: 22px;
-    margin: 0;
-  }
-  @media (max-width: 380px) {
-    .sol-kont-amount { font-size: 18px; }
-    .sol-pay-row { padding: 9px 12px; }
-    .sol-tab-btn { font-size: 11px; padding: 9px 6px; }
-  }
-  @media (max-width: 320px) {
-    .sol-kont-amount { font-size: 15px; }
-    .sol-header { padding: 10px 11px; }
-  }
-
-  /* ── Calendar responsive */
-  .sol-cal-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 2px;
-  }
-  @media (max-width: 360px) {
-    .sol-cal-grid { gap: 1px; }
-  }
-  .sol-cal-day {
-    aspect-ratio: 1;
-    border-radius: 7px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  .sol-cal-day span {
-    font-size: 10px;
-  }
-  @media (max-width: 360px) {
-    .sol-cal-day span { font-size: 9px; }
-  }
-  @media (max-width: 300px) {
-    .sol-cal-day span { font-size: 8px; }
-  }
-
-  /* ── Modal responsive */
-  .sol-modal-sheet {
-    background: #0d1b2a;
-    border-radius: 20px 20px 0 0;
-    width: 100%;
-    max-width: 440px;
-    padding: 24px 18px 40px;
-    max-height: 90vh;
+  @keyframes fadeUp  { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
+  @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
+  @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
+  html { scroll-behavior: smooth; }
+  .sol-root { min-height: 100vh; background: ${D.bgGrad}; font-family: 'DM Sans', sans-serif; color: ${D.text}; }
+  .sol-layout { display: flex; min-height: 100vh; }
+  .sol-sidebar {
+    width: 260px; flex-shrink: 0;
+    background: rgba(8,16,26,0.97);
+    border-right: 1px solid ${D.border};
+    position: sticky; top: 0; height: 100vh;
+    display: flex; flex-direction: column;
+    padding: 28px 20px;
+    backdrop-filter: blur(20px);
     overflow-y: auto;
   }
-  @media (min-width: 600px) {
-    .sol-modal-sheet {
-      border-radius: 16px;
-      margin: 20px;
-      max-height: 85vh;
-    }
+  .sol-main { flex: 1; min-width: 0; padding: 36px 48px; max-width: 900px; }
+  @media (max-width: 1000px) { .sol-main { padding: 28px 32px; } }
+  @media (max-width: 900px) { .sol-sidebar { display: none !important; } .sol-main { padding: 16px 14px; max-width: 100%; } }
+  .sol-mobile-header {
+    display: none; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: rgba(8,16,26,0.98);
+    border-bottom: 1px solid ${D.border};
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(20px);
   }
-
-  /* ── Pèfòmans badges wrap */
-  .sol-score-row {
-    display: flex;
-    gap: 10px;
-    font-size: 11px;
-    flex-wrap: wrap;
+  @media (max-width: 900px) { .sol-mobile-header { display: flex; } }
+  .sol-hero {
+    background: linear-gradient(145deg, #111e30 0%, #0c1826 50%, #08111e 100%);
+    border: 1px solid ${D.border};
+    border-radius: 24px; padding: 36px; margin-bottom: 24px;
+    position: relative; overflow: hidden;
   }
-  @media (max-width: 320px) {
-    .sol-score-row { gap: 7px; font-size: 10px; }
+  .sol-hero::before {
+    content: ''; position: absolute; top: -80px; right: -80px;
+    width: 280px; height: 280px;
+    background: radial-gradient(circle, rgba(201,168,76,0.1) 0%, transparent 70%);
+    pointer-events: none;
   }
-
-  /* ── Alert banner */
-  .sol-alert {
-    border-radius: 14px;
-    padding: 12px 14px;
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+  @media (max-width: 900px) { .sol-hero { padding: 20px; border-radius: 18px; margin-bottom: 16px; } }
+  .sol-stats-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 14px; margin-bottom: 20px;
   }
-  @media (max-width: 360px) {
-    .sol-alert { padding: 10px 12px; gap: 8px; }
+  @media (max-width: 900px) { .sol-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; } }
+  @media (max-width: 380px) { .sol-stats-grid { grid-template-columns: 1fr; } }
+  .sol-stat-card {
+    background: ${D.card}; border: 1px solid ${D.border};
+    border-radius: 18px; padding: 20px 22px;
+    transition: all 0.2s ease;
   }
+  .sol-stat-card:hover { background: ${D.cardHov}; border-color: rgba(201,168,76,0.3); transform: translateY(-2px); }
+  @media (max-width: 900px) { .sol-stat-card { padding: 14px 15px; border-radius: 14px; } }
+  .sol-tabs {
+    display: flex; gap: 4px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid ${D.borderSub};
+    border-radius: 14px; padding: 4px; margin-bottom: 20px;
+  }
+  .sol-tab-btn {
+    flex: 1; padding: 11px 12px; border-radius: 11px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    font-family: 'DM Sans', sans-serif; text-align: center;
+    transition: all 0.18s ease; border: none; white-space: nowrap;
+  }
+  @media (max-width: 400px) { .sol-tab-btn { font-size: 11px; padding: 9px 6px; } }
+  .sol-pay-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 22px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    gap: 10px; transition: background 0.15s;
+  }
+  .sol-pay-row:hover { background: rgba(255,255,255,0.02); }
+  .sol-pay-row:last-child { border-bottom: none; }
+  @media (max-width: 900px) { .sol-pay-row { padding: 10px 14px; } }
+  .sol-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  @media (max-width: 380px) { .sol-cal-grid { gap: 2px; } }
+  .sol-cal-day {
+    aspect-ratio: 1; border-radius: 9px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .sol-modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(0,0,0,0.88); backdrop-filter: blur(10px);
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  @media (min-width: 600px) { .sol-modal-overlay { align-items: center; } }
+  .sol-modal-sheet {
+    background: linear-gradient(160deg, #0f1e30 0%, #0a1520 100%);
+    border: 1px solid ${D.border};
+    border-radius: 24px 24px 0 0;
+    width: 100%; max-width: 520px;
+    padding: 28px 26px 48px; max-height: 92vh; overflow-y: auto;
+    animation: slideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  @media (min-width: 600px) { .sol-modal-sheet { border-radius: 24px; animation: fadeUp 0.25s ease; } }
+  .sol-modal-sheet::-webkit-scrollbar { width: 3px; }
+  .sol-modal-sheet::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
+  .sol-scroll::-webkit-scrollbar { width: 3px; }
+  .sol-scroll::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.15); border-radius: 2px; }
+  .sol-inp::placeholder { color: #2a3a54; }
+  .sol-inp:focus { border-color: rgba(201,168,76,0.5) !important; outline: none; box-shadow: 0 0 0 3px rgba(201,168,76,0.08); }
+  .sol-alert { border-radius: 18px; padding: 18px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 14px; animation: fadeUp 0.3s ease; }
+  @media (max-width: 900px) { .sol-alert { padding: 13px 15px; gap: 10px; border-radius: 14px; margin-bottom: 14px; } }
+  button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  .sol-nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 14px; border-radius: 10px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    color: ${D.muted}; transition: all 0.15s; border: 1px solid transparent;
+    background: transparent; width: 100%; text-align: left;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .sol-nav-item:hover { background: rgba(255,255,255,0.04); color: ${D.text}; }
+  .sol-nav-item.active { background: ${D.goldDim}; color: ${D.gold}; border-color: ${D.border}; }
+  .sol-score-row { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; }
+  @media (max-width: 400px) { .sol-score-row { gap: 8px; font-size: 11px; } }
+  .sol-progress-track { height: 6px; border-radius: 6px; background: rgba(255,255,255,0.06); overflow: hidden; }
+  .sol-progress-fill { height: 100%; border-radius: 6px; background: ${D.goldBtn}; transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+  .sol-mobile-actions { display: none; }
+  @media (max-width: 900px) { .sol-mobile-actions { display: flex; flex-direction: column; padding: 0 0 50px; gap: 10px; margin-top: 16px; } }
 `
 
-// ─────────────────────────────────────────────────────────────
-// CONFIG
-// ─────────────────────────────────────────────────────────────
 const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0 })
 
-// ─────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────
 function getPaymentDates(frequency, startDate, count) {
   const dates = []
   const parseDateLocal = (ds) => {
@@ -246,37 +172,28 @@ function getPaymentDates(frequency, startDate, count) {
     return new Date(parts[0], parts[1] - 1, parts[2])
   }
   const toKey = (d) => {
-    const y   = d.getFullYear()
-    const m   = String(d.getMonth() + 1).padStart(2, '0')
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
     return `${y}-${m}-${day}`
   }
   const cur = parseDateLocal(startDate)
   const advance = () => {
     switch (frequency) {
-      case 'daily':
-        cur.setDate(cur.getDate() + 1); break
-      case 'weekly_saturday':
-      case 'saturday':
+      case 'daily': cur.setDate(cur.getDate() + 1); break
+      case 'weekly_saturday': case 'saturday':
         cur.setDate(cur.getDate() + ((6 - cur.getDay() + 7) % 7 || 7)); break
-      case 'weekly_monday':
-      case 'weekly':
+      case 'weekly_monday': case 'weekly':
         cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7 || 7)); break
-      case 'biweekly':
-        cur.setDate(cur.getDate() + 14); break
-      case 'monthly':
-        cur.setMonth(cur.getMonth() + 1); break
+      case 'biweekly': cur.setDate(cur.getDate() + 14); break
+      case 'monthly': cur.setMonth(cur.getMonth() + 1); break
       case 'weekdays':
         do { cur.setDate(cur.getDate() + 1) } while ([0, 6].includes(cur.getDay())); break
-      default:
-        cur.setDate(cur.getDate() + 1)
+      default: cur.setDate(cur.getDate() + 1)
     }
   }
   dates.push(toKey(cur))
-  for (let i = 1; i < count; i++) {
-    advance()
-    dates.push(toKey(new Date(cur)))
-  }
+  for (let i = 1; i < count; i++) { advance(); dates.push(toKey(new Date(cur))) }
   return dates
 }
 
@@ -286,17 +203,13 @@ const FREQ_LABELS = {
   saturday: 'Chak Samdi', weekly: 'Chak Lendi',
 }
 
-// ─────────────────────────────────────────────────────────────
-// UI ATOMS
-// ─────────────────────────────────────────────────────────────
 function PayBadge({ paid }) {
   return (
     <span style={{
-      padding: '2px 7px', borderRadius: 20, fontWeight: 700, fontSize: 10,
+      padding: '3px 8px', borderRadius: 20, fontWeight: 700, fontSize: 10,
       display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
-      background: paid ? D.greenBg : D.redBg,
-      color: paid ? D.green : D.red,
-      whiteSpace: 'nowrap',
+      background: paid ? D.greenBg : D.redBg, color: paid ? D.green : D.red,
+      whiteSpace: 'nowrap', border: `1px solid ${paid ? D.green : D.red}25`,
     }}>
       {paid ? <CheckCircle size={9} /> : <Clock size={9} />}
       {paid ? 'Peye' : 'Pa Peye'}
@@ -305,109 +218,54 @@ function PayBadge({ paid }) {
 }
 
 function ScoreBadge({ score }) {
-  const color = score >= 80 ? '#00d084' : score >= 50 ? D.orange : D.red
+  const color = score >= 80 ? '#22c55e' : score >= 50 ? D.orange : D.red
   const label = score >= 80 ? '⭐ Ekselans' : score >= 50 ? '⚠️ Mwayen' : '❌ Reta'
   return (
-    <span style={{
-      padding: '3px 9px', borderRadius: 20, fontWeight: 700, fontSize: 11,
-      background: `${color}18`, color, whiteSpace: 'nowrap',
-    }}>{label} — {score}%</span>
+    <span style={{ padding: '4px 11px', borderRadius: 20, fontWeight: 700, fontSize: 11, background: `${color}15`, color, whiteSpace: 'nowrap', border: `1px solid ${color}30` }}>
+      {label} — {score}%
+    </span>
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// MODAL CHANJE MODPAS — Mobile-first
-// ─────────────────────────────────────────────────────────────
 function ModalChangePassword({ onClose, token }) {
-  const [form,    setForm]    = useState({ current: '', next: '', confirm: '' })
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' })
   const [loading, setLoading] = useState(false)
-
   const handleSubmit = async () => {
     if (!form.current || !form.next) return toast.error('Ranpli tout chan yo.')
-    if (form.next.length < 4)        return toast.error('Modpas nouvo dwe gen omwen 4 karaktè.')
-    if (form.next !== form.confirm)  return toast.error('Modpas yo pa menm.')
+    if (form.next.length < 4) return toast.error('Omwen 4 karaktè.')
+    if (form.next !== form.confirm) return toast.error('Modpas yo pa menm.')
     setLoading(true)
     try {
       const res = await fetch(`${SOL_API}/api/sol/auth/change-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ currentPassword: form.current, newPassword: form.next }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Erè')
-      toast.success('Modpas chanje!')
-      onClose()
-    } catch (err) {
-      toast.error(err.message)
-    } finally {
-      setLoading(false)
-    }
+      toast.success('Modpas chanje!'); onClose()
+    } catch (err) { toast.error(err.message) }
+    finally { setLoading(false) }
   }
-
-  const inp = {
-    width: '100%', padding: '12px 13px', borderRadius: 10, fontSize: 15,
-    border: '1.5px solid rgba(255,255,255,0.09)',
-    color: D.text, background: D.bg, fontFamily: 'inherit',
-    transition: 'border-color 0.15s',
-  }
-
+  const inp = { width: '100%', padding: '13px 15px', borderRadius: 12, fontSize: 15, border: '1.5px solid rgba(255,255,255,0.08)', color: D.text, background: 'rgba(255,255,255,0.04)', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s' }
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-      }}
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
+    <div className="sol-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sol-modal-sheet">
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)' }} />
         </div>
-        <h2 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: '0 0 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Key size={16} style={{ color: D.gold }} /> Chanje Modpas
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {[
-            { label: 'Modpas Aktyèl',          key: 'current' },
-            { label: 'Nouvo Modpas',            key: 'next'    },
-            { label: 'Konfime Nouvo Modpas',    key: 'confirm' },
-          ].map(({ label, key }) => (
+        <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 800, color: D.text, marginBottom: 6 }}>Chanje Modpas</h2>
+        <p style={{ fontSize: 13, color: D.muted, marginBottom: 26, lineHeight: 1.6 }}>Sekirize kont ou ak yon nouvo modpas solid.</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[{ label: 'Modpas Aktyèl', key: 'current' }, { label: 'Nouvo Modpas', key: 'next' }, { label: 'Konfime Nouvo Modpas', key: 'confirm' }].map(({ label, key }) => (
             <div key={key}>
-              <label style={{
-                display: 'block', fontSize: 10, fontWeight: 700,
-                color: 'rgba(201,168,76,0.75)', marginBottom: 6,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-              }}>{label}</label>
-              <input
-                type="password"
-                className="sol-inp"
-                style={inp}
-                value={form[key]}
-                onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-                placeholder="••••••"
-                autoComplete={key === 'current' ? 'current-password' : 'new-password'}
-              />
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: D.gold, marginBottom: 7, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</label>
+              <input type="password" className="sol-inp" style={inp} value={form[key]} onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))} placeholder="••••••" autoComplete={key === 'current' ? 'current-password' : 'new-password'} />
             </div>
           ))}
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-            <button onClick={onClose} style={{
-              flex: 1, padding: '13px', borderRadius: 10, cursor: 'pointer',
-              border: `1px solid ${D.borderSub}`, background: 'transparent',
-              color: D.muted, fontWeight: 700, fontSize: 14, minHeight: 48,
-            }}>
-              Anile
-            </button>
-            <button onClick={handleSubmit} disabled={loading} style={{
-              flex: 2, padding: '13px', borderRadius: 10, border: 'none',
-              background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
-              color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: loading ? 'default' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              minHeight: 48,
-            }}>
-              {loading
-                ? <span style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                : <Key size={15} />}
+          <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, fontWeight: 600, fontSize: 14, fontFamily: 'DM Sans, sans-serif' }}>Anile</button>
+            <button onClick={handleSubmit} disabled={loading} style={{ flex: 2, padding: '14px', borderRadius: 12, border: 'none', background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn, color: '#0a0a00', fontWeight: 800, fontSize: 14, cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>
+              {loading ? <span style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a0a00', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> : <Key size={15} />}
               {loading ? 'Ap chanje...' : 'Chanje Modpas'}
             </button>
           </div>
@@ -417,90 +275,103 @@ function ModalChangePassword({ onClose, token }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────
-// KALANDRIYE PÈSONÈL — Mobile responsive
-// ─────────────────────────────────────────────────────────────
+function ModalPayMobile({ onClose }) {
+  const payCard = (color, icon, title, subtitle, numero, nom) => (
+    <div style={{ background: `linear-gradient(135deg, ${color}15 0%, ${color}08 100%)`, border: `1px solid ${color}30`, borderRadius: 20, padding: '22px', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
+        <div style={{ background: `linear-gradient(135deg, ${color}, ${color}bb)`, borderRadius: 13, width: 50, height: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20, boxShadow: `0 4px 20px ${color}40` }}>{icon}</div>
+        <div>
+          <div style={{ fontSize: 17, fontWeight: 800, color, fontFamily: 'Syne, sans-serif' }}>{title}</div>
+          <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>{subtitle}</div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 13, padding: '13px 15px' }}>
+          <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>Nimewo</div>
+          <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 14, color: '#fff', letterSpacing: '0.04em' }}>{numero}</div>
+        </div>
+        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 13, padding: '13px 15px' }}>
+          <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>Non</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{nom}</div>
+        </div>
+      </div>
+    </div>
+  )
+  return (
+    <div className="sol-modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="sol-modal-sheet">
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 22 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.1)' }} />
+        </div>
+        <h2 style={{ fontFamily: 'Syne, sans-serif', fontSize: 22, fontWeight: 800, color: D.text, marginBottom: 6 }}>📱 Peye pa Mobil Moni</h2>
+        <p style={{ fontSize: 13, color: D.muted, marginBottom: 24, lineHeight: 1.7 }}>Voye kòb la epi voye yon kopi resi ou a bay admin pou konfime peman ou.</p>
+        {payCard('#dc2626', '▶', 'Digicel MonCash', 'Mobil Moni Digicel', '+509 31 33 87 85', 'Dasner JEAN')}
+        {payCard('#ea580c', 'nat', 'Natcash', 'Mobil Moni Natcom', '+509 42 44 90 24', 'Dasner JEAN')}
+        <div style={{ background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 16, padding: '16px 18px', marginBottom: 22, display: 'flex', alignItems: 'flex-start', gap: 13 }}>
+          <span style={{ fontSize: 24, flexShrink: 0, lineHeight: 1 }}>⚠️</span>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: D.gold, marginBottom: 5 }}>Frè Tranzaksyon</div>
+            <div style={{ fontSize: 12, color: D.mutedLt, lineHeight: 1.8 }}>
+              Ajoute <strong style={{ color: D.text }}>15 HTG</strong> frè pou chak <strong style={{ color: D.text }}>250 HTG</strong> ou voye.<br />
+              Egzanp: 250 HTG → voye <strong style={{ color: D.gold }}>265 HTG</strong> total.
+            </div>
+          </div>
+        </div>
+        <button onClick={onClose} style={{ width: '100%', padding: '15px', borderRadius: 13, border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.04)', color: D.mutedLt, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', transition: 'all 0.15s' }}>Fèmen</button>
+      </div>
+    </div>
+  )
+}
+
 function SolCalendar({ dates, member, plan, today, allSlots }) {
   const [offset, setOffset] = useState(0)
-
-  const now = new Date()
-  now.setMonth(now.getMonth() + offset)
-  const year        = now.getFullYear()
-  const month       = now.getMonth()
-  const monthStr    = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  const firstDay    = new Date(year, month, 1).getDay()
+  const now = new Date(); now.setMonth(now.getMonth() + offset)
+  const year = now.getFullYear(), month = now.getMonth()
+  const monthStr = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const dateSet     = new Set(dates)
-
-  // Set de dat touche pou tout men manm nan
-  const winDatesSet = new Set(
-    allSlots.map(slot => dates[slot.position - 1]).filter(Boolean)
-  )
-
+  const dateSet = new Set(dates)
+  const winDatesSet = new Set(allSlots.map(s => dates[s.position - 1]).filter(Boolean))
+  const btnSt = { width: 38, height: 38, borderRadius: 10, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }
   return (
-    <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, padding: '14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <button
-          onClick={() => setOffset(o => o - 1)}
-          style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <span style={{ fontWeight: 800, fontSize: 13, color: '#fff', textTransform: 'capitalize' }}>{monthStr}</span>
-        <button
-          onClick={() => setOffset(o => o + 1)}
-          style={{ width: 36, height: 36, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <ChevronRight size={16} />
-        </button>
+    <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, padding: '24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <button onClick={() => setOffset(o => o - 1)} style={btnSt}><ChevronLeft size={15} /></button>
+        <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 15, color: D.text, textTransform: 'capitalize' }}>{monthStr}</span>
+        <button onClick={() => setOffset(o => o + 1)} style={btnSt}><ChevronRight size={15} /></button>
       </div>
-
-      <div className="sol-cal-grid" style={{ marginBottom: 4 }}>
+      <div className="sol-cal-grid" style={{ marginBottom: 8 }}>
         {['Di','Lu','Ma','Me','Je','Ve','Sa'].map(d => (
-          <div key={d} style={{ textAlign: 'center', fontSize: 9, fontWeight: 800, color: D.muted, padding: '3px 0' }}>{d}</div>
+          <div key={d} style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: D.muted, padding: '4px 0', letterSpacing: '0.06em' }}>{d}</div>
         ))}
       </div>
-
       <div className="sol-cal-grid">
         {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} style={{ aspectRatio: '1' }} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day       = i + 1
-          const ds        = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-          const isToday   = ds === today
-          const isPayDay  = dateSet.has(ds)
-          const paid      = !!member.payments?.[ds]
-          const timing    = member.paymentTimings?.[ds]
-          const isPast    = ds < today
-          // ✅ Detekte si se yon dat touche pou nenpòt men manm nan
-          const isWinDay  = winDatesSet.has(ds)
-
-          let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.15)' : D.muted
-          if      (isToday)                                { bg = D.goldDim;                     border = D.gold;                 color = D.gold    }
-          else if (isWinDay)                               { bg = 'rgba(39,174,96,0.15)';        border = `${D.green}40`;         color = D.green   }
-          else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)';        border = 'rgba(0,208,132,0.4)';  color = '#00d084' }
-          else if (isPayDay && paid)                       { bg = D.greenBg;                     border = `${D.green}40`;         color = D.green   }
-          else if (isPayDay && isPast)                     { bg = D.redBg;                       border = `${D.red}30`;           color = D.red     }
-          else if (isPayDay)                               { bg = D.blueBg;                      border = 'rgba(59,130,246,0.3)'; color = D.blue    }
-
+          const day = i + 1
+          const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const isToday = ds === today, isPayDay = dateSet.has(ds)
+          const paid = !!member.payments?.[ds], timing = member.paymentTimings?.[ds]
+          const isPast = ds < today, isWinDay = winDatesSet.has(ds)
+          let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.1)' : D.muted
+          if      (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
+          else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
+          else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
+          else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
+          else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
+          else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
           return (
             <div key={day} className="sol-cal-day" style={{ background: bg, border: `1px solid ${border}` }}>
-              <span style={{ fontWeight: isPayDay || isToday ? 800 : 400, color }}>{day}</span>
+              <span style={{ fontSize: 10, fontWeight: isPayDay || isToday ? 800 : 400, color, fontFamily: isPayDay ? 'DM Mono, monospace' : 'inherit' }}>{day}</span>
               {isWinDay && <span style={{ fontSize: 7, lineHeight: 1 }}>🏆</span>}
             </div>
           )
         })}
       </div>
-
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, fontSize: 9, color: D.muted }}>
-        {[
-          ['#00d084', 'Bonè'],
-          [D.green,   'Peye'],
-          [D.red,     'Pa Peye'],
-          [D.blue,    'Pwochen'],
-        ].map(([c, l]) => (
-          <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: c, display: 'inline-block' }} />
-            {l}
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16, fontSize: 10, color: D.muted }}>
+        {[['#00d084','Bonè'],[D.green,'Peye'],[D.red,'Pa Peye'],[D.blue,'Pwochen']].map(([c,l]) => (
+          <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />{l}
           </span>
         ))}
         <span>🏆 Dat Touche</span>
@@ -509,21 +380,16 @@ function SolCalendar({ dates, member, plan, today, allSlots }) {
   )
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PAGE PRENSIPAL — Mobile-first responsive
-// ═══════════════════════════════════════════════════════════════
 export default function SolDashboardPage() {
   const navigate = useNavigate()
-  const [data,         setData]         = useState(null)
-  const [loading,      setLoading]      = useState(true)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
   const [showChangePw, setShowChangePw] = useState(false)
   const [showPayModal, setShowPayModal] = useState(false)
-  const [tab,          setTab]          = useState('history')
+  const [tab, setTab] = useState('history')
 
   useEffect(() => {
-    const el = document.createElement('style')
-    el.id = 'sol-dashboard-styles'
-    el.textContent = GLOBAL_STYLES
+    const el = document.createElement('style'); el.id = 'sol-dashboard-styles'; el.textContent = GLOBAL_STYLES
     document.head.appendChild(el)
     return () => document.getElementById('sol-dashboard-styles')?.remove()
   }, [])
@@ -532,567 +398,353 @@ export default function SolDashboardPage() {
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-
     const VAPID_PUBLIC_KEY = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
-
-    const urlBase64ToUint8Array = (base64String) => {
-      const padding = '='.repeat((4 - base64String.length % 4) % 4)
-      const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-      const rawData = window.atob(base64)
-      return new Uint8Array([...rawData].map(c => c.charCodeAt(0)))
+    const urlBase64ToUint8Array = (b) => {
+      const padding = '='.repeat((4 - b.length % 4) % 4)
+      const base64 = (b + padding).replace(/-/g, '+').replace(/_/g, '/')
+      return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)))
     }
-
-    navigator.serviceWorker.register('/sw.js')
-      .then(async reg => {
-        const permission = await Notification.requestPermission()
-        if (permission !== 'granted') return
-        let sub = await reg.pushManager.getSubscription()
-        if (!sub) {
-          sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-          })
-        }
-        if (token) {
-          await fetch(`${SOL_API}/api/sol/push/subscribe`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ subscription: sub }),
-          }).catch(() => {})
-        }
-      })
-      .catch(err => console.warn('SW:', err.message))
+    navigator.serviceWorker.register('/sw.js').then(async reg => {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') return
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) })
+      if (token) await fetch(`${SOL_API}/api/sol/push/subscribe`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ subscription: sub }) }).catch(() => {})
+    }).catch(err => console.warn('SW:', err.message))
   }, [token])
 
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
     setLoading(true)
     try {
-      const res = await fetch(`${SOL_API}/api/sol/members/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      if (res.status === 401) {
-        localStorage.removeItem('sol_token')
-        localStorage.removeItem('sol_member')
-        navigate('/app/sol/login')
-        return
-      }
-      const json = await res.json()
-      setData(json)
-    } catch {
-      toast.error('Pa ka chaje done yo. Verifye koneksyon ou.')
-    } finally {
-      setLoading(false)
-    }
+      const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.status === 401) { localStorage.removeItem('sol_token'); localStorage.removeItem('sol_member'); navigate('/app/sol/login'); return }
+      setData(await res.json())
+    } catch { toast.error('Pa ka chaje done yo.') }
+    finally { setLoading(false) }
   }, [token, navigate])
 
   useEffect(() => { fetchData() }, [fetchData])
 
   const handleLogout = () => {
-    localStorage.removeItem('sol_token')
-    localStorage.removeItem('sol_member')
-    navigate('/app/sol/login')
-    toast('Ou dekonekte', { icon: '👋' })
+    localStorage.removeItem('sol_token'); localStorage.removeItem('sol_member')
+    navigate('/app/sol/login'); toast('Ou dekonekte', { icon: '👋' })
   }
 
   if (loading) return (
-    <div style={{
-      minHeight: '100vh', background: D.bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: 'DM Sans, sans-serif',
-    }}>
+    <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'DM Sans, sans-serif' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       <div style={{ textAlign: 'center' }}>
-        <div style={{
-          width: 40, height: 40,
-          border: `3px solid ${D.goldDim}`, borderTopColor: D.gold,
-          borderRadius: '50%', animation: 'spin 0.8s linear infinite',
-          margin: '0 auto 12px',
-        }} />
-        <p style={{ color: D.muted, fontSize: 13, margin: 0 }}>Ap chaje kont ou...</p>
+        <div style={{ width: 50, height: 50, border: `3px solid rgba(201,168,76,0.15)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 18px' }} />
+        <p style={{ color: D.muted, fontSize: 14, fontWeight: 500 }}>Ap chaje kont ou...</p>
       </div>
     </div>
   )
 
   if (!data) return null
-
   const { member, plan, tenant } = data
   if (!member || !plan) return null
 
-  // Today lokal (evite UTC offset bug Ayiti UTC-5)
   const todayLocal = new Date()
   const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
 
   // ✅ 1. allSlots ANVAN tout lòt kalkil
-  const allSlots = member.allSlots || [{
-    id: member.id,
-    position: member.position,
-    payments: member.payments,
-    paymentTimings: member.paymentTimings,
-  }]
+  const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
-  // ✅ 2. totalSlotCount — depann de allSlots
+  // ✅ 2. totalSlotCount
   const totalSlotCount = Math.max(
-    data?.plan?.activeMemberCount || 0,
-    data?.plan?.maxMembers || 0,
+    data?.plan?.activeMemberCount || 0, data?.plan?.maxMembers || 0,
     allSlots.reduce((max, s) => Math.max(max, s.position), 0)
   )
 
-  // ✅ 3. Tout lòt kalkil — depann de totalSlotCount
+  // ✅ 3. Kalkil
   const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
-  const winDate    = dates[member.position - 1]
   const totalPaid  = dates.filter(d => member.payments?.[d]).length
   const totalDue   = dates.filter(d => d <= today).length
   const amountPaid = totalPaid * plan.amount
-  const amountDue  = totalDue  * plan.amount
+  const amountDue  = totalDue * plan.amount
   const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
   const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-  // ✅ Verifye si nenpòt men manm nan ap touche jodi a
-  const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
-  // Skò pèfòmans
-  const timings  = Object.values(member.paymentTimings || {})
+  const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
+
+  const timings = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
-    const early  = timings.filter(t => t === 'early').length
+    const early = timings.filter(t => t === 'early').length
     const onTime = timings.filter(t => t === 'onTime').length
-    const late   = timings.filter(t => t === 'late').length
-    const score  = Math.round(((early * 2 + onTime) / (timings.length * 2)) * 100)
-    return { score, early, onTime, late }
+    const late = timings.filter(t => t === 'late').length
+    return { score: Math.round(((early * 2 + onTime) / (timings.length * 2)) * 100), early, onTime, late }
   })() : null
 
-  const timingBadge = (timing) => {
-    if (timing === 'early')  return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Bonè</span>
-    if (timing === 'onTime') return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ Atètan</span>
-    if (timing === 'late')   return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚠️ Reta</span>
+  const timingBadge = (t) => {
+    if (t === 'early')  return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Bonè</span>
+    if (t === 'onTime') return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ Atètan</span>
+    if (t === 'late')   return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚠️ Reta</span>
     return null
   }
 
   const nextUnpaidDate = dates.find(d => d >= today && !member.payments?.[d])
+  const tenantName = tenant?.businessName || tenant?.name || 'Sol Ou'
+  const posStr = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
+
+  const SidebarContent = () => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
+        {tenant?.logoUrl
+          ? <img src={tenant.logoUrl} style={{ height: 38, borderRadius: 10, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
+          : <div style={{ width: 38, height: 38, borderRadius: 10, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 17 }}>🏦</div>}
+        <div>
+          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 13, color: D.text, lineHeight: 1.2 }}>{tenantName}</div>
+          <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>Kont Sabotay</div>
+        </div>
+      </div>
+
+      <div style={{ background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 16, padding: '18px', marginBottom: 28 }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: D.text, fontFamily: 'Syne, sans-serif', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
+        <div style={{ fontSize: 11, color: D.muted, marginBottom: 10 }}>{member.phone}</div>
+        <div style={{ fontSize: 11, color: D.gold, fontWeight: 600, lineHeight: 1.5 }}>{posStr}</div>
+        {allSlots.length > 1 && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>{allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik</div>}
+        {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>⏰ Lè peman: {plan.dueTime}</div>}
+      </div>
+
+      <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 14 }}>Menu</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+        {[
+          { id: 'history',  icon: <CreditCard size={15} />, label: 'Istwa Peman'   },
+          { id: 'calendar', icon: <TrendingUp size={15} />, label: 'Kalandriye'    },
+          { id: 'exchange', icon: <RefreshCw  size={15} />, label: 'Mache Echanj'  },
+        ].map(item => (
+          <button key={item.id} className={`sol-nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
+            {item.icon} {item.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
+        <button onClick={() => setShowPayModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
+          📱 Moncash / Natcash
+        </button>
+        <button onClick={() => setShowChangePw(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
+          <Key size={13} /> Chanje Modpas
+        </button>
+        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
+          <LogOut size={13} /> Dekonekte
+        </button>
+      </div>
+    </>
+  )
 
   return (
-    <div style={{
-      minHeight: '100vh', background: D.bg,
-      fontFamily: 'DM Sans, sans-serif',
-      paddingBottom: 60,
-    }}>
+    <div className="sol-root">
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* ── HEADER sticky */}
-      <div style={{
-        background: D.card,
-        borderBottom: `1px solid ${D.border}`,
-        position: 'sticky', top: 0, zIndex: 10,
-      }}>
-        <div className="sol-header">
-          <div className="sol-header-left">
-            {tenant?.logoUrl
-              ? <img src={tenant.logoUrl} style={{ height: 30, borderRadius: 7, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
-              : <div style={{ width: 30, height: 30, borderRadius: 7, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 14 }}>🏦</span>
-                </div>}
-            <div style={{ minWidth: 0 }}>
-              <div className="sol-header-title">{tenant?.businessName || tenant?.name || 'Sol Ou'}</div>
-              <div style={{ fontSize: 10, color: D.muted }}>Kont Sabotay</div>
-            </div>
+      {/* MOBILE HEADER */}
+      <div className="sol-mobile-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {tenant?.logoUrl
+            ? <img src={tenant.logoUrl} style={{ height: 28, borderRadius: 7, objectFit: 'contain' }} alt="logo" />
+            : <div style={{ width: 28, height: 28, borderRadius: 7, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13 }}>🏦</div>}
+          <div>
+            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 13, color: D.text }}>{tenantName}</div>
+            <div style={{ fontSize: 9, color: D.muted }}>Kont Sabotay</div>
           </div>
-          <div className="sol-header-actions">
-            <button
-              onClick={fetchData}
-              title="Aktualize"
-              style={{ width: 36, height: 36, minWidth: 36, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <RefreshCw size={14} />
-            </button>
-            <button
-              onClick={handleLogout}
-              title="Dekonekte"
-              style={{ width: 36, height: 36, minWidth: 36, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <LogOut size={14} />
-            </button>
-          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={fetchData} style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RefreshCw size={13} /></button>
+          <button onClick={handleLogout} style={{ width: 36, height: 36, borderRadius: 9, border: `1px solid ${D.border}`, background: 'transparent', color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={13} /></button>
         </div>
       </div>
 
-      {/* ── KONTNI */}
-      <div style={{
-        maxWidth: 500, margin: '0 auto',
-        padding: '14px 12px',
-        animation: 'fadeUp 0.3s ease',
-      }}>
+      <div className="sol-layout">
+        <div className="sol-sidebar"><SidebarContent /></div>
 
-        {/* ALÈT: TOUCHE JODI A */}
-        {isWinner && (
-          <div className="sol-alert" style={{
-            background: 'linear-gradient(135deg,rgba(39,174,96,0.2),rgba(201,168,76,0.12))',
-            border: `1px solid ${D.green}50`,
-          }}>
-            <div style={{
-              width: 44, height: 44, minWidth: 44, borderRadius: 12,
-              background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Trophy size={20} color="#0a1222" />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 14, fontWeight: 900, color: D.green, margin: '0 0 2px' }}>🎉 Se Jou Ou Jodi a!</p>
-              <p style={{ fontSize: 12, color: D.muted, margin: 0 }}>
-                Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payout)} HTG</span>
-              </p>
-            </div>
-          </div>
-        )}
+        <div className="sol-main" style={{ animation: 'fadeUp 0.4s ease' }}>
 
-        {/* ALÈT: PWOCHEN PEMAN */}
-        {nextUnpaidDate && !isWinner && (() => {
-          const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
-          if (daysUntil > 3) return null
-          return (
-            <div className="sol-alert" style={{
-              background: D.orangeBg,
-              border: `1px solid ${D.orange}40`,
-            }}>
-              <Bell size={18} style={{ color: D.orange, flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: '#7a4e00', fontWeight: 800, margin: 0, flex: 1, minWidth: 0 }}>
-                {daysUntil === 0
-                  ? 'Peman ou a se jodi a!'
-                  : `Peman pwochèn ou a nan ${daysUntil} jou — ${nextUnpaidDate.split('-').reverse().join('/')}`}
-              </p>
-            </div>
-          )
-        })()}
-
-        {/* KONT HEADER CARD */}
-        <div style={{
-          background: D.goldBtn, borderRadius: 18,
-          padding: '18px 16px', marginBottom: 14, color: '#0a1222',
-        }}>
-          <div className="sol-kont-card">
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <p style={{ fontSize: 18, fontWeight: 900, margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {member.name}
-              </p>
-              <p style={{ fontSize: 11, opacity: 0.65, margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {member.phone}
-              </p>
-         <p style={{ fontSize: 11, opacity: 0.6, margin: 0 }}>
-                {allSlots.length > 1
-                  ? allSlots.map(s => `#${s.position}`).join(' • ')
-                  : `Pozisyon #${member.position}`
-                } • {plan.name}
-              </p>
-              <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
-                {allSlots.length > 1
-                  ? `${allSlots.length} men • Peye ${fmt(allSlots.length * plan.amount)} HTG/sik`
-                  : `Peye ${fmt(plan.amount)} HTG/sik`}
-                {plan.dueTime && ` • ⏰ ${plan.dueTime}`}
-              </p>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <p style={{ fontSize: 9, opacity: 0.6, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>Kontribisyon</p>
-              <p className="sol-kont-amount">{fmt(amountPaid)} HTG</p>
-              <p style={{ fontSize: 10, opacity: 0.55, margin: '2px 0 0' }}>{totalPaid}/{totalSlotCount} peman</p>
-            </div>
-          </div>
-        </div>
-
-        {/* STATS GRID — 2 kolòn */}
-        <div className="sol-stats-grid">
-          {[
-            { label: 'Rès pou Peye', val: `${fmt(Math.max(0, amountDue - amountPaid))} HTG`, color: D.red },
-            ...allSlots.map(slot => ({
-              label: `🏆 Men #${slot.position}`,
-              val:   `${fmt(payout)} HTG • ${dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}`,
-              color: D.gold,
-            })),
-            ...(allSlots.length > 1 ? [{
-              label: '💰 Total Ap Touche',
-              val:   `${fmt(payout * allSlots.length)} HTG`,
-              color: D.green,
-            }] : []),
-            { label: 'Frekans', val: FREQ_LABELS[plan.frequency] || plan.frequency, color: D.muted },
-          ].map(({ label, val, color }) => (
-            <div key={label} style={{
-              background: D.card, border: `1px solid ${D.border}`,
-              borderRadius: 12, padding: '11px 12px',
-            }}>
-              <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>{label}</div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color, wordBreak: 'break-word', lineHeight: 1.3 }}>{val}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* PWOGRÈ */}
-        <div style={{
-          background: D.card, border: `1px solid ${D.border}`,
-          borderRadius: 14, padding: '14px 15px', marginBottom: 14,
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, textTransform: 'uppercase' }}>Pwogrè Sol</span>
-            <span style={{ fontSize: 13, fontWeight: 900, color: D.gold }}>{Math.round(progress)}%</span>
-          </div>
-          <div style={{ height: 10, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress}%`, background: D.goldBtn, borderRadius: 8, transition: 'width 0.8s ease' }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: D.muted }}>
-            <span>{totalPaid} peman fèt</span>
-            <span>{totalSlotCount - totalPaid} rès</span>
-          </div>
-        </div>
-
-        {/* PÈFÒMANS */}
-        {scoreData && (
-          <div style={{
-            background: 'rgba(59,130,246,0.06)',
-            border: '1px solid rgba(59,130,246,0.15)',
-            borderRadius: 14, padding: '13px 15px', marginBottom: 14,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: D.blue, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Star size={11} /> Pèfòmans Ou
-              </span>
-              <ScoreBadge score={scoreData.score} />
-            </div>
-            <div className="sol-score-row">
-              <span style={{ color: '#00d084', fontWeight: 700 }}>⚡ {scoreData.early} bonè</span>
-              <span style={{ color: D.green,   fontWeight: 700 }}>✅ {scoreData.onTime} atètan</span>
-              <span style={{ color: D.orange,  fontWeight: 700 }}>⚠️ {scoreData.late} reta</span>
-            </div>
-          </div>
-        )}
-
-        {/* REGLEMAN SOL */}
-        {plan.regleman && (
-          <div style={{
-            background: 'rgba(20,184,166,0.06)',
-            border: '1px solid rgba(20,184,166,0.18)',
-            borderRadius: 14, padding: '13px 15px', marginBottom: 14,
-          }}>
-            <p style={{
-              fontSize: 10, fontWeight: 800, color: '#14b8a6',
-              textTransform: 'uppercase', letterSpacing: '0.07em',
-              margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6,
-            }}>
-              📜 Regleman Sol la
-            </p>
-            <p style={{
-              fontSize: 12, color: '#94a3b8', margin: 0,
-              lineHeight: 1.8, whiteSpace: 'pre-line',
-            }}>
-              {plan.regleman}
-            </p>
-          </div>
-        )}
-
-        {/* TABS — plein lajè */}
-        <div className="sol-tabs">
-          {[['history', '📋 Istwa'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Mache']].map(([t, l]) => (
-            <button
-              key={t}
-              className="sol-tab-btn"
-              onClick={() => setTab(t)}
-              style={{
-                border:     `1px solid ${tab === t ? D.gold : D.borderSub}`,
-                background: tab === t ? D.goldDim : 'transparent',
-                color:      tab === t ? D.gold : D.muted,
-                fontFamily: 'inherit',
-              }}
-            >{l}</button>
-          ))}
-        </div>
-
-        {/* ISTWA PEMAN */}
-        {tab === 'history' && (
-          <div style={{
-            background: D.card, border: `1px solid ${D.border}`,
-            borderRadius: 14, overflow: 'hidden',
-          }}>
-            <div style={{ padding: '11px 14px', borderBottom: `1px solid ${D.border}` }}>
-              <p style={{ fontSize: 11, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
-                Istwa Peman ({totalPaid}/{dates.length})
-              </p>
-            </div>
-            <div className="sol-scroll" style={{ maxHeight: 380, overflowY: 'auto' }}>
-              {dates.map((d, i) => {
-                const paid   = !!member.payments?.[d]
-                const timing = member.paymentTimings?.[d]
-                const isPast = d <= today
-                // ✅ Detekte si se dat touche pou nenpòt men manm nan
-                const isWin  = allSlots.some(slot => i === slot.position - 1)
-                return (
-                  <div key={d} className="sol-pay-row" style={{
-                    background: isWin ? D.goldDim : (d === today ? 'rgba(201,168,76,0.04)' : 'transparent'),
-                  }}>
-                    <div className="sol-pay-left">
-                      <span style={{ fontSize: 12, fontFamily: 'monospace', color: isPast ? D.text : D.muted, flexShrink: 0 }}>
-                        {d.split('-').reverse().join('/')}
-                      </span>
-                      {isWin && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>🏆</span>}
-                      {d === today && !isWin && <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: D.blue, padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
-                      {paid && timingBadge(timing)}
-                    </div>
-                    <div className="sol-pay-right">
-                      <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid ? D.green : (isPast ? D.red : D.muted), whiteSpace: 'nowrap' }}>
-                        {paid ? `+${fmt(plan.amount)}` : isPast ? `-${fmt(plan.amount)}` : fmt(plan.amount)} HTG
-                      </span>
-                      {isPast && <PayBadge paid={paid} />}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* KALANDRIYE — ✅ pase allSlots pou ti koup parèt sou tt dat touche */}
-        {tab === 'calendar' && (
-          <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />
-        )}
-
-        {/* MACHE ECHANJ */}
-        {tab === 'exchange' && (
-          <SolExchangeMarket token={token} member={member} plan={plan} />
-        )}
-
-{/* BOUTON PEYE PA MONCASH / NATCASH */}
-        <button
-          onClick={() => setShowPayModal(true)}
-          style={{
-            marginTop: 16, width: '100%', padding: '14px',
-            borderRadius: 12, border: '1px solid rgba(220,38,38,0.35)',
-            background: 'rgba(220,38,38,0.07)', color: '#ef4444',
-            cursor: 'pointer', fontWeight: 700, fontSize: 13,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            minHeight: 48, fontFamily: 'inherit',
-          }}
-        >
-          📱 Peye pa Moncash / Natcash
-        </button>
-
-        {/* BOUTON CHANJE MODPAS */}
-        <button
-          onClick={() => setShowChangePw(true)}
-          style={{
-            marginTop: 16, width: '100%', padding: '14px',
-            borderRadius: 12, border: `1px solid rgba(155,89,182,0.25)`,
-            background: 'rgba(155,89,182,0.06)', color: '#9b59b6',
-            cursor: 'pointer', fontWeight: 700, fontSize: 13,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            minHeight: 48, fontFamily: 'inherit',
-          }}
-        >
-          <Key size={14} /> Chanje Modpas
-        </button>
-
-      </div>
-
-      {showPayModal && (
-        <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 1000,
-            background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(4px)',
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-          }}
-          onClick={e => e.target === e.currentTarget && setShowPayModal(false)}
-        >
-          <div className="sol-modal-sheet">
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
-            </div>
-
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>
-              📱 Peye pa Mobil Moni
-            </h2>
-            <p style={{ fontSize: 11, color: D.muted, margin: '0 0 20px' }}>
-              Voye kòb la epi voye yon kopi resi ou a bay admin nan.
-            </p>
-
-            {/* MONCASH */}
-            <div style={{
-              background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)',
-              borderRadius: 14, padding: '16px', marginBottom: 12,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{
-                  background: '#cc0000', borderRadius: 10,
-                  width: 42, height: 42, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', flexShrink: 0, fontSize: 20,
-                }}>▶</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: '#ef4444' }}>Digicel MonCash</div>
-                  <div style={{ fontSize: 10, color: D.muted }}>Mobil Moni Digicel</div>
-                </div>
+          {/* ALERTS */}
+          {isWinner && (
+            <div className="sol-alert" style={{ background: 'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(201,168,76,0.09))', border: `1px solid ${D.green}40` }}>
+              <div style={{ width: 52, height: 52, minWidth: 52, borderRadius: 16, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 24px rgba(201,168,76,0.3)' }}>
+                <Trophy size={24} color="#0a0a00" />
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
-                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Nimewo</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: '0.05em' }}>+509 31 33 87 85</div>
-                </div>
-                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
-                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Non</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Dasner JEAN</div>
-                </div>
-              </div>
-            </div>
-
-            {/* NATCASH */}
-            <div style={{
-              background: 'rgba(234,88,12,0.08)', border: '1px solid rgba(234,88,12,0.25)',
-              borderRadius: 14, padding: '16px', marginBottom: 12,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div style={{
-                  background: '#ea580c', borderRadius: 10,
-                  width: 42, height: 42, display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', flexShrink: 0,
-                  fontSize: 11, fontWeight: 900, color: '#fff',
-                }}>nat</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: '#f97316' }}>Natcash</div>
-                  <div style={{ fontSize: 10, color: D.muted }}>Mobil Moni Natcom</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
-                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Nimewo</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: '0.05em' }}>+509 42 44 90 24</div>
-                </div>
-                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
-                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Non</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Dasner JEAN</div>
-                </div>
-              </div>
-            </div>
-
-            {/* FRÈ TRANZAKSYON */}
-            <div style={{
-              background: 'rgba(201,168,76,0.08)', border: `1px solid ${D.gold}30`,
-              borderRadius: 12, padding: '12px 14px', marginBottom: 16,
-              display: 'flex', alignItems: 'center', gap: 10,
-            }}>
-              <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: D.gold, marginBottom: 2 }}>Frè Tranzaksyon</div>
-                <div style={{ fontSize: 11, color: D.muted, lineHeight: 1.6 }}>
-                  Ajoute <strong style={{ color: '#fff' }}>15 HTG</strong> frè pou chak{' '}
-                  <strong style={{ color: '#fff' }}>250 HTG</strong> ou voye a.{' '}
-                  Egzanp: voye 250 HTG → total <strong style={{ color: D.gold }}>265 HTG</strong>
-                </div>
+                <p style={{ fontSize: 16, fontWeight: 800, color: D.green, margin: '0 0 4px', fontFamily: 'Syne, sans-serif' }}>🎉 Se Jou Ou Jodi a!</p>
+                <p style={{ fontSize: 13, color: D.mutedLt, margin: 0 }}>Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payout)} HTG</span></p>
               </div>
             </div>
+          )}
 
-            <button onClick={() => setShowPayModal(false)} style={{
-              width: '100%', padding: '13px', borderRadius: 10,
-              border: `1px solid ${D.borderSub}`, background: 'transparent',
-              color: D.muted, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-              minHeight: 48, fontFamily: 'inherit',
-            }}>
-              Fèmen
+          {nextUnpaidDate && !isWinner && (() => {
+            const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
+            if (daysUntil > 3) return null
+            return (
+              <div className="sol-alert" style={{ background: D.orangeBg, border: `1px solid ${D.orange}35` }}>
+                <Bell size={22} style={{ color: D.orange, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, color: '#7a4e00', fontWeight: 800, margin: 0 }}>
+                  {daysUntil === 0 ? 'Peman ou a se jodi a!' : `Peman pwochèn ou a nan ${daysUntil} jou — ${nextUnpaidDate.split('-').reverse().join('/')}`}
+                </p>
+              </div>
+            )
+          })()}
+
+          {/* HERO */}
+          <div className="sol-hero">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 24 }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 12, fontFamily: 'Syne, sans-serif' }}>Kont Sabotay Sol</div>
+                <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 30, fontWeight: 800, color: D.text, margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</h1>
+                <div style={{ fontSize: 13, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
+                <div style={{ fontSize: 12, color: D.mutedLt, marginBottom: plan.dueTime ? 12 : 0 }}>{posStr} • {plan.name}</div>
+                {plan.dueTime && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 9, padding: '5px 12px', fontSize: 12, color: D.gold, fontWeight: 600 }}>
+                    ⏰ Lè peman: {plan.dueTime}
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 10, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 8 }}>Kontribisyon Total</div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 40, color: D.gold, lineHeight: 1, marginBottom: 6 }}>{fmt(amountPaid)}</div>
+                <div style={{ fontSize: 13, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
+              </div>
+            </div>
+            <div style={{ marginTop: 28 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sol la</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 15, color: D.gold }}>{Math.round(progress)}%</span>
+              </div>
+              <div className="sol-progress-track">
+                <div className="sol-progress-fill" style={{ width: `${progress}%` }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 11, color: D.muted }}>
+                <span>{totalPaid} peman fèt</span>
+                <span>{totalSlotCount - totalPaid} rès</span>
+              </div>
+            </div>
+          </div>
+
+          {/* STATS */}
+          <div className="sol-stats-grid">
+            <div className="sol-stat-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rès pou Peye</span>
+              </div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.red }}>{fmt(Math.max(0, amountDue - amountPaid))}</div>
+              <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
+            </div>
+
+            {allSlots.map(slot => (
+              <div key={slot.position} className="sol-stat-card" style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={15} style={{ color: D.gold }} /></div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Men #{slot.position}</span>
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.gold }}>{fmt(payout)}</div>
+                <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}</div>
+              </div>
+            ))}
+
+            {allSlots.length > 1 && (
+              <div className="sol-stat-card" style={{ borderColor: `${D.green}30`, background: 'rgba(34,197,94,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: D.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Star size={15} style={{ color: D.green }} /></div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Ap Touche</span>
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.green }}>{fmt(payout * allSlots.length)}</div>
+                <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG total — {allSlots.length} men</div>
+              </div>
+            )}
+
+            <div className="sol-stat-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: D.blueBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrendingUp size={15} style={{ color: D.blue }} /></div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Frekans</span>
+              </div>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16, color: D.text }}>{FREQ_LABELS[plan.frequency] || plan.frequency}</div>
+              <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>{plan.name}</div>
+            </div>
+          </div>
+
+          {/* PÈFÒMANS */}
+          {scoreData && (
+            <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <Shield size={13} /> Pèfòmans Ou
+                </span>
+                <ScoreBadge score={scoreData.score} />
+              </div>
+              <div className="sol-score-row">
+                <span style={{ color: '#00d084', fontWeight: 700 }}>⚡ {scoreData.early} bonè</span>
+                <span style={{ color: D.green,  fontWeight: 700 }}>✅ {scoreData.onTime} atètan</span>
+                <span style={{ color: D.orange, fontWeight: 700 }}>⚠️ {scoreData.late} reta</span>
+              </div>
+            </div>
+          )}
+
+          {/* REGLEMAN */}
+          {plan.regleman && (
+            <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>📜 Regleman Sol la</p>
+              <p style={{ fontSize: 13, color: D.mutedLt, margin: 0, lineHeight: 1.9, whiteSpace: 'pre-line' }}>{plan.regleman}</p>
+            </div>
+          )}
+
+          {/* TABS */}
+          <div className="sol-tabs">
+            {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache']].map(([t,l]) => (
+              <button key={t} className="sol-tab-btn" onClick={() => setTab(t)} style={{ border: 'none', background: tab === t ? D.goldDim : 'transparent', color: tab === t ? D.gold : D.muted, fontFamily: 'DM Sans, sans-serif' }}>{l}</button>
+            ))}
+          </div>
+
+          {/* ISTWA */}
+          {tab === 'history' && (
+            <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden' }}>
+              <div style={{ padding: '20px 26px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: D.text }}>Istwa Peman</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: D.muted, background: D.goldDim, padding: '3px 10px', borderRadius: 8 }}>{totalPaid}/{dates.length}</span>
+              </div>
+              <div className="sol-scroll" style={{ maxHeight: 460, overflowY: 'auto' }}>
+                {dates.map((d, i) => {
+                  const paid = !!member.payments?.[d], timing = member.paymentTimings?.[d]
+                  const isPast = d <= today, isWin = allSlots.some(slot => i === slot.position - 1)
+                  return (
+                    <div key={d} className="sol-pay-row" style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: isPast ? D.text : D.muted, flexShrink: 0, fontWeight: 500 }}>{d.split('-').reverse().join('/')}</span>
+                        {isWin && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0, border: `1px solid ${D.border}` }}>🏆 Touche</span>}
+                        {d === today && !isWin && <span style={{ fontSize: 9, background: D.blueBg, color: D.blue, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
+                        {paid && timingBadge(timing)}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 600, color: paid ? D.green : isPast ? D.red : D.muted, whiteSpace: 'nowrap' }}>
+                          {paid ? `+${fmt(plan.amount)}` : isPast ? `-${fmt(plan.amount)}` : fmt(plan.amount)} HTG
+                        </span>
+                        {isPast && <PayBadge paid={paid} />}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
+          {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
+
+          {/* MOBILE ACTIONS */}
+          <div className="sol-mobile-actions">
+            <button onClick={() => setShowPayModal(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>
+              📱 Peye pa Moncash / Natcash
+            </button>
+            <button onClick={() => setShowChangePw(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>
+              <Key size={14} /> Chanje Modpas
             </button>
           </div>
-        </div>
-      )}
 
-      {showChangePw && (
-        <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />
-      )}
+        </div>
+      </div>
+
+      {showPayModal && <ModalPayMobile onClose={() => setShowPayModal(false)} />}
+      {showChangePw && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
     </div>
   )
 }
