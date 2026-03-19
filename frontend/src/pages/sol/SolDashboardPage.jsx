@@ -646,8 +646,8 @@ export default function SolDashboardPage() {
   const amountDue  = totalDue  * plan.amount
   const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
   const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-  const isWinner   = winDate === today
-
+  // ✅ Verifye si nenpòt men manm nan ap touche jodi a
+  const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
   // Skò pèfòmans
   const timings  = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
