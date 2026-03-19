@@ -38,6 +38,8 @@ const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage')
 const ReservationDetail = lazy(() => import('./pages/hotel/ReservationDetail'))
 const NewRoomPage       = lazy(() => import('./pages/hotel/NewRoomPage'))
 const RoomTypesPage     = lazy(() => import('./pages/hotel/RoomTypesPage'))
+const DryOrdersPage     = lazy(() => import('./pages/dry/DryOrdersPage'))
+const DryOrderDetail    = lazy(() => import('./pages/dry/DryOrderDetail'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -127,6 +129,8 @@ export default function App() {
             <Route path="hotel/reservations/:id" element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
             <Route path="hotel/rooms/new"        element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
+            <Route path="dry"                    element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
+            <Route path="dry/:id"                element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
           </Route>
 
           {/* Legacy redirects */}

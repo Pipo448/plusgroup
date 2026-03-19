@@ -8,7 +8,7 @@ import {
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag,
-  Bluetooth, BluetoothOff, Printer,
+  Bluetooth, BluetoothOff, Printer, Shirt, 
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -32,6 +32,9 @@ const C = {
   hotel:       '#0EA5E9',
   hotelDim:    'rgba(14,165,233,0.15)',
   hotelBorder: 'rgba(14,165,233,0.28)',
+  dry:         '#8B5CF6',
+  dryDim:      'rgba(139,92,246,0.15)',
+  dryBorder:   'rgba(139,92,246,0.28)',
   white:       '#FFFFFF',
   muted:       'rgba(255,255,255,0.45)',
   mutedMd:     'rgba(255,255,255,0.65)',
@@ -561,6 +564,42 @@ export default function AppLayout() {
             )
           })()}
         </nav>
+
+        {/* ── PRESE ── */}
+{(() => {
+  const dryLocked = !isPageAllowed('dry')
+  return (
+    <>
+      <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: dryLocked ? 0.4 : 1 }}>
+        <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
+        <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
+      </div>
+      <NavLink to={dryLocked ? '#' : '/app/dry'}
+        onClick={(e) => { if (dryLocked) { e.preventDefault(); return } setOpen(false) }}
+        style={({ isActive }) => ({
+          display:'flex', alignItems:'center', gap:10,
+          padding:'9px 14px', borderRadius:10, marginBottom:3,
+          textDecoration:'none',
+          background: (!dryLocked && isActive) ? C.dryDim : 'transparent',
+          color: (!dryLocked && isActive) ? '#ffffff' : C.muted,
+          borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent',
+          fontWeight: (!dryLocked && isActive) ? 700 : 500,
+          fontSize:13,
+          opacity: dryLocked ? 0.4 : 1,
+          cursor: dryLocked ? 'not-allowed' : 'pointer',
+        })}>
+        {({ isActive }) => (<>
+          <Shirt size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
+          <span style={{ flex:1 }}>Jestyon Prese</span>
+          {dryLocked
+            ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+            : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>
+          }
+        </>)}
+      </NavLink>
+    </>
+  )
+})()}
 
         {/* ── SETTINGS + USER ── */}
         <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>

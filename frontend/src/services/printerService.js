@@ -221,9 +221,9 @@ const sendViaBluetooth = async (bytes) => {
 const dispatch = async (bytes) => {
   if (_isSunmi) { sendViaRawBT(bytes); return }
   if (_char)    { await sendViaBluetooth(bytes); return }
+  if (_isAndroid) throw new Error('ANDROID_USE_BROWSER_PRINT')
   throw new Error('Okenn printer disponib. Konekte yon printer Bluetooth dabò.')
 }
-
 // ══════════════════════════════════════════════════════════════
 // ✅ PRINT INVOICE — Kreyol sèlman, aliman klasik profesyonèl
 // ══════════════════════════════════════════════════════════════
