@@ -632,16 +632,20 @@ useEffect(() => {
   const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
 
   // ✅ Itilize activeMemberCount (dinamik) oswa maxMembers si plan fèmen
-const activeMemberCount = data?.plan?.activeMemberCount || data?.plan?.maxMembers || 10
+const totalSlotCount = Math.max(
+  data?.plan?.activeMemberCount || 0,
+  data?.plan?.maxMembers || 0,
+  allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+)
 
-const dates       = getPaymentDates(plan.frequency, plan.createdAt, activeMemberCount)
+const dates   = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
 const winDate     = dates[member.position - 1]
 const totalPaid   = dates.filter(d => member.payments?.[d]).length
 const totalDue    = dates.filter(d => d <= today).length
 const amountPaid  = totalPaid * plan.amount
 const amountDue   = totalDue  * plan.amount
-const payout      = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
-const progress    = activeMemberCount > 0 ? (totalPaid / activeMemberCount) * 100 : 0
+const payout  = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
 const isWinner    = winDate === today
 
 // ✅ Tout men manm nan (allSlots)
