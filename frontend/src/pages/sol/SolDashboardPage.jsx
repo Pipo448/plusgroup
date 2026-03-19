@@ -361,7 +361,6 @@ function ModalChangePassword({ onClose, token }) {
       onClick={e => e.target === e.currentTarget && onClose()}
     >
       <div className="sol-modal-sheet">
-        {/* Drag handle */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
           <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
         </div>
@@ -421,21 +420,25 @@ function ModalChangePassword({ onClose, token }) {
 // ─────────────────────────────────────────────────────────────
 // KALANDRIYE PÈSONÈL — Mobile responsive
 // ─────────────────────────────────────────────────────────────
-function SolCalendar({ dates, member, plan, today }) {
+function SolCalendar({ dates, member, plan, today, allSlots }) {
   const [offset, setOffset] = useState(0)
 
   const now = new Date()
   now.setMonth(now.getMonth() + offset)
-  const year       = now.getFullYear()
-  const month      = now.getMonth()
-  const monthStr   = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-  const firstDay   = new Date(year, month, 1).getDay()
-  const daysInMonth= new Date(year, month + 1, 0).getDate()
-  const dateSet    = new Set(dates)
+  const year        = now.getFullYear()
+  const month       = now.getMonth()
+  const monthStr    = now.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const firstDay    = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const dateSet     = new Set(dates)
+
+  // Set de dat touche pou tout men manm nan
+  const winDatesSet = new Set(
+    allSlots.map(slot => dates[slot.position - 1]).filter(Boolean)
+  )
 
   return (
     <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, padding: '14px' }}>
-      {/* Navigation mwa */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button
           onClick={() => setOffset(o => o - 1)}
@@ -452,33 +455,32 @@ function SolCalendar({ dates, member, plan, today }) {
         </button>
       </div>
 
-      {/* Tèt semèn */}
       <div className="sol-cal-grid" style={{ marginBottom: 4 }}>
         {['Di','Lu','Ma','Me','Je','Ve','Sa'].map(d => (
           <div key={d} style={{ textAlign: 'center', fontSize: 9, fontWeight: 800, color: D.muted, padding: '3px 0' }}>{d}</div>
         ))}
       </div>
 
-      {/* Jou */}
       <div className="sol-cal-grid">
         {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} style={{ aspectRatio: '1' }} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
-          const day    = i + 1
-          const ds     = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+          const day       = i + 1
+          const ds        = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
           const isToday   = ds === today
           const isPayDay  = dateSet.has(ds)
           const paid      = !!member.payments?.[ds]
           const timing    = member.paymentTimings?.[ds]
           const isPast    = ds < today
-          const isWinDay  = ds === dates[member.position - 1]
+          // ✅ Detekte si se yon dat touche pou nenpòt men manm nan
+          const isWinDay  = winDatesSet.has(ds)
 
           let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.15)' : D.muted
-          if      (isToday)                                          { bg = D.goldDim;                        border = D.gold;                    color = D.gold    }
-          else if (isWinDay)                                         { bg = 'rgba(39,174,96,0.15)';           border = `${D.green}40`;            color = D.green   }
-          else if (isPayDay && paid && timing === 'early')           { bg = 'rgba(0,208,132,0.15)';           border = 'rgba(0,208,132,0.4)';     color = '#00d084' }
-          else if (isPayDay && paid)                                 { bg = D.greenBg;                        border = `${D.green}40`;            color = D.green   }
-          else if (isPayDay && isPast)                               { bg = D.redBg;                          border = `${D.red}30`;              color = D.red     }
-          else if (isPayDay)                                         { bg = D.blueBg;                         border = 'rgba(59,130,246,0.3)';    color = D.blue    }
+          if      (isToday)                                { bg = D.goldDim;                     border = D.gold;                 color = D.gold    }
+          else if (isWinDay)                               { bg = 'rgba(39,174,96,0.15)';        border = `${D.green}40`;         color = D.green   }
+          else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)';        border = 'rgba(0,208,132,0.4)';  color = '#00d084' }
+          else if (isPayDay && paid)                       { bg = D.greenBg;                     border = `${D.green}40`;         color = D.green   }
+          else if (isPayDay && isPast)                     { bg = D.redBg;                       border = `${D.red}30`;           color = D.red     }
+          else if (isPayDay)                               { bg = D.blueBg;                      border = 'rgba(59,130,246,0.3)'; color = D.blue    }
 
           return (
             <div key={day} className="sol-cal-day" style={{ background: bg, border: `1px solid ${border}` }}>
@@ -489,7 +491,6 @@ function SolCalendar({ dates, member, plan, today }) {
         })}
       </div>
 
-      {/* Lejann */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, fontSize: 9, color: D.muted }}>
         {[
           ['#00d084', 'Bonè'],
@@ -518,7 +519,6 @@ export default function SolDashboardPage() {
   const [showChangePw, setShowChangePw] = useState(false)
   const [tab,          setTab]          = useState('history')
 
-  // Enjekte styles
   useEffect(() => {
     const el = document.createElement('style')
     el.id = 'sol-dashboard-styles'
@@ -528,48 +528,40 @@ export default function SolDashboardPage() {
   }, [])
 
   const token = localStorage.getItem('sol_token')
-  // ── Anrejistre Service Worker + Push Subscription ──
-useEffect(() => {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
 
-  const VAPID_PUBLIC_KEY = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
 
-  const urlBase64ToUint8Array = (base64String) => {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4)
-    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-    const rawData = window.atob(base64)
-    return new Uint8Array([...rawData].map(c => c.charCodeAt(0)))
-  }
+    const VAPID_PUBLIC_KEY = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
 
-  navigator.serviceWorker.register('/sw.js')
-    .then(async reg => {
-      // Mande pèmisyon notifikasyon
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return
+    const urlBase64ToUint8Array = (base64String) => {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4)
+      const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+      const rawData = window.atob(base64)
+      return new Uint8Array([...rawData].map(c => c.charCodeAt(0)))
+    }
 
-      // Verifye si subscription deja egziste
-      let sub = await reg.pushManager.getSubscription()
-      if (!sub) {
-        sub = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        })
-      }
-
-      // Voye subscription bay backend
-      if (token) {
-        await fetch(`${SOL_API}/api/sol/push/subscribe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ subscription: sub }),
-        }).catch(() => {})
-      }
-    })
-    .catch(err => console.warn('SW:', err.message))
-}, [token])
+    navigator.serviceWorker.register('/sw.js')
+      .then(async reg => {
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') return
+        let sub = await reg.pushManager.getSubscription()
+        if (!sub) {
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+          })
+        }
+        if (token) {
+          await fetch(`${SOL_API}/api/sol/push/subscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ subscription: sub }),
+          }).catch(() => {})
+        }
+      })
+      .catch(err => console.warn('SW:', err.message))
+  }, [token])
 
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
@@ -602,7 +594,6 @@ useEffect(() => {
     toast('Ou dekonekte', { icon: '👋' })
   }
 
-  // ── Loading screen
   if (loading) return (
     <div style={{
       minHeight: '100vh', background: D.bg,
@@ -631,25 +622,31 @@ useEffect(() => {
   const todayLocal = new Date()
   const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
 
-  // ✅ Itilize activeMemberCount (dinamik) oswa maxMembers si plan fèmen
-const totalSlotCount = Math.max(
-  data?.plan?.activeMemberCount || 0,
-  data?.plan?.maxMembers || 0,
-  allSlots.reduce((max, s) => Math.max(max, s.position), 0)
-)
+  // ✅ 1. allSlots ANVAN tout lòt kalkil
+  const allSlots = member.allSlots || [{
+    id: member.id,
+    position: member.position,
+    payments: member.payments,
+    paymentTimings: member.paymentTimings,
+  }]
 
-const dates   = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
-const winDate     = dates[member.position - 1]
-const totalPaid   = dates.filter(d => member.payments?.[d]).length
-const totalDue    = dates.filter(d => d <= today).length
-const amountPaid  = totalPaid * plan.amount
-const amountDue   = totalDue  * plan.amount
-const payout  = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
-const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-const isWinner    = winDate === today
+  // ✅ 2. totalSlotCount — depann de allSlots
+  const totalSlotCount = Math.max(
+    data?.plan?.activeMemberCount || 0,
+    data?.plan?.maxMembers || 0,
+    allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+  )
 
-// ✅ Tout men manm nan (allSlots)
-const allSlots    = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
+  // ✅ 3. Tout lòt kalkil — depann de totalSlotCount
+  const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
+  const winDate    = dates[member.position - 1]
+  const totalPaid  = dates.filter(d => member.payments?.[d]).length
+  const totalDue   = dates.filter(d => d <= today).length
+  const amountPaid = totalPaid * plan.amount
+  const amountDue  = totalDue  * plan.amount
+  const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+  const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+  const isWinner   = winDate === today
 
   // Skò pèfòmans
   const timings  = Object.values(member.paymentTimings || {})
@@ -776,17 +773,17 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
               </p>
               <p style={{ fontSize: 11, opacity: 0.6, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 Pozisyon #{member.position} • {plan.name}
-                {allSlots.length > 1 && (
-  <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
-    {allSlots.length} men • Peye {fmt(allSlots.length * plan.amount)} HTG/sik
-  </p>
-)}
               </p>
+              {allSlots.length > 1 && (
+                <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
+                  {allSlots.length} men • Peye {fmt(allSlots.length * plan.amount)} HTG/sik
+                </p>
+              )}
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <p style={{ fontSize: 9, opacity: 0.6, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>Kontribisyon</p>
               <p className="sol-kont-amount">{fmt(amountPaid)} HTG</p>
-              <p style={{ fontSize: 10, opacity: 0.55, margin: '2px 0 0' }}>{totalPaid}/{plan.maxMembers} peman</p>
+              <p style={{ fontSize: 10, opacity: 0.55, margin: '2px 0 0' }}>{totalPaid}/{totalSlotCount} peman</p>
             </div>
           </div>
         </div>
@@ -794,13 +791,13 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
         {/* STATS GRID — 2 kolòn */}
         <div className="sol-stats-grid">
           {[
-            { label: 'Rès pou Peye', val: `${fmt(Math.max(0, amountDue - amountPaid))} HTG`, color: D.red  },
+            { label: 'Rès pou Peye', val: `${fmt(Math.max(0, amountDue - amountPaid))} HTG`, color: D.red },
             ...allSlots.map(slot => ({
-  label: `🏆 Men #${slot.position}`,
-  val:   `${fmt(payout)} HTG • ${dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}`,
-  color: D.gold,
-})),
-            { label: 'Frekans',      val: FREQ_LABELS[plan.frequency] || plan.frequency,      color: D.muted},
+              label: `🏆 Men #${slot.position}`,
+              val:   `${fmt(payout)} HTG • ${dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}`,
+              color: D.gold,
+            })),
+            { label: 'Frekans', val: FREQ_LABELS[plan.frequency] || plan.frequency, color: D.muted },
           ].map(({ label, val, color }) => (
             <div key={label} style={{
               background: D.card, border: `1px solid ${D.border}`,
@@ -826,7 +823,7 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 10, color: D.muted }}>
             <span>{totalPaid} peman fèt</span>
-            <span>{plan.maxMembers - totalPaid} rès</span>
+            <span>{totalSlotCount - totalPaid} rès</span>
           </div>
         </div>
 
@@ -851,7 +848,7 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
           </div>
         )}
 
-    {/* REGLEMAN SOL */}
+        {/* REGLEMAN SOL */}
         {plan.regleman && (
           <div style={{
             background: 'rgba(20,184,166,0.06)',
@@ -876,15 +873,15 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
 
         {/* TABS — plein lajè */}
         <div className="sol-tabs">
-         {[['history', '📋 Istwa'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Mache']].map(([t, l]) => (
+          {[['history', '📋 Istwa'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Mache']].map(([t, l]) => (
             <button
               key={t}
               className="sol-tab-btn"
               onClick={() => setTab(t)}
               style={{
-                border:      `1px solid ${tab === t ? D.gold : D.borderSub}`,
-                background:  tab === t ? D.goldDim : 'transparent',
-                color:       tab === t ? D.gold : D.muted,
+                border:     `1px solid ${tab === t ? D.gold : D.borderSub}`,
+                background: tab === t ? D.goldDim : 'transparent',
+                color:      tab === t ? D.gold : D.muted,
                 fontFamily: 'inherit',
               }}
             >{l}</button>
@@ -907,12 +904,12 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
                 const paid   = !!member.payments?.[d]
                 const timing = member.paymentTimings?.[d]
                 const isPast = d <= today
+                // ✅ Detekte si se dat touche pou nenpòt men manm nan
                 const isWin  = allSlots.some(slot => i === slot.position - 1)
                 return (
                   <div key={d} className="sol-pay-row" style={{
                     background: isWin ? D.goldDim : (d === today ? 'rgba(201,168,76,0.04)' : 'transparent'),
                   }}>
-                    {/* Gòch — dat + badges */}
                     <div className="sol-pay-left">
                       <span style={{ fontSize: 12, fontFamily: 'monospace', color: isPast ? D.text : D.muted, flexShrink: 0 }}>
                         {d.split('-').reverse().join('/')}
@@ -921,7 +918,6 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
                       {d === today && !isWin && <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: D.blue, padding: '2px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
                       {paid && timingBadge(timing)}
                     </div>
-                    {/* Dwat — montan + badge */}
                     <div className="sol-pay-right">
                       <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid ? D.green : (isPast ? D.red : D.muted), whiteSpace: 'nowrap' }}>
                         {paid ? `+${fmt(plan.amount)}` : isPast ? `-${fmt(plan.amount)}` : fmt(plan.amount)} HTG
@@ -935,9 +931,9 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
           </div>
         )}
 
-        {/* KALANDRIYE */}
+        {/* KALANDRIYE — ✅ pase allSlots pou ti koup parèt sou tt dat touche */}
         {tab === 'calendar' && (
-          <SolCalendar dates={dates} member={member} plan={plan} today={today} />
+          <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />
         )}
 
         {/* MACHE ECHANJ */}
@@ -945,7 +941,7 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
           <SolExchangeMarket token={token} member={member} plan={plan} />
         )}
 
-         {/* BOUTON CHANJE MODPAS */}
+        {/* BOUTON CHANJE MODPAS */}
         <button
           onClick={() => setShowChangePw(true)}
           style={{
