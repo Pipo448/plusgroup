@@ -144,7 +144,6 @@ export default function AppLayout() {
   const branchRef = useRef(null)
   const meCalled  = useRef(false)
 
-  // ✅ Printer global store
   const {
     connected:  btConnected,
     connecting: btConnecting,
@@ -154,10 +153,8 @@ export default function AppLayout() {
     deviceName,
   } = usePrinterStore()
 
-  // ✅ Cache yon fwa — pa rele regex chak render
   const onAndroid = useMemo(() => isAndroid(), [])
 
-  // ✅ Montre bouton BT sèlman si navigator.bluetooth disponib
   const hasBluetooth = useMemo(
     () => typeof navigator !== 'undefined' && !!navigator.bluetooth,
     []
@@ -563,43 +560,45 @@ export default function AppLayout() {
               </>
             )
           })()}
-        </nav>
 
-        {/* ── PRESE ── */}
-{(() => {
-  const dryLocked = !isPageAllowed('dry')
-  return (
-    <>
-      <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: dryLocked ? 0.4 : 1 }}>
-        <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
-        <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
-      </div>
-      <NavLink to={dryLocked ? '#' : '/app/dry'}
-        onClick={(e) => { if (dryLocked) { e.preventDefault(); return } setOpen(false) }}
-        style={({ isActive }) => ({
-          display:'flex', alignItems:'center', gap:10,
-          padding:'9px 14px', borderRadius:10, marginBottom:3,
-          textDecoration:'none',
-          background: (!dryLocked && isActive) ? C.dryDim : 'transparent',
-          color: (!dryLocked && isActive) ? '#ffffff' : C.muted,
-          borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent',
-          fontWeight: (!dryLocked && isActive) ? 700 : 500,
-          fontSize:13,
-          opacity: dryLocked ? 0.4 : 1,
-          cursor: dryLocked ? 'not-allowed' : 'pointer',
-        })}>
-        {({ isActive }) => (<>
-          <Scissors size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
-          <span style={{ flex:1 }}>Jestyon Prese</span>
-          {dryLocked
-            ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-            : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>
-          }
-        </>)}
-      </NavLink>
-    </>
-  )
-})()}
+          {/* ── PRESE ── ✅ KÒRÈK: anndan <nav> pou li ka scroll */}
+          {(() => {
+            const dryLocked = !isPageAllowed('dry')
+            return (
+              <>
+                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: dryLocked ? 0.4 : 1 }}>
+                  <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
+                </div>
+                <NavLink to={dryLocked ? '#' : '/app/dry'}
+                  onClick={(e) => { if (dryLocked) { e.preventDefault(); return } setOpen(false) }}
+                  style={({ isActive }) => ({
+                    display:'flex', alignItems:'center', gap:10,
+                    padding:'9px 14px', borderRadius:10, marginBottom:3,
+                    textDecoration:'none',
+                    background: (!dryLocked && isActive) ? C.dryDim : 'transparent',
+                    color: (!dryLocked && isActive) ? '#ffffff' : C.muted,
+                    borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent',
+                    fontWeight: (!dryLocked && isActive) ? 700 : 500,
+                    fontSize:13,
+                    opacity: dryLocked ? 0.4 : 1,
+                    cursor: dryLocked ? 'not-allowed' : 'pointer',
+                  })}>
+                  {({ isActive }) => (<>
+                    <Scissors size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>Jestyon Prese</span>
+                    {dryLocked
+                      ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                      : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>
+                    }
+                  </>)}
+                </NavLink>
+              </>
+            )
+          })()}
+
+        </nav>
+        {/* ── FIN NAV ── */}
 
         {/* ── SETTINGS + USER ── */}
         <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
@@ -668,12 +667,7 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
-          {/* ══════════════════════════════════════════
-              ✅ BLUETOOTH PRINTER — Global header
-              Konekte yon fwa, sèvi pou tout paj
-          ══════════════════════════════════════════ */}
-
-          {/* Sou Android — montre Sunmi indicator */}
+          {/* ── Sunmi indicator (Android) ── */}
           {onAndroid && (
             <div style={{
               display:'flex', alignItems:'center', gap:5,
@@ -687,11 +681,10 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* Sou non-Android avèk Web Bluetooth — bouton konekte/dekonekte */}
+          {/* ── Bluetooth printer (non-Android) ── */}
           {!onAndroid && hasBluetooth && (
             <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
               {!btConnected ? (
-                /* ── PA konekte — bouton konekte */
                 <button
                   onClick={btConnect}
                   disabled={btConnecting}
@@ -710,7 +703,6 @@ export default function AppLayout() {
                   {btConnecting ? 'Koneksyon...' : 'BT Printer'}
                 </button>
               ) : (
-                /* ── Konekte — indicator + bouton dekonekte */
                 <>
                   <div style={{
                     display:'flex', alignItems:'center', gap:5,
@@ -718,7 +710,6 @@ export default function AppLayout() {
                     background:'rgba(5,150,105,0.08)',
                     border:'1px solid rgba(5,150,105,0.25)',
                   }}>
-                    {/* Dot vèt + glow */}
                     <div style={{
                       width:7, height:7, borderRadius:'50%',
                       background:'#059669',
@@ -727,7 +718,6 @@ export default function AppLayout() {
                     <span style={{ fontSize:11, fontWeight:700, color:'#059669', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {deviceName || 'Printer'}
                     </span>
-                    {/* Spinner pandan enpresyon */}
                     {btPrinting && (
                       <div style={{
                         width:11, height:11,
@@ -739,7 +729,6 @@ export default function AppLayout() {
                       }}/>
                     )}
                   </div>
-                  {/* Bouton dekonekte */}
                   <button
                     onClick={btDisconnect}
                     title="Dekonekte printer"
@@ -758,9 +747,7 @@ export default function AppLayout() {
             </div>
           )}
 
-          {/* ══════════════════════════════════════════ */}
-
-          {/* Lang selector */}
+          {/* ── Lang selector ── */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
