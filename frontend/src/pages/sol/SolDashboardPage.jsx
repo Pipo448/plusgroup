@@ -771,8 +771,11 @@ export default function SolDashboardPage() {
               <p style={{ fontSize: 11, opacity: 0.65, margin: '0 0 1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {member.phone}
               </p>
-              <p style={{ fontSize: 11, opacity: 0.6, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                Pozisyon #{member.position} • {plan.name}
+         <p style={{ fontSize: 11, opacity: 0.6, margin: 0 }}>
+                {allSlots.length > 1
+                  ? allSlots.map(s => `#${s.position}`).join(' • ')
+                  : `Pozisyon #${member.position}`
+                } • {plan.name}
               </p>
               {allSlots.length > 1 && (
                 <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
