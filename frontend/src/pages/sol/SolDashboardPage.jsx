@@ -777,11 +777,12 @@ export default function SolDashboardPage() {
                   : `Pozisyon #${member.position}`
                 } • {plan.name}
               </p>
-              {allSlots.length > 1 && (
-                <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
-                  {allSlots.length} men • Peye {fmt(allSlots.length * plan.amount)} HTG/sik
-                </p>
-              )}
+              <p style={{ fontSize: 10, opacity: 0.7, margin: '3px 0 0' }}>
+                {allSlots.length > 1
+                  ? `${allSlots.length} men • Peye ${fmt(allSlots.length * plan.amount)} HTG/sik`
+                  : `Peye ${fmt(plan.amount)} HTG/sik`}
+                {plan.dueTime && ` • ⏰ ${plan.dueTime}`}
+              </p>
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
               <p style={{ fontSize: 9, opacity: 0.6, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>Kontribisyon</p>
@@ -800,6 +801,11 @@ export default function SolDashboardPage() {
               val:   `${fmt(payout)} HTG • ${dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}`,
               color: D.gold,
             })),
+            ...(allSlots.length > 1 ? [{
+              label: '💰 Total Ap Touche',
+              val:   `${fmt(payout * allSlots.length)} HTG`,
+              color: D.green,
+            }] : []),
             { label: 'Frekans', val: FREQ_LABELS[plan.frequency] || plan.frequency, color: D.muted },
           ].map(({ label, val, color }) => (
             <div key={label} style={{
