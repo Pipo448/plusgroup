@@ -748,7 +748,7 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
               border: `1px solid ${D.orange}40`,
             }}>
               <Bell size={18} style={{ color: D.orange, flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: D.orange, fontWeight: 700, margin: 0, flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, color: '#7a4e00', fontWeight: 800, margin: 0, flex: 1, minWidth: 0 }}>
                 {daysUntil === 0
                   ? 'Peman ou a se jodi a!'
                   : `Peman pwochèn ou a nan ${daysUntil} jou — ${nextUnpaidDate.split('-').reverse().join('/')}`}
@@ -844,6 +844,29 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
               <span style={{ color: D.green,   fontWeight: 700 }}>✅ {scoreData.onTime} atètan</span>
               <span style={{ color: D.orange,  fontWeight: 700 }}>⚠️ {scoreData.late} reta</span>
             </div>
+          </div>
+        )}
+
+    {/* REGLEMAN SOL */}
+        {plan.regleman && (
+          <div style={{
+            background: 'rgba(20,184,166,0.06)',
+            border: '1px solid rgba(20,184,166,0.18)',
+            borderRadius: 14, padding: '13px 15px', marginBottom: 14,
+          }}>
+            <p style={{
+              fontSize: 10, fontWeight: 800, color: '#14b8a6',
+              textTransform: 'uppercase', letterSpacing: '0.07em',
+              margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              📜 Regleman Sol la
+            </p>
+            <p style={{
+              fontSize: 12, color: '#94a3b8', margin: 0,
+              lineHeight: 1.8, whiteSpace: 'pre-line',
+            }}>
+              {plan.regleman}
+            </p>
           </div>
         )}
 
