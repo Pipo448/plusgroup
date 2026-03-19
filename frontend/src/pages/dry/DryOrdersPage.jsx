@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { api } from '../../services/api'
 import toast from 'react-hot-toast'
-import { Search, Plus, Eye, ChevronLeft, ChevronRight, Shirt, X, Trash2 } from 'lucide-react'
+import { Search, Plus, Eye, ChevronLeft, ChevronRight, Scissors, X, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 
 // ── API helpers
@@ -146,7 +146,7 @@ export default function DryOrdersPage() {
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:14 }}>
           <div style={{ width:48, height:48, borderRadius:14, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${D.blue}40` }}>
-            <Shirt size={22} color="#fff"/>
+            <Scissors size={22} color="#fff"/>
           </div>
           <div>
             <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>Prese</h1>
@@ -210,7 +210,7 @@ export default function DryOrdersPage() {
           : !data.orders.length
           ? (
               <div style={{ padding:'60px 20px', textAlign:'center' }}>
-                <Shirt size={40} color={D.blue} style={{ marginBottom:12, opacity:0.4 }}/>
+                <Scissors size={40} color={D.blue} style={{ marginBottom:12, opacity:0.4 }}/>
                 <p style={{ color:D.muted, fontSize:15, fontWeight:600 }}>Pa gen lòd pou kounye a</p>
                 <button onClick={() => setShowCreate(true)}
                   style={{ marginTop:16, display:'inline-flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer' }}>
@@ -283,7 +283,7 @@ export default function DryOrdersPage() {
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f5f9' }}>
               <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                 <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Shirt size={18} color="#fff"/>
+                  <Scissors size={18} color="#fff"/>
                 </div>
                 <div>
                   <h2 style={{ fontWeight:900, fontSize:18, color:D.text, margin:0 }}>Nouvo Lòd Prese</h2>
@@ -479,7 +479,7 @@ export default function DryOrdersPage() {
                         <span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
                         Ap kreye...
                       </span>
-                    : <><Shirt size={16}/> Kreye Lòd Prese</>
+                    : <><Scissors size={16}/> Kreye Lòd Prese</>
                   }
                 </button>
               </div>
