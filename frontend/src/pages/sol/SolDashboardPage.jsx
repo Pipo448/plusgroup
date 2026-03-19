@@ -517,6 +517,7 @@ export default function SolDashboardPage() {
   const [data,         setData]         = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [showChangePw, setShowChangePw] = useState(false)
+  const [showPayModal, setShowPayModal] = useState(false)
   const [tab,          setTab]          = useState('history')
 
   useEffect(() => {
@@ -950,6 +951,21 @@ export default function SolDashboardPage() {
           <SolExchangeMarket token={token} member={member} plan={plan} />
         )}
 
+{/* BOUTON PEYE PA MONCASH / NATCASH */}
+        <button
+          onClick={() => setShowPayModal(true)}
+          style={{
+            marginTop: 16, width: '100%', padding: '14px',
+            borderRadius: 12, border: '1px solid rgba(220,38,38,0.35)',
+            background: 'rgba(220,38,38,0.07)', color: '#ef4444',
+            cursor: 'pointer', fontWeight: 700, fontSize: 13,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+            minHeight: 48, fontFamily: 'inherit',
+          }}
+        >
+          📱 Peye pa Moncash / Natcash
+        </button>
+
         {/* BOUTON CHANJE MODPAS */}
         <button
           onClick={() => setShowChangePw(true)}
@@ -966,6 +982,113 @@ export default function SolDashboardPage() {
         </button>
 
       </div>
+
+      {showPayModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+          onClick={e => e.target === e.currentTarget && setShowPayModal(false)}
+        >
+          <div className="sol-modal-sheet">
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
+            </div>
+
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>
+              📱 Peye pa Mobil Moni
+            </h2>
+            <p style={{ fontSize: 11, color: D.muted, margin: '0 0 20px' }}>
+              Voye kòb la epi voye yon kopi resi ou a bay admin nan.
+            </p>
+
+            {/* MONCASH */}
+            <div style={{
+              background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.25)',
+              borderRadius: 14, padding: '16px', marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{
+                  background: '#cc0000', borderRadius: 10,
+                  width: 42, height: 42, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', flexShrink: 0, fontSize: 20,
+                }}>▶</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: '#ef4444' }}>Digicel MonCash</div>
+                  <div style={{ fontSize: 10, color: D.muted }}>Mobil Moni Digicel</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
+                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Nimewo</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: '0.05em' }}>+509 31 33 87 85</div>
+                </div>
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
+                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Non</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Dasner JEAN</div>
+                </div>
+              </div>
+            </div>
+
+            {/* NATCASH */}
+            <div style={{
+              background: 'rgba(234,88,12,0.08)', border: '1px solid rgba(234,88,12,0.25)',
+              borderRadius: 14, padding: '16px', marginBottom: 12,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div style={{
+                  background: '#ea580c', borderRadius: 10,
+                  width: 42, height: 42, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', flexShrink: 0,
+                  fontSize: 11, fontWeight: 900, color: '#fff',
+                }}>nat</div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: '#f97316' }}>Natcash</div>
+                  <div style={{ fontSize: 10, color: D.muted }}>Mobil Moni Natcom</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
+                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Nimewo</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: '#fff', letterSpacing: '0.05em' }}>+509 42 44 90 24</div>
+                </div>
+                <div style={{ background: 'rgba(0,0,0,0.25)', borderRadius: 9, padding: '10px 13px' }}>
+                  <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', marginBottom: 3 }}>Non</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>Dasner JEAN</div>
+                </div>
+              </div>
+            </div>
+
+            {/* FRÈ TRANZAKSYON */}
+            <div style={{
+              background: 'rgba(201,168,76,0.08)', border: `1px solid ${D.gold}30`,
+              borderRadius: 12, padding: '12px 14px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: D.gold, marginBottom: 2 }}>Frè Tranzaksyon</div>
+                <div style={{ fontSize: 11, color: D.muted, lineHeight: 1.6 }}>
+                  Ajoute <strong style={{ color: '#fff' }}>15 HTG</strong> frè pou chak{' '}
+                  <strong style={{ color: '#fff' }}>250 HTG</strong> ou voye a.{' '}
+                  Egzanp: voye 250 HTG → total <strong style={{ color: D.gold }}>265 HTG</strong>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={() => setShowPayModal(false)} style={{
+              width: '100%', padding: '13px', borderRadius: 10,
+              border: `1px solid ${D.borderSub}`, background: 'transparent',
+              color: D.muted, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+              minHeight: 48, fontFamily: 'inherit',
+            }}>
+              Fèmen
+            </button>
+          </div>
+        </div>
+      )}
 
       {showChangePw && (
         <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />
