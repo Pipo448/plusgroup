@@ -76,6 +76,9 @@ model Tenant {
   clients              Client[]
   documentSequences    DocumentSequence[]
   hotelPayments        HotelPayment[]
+  dryOrders            DryOrder[]
+  dryItems             DryOrderItem[]
+  dryPayments          DryPayment[]
   hotelServices        HotelService[]
   invoiceItems         InvoiceItem[]
   invoices             Invoice[]
@@ -143,6 +146,7 @@ model Branch {
   products          Product[]
   quotes            Quote[]
   reservations      Reservation[]
+  dryOrders         DryOrder[]
   rooms             Room[]
   sabotayPlans      SabotayPlan[]
   stockMovements    StockMovement[]
@@ -202,6 +206,8 @@ model User {
   push_subscriptions      PushSubscription[]
   quotesCreated           Quote[]            @relation("QuoteCreatedBy")
   reservationsCreated     Reservation[]      @relation("ReservationCreatedBy")
+  dryOrdersCreated        DryOrder[]         @relation("DryOrderCreatedBy")
+  dryPaymentsCreated      DryPayment[]       @relation("DryPaymentCreatedBy")
   sabotayMembersCreated   SabotayMember[]    @relation("SabotayMemberCreatedBy")
   sabotayPaymentsCreated  SabotayPayment[]   @relation("SabotayPaymentCreatedBy")
   sabotayPlansCreated     SabotayPlan[]      @relation("SabotayPlanCreatedBy")
@@ -1005,6 +1011,87 @@ model admin_audit_logs {
   created_at   DateTime? @default(now()) @db.Timestamptz(6)
 
   @@index([tenant_id, created_at(sort: Desc)], map: "idx_audit_tenant")
+}
+
+model DryOrder {
+  id             String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId       String         @map("tenant_id")
+  branchId       String?        @map("branch_id")
+  orderNumber    String         @map("order_number") @db.VarChar(50)
+  clientName     String         @map("client_name") @db.VarChar(200)
+  clientPhone    String?        @map("client_phone") @db.VarChar(50)
+  depositDate    DateTime       @default(now()) @map("deposit_date") @db.Timestamptz(6)
+  pickupDate     DateTime       @map("pickup_date") @db.Timestamptz(6)
+  deliveredAt    DateTime?      @map("delivered_at") @db.Timestamptz(6)
+  status         DryOrderStatus @default(received)
+  totalHtg       Decimal        @default(0) @map("total_htg") @db.Decimal(14, 2)
+  amountPaidHtg  Decimal        @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
+  balanceDueHtg  Decimal        @default(0) @map("balance_due_htg") @db.Decimal(14, 2)
+  notes          String?
+  cancelReason   String?        @map("cancel_reason")
+  createdBy      String?        @map("created_by")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  items          DryOrderItem[]
+  payments       DryPayment[]
+  branch         Branch?        @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  creator        User?          @relation("DryOrderCreatedBy", fields: [createdBy], references: [id])
+  tenant         Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([branchId])
+  @@map("dry_orders")
+}
+
+model DryOrderItem {
+  id           String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId     String   @map("tenant_id")
+  orderId      String   @map("order_id")
+  service      String   @db.VarChar(50)
+  description  String   @db.VarChar(200)
+  color        String?  @db.VarChar(50)
+  quantity     Int      @default(1)
+  unitPriceHtg Decimal  @map("unit_price_htg") @db.Decimal(12, 2)
+  totalHtg     Decimal  @map("total_htg") @db.Decimal(14, 2)
+  notes        String?
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  order        DryOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("dry_order_items")
+}
+
+model DryPayment {
+  id          String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId    String        @map("tenant_id")
+  orderId     String        @map("order_id")
+  amountHtg   Decimal       @map("amount_htg") @db.Decimal(14, 2)
+  method      PaymentMethod @default(cash)
+  reference   String?       @db.VarChar(200)
+  amountGiven Decimal       @default(0) @map("amount_given") @db.Decimal(14, 2)
+  change      Decimal       @default(0) @db.Decimal(14, 2)
+  paymentDate DateTime      @default(now()) @map("payment_date") @db.Timestamptz(6)
+  notes       String?
+  createdBy   String?       @map("created_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  creator     User?         @relation("DryPaymentCreatedBy", fields: [createdBy], references: [id])
+  order       DryOrder      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("dry_payments")
+}
+
+enum DryOrderStatus {
+  received
+  processing
+  ready
+  delivered
+  cancelled
 }
 
 enum TenantStatus {

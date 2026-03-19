@@ -36,6 +36,7 @@ const solRoutes = require('./routes/sol.routes');
 const hotelRoutes = require('./modules/hotel/hotel.routes')
 const dashboardFullRoute = require('./modules/reports/dashboard-full.route');
 const pushRoutes = require('./modules/push/push.routes')
+const dryRoutes = require('./modules/dry/dry.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -152,6 +153,8 @@ app.use(`${API}/kane-epay`,     kaneEpayRoutes);
 app.use(`${API}/hotel`,         hotelRoutes)
 app.use(`${API}/dashboard`,     dashboardFullRoute);
 app.use('/api/v1/push',         pushRoutes);
+app.use('/api/v1/dry',          dryRoutes)
+
 
 // ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay
 app.use(`${API}/sabotay`,       sabotayRoutes);
