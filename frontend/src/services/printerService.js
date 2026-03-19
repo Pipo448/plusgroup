@@ -157,10 +157,22 @@ const sendViaRawBT = (bytes) => {
 export const connectPrinter = async () => {
   if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
 
-  _device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: ALL_SERVICE_UUIDS,
-  })
+  // Android Chrome mande filters — pa acceptAllDevices sèlman
+  const filters = ALL_SERVICE_UUIDS.map(uuid => ({ services: [uuid] }))
+
+  try {
+    _device = await navigator.bluetooth.requestDevice({
+      filters,
+      optionalServices: ALL_SERVICE_UUIDS,
+    })
+  } catch {
+    // Fallback si filters pa travay — eseye acceptAllDevices
+    _device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: ALL_SERVICE_UUIDS,
+    })
+  }
+
   const server = await _device.gatt.connect()
   _device.addEventListener('gattserverdisconnected', () => { _char = null; _device = null })
 
