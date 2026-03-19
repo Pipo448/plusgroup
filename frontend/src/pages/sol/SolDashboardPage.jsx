@@ -903,7 +903,7 @@ const allSlots    = member.allSlots || [{ id: member.id, position: member.positi
                 const paid   = !!member.payments?.[d]
                 const timing = member.paymentTimings?.[d]
                 const isPast = d <= today
-                const isWin  = i === member.position - 1
+                const isWin  = allSlots.some(slot => i === slot.position - 1)
                 return (
                   <div key={d} className="sol-pay-row" style={{
                     background: isWin ? D.goldDim : (d === today ? 'rgba(201,168,76,0.04)' : 'transparent'),
