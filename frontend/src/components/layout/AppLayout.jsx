@@ -15,7 +15,7 @@ import toast from 'react-hot-toast'
 import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
-import { isAndroid } from '../../services/printerService'
+import { isAndroid, isSunmi } from '../../services/printerService'  // ✅ ajoute isSunmi
 import NotificationBell from '../NotificationBell'
 
 const C = {
@@ -154,6 +154,7 @@ export default function AppLayout() {
   } = usePrinterStore()
 
   const onAndroid = useMemo(() => isAndroid(), [])
+  const onSunmi   = useMemo(() => isSunmi(),   [])  // ✅ nouvo
 
   const hasBluetooth = useMemo(
     () => typeof navigator !== 'undefined' && !!navigator.bluetooth,
@@ -561,7 +562,7 @@ export default function AppLayout() {
             )
           })()}
 
-          {/* ── PRESE ── ✅ KÒRÈK: anndan <nav> pou li ka scroll */}
+          {/* ── PRESE ── */}
           {(() => {
             const dryLocked = !isPageAllowed('dry')
             return (
@@ -598,7 +599,6 @@ export default function AppLayout() {
           })()}
 
         </nav>
-        {/* ── FIN NAV ── */}
 
         {/* ── SETTINGS + USER ── */}
         <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
@@ -667,8 +667,14 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
-          {/* ── Sunmi indicator (Android) ── */}
-          {onAndroid && (
+          {/* ══════════════════════════════════════════
+              ✅ PRINTER ZONE — Lojik korije:
+              - Sunmi  → badge vèt sèlman (pa bezwen BT)
+              - Tout lòt aparèy ak BT → bouton konekte
+                (Android Samsung/Xiaomi etc. + Desktop)
+          ══════════════════════════════════════════ */}
+          {onSunmi ? (
+            /* ── Sunmi: badge sèlman ── */
             <div style={{
               display:'flex', alignItems:'center', gap:5,
               padding:'4px 10px', borderRadius:10,
@@ -679,10 +685,8 @@ export default function AppLayout() {
               <Printer size={13} style={{ color:'#059669' }}/>
               <span style={{ fontSize:11, fontWeight:700, color:'#059669' }}>Sunmi</span>
             </div>
-          )}
-
-          {/* ── Bluetooth printer (non-Android) ── */}
-          {!onAndroid && hasBluetooth && (
+          ) : hasBluetooth ? (
+            /* ── Android non-Sunmi OU Desktop: bouton BT ── */
             <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
               {!btConnected ? (
                 <button
@@ -745,7 +749,7 @@ export default function AppLayout() {
                 </>
               )}
             </div>
-          )}
+          ) : null}
 
           {/* ── Lang selector ── */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
