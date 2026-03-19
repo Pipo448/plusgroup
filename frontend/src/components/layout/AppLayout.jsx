@@ -8,7 +8,7 @@ import {
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag,
-  Bluetooth, BluetoothOff, Printer, Scissors, 
+  Bluetooth, BluetoothOff, Printer, Shirt,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -585,7 +585,7 @@ export default function AppLayout() {
                     cursor: dryLocked ? 'not-allowed' : 'pointer',
                   })}>
                   {({ isActive }) => (<>
-                    <Scissors size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
+                    <Shirt size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
                     <span style={{ flex:1 }}>Jestyon Prese</span>
                     {dryLocked
                       ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
