@@ -23,8 +23,14 @@ const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me
 // ─────────────────────────────────────────────────────────────
 function computeTiming(dueDate, paidAt) {
   if (!paidAt) return 'onTime'
-  const due  = new Date(dueDate).toISOString().split('T')[0]
-  const paid = new Date(paidAt).toISOString().split('T')[0]
+  // ✅ Konpare dat an timezone Ayiti (UTC-5)
+  const toHaitiDate = (d) => {
+    const dt = new Date(d)
+    dt.setMinutes(dt.getMinutes() - 5 * 60) // retire 5h pou UTC-5
+    return dt.toISOString().split('T')[0]
+  }
+  const due  = toHaitiDate(dueDate)
+  const paid = toHaitiDate(paidAt)
   if (paid < due) return 'early'
   if (paid > due) return 'late'
   return 'onTime'

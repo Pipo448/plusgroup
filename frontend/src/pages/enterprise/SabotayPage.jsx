@@ -269,8 +269,10 @@ function getPaymentTiming(plan, paymentDate) {
   const today = new Date().toISOString().split('T')[0]
   if (paymentDate < today) return 'late'
 
-  const now     = new Date()
-  const nowMins = now.getHours() * 60 + now.getMinutes()
+  const now = new Date()
+const haitiOffset = -5 * 60 // UTC-5 an minit
+const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes()
+const nowMins = ((utcMins + haitiOffset) % (24 * 60) + 24 * 60) % (24 * 60)
 
   // Enteval: 8:00 AM → 15:00 PM (konfigirab via plan)
   const [startH, startM] = (plan.dueTime     || '08:00').split(':').map(Number)
