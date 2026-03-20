@@ -356,11 +356,12 @@ function SolCalendar({ dates, member, plan, today, allSlots }) {
           const isPast = ds < today, isWinDay = winDatesSet.has(ds)
           let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.1)' : D.muted
           if      (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
-          else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
-          else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
-          else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
-          else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
-          else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
+else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
+else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
+else if (isPayDay && paid && timing === 'late')  { bg = D.orangeBg; border = `${D.orange}40`; color = D.orange }  // ✅ NOUVO
+else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
+else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
+else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
           return (
             <div key={day} className="sol-cal-day" style={{ background: bg, border: `1px solid ${border}` }}>
               <span style={{ fontSize: 10, fontWeight: isPayDay || isToday ? 800 : 400, color, fontFamily: isPayDay ? 'DM Mono, monospace' : 'inherit' }}>{day}</span>
@@ -370,7 +371,7 @@ function SolCalendar({ dates, member, plan, today, allSlots }) {
         })}
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 16, fontSize: 10, color: D.muted }}>
-        {[['#00d084','Bonè'],[D.green,'Peye'],[D.red,'Pa Peye'],[D.blue,'Pwochen']].map(([c,l]) => (
+        {[['#00d084','Bonè'],[D.green,'Alè'],[D.orange,'Reta'],[D.red,'Pa Peye'],[D.blue,'Pwochen']].map(([c,l]) => (
           <span key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />{l}
           </span>
