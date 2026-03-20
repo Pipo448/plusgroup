@@ -462,14 +462,12 @@ export default function SolDashboardPage() {
   // ✅ 3. Kalkil
 const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
 
-// ✅ Sòme peman tout men ki gen menm telefòn
 // ✅ Konte dat inik — pa sòme pa men
 const totalPaid  = dates.filter(d => member.payments?.[d]).length
 const totalDue   = dates.filter(d => d <= today).length
-// ✅ Montan = dat × men × montan
 const amountPaid = totalPaid * plan.amount * allSlots.length
 const amountDue  = totalDue  * plan.amount * allSlots.length
-// ✅ Pwogrè sou dat inik
+const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)  // ✅ AJOUTE
 const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
   const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
 
