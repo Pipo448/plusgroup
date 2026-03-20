@@ -1473,10 +1473,12 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
   const today   = new Date().toISOString().split('T')[0]
   const isOwner = activeMember.isOwnerSlot
 
-  const totalPaid=allDates.filter(d=>activeMember.payments?.[d]).length
-  const totalDue=allDates.filter(d=>d<=today).length
-  const amtPaid=totalPaid*plan.amount
-  const amtDue=totalDue*plan.amount
+  const allSlotsList = allMemberSlots || [activeMember]
+const totalPaid = allSlotsList.reduce((acc, slot) =>
+  acc + allDates.filter(d => slot.payments?.[d]).length, 0)
+const totalDue = allDates.filter(d => d <= today).length
+const amtPaid  = totalPaid * plan.amount                        // ✅ 6 men × 1 peman × 250 = 1,500
+const amtDue   = totalDue * plan.amount * allSlotsList.length 
   const payout=isOwner?ownerPayout(plan):memberPayout(plan)
   const progress=allDates.length>0?(totalPaid/allDates.length)*100:0
   const isWinner=payoutDate&&payoutDate<=today&&!activeMember.hasWon
