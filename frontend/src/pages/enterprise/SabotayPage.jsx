@@ -350,11 +350,10 @@ function usePrinterState() {
   },[])
 
 const print = useCallback(async(plan, member, paidDates, tenant, type, allSlots=[])=>{
-  const slotCount = allSlots.length > 0 ? allSlots.length : 1
   if(isPrinterConnected()){
     setPrinting(true)
     try {
-      await printSabotayReceipt(plan, member, paidDates, tenant, type, slotCount)
+      await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots) // ✅ pase tablo
       toast.success('Resi enprime!')
       return true
     }
@@ -364,7 +363,6 @@ const print = useCallback(async(plan, member, paidDates, tenant, type, allSlots=
   printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots))
   return true
 },[])
-
   return {connected,connecting,printing,connect,disconnect,print}
 }
 // ─────────────────────────────────────────────────────────────
@@ -482,9 +480,9 @@ const kontribisyonTotal = amtPaid + (paidDates.length * plan.amount * slotCount)
           <tr><td colspan="2" style="border-top:2px solid #111;padding-top:3px"></td></tr>
           <tr>
             <td style="font-family:Arial;font-weight:900;font-size:11px">TOTAL PEYE</td>
-            <td style="text-align:right;font-family:Arial;font-weight:900;font-size:12px;color:#16a34a">
-              ${fmtAmt(paidDates.length * plan.amount * slotCount + fineTotal)} HTG
-            </td>
+        <td style="text-align:right;font-family:Arial;font-weight:700;font-size:10px;color:#16a34a">
+  ${fmtAmt(paidDates.length * plan.amount * slotCount + fineTotal)} G
+</td>
           </tr>
 
           <tr>
@@ -1741,36 +1739,49 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
 )}
 
         {/* Istwa peman */}
-        <div>
-          <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:D.muted,margin:'0 0 8px',letterSpacing:'0.06em'}}>
-            Istwa Peman ({totalPaid}/{allDates.length})
-          </p>
-          <div style={{maxHeight:220,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
-            {allDates.slice(0,60).map((d)=>{
-              const paid=!!activeMember.payments?.[d]
-              const timing=activeMember.paymentTimings?.[d]
-              const past=d<=today
-              const isPayoutDay = getPayoutDate(plan, activeMember.position) === d
-              const fine=activeMember.fines?.[d]
-              return (
-                <div key={d} style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                  padding:'8px 12px',borderRadius:9,gap:6,
-                  background:isPayoutDay?D.goldDim:(paid?D.greenBg:(past?D.redBg:'rgba(255,255,255,0.02)')),
-                  border:`1px solid ${isPayoutDay?D.border:paid?`${D.green}20`:past?`${D.red}20`:'transparent'}`}}>
-                  <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flex:1,minWidth:0}}>
-                    <span style={{fontSize:10,fontFamily:'monospace',color:D.muted,flexShrink:0}}>{d.split('-').reverse().join('/')}</span>
-                    {isPayoutDay&&<span style={{fontSize:9,background:D.goldDim,color:D.gold,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>🏆 Touche</span>}
-                    {paid&&tBadge(timing)}
-                    {fine&&<span style={{fontSize:9,background:D.redBg,color:D.red,padding:'1px 6px',borderRadius:8,fontWeight:700,flexShrink:0}}>+{fmt(fine)} amand</span>}
-                  </div>
-                  <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
-                    <span style={{fontFamily:'monospace',fontSize:11,fontWeight:700,
-                      color:paid?D.green:past?D.red:D.muted}}>
-                      {paid?`+${fmt(plan.amount)}`:past?`-${fmt(plan.amount)}`:`${fmt(plan.amount)}`} HTG
-                    </span>
-                    <PayBadge paid={paid} small/>
-                  </div>
-                </div>
+<div>
+  <p style={{fontSize:10,fontWeight:800,textTransform:'uppercase',color:D.muted,margin:'0 0 8px',letterSpacing:'0.06em'}}>
+    Istwa Peman ({totalPaid}/{allDates.length})
+  </p>
+  <div style={{maxHeight:220,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
+    {allDates.slice(0,60).map((d)=>{
+      const paid=!!activeMember.payments?.[d]
+      const timing=activeMember.paymentTimings?.[d]
+      const past=d<=today
+      const isPayoutDay = getPayoutDate(plan, activeMember.position) === d
+      const fine=activeMember.fines?.[d]
+      return (
+        <div key={d} style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+          padding:'8px 12px',borderRadius:9,gap:6,
+          background:isPayoutDay?D.goldDim:(paid?D.greenBg:(past?D.redBg:'rgba(255,255,255,0.02)')),
+          border:`1px solid ${isPayoutDay?D.border:paid?`${D.green}20`:past?`${D.red}20`:'transparent'}`}}>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',flex:1,minWidth:0}}>
+            <span style={{fontSize:10,fontFamily:'monospace',color:D.muted,flexShrink:0}}>{d.split('-').reverse().join('/')}</span>
+            {isPayoutDay&&<span style={{fontSize:9,background:D.goldDim,color:D.gold,padding:'1px 6px',borderRadius:10,fontWeight:700,flexShrink:0}}>🏆 Touche</span>}
+            {paid&&tBadge(timing)}
+            {fine&&<span style={{fontSize:9,background:D.redBg,color:D.red,padding:'1px 6px',borderRadius:8,fontWeight:700,flexShrink:0}}>+{fmt(fine)} amand</span>}
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:6,flexShrink:0}}>
+            <span style={{fontFamily:'monospace',fontSize:11,fontWeight:700,
+              color:paid?D.green:past?D.red:D.muted}}>
+              {paid?`+${fmt(plan.amount)}`:past?`-${fmt(plan.amount)}`:`${fmt(plan.amount)}`} HTG
+            </span>
+          <PayBadge paid={paid} small/>
+            {/* ✅ BOUTON RE-ENPRIME — sèlman si dat peye */}
+            {paid && (
+              <button
+                onClick={()=> printer.print(plan, activeMember, [d], tenant, 'peman', allMemberSlots || [activeMember])}
+                title="Re-enprime resi"
+                style={{width:22,height:22,borderRadius:6,border:'none',
+                  background:'rgba(255,255,255,0.06)',color:D.muted,
+                  cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+                  flexShrink:0,transition:'all 0.15s'}}
+              >
+                <Printer size={11}/>
+              </button>
+            )}
+          </div>
+        </div>
               )
             })}
           </div>
