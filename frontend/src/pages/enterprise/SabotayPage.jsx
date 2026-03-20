@@ -349,20 +349,21 @@ function usePrinterState() {
     disconnectPrinter(); setConnected(false); toast('Printer dekonekte',{icon:'🔌'})
   },[])
 
-const print = useCallback(async(plan, member, paidDates, tenant, type, allSlots=[])=>{
-  if(isPrinterConnected()){
-    setPrinting(true)
-    try {
-      await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots) // ✅ pase tablo
-      toast.success('Resi enprime!')
-      return true
+  const print = useCallback(async(plan, member, paidDates, tenant, type, allSlots=[])=>{
+    if(isPrinterConnected()){
+      setPrinting(true)
+      try {
+        await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots) // ✅ allSlots pa slotCount
+        toast.success('Resi enprime!')
+        return true
+      }
+      catch { setConnected(false); toast.error('Erè printer.'); return false }
+      finally { setPrinting(false) }
     }
-    catch { setConnected(false); toast.error('Erè printer.'); return false }
-    finally { setPrinting(false) }
-  }
-  printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots))
-  return true
-},[])
+    printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots))
+    return true
+  },[])
+
   return {connected,connecting,printing,connect,disconnect,print}
 }
 // ─────────────────────────────────────────────────────────────
