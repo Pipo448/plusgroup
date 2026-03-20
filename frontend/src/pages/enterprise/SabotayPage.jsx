@@ -2244,6 +2244,10 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const [actionModal,setAction]    = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [tab,setTab]               = useState('members')
+  useEffect(() => {
+  setView(null)
+  setSlots(null)
+}, [plan.regleman, plan.updatedAt, plan.id])
   const today = new Date().toISOString().split('T')[0]
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
@@ -3199,7 +3203,7 @@ export default function SabotayPage() {
       const result = r.plans||r.data||r
       return Array.isArray(result) ? result : []
     }),
-    refetchInterval:60000,
+    refetchInterval: 15000,
   })
 
   const activePlan = selectedPlan ? plans.find(p=>p.id===selectedPlan.id)||selectedPlan : null
@@ -3210,21 +3214,26 @@ export default function SabotayPage() {
     onError:(e)=>toast.error(e.message),
   })
 
-  const updatePlan = useMutation({
-    mutationFn:({id,...data})=>apiFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
-    onSuccess:()=>{ qc.invalidateQueries(['sabotay-plans']); setEditing(null); toast.success('✅ Plan modifye!') },
-    onError:(e)=>toast.error(e.message),
-  })
+ const updatePlan = useMutation({
+  mutationFn:({id,...data})=>apiFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
+  onSuccess:()=>{
+    qc.invalidateQueries(['sabotay-plans'])
+     refetch()  // ← refetch imedyateman
+    setEditing(null)
+    toast.success('✅ Plan modifye!')
+  },
+  onError:(e)=>toast.error(e.message),
+})
 
-  const closePlan = useMutation({
-    mutationFn:(id)=>apiFetch(`/sabotay/plans/${id}/close`,{method:'POST'}),
-    onSuccess:()=>{
-      qc.invalidateQueries(['sabotay-plans'])
-      setClosePlan(false)
-      toast.success('✅ Plan fèmen!')
-    },
-    onError:(e)=>toast.error(e.message),
-  })
+const closePlan = useMutation({
+  mutationFn:(id)=>apiFetch(`/sabotay/plans/${id}/close`,{method:'POST'}),
+  onSuccess:()=>{
+    qc.invalidateQueries(['sabotay-plans'])
+    setClosePlan(false)
+    toast.success('✅ Plan fèmen!')
+  },
+  onError:(e)=>toast.error(e.message),
+})
 
   const addMember = useMutation({
     mutationFn: async (data) => {
