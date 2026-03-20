@@ -409,13 +409,11 @@ const kontribisyonTotal = amtPaid + totalAmt
         ),
         ...CMD.NORMAL_FONT,
       ]),
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-      // ✅ TOTAL PEYE = dat × montan × men
-      ...encodeText('TOTAL PEYE: ' + fmt(totalAmt) + ' G\n'),
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
-      // ✅ Kontribisyon kimilatif
-      ...makeLine('Kontribisyon total:', fmt(kontribisyonTotal) + ' G', W), LF,
+     ...divider('=', W), LF,
+...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
+...makeLine('TOTAL PEYE:', fmt(totalAmt) + ' G', W), LF,
+...CMD.BOLD_OFF,
+...makeLine('Kontribisyon total:', fmt(kontribisyonTotal) + ' G', W), LF,
     ] : type === 'tiraj' ? [
       ...CMD.ALIGN_CENTER,
       ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
