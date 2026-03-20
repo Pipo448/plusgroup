@@ -394,11 +394,12 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman', allS
 // Kontribisyon anvan peman jodi a — sòme tout men
 const amtPaid = allSlots.length > 1
   ? allSlots.reduce((acc, slot) => {
-      const slotPaid = Object.keys(slot.payments||{}).filter(d=>slot.payments[d]).length
+      const slotPaid = Object.keys(slot.payments||{})
+        .filter(d => slot.payments[d] && !paidDates.includes(d)).length  // ← retire paidDates
       return acc + slotPaid * plan.amount
     }, 0)
-  : totalPaid * plan.amount
-// Total kumulatif: anvan + peman jodi a
+  : Object.keys(member.payments||{})
+      .filter(d => member.payments[d] && !paidDates.includes(d)).length * plan.amount
 const kontribisyonTotal = amtPaid + (paidDates.length * plan.amount * slotCount)
   const fineTotal=Object.values(member.fines||{}).reduce((a,b)=>a+Number(b),0)
   const fmtAmt=(n)=>Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:0})

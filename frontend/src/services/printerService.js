@@ -355,17 +355,16 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     : '#' + member.position
 
   // ✅ amtPaid — sòme tout men ki deja peye anvan peman jodi a
-  const totalPaid = allSlots.length > 1
-    ? allSlots.reduce((acc, slot) =>
-        acc + Object.keys(slot.payments || {}).filter(d => slot.payments[d]).length, 0)
-    : Object.keys(member.payments || {}).filter(d => member.payments[d]).length
-  const amtPaid  = totalPaid * plan.amount
-
-  // ✅ Peman jodi a × kantite men
-  const totalAmt = paidDates.length * plan.amount * slotCount
-
-  // ✅ Kontribisyon kimilatif: anvan + jodi a
-  const kontribisyonTotal = amtPaid + totalAmt
+  const amtPaid = allSlots.length > 1
+  ? allSlots.reduce((acc, slot) => {
+      const slotPaid = Object.keys(slot.payments || {})
+        .filter(d => slot.payments[d] && !paidDates.includes(d)).length  // ← retire paidDates
+      return acc + slotPaid * plan.amount
+    }, 0)
+  : Object.keys(member.payments || {})
+      .filter(d => member.payments[d] && !paidDates.includes(d)).length * plan.amount
+const totalAmt = paidDates.length * plan.amount * slotCount
+const kontribisyonTotal = amtPaid + totalAmt
 
   const FREQ = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []

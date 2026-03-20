@@ -124,17 +124,16 @@ function buildSabotayHtml(plan, member, paidDates, tenant, type, allSlots = []) 
     : '#' + member.position
 
   // ✅ amtPaid — sòme tout men ki deja peye
-  const totalPaid = allSlots.length > 1
-    ? allSlots.reduce((acc, slot) =>
-        acc + Object.keys(slot.payments || {}).filter(d => slot.payments[d]).length, 0)
-    : Object.keys(member.payments || {}).filter(d => member.payments[d]).length
-  const amtPaid  = totalPaid * plan.amount
-
-  // ✅ Total peman jodi a × kantite men
-  const totalAmt = paidDates.length * plan.amount * slotCount
-
-  // ✅ Kontribisyon kimilatif
-  const kontribisyonTotal = amtPaid + totalAmt
+  const amtPaid = allSlots.length > 1
+  ? allSlots.reduce((acc, slot) => {
+      const slotPaid = Object.keys(slot.payments || {})
+        .filter(d => slot.payments[d] && !paidDates.includes(d)).length  // ← retire paidDates
+      return acc + slotPaid * plan.amount
+    }, 0)
+  : Object.keys(member.payments || {})
+      .filter(d => member.payments[d] && !paidDates.includes(d)).length * plan.amount
+const totalAmt  = paidDates.length * plan.amount * slotCount
+const kontribisyonTotal = amtPaid + totalAmt
 
   return `
     <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px">
