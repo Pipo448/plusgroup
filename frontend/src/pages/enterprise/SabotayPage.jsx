@@ -280,7 +280,7 @@ function getPaymentTiming(plan, paymentDate) {
   const endMins   = endH   * 60 + endM
 
   if (nowMins < startMins) return 'early'          // Anvan 8:00 — bonè
-  if (nowMins <= endMins)  return 'onTime'          // 8:00–15:00 — atètan
+  if (nowMins <= endMins)  return 'onTime'          // 8:00–15:00 — a lè
   return 'late'                                     // Apre 15:00 — reta
 }
 
@@ -349,20 +349,24 @@ function usePrinterState() {
     disconnectPrinter(); setConnected(false); toast('Printer dekonekte',{icon:'🔌'})
   },[])
 
-  const print = useCallback(async(plan,member,paidDates,tenant,type)=>{
-    if(isPrinterConnected()){
-      setPrinting(true)
-      try { await printSabotayReceipt(plan,member,paidDates,tenant,type); toast.success('Resi enprime!'); return true }
-      catch { setConnected(false); toast.error('Erè printer.'); return false }
-      finally { setPrinting(false) }
+const print = useCallback(async(plan, member, paidDates, tenant, type, allSlots=[])=>{
+  const slotCount = allSlots.length > 0 ? allSlots.length : 1
+  if(isPrinterConnected()){
+    setPrinting(true)
+    try {
+      await printSabotayReceipt(plan, member, paidDates, tenant, type, slotCount)
+      toast.success('Resi enprime!')
+      return true
     }
-    printReceiptBrowser(buildReceiptHTML(plan,member,paidDates,tenant,type))
-    return true
-  },[])
+    catch { setConnected(false); toast.error('Erè printer.'); return false }
+    finally { setPrinting(false) }
+  }
+  printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots))
+  return true
+},[])
 
   return {connected,connecting,printing,connect,disconnect,print}
 }
-
 // ─────────────────────────────────────────────────────────────
 // PRINT HELPERS
 // ─────────────────────────────────────────────────────────────
@@ -376,7 +380,8 @@ function printReceiptBrowser(html) {
   setTimeout(()=>{w.focus();w.print();setTimeout(()=>w.close(),2000)},300)
 }
 
-function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
+function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman', allSlots=[]) {
+  const slotCount = allSlots.length > 0 ? allSlots.length : 1
   // ✅ Detekte lajè printer otomatik
   const receiptSize = tenant?.receiptSize || '80mm'
   const W = (receiptSize === '57mm' || receiptSize === '58mm') ? '64mm' : '80mm'
@@ -387,7 +392,15 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
   const isOwner= member.isOwnerSlot
   const payout = isOwner ? ownerPayout(plan) : memberPayout(plan)
   const totalPaid=Object.keys(member.payments||{}).filter(d=>member.payments[d]).length
-  const amtPaid=totalPaid*plan.amount
+// Kontribisyon anvan peman jodi a — sòme tout men
+const amtPaid = allSlots.length > 1
+  ? allSlots.reduce((acc, slot) => {
+      const slotPaid = Object.keys(slot.payments||{}).filter(d=>slot.payments[d]).length
+      return acc + slotPaid * plan.amount
+    }, 0)
+  : totalPaid * plan.amount
+// Total kumulatif: anvan + peman jodi a
+const kontribisyonTotal = amtPaid + (paidDates.length * plan.amount * slotCount)
   const fineTotal=Object.values(member.fines||{}).reduce((a,b)=>a+Number(b),0)
   const fmtAmt=(n)=>Number(n||0).toLocaleString('fr-HT',{minimumFractionDigits:0})
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
@@ -426,11 +439,18 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
       </table>
     </div>
 
-    <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner?'#C9A84C':'#ccc'};margin-bottom:5px;font-size:9px">
-      <div style="font-weight:700">${member.name}${isOwner?' ★':''}</div>
-      ${member.phone?`<div>${member.phone}</div>`:''}
-      <div>Pozisyon #${member.position}</div>
-    </div>
+ <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner?'#C9A84C':'#ccc'};margin-bottom:5px;font-size:9px">
+  <div style="font-weight:700">${member.name}${isOwner?' ★':''}</div>
+  ${member.phone?`<div>${member.phone}</div>`:''}
+  <div>Pozisyon: ${allSlots.length > 1
+    ? allSlots.map(s => '#' + s.position).join(' • ')
+    : '#' + member.position
+  }</div>
+  ${slotCount > 1
+    ? `<div style="color:#C9A84C;font-weight:700">${slotCount} Men • ${fmt(plan.amount * slotCount)} HTG/sik</div>`
+    : ''
+  }
+</div>
 
     <div style="border-top:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
       ${type==='peman'?`
@@ -439,7 +459,12 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
           ${paidDates.map(d=>`
             <tr>
               <td style="font-family:monospace">${d.split('-').reverse().join('/')}</td>
-              <td style="text-align:right;font-weight:600;color:#16a34a">+${fmtAmt(plan.amount)} HTG</td>
+              <td style="text-align:right;font-weight:600;color:#16a34a">
+                ${slotCount > 1
+                  ? `${slotCount} × ${fmtAmt(plan.amount)} = +${fmtAmt(plan.amount * slotCount)}`
+                  : `+${fmtAmt(plan.amount)}`
+                } HTG
+              </td>
             </tr>
           `).join('')}
           ${fineTotal>0?`
@@ -448,10 +473,25 @@ function buildReceiptHTML(plan, member, paidDates=[], tenant, type='peman') {
               <td style="text-align:right;color:#e74c3c">+${fmtAmt(fineTotal)} HTG</td>
             </tr>
           `:''}
+          ${slotCount > 1 ? `
+            <tr>
+              <td style="color:#555;font-size:8px">${slotCount} men × ${paidDates.length} dat</td>
+              <td style="text-align:right;font-size:8px;color:#555">${paidDates.length} × ${fmtAmt(plan.amount * slotCount)}</td>
+            </tr>
+          ` : ''}
           <tr><td colspan="2" style="border-top:2px solid #111;padding-top:3px"></td></tr>
           <tr>
             <td style="font-family:Arial;font-weight:900;font-size:11px">TOTAL PEYE</td>
-            <td style="text-align:right;font-family:Arial;font-weight:900;font-size:12px;color:#16a34a">${fmtAmt(paidDates.length*plan.amount+fineTotal)} HTG</td>
+            <td style="text-align:right;font-family:Arial;font-weight:900;font-size:12px;color:#16a34a">
+              ${fmtAmt(paidDates.length * plan.amount * slotCount + fineTotal)} HTG
+            </td>
+          </tr>
+
+          <tr>
+            <td style="color:#555;padding-top:4px">Kontribisyon total:</td>
+            <td style="text-align:right;font-weight:700;color:#16a34a;padding-top:4px">
+              ${fmtAmt(kontribisyonTotal)} HTG
+            </td>
           </tr>
         </table>
       `:type==='tirage'?`
@@ -974,13 +1014,15 @@ function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
       }
     }
 
+    // ✅ Kalkile tout men ki peye yo (prensipal + lòt men menm telefòn)
+    const allPayingSlots = [member, ...samePhoneMembers]
+
     if (samePhoneMembers.length > 0) {
-      toast.success(`✅ Peman anrejistre pou ${samePhoneMembers.length + 1} men!`)
+      toast.success(`✅ Peman anrejistre pou ${allPayingSlots.length} men!`)
     }
 
-    await printer.print(plan,member,sel,tenant,'peman')
+    await printer.print(plan, member, sel, tenant, 'peman', allPayingSlots)
   }
-
 // Ofri PDF tou
 setTimeout(() => {
   if (window.confirm('Ou vle telechaje PDF resi peman an tou?')) {
@@ -1581,7 +1623,7 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
             </div>
             <div style={{display:'flex',gap:10,fontSize:10,flexWrap:'wrap'}}>
               <span style={{color:'#00d084',fontWeight:700}}>⚡ {scoreData.early} bonè</span>
-              <span style={{color:D.green,fontWeight:700}}>✅ {scoreData.onTime} atètan</span>
+              <span style={{color:D.green,fontWeight:700}}>✅ {scoreData.onTime} a lè</span>
               <span style={{color:D.orange,fontWeight:700}}>⚠️ {scoreData.late} reta</span>
             </div>
           </div>
@@ -3217,11 +3259,11 @@ export default function SabotayPage() {
  const updatePlan = useMutation({
   mutationFn:({id,...data})=>apiFetch(`/sabotay/plans/${id}`,{method:'PUT',body:JSON.stringify(data)}),
   onSuccess:()=>{
-    qc.invalidateQueries(['sabotay-plans'])
-     refetch()  // ← refetch imedyateman
-    setEditing(null)
-    toast.success('✅ Plan modifye!')
-  },
+  qc.invalidateQueries(['sabotay-plans'])
+  refetch()
+  setEditing(null)
+  toast.success('✅ Plan modifye!')
+},
   onError:(e)=>toast.error(e.message),
 })
 

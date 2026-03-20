@@ -459,13 +459,19 @@ export default function SolDashboardPage() {
   )
 
   // ✅ 3. Kalkil
-  const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
-  const totalPaid  = dates.filter(d => member.payments?.[d]).length
-  const totalDue   = dates.filter(d => d <= today).length
-  const amountPaid = totalPaid * plan.amount
-  const amountDue  = totalDue * plan.amount
-  const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
-  const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
+
+// ✅ Sòme peman tout men ki gen menm telefòn
+const totalPaid  = allSlots.reduce((acc, slot) =>
+  acc + dates.filter(d => slot.payments?.[d]).length, 0)
+const totalDue   = dates.filter(d => d <= today).length
+const amountPaid = totalPaid * plan.amount
+const amountDue  = totalDue * plan.amount * allSlots.length
+const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+
+// ✅ Pwogrè kalkile sou total tout men yo
+const totalExpected = totalSlotCount * allSlots.length
+const progress   = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0
   const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
 
   const timings = Object.values(member.paymentTimings || {})
@@ -675,7 +681,7 @@ export default function SolDashboardPage() {
               </div>
               <div className="sol-score-row">
                 <span style={{ color: '#00d084', fontWeight: 700 }}>⚡ {scoreData.early} bonè</span>
-                <span style={{ color: D.green,  fontWeight: 700 }}>✅ {scoreData.onTime} atètan</span>
+                <span style={{ color: D.green,  fontWeight: 700 }}>✅ {scoreData.onTime} a lè</span>
                 <span style={{ color: D.orange, fontWeight: 700 }}>⚠️ {scoreData.late} reta</span>
               </div>
             </div>
