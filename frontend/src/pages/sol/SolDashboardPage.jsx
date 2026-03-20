@@ -462,16 +462,14 @@ export default function SolDashboardPage() {
 const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
 
 // ✅ Sòme peman tout men ki gen menm telefòn
-const totalPaid  = allSlots.reduce((acc, slot) =>
-  acc + dates.filter(d => slot.payments?.[d]).length, 0)
+// ✅ Konte dat inik — pa sòme pa men
+const totalPaid  = dates.filter(d => member.payments?.[d]).length
 const totalDue   = dates.filter(d => d <= today).length
-const amountPaid = totalPaid * plan.amount
-const amountDue  = totalDue * plan.amount * allSlots.length
-const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
-
-// ✅ Pwogrè kalkile sou total tout men yo
-const totalExpected = totalSlotCount * allSlots.length
-const progress   = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0
+// ✅ Montan = dat × men × montan
+const amountPaid = totalPaid * plan.amount * allSlots.length
+const amountDue  = totalDue  * plan.amount * allSlots.length
+// ✅ Pwogrè sou dat inik
+const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
   const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
 
   const timings = Object.values(member.paymentTimings || {})
@@ -702,7 +700,7 @@ const progress   = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0
             ))}
           </div>
 
-          {/* ISTWA */}
+        {/* ISTWA */}
           {tab === 'history' && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden' }}>
               <div style={{ padding: '20px 26px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -713,6 +711,8 @@ const progress   = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0
                 {dates.map((d, i) => {
                   const paid = !!member.payments?.[d], timing = member.paymentTimings?.[d]
                   const isPast = d <= today, isWin = allSlots.some(slot => i === slot.position - 1)
+                  // ✅ Montan reyèl = plan.amount × kantite men
+                  const montanDat = plan.amount * allSlots.length
                   return (
                     <div key={d} className="sol-pay-row" style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
@@ -720,10 +720,22 @@ const progress   = totalExpected > 0 ? (totalPaid / totalExpected) * 100 : 0
                         {isWin && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0, border: `1px solid ${D.border}` }}>🏆 Touche</span>}
                         {d === today && !isWin && <span style={{ fontSize: 9, background: D.blueBg, color: D.blue, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
                         {paid && timingBadge(timing)}
+                        {/* ✅ Afiche detay men si > 1 */}
+                        {paid && allSlots.length > 1 && (
+                          <span style={{ fontSize: 9, color: D.muted, flexShrink: 0 }}>
+                            {allSlots.length}×{fmt(plan.amount)}
+                          </span>
+                        )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        {/* ✅ Montan × kantite men */}
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 600, color: paid ? D.green : isPast ? D.red : D.muted, whiteSpace: 'nowrap' }}>
-                          {paid ? `+${fmt(plan.amount)}` : isPast ? `-${fmt(plan.amount)}` : fmt(plan.amount)} HTG
+                          {paid
+                            ? `+${fmt(montanDat)}`
+                            : isPast
+                              ? `-${fmt(montanDat)}`
+                              : fmt(montanDat)
+                          } HTG
                         </span>
                         {isPast && <PayBadge paid={paid} />}
                       </div>
