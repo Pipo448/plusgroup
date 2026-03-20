@@ -355,11 +355,11 @@ function SolCalendar({ dates, member, plan, today, allSlots }) {
           const paid = !!member.payments?.[ds], timing = member.paymentTimings?.[ds]
           const isPast = ds < today, isWinDay = winDatesSet.has(ds)
           let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.1)' : D.muted
-          if      (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
-else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
-else if (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
-else if (isPayDay && paid && timing === 'late')  { bg = D.orangeBg; border = `${D.orange}40`; color = D.orange }  // ✅ NOUVO
+          if      (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
+else if (isPayDay && paid && timing === 'late')  { bg = D.orangeBg; border = `${D.orange}40`; color = D.orange }
 else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
+else if (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
+else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
 else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
 else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
           return (
