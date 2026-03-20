@@ -481,11 +481,12 @@ const kontribisyonTotal = amtPaid + (paidDates.length * plan.amount * slotCount)
           ` : ''}
           <tr><td colspan="2" style="border-top:2px solid #111;padding-top:3px"></td></tr>
           <tr>
-            <td style="font-family:Arial;font-weight:900;font-size:11px">TOTAL PEYE</td>
-        <td style="text-align:right;font-family:Arial;font-weight:700;font-size:10px;color:#16a34a">
-  ${fmtAmt(paidDates.length * plan.amount * slotCount + fineTotal)} G
-</td>
-          </tr>
+            <tr>
+  <td style="font-family:Arial;font-weight:900;font-size:10px">TOTAL PEYE</td>
+  <td style="text-align:right;font-family:Arial;font-weight:700;font-size:10px;color:#16a34a;white-space:nowrap">
+    ${fmtAmt(paidDates.length * plan.amount * slotCount + fineTotal)} G
+  </td>
+</tr>
 
           <tr>
             <td style="color:#555;padding-top:4px">Kontribisyon total:</td>
