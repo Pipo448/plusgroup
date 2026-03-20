@@ -13,7 +13,7 @@ import SolExchangeMarket from '../../components/SolExchangeMarket'
 
 const D = {
   bg:        '#04090f',
-  bgGrad:    'radial-gradient(ellipse at 20% 0%, #0a1628 0%, #04090f 60%)',
+  bgGrad: 'radial-gradient(ellipse at 15% 0%, #0d1f3c 0%, #04090f 55%), radial-gradient(ellipse at 85% 100%, #1a0a2e 0%, transparent 50%)',
   card:      '#0a1520',
   cardHov:   '#0f1e2e',
   border:    'rgba(201,168,76,0.15)',
@@ -33,18 +33,18 @@ const D = {
 }
 
 const GLOBAL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+ @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @keyframes spin    { to { transform: rotate(360deg) } }
   @keyframes fadeUp  { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }
   @keyframes fadeIn  { from { opacity:0 } to { opacity:1 } }
   @keyframes slideUp { from { transform:translateY(100%) } to { transform:translateY(0) } }
   html { scroll-behavior: smooth; }
-  .sol-root { min-height: 100vh; background: ${D.bgGrad}; font-family: 'DM Sans', sans-serif; color: ${D.text}; }
+  .sol-root { min-height: 100vh; background: ${D.bgGrad}; font-family: 'Plus Jakarta Sans', sans-serif; color: ${D.text}; }
   .sol-layout { display: flex; min-height: 100vh; }
   .sol-sidebar {
     width: 260px; flex-shrink: 0;
-    background: rgba(8,16,26,0.97);
+    background: linear-gradient(180deg, #071528 0%, #04090f 100%);
     border-right: 1px solid ${D.border};
     position: sticky; top: 0; height: 100vh;
     display: flex; flex-direction: column;
@@ -65,7 +65,8 @@ const GLOBAL_STYLES = `
   }
   @media (max-width: 900px) { .sol-mobile-header { display: flex; } }
   .sol-hero {
-    background: linear-gradient(145deg, #111e30 0%, #0c1826 50%, #08111e 100%);
+   background: linear-gradient(145deg, #0f2040 0%, #0c1a30 40%, #091520 100%);
+border: 1px solid rgba(201,168,76,0.22);
     border: 1px solid ${D.border};
     border-radius: 24px; padding: 36px; margin-bottom: 24px;
     position: relative; overflow: hidden;
@@ -99,7 +100,7 @@ const GLOBAL_STYLES = `
   .sol-tab-btn {
     flex: 1; padding: 11px 12px; border-radius: 11px;
     cursor: pointer; font-size: 13px; font-weight: 600;
-    font-family: 'DM Sans', sans-serif; text-align: center;
+    font-family: 'Plus Jakarta Sans', sans-serif; text-align: center;
     transition: all 0.18s ease; border: none; white-space: nowrap;
   }
   @media (max-width: 400px) { .sol-tab-btn { font-size: 11px; padding: 9px 6px; } }
@@ -149,7 +150,7 @@ const GLOBAL_STYLES = `
     cursor: pointer; font-size: 13px; font-weight: 600;
     color: ${D.muted}; transition: all 0.15s; border: 1px solid transparent;
     background: transparent; width: 100%; text-align: left;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Plus Jakarta Sans', sans-serif;
   }
   .sol-nav-item:hover { background: rgba(255,255,255,0.04); color: ${D.text}; }
   .sol-nav-item.active { background: ${D.goldDim}; color: ${D.gold}; border-color: ${D.border}; }
@@ -288,7 +289,7 @@ function ModalPayMobile({ onClose }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 13, padding: '13px 15px' }}>
           <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>Nimewo</div>
-          <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 14, color: '#fff', letterSpacing: '0.04em' }}>{numero}</div>
+          <div style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 600, fontSize: 14, color: '#fff', letterSpacing: '0.04em' }}>{numero}</div>
         </div>
         <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 13, padding: '13px 15px' }}>
           <div style={{ fontSize: 9, color: D.muted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 7 }}>Non</div>
