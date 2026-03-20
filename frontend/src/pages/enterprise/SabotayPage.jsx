@@ -972,61 +972,38 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
 // ─────────────────────────────────────────────────────────────
 // MODAL: MARK PAYMENT + AMAND
 // ─────────────────────────────────────────────────────────────
-function ModalMarkPayment({member,plan,onClose,onSave,printer}) {
+function ModalMarkPayment({member, plan, onClose, onSave, printer}) {
   const {tenant} = useAuthStore()
   const today    = new Date().toISOString().split('T')[0]
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
-  const unpaid = allDates.filter(d => !member.payments?.[d])
+  const unpaid   = allDates.filter(d => !member.payments?.[d])
 
-  const [sel,setSel]        = useState(unpaid.length===1?[unpaid[0]]:[])
-  const [applyFine,setFine] = useState(false)
+  const [sel,      setSel]      = useState(unpaid.length===1?[unpaid[0]]:[])
+  const [applyFine,setFine]     = useState(false)
+  const [pdfReady, setPdfReady] = useState(false)  // ✅ NOUVO
+
   const toggle = (d)=>setSel(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d])
+
+  // ✅ Kalkile samePhoneMembers ak slotCount nan nivo konpozan
+  const samePhoneMembers = useMemo(()=>
+    (plan.members||[]).filter(
+      m => m.phone === member.phone && m.id !== member.id && m.status !== 'stopped'
+    ), [plan.members, member])
+
+  const allPayingSlots  = useMemo(()=> [member, ...samePhoneMembers], [member, samePhoneMembers])
+  const slotCount       = allPayingSlots.length
 
   const hasPenalty = Number(plan.penalty)>0
   const lateDates  = sel.filter(d=>d<today)
   const fineAmt    = hasPenalty&&applyFine ? lateDates.length*Number(plan.penalty) : 0
-  const baseAmt    = sel.length*Number(plan.amount)
-  const totalAmt   = baseAmt+fineAmt
+  const baseAmt    = sel.length * Number(plan.amount) * slotCount  // ✅ × slotCount
+  const totalAmt   = baseAmt + fineAmt
+  const isBlocked  = member.status === 'blocked'
 
-  // Si manm te bloke, peman ap debloke li otomatikman
-  const isBlocked = member.status === 'blocked'
-
-  const handleConfirm = async()=>{
-    if(!sel.length) return toast.error('Chwazi omwen yon dat.')
-    const timings={}; sel.forEach(d=>{timings[d]=getPaymentTiming(plan,d)})
-    const fines={}
-    if(applyFine&&hasPenalty) lateDates.forEach(d=>{fines[d]=Number(plan.penalty)})
-
-    // Mache peye manm prensipal la
-    onSave(member.id, sel, timings, fines)
-
-    // Mache peye lòt men ki gen menm telefòn tou (si yo pa peye deja)
-    const samePhoneMembers = (plan.members||[]).filter(
-      m => m.phone === member.phone && m.id !== member.id && m.status !== 'stopped'
-    )
-    for (const otherMember of samePhoneMembers) {
-      const otherUnpaid = sel.filter(d => !otherMember.payments?.[d])
-      if (otherUnpaid.length > 0) {
-        const otherTimings = {}
-        otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
-        onSave(otherMember.id, otherUnpaid, otherTimings, {})
-      }
-    }
-
-    // ✅ Kalkile tout men ki peye yo (prensipal + lòt men menm telefòn)
-    const allPayingSlots = [member, ...samePhoneMembers]
-
-    if (samePhoneMembers.length > 0) {
-      toast.success(`✅ Peman anrejistre pou ${allPayingSlots.length} men!`)
-    }
-
-    await printer.print(plan, member, sel, tenant, 'peman', allPayingSlots)
-  }
-// Ofri PDF tou
-setTimeout(() => {
-  if (window.confirm('Ou vle telechaje PDF resi peman an tou?')) {
-    const html = buildReceiptHTML(plan, member, sel, tenant, 'peman')
+  // ✅ Fonksyon PDF — disponib kòm bouton
+  const handleDownloadPDF = () => {
+    const html = buildReceiptHTML(plan, member, sel, tenant, 'peman', allPayingSlots)
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <title>Resi ${member.name}</title>
       <style>* { box-sizing: border-box; } body { font-family: 'Courier New', monospace; background: #fff; }
@@ -1037,7 +1014,31 @@ setTimeout(() => {
     const win  = window.open(url, '_blank')
     if (win) win.onload = () => { setTimeout(() => { win.print(); URL.revokeObjectURL(url) }, 500) }
   }
-}, 300)
+
+  const handleConfirm = async()=>{
+    if(!sel.length) return toast.error('Chwazi omwen yon dat.')
+    const timings={}; sel.forEach(d=>{timings[d]=getPaymentTiming(plan,d)})
+    const fines={}
+    if(applyFine&&hasPenalty) lateDates.forEach(d=>{fines[d]=Number(plan.penalty)})
+
+    onSave(member.id, sel, timings, fines)
+
+    for (const otherMember of samePhoneMembers) {
+      const otherUnpaid = sel.filter(d => !otherMember.payments?.[d])
+      if (otherUnpaid.length > 0) {
+        const otherTimings = {}
+        otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
+        onSave(otherMember.id, otherUnpaid, otherTimings, {})
+      }
+    }
+
+    if (samePhoneMembers.length > 0) {
+      toast.success(`✅ Peman anrejistre pou ${slotCount} men!`)
+    }
+
+    await printer.print(plan, member, sel, tenant, 'peman', allPayingSlots)
+    setPdfReady(true)  // ✅ Montre bouton PDF apre peman
+  }
 
   return (
     <Modal onClose={onClose} title={`✅ Mache Peye — ${member.name}`} width={480}>
@@ -1045,10 +1046,10 @@ setTimeout(() => {
         <div style={{background:D.goldDim,borderRadius:10,padding:'10px 14px',fontSize:12,color:D.muted}}>
           <span style={{color:D.gold,fontWeight:700}}>Plan: </span>{plan.name} •
           <span style={{color:D.gold,fontWeight:700}}> {fmt(plan.amount)} HTG / dat</span>
+          {slotCount > 1 && <span style={{color:D.blue,fontWeight:700}}> × {slotCount} men = <strong>{fmt(plan.amount * slotCount)} HTG/dat</strong></span>}
           {hasPenalty&&<span style={{color:D.red}}> • Amand reta: {fmt(plan.penalty)} HTG</span>}
         </div>
 
-        {/* Avètisman si manm bloke */}
         {isBlocked && (
           <div style={{background:D.orangeBg,border:`1px solid ${D.orange}40`,borderRadius:10,
             padding:'10px 13px',display:'flex',alignItems:'center',gap:8,fontSize:11}}>
@@ -1077,6 +1078,8 @@ setTimeout(() => {
             <div style={{maxHeight:220,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
               {unpaid.map(d=>{
                 const isLate=d<today
+                // ✅ Montan reyèl selon slotCount
+                const montanDat = plan.amount * slotCount
                 return (
                   <div key={d} className="pay-date-row" onClick={()=>toggle(d)} style={{
                     display:'flex',alignItems:'center',justifyContent:'space-between',
@@ -1089,7 +1092,15 @@ setTimeout(() => {
                         padding:'1px 6px',borderRadius:8,fontWeight:700}}>⚠️ Reta</span>}
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
-                      <span style={{fontSize:12,fontWeight:700,color:D.gold}}>{fmt(plan.amount)} HTG</span>
+                      {/* ✅ Afiche detay si plizyè men */}
+                      {slotCount > 1 ? (
+                        <span style={{fontSize:11,color:D.muted}}>
+                          {slotCount}×{fmt(plan.amount)} =
+                          <strong style={{color:D.gold,marginLeft:4}}>{fmt(montanDat)} HTG</strong>
+                        </span>
+                      ) : (
+                        <span style={{fontSize:12,fontWeight:700,color:D.gold}}>{fmt(plan.amount)} HTG</span>
+                      )}
                       <div style={{width:18,height:18,borderRadius:5,flexShrink:0,
                         border:`2px solid ${sel.includes(d)?D.green:D.borderSub}`,
                         background:sel.includes(d)?D.green:'transparent',
@@ -1125,7 +1136,8 @@ setTimeout(() => {
 
             <div style={{background:D.greenBg,borderRadius:10,padding:'10px 14px'}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:fineAmt>0?4:0}}>
-                <span style={{fontSize:12,color:D.green,fontWeight:700}}>Peman ({sel.length} dat):</span>
+                <span style={{fontSize:12,color:D.green,fontWeight:700}}>
+                  Peman ({sel.length} dat{slotCount>1?` × ${slotCount} men`:''}):</span>
                 <span style={{fontFamily:'monospace',fontWeight:800,color:D.green}}>{fmt(baseAmt)} HTG</span>
               </div>
               {fineAmt>0&&(
@@ -1147,6 +1159,19 @@ setTimeout(() => {
                 border:`1px solid ${D.borderSub}`,background:'transparent',color:D.muted,cursor:'pointer',fontWeight:700}}>
                 Anile
               </button>
+
+              {/* ✅ Bouton PDF — parèt apre peman konfime */}
+              {pdfReady && (
+                <button onClick={handleDownloadPDF} style={{
+                  flex:1, padding:'12px', borderRadius:10,
+                  border:`1px solid ${D.blue}40`,
+                  background:D.blueBg, color:D.blue,
+                  cursor:'pointer', fontWeight:700, fontSize:13,
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:6}}>
+                  📄 PDF
+                </button>
+              )}
+
               <button onClick={handleConfirm} disabled={printer.printing||!sel.length} style={{
                 flex:2,padding:'12px',borderRadius:10,border:'none',cursor:'pointer',
                 background:D.goldBtn,color:'#0a1222',fontWeight:800,fontSize:14,
@@ -1166,7 +1191,6 @@ setTimeout(() => {
     </Modal>
   )
 }
-
 // ─────────────────────────────────────────────────────────────
 // MODAL: AKSYON ADMIN SOU MANM (bloke, debloke, kanpe)
 // ─────────────────────────────────────────────────────────────
