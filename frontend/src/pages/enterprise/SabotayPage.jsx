@@ -2328,6 +2328,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   const [actionModal,setAction]    = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [tab,setTab]               = useState('members')
+  const [memberSearch, setMemberSearch] = useState('')
   useEffect(() => {
   setView(null)
   setSlots(null)
@@ -2476,12 +2477,33 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
 
       {tab==='members'&&(
         <div style={{display:'flex',flexDirection:'column',gap:7}}>
+          {plan.members?.length > 5 && (
+      <div style={{position:'relative',marginBottom:4}}>
+        <Search size={13} style={{position:'absolute',left:11,top:'50%',
+          transform:'translateY(-50%)',color:D.muted,pointerEvents:'none'}}/>
+        <input
+          value={memberSearch}
+          onChange={e=>setMemberSearch(e.target.value)}
+          placeholder="Chèche manm..."
+          style={{...inp, paddingLeft:32, fontSize:12}}
+        />
+      </div>
+    )}
           {!plan.members?.length?(
             <div style={{textAlign:'center',padding:40,color:D.muted}}>
               <Users size={32} style={{opacity:0.3,display:'block',margin:'0 auto 8px'}}/>
               <p style={{margin:0}}>Pa gen manm. Enskri premye kliyan ou!</p>
             </div>
-          ):displayMembers.map(m=>{
+        ):displayMembers
+  .filter(m => {
+    if (!memberSearch) return true
+    const q = memberSearch.toLowerCase()
+    return (
+      m.name?.toLowerCase().includes(q) ||
+      m.phone?.includes(q)
+    )
+  })
+  .map(m=>{
             const due=allDates.filter(d=>d<=today).length
             const paid=allDates.filter(d=>m.payments?.[d]).length
             const payoutDate=payoutMap[m.position]
