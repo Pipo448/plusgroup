@@ -108,21 +108,33 @@ function buildInvoiceHtml(invoice, tenant, cashier) {
     </div>`
 }
 
-function buildSabotayHtml(plan, member, paidDates, tenant, type) {
+function buildSabotayHtml(plan, member, paidDates, tenant, type, allSlots = []) {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0 })
   const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
   const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0
   const payout = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
-  const totalPaid = Object.keys(member.payments || {}).filter(d => member.payments[d]).length
-  const amtPaid = totalPaid * plan.amount
-  const totalAmt = paidDates.length * plan.amount
   const FREQ = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
   const titleMap = { peman:'RESI PEMAN', tiraj:'RESI TIRAJ AVÈG', kanpe:'KANPE PATISIPASYON', kont:'KONT MANM KREYE' }
 
-  const datesHtml = type === 'peman' ? paidDates.map(d =>
-    `<div style="display:flex;justify-content:space-between"><span>${d.split('-').reverse().join('/')}</span><span>+${fmt(plan.amount)} G</span></div>`
-  ).join('') : ''
+  // ✅ slotCount ak pozisyon yo
+  const slotCount = allSlots.length > 0 ? allSlots.length : 1
+  const posLabel  = allSlots.length > 1
+    ? allSlots.map(s => '#' + s.position).join(' • ')
+    : '#' + member.position
+
+  // ✅ amtPaid — sòme tout men ki deja peye
+  const totalPaid = allSlots.length > 1
+    ? allSlots.reduce((acc, slot) =>
+        acc + Object.keys(slot.payments || {}).filter(d => slot.payments[d]).length, 0)
+    : Object.keys(member.payments || {}).filter(d => member.payments[d]).length
+  const amtPaid  = totalPaid * plan.amount
+
+  // ✅ Total peman jodi a × kantite men
+  const totalAmt = paidDates.length * plan.amount * slotCount
+
+  // ✅ Kontribisyon kimilatif
+  const kontribisyonTotal = amtPaid + totalAmt
 
   return `
     <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px">
@@ -143,17 +155,27 @@ function buildSabotayHtml(plan, member, paidDates, tenant, type) {
       <div style="border-top:1px dashed #000;padding-top:4px;margin-bottom:6px">
         <strong>${member.name}</strong><br>
         ${member.phone ? `<span style="font-size:10px">Tel: ${member.phone}</span><br>` : ''}
-        <span style="font-size:10px">Pozisyon: #${member.position}</span>
+        <span style="font-size:10px">Pozisyon: ${posLabel}</span><br>
+        ${slotCount > 1 ? `<span style="font-size:10px;font-weight:bold">${slotCount} Men • ${fmt(plan.amount * slotCount)} G/sik</span>` : ''}
       </div>
       ${type === 'peman' ? `
         <div style="font-size:10px;margin-bottom:6px">
           <strong>Dat Peye:</strong>
-          ${datesHtml}
+          ${paidDates.map(d => `
+            <div style="display:flex;justify-content:space-between">
+              <span>${d.split('-').reverse().join('/')}</span>
+              <span>${slotCount > 1
+                ? `${slotCount}×${fmt(plan.amount)}=+${fmt(plan.amount * slotCount)}`
+                : `+${fmt(plan.amount)}`
+              } G</span>
+            </div>`).join('')}
         </div>
-        <div style="text-align:center;font-weight:bold;font-size:14px;border-top:1px solid #000;padding-top:6px">
+        <div style="text-align:center;font-weight:bold;font-size:13px;border-top:1px solid #000;padding-top:6px">
           TOTAL PEYE: ${fmt(totalAmt)} G
         </div>
-        <div style="font-size:10px;margin-top:4px">Kontribisyon total: ${fmt(amtPaid)} G</div>
+        <div style="font-size:10px;margin-top:4px">
+          Kontribisyon total: ${fmt(kontribisyonTotal)} G
+        </div>
       ` : type === 'tiraj' ? `
         <div style="text-align:center;padding:8px 0">
           <div style="font-size:10px">Moun Chwazi pa Tiraj:</div>
@@ -292,16 +314,16 @@ export const usePrinterStore = create((set, get) => ({
     }
   },
 
-  // ── PRINT SABOTAY ────────────────────────────────────────
-  printSabotay: async (plan, member, paidDates = [], tenant, type = 'peman') => {
+ // ── PRINT SABOTAY ────────────────────────────────────────
+  printSabotay: async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) => {
     set({ printing: true })
     try {
-      await printSabotayReceipt(plan, member, paidDates, tenant, type)
+      await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots)
       toast.success('Resi Sabotay enprime! 🖨️')
       return true
     } catch (err) {
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
-        const html = buildSabotayHtml(plan, member, paidDates, tenant, type)
+        const html = buildSabotayHtml(plan, member, paidDates, tenant, type, allSlots)
         return browserPrint(html)
       }
       console.error('Print sabotay error:', err)
