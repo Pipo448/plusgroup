@@ -1188,3 +1188,14 @@ enum ServiceType {
   room_service
   other
 }
+
+model SolChat {
+  id         String   @id @default(cuid())
+  planId     String
+  tenantId   String
+  authorId   String
+  authorName String
+  isAdmin    Boolean  @default(false)
+  message    String
+  createdAt  DateTime @default(now())
+}
