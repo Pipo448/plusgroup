@@ -11,27 +11,41 @@ import {
 } from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
-const D = {
-  bg:        '#04090f',
-  bgGrad: 'radial-gradient(ellipse at 15% 0%, #0d1f3c 0%, #04090f 55%), radial-gradient(ellipse at 85% 100%, #1a0a2e 0%, transparent 50%)',
-  card:      '#0a1520',
-  cardHov:   '#0f1e2e',
-  border:    'rgba(201,168,76,0.15)',
-  borderSub: 'rgba(255,255,255,0.06)',
-  gold:      '#C9A84C',
-  goldLight: '#E8C87A',
-  goldBtn:   'linear-gradient(135deg,#E8C87A 0%,#C9A84C 50%,#8B6914 100%)',
-  goldDim:   'rgba(201,168,76,0.08)',
-  green:     '#22c55e', greenBg: 'rgba(34,197,94,0.10)',
-  red:       '#ef4444', redBg:   'rgba(239,68,68,0.10)',
-  orange:    '#f59e0b', orangeBg:'rgba(245,158,11,0.10)',
-  blue:      '#60a5fa', blueBg:  'rgba(96,165,250,0.10)',
-  teal:      '#14b8a6', tealBg:  'rgba(20,184,166,0.08)',
-  text:      '#f0f4ff',
-  muted:     '#5a6a82',
-  mutedLt:   '#8899aa',
+const THEMES = {
+  dark:   { bg: '#04090f', card: '#0a1520', text: '#f0f4ff', gold: '#C9A84C', accent: '#C9A84C', name: '🌑 Nwa' },
+  yellow: { bg: '#fffbea', card: '#fff9d6', text: '#1a1200', gold: '#b8860b', accent: '#f59e0b', name: '🌟 Jòn' },
+  salmon: { bg: '#fff5f0', card: '#fff0eb', text: '#1a0800', gold: '#c45c3a', accent: '#f97316', name: '🍑 Somon' },
+  green:  { bg: '#f0fff4', card: '#e6ffed', text: '#001a08', gold: '#16a34a', accent: '#22c55e', name: '🌿 Vèt' },
+  red:    { bg: '#fff0f0', card: '#ffe5e5', text: '#1a0000', gold: '#dc2626', accent: '#ef4444', name: '🔴 Wouj' },
+  blue:   { bg: '#f0f4ff', card: '#e6eeff', text: '#00051a', gold: '#1d4ed8', accent: '#3b82f6', name: '💙 Ble' },
 }
 
+const getD = (theme) => {
+  const t = THEMES[theme] || THEMES.dark
+  const isDark = theme === 'dark'
+  return {
+    bg:        t.bg,
+    bgGrad:    isDark
+      ? 'radial-gradient(ellipse at 15% 0%, #0d1f3c 0%, #04090f 55%), radial-gradient(ellipse at 85% 100%, #1a0a2e 0%, transparent 50%)'
+      : `radial-gradient(ellipse at 15% 0%, ${t.accent}22 0%, ${t.bg} 55%)`,
+    card:      t.card,
+    cardHov:   t.card,
+    border:    `${t.accent}40`,
+    borderSub: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)',
+    gold:      t.gold,
+    goldLight: t.gold,
+    goldBtn:   `linear-gradient(135deg, ${t.accent}, ${t.gold})`,
+    goldDim:   `${t.accent}20`,
+    green:     '#22c55e', greenBg: 'rgba(34,197,94,0.10)',
+    red:       '#ef4444', redBg:   'rgba(239,68,68,0.10)',
+    orange:    '#f59e0b', orangeBg:'rgba(245,158,11,0.10)',
+    blue:      '#60a5fa', blueBg:  'rgba(96,165,250,0.10)',
+    teal:      '#14b8a6', tealBg:  'rgba(20,184,166,0.08)',
+    text:      t.text,
+    muted:     isDark ? '#5a6a82' : '#6b7280',
+    mutedLt:   isDark ? '#8899aa' : '#9ca3af',
+  }
+}
 const GLOBAL_STYLES = `
  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -827,15 +841,6 @@ function SolChat({ token, plan, member, onNewMessage }) {
   )
 }
 
-const THEMES = {
-  dark:   { bg: '#04090f', card: '#0a1520', text: '#f0f4ff', gold: '#C9A84C', accent: '#C9A84C', name: '🌑 Nwa' },
-  yellow: { bg: '#fffbea', card: '#fff9d6', text: '#1a1200', gold: '#b8860b', accent: '#f59e0b', name: '🌟 Jòn' },
-  salmon: { bg: '#fff5f0', card: '#fff0eb', text: '#1a0800', gold: '#c45c3a', accent: '#f97316', name: '🍑 Somon' },
-  green:  { bg: '#f0fff4', card: '#e6ffed', text: '#001a08', gold: '#16a34a', accent: '#22c55e', name: '🌿 Vèt' },
-  red:    { bg: '#fff0f0', card: '#ffe5e5', text: '#1a0000', gold: '#dc2626', accent: '#ef4444', name: '🔴 Wouj' },
-  blue:   { bg: '#f0f4ff', card: '#e6eeff', text: '#00051a', gold: '#1d4ed8', accent: '#3b82f6', name: '💙 Ble' },
-}
-
 export default function SolDashboardPage() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -845,6 +850,9 @@ export default function SolDashboardPage() {
   const [tab, setTab] = useState('history')
   const [unreadCount, setUnreadCount] = useState(0)
   const [theme, setTheme] = useState(() => localStorage.getItem('sol_theme') || 'dark')
+
+  // ✅ ICI — apre tout useState yo
+  const D = getD(theme)
 
   useEffect(() => {
     const el = document.createElement('style'); el.id = 'sol-dashboard-styles'; el.textContent = GLOBAL_STYLES
