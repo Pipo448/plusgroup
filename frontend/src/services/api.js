@@ -90,6 +90,7 @@ export const productAPI = {
   import:         (data)     => api.post('/products/import', data),
   getCategories:  ()         => api.get('/products/categories'),
   createCategory: (data)     => api.post('/products/categories', data),
+  updateCategory: (id, data) => api.put(`/products/categories/${id}`, data),  // ← AJOUTE
   adjustStock:    (id, data) => api.patch(`/products/${id}/stock`, data),
 }
 
