@@ -827,16 +827,6 @@ function SolChat({ token, plan, member, onNewMessage }) {
   )
 }
 
-useEffect(() => {
-  fetchMessages()
-  const iv = setInterval(async () => {
-    const before = messages.length
-    await fetchMessages()
-    // Si nouvo mesaj rive epi tab pa 'chat' — ogmante badge
-  }, 5000)
-  return () => clearInterval(iv)
-}, [fetchMessages])
-
 const THEMES = {
   dark:   { bg: '#04090f', card: '#0a1520', text: '#f0f4ff', gold: '#C9A84C', accent: '#C9A84C', name: '🌑 Nwa' },
   yellow: { bg: '#fffbea', card: '#fff9d6', text: '#1a1200', gold: '#b8860b', accent: '#f59e0b', name: '🌟 Jòn' },
