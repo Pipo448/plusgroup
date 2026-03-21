@@ -425,9 +425,9 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
   }, [nextUnpaidDate, plan])
 
   const cfg = {
-    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Peman pwochèn ou a:' },
+    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Pwochen pèman ou a:' },
     due:     { bg: D.greenBg,  border: `${D.green}35`,  color: D.green,  icon: <CheckCircle size={22} style={{color:D.green,flexShrink:0}}/>, label: 'Peye kounye a — lè limite:' },
-    late:    { bg: D.redBg,    border: `${D.red}35`,    color: D.red,    icon: <Bell size={22} style={{color:D.red,flexShrink:0}}/>, label: 'Lè peman an pase!' },
+    late:    { bg: D.redBg,    border: `${D.red}35`,    color: D.red,    icon: <Bell size={22} style={{color:D.red,flexShrink:0}}/>, label: 'Lè pèman an pase!' },
   }[status]
 
   return (
