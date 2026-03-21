@@ -1,9 +1,6 @@
 // backend/src/jobs/sabotay-reminder.job.js
-// ✅ Cron job — kouri chak jou a 2:30PM Haiti pou avètisman peman Sol
-// Haiti = UTC-5 → 2:30PM Haiti = 7:30PM UTC = 19:30 UTC
-
-const prisma      = require('../config/prisma')
-const solPushSvc  = require('../modules/sabotay/sol-push.service')
+const prisma     = require('../config/prisma')
+const solPushSvc = require('../modules/sabotay/sol-push.service')
 
 // ── Haiti timezone helper ─────────────────────────────────────
 function getTodayHaiti() {
@@ -14,21 +11,26 @@ function getTodayHaiti() {
   return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`
 }
 
+function getNowMinutesHaiti() {
+  const now = new Date(Date.now() - 5 * 60 * 60 * 1000)
+  return now.getUTCHours() * 60 + now.getUTCMinutes()
+}
+
 // ── Voye avètisman pou manm ki dwe peye jodi a ───────────────
 async function sendDailyReminders() {
   const todayStr  = getTodayHaiti()
   const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
   const nextDay   = new Date(todayDate.getTime() + 24 * 60 * 60 * 1000)
+  const nowMins   = getNowMinutesHaiti()
 
-  console.log(`[SabotayReminder] 🔔 Kouri pou dat: ${todayStr}`)
+  console.log(`[SabotayReminder] 🔔 Kouri pou dat: ${todayStr} — lè: ${Math.floor(nowMins/60)}h${String(nowMins%60).padStart(2,'0')}`)
 
   try {
-    // ── Jwenn tout plan aktif yo ──────────────────────────────
     const activePlans = await prisma.sabotayPlan.findMany({
-      where:  { status: 'active' },
+      where:  { status: 'open' },
       select: {
         id: true, name: true, amount: true,
-        frequency: true, dueTime: true,
+        frequency: true, dueTime: true, dueTimeEnd: true,
         warningDelayDays: true, tenantId: true,
       }
     })
@@ -37,7 +39,21 @@ async function sendDailyReminders() {
     let totalWA   = 0
 
     for (const plan of activePlans) {
-      // ── Jwenn manm ki dwe peye jodi a (dueDate = jodi) ───────
+
+      // ✅ Verifye si se 30 minit avan lè limit la pou plan sa a
+      const [endH, endM] = (plan.dueTimeEnd || '15:00').split(':').map(Number)
+      const endMins = endH * 60 + endM
+      const diff    = endMins - nowMins
+
+      // Sèlman si se ant 28 ak 33 minit avan limit la
+      if (diff < 28 || diff > 33) {
+        console.log(`[SabotayReminder] ⏭ ${plan.name} — pa lè reminder (diff: ${diff}min)`)
+        continue
+      }
+
+      console.log(`[SabotayReminder] ⏰ ${plan.name} — 30min avan ${plan.dueTimeEnd || '15:00'}`)
+
+      // Jwenn manm ki dwe peye jodi a
       const membersDueToday = await prisma.sabotayMember.findMany({
         where: {
           planId:   plan.id,
@@ -53,10 +69,9 @@ async function sendDailyReminders() {
 
       if (!membersDueToday.length) continue
 
-      // ── Filtre manm ki pa fin peye jodi a ─────────────────────
-      const memberIds = membersDueToday.map(m => m.id)
-
-      const alreadyPaid = await prisma.sabotayPayment.findMany({
+      // Filtre manm ki deja peye
+      const memberIds    = membersDueToday.map(m => m.id)
+      const alreadyPaid  = await prisma.sabotayPayment.findMany({
         where: {
           planId:   plan.id,
           memberId: { in: memberIds },
@@ -66,8 +81,6 @@ async function sendDailyReminders() {
       })
 
       const paidMemberIds = new Set(alreadyPaid.map(p => p.memberId))
-
-      // ── Sèlman manm ki pa fin peye ────────────────────────────
       const unpaidMembers = membersDueToday.filter(m => !paidMemberIds.has(m.id))
 
       if (!unpaidMembers.length) {
@@ -77,30 +90,28 @@ async function sendDailyReminders() {
 
       console.log(`[SabotayReminder] 📋 ${plan.name} — ${unpaidMembers.length} manm pa fin peye`)
 
-      const dueTime  = plan.dueTime || '15:00'
-      const amount   = Number(plan.amount).toLocaleString('fr-HT')
+      const dueTimeEnd = plan.dueTimeEnd || '15:00'
+      const amount     = Number(plan.amount).toLocaleString('fr-HT')
 
       for (const member of unpaidMembers) {
         const pushPayload = {
-          title: `⏰ Sabotay Sol — ${plan.name}`,
-          body:  `${member.name}, jodi a se dat peman ou a! ${amount} HTG anvan ${dueTime}`,
+          title: `⏰ Aten — Lè peman ap fini!`,
+          body:  `${member.name}, ou gen 30 minit pou peye ${amount} HTG — Limit: ${dueTimeEnd}`,
           icon:  '/logo.png',
           badge: '/logo.png',
           tag:   `sabotay-reminder-${plan.id}-${member.id}`,
-          requireInteraction: true,  // ✅ Notifikasyon pa disparèt otomatikman
-          data:  { url: '/sol/dashboard' },
+          requireInteraction: true,
+          data:  { url: '/app/sol/dashboard' },
         }
 
-        // ── Eseye Push premye ─────────────────────────────────
         const pushResult = await solPushSvc.sendToSolMember(member.id, pushPayload)
 
         if (pushResult.sent > 0) {
           totalPush++
           console.log(`[SabotayReminder] 📱 Push voye → ${member.name}`)
         } else {
-          // ── Si pa gen push subscription — voye WhatsApp ──────
           if (member.phone) {
-            await sendWhatsAppReminder(member, plan, amount, dueTime)
+            await sendWhatsAppReminder(member, plan, amount, dueTimeEnd)
             totalWA++
             console.log(`[SabotayReminder] 💬 WhatsApp voye → ${member.phone}`)
           }
@@ -117,23 +128,21 @@ async function sendDailyReminders() {
   }
 }
 
-// ── WhatsApp fallback via API ─────────────────────────────────
-async function sendWhatsAppReminder(member, plan, amount, dueTime) {
+// ── WhatsApp fallback ─────────────────────────────────────────
+async function sendWhatsAppReminder(member, plan, amount, dueTimeEnd) {
   try {
-    // ✅ Fonmate nimewo telefòn Haiti (+509)
     let phone = member.phone.replace(/\s/g, '').replace(/[^0-9+]/g, '')
     if (!phone.startsWith('+')) {
       phone = phone.startsWith('509') ? `+${phone}` : `+509${phone}`
     }
 
-    const message = `⏰ *Sabotay Sol — ${plan.name}*\n\n` +
+    const message =
+      `⏰ *Sabotay Sol — ${plan.name}*\n\n` +
       `Bonjou ${member.name}! 👋\n\n` +
-      `Jodi a se dat peman ou a. Tanpri peye *${amount} HTG* anvan *${dueTime}*.\n\n` +
-      `Mèsi paske ou respekte angajman ou! 🙏\n` +
+      `Ou gen *30 minit* pou peye *${amount} HTG* anvan *${dueTimeEnd}*.\n\n` +
+      `Peye kounye a pou evite penalite! 🙏\n` +
       `_— Plus Group_`
 
-    // ✅ Itilize WhatsApp API ou a — chanje URL la selon sistèm ou itilize
-    // Si ou gen MonCash/NatCash API oswa yon WhatsApp Business API
     const WHATSAPP_API_URL = process.env.WHATSAPP_API_URL
     const WHATSAPP_TOKEN   = process.env.WHATSAPP_TOKEN
 

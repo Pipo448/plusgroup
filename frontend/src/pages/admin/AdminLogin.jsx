@@ -19,7 +19,7 @@ export default function AdminLogin() {
       // Stocke token super admin séparement
       localStorage.setItem('pg-admin-token', res.data.token)
       localStorage.setItem('pg-admin-user', JSON.stringify(res.data.admin))
-      toast.success(`Byenveni, ${res.data.admin.name}!`)
+      toast.success(`Byenvini , ${res.data.admin.name}!`)
       navigate('/admin/dashboard')
     } catch (e) {
       toast.error(e.response?.data?.message || 'Idantifyan pa kòrèk')

@@ -35,7 +35,7 @@ export default function AdminLoginPage() {
     try {
       const res = await adminAPI.login(data)
       setAdminSession(res.data.token, res.data.admin)
-      toast.success(`Byenveni, ${res.data.admin.name}!`)
+      toast.success(`Byenvini , ${res.data.admin.name}!`)
       navigate('/admin/dashboard')
     } catch(e) {
       toast.error(e.response?.data?.message || 'Idantifyan pa kòrèk.')

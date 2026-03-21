@@ -10,7 +10,7 @@ function startScheduler() {
 
   // ✅ Avètisman Sabotay Sol — chak jou a 2:30PM Haiti (7:30PM UTC)
   // Cron syntax: minute heure jour mwa joursemèn
-  cron.schedule('30 19 * * *', async () => {
+  cron.schedule('*/5 * * * *', async () => {
     console.log('[Scheduler] ⏰ Sabotay reminder — ap kouri...')
     try {
       const result = await sendDailyReminders()
@@ -19,9 +19,8 @@ function startScheduler() {
       console.error('[Scheduler] ❌ Sabotay reminder echwe:', err.message)
     }
   }, {
-    timezone: 'UTC'  // 19:30 UTC = 2:30PM Haiti
+    timezone: 'UTC'
   })
-
   console.log('[Scheduler] ✅ Cron jobs anrejistre:')
   console.log('  • Sabotay Sol reminders — chak jou 2:30PM Haiti')
 }

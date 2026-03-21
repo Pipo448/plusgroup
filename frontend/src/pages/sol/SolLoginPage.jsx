@@ -52,7 +52,7 @@ export default function SolLoginPage() {
       // Sove token + info manm
       localStorage.setItem('sol_token',  data.token)
       localStorage.setItem('sol_member', JSON.stringify(data.member))
-      toast.success(`Byenveni, ${data.member.name}!`)
+      toast.success(`Byenvini , ${data.member.name}!`)
       navigate('/app/sol/dashboard')
     } catch (err) {
       toast.error(err.message || 'Non itilizatè oswa modpas pa kòrèk.')

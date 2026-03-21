@@ -93,7 +93,7 @@ export default function LoginPage() {
       const branches = res.data.branches || []
       autoSetBranch(branches)
 
-      toast.success('Byenveni, ' + user.fullName + '! 🎉')
+      toast.success('Byenvini , ' + user.fullName + '! 🎉')
       navigate('/dashboard')
     } catch (e) {
       localStorage.removeItem('plusgroup-slug')
