@@ -384,25 +384,20 @@ else if (isPayDay)                               { bg = D.blueBg; border = 'rgba
 
 function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
   const [timeLeft, setTimeLeft] = useState('')
-  const [status,   setStatus]   = useState('pending') // pending | due | late
+  const [status,   setStatus]   = useState('pending')
 
   useEffect(() => {
     const tick = () => {
       const now = new Date()
-
-      // ✅ Kalkile lè limit la an timezone Ayiti (UTC-5)
       const [dueH, dueM] = (plan.dueTime    || '10:00').split(':').map(Number)
       const [endH, endM] = (plan.dueTimeEnd || '15:00').split(':').map(Number)
-
       const dateParts = nextUnpaidDate.split('-').map(Number)
       const dueDateTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], dueH+5, dueM))
       const endDateTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], endH+5, endM))
-
       const diffToDue = dueDateTime - now
       const diffToEnd = endDateTime - now
 
       if (diffToDue > 0) {
-        // Anvan lè peman an
         const h = Math.floor(diffToDue / 3600000)
         const m = Math.floor((diffToDue % 3600000) / 60000)
         const s = Math.floor((diffToDue % 60000) / 1000)
@@ -413,14 +408,12 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
         )
         setStatus('pending')
       } else if (diffToEnd > 0) {
-        // Nan entèval peman (bonè/alè)
         const h = Math.floor(diffToEnd / 3600000)
         const m = Math.floor((diffToEnd % 3600000) / 60000)
         const s = Math.floor((diffToEnd % 60000) / 1000)
         setTimeLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
         setStatus('due')
       } else {
-        // Apre lè limit la
         setTimeLeft('00:00:00')
         setStatus('late')
       }
@@ -432,7 +425,7 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
   }, [nextUnpaidDate, plan])
 
   const cfg = {
-    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Pwochen pèman ou a:' },
+    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Peman pwochèn ou a:' },
     due:     { bg: D.greenBg,  border: `${D.green}35`,  color: D.green,  icon: <CheckCircle size={22} style={{color:D.green,flexShrink:0}}/>, label: 'Peye kounye a — lè limite:' },
     late:    { bg: D.redBg,    border: `${D.red}35`,    color: D.red,    icon: <Bell size={22} style={{color:D.red,flexShrink:0}}/>, label: 'Lè peman an pase!' },
   }[status]
@@ -444,16 +437,72 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
         <p style={{ fontSize: 11, color: cfg.color, fontWeight: 700, margin: '0 0 4px' }}>
           {cfg.label} {nextUnpaidDate.split('-').reverse().join('/')}
         </p>
-        <p style={{
-          fontFamily: 'DM Mono, monospace', fontSize: 28, fontWeight: 900,
-          color: cfg.color, margin: 0, letterSpacing: '0.05em'
-        }}>
+        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 28, fontWeight: 900, color: cfg.color, margin: 0, letterSpacing: '0.05em' }}>
           {timeLeft}
         </p>
         <p style={{ fontSize: 10, color: cfg.color, opacity: 0.7, margin: '4px 0 0' }}>
           {status === 'pending' && `Lè peman: ${plan.dueTime || '10:00'} — ${plan.dueTimeEnd || '15:00'}`}
           {status === 'due'     && `✅ Ou ka peye kounye a!`}
-          {status === 'late'    && `⚠️ Peman an reta`}
+          {status === 'late'    && `⚠️ Pèman an reta`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ✅ NOUVO — Countdown blokaj (dat pase pa peye)
+function BlockingCountdown({ nextUnpaidDate, plan, lastPaidDate }) {
+  const [timeLeft, setTimeLeft] = useState('')
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      // Blokaj = minui nan dat ki pase a (UTC-5 → +5h UTC)
+      const dateParts = nextUnpaidDate.split('-').map(Number)
+      const blockTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2]+1, 5, 0, 0))
+      const diff = blockTime - now
+
+      if (diff <= 0) {
+        setTimeLeft('Kont ou bloke!')
+        return
+      }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setTimeLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
+    }
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
+  }, [nextUnpaidDate])
+
+  return (
+    <div className="sol-alert" style={{
+      background: D.redBg, border: `1px solid ${D.red}40`,
+      flexDirection: 'column', alignItems: 'flex-start', gap: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <Bell size={22} style={{ color: D.red, flexShrink: 0 }} />
+        <div>
+          <p style={{ fontSize: 13, color: D.red, fontWeight: 800, margin: '0 0 2px' }}>
+            ⚠️ Pèman {nextUnpaidDate.split('-').reverse().join('/')} pa peye!
+          </p>
+          <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
+            Dènye pèman ou: {lastPaidDate?.split('-').reverse().join('/') || '—'}
+          </p>
+        </div>
+      </div>
+      <div style={{ width: '100%', background: 'rgba(239,68,68,0.08)', borderRadius: 12, padding: '12px 16px' }}>
+        <p style={{ fontSize: 10, color: D.red, fontWeight: 700, margin: '0 0 6px',
+          textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          Tan avan blokaj:
+        </p>
+        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 32, fontWeight: 900,
+          color: D.red, margin: 0, letterSpacing: '0.05em' }}>
+          {timeLeft}
+        </p>
+        <p style={{ fontSize: 11, color: D.muted, margin: '6px 0 0' }}>
+          Peye imedyatman pou evite blokaj kont ou!
         </p>
       </div>
     </div>
@@ -690,7 +739,13 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
     return null
   }
 
-  const nextUnpaidDate = dates.find(d => d >= today && !member.payments?.[d])
+ // ✅ Jwenn dènye dat peye a
+const lastPaidDate = [...dates].reverse().find(d => member.payments?.[d]) || null
+
+// ✅ Pwochen peman = premye dat san peman APRE dènye dat peye a
+const nextUnpaidDate = lastPaidDate
+  ? dates.find(d => d > lastPaidDate && !member.payments?.[d])
+  : dates.find(d => !member.payments?.[d]) // si poko peye ditou
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
 
@@ -780,8 +835,39 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
             </div>
           )}
 
-         {nextUnpaidDate && !isWinner && (() => {
+ {!isWinner && (() => {
+  const neverPaid = !lastPaidDate
+
+  // Si poko peye ditou
+  if (neverPaid) return (
+    <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
+      <Bell size={22} style={{ color: D.blue, flexShrink: 0 }} />
+      <div>
+        <p style={{ fontSize: 13, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>
+          Ou poko fè premye peman ou!
+        </p>
+        <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
+          Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • Peye ant {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '15:00'}
+        </p>
+      </div>
+    </div>
+  )
+
+  if (!nextUnpaidDate) return null
+
   const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
+  const isOverdue = nextUnpaidDate < today  // dat pase — kont ap bloke
+
+  // Si dat pase — afiche an wouj ak countdown blokaj
+  if (isOverdue) return (
+    <BlockingCountdown
+      nextUnpaidDate={nextUnpaidDate}
+      plan={plan}
+      lastPaidDate={lastPaidDate}
+    />
+  )
+
+  // Pwochen peman nòmal
   if (daysUntil > 3) return null
   return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} daysUntil={daysUntil} />
 })()}
