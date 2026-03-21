@@ -382,6 +382,84 @@ else if (isPayDay)                               { bg = D.blueBg; border = 'rgba
   )
 }
 
+function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
+  const [timeLeft, setTimeLeft] = useState('')
+  const [status,   setStatus]   = useState('pending') // pending | due | late
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+
+      // ✅ Kalkile lè limit la an timezone Ayiti (UTC-5)
+      const [dueH, dueM] = (plan.dueTime    || '10:00').split(':').map(Number)
+      const [endH, endM] = (plan.dueTimeEnd || '15:00').split(':').map(Number)
+
+      const dateParts = nextUnpaidDate.split('-').map(Number)
+      const dueDateTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], dueH+5, dueM))
+      const endDateTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2], endH+5, endM))
+
+      const diffToDue = dueDateTime - now
+      const diffToEnd = endDateTime - now
+
+      if (diffToDue > 0) {
+        // Anvan lè peman an
+        const h = Math.floor(diffToDue / 3600000)
+        const m = Math.floor((diffToDue % 3600000) / 60000)
+        const s = Math.floor((diffToDue % 60000) / 1000)
+        setTimeLeft(
+          daysUntil > 0
+            ? `${daysUntil}j ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+            : `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        )
+        setStatus('pending')
+      } else if (diffToEnd > 0) {
+        // Nan entèval peman (bonè/alè)
+        const h = Math.floor(diffToEnd / 3600000)
+        const m = Math.floor((diffToEnd % 3600000) / 60000)
+        const s = Math.floor((diffToEnd % 60000) / 1000)
+        setTimeLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
+        setStatus('due')
+      } else {
+        // Apre lè limit la
+        setTimeLeft('00:00:00')
+        setStatus('late')
+      }
+    }
+
+    tick()
+    const iv = setInterval(tick, 1000)
+    return () => clearInterval(iv)
+  }, [nextUnpaidDate, plan])
+
+  const cfg = {
+    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Pwochen pèman ou a nan:' },
+    due:     { bg: D.greenBg,  border: `${D.green}35`,  color: D.green,  icon: <CheckCircle size={22} style={{color:D.green,flexShrink:0}}/>, label: 'Peye kounye a — lè limite:' },
+    late:    { bg: D.redBg,    border: `${D.red}35`,    color: D.red,    icon: <Bell size={22} style={{color:D.red,flexShrink:0}}/>, label: 'Lè peman an pase!' },
+  }[status]
+
+  return (
+    <div className="sol-alert" style={{ background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+      {cfg.icon}
+      <div style={{ flex: 1 }}>
+        <p style={{ fontSize: 11, color: cfg.color, fontWeight: 700, margin: '0 0 4px' }}>
+          {cfg.label} {nextUnpaidDate.split('-').reverse().join('/')}
+        </p>
+        <p style={{
+          fontFamily: 'DM Mono, monospace', fontSize: 28, fontWeight: 900,
+          color: cfg.color, margin: 0, letterSpacing: '0.05em'
+        }}>
+          {timeLeft}
+        </p>
+        <p style={{ fontSize: 10, color: cfg.color, opacity: 0.7, margin: '4px 0 0' }}>
+          {status === 'pending' && `Lè peman: ${plan.dueTime || '10:00'} — ${plan.dueTimeEnd || '15:00'}`}
+          {status === 'due'     && `✅ Ou ka peye kounye a!`}
+          {status === 'late'    && `⚠️ Peman an reta`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function SolDashboardPage() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -481,7 +559,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
 
   const timingBadge = (t) => {
     if (t === 'early')  return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Bonè</span>
-    if (t === 'onTime') return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ Atètan</span>
+    if (t === 'onTime') return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ A lè</span>
     if (t === 'late')   return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚠️ Reta</span>
     return null
   }
@@ -507,7 +585,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
         <div style={{ fontSize: 11, color: D.muted, marginBottom: 10 }}>{member.phone}</div>
         <div style={{ fontSize: 11, color: D.gold, fontWeight: 600, lineHeight: 1.5 }}>{posStr}</div>
         {allSlots.length > 1 && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>{allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik</div>}
-        {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>⏰ Lè peman: {plan.dueTime}</div>}
+        {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>⏰ Peye ant {plan.dueTime} — {plan.dueTimeEnd || '15:00'}</div>}
       </div>
 
       <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 14 }}>Menu</div>
@@ -576,18 +654,11 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
             </div>
           )}
 
-          {nextUnpaidDate && !isWinner && (() => {
-            const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
-            if (daysUntil > 3) return null
-            return (
-              <div className="sol-alert" style={{ background: D.orangeBg, border: `1px solid ${D.orange}35` }}>
-                <Bell size={22} style={{ color: D.orange, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, color: '#7a4e00', fontWeight: 800, margin: 0 }}>
-                  {daysUntil === 0 ? 'Peman ou a se jodi a!' : `Peman pwochèn ou a nan ${daysUntil} jou — ${nextUnpaidDate.split('-').reverse().join('/')}`}
-                </p>
-              </div>
-            )
-          })()}
+         {nextUnpaidDate && !isWinner && (() => {
+  const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
+  if (daysUntil > 3) return null
+  return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} daysUntil={daysUntil} />
+})()}
 
           {/* HERO */}
           <div className="sol-hero">
@@ -598,9 +669,9 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
                 <div style={{ fontSize: 13, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
                 <div style={{ fontSize: 12, color: D.mutedLt, marginBottom: plan.dueTime ? 12 : 0 }}>{posStr} • {plan.name}</div>
                 {plan.dueTime && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 9, padding: '5px 12px', fontSize: 12, color: D.gold, fontWeight: 600 }}>
-                    ⏰ Lè peman: {plan.dueTime}
-                  </div>
+                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 9, padding: '5px 12px', fontSize: 12, color: D.gold, fontWeight: 600 }}>
+  ⏰ Peye ant <strong>{plan.dueTime}</strong> — <strong>{plan.dueTimeEnd || '15:00'}</strong>
+</div>
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
