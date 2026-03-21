@@ -111,10 +111,10 @@ function getPaymentDates(frequency, startDate, count) {
     }
   }
 
-  dates.push(new Date(cur).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0])
+  dates.push(new Date(cur).toISOString().split('T')[0])
   for (let i = 1; i < count; i++) {
     advanceOnce()
-    dates.push(new Date(cur).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0])
+    dates.push(new Date(cur).toISOString().split('T')[0])
   }
   return dates
 }
@@ -269,7 +269,7 @@ function getPaymentTiming(plan, paymentDate) {
   const today = (() => {
   const now = new Date()
   const haitiTime = new Date(now.getTime() - 5 * 60 * 60 * 1000)
-  return haitiTime.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  return haitiTime.toISOString().split('T')[0]
 })()
   if (paymentDate < today) return 'late'
 
@@ -665,8 +665,8 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
     dueTimeEnd:'15:00',regleman:'',startDate:'',
     ...(initialData||{}),
     startDate: initialData?.startDate
-      ? new Date(initialData.startDate).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
-      : new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+      ? new Date(initialData.startDate).toISOString().split('T')[0]
+      : new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   })
   const set=(k,v)=>setForm(p=>({...p,[k]:v}))
 
@@ -834,7 +834,7 @@ function ModalCreatePlan({onClose,onSave,loading,initialData=null}) {
   dueTime:form.dueTime||'08:00',
   dueTimeEnd:form.dueTimeEnd||'15:00',
   interval:intervalN,
-  startDate:form.startDate||new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0],
+  startDate:form.startDate||new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0],
   status:'open'})
           }} style={{flex:2,padding:'12px',borderRadius:10,border:'none',
             cursor:loading?'default':'pointer',
@@ -981,7 +981,7 @@ function ModalBlindDraw({plan,onClose,onConfirm,loading}) {
 // ─────────────────────────────────────────────────────────────
 function ModalMarkPayment({member, plan, onClose, onSave, printer}) {
   const {tenant} = useAuthStore()
-  const today    = new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today    = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
 
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const unpaid   = allDates.filter(d => !member.payments?.[d])
@@ -1390,7 +1390,7 @@ function ModalClosePlan({ plan, onClose, onConfirm, loading }) {
 // ─────────────────────────────────────────────────────────────
 function PlanCalendar({plan}) {
   const [off,setOff] = useState(0)
-  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const allPayDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const payoutMap   = useMemo(()=>getPayoutDateMap(plan),[plan])
@@ -1476,7 +1476,7 @@ function MemberVirtualAccount({member,plan,onClose,printer,allMemberSlots}) {
   const activeMember = multiSlots ? allMemberSlots[activeSlotIdx] : member
 
   const payoutDate = getPayoutDate(plan, activeMember.position)
-  const today   = new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today   = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const isOwner = activeMember.isOwnerSlot
 
   const allSlotsList = allMemberSlots || [activeMember]
@@ -2337,7 +2337,7 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
   setView(null)
   setSlots(null)
 }, [plan.regleman, plan.updatedAt, plan.id])
-  const today = new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const allDates = useMemo(()=>getAllPaymentDates(plan),[plan])
   const payoutMap = useMemo(()=>getPayoutDateMap(plan),[plan])
 
@@ -3424,7 +3424,7 @@ const closePlan = useMutation({
     onError:(e)=>toast.error(e.message),
   })
 
-  const today = new Date(new Date().getTime() - 5*60*60*1000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const totalMembers   = plans.reduce((a,p)=>a+(p.members?.length||0),0)
   const totalCollected = plans.reduce((a,p)=>
     a+(p.members||[]).filter(m=>m.status!=='stopped').reduce((b,m)=>{

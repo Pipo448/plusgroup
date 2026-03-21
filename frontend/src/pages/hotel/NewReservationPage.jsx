@@ -46,8 +46,8 @@ export default function NewReservationPage() {
   const [params]        = useSearchParams()
   const preselectedRoom = params.get('roomId')
 
-  const today    = new Date().new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
-  const tomorrow = new Date(Date.now() + 86400000).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today    = new Date().toISOString().split('T')[0]
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
   const nowTime  = new Date().toTimeString().slice(0,5)
 
   const [type, setType] = useState('nuit') // 'nuit' | 'moman'

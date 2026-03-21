@@ -16,7 +16,7 @@ function computePaymentDate(startDate, frequency, position, interval = 1) {
     case 'weekdays':        start.setDate(start.getDate() + pos * interval); break
     default:                start.setDate(start.getDate() + pos * 7 * interval)
   }
-  return start.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  return start.toISOString().split('T')[0]
 }
 
 function getIntervalDays(frequency, interval = 1) {
@@ -32,7 +32,7 @@ function computeCollectDate(startDate, frequency, position, totalMembers, interv
   const start = new Date(startDate)
   const days  = getIntervalDays(frequency, interval)
   start.setDate(start.getDate() + position * days)
-  return start.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  return start.toISOString().split('T')[0]
 }
 
 function generateUsername(name, position) {
@@ -95,7 +95,7 @@ async function getPlans(tenantId, branchId, params = {}) {
     members: await Promise.all(plan.members.map(async member => {
       const payments = {}, paymentTimings = {}
       for (const p of member.payments) {
-        const dateKey = new Date(p.dueDate).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+        const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
         payments[dateKey] = true
         paymentTimings[dateKey] = p.timing || 'onTime'
       }
@@ -203,7 +203,7 @@ async function blindDraw(tenantId, planId, userId, data) {
   const amount = Number(plan.amount)
   const pool = amount * totalMembers
   const payout = pool - feePerMember
-  await _checkAndNotifyCollection(tenantId, plan, new Date().new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0])
+  await _checkAndNotifyCollection(tenantId, plan, new Date().toISOString().split('T')[0])
   return { winner: updatedWinner, payout, pool, feePerMember, message: `${updatedWinner.name} ap touche ${payout.toLocaleString('fr-HT')} HTG!` }
 }
 
@@ -330,7 +330,7 @@ async function addMember(tenantId, planId, userId, data) {
             memberPosition: member.position, planId: plan.id, planName: plan.name,
             planAmount: Number(plan.amount), planFee: Number(plan.fee || 0),
             planFrequency: plan.frequency, planMaxMembers: plan.maxMembers,
-            planStartDate: plan.startDate.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0],
+            planStartDate: plan.startDate.toISOString().split('T')[0],
             planDueTime: plan.dueTime || '08:00', planInterval: Number(plan.interval || 1),
             planFeePerMember: Number(plan.feePerMember || 0), planPenalty: Number(plan.penalty || 0),
             planRegleman: plan.regleman || null, isOwnerSlot: false, hasWon: false,
@@ -452,7 +452,7 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
         const newPayments = { ...(solPos.payments || {}) }
         const newPaymentTimings = { ...(solPos.paymentTimings || {}) }
         for (const p of createdPayments) {
-          const dk = new Date(p.dueDate).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+          const dk = new Date(p.dueDate).toISOString().split('T')[0]
           newPayments[dk] = true
           newPaymentTimings[dk] = p.timing || 'onTime'
         }
@@ -505,16 +505,16 @@ async function getMemberAccount(tenantId, planId, memberId) {
 
   const progressPct = totalMembers > 0 ? Math.round((member.payments.length / totalMembers) * 100) : 0
   const totalFines  = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
-  const today = new Date().new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
 
   const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
     d.setDate(d.getDate() + i * intervalDays)
-    return d.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+    return d.toISOString().split('T')[0]
   })
 
   const paymentHistory = allDueDates.map((dueDate, i) => {
-    const paid  = member.payments.find(p => p.dueDate.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0] === dueDate)
+    const paid  = member.payments.find(p => p.dueDate.toISOString().split('T')[0] === dueDate)
     const isPast = dueDate <= today
     return {
       index: i + 1, dueDate, amount,
