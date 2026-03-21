@@ -746,7 +746,7 @@ function SolChat({ token, plan, member }) {
                   fontSize: 11, fontWeight: 800,
                   color: isAdmin ? '#0a1222' : '#fff',
                 }}>
-                  {isAdmin ? '👑' : msg.authorName.replace('Manm ', '#')}
+                 {isAdmin ? '👑' : msg.authorName.replace('Manm #', '')}
                 </div>
 
                 {/* Bilbòd mesaj */}

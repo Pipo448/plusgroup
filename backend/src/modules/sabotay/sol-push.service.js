@@ -89,3 +89,33 @@ module.exports = {
   sendToSolMember,
   sendToSolMembers,
 }
+
+// ── Notifye tout manm yon plan (eksepte moun ki voye a) ──────
+async function notifyPlanMembers(tenantId, planId, excludeAuthorId, { title, body }) {
+  try {
+    // Jwenn tout subscription ki nan menm plan an
+    const subs = await prisma.solPushSubscription.findMany({
+      where: {
+        tenantId,
+        memberId: { not: excludeAuthorId }
+      }
+    })
+    if (!subs.length) return { sent: 0, failed: 0 }
+
+    const payload = { title, body, icon: '/logo.png', badge: '/logo.png' }
+    const results = await Promise.allSettled(subs.map(s => sendToOneSol(s, payload)))
+    const sent    = results.filter(r => r.status === 'fulfilled' && r.value).length
+    return { sent, failed: results.length - sent }
+  } catch (err) {
+    console.warn('[NOTIFY PLAN MEMBERS]', err.message)
+    return { sent: 0, failed: 0 }
+  }
+}
+
+module.exports = {
+  saveSolSubscription,
+  removeSolSubscription,
+  sendToSolMember,
+  sendToSolMembers,
+  notifyPlanMembers,   // ✅ NOUVO
+}
