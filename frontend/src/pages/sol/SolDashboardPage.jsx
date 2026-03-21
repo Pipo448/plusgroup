@@ -635,12 +635,13 @@ function PerformanceMessage({ scoreData }) {
   )
 }
 
-function SolChat({ token, plan, member }) {
+function SolChat({ token, plan, member, onNewMessage }) {
   const [messages, setMessages] = useState([])
   const [input,    setInput]    = useState('')
   const [sending,  setSending]  = useState(false)
   const [loading,  setLoading]  = useState(true)
-  const bottomRef = useRef(null)
+  const bottomRef   = useRef(null)
+  const prevCountRef = useRef(0)  // ✅ Track kantite mesaj anvan
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -648,14 +649,23 @@ function SolChat({ token, plan, member }) {
         headers: { Authorization: `Bearer ${token}` }
       })
       const data = await res.json()
-      setMessages(data.messages || [])
+      const newMsgs = data.messages || []
+
+      // ✅ Si gen nouvo mesaj — notifye paran pou badge
+      if (newMsgs.length > prevCountRef.current && prevCountRef.current > 0) {
+        const diff = newMsgs.length - prevCountRef.current
+        onNewMessage?.(diff)
+      }
+      prevCountRef.current = newMsgs.length
+
+      setMessages(newMsgs)
     } catch {}
     finally { setLoading(false) }
-  }, [plan.id, token])
+  }, [plan.id, token, onNewMessage])
 
   useEffect(() => {
     fetchMessages()
-    const iv = setInterval(fetchMessages, 5000) // ✅ Poll chak 5 segonn
+    const iv = setInterval(fetchMessages, 5000)
     return () => clearInterval(iv)
   }, [fetchMessages])
 
@@ -679,7 +689,6 @@ function SolChat({ token, plan, member }) {
     } catch {}
     finally { setSending(false) }
   }
-
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
@@ -818,6 +827,25 @@ function SolChat({ token, plan, member }) {
   )
 }
 
+useEffect(() => {
+  fetchMessages()
+  const iv = setInterval(async () => {
+    const before = messages.length
+    await fetchMessages()
+    // Si nouvo mesaj rive epi tab pa 'chat' — ogmante badge
+  }, 5000)
+  return () => clearInterval(iv)
+}, [fetchMessages])
+
+const THEMES = {
+  dark:   { bg: '#04090f', card: '#0a1520', text: '#f0f4ff', gold: '#C9A84C', accent: '#C9A84C', name: '🌑 Nwa' },
+  yellow: { bg: '#fffbea', card: '#fff9d6', text: '#1a1200', gold: '#b8860b', accent: '#f59e0b', name: '🌟 Jòn' },
+  salmon: { bg: '#fff5f0', card: '#fff0eb', text: '#1a0800', gold: '#c45c3a', accent: '#f97316', name: '🍑 Somon' },
+  green:  { bg: '#f0fff4', card: '#e6ffed', text: '#001a08', gold: '#16a34a', accent: '#22c55e', name: '🌿 Vèt' },
+  red:    { bg: '#fff0f0', card: '#ffe5e5', text: '#1a0000', gold: '#dc2626', accent: '#ef4444', name: '🔴 Wouj' },
+  blue:   { bg: '#f0f4ff', card: '#e6eeff', text: '#00051a', gold: '#1d4ed8', accent: '#3b82f6', name: '💙 Ble' },
+}
+
 export default function SolDashboardPage() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -825,6 +853,8 @@ export default function SolDashboardPage() {
   const [showChangePw, setShowChangePw] = useState(false)
   const [showPayModal, setShowPayModal] = useState(false)
   const [tab, setTab] = useState('history')
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [theme, setTheme] = useState(() => localStorage.getItem('sol_theme') || 'dark')
 
   useEffect(() => {
     const el = document.createElement('style'); el.id = 'sol-dashboard-styles'; el.textContent = GLOBAL_STYLES
@@ -1161,14 +1191,65 @@ const nextUnpaidDate = lastPaidDate
             </div>
           )}
 
-          {/* TABS */}
-          <div className="sol-tabs">
-            {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t,l]) => (
-              <button key={t} className="sol-tab-btn" onClick={() => setTab(t)} style={{ border: 'none', background: tab === t ? D.goldDim : 'transparent', color: tab === t ? D.gold : D.muted, fontFamily: 'DM Sans, sans-serif' }}>{l}</button>
+          {/* BOUTON TÈM */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+            {Object.entries(THEMES).map(([key, t]) => (
+              <button key={key} onClick={() => {
+                setTheme(key)
+                localStorage.setItem('sol_theme', key)
+              }} style={{
+                padding: '5px 10px', borderRadius: 20, cursor: 'pointer',
+                fontSize: 11, fontWeight: 700, border: 'none',
+                background: theme === key ? t.accent : 'rgba(128,128,128,0.15)',
+                color: theme === key ? '#fff' : D.muted,
+                transition: 'all 0.2s',
+              }}>
+                {t.name}
+              </button>
             ))}
           </div>
 
-        {/* ISTWA */}
+          {/* TABS */}
+          <div className="sol-tabs">
+            {[
+              ['history', '📋 Istwa Peman'],
+              ['calendar', '📅 Kalandriye'],
+              ['exchange', '🔄 Mache'],
+              ['chat', '💬 Chat'],
+            ].map(([t, l]) => (
+              <button key={t} className="sol-tab-btn"
+                onClick={() => {
+                  setTab(t)
+                  if (t === 'chat') setUnreadCount(0)
+                }}
+                style={{
+                  border: 'none',
+                  background: tab === t ? D.goldDim : 'transparent',
+                  color: tab === t ? D.gold : D.muted,
+                  fontFamily: 'DM Sans, sans-serif',
+                  position: 'relative',
+                }}
+              >
+                {l}
+                {/* ✅ Badge mesaj poko li */}
+                {t === 'chat' && unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: -6,
+                    background: '#ef4444', color: '#fff',
+                    borderRadius: '50%', minWidth: 18, height: 18,
+                    fontSize: 10, fontWeight: 900,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 4px',
+                    boxShadow: '0 2px 8px rgba(239,68,68,0.5)',
+                  }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* ISTWA */}
           {tab === 'history' && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden' }}>
               <div style={{ padding: '20px 26px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1179,7 +1260,6 @@ const nextUnpaidDate = lastPaidDate
                 {dates.map((d, i) => {
                   const paid = !!member.payments?.[d], timing = member.paymentTimings?.[d]
                   const isPast = d <= today, isWin = allSlots.some(slot => i === slot.position - 1)
-                  // ✅ Montan reyèl = plan.amount × kantite men
                   const montanDat = plan.amount * allSlots.length
                   return (
                     <div key={d} className="sol-pay-row" style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}>
@@ -1188,7 +1268,6 @@ const nextUnpaidDate = lastPaidDate
                         {isWin && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0, border: `1px solid ${D.border}` }}>🏆 Touche</span>}
                         {d === today && !isWin && <span style={{ fontSize: 9, background: D.blueBg, color: D.blue, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
                         {paid && timingBadge(timing)}
-                        {/* ✅ Afiche detay men si > 1 */}
                         {paid && allSlots.length > 1 && (
                           <span style={{ fontSize: 9, color: D.muted, flexShrink: 0 }}>
                             {allSlots.length}×{fmt(plan.amount)}
@@ -1196,14 +1275,8 @@ const nextUnpaidDate = lastPaidDate
                         )}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        {/* ✅ Montan × kantite men */}
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 600, color: paid ? D.green : isPast ? D.red : D.muted, whiteSpace: 'nowrap' }}>
-                          {paid
-                            ? `+${fmt(montanDat)}`
-                            : isPast
-                              ? `-${fmt(montanDat)}`
-                              : fmt(montanDat)
-                          } HTG
+                          {paid ? `+${fmt(montanDat)}` : isPast ? `-${fmt(montanDat)}` : fmt(montanDat)} HTG
                         </span>
                         {isPast && <PayBadge paid={paid} />}
                       </div>
@@ -1216,7 +1289,14 @@ const nextUnpaidDate = lastPaidDate
 
           {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
-          {tab === 'chat' && <SolChat token={token} plan={plan} member={member} />}
+          {tab === 'chat' && (
+            <SolChat
+              token={token}
+              plan={plan}
+              member={member}
+              onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)}
+            />
+          )}
 
           {/* MOBILE ACTIONS */}
           <div className="sol-mobile-actions">
