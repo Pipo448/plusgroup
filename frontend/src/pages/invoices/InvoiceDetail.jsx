@@ -1012,7 +1012,7 @@ export default function InvoiceDetail() {
                     type="date"
                     className="input"
                     value={payData.dueDate}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]}
                     onChange={e => setPayData(d => ({ ...d, dueDate: e.target.value }))}
                   />
                   {!payData.dueDate && (

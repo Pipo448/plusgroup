@@ -22,12 +22,12 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
   const branchId = req.branchId || null;
   const isAdmin  = req.user.role === 'admin';
 
-  const today     = new Date().toISOString().split('T')[0];
+  const today     = new Date().new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0];
   const todayRange = haitiRange(today, today);
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const dateFrom30 = thirtyDaysAgo.toISOString().split('T')[0];
+  const dateFrom30 = thirtyDaysAgo.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0];
   const salesRange = haitiRange(dateFrom30, today);
 
   const baseWhere = {

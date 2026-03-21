@@ -27,7 +27,7 @@ function computeTiming(dueDate, paidAt) {
   const toHaitiDate = (d) => {
     const dt = new Date(d)
     dt.setMinutes(dt.getMinutes() - 5 * 60) // retire 5h pou UTC-5
-    return dt.toISOString().split('T')[0]
+    return dt.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   }
   const due  = toHaitiDate(dueDate)
   const paid = toHaitiDate(paidAt)
@@ -41,7 +41,7 @@ function buildPaymentMaps(sabotayPayments) {
   const paymentTimings = {}
   for (const p of sabotayPayments) {
     try {
-      const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
+      const dateKey = new Date(p.dueDate).new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
       payments[dateKey]       = true
       // ✅ paidDate oswa paidAt — sipòte toulède
       const paidAt = p.paidDate || p.paidAt || p.dueDate
@@ -242,7 +242,7 @@ const allSlots = await prisma.sabotayMember.findMany({
   frequency:        plan.frequency,
   maxMembers:       plan.maxMembers,
   activeMemberCount: activeMemberCount,
-  createdAt:        plan.startDate.toISOString().split('T')[0],
+  createdAt:        plan.startDate.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0],
   dueTime:          plan.dueTime             || account.planDueTime      || '08:00',
   dueTimeEnd:       plan.dueTimeEnd          || account.planDueTimeEnd   || '15:00',
   interval:         plan.interval            || account.planInterval     || 1,
@@ -318,7 +318,7 @@ router.post('/accounts', authAdmin, async (req, res) => {
         planFee:          Number(plan.fee),
         planFrequency:    plan.frequency,
         planMaxMembers:   plan.maxMembers,
-        planCreatedAt:    plan.startDate.toISOString().split('T')[0],
+        planCreatedAt:    plan.startDate.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0],
         planDueTime:      dueTime || '08:00',
         planInterval:     Number(plan.interval     || 1),
         planFeePerMember: Number(plan.feePerMember || 0),

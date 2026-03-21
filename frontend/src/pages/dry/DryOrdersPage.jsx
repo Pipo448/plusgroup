@@ -137,7 +137,7 @@ export default function DryOrdersPage() {
   const removeItem = (id) => setForm(f => ({ ...f, items: f.items.filter(it => it._id !== id) }))
 
   const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate  = tomorrow.toISOString().split('T')[0]
+  const minDate  = tomorrow.new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif' }}>
