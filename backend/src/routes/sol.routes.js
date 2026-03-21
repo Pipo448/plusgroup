@@ -604,4 +604,126 @@ router.get('/debug/accounts', async (req, res) => {
   }
 })
 
+// ══════════════════════════════════════════════════════════════
+// CHAT SOL — Diskisyon Manm
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/sol/chat/:planId — chaje mesaj yo
+router.get('/chat/:planId', authMember, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { tenantId, memberId } = req.solMember
+
+    const messages = await prisma.solChat.findMany({
+      where: { planId, tenantId },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    })
+
+    return res.json({ messages })
+  } catch (err) {
+    console.error('[SOL CHAT GET]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// POST /api/sol/chat/:planId — voye mesaj
+router.post('/chat/:planId', authMember, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { tenantId, memberId, accountId } = req.solMember
+    const { message } = req.body
+
+    if (!message?.trim()) {
+      return res.status(400).json({ message: 'Mesaj obligatwa' })
+    }
+    if (message.length > 500) {
+      return res.status(400).json({ message: 'Mesaj tro long (max 500 karaktè)' })
+    }
+
+    // Jwenn non anonymous — itilize pozisyon manm nan
+    const account = await prisma.solMemberAccount.findUnique({
+      where: { id: accountId },
+      select: { memberPosition: true, memberName: true }
+    })
+
+    const authorName = `Manm #${account?.memberPosition || '?'}`
+
+    const msg = await prisma.solChat.create({
+      data: {
+        planId,
+        tenantId,
+        authorId:   memberId,
+        authorName,
+        isAdmin:    false,
+        message:    message.trim(),
+      }
+    })
+
+    // ✅ Notifye lòt manm via push
+    try {
+      await solPushSvc.notifyPlanMembers(tenantId, planId, memberId, {
+        title: `💬 ${authorName}`,
+        body:  message.trim().substring(0, 80),
+      })
+    } catch (e) {
+      console.warn('[SOL CHAT PUSH]', e.message)
+    }
+
+    return res.status(201).json({ message: msg })
+  } catch (err) {
+    console.error('[SOL CHAT POST]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ── ADMIN: GET /api/sol/admin/chat/:planId
+router.get('/admin/chat/:planId', authAdmin, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const tenantId = req.query.tenantId || req.admin.tenantId
+    const messages = await prisma.solChat.findMany({
+      where: { planId, tenantId },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    })
+    return res.json({ messages })
+  } catch (err) {
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ── ADMIN: POST /api/sol/admin/chat/:planId
+router.post('/admin/chat/:planId', authAdmin, async (req, res) => {
+  try {
+    const { planId } = req.params
+    const { message } = req.body
+    const tenantId = req.query.tenantId || req.admin.tenantId
+
+    if (!message?.trim()) return res.status(400).json({ message: 'Mesaj obligatwa' })
+
+    const msg = await prisma.solChat.create({
+      data: {
+        planId,
+        tenantId,
+        authorId:   'admin',
+        authorName: '👑 Admin',
+        isAdmin:    true,
+        message:    message.trim(),
+      }
+    })
+
+    try {
+      await solPushSvc.notifyPlanMembers(tenantId, planId, 'admin', {
+        title: '👑 Admin',
+        body:  message.trim().substring(0, 80),
+      })
+    } catch (e) {}
+
+    return res.status(201).json({ message: msg })
+  } catch (err) {
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
 module.exports = router

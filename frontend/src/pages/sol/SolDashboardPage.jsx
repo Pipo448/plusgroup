@@ -635,6 +635,189 @@ function PerformanceMessage({ scoreData }) {
   )
 }
 
+function SolChat({ token, plan, member }) {
+  const [messages, setMessages] = useState([])
+  const [input,    setInput]    = useState('')
+  const [sending,  setSending]  = useState(false)
+  const [loading,  setLoading]  = useState(true)
+  const bottomRef = useRef(null)
+
+  const fetchMessages = useCallback(async () => {
+    try {
+      const res = await fetch(`${SOL_API}/api/sol/chat/${plan.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      const data = await res.json()
+      setMessages(data.messages || [])
+    } catch {}
+    finally { setLoading(false) }
+  }, [plan.id, token])
+
+  useEffect(() => {
+    fetchMessages()
+    const iv = setInterval(fetchMessages, 5000) // ✅ Poll chak 5 segonn
+    return () => clearInterval(iv)
+  }, [fetchMessages])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const send = async () => {
+    if (!input.trim() || sending) return
+    setSending(true)
+    try {
+      const res = await fetch(`${SOL_API}/api/sol/chat/${plan.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ message: input.trim() })
+      })
+      if (res.ok) {
+        setInput('')
+        fetchMessages()
+      }
+    } catch {}
+    finally { setSending(false) }
+  }
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  }
+
+  const fmtTime = (d) => new Date(d).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
+  const fmtDate = (d) => new Date(d).toLocaleDateString('fr-HT')
+
+  let lastDate = null
+
+  return (
+    <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 520 }}>
+
+      {/* Tèt chat */}
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: D.text }}>
+            💬 Chat Sol — {plan.name}
+          </span>
+          <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>
+            Diskisyon anonymous pami manm yo
+          </p>
+        </div>
+        <button onClick={fetchMessages} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <RefreshCw size={12} />
+        </button>
+      </div>
+
+      {/* Mesaj yo */}
+      <div className="sol-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: 32, color: D.muted }}>
+            <div style={{ width: 24, height: 24, border: `2px solid ${D.gold}30`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
+          </div>
+        ) : messages.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: 32, color: D.muted }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
+            <p style={{ margin: 0, fontSize: 13 }}>Pa gen mesaj pou kounye a.</p>
+            <p style={{ margin: '4px 0 0', fontSize: 11 }}>Kòmanse diskisyon an!</p>
+          </div>
+        ) : messages.map((msg, i) => {
+          const isMe    = msg.authorId === member.id
+          const isAdmin = msg.isAdmin
+          const msgDate = fmtDate(msg.createdAt)
+          const showDate = msgDate !== lastDate
+          lastDate = msgDate
+
+          return (
+            <div key={msg.id}>
+              {/* Separatè dat */}
+              {showDate && (
+                <div style={{ textAlign: 'center', margin: '8px 0', fontSize: 10, color: D.muted }}>
+                  <span style={{ background: D.card, padding: '2px 10px', borderRadius: 10, border: `1px solid ${D.borderSub}` }}>
+                    {msgDate}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8 }}>
+                {/* Avatar */}
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                  background: isAdmin ? D.goldBtn : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 11, fontWeight: 800,
+                  color: isAdmin ? '#0a1222' : '#fff',
+                }}>
+                  {isAdmin ? '👑' : msg.authorName.replace('Manm ', '#')}
+                </div>
+
+                {/* Bilbòd mesaj */}
+                <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 3 }}>
+                  {!isMe && (
+                    <span style={{ fontSize: 9, color: isAdmin ? D.gold : D.muted, fontWeight: 700, marginLeft: 4 }}>
+                      {msg.authorName}
+                    </span>
+                  )}
+                  <div style={{
+                    padding: '9px 13px', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                    background: isAdmin
+                      ? 'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08))'
+                      : isMe
+                        ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)'
+                        : 'rgba(255,255,255,0.06)',
+                    border: `1px solid ${isAdmin ? D.gold+'40' : isMe ? 'transparent' : D.borderSub}`,
+                  }}>
+                    <p style={{ fontSize: 13, color: isMe ? '#fff' : D.text, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>
+                      {msg.message}
+                    </p>
+                  </div>
+                  <span style={{ fontSize: 9, color: D.muted, marginLeft: 4, marginRight: 4 }}>
+                    {fmtTime(msg.createdAt)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div style={{ padding: '12px 16px', borderTop: `1px solid ${D.borderSub}`, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <textarea
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Ekri yon mesaj... (Enter pou voye)"
+          rows={1}
+          style={{
+            flex: 1, padding: '10px 14px', borderRadius: 14,
+            border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.04)',
+            color: D.text, fontSize: 13, fontFamily: 'inherit',
+            resize: 'none', outline: 'none', lineHeight: 1.5,
+            maxHeight: 100, overflowY: 'auto',
+          }}
+        />
+        <button
+          onClick={send}
+          disabled={sending || !input.trim()}
+          style={{
+            width: 42, height: 42, borderRadius: 12, border: 'none',
+            background: input.trim() ? D.goldBtn : 'rgba(255,255,255,0.06)',
+            color: input.trim() ? '#0a1222' : D.muted,
+            cursor: input.trim() ? 'pointer' : 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, transition: 'all 0.2s',
+          }}
+        >
+          {sending
+            ? <div style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            : <span style={{ fontSize: 18 }}>➤</span>
+          }
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function SolDashboardPage() {
   const navigate = useNavigate()
   const [data, setData] = useState(null)
@@ -980,7 +1163,7 @@ const nextUnpaidDate = lastPaidDate
 
           {/* TABS */}
           <div className="sol-tabs">
-            {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache']].map(([t,l]) => (
+            {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t,l]) => (
               <button key={t} className="sol-tab-btn" onClick={() => setTab(t)} style={{ border: 'none', background: tab === t ? D.goldDim : 'transparent', color: tab === t ? D.gold : D.muted, fontFamily: 'DM Sans, sans-serif' }}>{l}</button>
             ))}
           </div>
@@ -1033,6 +1216,7 @@ const nextUnpaidDate = lastPaidDate
 
           {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
+          {tab === 'chat' && <SolChat token={token} plan={plan} member={member} />}
 
           {/* MOBILE ACTIONS */}
           <div className="sol-mobile-actions">
