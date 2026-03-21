@@ -432,7 +432,7 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
   }, [nextUnpaidDate, plan])
 
   const cfg = {
-    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Pwochen pèman ou a nan:' },
+    pending: { bg: D.orangeBg, border: `${D.orange}35`, color: D.orange, icon: <Bell size={22} style={{color:D.orange,flexShrink:0}}/>, label: 'Pwochen pèman ou a:' },
     due:     { bg: D.greenBg,  border: `${D.green}35`,  color: D.green,  icon: <CheckCircle size={22} style={{color:D.green,flexShrink:0}}/>, label: 'Peye kounye a — lè limite:' },
     late:    { bg: D.redBg,    border: `${D.red}35`,    color: D.red,    icon: <Bell size={22} style={{color:D.red,flexShrink:0}}/>, label: 'Lè peman an pase!' },
   }[status]
@@ -455,6 +455,132 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
           {status === 'due'     && `✅ Ou ka peye kounye a!`}
           {status === 'late'    && `⚠️ Peman an reta`}
         </p>
+      </div>
+    </div>
+  )
+}
+
+function PerformanceMessage({ scoreData }) {
+  const [visible, setVisible] = useState(true)
+  if (!scoreData || !visible) return null
+
+  const isChampion = scoreData.early >= 5
+  const isLate     = scoreData.late >= 3 && scoreData.early === 0
+
+  if (!isChampion && !isLate) return null
+
+  if (isChampion) return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(0,208,132,0.12), rgba(201,168,76,0.10))',
+      border: '1px solid rgba(0,208,132,0.35)',
+      borderRadius: 20, padding: '20px 22px', marginBottom: 20,
+      position: 'relative', overflow: 'hidden',
+      animation: 'fadeUp 0.5s ease',
+    }}>
+      {/* Dekorasyon */}
+      <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌸</div>
+      <div style={{ position: 'absolute', bottom: -10, left: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌺</div>
+
+      <button onClick={() => setVisible(false)} style={{
+        position: 'absolute', top: 10, right: 12,
+        background: 'none', border: 'none', color: '#00d084',
+        cursor: 'pointer', fontSize: 16, opacity: 0.6,
+      }}>×</button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 36, lineHeight: 1 }}>🌸</div>
+        <div>
+          <p style={{
+            fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900,
+            color: '#00d084', margin: '0 0 2px',
+          }}>
+            🏆 Bravo! Ou se yon Chanpyon Sòl!
+          </p>
+          <p style={{ fontSize: 11, color: 'rgba(0,208,132,0.7)', margin: 0 }}>
+            {scoreData.early} pèman bonè • Pèfòmans ekselan
+          </p>
+        </div>
+      </div>
+
+      <p style={{
+        fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0,
+        lineHeight: 1.8, fontStyle: 'italic',
+      }}>
+        🌺 <strong style={{ color: '#00d084' }}>Felisitasyon!</strong> Ou bay nou kè kontan anpil —
+        ou peye <strong style={{ color: '#E8C87A' }}>{scoreData.early} fwa bonè</strong> deja!
+        Sa montre ou se yon moun serye e ki gen konviksyon ak responsabilite.
+        🌸 <strong style={{ color: '#00d084' }}>Kontinye konsa</strong> — plis ou peye bonè,
+        plis ou bati konfyans ou ak avantaj ou nan Sòl la.
+        Nou fyè de ou! 🌟
+      </p>
+
+      <div style={{
+        marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap',
+      }}>
+        {['⚡ Disiplin', '🌟 Fyète', '💪 Responsabilite'].map(tag => (
+          <span key={tag} style={{
+            fontSize: 10, fontWeight: 700, color: '#00d084',
+            background: 'rgba(0,208,132,0.12)', border: '1px solid rgba(0,208,132,0.25)',
+            borderRadius: 20, padding: '3px 10px',
+          }}>{tag}</span>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <div style={{
+      background: 'linear-gradient(135deg, rgba(239,68,68,0.10), rgba(245,158,11,0.08))',
+      border: '1px solid rgba(239,68,68,0.30)',
+      borderRadius: 20, padding: '20px 22px', marginBottom: 20,
+      position: 'relative', overflow: 'hidden',
+      animation: 'fadeUp 0.5s ease',
+    }}>
+      <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 60, opacity: 0.07, userSelect: 'none' }}>⚠️</div>
+
+      <button onClick={() => setVisible(false)} style={{
+        position: 'absolute', top: 10, right: 12,
+        background: 'none', border: 'none', color: D.red,
+        cursor: 'pointer', fontSize: 16, opacity: 0.6,
+      }}>×</button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 36, lineHeight: 1 }}>⚠️</div>
+        <div>
+          <p style={{
+            fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900,
+            color: D.red, margin: '0 0 2px',
+          }}>
+            Atansyon — Pèman Reta!
+          </p>
+          <p style={{ fontSize: 11, color: 'rgba(239,68,68,0.7)', margin: 0 }}>
+            {scoreData.late} pèman reta • Sa ap afekte pèfòmans ou
+          </p>
+        </div>
+      </div>
+
+      <p style={{
+        fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0,
+        lineHeight: 1.8,
+      }}>
+        ⏰ Nou remake ou gen <strong style={{ color: D.orange }}>{scoreData.late} pèman reta</strong>.
+        pèman reta ka <strong style={{ color: D.red }}>bloke kont ou</strong> epi
+        afekte chans ou pou jwenn pi bon pozisyon nan Sòl la.
+        💡 <strong style={{ color: D.orange }}>Chak pèman bonè</strong> ba ou pwen,
+        epi pwen yo ouvri pòt pou plis avantaj.
+        Fè efò — <strong style={{ color: '#E8C87A' }}>ou kapab fè plis efò!</strong> 🙏
+      </p>
+
+      <div style={{
+        marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap',
+      }}>
+        {['📅 Peye Bonè', '⬆️ Amelyore Pèfòmans', '🔓 Evite Blokaj'].map(tag => (
+          <span key={tag} style={{
+            fontSize: 10, fontWeight: 700, color: D.orange,
+            background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 20, padding: '3px 10px',
+          }}>{tag}</span>
+        ))}
       </div>
     </div>
   )
@@ -565,7 +691,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
   }
 
   const nextUnpaidDate = dates.find(d => d >= today && !member.payments?.[d])
-  const tenantName = tenant?.businessName || tenant?.name || 'Sol Ou'
+  const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
 
   const SidebarContent = () => (
@@ -664,7 +790,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
           <div className="sol-hero">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 24 }}>
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 12, fontFamily: 'Syne, sans-serif' }}>Kont Sabotay Sol</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 12, fontFamily: 'Syne, sans-serif' }}>Kont Sabotay Sòl</div>
                 <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 30, fontWeight: 800, color: D.text, margin: '0 0 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</h1>
                 <div style={{ fontSize: 13, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
                 <div style={{ fontSize: 12, color: D.mutedLt, marginBottom: plan.dueTime ? 12 : 0 }}>{posStr} • {plan.name}</div>
@@ -682,7 +808,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
             </div>
             <div style={{ marginTop: 28 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sol la</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sòl la</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 15, color: D.gold }}>{Math.round(progress)}%</span>
               </div>
               <div className="sol-progress-track">
@@ -738,7 +864,7 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
             </div>
           </div>
 
-          {/* PÈFÒMANS */}
+         {/* PÈFÒMANS */}
           {scoreData && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
@@ -755,10 +881,13 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
             </div>
           )}
 
+          {/* ✅ Mesaj Motivasyon */}
+          <PerformanceMessage scoreData={scoreData} />
+
           {/* REGLEMAN */}
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
-              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>📜 Regleman Sol la</p>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>📜 Regleman Sòl la</p>
               <p style={{ fontSize: 13, color: D.mutedLt, margin: 0, lineHeight: 1.9, whiteSpace: 'pre-line' }}>{plan.regleman}</p>
             </div>
           )}
