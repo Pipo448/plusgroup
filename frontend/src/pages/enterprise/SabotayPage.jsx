@@ -266,7 +266,11 @@ function freqFullLabel(plan) {
 // TIMING & SCORE
 // ─────────────────────────────────────────────────────────────
 function getPaymentTiming(plan, paymentDate) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = (() => {
+  const now = new Date()
+  const haitiTime = new Date(now.getTime() - 5 * 60 * 60 * 1000)
+  return haitiTime.toISOString().split('T')[0]
+})()
   if (paymentDate < today) return 'late'
 
   const now = new Date()

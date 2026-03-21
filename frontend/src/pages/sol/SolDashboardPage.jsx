@@ -883,8 +883,11 @@ export default function SolDashboardPage() {
   const { member, plan, tenant } = data
   if (!member || !plan) return null
 
-  const todayLocal = new Date()
-  const today = `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, '0')}-${String(todayLocal.getDate()).padStart(2, '0')}`
+  const today = (() => {
+  const now = new Date()
+  const haitiTime = new Date(now.getTime() - 5 * 60 * 60 * 1000)
+  return haitiTime.toISOString().split('T')[0]
+})()
 
   // ✅ 1. allSlots ANVAN tout lòt kalkil
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
