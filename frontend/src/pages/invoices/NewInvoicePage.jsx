@@ -274,7 +274,7 @@ export default function NewInvoicePage() {
   const [selectedClient, setSelectedClient] = useState(null)
   const clientRef = useRef(null)
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const [invoiceDate, setInvoiceDate]       = useState(today)
   const [dueDate, setDueDate]               = useState('')
   const [notes, setNotes]                   = useState('')

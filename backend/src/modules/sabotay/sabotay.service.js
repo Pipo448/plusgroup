@@ -505,7 +505,7 @@ async function getMemberAccount(tenantId, planId, memberId) {
 
   const progressPct = totalMembers > 0 ? Math.round((member.payments.length / totalMembers) * 100) : 0
   const totalFines  = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
 
   const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
