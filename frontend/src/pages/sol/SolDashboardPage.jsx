@@ -878,17 +878,14 @@ export default function SolDashboardPage() {
       </div>
     </div>
   )
-
-  if (!data) return null
+if (!data) return null
   const { member, plan, tenant } = data
   if (!member || !plan) return null
 
   const today = (() => {
-  const now = new Date()
-  const haitiTime = new Date(now.getTime() - 5 * 60 * 60 * 1000)
-  return haitiTime.toISOString().split('T')[0]
-})()
-
+    const now = new Date()
+    return new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  })()
   // ✅ 1. allSlots ANVAN tout lòt kalkil
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
