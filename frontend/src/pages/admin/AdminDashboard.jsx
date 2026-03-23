@@ -722,11 +722,10 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
   const handleSave = async () => {
     setSaving(true)
     try {
-      await adminApi.patch(
-        `/sabotay/plans/${planId}/members/${member.id}`,
-        form,
-        { headers: { 'X-Tenant-Slug': tenantSlug } }
-      )
+    await adminApi.patch(
+  `/sol/superadmin/plans/${planId}/members/${member.id}`,
+  form
+)
       toast.success(`✅ Manm "${form.name}" ajou!`)
       onSaved?.()
       onClose()
@@ -891,38 +890,40 @@ const SolManagerModal = ({ tenant, onClose }) => {
   const [deletePlan, setDeletePlan]     = useState(null)
   const [editMember, setEditMember]     = useState(null)
 
-  const loadPlans = async () => {
+ const loadPlans = async () => {
     setLoading(true)
     try {
-      const res = await adminApi.get('/sabotay/plans', {
-        headers: { 'X-Tenant-Slug': tenant.slug }
-      })
-      const result = res.data?.plans || res.data?.data || res.data
-      setPlans(Array.isArray(result) ? result : [])
-    } catch(e) {
-      // ✅ Pa toast 401 paske interceptor pa redirect ankò — afiche mesaj itil
-      const status = e.response?.status
-      if (status === 401 || status === 403) {
-        toast.error('Aksè refize pou tenant sa a.')
-      } else {
-        toast.error('Erè chajman plans Sol.')
-      }
+      const res = await adminApi.get('/sol/superadmin/overview')
+      const allPlans = res.data?.plans || []
+      // Filtre sèlman plan ki pou tenant sa a
+      const tenantPlans = allPlans
+        .filter(p => p.tenant.id === tenant.id)
+        .map(p => ({
+          id:         p.planId,
+          name:       p.planName,
+          amount:     p.amount,
+          frequency:  p.frequency,
+          status:     p.status,
+          maxMembers: p.maxMembers,
+          startDate:  p.startDate,
+          _count:     { members: p.memberCount },
+        }))
+      setPlans(tenantPlans)
+    } catch (e) {
+      toast.error('Erè chajman plans Sol.')
       setPlans([])
     } finally {
       setLoading(false)
     }
   }
-
-  const loadMembers = async (plan) => {
+    const loadMembers = async (plan) => {
     setSelectedPlan(plan)
     setLoadingMembers(true)
     try {
-      const res = await adminApi.get(`/sabotay/plans/${plan.id}/members`, {
-        headers: { 'X-Tenant-Slug': tenant.slug }
-      })
-      const result = res.data?.members || res.data?.data || res.data
+      const res = await adminApi.get(`/sol/superadmin/plans/${plan.id}/members`)
+      const result = res.data?.members || []
       setMembers(Array.isArray(result) ? result : [])
-    } catch(e) {
+    } catch (e) {
       toast.error('Erè chajman manm yo.')
       setMembers([])
     } finally {
@@ -1185,10 +1186,16 @@ export default function AdminDashboard() {
   // Jis anba query `expiringData`:
 const { data: solOverview } = useQuery({
   queryKey: ['admin-sol-overview'],
-  queryFn: () => adminApi.get('/sabotay/admin/overview').then(r => r.data),
+  queryFn: () => adminApi.get('/sol/superadmin/overview').then(r => r.data),
   refetchInterval: 5 * 60 * 1000,
 })
-const sol = solOverview?.summary
+const solPlans = solOverview?.plans || []
+const sol = solPlans.length > 0 ? {
+  totalPlans:   solOverview.total,
+  activePlans:  solPlans.filter(p => p.status === 'active').length,
+  totalMembers: solPlans.reduce((s, p) => s + p.memberCount, 0),
+  totalRevenue: solPlans.reduce((s, p) => s + (p.amount * p.memberCount), 0),
+} : null
 
   useEffect(() => {
     if (tenants.length > 0) {

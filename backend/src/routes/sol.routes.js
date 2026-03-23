@@ -23,10 +23,9 @@ const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me
 // ─────────────────────────────────────────────────────────────
 function computeTiming(dueDate, paidAt) {
   if (!paidAt) return 'onTime'
-  // ✅ Konpare dat an timezone Ayiti (UTC-5)
   const toHaitiDate = (d) => {
     const dt = new Date(d)
-    dt.setMinutes(dt.getMinutes() - 5 * 60) // retire 5h pou UTC-5
+    dt.setMinutes(dt.getMinutes() - 5 * 60)
     return dt.toISOString().split('T')[0]
   }
   const due  = toHaitiDate(dueDate)
@@ -43,7 +42,6 @@ function buildPaymentMaps(sabotayPayments) {
     try {
       const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
       payments[dateKey]       = true
-      // ✅ paidDate oswa paidAt — sipòte toulède
       const paidAt = p.paidDate || p.paidAt || p.dueDate
       paymentTimings[dateKey] = computeTiming(p.dueDate, paidAt)
     } catch(_) {}
@@ -182,23 +180,21 @@ router.get('/members/me', authMember, async (req, res) => {
     })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
 
-    // Men prensipal la
-const sabotayMember = await prisma.sabotayMember.findUnique({
-  where: { id: account.memberId },
-  include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } },
-})
-if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn' })
+    const sabotayMember = await prisma.sabotayMember.findUnique({
+      where: { id: account.memberId },
+      include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } },
+    })
+    if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn' })
 
-// Tout lòt men ki gen menm telefòn nan menm plan
-const allSlots = await prisma.sabotayMember.findMany({
-  where: {
-    phone: sabotayMember.phone,
-    planId: sabotayMember.planId,
-    isActive: true,
-  },
-  include: { payments: { orderBy: { dueDate: 'asc' } } },
-  orderBy: { position: 'asc' },
-})
+    const allSlots = await prisma.sabotayMember.findMany({
+      where: {
+        phone: sabotayMember.phone,
+        planId: sabotayMember.planId,
+        isActive: true,
+      },
+      include: { payments: { orderBy: { dueDate: 'asc' } } },
+      orderBy: { position: 'asc' },
+    })
 
     const plan = sabotayMember.plan
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
@@ -208,13 +204,9 @@ const allSlots = await prisma.sabotayMember.findMany({
       select: { id: true, name: true, phone: true, address: true, logoUrl: true },
     })
 
-    // ✅ Kalkile ANVAN return
     const activeMemberCount = await prisma.sabotayMember.count({
-  where: {
-    planId:   plan.id,
-    isActive: true,
-  },
-}).catch(() => 0)
+      where: { planId: plan.id, isActive: true },
+    }).catch(() => 0)
 
     return res.json({
       member: {
@@ -235,21 +227,21 @@ const allSlots = await prisma.sabotayMember.findMany({
         }),
       },
       plan: {
-  id:               plan.id,
-  name:             plan.name,
-  amount:           Number(plan.amount),
-  fee:              Number(plan.fee),
-  frequency:        plan.frequency,
-  maxMembers:       plan.maxMembers,
-  activeMemberCount: activeMemberCount,
-  createdAt:        plan.startDate.toISOString().split('T')[0],
-  dueTime:          plan.dueTime             || account.planDueTime      || '08:00',
-  dueTimeEnd:       plan.dueTimeEnd          || account.planDueTimeEnd   || '15:00',
-  interval:         plan.interval            || account.planInterval     || 1,
-  feePerMember:     Number(plan.feePerMember || account.planFeePerMember || 0),
-  penalty:          Number(plan.penalty      || account.planPenalty      || 0),
-  regleman:         plan.regleman            || null,  // ✅ toujou fre nan plan an
-},
+        id:               plan.id,
+        name:             plan.name,
+        amount:           Number(plan.amount),
+        fee:              Number(plan.fee),
+        frequency:        plan.frequency,
+        maxMembers:       plan.maxMembers,
+        activeMemberCount: activeMemberCount,
+        createdAt:        plan.startDate.toISOString().split('T')[0],
+        dueTime:          plan.dueTime             || account.planDueTime      || '08:00',
+        dueTimeEnd:       plan.dueTimeEnd          || account.planDueTimeEnd   || '15:00',
+        interval:         plan.interval            || account.planInterval     || 1,
+        feePerMember:     Number(plan.feePerMember || account.planFeePerMember || 0),
+        penalty:          Number(plan.penalty      || account.planPenalty      || 0),
+        regleman:         plan.regleman            || null,
+      },
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
   } catch (err) {
@@ -257,6 +249,7 @@ const allSlots = await prisma.sabotayMember.findMany({
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
+
 // ══════════════════════════════════════════════════════════════
 // POST /api/sol/accounts   (admin sèlman)
 // ══════════════════════════════════════════════════════════════
@@ -424,7 +417,6 @@ router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) 
 // ✅ PUSH NOTIFICATIONS — Manm Sol
 // ══════════════════════════════════════════════════════════════
 
-// GET /api/sol/push/vapid-public-key  (piblik)
 router.get('/push/vapid-public-key', (req, res) => {
   res.json({
     success:   true,
@@ -433,7 +425,6 @@ router.get('/push/vapid-public-key', (req, res) => {
   })
 })
 
-// POST /api/sol/push/subscribe
 router.post('/push/subscribe', authMember, async (req, res) => {
   try {
     const { subscription } = req.body
@@ -458,7 +449,6 @@ router.post('/push/subscribe', authMember, async (req, res) => {
   }
 })
 
-// DELETE /api/sol/push/unsubscribe
 router.delete('/push/unsubscribe', authMember, async (req, res) => {
   try {
     const { endpoint } = req.body
@@ -474,7 +464,6 @@ router.delete('/push/unsubscribe', authMember, async (req, res) => {
 // ✅ MACHE MEN SOL — Echanj Pozisyon
 // ══════════════════════════════════════════════════════════════
 
-// GET /api/sol/exchange/:planId/offers — wè ofri piblik yo
 router.get('/exchange/:planId/offers', authMember, async (req, res) => {
   try {
     const { planId } = req.params
@@ -487,7 +476,6 @@ router.get('/exchange/:planId/offers', authMember, async (req, res) => {
   }
 })
 
-// GET /api/sol/exchange/:planId/my — istwa echanj manm nan
 router.get('/exchange/:planId/my', authMember, async (req, res) => {
   try {
     const { planId } = req.params
@@ -500,7 +488,6 @@ router.get('/exchange/:planId/my', authMember, async (req, res) => {
   }
 })
 
-// POST /api/sol/exchange/:planId/initiate — inisye yon ofri
 router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
   try {
     const { planId } = req.params
@@ -513,7 +500,6 @@ router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
   }
 })
 
-// POST /api/sol/exchange/:exchangeId/accept — aksepte yon ofri
 router.post('/exchange/:exchangeId/accept', authMember, async (req, res) => {
   try {
     const { exchangeId } = req.params
@@ -526,7 +512,6 @@ router.post('/exchange/:exchangeId/accept', authMember, async (req, res) => {
   }
 })
 
-// POST /api/sol/exchange/:exchangeId/reject — refize / anile yon ofri
 router.post('/exchange/:exchangeId/reject', authMember, async (req, res) => {
   try {
     const { exchangeId } = req.params
@@ -539,7 +524,6 @@ router.post('/exchange/:exchangeId/reject', authMember, async (req, res) => {
   }
 })
 
-// ── ADMIN: GET /api/sol/admin/exchange — tout echanj
 router.get('/admin/exchange', authAdmin, async (req, res) => {
   try {
     const { tenantId, planId, status, page, limit } = req.query
@@ -555,7 +539,6 @@ router.get('/admin/exchange', authAdmin, async (req, res) => {
   }
 })
 
-// ── ADMIN: PATCH /api/sol/admin/exchange/:planId/config — konfigire % frè
 router.patch('/admin/exchange/:planId/config', authAdmin, async (req, res) => {
   try {
     const { planId }   = req.params
@@ -608,11 +591,10 @@ router.get('/debug/accounts', async (req, res) => {
 // CHAT SOL — Diskisyon Manm
 // ══════════════════════════════════════════════════════════════
 
-// GET /api/sol/chat/:planId — chaje mesaj yo
 router.get('/chat/:planId', authMember, async (req, res) => {
   try {
     const { planId } = req.params
-    const { tenantId, memberId } = req.solMember
+    const { tenantId } = req.solMember
 
     const messages = await prisma.solChat.findMany({
       where: { planId, tenantId },
@@ -627,7 +609,6 @@ router.get('/chat/:planId', authMember, async (req, res) => {
   }
 })
 
-// POST /api/sol/chat/:planId — voye mesaj
 router.post('/chat/:planId', authMember, async (req, res) => {
   try {
     const { planId } = req.params
@@ -641,7 +622,6 @@ router.post('/chat/:planId', authMember, async (req, res) => {
       return res.status(400).json({ message: 'Mesaj tro long (max 500 karaktè)' })
     }
 
-    // Jwenn non anonymous — itilize pozisyon manm nan
     const account = await prisma.solMemberAccount.findUnique({
       where: { id: accountId },
       select: { memberPosition: true, memberName: true }
@@ -660,7 +640,6 @@ router.post('/chat/:planId', authMember, async (req, res) => {
       }
     })
 
-    // ✅ Notifye lòt manm via push
     try {
       await solPushSvc.notifyPlanMembers(tenantId, planId, memberId, {
         title: `💬 ${authorName}`,
@@ -677,7 +656,6 @@ router.post('/chat/:planId', authMember, async (req, res) => {
   }
 })
 
-// ── ADMIN: GET /api/sol/admin/chat/:planId
 router.get('/admin/chat/:planId', authAdmin, async (req, res) => {
   try {
     const { planId } = req.params
@@ -693,7 +671,6 @@ router.get('/admin/chat/:planId', authAdmin, async (req, res) => {
   }
 })
 
-// ── ADMIN: POST /api/sol/admin/chat/:planId
 router.post('/admin/chat/:planId', authAdmin, async (req, res) => {
   try {
     const { planId } = req.params
@@ -722,6 +699,111 @@ router.post('/admin/chat/:planId', authAdmin, async (req, res) => {
 
     return res.status(201).json({ message: msg })
   } catch (err) {
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════
+// ✅ SUPER ADMIN — Vue Jeneral: tout plan Sol atravè tout tenant
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/sol/superadmin/overview
+router.get('/superadmin/overview', authAdmin, async (req, res) => {
+  try {
+    const plans = await prisma.sabotayPlan.findMany({
+      include: {
+        tenant: { select: { id: true, name: true, slug: true } },
+        _count:  { select: { members: { where: { isActive: true } } } },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const result = plans.map(p => ({
+      planId:      p.id,
+      planName:    p.name,
+      amount:      Number(p.amount),
+      frequency:   p.frequency,
+      status:      p.status,
+      maxMembers:  p.maxMembers,
+      memberCount: p._count.members,
+      startDate:   p.startDate,
+      tenant: {
+        id:   p.tenant.id,
+        name: p.tenant.name,
+        slug: p.tenant.slug,
+      },
+    }))
+
+    return res.json({ total: result.length, plans: result })
+  } catch (err) {
+    console.error('[SOL SUPERADMIN OVERVIEW]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// GET /api/sol/superadmin/plans/:planId/members
+router.get('/superadmin/plans/:planId/members', authAdmin, async (req, res) => {
+  try {
+    const members = await prisma.sabotayMember.findMany({
+      where:   { planId: req.params.planId },
+      orderBy: { position: 'asc' },
+      include: {
+        account: {
+          select: { username: true, plainPassword: true },
+        },
+      },
+    })
+
+    const result = members.map(m => ({
+      id:            m.id,
+      name:          m.name,
+      phone:         m.phone || '',
+      position:      m.position,
+      isActive:      m.isActive,
+      isOwnerSlot:   m.isOwnerSlot || false,
+      hasWon:        m.hasWon      || false,
+      username:      m.account?.username      || null,
+      plainPassword: m.account?.plainPassword || null,
+    }))
+
+    return res.json({ members: result })
+  } catch (err) {
+    console.error('[SOL SUPERADMIN MEMBERS]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// PATCH /api/sol/superadmin/plans/:planId/members/:memberId
+router.patch('/superadmin/plans/:planId/members/:memberId', authAdmin, async (req, res) => {
+  try {
+    const { memberId } = req.params
+    const { name, position, phone, isOwnerSlot, hasWon, username } = req.body
+
+    const member = await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data: {
+        ...(name        !== undefined && { name }),
+        ...(position    !== undefined && { position: Number(position) }),
+        ...(phone       !== undefined && { phone }),
+        ...(isOwnerSlot !== undefined && { isOwnerSlot }),
+        ...(hasWon      !== undefined && { hasWon }),
+      },
+    })
+
+    // Si username bay, ajou kont sol la tou
+    if (username) {
+      await prisma.solMemberAccount.updateMany({
+        where: { memberId },
+        data: {
+          username:   username.toLowerCase().trim(),
+          memberName: name || member.name,
+        },
+      })
+    }
+
+    return res.json({ message: 'Manm ajou avèk siksè!', member })
+  } catch (err) {
+    console.error('[SOL SUPERADMIN PATCH MEMBER]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
