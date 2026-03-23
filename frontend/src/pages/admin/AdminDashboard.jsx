@@ -1171,8 +1171,7 @@ export default function AdminDashboard() {
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
 
-  const { admin } = getAdmin()
-  if (!localStorage.getItem('pg-admin')) { navigate('/admin/login'); return null }
+ const { admin } = getAdmin()
 
   const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data) })
   const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data) })
@@ -1188,6 +1187,8 @@ const { data: solOverview } = useQuery({
   queryKey: ['admin-sol-overview'],
   queryFn: () => adminApi.get('/sol/superadmin/overview').then(r => r.data),
   refetchInterval: 5 * 60 * 1000,
+  retry: false,        // ✅ Pa eseye ankò si 401/404
+  throwOnError: false, // ✅ Pa krase si erè
 })
 const solPlans = solOverview?.plans || []
 const sol = solPlans.length > 0 ? {
