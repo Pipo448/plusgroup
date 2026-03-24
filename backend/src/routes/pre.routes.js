@@ -1,4 +1,4 @@
-// src/pre.routes.js
+// src/routes/pre.routes.js
 // Mount: app.use('/api/pre', preRoutes)  <- deja nan index.js liy 158
 // Pattern: tout logik inline — menm jan ak sol.routes.js
 
@@ -8,11 +8,9 @@ const { PrismaClient } = require('@prisma/client')
 const router = express.Router()
 const prisma = new PrismaClient()
 
-const { authenticate }  = require('../middleware/auth')
-const { requireTenant } = require('../middleware/tenant')
+const { authenticate } = require('../middleware/auth')
 
 router.use(authenticate)
-router.use(requireTenant)
 
 // ─── HELPERS ─────────────────────────────────────────────────
 
@@ -43,7 +41,7 @@ function calcTotalDu(montant, tauxInteret, dureeEnMois) {
 // ═══════════════════════════════════════════════════════════════
 router.get('/stats', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const tenantId = req.user.tenantId
     const debiMwa = new Date()
     debiMwa.setDate(1)
     debiMwa.setHours(0, 0, 0, 0)
@@ -106,7 +104,7 @@ router.get('/stats', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const tenantId = req.user.tenantId
     const { search = '', page = 1, limit = 15, statut, branchId } = req.query
     const skip  = (Number(page) - 1) * Number(limit)
     const where = {
@@ -148,7 +146,7 @@ router.get('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const tenantId = req.user.tenantId
     const pre = await prisma.pre.findFirst({
       where:   { id: req.params.id, tenantId },
       include: { paiements: { orderBy: { createdAt: 'desc' } } },
@@ -166,8 +164,8 @@ router.get('/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
+    const tenantId = req.user.tenantId
+    const userId   = req.user?.id
     const {
       clientNom, clientPhone, clientNifCin, clientAdres,
       montant, tauxInteret, dureeEnMois,
@@ -220,9 +218,9 @@ router.post('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/paiement', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
-    const { id } = req.params
+    const tenantId = req.user.tenantId
+    const userId   = req.user?.id
+    const { id }   = req.params
     const { montant, method, reference, notes } = req.body
 
     if (!montant || montant <= 0)
@@ -245,7 +243,6 @@ router.post('/:id/paiement', async (req, res) => {
     if (balanceApre <= 0)                                        nouvoStatut = 'cloture'
     else if (pre.datFin && new Date() > new Date(pre.datFin))    nouvoStatut = 'reta'
 
-    // ✅ Atomik — paieman + update prè ansanm
     const [paieman] = await prisma.$transaction([
       prisma.prePaiement.create({
         data: {
@@ -276,8 +273,8 @@ router.post('/:id/paiement', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/cloture', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const { id } = req.params
+    const tenantId = req.user.tenantId
+    const { id }   = req.params
 
     const pre = await prisma.pre.findFirst({ where: { id, tenantId } })
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'  })
