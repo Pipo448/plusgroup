@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, LogIn, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
 import { adminAPI } from '../../services/api'
 
 export default function AdminLogin() {
@@ -16,9 +16,11 @@ export default function AdminLogin() {
     setLoading(true)
     try {
       const res = await adminAPI.login(data)
-      // Stocke token super admin séparement
-      localStorage.setItem('pg-admin-token', res.data.token)
-      localStorage.setItem('pg-admin-user', JSON.stringify(res.data.admin))
+      // ✅ FIX: Sove nan 'pg-admin' kòm AdminDashboard ap tann li
+      localStorage.setItem('pg-admin', JSON.stringify({
+        token: res.data.token,
+        admin: res.data.admin
+      }))
       toast.success(`Byenvini , ${res.data.admin.name}!`)
       navigate('/admin/dashboard')
     } catch (e) {
