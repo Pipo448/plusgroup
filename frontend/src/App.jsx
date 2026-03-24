@@ -29,6 +29,7 @@ const PlansPage         = lazy(() => import('./pages/plans/PlansPage'))
 const BranchAdminPage   = lazy(() => import('./pages/branches/BranchAdminPage'))
 const KanePage          = lazy(() => import('./pages/enterprise/KanePage'))
 const KaneEpayPage      = lazy(() => import('./pages/enterprise/KaneEpayPage'))
+const PrePage           = lazy(() => import('./pages/enterprise/PrePage'))
 const SabotayPage       = lazy(() => import('./pages/enterprise/SabotayPage'))
 const MobilPayPage      = lazy(() => import('./pages/enterprise/MobilPayPage'))
 const SolDashboardPage  = lazy(() => import('./pages/sol/SolDashboardPage'))
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="branches"         element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
             <Route path="kane"             element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
             <Route path="kane-epay"        element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
+            <Route path="pre"              element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
             <Route path="sabotay"          element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
             <Route path="mobilpay"         element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
             <Route path="hotel"                  element={<ProtectedPage pageKey="hotel"><HotelDashboard /></ProtectedPage>} />
