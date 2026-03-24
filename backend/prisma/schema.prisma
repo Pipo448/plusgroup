@@ -84,6 +84,8 @@ model Tenant {
   invoices             Invoice[]
   kaneAccounts         KaneEpay[]
   kaneTransactions     KaneTransaction[]
+  prets                Pre[]
+  prePaiements         PrePaiement[]
   notifications        Notification[]
   payments             Payment[]
   productCategories    ProductCategory[]
@@ -142,6 +144,7 @@ model Branch {
   clients           Client[]
   invoices          Invoice[]
   kaneAccounts      KaneEpay[]
+  prets             Pre[]
   productCategories ProductCategory[]
   products          Product[]
   quotes            Quote[]
@@ -200,6 +203,8 @@ model User {
   invoicesCreated         Invoice[]          @relation("InvoiceCreatedBy")
   kaneAccountsCreated     KaneEpay[]         @relation("KaneCreatedBy")
   kaneTransactionsCreated KaneTransaction[]  @relation("KaneTxCreatedBy")
+  pretsCreated            Pre[]              @relation("PreCreatedBy")
+  prePaiementsCreated     PrePaiement[]      @relation("PrePaiementCreatedBy")
   notifications           Notification[]
   payments                Payment[]
   products                Product[]
@@ -1198,4 +1203,86 @@ model SolChat {
   isAdmin    Boolean  @default(false)
   message    String
   createdAt  DateTime @default(now())
+}
+
+model Pre {
+  id           String       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId     String       @map("tenant_id")
+  branchId     String?      @map("branch_id")
+  numeroPre    String       @map("numero_pre") @db.VarChar(30)
+
+  // ── Kliyan ──
+  clientNom    String       @map("client_nom") @db.VarChar(200)
+  clientPhone  String?      @map("client_phone") @db.VarChar(50)
+  clientNifCin String?      @map("client_nif_cin") @db.VarChar(50)
+  clientAdres  String?      @map("client_adres")
+
+  // ── Tèm finansye ──
+  montant      Decimal      @db.Decimal(14, 2)
+  tauxInteret  Decimal      @map("taux_interet") @db.Decimal(5, 2)   // % pa ane
+  dureeEnMois  Int          @map("duree_en_mois")
+  totalDu      Decimal      @default(0) @map("total_du") @db.Decimal(14, 2)
+  totalPaye    Decimal      @default(0) @map("total_paye") @db.Decimal(14, 2)
+
+  // ── Kalann ──
+  datDebut     DateTime     @map("dat_debut") @db.Timestamptz(6)
+  datFin       DateTime?    @map("dat_fin") @db.Timestamptz(6)
+  periode      String       @default("mois") @db.VarChar(20)         // semaine | biweekly | mois | trimestre | unique
+
+  // ── Desèman ──
+  methodDeseman String      @default("cash") @map("method_deseman") @db.VarChar(20)
+  referenceDeseman String?  @map("reference_deseman") @db.VarChar(200)
+
+  // ── Estati ──
+  statut       PreStatut    @default(attente)
+  notes        String?
+
+  // ── Metadonye ──
+  createdBy    String?      @map("created_by")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // ── Relasyon ──
+  branch       Branch?      @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  creator      User?        @relation("PreCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  paiements    PrePaiement[]
+
+  @@unique([tenantId, numeroPre])
+  @@index([tenantId])
+  @@index([tenantId, statut])
+  @@index([branchId])
+  @@index([createdAt])
+  @@map("prets")
+}
+
+model PrePaiement {
+  id            String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId      String   @map("tenant_id")
+  preId         String   @map("pre_id")
+  montant       Decimal  @db.Decimal(14, 2)
+  balanceAvant  Decimal  @map("balance_avant") @db.Decimal(14, 2)
+  balanceApre   Decimal  @map("balance_apre") @db.Decimal(14, 2)
+  method        PaymentMethod @default(cash)
+  reference     String?  @db.VarChar(200)
+  notes         String?
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  pre           Pre      @relation(fields: [preId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator       User?    @relation("PrePaiementCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([preId])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("pre_paiements")
+}
+
+enum PreStatut {
+  attente   // Prè apwouve men poko desèman
+  actif     // Prè aktif, k ap rembourseman
+  reta      // Prè ki depase dat limit
+  cloture   // Prè ki fin peye nèt
+  annule    // Prè ki anile
 }

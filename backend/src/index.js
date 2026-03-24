@@ -37,6 +37,7 @@ const hotelRoutes = require('./modules/hotel/hotel.routes')
 const dashboardFullRoute = require('./modules/reports/dashboard-full.route');
 const pushRoutes = require('./modules/push/push.routes')
 const dryRoutes = require('./modules/dry/dry.routes')
+const preRoutes = require('./routes/pre.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -154,6 +155,7 @@ app.use(`${API}/hotel`,         hotelRoutes)
 app.use(`${API}/dashboard`,     dashboardFullRoute);
 app.use('/api/v1/push',         pushRoutes);
 app.use('/api/v1/dry',          dryRoutes)
+app.use('/api/pre', preRoutes)  // adapte prefix si nesesè
 
 
 // ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay
