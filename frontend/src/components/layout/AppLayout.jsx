@@ -1,5 +1,5 @@
 // src/components/layout/AppLayout.jsx
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import {
@@ -8,14 +8,15 @@ import {
   Menu, X, Globe, ChevronDown,
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag,
-  Bluetooth, BluetoothOff, Printer, Scissors, 
+  Bluetooth, BluetoothOff, Printer, Scissors,
+  DollarSign, ChevronUp,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { authAPI, branchAPI } from '../../services/api'
 import api from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
-import { isAndroid, isSunmi } from '../../services/printerService'  // ✅ ajoute isSunmi
+import { isAndroid, isSunmi } from '../../services/printerService'
 import NotificationBell from '../NotificationBell'
 
 const C = {
@@ -54,11 +55,17 @@ const NAV = [
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
 ]
 
+// ─── Mikwo Kredi gen 2 sub-items: Epay + Prè ─────────────────
+const MIKWO_KREDI_ITEMS = [
+  { to:'/app/kane-epay', icon:Wallet,      label:'Kanè Epay', pageKey:'kane-epay' },
+  { to:'/app/pre',       icon:DollarSign,  label:'Prè',       pageKey:'pre'       },
+]
+
 const ENTERPRISE_ITEMS = [
-  { to:'/app/kane',      icon:CreditCard, label:'Ti Kanè Kès',      pageKey:'kane'      },
-  { to:'/app/kane-epay', icon:Wallet,     label:'Kanè Epay',         pageKey:'kane-epay' },
-  { to:'/app/sabotay',   icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
-  { to:'/app/mobilpay',  icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
+  { to:'/app/kane',     icon:CreditCard, label:'Ti Kanè Kès',      pageKey:'kane'      },
+  // Mikwo Kredi jere separe anba (avèk sub-items)
+  { to:'/app/sabotay',  icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
+  { to:'/app/mobilpay', icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
 ]
 
 const HOTEL_ITEMS = [
@@ -134,12 +141,20 @@ export default function AppLayout() {
   const { user, tenant, token, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const location  = useLocation()
+
   const [open, setOpen]                 = useState(false)
   const [showLang, setShowLang]         = useState(false)
   const [showBranches, setShowBranches] = useState(false)
   const [branches, setBranches]         = useState([])
   const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
+
+  // ✅ Mikwo Kredi collapse — ouvri otomatik si nou sou /app/kane-epay oswa /app/pre
+  const isMikwoActive = location.pathname.startsWith('/app/kane-epay') ||
+                        location.pathname.startsWith('/app/pre')
+  const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
+
   const langRef   = useRef(null)
   const branchRef = useRef(null)
   const meCalled  = useRef(false)
@@ -154,7 +169,7 @@ export default function AppLayout() {
   } = usePrinterStore()
 
   const onAndroid = useMemo(() => isAndroid(), [])
-  const onSunmi   = useMemo(() => isSunmi(),   [])  // ✅ nouvo
+  const onSunmi   = useMemo(() => isSunmi(),   [])
 
   const hasBluetooth = useMemo(
     () => typeof navigator !== 'undefined' && !!navigator.bluetooth,
@@ -251,6 +266,11 @@ export default function AppLayout() {
     if (!isDesktop) document.body.style.overflow = open ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [open, isDesktop])
+
+  // Ouvri Mikwo Kredi otomatikman lè route chanje
+  useEffect(() => {
+    if (isMikwoActive) setMikwoOpen(true)
+  }, [isMikwoActive])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('plusgroup-branch-id')
@@ -503,12 +523,112 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          {/* ── ANTREPRIZ ── */}
+          {/* ════════════════════════════════════════
+              ✦ ANTREPRIZ
+          ════════════════════════════════════════ */}
           <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(201,168,76,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>✦ Antrepriz</span>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
           </div>
 
+          {/* Ti Kanè Kès */}
+          <NavLink to={!isPageAllowed('kane') ? '#' : '/app/kane'}
+            onClick={(e) => { if (!isPageAllowed('kane')) { e.preventDefault(); return } setOpen(false) }}
+            style={({ isActive }) => ({
+              ...enterpriseLinkStyle(!isPageAllowed('kane') ? false : isActive),
+              opacity: !isPageAllowed('kane') ? 0.4 : 1,
+              cursor:  !isPageAllowed('kane') ? 'not-allowed' : 'pointer',
+            })}>
+            {({ isActive }) => (<>
+              <CreditCard size={15} style={{ flexShrink:0, color: !isPageAllowed('kane') ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
+              <span style={{ flex:1 }}>Ti Kanè Kès</span>
+              {!isPageAllowed('kane')
+                ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
+              }
+            </>)}
+          </NavLink>
+
+          {/* ── MIKWO KREDI — bouton collapse avèk sub-items ── */}
+          {(() => {
+            const kaneAllowed = isPageAllowed('kane-epay')
+            const preAllowed  = isPageAllowed('pre')
+            const anyAllowed  = kaneAllowed || preAllowed
+            const locked      = !anyAllowed
+
+            return (
+              <div>
+                {/* Bouton prensipal Mikwo Kredi */}
+                <button
+                  onClick={() => { if (!locked) setMikwoOpen(v => !v) }}
+                  style={{
+                    width: '100%',
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '9px 14px', borderRadius: 10, marginBottom: 3,
+                    background: isMikwoActive ? C.entDim : 'transparent',
+                    color: isMikwoActive ? '#ffffff' : C.muted,
+                    borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
+                    fontWeight: isMikwoActive ? 700 : 500,
+                    fontSize: 13,
+                    border: 'none',
+                    cursor: locked ? 'not-allowed' : 'pointer',
+                    opacity: locked ? 0.4 : 1,
+                    textAlign: 'left',
+                  }}
+                >
+                  <Wallet size={15} style={{ flexShrink:0, color: locked ? '#475569' : isMikwoActive ? C.enterprise : C.mutedMd }}/>
+                  <span style={{ flex:1 }}>Mikwo Kredi</span>
+                  {locked
+                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                    : mikwoOpen
+                      ? <ChevronUp   size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
+                      : <ChevronDown size={13} style={{ color:C.muted,      flexShrink:0 }}/>
+                  }
+                </button>
+
+                {/* Sub-items — Kanè Epay + Prè */}
+                {mikwoOpen && !locked && (
+                  <div style={{
+                    marginLeft: 14,
+                    paddingLeft: 12,
+                    borderLeft: `2px solid rgba(201,168,76,0.25)`,
+                    marginBottom: 4,
+                  }}>
+                    {MIKWO_KREDI_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
+                      const subLocked = !isPageAllowed(pageKey)
+                      return (
+                        <NavLink key={to} to={subLocked ? '#' : to}
+                          onClick={(e) => { if (subLocked) { e.preventDefault(); return } setOpen(false) }}
+                          style={({ isActive }) => ({
+                            display: 'flex', alignItems: 'center', gap: 9,
+                            padding: '8px 12px', borderRadius: 9, marginBottom: 2,
+                            textDecoration: 'none',
+                            background: (!subLocked && isActive) ? `rgba(201,168,76,0.12)` : 'transparent',
+                            color: (!subLocked && isActive) ? '#ffffff' : C.muted,
+                            borderLeft: (!subLocked && isActive) ? `2px solid ${C.enterprise}` : '2px solid transparent',
+                            fontWeight: (!subLocked && isActive) ? 700 : 400,
+                            fontSize: 12,
+                            opacity: subLocked ? 0.4 : 1,
+                            cursor:  subLocked ? 'not-allowed' : 'pointer',
+                          })}>
+                          {({ isActive }) => (<>
+                            <Icon size={13} style={{ flexShrink:0, color: subLocked ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
+                            <span style={{ flex:1 }}>{label}</span>
+                            {subLocked
+                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
+                              : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
+                            }
+                          </>)}
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
+
+          {/* Sabotay + MonCash */}
           {ENTERPRISE_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
             const locked = !isPageAllowed(pageKey)
             return (
@@ -667,83 +787,28 @@ export default function AppLayout() {
 
           <div style={{ flex:1 }}/>
 
-          {/* ══════════════════════════════════════════
-              ✅ PRINTER ZONE — Lojik korije:
-              - Sunmi  → badge vèt sèlman (pa bezwen BT)
-              - Tout lòt aparèy ak BT → bouton konekte
-                (Android Samsung/Xiaomi etc. + Desktop)
-          ══════════════════════════════════════════ */}
           {onSunmi ? (
-            /* ── Sunmi: badge sèlman ── */
-            <div style={{
-              display:'flex', alignItems:'center', gap:5,
-              padding:'4px 10px', borderRadius:10,
-              background:'rgba(5,150,105,0.08)',
-              border:'1px solid rgba(5,150,105,0.2)',
-              flexShrink:0,
-            }}>
+            <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:10, background:'rgba(5,150,105,0.08)', border:'1px solid rgba(5,150,105,0.2)', flexShrink:0 }}>
               <Printer size={13} style={{ color:'#059669' }}/>
               <span style={{ fontSize:11, fontWeight:700, color:'#059669' }}>Sunmi</span>
             </div>
           ) : hasBluetooth ? (
-            /* ── Android non-Sunmi OU Desktop: bouton BT ── */
             <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
               {!btConnected ? (
-                <button
-                  onClick={btConnect}
-                  disabled={btConnecting}
-                  title="Konekte printer Bluetooth"
-                  style={{
-                    display:'flex', alignItems:'center', gap:6,
-                    padding:'5px 12px', borderRadius:10,
-                    border:'1px solid rgba(27,42,143,0.2)',
-                    background: btConnecting ? 'rgba(27,42,143,0.05)' : 'transparent',
-                    color: btConnecting ? '#94a3b8' : '#1B2A8F',
-                    cursor: btConnecting ? 'not-allowed' : 'pointer',
-                    fontSize:12, fontWeight:700,
-                  }}
-                >
+                <button onClick={btConnect} disabled={btConnecting} title="Konekte printer Bluetooth"
+                  style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:10, border:'1px solid rgba(27,42,143,0.2)', background: btConnecting ? 'rgba(27,42,143,0.05)' : 'transparent', color: btConnecting ? '#94a3b8' : '#1B2A8F', cursor: btConnecting ? 'not-allowed' : 'pointer', fontSize:12, fontWeight:700 }}>
                   <Bluetooth size={14}/>
                   {btConnecting ? 'Koneksyon...' : 'BT Printer'}
                 </button>
               ) : (
                 <>
-                  <div style={{
-                    display:'flex', alignItems:'center', gap:5,
-                    padding:'5px 10px', borderRadius:10,
-                    background:'rgba(5,150,105,0.08)',
-                    border:'1px solid rgba(5,150,105,0.25)',
-                  }}>
-                    <div style={{
-                      width:7, height:7, borderRadius:'50%',
-                      background:'#059669',
-                      boxShadow:'0 0 6px rgba(5,150,105,0.6)',
-                    }}/>
-                    <span style={{ fontSize:11, fontWeight:700, color:'#059669', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                      {deviceName || 'Printer'}
-                    </span>
-                    {btPrinting && (
-                      <div style={{
-                        width:11, height:11,
-                        border:'2px solid rgba(5,150,105,0.25)',
-                        borderTopColor:'#059669',
-                        borderRadius:'50%',
-                        animation:'spin 0.8s linear infinite',
-                        flexShrink:0,
-                      }}/>
-                    )}
+                  <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, background:'rgba(5,150,105,0.08)', border:'1px solid rgba(5,150,105,0.25)' }}>
+                    <div style={{ width:7, height:7, borderRadius:'50%', background:'#059669', boxShadow:'0 0 6px rgba(5,150,105,0.6)' }}/>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#059669', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deviceName || 'Printer'}</span>
+                    {btPrinting && <div style={{ width:11, height:11, border:'2px solid rgba(5,150,105,0.25)', borderTopColor:'#059669', borderRadius:'50%', animation:'spin 0.8s linear infinite', flexShrink:0 }}/>}
                   </div>
-                  <button
-                    onClick={btDisconnect}
-                    title="Dekonekte printer"
-                    style={{
-                      display:'flex', alignItems:'center', justifyContent:'center',
-                      width:30, height:30, borderRadius:8,
-                      background:'rgba(192,57,43,0.07)',
-                      border:'1px solid rgba(192,57,43,0.2)',
-                      color:'#C0392B', cursor:'pointer',
-                    }}
-                  >
+                  <button onClick={btDisconnect} title="Dekonekte printer"
+                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
                     <BluetoothOff size={13}/>
                   </button>
                 </>
@@ -751,7 +816,6 @@ export default function AppLayout() {
             </div>
           ) : null}
 
-          {/* ── Lang selector ── */}
           <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
             <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
               <Globe size={15}/>
