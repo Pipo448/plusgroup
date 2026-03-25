@@ -294,8 +294,8 @@ function ModalCreePre({ onClose, onSuccess, printer }) {
       : form.clientNom
     if (!nom.trim())              e.clientNom = 'Obligatwa'
     if (kapital <= 0)             e.montant   = 'Montan dwe > 0'
-    if (!form.tauxInteret)        e.taux      = 'Taux obligatwa'
-    if (!form.dureeEnMois)        e.duree     = 'Durasyon obligatwa'
+    if (!form.tauxInteret)        e.taux      = 'To obligatwa'
+    if (!form.dureeEnMois)        e.duree     = 'Dire obligatwa'
     setErrors(e); return !Object.keys(e).length
   }
 
@@ -304,7 +304,7 @@ function ModalCreePre({ onClose, onSuccess, printer }) {
     onSuccess: async (res) => {
       toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye!`)
       onSuccess(); onClose()
-      try { printer.printPre(res.data.pre, tenant, 'ouverture') } catch {}
+      try { printer.printPre(res.data.pre, tenant, 'ouvèti') } catch {}
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
   })
@@ -340,7 +340,7 @@ function ModalCreePre({ onClose, onSuccess, printer }) {
         {/* Toggle: Kane Epay vs Manuel */}
         <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
           {[
-            { val: 'kane',   label: '🔗 Kont Kane Epay', icon: <UserSearch size={12}/> },
+            { val: 'kane',   label: '🔗 Kont Kanè Epay', icon: <UserSearch size={12}/> },
             { val: 'manuel', label: '✍️ Tape manyèlman',  icon: <FileText size={12}/> },
           ].map(m => (
             <button key={m.val} onClick={() => { setModeKliyan(m.val); setKaneKont(null) }}
@@ -357,7 +357,7 @@ function ModalCreePre({ onClose, onSuccess, printer }) {
             <div>
               <label style={labelStyle}>Non Konplè *</label>
               <input className="ke-input" style={{ ...inputStyle, borderColor: errors.clientNom ? D.red : undefined }}
-                value={form.clientNom} onChange={e => set('clientNom', e.target.value)} placeholder="Non ak Prenon..." />
+                value={form.clientNom} onChange={e => set('clientNom', e.target.value)} placeholder="Siyati ak Non..." />
               {errors.clientNom && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.clientNom}</p>}
             </div>
             <div className="ke-form-row" style={{ marginTop: 10 }}>
@@ -566,7 +566,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer }) {
         </div>
 
         <div>
-          <label style={{ ...labelStyle, color: D.green }}>Montan Paieman (HTG) *</label>
+          <label style={{ ...labelStyle, color: D.green }}>Montan Pèman (HTG) *</label>
           <input type="number" min="0.01" step="0.01" className="ke-input"
             style={{ ...inputStyle, fontSize: 26, fontWeight: 800, textAlign: 'center', borderColor: `${D.green}50`, color: D.green }}
             value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))}

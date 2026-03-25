@@ -200,7 +200,32 @@ router.get('/', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /api/pre/:id
+// GET /api/pre/kapital/istorik  — DOIT être avant /:id
+// ═══════════════════════════════════════════════════════════════
+router.get('/kapital/istorik', async (req, res) => {
+  try {
+    const { tenantId } = req.tenant
+    const { page = 1, limit = 20 } = req.query
+
+    const istorik = await prisma.$queryRaw`
+      SELECT pk.*, u.full_name as creator_name
+      FROM pre_kapital pk
+      LEFT JOIN users u ON u.id = pk.created_by
+      WHERE pk.tenant_id = ${tenantId}
+      ORDER BY pk.created_at DESC
+      LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
+    `
+
+    const kapitalDisponib = await getKapitalDisponib(tenantId)
+    return res.json({ istorik, kapitalDisponib })
+  } catch (err) {
+    console.error('[PRE /kapital/istorik]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/pre/:id  — TOUJOU DÈNYÈ nan GET yo
 // ═══════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
@@ -294,6 +319,93 @@ router.post('/', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
+// POST /api/pre/kapital/enjekte  — Admin enjekte kapital — AVANT /:id
+// ═══════════════════════════════════════════════════════════════
+router.post('/kapital/enjekte', async (req, res) => {
+  try {
+    const { tenantId } = req.tenant
+    const userId = req.user?.id
+    if (req.user?.role !== 'admin')
+      return res.status(403).json({ message: 'Sèlman admin ka enjekte kapital.' })
+    const { montant, notes } = req.body
+    if (!montant || montant <= 0)
+      return res.status(400).json({ message: 'Montan dwe > 0.' })
+    await prisma.$executeRaw`
+      INSERT INTO pre_kapital (tenant_id, montant, type, notes, created_by)
+      VALUES (${tenantId}, ${Number(montant)}, 'enjeksyon', ${notes || null}, ${userId || null})
+    `
+    const kapitalDisponib = await getKapitalDisponib(tenantId)
+    return res.json({ message: 'Kapital enjekte avèk siksè.', kapitalDisponib })
+  } catch (err) {
+    console.error('[PRE /kapital/enjekte]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// POST /api/pre/rapo/femen-kes  — AVANT /:id
+// ═══════════════════════════════════════════════════════════════
+router.post('/rapo/femen-kes', async (req, res) => {
+  try {
+    const { tenantId } = req.tenant
+    const userId = req.user?.id
+    const { notes } = req.body
+    const debiJou = new Date()
+    debiJou.setHours(0, 0, 0, 0)
+    const [pretsJou, paiemanJou] = await Promise.all([
+      prisma.pre.findMany({
+        where: { tenantId, createdBy: userId, createdAt: { gte: debiJou } },
+        select: { montant: true, totalDu: true },
+      }),
+      prisma.prePaiement.findMany({
+        where: { tenantId, createdBy: userId, createdAt: { gte: debiJou } },
+        select: { montant: true },
+      }),
+    ])
+    const totalPreKreye  = pretsJou.length
+    const montantDeseman = pretsJou.reduce((s, p) => s + Number(p.montant), 0)
+    const totalKoleksyon = paiemanJou.reduce((s, p) => s + Number(p.montant), 0)
+    let totalEntere = 0
+    if (pretsJou.length > 0 && totalKoleksyon > 0) {
+      const ratio = pretsJou.reduce((acc, p) => {
+        const td = Number(p.totalDu), k = Number(p.montant)
+        return acc + (td > 0 ? (td - k) / td : 0)
+      }, 0) / pretsJou.length
+      totalEntere = Math.round(totalKoleksyon * ratio * 100) / 100
+    }
+    await prisma.$executeRaw`
+      INSERT INTO pre_rapo_kesye (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
+      VALUES (${tenantId}, ${userId}, CURRENT_DATE, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
+    `
+    return res.json({ rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length } })
+  } catch (err) {
+    console.error('[PRE /rapo/femen-kes]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/pre/rapo/kesye  — AVANT /:id
+// ═══════════════════════════════════════════════════════════════
+router.get('/rapo/kesye', async (req, res) => {
+  try {
+    const { tenantId } = req.tenant
+    const rapos = await prisma.$queryRaw`
+      SELECT r.*, u.full_name as kesye_nom
+      FROM pre_rapo_kesye r
+      LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.tenant_id = ${tenantId}
+      ORDER BY r.created_at DESC
+      LIMIT 100
+    `
+    return res.json({ rapos })
+  } catch (err) {
+    console.error('[PRE /rapo/kesye]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
 // POST /api/pre/:id/paiement
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/paiement', async (req, res) => {
@@ -372,149 +484,6 @@ router.post('/:id/cloture', async (req, res) => {
     return res.json({ pre: preMajou })
   } catch (err) {
     console.error('[PRE POST /:id/cloture]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// POST /api/pre/kapital/enjekte  — Admin enjekte kapital
-// ═══════════════════════════════════════════════════════════════
-router.post('/kapital/enjekte', async (req, res) => {
-  try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
-
-    // Sèlman admin ka enjekte
-    if (req.user?.role !== 'admin')
-      return res.status(403).json({ message: 'Sèlman admin ka enjekte kapital.' })
-
-    const { montant, notes } = req.body
-    if (!montant || montant <= 0)
-      return res.status(400).json({ message: 'Montan dwe > 0.' })
-
-    await prisma.$executeRaw`
-      INSERT INTO pre_kapital (tenant_id, montant, type, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'enjeksyon', ${notes || null}, ${userId || null})
-    `
-
-    const kapitalDisponib = await getKapitalDisponib(tenantId)
-    return res.json({ message: 'Kapital enjekte avèk siksè.', kapitalDisponib })
-  } catch (err) {
-    console.error('[PRE /kapital/enjekte]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// GET /api/pre/kapital/istorik  — Istwa mouvman kapital
-// ═══════════════════════════════════════════════════════════════
-router.get('/kapital/istorik', async (req, res) => {
-  try {
-    const { tenantId } = req.tenant
-    const { page = 1, limit = 20 } = req.query
-
-    const istorik = await prisma.$queryRaw`
-      SELECT pk.*, u.full_name as creator_name
-      FROM pre_kapital pk
-      LEFT JOIN users u ON u.id = pk.created_by
-      WHERE pk.tenant_id = ${tenantId}
-      ORDER BY pk.created_at DESC
-      LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
-    `
-
-    const kapitalDisponib = await getKapitalDisponib(tenantId)
-    return res.json({ istorik, kapitalDisponib })
-  } catch (err) {
-    console.error('[PRE /kapital/istorik]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// POST /api/pre/rapo/femen-kès  — Kesye fèmen kès li
-// ═══════════════════════════════════════════════════════════════
-router.post('/rapo/femen-kes', async (req, res) => {
-  try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
-    const { notes } = req.body
-
-    const debiJou = new Date()
-    debiJou.setHours(0, 0, 0, 0)
-
-    // Prè kesye sa kreye jodi a
-    const [pretsJou, paiemanJou] = await Promise.all([
-      prisma.pre.findMany({
-        where: { tenantId, createdBy: userId, createdAt: { gte: debiJou } },
-        select: { montant: true, tauxInteret: true, dureeEnMois: true, totalDu: true },
-      }),
-      prisma.prePaiement.findMany({
-        where: { tenantId, createdBy: userId, createdAt: { gte: debiJou } },
-        select: { montant: true, balanceAvant: true, balanceApre: true },
-      }),
-    ])
-
-    const totalPreKreye  = pretsJou.length
-    const montantDeseman = pretsJou.reduce((s, p) => s + Number(p.montant), 0)
-    const totalKoleksyon = paiemanJou.reduce((s, p) => s + Number(p.montant), 0)
-
-    // Enterè kolekte = koleksyon × ratio enterè mwayèn
-    let totalEntere = 0
-    if (pretsJou.length > 0) {
-      const ratioMwayèn = pretsJou.reduce((acc, p) => {
-        const td = Number(p.totalDu), k = Number(p.montant)
-        return acc + (td > 0 ? (td - k) / td : 0)
-      }, 0) / pretsJou.length
-      totalEntere = Math.round(totalKoleksyon * ratioMwayèn * 100) / 100
-    }
-
-    // Anrejistre rapo
-    await prisma.$executeRaw`
-      INSERT INTO pre_rapo_kesye
-        (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
-      VALUES
-        (${tenantId}, ${userId}, CURRENT_DATE, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
-    `
-
-    return res.json({
-      rapo: {
-        date:           new Date().toISOString().split('T')[0],
-        totalPreKreye,
-        montantDeseman,
-        totalKoleksyon,
-        totalEntere,
-        nbPaieman:      paiemanJou.length,
-      },
-    })
-  } catch (err) {
-    console.error('[PRE /rapo/femen-kes]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// GET /api/pre/rapo/kesye  — Admin wè rapo tout kesye yo
-// ═══════════════════════════════════════════════════════════════
-router.get('/rapo/kesye', async (req, res) => {
-  try {
-    const { tenantId } = req.tenant
-    const { dateDebut, dateFin, userId } = req.query
-
-    const rapos = await prisma.$queryRaw`
-      SELECT r.*, u.full_name as kesye_nom
-      FROM pre_rapo_kesye r
-      LEFT JOIN users u ON u.id = r.user_id
-      WHERE r.tenant_id = ${tenantId}
-        ${userId    ? prisma.$raw`AND r.user_id = ${userId}`       : prisma.$raw``}
-        ${dateDebut ? prisma.$raw`AND r.date_rapo >= ${dateDebut}` : prisma.$raw``}
-        ${dateFin   ? prisma.$raw`AND r.date_rapo <= ${dateFin}`   : prisma.$raw``}
-      ORDER BY r.created_at DESC
-      LIMIT 100
-    `
-
-    return res.json({ rapos })
-  } catch (err) {
-    console.error('[PRE /rapo/kesye]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
   }
 })
