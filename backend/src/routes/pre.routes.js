@@ -7,11 +7,17 @@ const { PrismaClient } = require('@prisma/client')
 const router = express.Router()
 const prisma = new PrismaClient()
 
-const { authenticate }  = require('../middleware/auth')
-const { requireTenant } = require('../middleware/tenant')
+const { identifyTenant, authenticate } = require('../../middleware/auth')
+const { extractBranch }                = require('../../middleware/branch')
 
-router.use(authenticate)
-router.use(requireTenant)
+router.use(identifyTenant, authenticate, extractBranch)
+
+// ─── Helper — menm pattern ke kane-epay.controller.js ────────
+const getTB = (req) => ({
+  tenantId: req.tenant.id,
+  branchId: req.branchId || null,
+  userId:   req.user?.id || null,
+})
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS
@@ -60,7 +66,7 @@ async function getKapitalDisponib(tenantId) {
 // ═══════════════════════════════════════════════════════════════
 router.get('/stats', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const debiMwa = new Date()
     debiMwa.setDate(1); debiMwa.setHours(0, 0, 0, 0)
 
@@ -124,7 +130,7 @@ router.get('/stats', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/kane-epay-search', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const { q = '' } = req.query
     if (q.length < 2) return res.json({ accounts: [] })
 
@@ -160,7 +166,7 @@ router.get('/kane-epay-search', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const { search = '', page = 1, limit = 15, statut, branchId } = req.query
     const skip  = (Number(page) - 1) * Number(limit)
     const where = {
@@ -204,7 +210,7 @@ router.get('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/kapital/istorik', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const { page = 1, limit = 20 } = req.query
 
     const istorik = await prisma.$queryRaw`
@@ -229,7 +235,7 @@ router.get('/kapital/istorik', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const pre = await prisma.pre.findFirst({
       where:   { id: req.params.id, tenantId },
       include: { paiements: { orderBy: { createdAt: 'desc' } } },
@@ -247,8 +253,7 @@ router.get('/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
+    const { tenantId, userId } = getTB(req)
     const {
       // Kliyan
       clientNom, clientPhone, clientNifCin, clientAdres,
@@ -323,8 +328,7 @@ router.post('/', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/kapital/enjekte', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
+    const { tenantId, userId } = getTB(req)
     if (req.user?.role !== 'admin')
       return res.status(403).json({ message: 'Sèlman admin ka enjekte kapital.' })
     const { montant, notes } = req.body
@@ -347,8 +351,7 @@ router.post('/kapital/enjekte', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/rapo/femen-kes', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
+    const { tenantId, userId } = getTB(req)
     const { notes } = req.body
     const debiJou = new Date()
     debiJou.setHours(0, 0, 0, 0)
@@ -389,7 +392,7 @@ router.post('/rapo/femen-kes', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/rapo/kesye', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const rapos = await prisma.$queryRaw`
       SELECT r.*, u.full_name as kesye_nom
       FROM pre_rapo_kesye r
@@ -410,8 +413,7 @@ router.get('/rapo/kesye', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/paiement', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
-    const userId = req.user?.id
+    const { tenantId, userId } = getTB(req)
     const { id } = req.params
     const { montant, method, reference, notes } = req.body
 
@@ -471,7 +473,7 @@ router.post('/:id/paiement', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/cloture', async (req, res) => {
   try {
-    const { tenantId } = req.tenant
+    const { tenantId, userId } = getTB(req)
     const { id } = req.params
     const pre = await prisma.pre.findFirst({ where: { id, tenantId } })
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'  })
