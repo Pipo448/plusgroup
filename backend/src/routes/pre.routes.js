@@ -1,16 +1,16 @@
-// src/pre.routes.js  — V2
-// Mount: app.use('/api/pre', preRoutes)
+// src/routes/pre.routes.js
+// Mount: app.use(`${API}/pre`, preRoutes)  ← deja nan index.js ✅
 
-const express = require('express')
-const { PrismaClient } = require('@prisma/client')
+import express from 'express'
+import { PrismaClient } from '@prisma/client'
+import { authenticate } from '../middleware/auth.middleware.js'
+import { extractBranch } from '../middleware/branch.middleware.js'
 
 const router = express.Router()
 const prisma = new PrismaClient()
 
-const { identifyTenant, authenticate } = require('../../middleware/auth')
-const { extractBranch }                = require('../../middleware/branch')
-
-router.use(identifyTenant, authenticate, extractBranch)
+// Tout routes pwoteje — menm pattern ke hotel.routes.js
+router.use(authenticate, extractBranch)
 
 // ─── Helper — menm pattern ke kane-epay.controller.js ────────
 const getTB = (req) => ({
@@ -34,7 +34,7 @@ async function genereNumeroPre(tenantId) {
   return `PRE-${ane}-${String(count + 1).padStart(5, '0')}`
 }
 
-// ✅ To enterè PA MWA — totalDu = K × (1 + taux × duree)
+// ✅ To enterè PA MWA: total = K + K × taux × duree
 function calcTotalDu(montant, tauxParMwa, dureeEnMois) {
   const k = Number(montant)
   const t = Number(tauxParMwa) / 100
@@ -42,7 +42,7 @@ function calcTotalDu(montant, tauxParMwa, dureeEnMois) {
   return Math.round((k + k * t * d) * 100) / 100
 }
 
-// Kapital disponib = total enjeksyon - total prè actif
+// Kapital disponib = total enjeksyon - total prè aktif
 async function getKapitalDisponib(tenantId) {
   const [enjeksyonAgg, pretAgg] = await Promise.all([
     prisma.$queryRaw`
@@ -66,7 +66,7 @@ async function getKapitalDisponib(tenantId) {
 // ═══════════════════════════════════════════════════════════════
 router.get('/stats', async (req, res) => {
   try {
-    const { tenantId, userId } = getTB(req)
+    const { tenantId } = getTB(req)
     const debiMwa = new Date()
     debiMwa.setDate(1); debiMwa.setHours(0, 0, 0, 0)
 
@@ -96,7 +96,6 @@ router.get('/stats', async (req, res) => {
     const totalDesèmanMwa = Number(desèmanMwaAgg._sum.montant    || 0)
     const kapitalDisponib = await getKapitalDisponib(tenantId)
 
-    // Enterè kolekte mwa sa
     const pretsAktifList = await prisma.pre.findMany({
       where:  { tenantId, statut: { in: ['actif','reta'] } },
       select: { montant: true, totalDu: true },
@@ -126,37 +125,75 @@ router.get('/stats', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /api/pre/kane-epay-search?q=xxx  — chèche kliyan Kane Epay
+// GET /api/pre/kane-epay-search  — AVANT /:id
 // ═══════════════════════════════════════════════════════════════
 router.get('/kane-epay-search', async (req, res) => {
   try {
-    const { tenantId, userId } = getTB(req)
+    const { tenantId } = getTB(req)
     const { q = '' } = req.query
     if (q.length < 2) return res.json({ accounts: [] })
 
     const accounts = await prisma.kaneEpay.findMany({
       where: {
-        tenantId,
-        isActive: true,
+        tenantId, isActive: true,
         OR: [
-          { firstName: { contains: q, mode: 'insensitive' } },
-          { lastName:  { contains: q, mode: 'insensitive' } },
-          { phone:     { contains: q, mode: 'insensitive' } },
-          { nifOrCin:  { contains: q, mode: 'insensitive' } },
+          { firstName:     { contains: q, mode: 'insensitive' } },
+          { lastName:      { contains: q, mode: 'insensitive' } },
+          { phone:         { contains: q, mode: 'insensitive' } },
+          { nifOrCin:      { contains: q, mode: 'insensitive' } },
           { accountNumber: { contains: q, mode: 'insensitive' } },
         ],
       },
-      select: {
-        id: true, accountNumber: true,
-        firstName: true, lastName: true,
-        phone: true, balance: true, photoUrl: true,
-      },
+      select: { id: true, accountNumber: true, firstName: true, lastName: true, phone: true, balance: true, photoUrl: true },
       take: 8,
     })
-
     return res.json({ accounts })
   } catch (err) {
     console.error('[PRE /kane-epay-search]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/pre/kapital/istorik  — AVANT /:id
+// ═══════════════════════════════════════════════════════════════
+router.get('/kapital/istorik', async (req, res) => {
+  try {
+    const { tenantId } = getTB(req)
+    const { page = 1, limit = 20 } = req.query
+    const istorik = await prisma.$queryRaw`
+      SELECT pk.*, u.full_name as creator_name
+      FROM pre_kapital pk
+      LEFT JOIN users u ON u.id = pk.created_by
+      WHERE pk.tenant_id = ${tenantId}
+      ORDER BY pk.created_at DESC
+      LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
+    `
+    const kapitalDisponib = await getKapitalDisponib(tenantId)
+    return res.json({ istorik, kapitalDisponib })
+  } catch (err) {
+    console.error('[PRE /kapital/istorik]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/pre/rapo/kesye  — AVANT /:id
+// ═══════════════════════════════════════════════════════════════
+router.get('/rapo/kesye', async (req, res) => {
+  try {
+    const { tenantId } = getTB(req)
+    const rapos = await prisma.$queryRaw`
+      SELECT r.*, u.full_name as kesye_nom
+      FROM pre_rapo_kesye r
+      LEFT JOIN users u ON u.id = r.user_id
+      WHERE r.tenant_id = ${tenantId}
+      ORDER BY r.created_at DESC
+      LIMIT 100
+    `
+    return res.json({ rapos })
+  } catch (err) {
+    console.error('[PRE /rapo/kesye]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
   }
 })
@@ -166,7 +203,7 @@ router.get('/kane-epay-search', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
   try {
-    const { tenantId, userId } = getTB(req)
+    const { tenantId } = getTB(req)
     const { search = '', page = 1, limit = 15, statut, branchId } = req.query
     const skip  = (Number(page) - 1) * Number(limit)
     const where = {
@@ -182,7 +219,6 @@ router.get('/', async (req, res) => {
         ],
       }),
     }
-
     const [prets, total] = await Promise.all([
       prisma.pre.findMany({
         where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit),
@@ -191,13 +227,11 @@ router.get('/', async (req, res) => {
           montant: true, tauxInteret: true, dureeEnMois: true,
           totalDu: true, totalPaye: true, montantBloke: true,
           datDebut: true, datFin: true, periode: true,
-          statut: true, createdAt: true, branchId: true,
-          kontKaneEpayId: true,
+          statut: true, createdAt: true, branchId: true, kontKaneEpayId: true,
         },
       }),
       prisma.pre.count({ where }),
     ])
-
     return res.json({ prets, total, page: Number(page), limit: Number(limit) })
   } catch (err) {
     console.error('[PRE GET /]', err)
@@ -206,125 +240,7 @@ router.get('/', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /api/pre/kapital/istorik  — DOIT être avant /:id
-// ═══════════════════════════════════════════════════════════════
-router.get('/kapital/istorik', async (req, res) => {
-  try {
-    const { tenantId, userId } = getTB(req)
-    const { page = 1, limit = 20 } = req.query
-
-    const istorik = await prisma.$queryRaw`
-      SELECT pk.*, u.full_name as creator_name
-      FROM pre_kapital pk
-      LEFT JOIN users u ON u.id = pk.created_by
-      WHERE pk.tenant_id = ${tenantId}
-      ORDER BY pk.created_at DESC
-      LIMIT ${Number(limit)} OFFSET ${(Number(page) - 1) * Number(limit)}
-    `
-
-    const kapitalDisponib = await getKapitalDisponib(tenantId)
-    return res.json({ istorik, kapitalDisponib })
-  } catch (err) {
-    console.error('[PRE /kapital/istorik]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// GET /api/pre/:id  — TOUJOU DÈNYÈ nan GET yo
-// ═══════════════════════════════════════════════════════════════
-router.get('/:id', async (req, res) => {
-  try {
-    const { tenantId, userId } = getTB(req)
-    const pre = await prisma.pre.findFirst({
-      where:   { id: req.params.id, tenantId },
-      include: { paiements: { orderBy: { createdAt: 'desc' } } },
-    })
-    if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
-    return res.json({ pre })
-  } catch (err) {
-    console.error('[PRE GET /:id]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// POST /api/pre  — kreye nouvo prè
-// ═══════════════════════════════════════════════════════════════
-router.post('/', async (req, res) => {
-  try {
-    const { tenantId, userId } = getTB(req)
-    const {
-      // Kliyan
-      clientNom, clientPhone, clientNifCin, clientAdres,
-      kontKaneEpayId,        // opsyonèl — lyen kont Kane Epay
-      // Tèm finansye
-      montant, tauxInteret, dureeEnMois,
-      montantBloke,          // ✅ depozit bloke opsyonèl
-      // Kalann
-      datDebut, periode, method, reference, notes,
-    } = req.body
-
-    if (!clientNom?.trim())       return res.status(400).json({ message: 'Non kliyan obligatwa.' })
-    if (!montant || montant <= 0) return res.status(400).json({ message: 'Montan dwe > 0.' })
-    if (!tauxInteret)             return res.status(400).json({ message: 'Taux enterè obligatwa.' })
-    if (!dureeEnMois)             return res.status(400).json({ message: 'Durasyon obligatwa.' })
-
-    // ✅ Si kliyan gen kont Kane Epay, verifye li egziste nan menm tenant
-    if (kontKaneEpayId) {
-      const kaneKont = await prisma.kaneEpay.findFirst({
-        where: { id: kontKaneEpayId, tenantId },
-      })
-      if (!kaneKont) return res.status(400).json({ message: 'Kont Kane Epay pa jwenn.' })
-    }
-
-    const numeroPre = await genereNumeroPre(tenantId)
-    // ✅ Kalkil avèk to PA MWA
-    const totalDu   = calcTotalDu(montant, tauxInteret, dureeEnMois)
-
-    const debut  = datDebut ? new Date(datDebut) : new Date()
-    const datFin = new Date(debut)
-    datFin.setMonth(datFin.getMonth() + Number(dureeEnMois))
-
-    const pre = await prisma.pre.create({
-      data: {
-        tenantId,
-        numeroPre,
-        clientNom:        clientNom.trim(),
-        clientPhone:      clientPhone      || null,
-        clientNifCin:     clientNifCin     || null,
-        clientAdres:      clientAdres      || null,
-        kontKaneEpayId:   kontKaneEpayId   || null,
-        montant:          Number(montant),
-        tauxInteret:      Number(tauxInteret),
-        dureeEnMois:      Number(dureeEnMois),
-        montantBloke:     Number(montantBloke || 0),
-        totalDu, totalPaye: 0,
-        datDebut:         debut, datFin,
-        periode:          periode          || 'mois',
-        methodDeseman:    method           || 'cash',
-        referenceDeseman: reference        || null,
-        notes:            notes            || null,
-        statut:           'actif',
-        createdBy:        userId           || null,
-      },
-    })
-
-    // ✅ Anrejistre mouvman kapital — prè soti
-    await prisma.$executeRaw`
-      INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'prè', ${pre.id}, ${`Desèman prè ${numeroPre}`}, ${userId || null})
-    `
-
-    return res.status(201).json({ pre })
-  } catch (err) {
-    console.error('[PRE POST /]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
-  }
-})
-
-// ═══════════════════════════════════════════════════════════════
-// POST /api/pre/kapital/enjekte  — Admin enjekte kapital — AVANT /:id
+// POST /api/pre/kapital/enjekte  — AVANT /:id
 // ═══════════════════════════════════════════════════════════════
 router.post('/kapital/enjekte', async (req, res) => {
   try {
@@ -336,7 +252,7 @@ router.post('/kapital/enjekte', async (req, res) => {
       return res.status(400).json({ message: 'Montan dwe > 0.' })
     await prisma.$executeRaw`
       INSERT INTO pre_kapital (tenant_id, montant, type, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'enjeksyon', ${notes || null}, ${userId || null})
+      VALUES (${tenantId}, ${Number(montant)}, 'enjeksyon', ${notes || null}, ${userId})
     `
     const kapitalDisponib = await getKapitalDisponib(tenantId)
     return res.json({ message: 'Kapital enjekte avèk siksè.', kapitalDisponib })
@@ -355,6 +271,7 @@ router.post('/rapo/femen-kes', async (req, res) => {
     const { notes } = req.body
     const debiJou = new Date()
     debiJou.setHours(0, 0, 0, 0)
+
     const [pretsJou, paiemanJou] = await Promise.all([
       prisma.pre.findMany({
         where: { tenantId, createdBy: userId, createdAt: { gte: debiJou } },
@@ -365,6 +282,7 @@ router.post('/rapo/femen-kes', async (req, res) => {
         select: { montant: true },
       }),
     ])
+
     const totalPreKreye  = pretsJou.length
     const montantDeseman = pretsJou.reduce((s, p) => s + Number(p.montant), 0)
     const totalKoleksyon = paiemanJou.reduce((s, p) => s + Number(p.montant), 0)
@@ -376,11 +294,16 @@ router.post('/rapo/femen-kes', async (req, res) => {
       }, 0) / pretsJou.length
       totalEntere = Math.round(totalKoleksyon * ratio * 100) / 100
     }
+
     await prisma.$executeRaw`
-      INSERT INTO pre_rapo_kesye (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
-      VALUES (${tenantId}, ${userId}, CURRENT_DATE, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
+      INSERT INTO pre_rapo_kesye
+        (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
+      VALUES
+        (${tenantId}, ${userId}, CURRENT_DATE, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
     `
-    return res.json({ rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length } })
+    return res.json({
+      rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length },
+    })
   } catch (err) {
     console.error('[PRE /rapo/femen-kes]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
@@ -388,22 +311,82 @@ router.post('/rapo/femen-kes', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /api/pre/rapo/kesye  — AVANT /:id
+// POST /api/pre  — kreye nouvo prè
 // ═══════════════════════════════════════════════════════════════
-router.get('/rapo/kesye', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { tenantId, userId } = getTB(req)
-    const rapos = await prisma.$queryRaw`
-      SELECT r.*, u.full_name as kesye_nom
-      FROM pre_rapo_kesye r
-      LEFT JOIN users u ON u.id = r.user_id
-      WHERE r.tenant_id = ${tenantId}
-      ORDER BY r.created_at DESC
-      LIMIT 100
+    const {
+      clientNom, clientPhone, clientNifCin, clientAdres,
+      kontKaneEpayId, montant, tauxInteret, dureeEnMois,
+      montantBloke, datDebut, periode, method, reference, notes,
+    } = req.body
+
+    if (!clientNom?.trim())       return res.status(400).json({ message: 'Non kliyan obligatwa.' })
+    if (!montant || montant <= 0) return res.status(400).json({ message: 'Montan dwe > 0.' })
+    if (!tauxInteret)             return res.status(400).json({ message: 'Taux enterè obligatwa.' })
+    if (!dureeEnMois)             return res.status(400).json({ message: 'Durasyon obligatwa.' })
+
+    if (kontKaneEpayId) {
+      const kaneKont = await prisma.kaneEpay.findFirst({ where: { id: kontKaneEpayId, tenantId } })
+      if (!kaneKont) return res.status(400).json({ message: 'Kont Kane Epay pa jwenn.' })
+    }
+
+    const numeroPre = await genereNumeroPre(tenantId)
+    const totalDu   = calcTotalDu(montant, tauxInteret, dureeEnMois)
+    const debut     = datDebut ? new Date(datDebut) : new Date()
+    const datFin    = new Date(debut)
+    datFin.setMonth(datFin.getMonth() + Number(dureeEnMois))
+
+    const pre = await prisma.pre.create({
+      data: {
+        tenantId, numeroPre,
+        clientNom:        clientNom.trim(),
+        clientPhone:      clientPhone      || null,
+        clientNifCin:     clientNifCin     || null,
+        clientAdres:      clientAdres      || null,
+        kontKaneEpayId:   kontKaneEpayId   || null,
+        montant:          Number(montant),
+        tauxInteret:      Number(tauxInteret),
+        dureeEnMois:      Number(dureeEnMois),
+        montantBloke:     Number(montantBloke || 0),
+        totalDu, totalPaye: 0,
+        datDebut: debut, datFin,
+        periode:          periode          || 'mois',
+        methodDeseman:    method           || 'cash',
+        referenceDeseman: reference        || null,
+        notes:            notes            || null,
+        statut:           'actif',
+        createdBy:        userId,
+      },
+    })
+
+    await prisma.$executeRaw`
+      INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
+      VALUES (${tenantId}, ${Number(montant)}, 'prè', ${pre.id}, ${`Desèman ${numeroPre}`}, ${userId})
     `
-    return res.json({ rapos })
+
+    return res.status(201).json({ pre })
   } catch (err) {
-    console.error('[PRE /rapo/kesye]', err)
+    console.error('[PRE POST /]', err)
+    return res.status(500).json({ message: 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// GET /api/pre/:id  — TOUJOU DÈNYÈ nan GET yo
+// ═══════════════════════════════════════════════════════════════
+router.get('/:id', async (req, res) => {
+  try {
+    const { tenantId } = getTB(req)
+    const pre = await prisma.pre.findFirst({
+      where:   { id: req.params.id, tenantId },
+      include: { paiements: { orderBy: { createdAt: 'desc' } } },
+    })
+    if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
+    return res.json({ pre })
+  } catch (err) {
+    console.error('[PRE GET /:id]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
   }
 })
@@ -445,7 +428,7 @@ router.post('/:id/paiement', async (req, res) => {
           method:    method    || 'cash',
           reference: reference || null,
           notes:     notes     || null,
-          createdBy: userId    || null,
+          createdBy: userId,
         },
       }),
       prisma.pre.update({
@@ -454,10 +437,9 @@ router.post('/:id/paiement', async (req, res) => {
       }),
     ])
 
-    // ✅ Anrejistre retou kapital
     await prisma.$executeRaw`
       INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-      VALUES (${tenantId}, ${montantReyèl}, 'retou', ${id}, ${`Paieman prè ${pre.numeroPre}`}, ${userId || null})
+      VALUES (${tenantId}, ${montantReyèl}, 'retou', ${id}, ${`Paieman ${pre.numeroPre}`}, ${userId})
     `
 
     const preAjou = await prisma.pre.findUnique({ where: { id } })
@@ -473,7 +455,7 @@ router.post('/:id/paiement', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/cloture', async (req, res) => {
   try {
-    const { tenantId, userId } = getTB(req)
+    const { tenantId } = getTB(req)
     const { id } = req.params
     const pre = await prisma.pre.findFirst({ where: { id, tenantId } })
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'  })
@@ -490,4 +472,4 @@ router.post('/:id/cloture', async (req, res) => {
   }
 })
 
-module.exports = router
+export default router
