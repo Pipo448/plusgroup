@@ -155,7 +155,7 @@ app.use(`${API}/hotel`,         hotelRoutes)
 app.use(`${API}/dashboard`,     dashboardFullRoute);
 app.use('/api/v1/push',         pushRoutes);
 app.use('/api/v1/dry',          dryRoutes)
-app.use('/api/pre', preRoutes)  // adapte prefix si nesesè
+app.use(`${API}/pre`, preRoutes)
 
 
 // ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay
