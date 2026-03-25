@@ -1,16 +1,16 @@
 // src/routes/pre.routes.js
 // Mount: app.use(`${API}/pre`, preRoutes)  ← deja nan index.js ✅
 
-import express from 'express'
-import { PrismaClient } from '@prisma/client'
-import { authenticate } from '../middleware/auth.middleware.js'
-import { extractBranch } from '../middleware/branch.middleware.js'
+const express = require('express')
+const { PrismaClient } = require('@prisma/client')
+const { identifyTenant, authenticate } = require('../middleware/auth')
+const { extractBranch } = require('../middleware/branch')
 
 const router = express.Router()
 const prisma = new PrismaClient()
 
-// Tout routes pwoteje — menm pattern ke hotel.routes.js
-router.use(authenticate, extractBranch)
+// Tout routes pwoteje — menm pattern ke kane-epay.routes.js
+router.use(identifyTenant, authenticate, extractBranch)
 
 // ─── Helper — menm pattern ke kane-epay.controller.js ────────
 const getTB = (req) => ({
@@ -472,4 +472,4 @@ router.post('/:id/cloture', async (req, res) => {
   }
 })
 
-export default router
+module.exports = router
