@@ -814,7 +814,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           {[
             { label: 'Kapital', val: `${fmt(pre.montant)} HTG`, color: D.gold },
             { label: 'To Enterè', val: `${pre.tauxInteret}% / mwa`, color: D.orange },
-            { label: 'Durasyon', val: `${pre.dureeEnMois} mwa`, color: D.blue },
+            { label: 'Dire', val: `${pre.dureeEnMois} mwa`, color: D.blue },
             { label: 'Total Dwe', val: `${fmt(pre.totalDu)} HTG`, color: D.red },
             { label: 'Total Peye', val: `${fmt(pre.totalPaye || 0)} HTG`, color: D.green },
             { label: 'Frekans', val: PERIODES.find(p => p.value === pre.periode)?.label || pre.periode, color: D.purple },
@@ -1011,7 +1011,7 @@ export default function PrePage() {
           Aktivite Mwa a
         </p>
         <div className="ke-today-grid">
-          <StatCard label="Desèman Mwa a"   value={`${fmt(statsData?.totalDesèmanMwa  || 0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight />
+          <StatCard label="Dekèsman Mwa a"   value={`${fmt(statsData?.totalDesèmanMwa  || 0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight />
           <StatCard label="Koleksyon Mwa a"  value={`${fmt(statsData?.totalPaiemanMwa  || 0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight />
           <StatCard label="Enterè Kolekte"   value={`${fmt(statsData?.enterèMwa        || 0)} G`} icon={<Percent size={17}/>}         color={D.purple} highlight />
         </div>
