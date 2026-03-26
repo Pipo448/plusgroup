@@ -178,6 +178,29 @@ router.get('/kapital/istorik', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
+// GET /api/pre/rapo/kes-status  — Verifye si kès deja fèmen jodi a
+// ═══════════════════════════════════════════════════════════════
+router.get('/rapo/kes-status', async (req, res) => {
+  try {
+    const { tenantId, userId } = getTB(req)
+    const debiJou = new Date()
+    debiJou.setHours(0, 0, 0, 0)
+
+    const rapoJodi = await prisma.$queryRaw`
+      SELECT id FROM pre_rapo_kesye
+      WHERE tenant_id = ${tenantId}
+        AND user_id   = ${userId}
+        AND date_rapo = CURRENT_DATE
+      LIMIT 1
+    `
+    return res.json({ kesFemen: rapoJodi.length > 0 })
+  } catch (err) {
+    console.error('[PRE /rapo/kes-status]', err)
+    return res.json({ kesFemen: false }) // silans — pa bloke si erè
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
 // GET /api/pre/rapo/kesye  — AVANT /:id
 // ═══════════════════════════════════════════════════════════════
 router.get('/rapo/kesye', async (req, res) => {
@@ -327,6 +350,16 @@ router.post('/', async (req, res) => {
     if (!tauxInteret)             return res.status(400).json({ message: 'Taux enterè obligatwa.' })
     if (!dureeEnMois)             return res.status(400).json({ message: 'Durasyon obligatwa.' })
 
+    // ✅ Bloke si kès fèmen jodi a
+    const debiJouCreate = new Date(); debiJouCreate.setHours(0, 0, 0, 0)
+    const rapoJodiCreate = await prisma.$queryRaw`
+      SELECT id FROM pre_rapo_kesye
+      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = CURRENT_DATE
+      LIMIT 1
+    `
+    if (rapoJodiCreate.length > 0)
+      return res.status(403).json({ message: 'Kès ou fèmen jodi a. Ou pa ka kreye nouvo prè.' })
+
     if (kontKaneEpayId) {
       const kaneKont = await prisma.kaneEpay.findFirst({ where: { id: kontKaneEpayId, tenantId } })
       if (!kaneKont) return res.status(400).json({ message: 'Kont Kane Epay pa jwenn.' })
@@ -407,6 +440,15 @@ router.post('/:id/paiement', async (req, res) => {
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'     })
     if (pre.statut === 'cloture') return res.status(400).json({ message: 'Prè deja klotire.' })
     if (pre.statut === 'annule')  return res.status(400).json({ message: 'Prè sa anile.'     })
+
+    // ✅ Bloke si kès fèmen jodi a
+    const rapoJodiPay = await prisma.$queryRaw`
+      SELECT id FROM pre_rapo_kesye
+      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = CURRENT_DATE
+      LIMIT 1
+    `
+    if (rapoJodiPay.length > 0)
+      return res.status(403).json({ message: 'Kès ou fèmen jodi a. Ou pa ka anrejistre peman.' })
 
     const balanceAvant = Number(pre.totalDu) - Number(pre.totalPaye)
     if (balanceAvant <= 0)
