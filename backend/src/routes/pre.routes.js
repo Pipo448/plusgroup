@@ -190,7 +190,7 @@ router.get('/rapo/kes-status', async (req, res) => {
       SELECT id FROM pre_rapo_kesye
       WHERE tenant_id = ${tenantId}
         AND user_id   = ${userId}
-        AND date_rapo = CURRENT_DATE
+        AND date_rapo = (NOW() AT TIME ZONE 'America/Port_au_Prince')::date
       LIMIT 1
     `
     return res.json({ kesFemen: rapoJodi.length > 0 })
@@ -322,7 +322,7 @@ router.post('/rapo/femen-kes', async (req, res) => {
       INSERT INTO pre_rapo_kesye
         (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
       VALUES
-        (${tenantId}, ${userId}, CURRENT_DATE, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
+        (${tenantId}, ${userId}, (NOW() AT TIME ZONE 'America/Port_au_Prince')::date, ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes || null})
     `
     return res.json({
       rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length },
@@ -354,7 +354,7 @@ router.post('/', async (req, res) => {
     const debiJouCreate = new Date(); debiJouCreate.setHours(0, 0, 0, 0)
     const rapoJodiCreate = await prisma.$queryRaw`
       SELECT id FROM pre_rapo_kesye
-      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = CURRENT_DATE
+      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = (NOW() AT TIME ZONE 'America/Port_au_Prince')::date
       LIMIT 1
     `
     if (rapoJodiCreate.length > 0)
@@ -444,7 +444,7 @@ router.post('/:id/paiement', async (req, res) => {
     // ✅ Bloke si kès fèmen jodi a
     const rapoJodiPay = await prisma.$queryRaw`
       SELECT id FROM pre_rapo_kesye
-      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = CURRENT_DATE
+      WHERE tenant_id = ${tenantId} AND user_id = ${userId} AND date_rapo = (NOW() AT TIME ZONE 'America/Port_au_Prince')::date
       LIMIT 1
     `
     if (rapoJodiPay.length > 0)
