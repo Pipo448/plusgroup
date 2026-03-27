@@ -351,32 +351,21 @@ router.post('/', async (req, res) => {
         },
       })
 
-      // Enstale echeans yo
-      if (echeances.length > 0) {
+      // Enstale echeans yo — insert yon pa yon (solid)
+      for (const e of echeances) {
+        const datLimitStr = e.datLimit // string YYYY-MM-DD
         await tx.$executeRaw`
           INSERT INTO pre_echeances
             (tenant_id, pre_id, numero, dat_limit,
              montant_capital, montant_interet, montant_total,
              balans_avant, balans_apre, statut)
-          VALUES ${echeances.map(e =>
-            `('${tenantId}','${p.id}',${e.numero},'${e.datLimit}',
-              ${e.montantCapital},${e.montantInteret},${e.montantTotal},
-              ${e.balansAvant},${e.balansApre},'attente')`
-          ).join(',')}
-        `.catch(async () => {
-          // Fallback: insert yon pa yon si bulk pa travay
-          for (const e of echeances) {
-            await tx.$executeRaw`
-              INSERT INTO pre_echeances
-                (tenant_id, pre_id, numero, dat_limit,
-                 montant_capital, montant_interet, montant_total,
-                 balans_avant, balans_apre, statut)
-              VALUES (${tenantId}, ${p.id}, ${e.numero}, ${e.datLimit},
-                      ${e.montantCapital}, ${e.montantInteret}, ${e.montantTotal},
-                      ${e.balansAvant}, ${e.balansApre}, 'attente')
-            `
-          }
-        })
+          VALUES (
+            ${tenantId}, ${p.id}, ${e.numero},
+            ${datLimitStr}::date,
+            ${e.montantCapital}, ${e.montantInteret}, ${e.montantTotal},
+            ${e.balansAvant}, ${e.balansApre}, 'attente'
+          )
+        `
       }
       return p
     })
@@ -392,8 +381,8 @@ router.post('/', async (req, res) => {
     `
     return res.status(201).json({ pre, echeances: echCreye })
   } catch (err) {
-    console.error('[PRE POST /]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
+    console.error('[PRE POST /] DETAIL:', err?.message || err)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
   }
 })
 
