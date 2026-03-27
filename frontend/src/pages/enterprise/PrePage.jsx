@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
+import { EcheancierSection } from './EcheancierSection'
 import {
   Plus, Search, Eye, X, Printer, ChevronLeft, ChevronRight,
   Users, Wallet, TrendingUp, Activity, AlertCircle, RefreshCw,
@@ -276,6 +277,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     method: 'cash', reference: '', notes: '',
   })
   const [errors, setErrors] = useState({})
+  const [echeances, setEcheances] = useState([])
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
   const kapital = Number(form.montant || 0)
@@ -741,6 +743,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
   const { data: pre, isLoading } = useQuery({
     queryKey: ['pre-one', preId],
     queryFn: () => preAPI.getOne(preId).then(r => r.data.pre),
+    queryFn: () => preAPI.getOne(preId).then(r => { setEcheances(r.data.echeances || []); return r.data.pre })
     enabled: !!preId,
   })
   const qc = useQueryClient()

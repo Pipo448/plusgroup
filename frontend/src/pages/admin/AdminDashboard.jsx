@@ -88,7 +88,13 @@ const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: tr
 // ══════════════════════════════════════════════
 // AXIOS
 // ══════════════════════════════════════════════
-const adminApi = axios.create({ baseURL: 'https://plusgroup-backend.onrender.com/api/v1', timeout: 15000 })
+
+// ✅ FIX 1 — timeout 45s pou bay Render tan pou reveye (cold start ~30s)
+const adminApi = axios.create({
+  baseURL: 'https://plusgroup-backend.onrender.com/api/v1',
+  timeout: 45000
+})
+
 adminApi.interceptors.request.use((config) => {
   try {
     const { token } = JSON.parse(localStorage.getItem('pg-admin') || '{}')
@@ -97,11 +103,18 @@ adminApi.interceptors.request.use((config) => {
   return config
 })
 
-// ✅ FIX: Pa redirect sou 401 si se yon route sabotay — paske backend sabotay
-//    itilize tenant auth, pa admin auth, sa ki kòze dekoneksyon enkorek
+// ✅ FIX 2 — Interceptor pwoteje: sèlman redirect si se yon VRÈ 401
+//    Pa janm redirect si se timeout (err.response === undefined)
+//    Pa redirect pou routes sabotay ak sol (yo gen pwòp auth pa yo)
 adminApi.interceptors.response.use(r => r, err => {
-  const url = err.config?.url || ''
-  if (err.response?.status === 401 && !url.includes('/sabotay/')) {
+  const url    = err.config?.url || ''
+  const status = err.response?.status  // undefined si timeout/network error
+
+  if (
+    status === 401 &&
+    !url.includes('/sabotay/') &&
+    !url.includes('/sol/')
+  ) {
     localStorage.removeItem('pg-admin')
     window.location.href = '/admin/login'
   }
@@ -722,10 +735,10 @@ const EditSolMemberModal = ({ member, planId, tenantSlug, onClose, onSaved }) =>
   const handleSave = async () => {
     setSaving(true)
     try {
-    await adminApi.patch(
-  `/sol/superadmin/plans/${planId}/members/${member.id}`,
-  form
-)
+      await adminApi.patch(
+        `/sol/superadmin/plans/${planId}/members/${member.id}`,
+        form
+      )
       toast.success(`✅ Manm "${form.name}" ajou!`)
       onSaved?.()
       onClose()
@@ -890,12 +903,11 @@ const SolManagerModal = ({ tenant, onClose }) => {
   const [deletePlan, setDeletePlan]     = useState(null)
   const [editMember, setEditMember]     = useState(null)
 
- const loadPlans = async () => {
+  const loadPlans = async () => {
     setLoading(true)
     try {
       const res = await adminApi.get('/sol/superadmin/overview')
       const allPlans = res.data?.plans || []
-      // Filtre sèlman plan ki pou tenant sa a
       const tenantPlans = allPlans
         .filter(p => p.tenant.id === tenant.id)
         .map(p => ({
@@ -916,7 +928,8 @@ const SolManagerModal = ({ tenant, onClose }) => {
       setLoading(false)
     }
   }
-    const loadMembers = async (plan) => {
+
+  const loadMembers = async (plan) => {
     setSelectedPlan(plan)
     setLoadingMembers(true)
     try {
@@ -946,7 +959,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
       <div style={{ background:'linear-gradient(160deg,#0f172a,#0a1628)', border:'1px solid rgba(201,168,76,0.3)', borderRadius: isMobile?'20px 20px 0 0':20, width:'100%', maxWidth:680, maxHeight: isMobile?'93vh':'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ height:3, background:'linear-gradient(90deg,transparent,#C9A84C 30%,#8B0000 70%,transparent)', flexShrink:0 }}/>
 
-        {/* Header */}
         <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid rgba(201,168,76,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {selectedPlan && (
@@ -969,10 +981,7 @@ const SolManagerModal = ({ tenant, onClose }) => {
           <button onClick={onClose} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.5)' }}><X size={14}/></button>
         </div>
 
-        {/* Kò */}
         <div style={{ overflowY:'auto', flex:1, padding:'14px 22px 20px' }}>
-
-          {/* VYÈ PLANS */}
           {!selectedPlan && (
             loading ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:60, gap:12 }}>
@@ -1022,7 +1031,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
             )
           )}
 
-          {/* VYÈ MANM */}
           {selectedPlan && (
             loadingMembers ? (
               <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:60, gap:12 }}>
@@ -1064,7 +1072,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
           )}
         </div>
 
-        {/* Footer */}
         <div style={{ padding:'12px 22px', borderTop:'1px solid rgba(255,255,255,0.05)', flexShrink:0, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
           <span style={{ color:'rgba(255,255,255,0.2)', fontSize:10 }}>
             {selectedPlan ? `${members.length} manm nan "${selectedPlan.name}"` : `${plans.length} plan Sol total`}
@@ -1073,7 +1080,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
         </div>
       </div>
 
-      {/* Sub-modals */}
       {deletePlan && (
         <DeleteSolPlanModal
           plan={deletePlan}
@@ -1171,7 +1177,7 @@ export default function AdminDashboard() {
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
 
- const { admin } = getAdmin()
+  const { admin } = getAdmin()
 
   const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data) })
   const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data) })
@@ -1182,21 +1188,20 @@ export default function AdminDashboard() {
   const plans    = plansData?.plans      || []
   const expiring = expiringData?.expiring || []
 
-  // Jis anba query `expiringData`:
-const { data: solOverview } = useQuery({
-  queryKey: ['admin-sol-overview'],
-  queryFn: () => adminApi.get('/sol/superadmin/overview').then(r => r.data),
-  refetchInterval: 5 * 60 * 1000,
-  retry: false,        // ✅ Pa eseye ankò si 401/404
-  throwOnError: false, // ✅ Pa krase si erè
-})
-const solPlans = solOverview?.plans || []
-const sol = solPlans.length > 0 ? {
-  totalPlans:   solOverview.total,
-  activePlans:  solPlans.filter(p => p.status === 'active').length,
-  totalMembers: solPlans.reduce((s, p) => s + p.memberCount, 0),
-  totalRevenue: solPlans.reduce((s, p) => s + (p.amount * p.memberCount), 0),
-} : null
+  const { data: solOverview } = useQuery({
+    queryKey: ['admin-sol-overview'],
+    queryFn: () => adminApi.get('/sol/superadmin/overview').then(r => r.data),
+    refetchInterval: 5 * 60 * 1000,
+    retry: false,
+    throwOnError: false,
+  })
+  const solPlans = solOverview?.plans || []
+  const sol = solPlans.length > 0 ? {
+    totalPlans:   solOverview.total,
+    activePlans:  solPlans.filter(p => p.status === 'active').length,
+    totalMembers: solPlans.reduce((s, p) => s + p.memberCount, 0),
+    totalRevenue: solPlans.reduce((s, p) => s + (p.amount * p.memberCount), 0),
+  } : null
 
   useEffect(() => {
     if (tenants.length > 0) {
@@ -1316,7 +1321,6 @@ const sol = solPlans.length > 0 ? {
 
       <main style={{ padding: isMobile?'16px 12px':'28px', maxWidth:1200, margin:'0 auto', position:'relative', zIndex:1, paddingBottom:80 }}>
 
-        {/* ALÈTE EKSPIRE */}
         {expiring.length > 0 && (
           <div style={{ background:'linear-gradient(135deg, rgba(139,0,0,0.3), rgba(192,57,43,0.2))', border:'1px solid rgba(192,57,43,0.4)', borderRadius:16, padding: isMobile?'12px 14px':'14px 20px', marginBottom: isMobile?14:20, display:'flex', alignItems:'flex-start', gap:10 }}>
             <span style={{ fontSize:20, flexShrink:0 }}>⚠️</span>
@@ -1331,7 +1335,6 @@ const sol = solPlans.length > 0 ? {
           </div>
         )}
 
-        {/* STATS */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile?'repeat(2,1fr)':'repeat(4,1fr)', gap: isMobile?10:14, marginBottom: isMobile?16:24 }}>
           {statCards.map((s,i) => (
             <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:18, padding: isMobile?'14px 16px':'20px', position:'relative', overflow:'hidden', backdropFilter:'blur(10px)' }}>
@@ -1343,7 +1346,6 @@ const sol = solPlans.length > 0 ? {
           ))}
         </div>
 
-        {/* REVNI MENSYÈL */}
         {totalMonthly > 0 && (
           <div style={{ background:'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(139,0,0,0.12))', border:'1px solid rgba(201,168,76,0.25)', borderRadius:18, padding: isMobile?'14px 16px':'18px 24px', marginBottom: isMobile?16:24, position:'relative', overflow:'hidden' }}>
             <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,transparent,#C9A84C 40%,#8B0000 80%,transparent)' }}/>
@@ -1375,27 +1377,26 @@ const sol = solPlans.length > 0 ? {
         )}
 
         {sol && (
-  <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.15)', borderRadius:18, padding: isMobile?'14px 16px':'18px 24px', marginBottom: isMobile?16:24 }}>
-    <p style={{ color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 14px', display:'flex', alignItems:'center', gap:6 }}>
-      <Smartphone size={12}/> Sabotay Sol — Vue Jeneral
-    </p>
-    <div style={{ display:'grid', gridTemplateColumns: isMobile?'repeat(2,1fr)':'repeat(4,1fr)', gap:10 }}>
-      {[
-        { label:'Total Plan',    val: sol.totalPlans,    color:'#6baed6' },
-        { label:'Plan Aktif',    val: sol.activePlans,   color:'#27ae60' },
-        { label:'Total Manm',   val: sol.totalMembers,  color:'#C9A84C' },
-        { label:'Revni Estime', val: `${Number(sol.totalRevenue||0).toLocaleString()} HTG`, color:'#E8836A' },
-      ].map(({ label, val, color }) => (
-        <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${color}20`, borderRadius:12, padding:'12px 14px', textAlign:'center' }}>
-          <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, fontWeight:700, textTransform:'uppercase', margin:'0 0 4px' }}>{label}</p>
-          <p style={{ color, fontSize: isMobile?16:20, fontWeight:800, margin:0, fontFamily:"'Playfair Display'" }}>{val}</p>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+          <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.15)', borderRadius:18, padding: isMobile?'14px 16px':'18px 24px', marginBottom: isMobile?16:24 }}>
+            <p style={{ color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 14px', display:'flex', alignItems:'center', gap:6 }}>
+              <Smartphone size={12}/> Sabotay Sol — Vue Jeneral
+            </p>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile?'repeat(2,1fr)':'repeat(4,1fr)', gap:10 }}>
+              {[
+                { label:'Total Plan',    val: sol.totalPlans,    color:'#6baed6' },
+                { label:'Plan Aktif',    val: sol.activePlans,   color:'#27ae60' },
+                { label:'Total Manm',   val: sol.totalMembers,  color:'#C9A84C' },
+                { label:'Revni Estime', val: `${Number(sol.totalRevenue||0).toLocaleString()} HTG`, color:'#E8836A' },
+              ].map(({ label, val, color }) => (
+                <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${color}20`, borderRadius:12, padding:'12px 14px', textAlign:'center' }}>
+                  <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, fontWeight:700, textTransform:'uppercase', margin:'0 0 4px' }}>{label}</p>
+                  <p style={{ color, fontSize: isMobile?16:20, fontWeight:800, margin:0, fontFamily:"'Playfair Display'" }}>{val}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-        {/* TABLEAU */}
         <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:20, overflow:'hidden', backdropFilter:'blur(10px)', boxShadow:'0 8px 40px rgba(0,0,0,0.4)' }}>
           <div style={{ padding: isMobile?'14px 16px':'18px 24px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(201,168,76,0.03)' }}>
             <div>
@@ -1407,7 +1408,6 @@ const sol = solPlans.length > 0 ? {
             </button>
           </div>
 
-          {/* MOBIL */}
           {isMobile ? (
             <div style={{ padding:'12px' }}>
               {!tenants.length
@@ -1502,7 +1502,6 @@ const sol = solPlans.length > 0 ? {
                               <button onClick={() => setAuditViewT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.25)', color:'#f59e0b', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <History size={11}/> Istorik</button>
-                              {/* Bouton Sol */}
                               <button onClick={() => setSolViewT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(192,57,43,0.3)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <Smartphone size={11}/> Sol</button>
