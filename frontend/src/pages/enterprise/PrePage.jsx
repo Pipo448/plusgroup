@@ -744,7 +744,6 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     queryKey: ['pre-one', preId],
     queryFn: () => preAPI.getOne(preId).then(r => r.data.pre),
     queryFn: () => preAPI.getOne(preId).then(r => { setEcheances(r.data.echeances || []); return r.data.pre })
-    enabled: !!preId,
   })
   const qc = useQueryClient()
   const mutCloture = useMutation({
