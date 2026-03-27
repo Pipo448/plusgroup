@@ -20,14 +20,14 @@ const getTB = (req) => ({
   userId:   req.user?.id || null,
 })
 
-const HAITI_DATE = `(NOW() AT TIME ZONE 'America/Port_au_Prince')::date`
+const HAITI_DATE = `(NOW() - INTERVAL '5 hours')::date`
 
 async function isKesFemen(tenantId, userId) {
   const r = await prisma.$queryRaw`
     SELECT id FROM pre_rapo_kesye
     WHERE tenant_id = ${tenantId}
       AND user_id   = ${userId}
-      AND date_rapo = (NOW() AT TIME ZONE 'America/Port_au_Prince')::date
+      AND date_rapo = (NOW() - INTERVAL '5 hours')::date
     LIMIT 1
   `
   return r.length > 0
@@ -170,7 +170,7 @@ router.get('/rapo/kes-status', async (req, res) => {
     const r = await prisma.$queryRaw`
       SELECT id FROM pre_rapo_kesye
       WHERE tenant_id = ${tenantId} AND user_id = ${userId}
-        AND date_rapo = (NOW() AT TIME ZONE 'America/Port_au_Prince')::date
+        AND date_rapo = (NOW() - INTERVAL '5 hours')::date
       LIMIT 1
     `
     return res.json({ kesFemen: r.length > 0 })
@@ -276,7 +276,7 @@ router.post('/rapo/femen-kes', async (req, res) => {
     }
     await prisma.$executeRaw`
       INSERT INTO pre_rapo_kesye (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
-      VALUES (${tenantId}, ${userId}, (NOW() AT TIME ZONE 'America/Port_au_Prince')::date,
+      VALUES (${tenantId}, ${userId}, (NOW() - INTERVAL '5 hours')::date,
               ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes||null})
     `
     return res.json({ rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length } })
