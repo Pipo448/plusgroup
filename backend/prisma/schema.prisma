@@ -1221,6 +1221,8 @@ model Pre {
   dureeEnMois      Int         @map("duree_en_mois")
   totalDu          Decimal     @default(0) @map("total_du") @db.Decimal(14, 2)
   totalPaye        Decimal     @default(0) @map("total_paye") @db.Decimal(14, 2)
+  interetKouruTotal Decimal    @default(0) @map("interet_kouru_total") @db.Decimal(14, 2)
+  totalDuAjou       Decimal    @default(0) @map("total_du_ajou")       @db.Decimal(14, 2)
   montantBloke     Decimal     @default(0) @map("montant_bloke") @db.Decimal(14, 2)
   datDebut         DateTime    @map("dat_debut") @db.Timestamptz(6)
   datFin           DateTime?   @map("dat_fin") @db.Timestamptz(6)
