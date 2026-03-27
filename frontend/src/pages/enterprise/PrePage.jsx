@@ -1,23 +1,18 @@
-// src/pages/enterprise/PrePage.jsx  — V3
-// Chanjman: tradiksyon, blokaj Kane Epay obligatwa, blokaj kès fèmen
+// src/pages/enterprise/PrePage.jsx — V4
+// Declining Balance + Kalandriye Peman + Enterè Kouru
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
-import { EcheancierSection } from './EcheancierSection'
 import {
   Plus, Search, Eye, X, Printer, ChevronLeft, ChevronRight,
   Users, Wallet, TrendingUp, Activity, AlertCircle, RefreshCw,
   CheckCircle, Clock, XCircle, DollarSign, Percent, ArrowDownCircle,
-  ShieldCheck, PiggyBank, FileText, Lock,
+  ShieldCheck, PiggyBank, FileText, Lock, ChevronDown, ChevronUp,
 } from 'lucide-react'
-import {
-  connectPrinter, disconnectPrinter, isPrinterConnected,
-} from '../../services/printerService'
-import {
-  D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES,
-} from './kaneShared.jsx'
+import { connectPrinter, disconnectPrinter, isPrinterConnected } from '../../services/printerService'
+import { D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES } from './kaneShared.jsx'
 
 // ─── API ─────────────────────────────────────────────────────
 const preAPI = {
@@ -27,50 +22,75 @@ const preAPI = {
   create:         (data)     => api.post('/pre', data),
   paiement:       (id, data) => api.post(`/pre/${id}/paiement`, data),
   cloture:        (id)       => api.post(`/pre/${id}/cloture`),
+  echeances:      (id)       => api.get(`/pre/${id}/echeances`),
   kaneSearch:     (q)        => api.get('/pre/kane-epay-search', { params: { q } }),
   enjekteKapital: (data)     => api.post('/pre/kapital/enjekte', data),
   femenKes:       (data)     => api.post('/pre/rapo/femen-kes', data),
-  // ✅ Verifye si kès deja fèmen jodi a
   checkKesFemen:  ()         => api.get('/pre/rapo/kes-status'),
 }
 
 // ─── Constants ───────────────────────────────────────────────
 const STATUTS = {
-  actif:   { label: 'Aktif',   color: D.green,  bg: D.greenBg,  icon: <CheckCircle size={11}/> },
-  reta:    { label: 'An Reta', color: D.red,    bg: D.redBg,    icon: <AlertCircle size={11}/> },
-  attente: { label: 'Antant',  color: D.orange, bg: D.orangeBg, icon: <Clock size={11}/> },
+  actif:   { label: 'Aktif',   color: D.green,  bg: D.greenBg,               icon: <CheckCircle size={11}/> },
+  reta:    { label: 'An Reta', color: D.red,    bg: D.redBg,                 icon: <AlertCircle size={11}/> },
+  attente: { label: 'Antant',  color: D.orange, bg: D.orangeBg,              icon: <Clock size={11}/> },
   cloture: { label: 'Klotire', color: D.muted,  bg: 'rgba(107,122,153,0.1)', icon: <XCircle size={11}/> },
 }
 
-const PERIODES = [
-  { value: 'semaine',   label: 'Semèn'         },
-  { value: 'biweekly',  label: '2 Semèn'       },
-  { value: 'mois',      label: 'Mwa'           },
-  { value: 'trimestre', label: 'Trimès'        },
-  { value: 'unique',    label: 'Yon sèl peman' },
-]
-
-function calcTotalDu(kapital, tauxParMwa, dureeEnMois) {
-  const k = Number(kapital || 0)
-  const t = Number(tauxParMwa || 0) / 100
-  const d = Number(dureeEnMois || 1)
-  const interet = k * t * d
-  return { interet: Math.round(interet * 100) / 100, total: Math.round((k + interet) * 100) / 100 }
+const STATUT_ECH = {
+  paye:    { label: 'Peye',   color: D.green,  bg: D.greenBg,               icon: <CheckCircle size={10}/> },
+  partiel: { label: 'Pasyèl', color: D.orange, bg: D.orangeBg,              icon: <Clock size={10}/> },
+  reta:    { label: 'Reta',   color: D.red,    bg: D.redBg,                 icon: <AlertCircle size={10}/> },
+  attente: { label: 'Antant', color: D.muted,  bg: 'rgba(107,122,153,0.1)', icon: <Clock size={10}/> },
 }
 
-function calcPaiementPeriodique(total, periode, dureeEnMois) {
-  if (periode === 'unique')    return total
-  if (periode === 'semaine')   return total / Math.ceil(dureeEnMois * 4.33)
-  if (periode === 'biweekly')  return total / Math.ceil(dureeEnMois * 2.17)
-  if (periode === 'trimestre') return total / Math.ceil(dureeEnMois / 3)
-  return total / dureeEnMois
+const PERIODES = [
+  { value: 'jounal',    label: 'Chak Jou'  },
+  { value: 'semaine',   label: 'Semèn'     },
+  { value: 'biweekly',  label: '2 Semèn'   },
+  { value: 'mois',      label: 'Mwa'       },
+  { value: 'trimestre', label: 'Trimès'    },
+]
+
+// ─── Kalkil declining balance (preview sèlman) ──────────────
+function calcPreviewEcheances(kapital, tauxMwa, nbrPeman, frekans) {
+  const r = tauxMwa / 100
+  const tauxP = (() => {
+    switch (frekans) {
+      case 'jounal':    return Math.pow(1 + r, 1/30)  - 1
+      case 'semaine':   return Math.pow(1 + r, 7/30)  - 1
+      case 'biweekly':  return Math.pow(1 + r, 14/30) - 1
+      case 'mois':      return r
+      case 'trimestre': return Math.pow(1 + r, 3)     - 1
+      default:          return r
+    }
+  })()
+  if (!kapital || !tauxMwa || !nbrPeman) return { pmt: 0, totalDu: 0, totalInteret: 0 }
+  const pmt = tauxP === 0
+    ? kapital / nbrPeman
+    : kapital * tauxP / (1 - Math.pow(1 + tauxP, -nbrPeman))
+  const totalDu      = Math.round(pmt * nbrPeman * 100) / 100
+  const totalInteret = Math.round((totalDu - kapital) * 100) / 100
+  return { pmt: Math.round(pmt * 100) / 100, totalDu, totalInteret }
+}
+
+function calcNbrPeman(dureeEnMois, frekans) {
+  switch (frekans) {
+    case 'jounal':    return Math.round(dureeEnMois * 30)
+    case 'semaine':   return Math.round(dureeEnMois * 4.33)
+    case 'biweekly':  return Math.round(dureeEnMois * 2.17)
+    case 'mois':      return dureeEnMois
+    case 'trimestre': return Math.ceil(dureeEnMois / 3)
+    default:          return dureeEnMois
+  }
 }
 
 const PRE_STYLES = `
-  .pre-detail-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .pre-row:hover    { background: rgba(201,168,76,0.06) !important; }
-  .pre-badge        { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .pre-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pre-row:hover   { background: rgba(201,168,76,0.06) !important; }
+  .pre-badge       { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; }
   .pre-kane-item:hover { background: rgba(201,168,76,0.08) !important; }
+  .pre-ech-row:hover   { background: rgba(255,255,255,0.03) !important; }
   @media (min-width: 600px) {
     .pre-detail-grid { grid-template-columns: repeat(3, 1fr); }
   }
@@ -95,36 +115,34 @@ function usePrinter() {
 
   const printPre = useCallback((pre, tenant, type = 'ouverture') => {
     const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-    const { interet } = calcTotalDu(pre.montant, pre.tauxInteret, pre.dureeEnMois)
     const html = `<div style="width:80mm;padding:4mm 3mm;font-family:'Courier New',monospace;font-size:10px;line-height:1.5;color:#1a1a1a">
       <div style="text-align:center;border-bottom:1px dashed #ccc;padding-bottom:5px;margin-bottom:6px">
         <div style="font-family:Arial;font-weight:900;font-size:13px">${biz}</div>
-        <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- MIKWO KREDI --</div>
+        <div style="font-family:Arial;font-size:10px;color:#444">-- MIKWO KREDI --</div>
       </div>
-      <div style="text-align:center;font-family:Arial;font-weight:800;font-size:11px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:6px">
+      <div style="text-align:center;font-weight:800;font-size:11px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:6px">
         ${type === 'ouverture' ? 'KONTRA PRÈ' : type === 'paiement' ? 'RESI PEMAN' : 'KLOTIRE PRÈ'}
       </div>
       <div style="font-size:9px;margin-bottom:5px">
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">No. Prè:</span><b>${pre.numeroPre || pre.id}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">Kliyan:</span><b>${pre.clientNom || ''}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">Dat:</span><span>${fmtDate(new Date())}</span></div>
+        <div style="display:flex;justify-content:space-between"><span>No.:</span><b>${pre.numeroPre||''}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>Kliyan:</span><b>${pre.clientNom||''}</b></div>
+        <div style="display:flex;justify-content:space-between"><span>Dat:</span><span>${fmtDate(new Date())}</span></div>
       </div>
       <div style="border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">Kapital:</span><b>${fmt(pre.montant)} HTG</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">To enterè:</span><b>${pre.tauxInteret}% / mwa</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#555">Dire:</span><b>${pre.dureeEnMois} mwa</b></div>
-        ${Number(pre.montantBloke) > 0 ? `<div style="display:flex;justify-content:space-between"><span style="color:#555">Depozit bloke:</span><b>${fmt(pre.montantBloke)} HTG</b></div>` : ''}
+        <div style="display:flex;justify-content:space-between"><span>Kapital:</span><b>${fmt(pre.montant)} HTG</b></div>
+        <div style="display:flex;justify-content:space-between"><span>To enterè:</span><b>${pre.tauxInteret}% / mwa</b></div>
+        <div style="display:flex;justify-content:space-between"><span>Dire:</span><b>${pre.dureeEnMois} mwa</b></div>
         <div style="border-top:1px solid #ccc;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between">
-          <b>Total dwe:</b><b style="color:#dc2626">${fmt(Number(pre.montant) + interet)} HTG</b>
+          <b>Total dwe:</b><b style="color:#dc2626">${fmt(pre.totalDu)} HTG</b>
         </div>
-        ${type === 'paiement' && pre._paiement ? `<div style="display:flex;justify-content:space-between;margin-top:3px"><span style="color:#555">Peman:</span><b style="color:#16a34a">${fmt(pre._paiement.montant)} HTG</b></div>` : ''}
+        ${type === 'paiement' && pre._paiement ? `<div style="display:flex;justify-content:space-between"><span>Peman:</span><b style="color:#16a34a">${fmt(pre._paiement.montant)} HTG</b></div>` : ''}
       </div>
       <div style="text-align:center;font-size:9px;border-top:1px dashed #ccc;padding-top:5px">
-        <b>Mèsi! / Merci!</b><br/><span style="color:#666;font-size:8px">PlusGroup — Tel: +50942449024</span>
+        <b>Mèsi!</b><br/><span style="color:#666;font-size:8px">PlusGroup</span>
       </div>
     </div>`
     const w = window.open('', '_blank', 'width=340,height=620')
-    if (!w) { toast.error('Pemit popup pou sit sa.'); return }
+    if (!w) { toast.error('Pemit popup.'); return }
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resi</title>
       <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff}
       @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style>
@@ -143,7 +161,7 @@ function Spinner({ size = 14, color = '#fff' }) {
 
 function StatCard({ label, value, sub, icon, color, highlight }) {
   return (
-    <div style={{ background: highlight ? `${color}15` : D.card, borderRadius: 12, padding: '12px 14px', border: `1px solid ${highlight ? color + '40' : D.cardBorder}`, boxShadow: D.shadow, display: 'flex', alignItems: 'center', gap: 10, animation: 'fadeUp 0.3s ease' }}>
+    <div style={{ background: highlight ? `${color}15` : D.card, borderRadius: 12, padding: '12px 14px', border: `1px solid ${highlight ? color + '40' : D.cardBorder}`, boxShadow: D.shadow, display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: D.muted, margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</p>
@@ -187,7 +205,183 @@ function StatutBadge({ statut }) {
   return <span className="pre-badge" style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}25` }}>{cfg.icon} {cfg.label}</span>
 }
 
-// ─── Komponan: Chèche kliyan Kane Epay ───────────────────────
+// ─── Kalandriye Peman (Echéancier) ───────────────────────────
+function KalandriyeSection({ preId }) {
+  const [open, setOpen] = useState(false)
+  const { data, isLoading } = useQuery({
+    queryKey: ['pre-echeances', preId],
+    queryFn:  () => preAPI.echeances(preId).then(r => r.data.echeances || []),
+    enabled:  open && !!preId,
+  })
+
+  const echeances = data || []
+  const totalReta   = echeances.filter(e => e.statut === 'reta' || e.statut === 'partiel').length
+  const totalPaye   = echeances.filter(e => e.statut === 'paye').length
+  const pct         = echeances.length ? Math.round((totalPaye / echeances.length) * 100) : 0
+  const interetKouruTotal = echeances.reduce((s, e) => s + Number(e.interet_kouru || 0), 0)
+
+  // Prochèn echeans ki poko peye
+  const prochèn = echeances.find(e => e.statut !== 'paye')
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      {/* Bouton ouvri/fèmen */}
+      <button onClick={() => setOpen(v => !v)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: `${D.gold}08`, border: `1px solid ${D.gold}25`, borderRadius: open ? '10px 10px 0 0' : 10, cursor: 'pointer', transition: 'border-radius 0.2s' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TrendingUp size={14} style={{ color: D.gold }} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: D.gold }}>Kalandriye Peman</span>
+          {echeances.length > 0 && <span style={{ fontSize: 10, color: D.muted }}>({echeances.length} echeans)</span>}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {totalReta > 0 && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: D.red, background: D.redBg, padding: '2px 8px', borderRadius: 4 }}>
+              {totalReta} reta
+            </span>
+          )}
+          {echeances.length > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: D.green }}>{pct}%</span>}
+          {open ? <ChevronUp size={13} style={{ color: D.muted }} /> : <ChevronDown size={13} style={{ color: D.muted }} />}
+        </div>
+      </button>
+
+      {open && (
+        <div style={{ border: `1px solid ${D.gold}25`, borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden' }}>
+
+          {isLoading ? (
+            <div style={{ padding: 20, textAlign: 'center', color: D.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <Spinner color={D.gold} size={14} /> Ap chaje kalandriye...
+            </div>
+          ) : echeances.length === 0 ? (
+            <div style={{ padding: 20, textAlign: 'center', color: D.muted, fontSize: 12 }}>
+              Pa gen kalandriye disponib
+            </div>
+          ) : (
+            <>
+              {/* Stats rezime */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: D.cardBorder }}>
+                {[
+                  { label: 'Peye',         val: totalPaye,                          color: D.green  },
+                  { label: 'Reta/Pasyèl',  val: totalReta,                          color: D.red    },
+                  { label: 'Antant',       val: echeances.length - totalPaye - totalReta, color: D.muted },
+                  { label: 'Int. Kouru',   val: `${fmt(interetKouruTotal)} G`,      color: D.orange },
+                ].map(item => (
+                  <div key={item.label} style={{ background: D.card, padding: '8px 10px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>{item.label}</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: item.color, margin: 0 }}>{item.val}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Prochèn echeans */}
+              {prochèn && (
+                <div style={{ padding: '10px 14px', background: `${D.blue}08`, borderBottom: `1px solid ${D.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 10, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>Pwochen Peman</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: prochèn.statut === 'reta' ? D.red : D.text, margin: 0 }}>
+                      #{prochèn.numero} — {new Date(prochèn.dat_limit).toLocaleDateString('fr-HT', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    {prochèn.statut === 'reta' && (
+                      <p style={{ fontSize: 10, color: D.red, margin: '2px 0 0' }}>⚠️ {prochèn.jou_reta} jou reta</p>
+                    )}
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, color: prochèn.statut === 'reta' ? D.red : D.blue, margin: 0 }}>
+                      {fmt(Number(prochèn.montant_total) + Number(prochèn.interet_kouru || 0) - Number(prochèn.montant_paye || 0))} HTG
+                    </p>
+                    {Number(prochèn.interet_kouru) > 0 && (
+                      <p style={{ fontSize: 10, color: D.red, margin: '2px 0 0' }}>
+                        Dont {fmt(prochèn.interet_kouru)} HTG enterè kouru
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Tablo echeans */}
+              <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                {/* Header tablo */}
+                <div style={{ display: 'grid', gridTemplateColumns: '28px 90px 1fr 70px 70px 65px', gap: 4, padding: '6px 12px', background: 'rgba(255,255,255,0.03)', borderBottom: `1px solid ${D.cardBorder}`, position: 'sticky', top: 0 }}>
+                  {['#', 'Dat Limit', 'Balans', 'Capital', 'Enterè', 'Estati'].map(h => (
+                    <span key={h} style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', fontWeight: 700 }}>{h}</span>
+                  ))}
+                </div>
+
+                {echeances.map(e => {
+                  const cfg         = STATUT_ECH[e.statut] || STATUT_ECH.attente
+                  const interetKouru = Number(e.interet_kouru || 0)
+                  const montantPaye  = Number(e.montant_paye  || 0)
+                  const resteEch     = Number(e.montant_total) + interetKouru - montantPaye
+                  const isReta       = e.statut === 'reta' || e.statut === 'partiel'
+
+                  return (
+                    <div key={e.id} className="pre-ech-row" style={{
+                      display: 'grid', gridTemplateColumns: '28px 90px 1fr 70px 70px 65px', gap: 4,
+                      padding: '7px 12px', borderBottom: `1px solid ${D.cardBorder}`,
+                      background: e.statut === 'paye' ? 'transparent' : isReta ? `${D.red}05` : 'transparent',
+                      transition: 'background 0.1s',
+                    }}>
+                      {/* Numero */}
+                      <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, alignSelf: 'center' }}>{e.numero}</span>
+
+                      {/* Dat + enterè kouru */}
+                      <div style={{ alignSelf: 'center' }}>
+                        <p style={{ fontSize: 11, color: isReta ? D.red : D.text, margin: 0, fontWeight: isReta ? 700 : 400 }}>
+                          {new Date(e.dat_limit).toLocaleDateString('fr-HT', { day: '2-digit', month: 'short' })}
+                        </p>
+                        {interetKouru > 0 && (
+                          <p style={{ fontSize: 9, color: D.red, margin: '1px 0 0' }}>+{fmt(interetKouru)} ({e.jou_reta}j)</p>
+                        )}
+                      </div>
+
+                      {/* Balans avant */}
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.muted, alignSelf: 'center' }}>
+                        {fmt(e.balans_avant)}
+                      </span>
+
+                      {/* Capital */}
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.gold, alignSelf: 'center' }}>
+                        {fmt(e.montant_capital)}
+                      </span>
+
+                      {/* Enterè */}
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.orange, alignSelf: 'center' }}>
+                        {fmt(e.montant_interet)}
+                      </span>
+
+                      {/* Estati */}
+                      <div style={{ alignSelf: 'center' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 6px', borderRadius: 20, fontSize: 9, fontWeight: 700, background: cfg.bg, color: cfg.color }}>
+                          {cfg.icon} {cfg.label}
+                        </span>
+                        {montantPaye > 0 && e.statut !== 'paye' && (
+                          <p style={{ fontSize: 9, color: D.green, margin: '2px 0 0' }}>Peye: {fmt(montantPaye)}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Pye tablo — total */}
+              <div style={{ display: 'grid', gridTemplateColumns: '28px 90px 1fr 70px 70px 65px', gap: 4, padding: '7px 12px', background: 'rgba(255,255,255,0.03)', borderTop: `1px solid ${D.cardBorder}` }}>
+                <span /><span style={{ fontSize: 10, fontWeight: 700, color: D.muted }}>TOTAL</span><span />
+                <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, color: D.gold }}>
+                  {fmt(echeances.reduce((s, e) => s + Number(e.montant_capital), 0))}
+                </span>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', fontWeight: 700, color: D.orange }}>
+                  {fmt(echeances.reduce((s, e) => s + Number(e.montant_interet), 0))}
+                </span>
+                <span />
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Chèche kont Kane Epay ────────────────────────────────────
 function KaneEpaySearch({ onSelect, selected, onClear }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState([])
@@ -195,15 +389,12 @@ function KaneEpaySearch({ onSelect, selected, onClear }) {
   const timeout = useRef(null)
 
   const handleSearch = (val) => {
-    setQ(val)
-    clearTimeout(timeout.current)
+    setQ(val); clearTimeout(timeout.current)
     if (val.length < 2) { setResults([]); return }
     timeout.current = setTimeout(async () => {
       setLoading(true)
-      try {
-        const res = await preAPI.kaneSearch(val)
-        setResults(res.data.accounts || [])
-      } catch { setResults([]) }
+      try { const res = await preAPI.kaneSearch(val); setResults(res.data.accounts || []) }
+      catch { setResults([]) }
       finally { setLoading(false) }
     }, 350)
   }
@@ -256,7 +447,7 @@ function KaneEpaySearch({ onSelect, selected, onClear }) {
       )}
       {q.length >= 2 && results.length === 0 && !loading && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100, background: D.card, border: `1px solid ${D.cardBorder}`, borderRadius: 10, marginTop: 4, padding: '12px', textAlign: 'center', boxShadow: D.shadow }}>
-          <p style={{ fontSize: 12, color: D.muted, margin: 0 }}>Pa jwenn kont Kane Epay pou "<strong style={{ color: D.text }}>{q}</strong>"</p>
+          <p style={{ fontSize: 12, color: D.muted, margin: 0 }}>Pa jwenn kont pou "<strong style={{ color: D.text }}>{q}</strong>"</p>
         </div>
       )}
     </div>
@@ -265,7 +456,6 @@ function KaneEpaySearch({ onSelect, selected, onClear }) {
 
 // ═══════════════════════════════════════════════════════════════
 // MODAL: KREYE PRÈ
-// ✅ Kane Epay OBLIGATWA — pa gen opsyon "tape manyèlman"
 // ═══════════════════════════════════════════════════════════════
 function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   const { tenant } = useAuthStore()
@@ -277,43 +467,37 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     method: 'cash', reference: '', notes: '',
   })
   const [errors, setErrors] = useState({})
-  const [echeances, setEcheances] = useState([])
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const kapital = Number(form.montant || 0)
-  const { interet, total } = calcTotalDu(kapital, form.tauxInteret, form.dureeEnMois)
-  const paiementPeriodique = kapital > 0 ? calcPaiementPeriodique(total, form.periode, Number(form.dureeEnMois)) : 0
+  const kapital    = Number(form.montant || 0)
+  const nbrPeman   = calcNbrPeman(Number(form.dureeEnMois || 1), form.periode)
+  const { pmt, totalDu, totalInteret } = calcPreviewEcheances(kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode)
 
   // ✅ Bloke si kès fèmen
   if (kesFemen) return (
-    <Modal onClose={onClose} title="💸 Nouvo Prè" width={480}>
+    <Modal onClose={onClose} title="💸 Nouvo Prè" width={420}>
       <div style={{ textAlign: 'center', padding: '30px 20px' }}>
         <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
         <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
-        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>
-          Ou deja fèmen kès ou jodi a. Ou pa ka fè okenn tranzaksyon pou rès jounen an.
-        </p>
-        <button className="ke-btn" onClick={onClose}
-          style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>
-          Konprann
-        </button>
+        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou deja fèmen kès ou jodi a. Pa ka kreye nouvo prè.</p>
+        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
       </div>
     </Modal>
   )
 
   const validate = () => {
     const e = {}
-    if (!kaneKont)            e.kane     = 'Chwazi yon kont Kanè Epay obligatwa'
-    if (kapital <= 0)         e.montant  = 'Montan dwe > 0'
-    if (!form.tauxInteret)    e.taux     = 'To obligatwa'
-    if (!form.dureeEnMois)    e.duree    = 'Dire obligatwa'
+    if (!kaneKont)         e.kane    = 'Chwazi yon kont Kanè Epay obligatwa'
+    if (kapital <= 0)      e.montant = 'Montan dwe > 0'
+    if (!form.tauxInteret) e.taux    = 'To enterè obligatwa'
+    if (!form.dureeEnMois) e.duree   = 'Dire obligatwa'
     setErrors(e); return !Object.keys(e).length
   }
 
   const mutation = useMutation({
     mutationFn: (d) => preAPI.create(d),
     onSuccess: async (res) => {
-      toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye!`)
+      toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye — ${res.data.echeances?.length || 0} echeans jenere!`)
       onSuccess(); onClose()
       try { printer.printPre(res.data.pre, tenant, 'ouverture') } catch {}
     },
@@ -324,8 +508,8 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     if (!validate()) return
     mutation.mutate({
       clientNom:      `${kaneKont.firstName} ${kaneKont.lastName}`,
-      clientPhone:    kaneKont.phone     || undefined,
-      clientNifCin:   kaneKont.nifOrCin  || undefined,
+      clientPhone:    kaneKont.phone    || undefined,
+      clientNifCin:   kaneKont.nifOrCin || undefined,
       kontKaneEpayId: kaneKont.id,
       montant:        kapital,
       tauxInteret:    Number(form.tauxInteret),
@@ -342,16 +526,14 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   return (
     <Modal onClose={onClose} title="💸 Nouvo Prè" width={580}>
 
-      {/* ✅ Kont Kane Epay OBLIGATWA */}
+      {/* Kane Epay obligatwa */}
       <Section icon="🔗" title="Kont Kanè Epay (Obligatwa)">
         <div style={{ marginBottom: 8, padding: '8px 12px', background: `${D.blue}10`, borderRadius: 8, border: `1px solid ${D.blue}25`, display: 'flex', alignItems: 'center', gap: 6 }}>
           <ShieldCheck size={13} style={{ color: D.blue, flexShrink: 0 }} />
           <p style={{ fontSize: 11, color: D.blue, margin: 0 }}>Moun nan dwe gen yon kont Kanè Epay aktif pou li ka prete.</p>
         </div>
         <KaneEpaySearch selected={kaneKont} onSelect={setKaneKont} onClear={() => setKaneKont(null)} />
-        {errors.kane && <p style={{ fontSize: 10, color: D.red, margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-          <AlertCircle size={11} /> {errors.kane}
-        </p>}
+        {errors.kane && <p style={{ fontSize: 10, color: D.red, margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={11} /> {errors.kane}</p>}
       </Section>
 
       {/* Tèm finansye */}
@@ -359,8 +541,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
         <label style={labelStyle}>Montan Kapital (HTG) *</label>
         <input type="number" min="0" step="0.01" className="ke-input"
           style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
-          value={form.montant} onChange={e => set('montant', e.target.value)}
-          placeholder="0.00" onFocus={e => e.target.select()} />
+          value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()} />
         {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
 
         <div className="ke-form-row">
@@ -369,36 +550,50 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
             <div style={{ position: 'relative' }}>
               <input type="number" min="0" max="100" step="0.1" className="ke-input"
                 style={{ ...inputStyle, color: D.orange, borderColor: errors.taux ? D.red : `${D.orange}40`, paddingRight: 52 }}
-                value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)}
-                placeholder="ex: 5" onFocus={e => e.target.select()} />
+                value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)} placeholder="ex: 3" onFocus={e => e.target.select()} />
               <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: D.orange, fontWeight: 700 }}>% / mwa</span>
             </div>
             {errors.taux && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.taux}</p>}
           </div>
           <div style={{ flex: 1 }}>
-            {/* ✅ Dire (olye Durasyon) */}
             <label style={{ ...labelStyle, color: D.blue }}>Dire (mwa) *</label>
             <input type="number" min="1" max="120" className="ke-input"
               style={{ ...inputStyle, color: D.blue, borderColor: errors.duree ? D.red : `${D.blue}40` }}
-              value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)}
-              onFocus={e => e.target.select()} />
+              value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)} onFocus={e => e.target.select()} />
           </div>
         </div>
 
+        {/* Preview declining balance */}
         {kapital > 0 && form.tauxInteret && (
           <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${D.cardBorder}` }}>
-            <div style={{ height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'flex', overflow: 'hidden', marginBottom: 8 }}>
-              <div style={{ width: `${Math.min((kapital / total) * 100, 100)}%`, background: D.gold, transition: 'width 0.3s' }} />
+            <p style={{ fontSize: 10, color: D.muted, margin: '0 0 8px', fontWeight: 700, textTransform: 'uppercase' }}>Kalkil Declining Balance</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman Fiks</p>
+                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.blue, margin: 0 }}>{fmt(pmt)} G</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Enterè</p>
+                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Dwe</p>
+                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.green, margin: 0 }}>{fmt(totalDu)} G</p>
+              </div>
+            </div>
+            <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'flex', overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min((kapital / totalDu) * 100, 100)}%`, background: D.gold }} />
               <div style={{ flex: 1, background: D.orange }} />
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, flexWrap: 'wrap', gap: 8 }}>
-              <span style={{ color: D.gold }}>💰 Kapital: {fmt(kapital)} HTG</span>
-              <span style={{ color: D.orange }}>📈 Enterè: +{fmt(interet)} HTG</span>
-              <span style={{ color: D.green }}>✅ Total: {fmt(total)} HTG</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4 }}>
+              <span style={{ color: D.gold }}>💰 Kapital: {fmt(kapital)}</span>
+              <span style={{ color: D.orange }}>📈 Enterè: +{fmt(totalInteret)}</span>
+              <span style={{ color: D.muted }}>{nbrPeman} peman</span>
             </div>
           </div>
         )}
 
+        {/* Depozit bloke */}
         <div style={{ marginTop: 10 }}>
           <label style={{ ...labelStyle, color: D.purple }}>
             Depozit Bloke (opsyonèl)
@@ -417,11 +612,11 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
         </div>
       </Section>
 
-      {/* ✅ Kalandriye Rembourseman (olye Kalann) */}
+      {/* Kalandriye Rembourseman */}
       <Section icon="📅" title="Kalandriye Rembourseman">
         <div className="ke-form-row">
           <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Dat Kòmansman</label>
+            <label style={labelStyle}>Dat Premye Peman</label>
             <input type="date" className="ke-input" style={{ ...inputStyle, colorScheme: 'dark' }}
               value={form.datDebut} onChange={e => set('datDebut', e.target.value)} />
           </div>
@@ -433,12 +628,10 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
             </select>
           </div>
         </div>
-        {kapital > 0 && form.tauxInteret && (
-          <div style={{ marginTop: 10, background: `${D.blue}10`, border: `1px solid ${D.blue}25`, borderRadius: 10, padding: '10px 14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: D.muted }}>Chak {PERIODES.find(p => p.value === form.periode)?.label}:</span>
-              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.blue }}>{fmt(paiementPeriodique)} HTG</span>
-            </div>
+        {pmt > 0 && (
+          <div style={{ marginTop: 10, background: `${D.blue}10`, border: `1px solid ${D.blue}25`, borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: D.muted }}>Chak {PERIODES.find(p => p.value === form.periode)?.label}:</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.blue }}>{fmt(pmt)} HTG</span>
           </div>
         )}
       </Section>
@@ -446,7 +639,6 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
       {/* Metod Dekèsman */}
       <div className="ke-form-row" style={{ marginBottom: 14 }}>
         <div style={{ flex: 1 }}>
-          {/* ✅ Dekèsman (olye Desèman) */}
           <label style={labelStyle}>Metod Dekèsman</label>
           <select className="ke-input" style={{ ...inputStyle, cursor: 'pointer' }}
             value={form.method} onChange={e => set('method', e.target.value)}>
@@ -463,20 +655,8 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
       <div style={{ marginBottom: 14 }}>
         <label style={labelStyle}>Nòt</label>
         <textarea className="ke-input" style={{ ...inputStyle, height: 60, resize: 'vertical' }}
-          value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Rezon, garanti, lòt enfòmasyon..." />
+          value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Rezon, garanti..." />
       </div>
-
-      {kapital > 0 && form.tauxInteret && (
-        <div style={{ background: `${D.gold}0f`, border: `1px solid ${D.gold}30`, borderRadius: 10, padding: '12px 14px', marginBottom: 14, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
-          <div style={{ color: D.muted }}>Kapital: <strong style={{ color: D.gold }}>{fmt(kapital)} HTG</strong></div>
-          <div style={{ color: D.muted }}>To: <strong style={{ color: D.orange }}>{form.tauxInteret}% / mwa</strong></div>
-          <div style={{ color: D.muted }}>Dire: <strong style={{ color: D.blue }}>{form.dureeEnMois} mwa</strong></div>
-          <div style={{ color: D.muted }}>Total dwe: <strong style={{ color: D.green }}>{fmt(total)} HTG</strong></div>
-          {Number(form.montantBloke) > 0 && (
-            <div style={{ color: D.muted, gridColumn: '1/-1' }}>Depozit bloke: <strong style={{ color: D.purple }}>{fmt(form.montantBloke)} HTG</strong></div>
-          )}
-        </div>
-      )}
 
       <div style={{ display: 'flex', gap: 10 }}>
         <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>Anile</button>
@@ -490,27 +670,22 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: PAIEMAN — ✅ Bloke si kès fèmen
+// MODAL: PEMAN
 // ═══════════════════════════════════════════════════════════════
 function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   const { tenant } = useAuthStore()
+  const qc = useQueryClient()
   const [form, setForm] = useState({ montant: '', method: 'cash', reference: '' })
-  const amt = Number(form.montant || 0)
-  const resteAPayer = Number(pre.totalDu || 0) - Number(pre.totalPaye || 0)
+  const amt          = Number(form.montant || 0)
+  const resteAPayer  = Number(pre.totalDuAjou || pre.totalDu || 0) - Number(pre.totalPaye || 0)
 
-  // ✅ Bloke si kès fèmen
   if (kesFemen) return (
     <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={420}>
       <div style={{ textAlign: 'center', padding: '30px 20px' }}>
         <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
         <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
-        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>
-          Ou deja fèmen kès ou jodi a. Ou pa ka anrejistre okenn peman pou rès jounen an.
-        </p>
-        <button className="ke-btn" onClick={onClose}
-          style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>
-          Konprann
-        </button>
+        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou pa ka anrejistre peman apre ou fèmen kès la.</p>
+        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
       </div>
     </Modal>
   )
@@ -519,6 +694,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
     mutationFn: (d) => preAPI.paiement(pre.id, d),
     onSuccess: async (res) => {
       toast.success(`✅ Peman ${fmt(amt)} HTG anrejistre!`)
+      qc.invalidateQueries(['pre-echeances', pre.id])
       onSuccess(); onClose()
       try { printer.printPre({ ...pre, _paiement: { montant: amt } }, tenant, 'paiement') } catch {}
     },
@@ -526,8 +702,9 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   })
 
   return (
-    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={420}>
+    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={440}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Info prè */}
         <div style={{ background: D.goldBtn, borderRadius: 12, padding: '12px 14px', color: '#0a1222', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
           <div>
             <p style={{ fontSize: 15, fontWeight: 900, margin: '0 0 2px' }}>{pre.clientNom}</p>
@@ -539,6 +716,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
           </div>
         </div>
 
+        {/* Dwe + Peye */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.green}20` }}>
             <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', fontWeight: 700, textTransform: 'uppercase' }}>Deja Peye</p>
@@ -547,9 +725,13 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
           <div style={{ background: D.redBg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.red}20` }}>
             <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', fontWeight: 700, textTransform: 'uppercase' }}>Rete Pou Peye</p>
             <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.red, margin: 0 }}>{fmt(resteAPayer)} HTG</p>
+            {Number(pre.interetKouruTotal) > 0 && (
+              <p style={{ fontSize: 9, color: D.orange, margin: '2px 0 0' }}>Dont {fmt(pre.interetKouruTotal)} HTG enterè kouru</p>
+            )}
           </div>
         </div>
 
+        {/* Input montan */}
         <div>
           <label style={{ ...labelStyle, color: D.green }}>Montan Peman (HTG) *</label>
           <input type="number" min="0.01" step="0.01" className="ke-input"
@@ -558,6 +740,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
             placeholder="0.00" onFocus={e => e.target.select()} autoFocus />
         </div>
 
+        {/* Bouton rapid */}
         {resteAPayer > 0 && (
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {[resteAPayer, resteAPayer / 2, resteAPayer / 4].filter(v => v > 0).map((v, i) => (
@@ -569,10 +752,11 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
           </div>
         )}
 
+        {/* Preview apre peman */}
         {amt > 0 && (
           <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 14px', border: `1px solid ${D.green}25` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Rete apre:</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Rete apre peman:</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: resteAPayer - amt <= 0 ? D.gold : D.green }}>
                 {fmt(Math.max(0, resteAPayer - amt))} HTG {resteAPayer - amt <= 0 && '🎉'}
               </span>
@@ -580,6 +764,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
           </div>
         )}
 
+        {/* Metod */}
         <div className="ke-form-row">
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Metod</label>
@@ -615,16 +800,11 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
 function ModalKapital({ onClose, onSuccess }) {
   const [form, setForm] = useState({ montant: '', notes: '' })
   const amt = Number(form.montant || 0)
-
   const mutation = useMutation({
     mutationFn: (d) => preAPI.enjekteKapital(d),
-    onSuccess: (res) => {
-      toast.success(`✅ ${fmt(amt)} HTG enjekte! Disponib: ${fmt(res.data.kapitalDisponib)} HTG`)
-      onSuccess(); onClose()
-    },
+    onSuccess: (res) => { toast.success(`✅ ${fmt(amt)} HTG enjekte!`); onSuccess(); onClose() },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè enjeksyon.'),
   })
-
   return (
     <Modal onClose={onClose} title="💼 Enjekte Kapital" width={400}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -658,7 +838,7 @@ function ModalKapital({ onClose, onSuccess }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: RAPO KESYE — Fèmen Kès
+// MODAL: FEMEN KÈS
 // ═══════════════════════════════════════════════════════════════
 function ModalRapoKesye({ onClose, onKesFemen }) {
   const [rapo, setRapo] = useState(null)
@@ -669,23 +849,18 @@ function ModalRapoKesye({ onClose, onKesFemen }) {
     setLoading(true)
     try {
       const res = await preAPI.femenKes({ notes: notes || undefined })
-      setRapo(res.data.rapo)
-      toast.success('✅ Kès fèmen avèk siksè!')
-      onKesFemen() // ✅ Avize paj prensipal la kès fèmen
-    } catch (e) {
-      toast.error(e.response?.data?.message || 'Erè fèmen kès.')
-    } finally { setLoading(false) }
+      setRapo(res.data.rapo); toast.success('✅ Kès fèmen!'); onKesFemen()
+    } catch (e) { toast.error(e.response?.data?.message || 'Erè fèmen kès.') }
+    finally { setLoading(false) }
   }
 
   return (
-    <Modal onClose={onClose} title="📊 Fèmen Kès — Rapo Kesye" width={440}>
+    <Modal onClose={onClose} title="📊 Fèmen Kès" width={440}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {!rapo ? (
           <>
             <div style={{ background: `${D.orange}10`, border: `1px solid ${D.orange}25`, borderRadius: 10, padding: '10px 14px' }}>
-              <p style={{ fontSize: 12, color: D.orange, margin: 0 }}>
-                ⚠️ Apre ou fèmen kès la, ou p ap ka fè okenn tranzaksyon pou rès jounen an.
-              </p>
+              <p style={{ fontSize: 12, color: D.orange, margin: 0 }}>⚠️ Apre ou fèmen kès la, ou p ap ka fè okenn tranzaksyon jiskaske demen.</p>
             </div>
             <div>
               <label style={labelStyle}>Nòt (opsyonèl)</label>
@@ -709,10 +884,10 @@ function ModalRapoKesye({ onClose, onKesFemen }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
-                { label: 'Prè Kreye',   val: rapo.totalPreKreye,                     color: D.gold,   suffix: 'prè' },
-                { label: 'Dekèsman',    val: `${fmt(rapo.montantDeseman)} HTG`,       color: D.orange, suffix: '' },
-                { label: 'Koleksyon',   val: `${fmt(rapo.totalKoleksyon)} HTG`,       color: D.green,  suffix: '' },
-                { label: 'Enterè',      val: `${fmt(rapo.totalEntere)} HTG`,          color: D.purple, suffix: '' },
+                { label: 'Prè Kreye',  val: rapo.totalPreKreye,                    color: D.gold,   suffix: 'prè' },
+                { label: 'Dekèsman',   val: `${fmt(rapo.montantDeseman)} HTG`,      color: D.orange, suffix: '' },
+                { label: 'Koleksyon',  val: `${fmt(rapo.totalKoleksyon)} HTG`,      color: D.green,  suffix: '' },
+                { label: 'Enterè',     val: `${fmt(rapo.totalEntere)} HTG`,         color: D.purple, suffix: '' },
               ].map(item => (
                 <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
                   <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
@@ -722,7 +897,7 @@ function ModalRapoKesye({ onClose, onKesFemen }) {
             </div>
             <div style={{ background: `${D.red}10`, border: `1px solid ${D.red}25`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
               <Lock size={14} style={{ color: D.red, flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: D.red, margin: 0, fontWeight: 600 }}>Kès fèmen — Okenn tranzaksyon p ap posib pou rès jounen an.</p>
+              <p style={{ fontSize: 12, color: D.red, margin: 0, fontWeight: 600 }}>Okenn tranzaksyon p ap posib jiskaske demen.</p>
             </div>
             <button className="ke-btn" onClick={onClose}
               style={{ padding: '13px', borderRadius: 12, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
@@ -736,70 +911,86 @@ function ModalRapoKesye({ onClose, onKesFemen }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: DETAY PRÈ
+// MODAL: DETAY PRÈ — Avèk Kalandriye Peman
 // ═══════════════════════════════════════════════════════════════
 function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
   const { tenant } = useAuthStore()
-  const { data: pre, isLoading } = useQuery({
+  const { data: preData, isLoading } = useQuery({
     queryKey: ['pre-one', preId],
-    queryFn: () => preAPI.getOne(preId).then(r => r.data.pre),
-    queryFn: () => preAPI.getOne(preId).then(r => { setEcheances(r.data.echeances || []); return r.data.pre })
+    queryFn:  () => preAPI.getOne(preId).then(r => r.data),
+    enabled:  !!preId,
   })
   const qc = useQueryClient()
+
   const mutCloture = useMutation({
     mutationFn: () => preAPI.cloture(preId),
-    onSuccess: () => { toast.success('Prè klotire ✅'); qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-one', preId]); onClose() },
+    onSuccess: () => {
+      toast.success('Prè klotire ✅')
+      qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-one', preId]); onClose()
+    },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè klotire.'),
   })
 
-  if (isLoading || !pre) return (
-    <Modal onClose={onClose} title="Detay Prè" width={580}>
+  if (isLoading || !preData?.pre) return (
+    <Modal onClose={onClose} title="Detay Prè" width={600}>
       <div style={{ textAlign: 'center', padding: 40, color: D.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
         <Spinner color={D.gold} size={18} /> Ap chaje...
       </div>
     </Modal>
   )
 
-  const resteAPayer = Number(pre.totalDu || 0) - Number(pre.totalPaye || 0)
-  const pctPaye = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
+  const pre          = preData.pre
+  const resteAPayer  = Math.max(0, Number(pre.totalDu || 0) - Number(pre.totalPaye || 0))
+  const pctPaye      = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
+  const interetKouru = Number(pre.interetKouruTotal || 0)
 
   return (
-    <Modal onClose={onClose} title={`📋 ${pre.numeroPre}`} width={580}>
+    <Modal onClose={onClose} title={`📋 ${pre.numeroPre}`} width={600}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {/* Bannè kliyan */}
         <div style={{ background: D.goldBtn, borderRadius: 14, padding: '14px 16px', color: '#0a1222', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
           <div>
             <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 3px' }}>{pre.clientNom}</p>
             <p style={{ fontSize: 10, opacity: 0.7, margin: 0, fontFamily: 'monospace' }}>{pre.numeroPre}</p>
-            {pre.clientPhone   && <p style={{ fontSize: 10, opacity: 0.65, margin: '2px 0 0' }}>📱 {pre.clientPhone}</p>}
-            {pre.clientNifCin  && <p style={{ fontSize: 10, opacity: 0.65, margin: '2px 0 0' }}>ID: {pre.clientNifCin}</p>}
+            {pre.clientPhone    && <p style={{ fontSize: 10, opacity: 0.65, margin: '2px 0 0' }}>📱 {pre.clientPhone}</p>}
+            {pre.clientNifCin   && <p style={{ fontSize: 10, opacity: 0.65, margin: '2px 0 0' }}>ID: {pre.clientNifCin}</p>}
             {pre.kontKaneEpayId && <p style={{ fontSize: 10, opacity: 0.8, margin: '2px 0 0', fontWeight: 700 }}>🔗 Kont Kanè Epay lye</p>}
           </div>
           <div style={{ textAlign: 'right' }}>
             <StatutBadge statut={pre.statut} />
             <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 20, margin: '6px 0 0' }}>{fmt(pre.montant)} HTG</p>
-            <p style={{ fontSize: 10, opacity: 0.6, margin: '1px 0 0' }}>{pre.tauxInteret}% / mwa • {pre.dureeEnMois} mwa</p>
+            <p style={{ fontSize: 10, opacity: 0.6, margin: '1px 0 0' }}>{pre.tauxInteret}% / mwa • {pre.dureeEnMois} mwa • {PERIODES.find(p => p.value === pre.periode)?.label}</p>
           </div>
         </div>
 
+        {/* Barre pwogresyon */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: D.muted, marginBottom: 5 }}>
-            <span>Peye: {fmt(pre.totalPaye || 0)} HTG</span>
+            <span style={{ color: D.green }}>Peye: {fmt(pre.totalPaye || 0)} HTG</span>
             <span style={{ fontWeight: 700, color: pctPaye >= 100 ? D.gold : D.text }}>{Math.round(pctPaye)}%</span>
-            <span>Rete: {fmt(resteAPayer)} HTG</span>
+            <span style={{ color: interetKouru > 0 ? D.red : D.muted }}>
+              Rete: {fmt(resteAPayer + interetKouru)} HTG
+              {interetKouru > 0 && ` (+ ${fmt(interetKouru)} kouru)`}
+            </span>
           </div>
-          <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${pctPaye}%`, background: pctPaye >= 100 ? D.gold : D.green, borderRadius: 4, transition: 'width 0.4s' }} />
+          <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex' }}>
+            <div style={{ width: `${pctPaye}%`, background: pctPaye >= 100 ? D.gold : D.green, transition: 'width 0.4s' }} />
+            {interetKouru > 0 && (
+              <div style={{ width: `${Math.min((interetKouru / Number(pre.totalDu)) * 100, 10)}%`, background: D.red }} />
+            )}
           </div>
         </div>
 
+        {/* Griy detay finansye */}
         <div className="pre-detail-grid">
           {[
-            { label: 'Kapital',    val: `${fmt(pre.montant)} HTG`,                                          color: D.gold   },
-            { label: 'To Enterè', val: `${pre.tauxInteret}% / mwa`,                                        color: D.orange },
-            { label: 'Dire',      val: `${pre.dureeEnMois} mwa`,                                           color: D.blue   },
-            { label: 'Total Dwe', val: `${fmt(pre.totalDu)} HTG`,                                          color: D.red    },
-            { label: 'Total Peye',val: `${fmt(pre.totalPaye || 0)} HTG`,                                   color: D.green  },
-            { label: 'Frekans',   val: PERIODES.find(p => p.value === pre.periode)?.label || pre.periode,  color: D.purple },
+            { label: 'Kapital',      val: `${fmt(pre.montant)} HTG`,                                         color: D.gold   },
+            { label: 'To Enterè',   val: `${pre.tauxInteret}% / mwa`,                                       color: D.orange },
+            { label: 'Dire',         val: `${pre.dureeEnMois} mwa`,                                          color: D.blue   },
+            { label: 'Total Dwe',    val: `${fmt(pre.totalDu)} HTG`,                                         color: D.red    },
+            { label: 'Total Peye',   val: `${fmt(pre.totalPaye || 0)} HTG`,                                  color: D.green  },
+            { label: 'Int. Kouru',   val: `${fmt(interetKouru)} HTG`,                                        color: interetKouru > 0 ? D.red : D.muted },
           ].map(item => (
             <div key={item.label} style={{ background: `${item.color}0f`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
               <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
@@ -808,6 +999,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           ))}
         </div>
 
+        {/* Depozit bloke */}
         {Number(pre.montantBloke) > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: `${D.purple}10`, borderRadius: 10, border: `1px solid ${D.purple}25` }}>
             <ShieldCheck size={14} style={{ color: D.purple, flexShrink: 0 }} />
@@ -815,6 +1007,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           </div>
         )}
 
+        {/* Nòt */}
         {pre.notes && (
           <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.cardBorder}` }}>
             <p style={{ fontSize: 10, color: D.muted, margin: '0 0 4px', fontWeight: 700, textTransform: 'uppercase' }}>Nòt</p>
@@ -822,6 +1015,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           </div>
         )}
 
+        {/* Boutons aksyon */}
         {pre.statut !== 'cloture' && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="ke-btn" onClick={onPaieman}
@@ -832,7 +1026,7 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
               style={{ padding: '11px 14px', borderRadius: 10, border: `1px solid ${D.cardBorder}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
               <Printer size={14} />
             </button>
-            {resteAPayer <= 0 && (
+            {resteAPayer <= 0.01 && interetKouru <= 0 && (
               <button className="ke-btn" onClick={() => mutCloture.mutate()} disabled={mutCloture.isPending}
                 style={{ padding: '11px 14px', borderRadius: 10, border: `1px solid ${D.gold}30`, background: D.goldDim, color: D.gold, cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                 {mutCloture.isPending ? <Spinner size={12} color={D.gold} /> : <CheckCircle size={13} />} Klotire
@@ -841,11 +1035,15 @@ function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           </div>
         )}
 
+        {/* ✅ KALANDRIYE PEMAN — Seksyon kolapsib */}
+        <KalandriyeSection preId={preId} />
+
+        {/* Istwa peman */}
         <div>
           <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: D.muted, margin: '0 0 8px', letterSpacing: '0.06em' }}>
             Istwa Peman ({pre.paiements?.length || 0})
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
             {!pre.paiements?.length
               ? <p style={{ textAlign: 'center', color: D.muted, fontSize: 12, padding: 20 }}>Pa gen peman toujou</p>
               : pre.paiements.map(px => (
@@ -882,7 +1080,7 @@ export default function PrePage() {
   const qc      = useQueryClient()
   const printer = usePrinter()
   const { user } = useAuthStore()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin  = user?.role === 'admin'
 
   const [search,          setSearch]          = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -890,7 +1088,6 @@ export default function PrePage() {
   const [modal,           setModal]           = useState(null)
   const [selPre,          setSelPre]          = useState(null)
   const [filterStatut,    setFilterStatut]    = useState(null)
-  // ✅ State pou blokaj kès fèmen
   const [kesFemen,        setKesFemen]        = useState(false)
   const searchTimeout = useRef(null)
 
@@ -901,22 +1098,22 @@ export default function PrePage() {
     return () => document.head.removeChild(el)
   }, [])
 
-  // ✅ Verifye si kès deja fèmen jodi a lè paj la chaje
+  // Verifye si kès fèmen jodi a
   useEffect(() => {
     preAPI.checkKesFemen()
       .then(r => setKesFemen(r.data.kesFemen === true))
-      .catch(() => {}) // silans si route pa disponib toujou
+      .catch(() => {})
   }, [])
 
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['pre-stats'],
-    queryFn: () => preAPI.getStats().then(r => r.data.stats),
+    queryFn:  () => preAPI.getStats().then(r => r.data.stats),
     refetchInterval: 30000,
   })
 
   const { data: listData, isLoading } = useQuery({
     queryKey: ['pre-list', debouncedSearch, page, filterStatut],
-    queryFn: () => preAPI.getAll({ search: debouncedSearch || undefined, page, limit: 15, ...(filterStatut && { statut: filterStatut }) }).then(r => r.data),
+    queryFn:  () => preAPI.getAll({ search: debouncedSearch || undefined, page, limit: 15, ...(filterStatut && { statut: filterStatut }) }).then(r => r.data),
     keepPreviousData: true,
   })
 
@@ -924,7 +1121,10 @@ export default function PrePage() {
   const total      = listData?.total   || 0
   const totalPages = Math.ceil(total / 15) || 1
 
-  const refresh = () => { qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']); if (selPre) qc.invalidateQueries(['pre-one', selPre.id]) }
+  const refresh = () => {
+    qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats'])
+    if (selPre) qc.invalidateQueries(['pre-one', selPre.id])
+  }
 
   const openDetail  = (pre) => { setSelPre(pre); setModal('detail')  }
   const openPaieman = (pre) => { setSelPre(pre); setModal('paieman') }
@@ -938,7 +1138,7 @@ export default function PrePage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: 'DM Sans, sans-serif', padding: '14px 14px 80px', maxWidth: 900, margin: '0 auto' }}>
 
-      {/* ✅ Bannè kès fèmen */}
+      {/* Bannè kès fèmen */}
       {kesFemen && (
         <div style={{ background: `${D.red}15`, border: `1px solid ${D.red}40`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Lock size={16} style={{ color: D.red, flexShrink: 0 }} />
@@ -962,7 +1162,6 @@ export default function PrePage() {
             <RefreshCw size={14} />
           </button>
 
-          {/* Fèmen Kès — kache si deja fèmen */}
           {!kesFemen && (
             <button className="ke-btn" onClick={() => setModal('rapo')}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 12px', borderRadius: 10, border: `1px solid ${D.orange}30`, background: `${D.orange}10`, color: D.orange, cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
@@ -977,7 +1176,6 @@ export default function PrePage() {
             </button>
           )}
 
-          {/* ✅ Bouton Nouvo Prè — bloke si kès fèmen */}
           <button className="ke-btn" onClick={() => !kesFemen && setModal('create')}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 12, border: 'none', cursor: kesFemen ? 'not-allowed' : 'pointer', background: kesFemen ? 'rgba(255,255,255,0.08)' : D.goldBtn, color: kesFemen ? D.muted : '#0a1222', fontWeight: 800, fontSize: 13, whiteSpace: 'nowrap', opacity: kesFemen ? 0.5 : 1 }}>
             {kesFemen ? <Lock size={15} /> : <Plus size={15} />}
@@ -986,7 +1184,7 @@ export default function PrePage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats 4 kart */}
       <div className="ke-stats-grid">
         <StatCard label="Total Prè"  value={statsData?.totalPrets    || 0}              icon={<Users size={17}/>}       color={D.gold}  />
         <StatCard label="Prè Aktif"  value={statsData?.pretsActifs   || 0}              icon={<Activity size={17}/>}    color={D.green} />
@@ -994,6 +1192,7 @@ export default function PrePage() {
         <StatCard label="An Reta"    value={statsData?.totalEnReta   || 0}              icon={<AlertCircle size={17}/>} color={D.red}   />
       </div>
 
+      {/* Kapital disponib — Admin sèlman */}
       {isAdmin && (
         <div style={{ background: D.card, borderRadius: 12, padding: '12px 16px', border: `1px solid ${D.purple}30`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1013,10 +1212,9 @@ export default function PrePage() {
           Aktivite Mwa a
         </p>
         <div className="ke-today-grid">
-          {/* ✅ Dekèsman (olye Desèman) */}
-          <StatCard label="Dekèsman Mwa a"  value={`${fmt(statsData?.totalDesèmanMwa || 0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight />
-          <StatCard label="Koleksyon Mwa a" value={`${fmt(statsData?.totalPaiemanMwa || 0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight />
-          <StatCard label="Enterè Kolekte"  value={`${fmt(statsData?.enterèMwa       || 0)} G`} icon={<Percent size={17}/>}         color={D.purple} highlight />
+          <StatCard label="Dekèsman Mwa a"  value={`${fmt(statsData?.totalDesèmanMwa  || 0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight />
+          <StatCard label="Koleksyon Mwa a" value={`${fmt(statsData?.totalPaiemanMwa  || 0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight />
+          <StatCard label="Int. Kouru Total" value={`${fmt(statsData?.enterèKouruTotal || 0)} G`} icon={<Percent size={17}/>}         color={D.red}    highlight />
         </div>
       </div>
 
@@ -1059,11 +1257,16 @@ export default function PrePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {prets.map(pre => {
               const resteAPayer = Number(pre.totalDu || 0) - Number(pre.totalPaye || 0)
-              const pctPaye = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
-              const cfg = STATUTS[pre.statut] || STATUTS.attente
+              const pctPaye     = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
+              const cfg         = STATUTS[pre.statut] || STATUTS.attente
+              const interetKouruPre = Number(pre.interetKouruTotal || 0)
+
               return (
-                <div key={pre.id} className="pre-row" onClick={() => openDetail(pre)} style={{ background: D.card, border: `1px solid ${pre.statut === 'reta' ? D.red + '30' : D.cardBorder}`, borderRadius: 14, padding: '12px 13px', cursor: 'pointer', boxShadow: D.shadow, transition: 'background 0.15s', animation: 'fadeUp 0.2s ease' }}>
+                <div key={pre.id} className="pre-row" onClick={() => openDetail(pre)}
+                  style={{ background: D.card, border: `1px solid ${pre.statut === 'reta' ? D.red + '30' : D.cardBorder}`, borderRadius: 14, padding: '12px 13px', cursor: 'pointer', boxShadow: D.shadow, transition: 'background 0.15s', animation: 'fadeUp 0.2s ease' }}>
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                    {/* Gauche */}
                     <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', minWidth: 0, flex: 1 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, flexShrink: 0, background: D.goldDim, border: `1px solid ${D.cardBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: D.gold }}>
                         {pre.clientNom?.[0]?.toUpperCase() || '?'}
@@ -1072,12 +1275,15 @@ export default function PrePage() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <p style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold, fontSize: 11, margin: 0 }}>{pre.numeroPre}</p>
                           {pre.kontKaneEpayId && <span style={{ fontSize: 9, color: D.green, fontWeight: 700, background: D.greenBg, padding: '1px 6px', borderRadius: 4 }}>🔗 Kanè Epay</span>}
+                          {interetKouruPre > 0 && <span style={{ fontSize: 9, color: D.red, fontWeight: 700, background: D.redBg, padding: '1px 6px', borderRadius: 4 }}>⚠ +{fmt(interetKouruPre)} kouru</span>}
                         </div>
                         <p style={{ fontSize: 14, fontWeight: 700, color: D.text, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pre.clientNom}</p>
                         {pre.clientPhone && <p style={{ fontSize: 11, color: D.muted, margin: '1px 0 0' }}>{pre.clientPhone}</p>}
-                        <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>{fmtShort(pre.createdAt)} • {pre.tauxInteret}% / mwa • {pre.dureeEnMois} mwa</p>
+                        <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>{fmtShort(pre.createdAt)} • {pre.tauxInteret}% / mwa • {pre.dureeEnMois} mwa • {PERIODES.find(p => p.value === pre.periode)?.label}</p>
                       </div>
                     </div>
+
+                    {/* Dwat */}
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <p style={{ fontFamily: 'monospace', fontSize: 15, fontWeight: 900, color: D.gold, margin: 0 }}>{fmt(pre.montant)}</p>
                       <p style={{ fontSize: 10, color: D.muted, margin: '1px 0 3px' }}>HTG</p>
@@ -1085,16 +1291,23 @@ export default function PrePage() {
                       {Number(pre.montantBloke) > 0 && <p style={{ fontSize: 9, color: D.purple, margin: '3px 0 0', fontWeight: 700 }}>🔒 {fmt(pre.montantBloke)}</p>}
                     </div>
                   </div>
+
+                  {/* Barre pwogresyon */}
                   <div style={{ marginTop: 10 }}>
-                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 4 }}>
-                      <div style={{ height: '100%', width: `${pctPaye}%`, background: pctPaye >= 100 ? D.gold : cfg.color, borderRadius: 2, transition: 'width 0.3s' }} />
+                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 4, display: 'flex' }}>
+                      <div style={{ width: `${pctPaye}%`, background: pctPaye >= 100 ? D.gold : cfg.color, borderRadius: 2, transition: 'width 0.3s' }} />
+                      {interetKouruPre > 0 && <div style={{ width: `${Math.min((interetKouruPre / Number(pre.totalDu)) * 100, 8)}%`, background: D.red }} />}
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: D.muted }}>
                       <span style={{ color: D.green }}>Peye: {fmt(pre.totalPaye || 0)} HTG</span>
                       <span style={{ fontWeight: 700, color: D.text }}>{Math.round(pctPaye)}%</span>
-                      <span style={{ color: resteAPayer > 0 ? cfg.color : D.green }}>{resteAPayer > 0 ? `Rete: ${fmt(resteAPayer)} HTG` : '✅ Konplè'}</span>
+                      <span style={{ color: resteAPayer > 0 ? cfg.color : D.green }}>
+                        {resteAPayer > 0 ? `Rete: ${fmt(resteAPayer + interetKouruPre)} HTG` : '✅ Konplè'}
+                      </span>
                     </div>
                   </div>
+
+                  {/* Boutons */}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10, paddingTop: 10, borderTop: `1px solid rgba(201,168,76,0.1)` }}>
                     {pre.statut !== 'cloture' && (
                       <button className="ke-btn" onClick={e => { e.stopPropagation(); openPaieman(pre) }}
@@ -1103,7 +1316,7 @@ export default function PrePage() {
                       </button>
                     )}
                     <button className="ke-btn" onClick={e => { e.stopPropagation(); openDetail(pre) }}
-                      style={{ padding: '8px 13px', borderRadius: 8, border: `1px solid ${D.cardBorder}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      style={{ padding: '8px 13px', borderRadius: 8, border: `1px solid ${D.cardBorder}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                       <Eye size={13} />
                     </button>
                     <button className="ke-btn" onClick={e => { e.stopPropagation(); printer.printPre(pre, null, 'ouverture') }}
