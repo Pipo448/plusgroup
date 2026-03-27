@@ -1231,6 +1231,11 @@ model Pre {
   referenceDeseman String?     @map("reference_deseman") @db.VarChar(200)
   statut           PreStatut   @default(actif)
   notes            String?
+  avalize1Nom      String?  @map("avalize1_nom")   @db.VarChar(200)
+  avalize1Phone    String?  @map("avalize1_phone") @db.VarChar(50)
+  avalize2Nom      String?  @map("avalize2_nom")   @db.VarChar(200)
+  avalize2Phone    String?  @map("avalize2_phone") @db.VarChar(50)
+  garantiByens     String?  @map("garanti_byens")
   createdBy        String?     @map("created_by")
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)

@@ -348,6 +348,11 @@ router.post('/', async (req, res) => {
           datDebut: debut, datFin, periode: periode||'mois',
           methodDeseman: method||'cash', referenceDeseman: reference||null,
           notes: notes||null, statut: 'actif', createdBy: userId,
+          avalize1Nom:   req.body.avalize1Nom   || null,
+          avalize1Phone: req.body.avalize1Phone || null,
+          avalize2Nom:   req.body.avalize2Nom   || null,
+          avalize2Phone: req.body.avalize2Phone || null,
+          garantiByens:  req.body.garantiByens  || null,
         },
       })
 
@@ -571,3 +576,10 @@ router.post('/:id/cloture', async (req, res) => {
 })
 
 module.exports = router
+
+// NOTE: Ajoute nan schema.prisma model Pre, apre "notes String?":
+// avalize1Nom    String?  @map("avalize1_nom")   @db.VarChar(200)
+// avalize1Phone  String?  @map("avalize1_phone") @db.VarChar(50)
+// avalize2Nom    String?  @map("avalize2_nom")   @db.VarChar(200)
+// avalize2Phone  String?  @map("avalize2_phone") @db.VarChar(50)
+// garantiByens   String?  @map("garanti_byens")
