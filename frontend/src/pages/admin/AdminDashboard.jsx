@@ -87,14 +87,9 @@ const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: tr
 
 // ══════════════════════════════════════════════
 // AXIOS
+// ✅ FIX: timeout 45s pou bay Render tan pou reveye (cold start)
 // ══════════════════════════════════════════════
-
-// ✅ FIX 1 — timeout 45s pou bay Render tan pou reveye (cold start ~30s)
-const adminApi = axios.create({
-  baseURL: 'https://plusgroup-backend.onrender.com/api/v1',
-  timeout: 45000
-})
-
+const adminApi = axios.create({ baseURL: 'https://plusgroup-backend.onrender.com/api/v1', timeout: 45000 })
 adminApi.interceptors.request.use((config) => {
   try {
     const { token } = JSON.parse(localStorage.getItem('pg-admin') || '{}')
@@ -103,13 +98,15 @@ adminApi.interceptors.request.use((config) => {
   return config
 })
 
-// ✅ FIX 2 — Interceptor pwoteje: sèlman redirect si se yon VRÈ 401
-//    Pa janm redirect si se timeout (err.response === undefined)
-//    Pa redirect pou routes sabotay ak sol (yo gen pwòp auth pa yo)
+// ✅ FIX: Sèlman redirect sou yon vrè 401 — pa sou timeout / network error / sol routes
+// Cold start Render ap kòze timeout (err.response = undefined) — pa dwe dekonekte
 adminApi.interceptors.response.use(r => r, err => {
   const url    = err.config?.url || ''
-  const status = err.response?.status  // undefined si timeout/network error
+  const status = err.response?.status  // undefined si timeout oswa network error
 
+  // Pa redirect si:
+  // - Se yon timeout / network error (status undefined)
+  // - Se yon route sol oswa superadmin (itilize token diferan)
   if (
     status === 401 &&
     !url.includes('/sabotay/') &&
@@ -958,7 +955,6 @@ const SolManagerModal = ({ tenant, onClose }) => {
       onClick={e => e.target===e.currentTarget && onClose()}>
       <div style={{ background:'linear-gradient(160deg,#0f172a,#0a1628)', border:'1px solid rgba(201,168,76,0.3)', borderRadius: isMobile?'20px 20px 0 0':20, width:'100%', maxWidth:680, maxHeight: isMobile?'93vh':'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
         <div style={{ height:3, background:'linear-gradient(90deg,transparent,#C9A84C 30%,#8B0000 70%,transparent)', flexShrink:0 }}/>
-
         <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid rgba(201,168,76,0.1)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:10 }}>
             {selectedPlan && (
@@ -1179,15 +1175,13 @@ export default function AdminDashboard() {
 
   const { admin } = getAdmin()
 
-  const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data) })
-  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data) })
-  const { data: plansData }    = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminApi.get('/admin/plans').then(r=>r.data) })
-  const { data: expiringData } = useQuery({ queryKey:['admin-expiring'], queryFn:() => adminApi.get('/admin/expiring').then(r=>r.data), refetchInterval:5*60*1000 })
+  // ✅ Tout hooks anvan nenpòt kondisyonèl
+  const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data),    retry:1 })
+  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data),  retry:1 })
+  const { data: plansData }    = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminApi.get('/admin/plans').then(r=>r.data),    retry:1 })
+  const { data: expiringData } = useQuery({ queryKey:['admin-expiring'], queryFn:() => adminApi.get('/admin/expiring').then(r=>r.data), retry:1, refetchInterval:5*60*1000 })
 
-  const tenants  = tenantsData?.tenants  || []
-  const plans    = plansData?.plans      || []
-  const expiring = expiringData?.expiring || []
-
+  // ✅ Sol overview — retry:false ak throwOnError:false pou pa kase si route pa disponib
   const { data: solOverview } = useQuery({
     queryKey: ['admin-sol-overview'],
     queryFn: () => adminApi.get('/sol/superadmin/overview').then(r => r.data),
@@ -1195,6 +1189,14 @@ export default function AdminDashboard() {
     retry: false,
     throwOnError: false,
   })
+
+  // ✅ Check auth APRE tout hooks
+  if (!localStorage.getItem('pg-admin')) { navigate('/admin/login'); return null }
+
+  const tenants  = tenantsData?.tenants  || []
+  const plans    = plansData?.plans      || []
+  const expiring = expiringData?.expiring || []
+
   const solPlans = solOverview?.plans || []
   const sol = solPlans.length > 0 ? {
     totalPlans:   solOverview.total,
@@ -1321,6 +1323,7 @@ export default function AdminDashboard() {
 
       <main style={{ padding: isMobile?'16px 12px':'28px', maxWidth:1200, margin:'0 auto', position:'relative', zIndex:1, paddingBottom:80 }}>
 
+        {/* ALÈTE EKSPIRE */}
         {expiring.length > 0 && (
           <div style={{ background:'linear-gradient(135deg, rgba(139,0,0,0.3), rgba(192,57,43,0.2))', border:'1px solid rgba(192,57,43,0.4)', borderRadius:16, padding: isMobile?'12px 14px':'14px 20px', marginBottom: isMobile?14:20, display:'flex', alignItems:'flex-start', gap:10 }}>
             <span style={{ fontSize:20, flexShrink:0 }}>⚠️</span>
@@ -1335,6 +1338,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* STATS */}
         <div style={{ display:'grid', gridTemplateColumns: isMobile?'repeat(2,1fr)':'repeat(4,1fr)', gap: isMobile?10:14, marginBottom: isMobile?16:24 }}>
           {statCards.map((s,i) => (
             <div key={i} style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:18, padding: isMobile?'14px 16px':'20px', position:'relative', overflow:'hidden', backdropFilter:'blur(10px)' }}>
@@ -1346,6 +1350,7 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {/* REVNI MENSYÈL */}
         {totalMonthly > 0 && (
           <div style={{ background:'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(139,0,0,0.12))', border:'1px solid rgba(201,168,76,0.25)', borderRadius:18, padding: isMobile?'14px 16px':'18px 24px', marginBottom: isMobile?16:24, position:'relative', overflow:'hidden' }}>
             <div style={{ position:'absolute', top:0, left:0, right:0, height:3, background:'linear-gradient(90deg,transparent,#C9A84C 40%,#8B0000 80%,transparent)' }}/>
@@ -1376,6 +1381,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* SOL VUE JENERAL */}
         {sol && (
           <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.15)', borderRadius:18, padding: isMobile?'14px 16px':'18px 24px', marginBottom: isMobile?16:24 }}>
             <p style={{ color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 14px', display:'flex', alignItems:'center', gap:6 }}>
@@ -1385,8 +1391,8 @@ export default function AdminDashboard() {
               {[
                 { label:'Total Plan',    val: sol.totalPlans,    color:'#6baed6' },
                 { label:'Plan Aktif',    val: sol.activePlans,   color:'#27ae60' },
-                { label:'Total Manm',   val: sol.totalMembers,  color:'#C9A84C' },
-                { label:'Revni Estime', val: `${Number(sol.totalRevenue||0).toLocaleString()} HTG`, color:'#E8836A' },
+                { label:'Total Manm',    val: sol.totalMembers,  color:'#C9A84C' },
+                { label:'Revni Estime',  val: `${Number(sol.totalRevenue||0).toLocaleString()} HTG`, color:'#E8836A' },
               ].map(({ label, val, color }) => (
                 <div key={label} style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${color}20`, borderRadius:12, padding:'12px 14px', textAlign:'center' }}>
                   <p style={{ color:'rgba(255,255,255,0.3)', fontSize:9, fontWeight:700, textTransform:'uppercase', margin:'0 0 4px' }}>{label}</p>
@@ -1397,6 +1403,7 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* TABLEAU */}
         <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:20, overflow:'hidden', backdropFilter:'blur(10px)', boxShadow:'0 8px 40px rgba(0,0,0,0.4)' }}>
           <div style={{ padding: isMobile?'14px 16px':'18px 24px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(201,168,76,0.03)' }}>
             <div>
@@ -1408,6 +1415,7 @@ export default function AdminDashboard() {
             </button>
           </div>
 
+          {/* MOBIL */}
           {isMobile ? (
             <div style={{ padding:'12px' }}>
               {!tenants.length
