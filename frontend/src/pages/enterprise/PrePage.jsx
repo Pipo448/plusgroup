@@ -12,8 +12,7 @@ import {
   ShieldCheck, PiggyBank, FileText, Lock, ChevronDown, ChevronUp,
   UserPlus, Home, Bluetooth, BluetoothOff,
 } from 'lucide-react'
-import { connectPrinter, disconnectPrinter, isPrinterConnected } from '../../services/printerService'
-import { usePrinterStore } from '../../stores/printerStore'
+import { connectPrinter, disconnectPrinter, isPrinterConnected, printPreReceipt } from '../../services/printerService'
 import { D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES } from './kaneShared.jsx'
 
 // ─── API ─────────────────────────────────────────────────────
@@ -222,27 +221,49 @@ function ouvrirFenetreImpresyon(html) {
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2500) }, 400)
 }
 
-// ─── usePrinter — itilize printerStore ───────────────────────
+// ─── usePrinter — menm jan ak KaneEpayPage ───────────────────
 function usePrinter() {
-  const store = usePrinterStore()
-  return {
-    connected:  store.connected,
-    connecting: store.connecting,
-    largeur:    store.largeur || 80,
-    setLargeur: store.setLargeur || (() => {}),
-    connect:    store.connect,
-    disconnect: store.disconnect,
-    // printPre rele store.printPre si disponib, sinon fallback HTML
-    printPre: async ({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
-      const largeur = store.largeur || 80
-      if (store.printPre) {
-        return store.printPre(pre, echeances, tenant, type, paiement, largeur)
-      }
-      // Fallback HTML si store.printPre pa disponib toujou
-      const html = genHtmlResi({ pre, echeances, tenant, type, paiement, largeur })
-      ouvrirFenetreImpresyon(html)
-    },
-  }
+  const [connected,  setConnected]  = useState(isPrinterConnected())
+  const [connecting, setConnecting] = useState(false)
+  const [printing,   setPrinting]   = useState(false)
+  const [largeur,    setLargeur]    = useState(80)
+
+  const connect = useCallback(async () => {
+    if (connecting || connected) return
+    setConnecting(true)
+    try {
+      const name = await connectPrinter()
+      setConnected(true)
+      toast.success(`✅ ${name} konekte`)
+    } catch (e) {
+      if (e.name !== 'NotFoundError') toast.error('Pa ka konekte printer.')
+    } finally { setConnecting(false) }
+  }, [connecting, connected])
+
+  const disconnect = useCallback(() => {
+    disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
+  }, [])
+
+  const printPre = useCallback(async ({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
+    if (isPrinterConnected()) {
+      setPrinting(true)
+      try {
+        await printPreReceipt(pre, echeances, tenant, type, paiement, largeur)
+        toast.success('Resi enprime! 🖨️')
+        return true
+      } catch (err) {
+        setConnected(false)
+        toast.error('Erè printer: ' + (err.message || ''))
+        return false
+      } finally { setPrinting(false) }
+    }
+    // Fallback HTML si pa konekte
+    const html = genHtmlResi({ pre, echeances, tenant, type, paiement, largeur })
+    ouvrirFenetreImpresyon(html)
+    return true
+  }, [largeur])
+
+  return { connected, connecting, printing, connect, disconnect, printPre, largeur, setLargeur }
 }
 
 // ─── UI Atoms ────────────────────────────────────────────────
@@ -1294,6 +1315,14 @@ export default function PrePage() {
           <button className="ke-btn" onClick={() => { refresh(); refetchStats() }}
             style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.cardBorder}`, background: D.card, color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <RefreshCw size={14} />
+          </button>
+
+          {/* ✅ Bluetooth — menm jan ak KaneEpayPage */}
+          <button className="ke-btn"
+            onClick={printer.connected ? printer.disconnect : printer.connect}
+            disabled={printer.connecting}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 11px', borderRadius: 10, border: 'none', cursor: 'pointer', background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: printer.connected ? D.green : D.muted, fontWeight: 700, fontSize: 12 }}>
+            {printer.connecting ? <Spinner size={13} color={D.muted} /> : printer.connected ? <Bluetooth size={14} /> : <BluetoothOff size={14} />}
           </button>
 
           {!kesFemen && (
