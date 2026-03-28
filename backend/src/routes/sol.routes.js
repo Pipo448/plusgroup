@@ -69,12 +69,14 @@ function authMember(req, res, next) {
 
 // ─────────────────────────────────────────────────────────────
 // MIDDLEWARE: Verifye token admin
+// ✅ FIX: Itilize SUPER_ADMIN_JWT_SECRET — menm jan ak admin.routes.js
+// Anvan li te itilize JWT_SECRET ki kòze 401 pou tout Super Admin requests
 // ─────────────────────────────────────────────────────────────
 function authAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token admin obligatwa' })
   try {
-    req.admin = jwt.verify(token, process.env.JWT_SECRET)
+    req.admin = jwt.verify(token, process.env.SUPER_ADMIN_JWT_SECRET)
     next()
   } catch {
     return res.status(401).json({ message: 'Token admin pa valid' })
@@ -790,7 +792,6 @@ router.patch('/superadmin/plans/:planId/members/:memberId', authAdmin, async (re
       },
     })
 
-    // Si username bay, ajou kont sol la tou
     if (username) {
       await prisma.solMemberAccount.updateMany({
         where: { memberId },
