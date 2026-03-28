@@ -6,7 +6,7 @@ import {
   isPrinterConnected,
   printInvoice,
   printSabotayReceipt,
-  printKaneReceipt,
+  printKaneReceipt, printPreReceipt,
   isAndroid,
 } from '../services/printerService'
 import toast from 'react-hot-toast'
@@ -248,6 +248,99 @@ function buildKaneHtml(account, transaction, tenant, type) {
     </div>`
 }
 
+function buildPreHtml(pre, echeances, tenant, type, paiement, largeur) {
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  const fmtD = (d) => { try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' } }
+  const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const PERIODES = { jounal:'Chak Jou', semaine:'Semèn', biweekly:'2 Semèn', mois:'Mwa', trimestre:'Trimès' }
+  const w = largeur === 57 ? '57mm' : '80mm'
+ 
+  let echHtml = ''
+  if (type === 'ouverture' && echeances.length > 0) {
+    const lignes = echeances.map(e => `
+      <tr>
+        <td>${e.numero}</td>
+        <td>${fmtD(e.dat_limit || e.datLimit)}</td>
+        <td style="text-align:right">${fmt(e.montant_capital || e.montantCapital)}</td>
+        <td style="text-align:right">${fmt(e.montant_interet || e.montantInteret)}</td>
+        <td style="text-align:right;font-weight:bold">${fmt(e.montant_total || e.montantTotal)}</td>
+      </tr>`).join('')
+    echHtml = `
+      <div style="border-top:1px dashed #000;margin:6px 0;padding-top:4px">
+        <div style="font-weight:bold;text-align:center;margin-bottom:4px">KALANDRIYE REMBOURSEMAN</div>
+        <table style="width:100%;border-collapse:collapse;font-size:9px">
+          <thead><tr style="border-bottom:1px solid #000">
+            <th>#</th><th>Dat</th><th style="text-align:right">Kap</th>
+            <th style="text-align:right">Int</th><th style="text-align:right">Tot</th>
+          </tr></thead>
+          <tbody>${lignes}</tbody>
+          <tfoot><tr style="border-top:1px solid #000;font-weight:bold">
+            <td colspan="2">TOTAL</td>
+            <td style="text-align:right">${fmt(echeances.reduce((s,e)=>s+Number(e.montant_capital||e.montantCapital||0),0))}</td>
+            <td style="text-align:right">${fmt(echeances.reduce((s,e)=>s+Number(e.montant_interet||e.montantInteret||0),0))}</td>
+            <td style="text-align:right">${fmt(echeances.reduce((s,e)=>s+Number(e.montant_total||e.montantTotal||0),0))}</td>
+          </tr></tfoot>
+        </table>
+      </div>`
+  }
+ 
+  const siyatiLine = (label, nom = '') => `
+    <div style="margin-top:10px">
+      <div style="font-size:9px">${label}${nom ? ': ' + nom : ''}</div>
+      <div style="border-bottom:1px solid #000;height:22px"></div>
+      <div style="font-size:8px;color:#555">Non & Siyati</div>
+    </div>`
+ 
+  return `
+    <div style="width:${w};max-width:${w};margin:0 auto;font-family:'Courier New',monospace;font-size:10px">
+      <div style="text-align:center;border-bottom:1px dashed #000;padding-bottom:5px;margin-bottom:5px">
+        ${tenant?.logoUrl ? `<img src="${tenant.logoUrl}" style="height:36px;display:block;margin:0 auto 3px">` : ''}
+        <strong style="font-size:13px">${biz}</strong><br>
+        <span>-- MIKWO KREDI --</span><br>
+        ${tenant?.phone ? `<span style="font-size:9px">Tel: ${tenant.phone}</span>` : ''}
+      </div>
+      <div style="text-align:center;font-weight:bold;font-size:12px;border-bottom:1px solid #000;padding-bottom:3px;margin-bottom:5px">
+        ${type === 'ouverture' ? 'KONTRA PRE' : type === 'paiement' ? 'RESI PEMAN' : 'KLOTIRE PRE'}
+      </div>
+      <div style="font-size:9px">
+        <div>No. Pre: <strong>${pre.numeroPre || ''}</strong></div>
+        <div>Dat: ${fmtD(new Date())}</div>
+        <div>Kliyan: <strong>${pre.clientNom || ''}</strong></div>
+        ${pre.clientPhone ? `<div>Tel: ${pre.clientPhone}</div>` : ''}
+        ${pre.clientNifCin ? `<div>CIN: ${pre.clientNifCin}</div>` : ''}
+      </div>
+      <div style="border-top:1px dashed #000;border-bottom:1px dashed #000;padding:4px 0;margin:4px 0;font-size:9px">
+        <div style="display:flex;justify-content:space-between"><span>Kapital:</span><strong>${fmt(pre.montant)} G</strong></div>
+        <div style="display:flex;justify-content:space-between"><span>To enterè:</span><span>${pre.tauxInteret}% / mwa</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Dire:</span><span>${pre.dureeEnMois} mwa</span></div>
+        <div style="display:flex;justify-content:space-between"><span>Frekans:</span><span>${PERIODES[pre.periode] || pre.periode || 'Mwa'}</span></div>
+        ${pre.garantiByens ? `<div style="display:flex;justify-content:space-between"><span>Garanti:</span><span style="max-width:60%;text-align:right">${pre.garantiByens}</span></div>` : ''}
+        ${Number(pre.montantBloke) > 0 ? `<div style="display:flex;justify-content:space-between"><span>Depozit:</span><span>${fmt(pre.montantBloke)} G</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:bold;border-top:1px solid #000;margin-top:3px;padding-top:3px">
+          <span>TOTAL DWE:</span><span style="color:#dc2626">${fmt(pre.totalDu)} G</span>
+        </div>
+      </div>
+      ${type === 'paiement' && paiement ? `
+        <div style="font-size:9px;padding:3px 0">
+          <div style="display:flex;justify-content:space-between;font-weight:bold"><span>PEMAN:</span><span style="color:green">+${fmt(paiement.montant)} G</span></div>
+          <div style="display:flex;justify-content:space-between"><span>Rete:</span><span>${fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0)))} G</span></div>
+          ${paiement.method ? `<div>Metod: ${paiement.method}</div>` : ''}
+        </div>` : ''}
+      ${echHtml}
+      ${type === 'ouverture' ? `
+        <div style="border-top:1px solid #000;margin-top:8px;padding-top:5px">
+          <div style="font-weight:bold;text-align:center;margin-bottom:5px">SIYATI</div>
+          ${siyatiLine('Emprunteur', pre.clientNom)}
+          ${pre.avalize1Nom ? siyatiLine('Avalize 1', pre.avalize1Nom) : ''}
+          ${pre.avalize2Nom ? siyatiLine('Avalize 2', pre.avalize2Nom) : ''}
+          ${siyatiLine('Responsab Kredi')}
+        </div>` : ''}
+      <div style="text-align:center;border-top:1px dashed #000;margin-top:8px;padding-top:5px;font-size:9px">
+        <strong>Mesi! / Merci!</strong><br>${biz}${tenant?.phone ? ' — ' + tenant.phone : ''}
+      </div>
+    </div>`
+}
+
 // ─────────────────────────────────────────────────────────────
 // STORE
 // ─────────────────────────────────────────────────────────────
@@ -353,5 +446,25 @@ export const usePrinterStore = create((set, get) => ({
     } finally {
       set({ printing: false })
     }
-  },
-}))
+},
+
+printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = null, largeur = 80) => {
+  set({ printing: true })
+  try {
+    await printPreReceipt(pre, echeances, tenant, type, paiement, largeur)
+    toast.success('Resi Pre enprime! 🖨️')
+    return true
+  } catch (err) {
+    if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
+      const html = buildPreHtml(pre, echeances, tenant, type, paiement, largeur)
+      return browserPrint(html)
+    }
+    console.error('Print pre error:', err)
+    set({ connected: false })
+    toast.error('Erè enprimant. Eseye konekte ankò.')
+    return false
+  } finally {
+    set({ printing: false })
+  }
+},
+}))  

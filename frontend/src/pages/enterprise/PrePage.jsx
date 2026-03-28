@@ -12,7 +12,8 @@ import {
   ShieldCheck, PiggyBank, FileText, Lock, ChevronDown, ChevronUp,
   UserPlus, Home, Bluetooth, BluetoothOff,
 } from 'lucide-react'
-import { connectPrinter, disconnectPrinter, isPrinterConnected, printPreReceipt } from '../../services/printerService'
+import { connectPrinter, disconnectPrinter, isPrinterConnected } from '../../services/printerService'
+import { usePrinterStore } from '../../stores/printerStore'
 import { D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES } from './kaneShared.jsx'
 
 // ─── API ─────────────────────────────────────────────────────
@@ -221,44 +222,27 @@ function ouvrirFenetreImpresyon(html) {
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2500) }, 400)
 }
 
-// ─── Printer hook ─────────────────────────────────────────────
+// ─── usePrinter — itilize printerStore ───────────────────────
 function usePrinter() {
-  const [connected,  setConnected]  = useState(isPrinterConnected())
-  const [connecting, setConnecting] = useState(false)
-  const [largeur,    setLargeur]    = useState(80) // 57 ou 80
-
-  const connect = useCallback(async () => {
-    if (connecting || connected) return
-    setConnecting(true)
-    try { const n = await connectPrinter(); setConnected(true); toast.success(`✅ ${n} konekte`) }
-    catch (e) { if (e.name !== 'NotFoundError') toast.error('Pa ka konekte printer.') }
-    finally { setConnecting(false) }
-  }, [connecting, connected])
-
-  const disconnect = useCallback(() => {
-    disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
-  }, [])
-
-  const printPre = useCallback(async ({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
-    // ✅ Si Bluetooth konekte — ESC/POS dirèk nan printer
-    if (connected && printPreReceipt) {
-      try {
-        await printPreReceipt(pre, echeances, tenant, type, paiement, largeur)
-        toast.success('✅ Resi enprime via Bluetooth!')
-        return
-      } catch (err) {
-        console.error('Bluetooth print error:', err)
-        toast.error('Bluetooth: ' + (err.message || 'Erè enpresyon'))
-        // Pa fallback — montre erè a klèman
-        return
+  const store = usePrinterStore()
+  return {
+    connected:  store.connected,
+    connecting: store.connecting,
+    largeur:    store.largeur || 80,
+    setLargeur: store.setLargeur || (() => {}),
+    connect:    store.connect,
+    disconnect: store.disconnect,
+    // printPre rele store.printPre si disponib, sinon fallback HTML
+    printPre: async ({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
+      const largeur = store.largeur || 80
+      if (store.printPre) {
+        return store.printPre(pre, echeances, tenant, type, paiement, largeur)
       }
-    }
-    // Fallback HTML si pa konekte Bluetooth
-    const html = genHtmlResi({ pre, echeances, tenant, type, paiement, largeur })
-    ouvrirFenetreImpresyon(html)
-  }, [connected, largeur])
-
-  return { connected, connecting, connect, disconnect, printPre, largeur, setLargeur }
+      // Fallback HTML si store.printPre pa disponib toujou
+      const html = genHtmlResi({ pre, echeances, tenant, type, paiement, largeur })
+      ouvrirFenetreImpresyon(html)
+    },
+  }
 }
 
 // ─── UI Atoms ────────────────────────────────────────────────
