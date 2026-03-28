@@ -510,3 +510,192 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
 
   await dispatch(bytes)
 }
+
+// ══════════════════════════════════════════════════════════════
+// AJOUTE SA NAN FIN printerService.js — apre printKaneReceipt
+// ══════════════════════════════════════════════════════════════
+
+// Fonksyon pou enprime Kontra/Resi Prè via Bluetooth ESC/POS
+export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouverture', paiement = null, largeur = 80) => {
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
+
+  const fmtD = (d) => {
+    if (!d) return ''
+    try { return new Date(d).toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric' }) }
+    catch { return '' }
+  }
+
+  // Largeur selon tay papye
+  const W = (largeur === 57 || largeur === 58) ? 32 : 48
+
+  const PERIODES = { jounal: 'Chak Jou', semaine: 'Semèn', biweekly: '2 Semèn', mois: 'Mwa', trimestre: 'Trimès' }
+  const bizName  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+
+  const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+
+  // ── Header ─────────────────────────────────────────────────
+  const bytes = [
+    ...CMD.INIT,
+    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
+    ...CMD.ALIGN_CENTER,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...encodeText(bizName + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON, ...encodeText('-- MIKWO KREDI --\n'), ...CMD.BOLD_OFF,
+    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('=', W), LF,
+
+    // Titre
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...encodeText(
+      type === 'ouveti' ? 'KONTRA PRE\n'
+      : type === 'peman' ? 'RESI PEMAN\n'
+      : 'KLOTIRE PRE\n'
+    ),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_LEFT,
+
+    // ── Info kliyan ──────────────────────────────────────────
+    ...CMD.SMALL_FONT,
+    ...makeLine('No. Pre:', pre.nimeroPre || '', W), LF,
+    ...makeLine('Dat:', fmtD(new Date()), W), LF,
+    ...divider('-', W), LF,
+    ...CMD.BOLD_ON, ...encodeText((pre.clientNom || '').substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+    ...(pre.clientPhone  ? [...encodeText('Tel: ' + pre.clientPhone  + '\n')] : []),
+    ...(pre.clientNifCin ? [...encodeText('CIN/NIF: ' + pre.clientNifCin + '\n')] : []),
+    ...CMD.NORMAL_FONT,
+
+    // ── Tèm finansye ─────────────────────────────────────────
+    ...divider('-', W), LF,
+    ...CMD.SMALL_FONT,
+    ...makeLine('Kapital:', fmt(pre.montant) + ' G', W), LF,
+    ...makeLine('To intere:', pre.tauxInteret + '% / mwa', W), LF,
+    ...makeLine('Dire:', pre.dureeEnMois + ' mwa', W), LF,
+    ...makeLine('Frekans:', PERIODES[pre.periode] || pre.periode || 'Mwa', W), LF,
+    ...(Number(pre.montantBloke) > 0 ? [...makeLine('Depozit bloke:', fmt(pre.montantBloke) + ' G', W), LF] : []),
+    ...(pre.garantiByen ? [...encodeText('Garanti: ' + pre.garantiByen.substring(0, W - 9) + '\n')] : []),
+    ...CMD.NORMAL_FONT,
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON,
+    ...makeLine('TOTAL DWE:', fmt(pre.totalDu) + ' G', W), LF,
+    ...CMD.BOLD_OFF,
+
+    // ── Peman (si type === paiement) ─────────────────────────
+    ...(type === 'paiement' && paiement ? [
+      ...divider('-', W), LF,
+      ...CMD.SMALL_FONT,
+      ...makeLine('Deja Peye:', fmt(Number(pre.totalPaye || 0) - Number(paiement.montant || 0)) + ' G', W), LF,
+      ...CMD.BOLD_ON, ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF, ...CMD.BOLD_OFF,
+      ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0))) + ' G', W), LF,
+      ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
+      ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
+      ...CMD.NORMAL_FONT,
+    ] : []),
+  ]
+
+  // ── Kalandriye (sèlman pou ouverture) ───────────────────────
+  if (type === 'ouverture' && echeances.length > 0) {
+    bytes.push(
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+      ...encodeText('KALANDRIYE RANBOUSMAN\n'),
+      ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
+    )
+
+    // Header tablo
+    if (W >= 48) {
+      // 48 chars: #  | Dat        | Capital  | Intere   | Total
+      bytes.push(...CMD.SMALL_FONT, ...encodeText('#  Dat        Capital   Intere    Total\n'), ...CMD.NORMAL_FONT)
+      bytes.push(...divider('-', W), LF)
+      for (const e of echeances) {
+        const num  = String(e.numero || e.num || '').padEnd(3)
+        const dat  = fmtD(e.dat_limit || e.datLimit).substring(0, 10).padEnd(11)
+        const cap  = fmt(e.montant_capital || e.montantCapital || 0).padStart(8)
+        const int_ = fmt(e.montant_interet || e.montantInteret || 0).padStart(8)
+        const tot  = fmt(e.montant_total   || e.montantTotal   || 0).padStart(8)
+        bytes.push(...CMD.SMALL_FONT, ...encodeText(num + dat + cap + ' ' + int_ + ' ' + tot + '\n'), ...CMD.NORMAL_FONT)
+      }
+    } else {
+      // 32 chars: # Dat      Cap   Intere Tot
+      bytes.push(...CMD.SMALL_FONT, ...encodeText('#  Dat     Capital  Int    Tot\n'), ...CMD.NORMAL_FONT)
+      bytes.push(...divider('-', W), LF)
+      for (const e of echeances) {
+        const num  = String(e.numero || '').padEnd(3)
+        const dat  = fmtD(e.dat_limit || e.datLimit).substring(0, 8).padEnd(9)
+        const cap  = String(Math.round(Number(e.montant_capital || e.montantCapital || 0))).padStart(6)
+        const int_ = String(Math.round(Number(e.montant_interet || e.montantInteret || 0))).padStart(5)
+        const tot  = String(Math.round(Number(e.montant_total   || e.montantTotal   || 0))).padStart(5)
+        bytes.push(...CMD.SMALL_FONT, ...encodeText(num + dat + cap + int_ + tot + '\n'), ...CMD.NORMAL_FONT)
+      }
+    }
+
+    // Total
+    bytes.push(
+      ...divider('-', W), LF,
+      ...CMD.SMALL_FONT,
+      ...CMD.BOLD_ON,
+      ...makeLine('TOTAL:', fmt(echeances.reduce((s, e) => s + Number(e.montant_total || e.montantTotal || 0), 0)) + ' G', W), LF,
+      ...CMD.BOLD_OFF,
+      ...CMD.NORMAL_FONT,
+    )
+  }
+
+  // ── Seksyon Siyati ──────────────────────────────────────────
+  if (type === 'ouverture') {
+    bytes.push(
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('SIYATI\n'), ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      LF,
+      ...encodeText('Emprunteur / Kliyan:\n'),
+      ...divider('_', W), LF,
+      ...encodeText((pre.clientNom || '').substring(0, W) + '\n'),
+      LF,
+    )
+
+    // Avalize 1
+    if (pre.avalize1Nom) {
+      bytes.push(
+        ...encodeText('Avalize 1: ' + (pre.avalize1Nom || '') + '\n'),
+        ...divider('_', W), LF,
+        ...(pre.avalize1Phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + pre.avalize1Phone + '\n'), ...CMD.NORMAL_FONT] : []),
+        LF,
+      )
+    }
+
+    // Avalize 2
+    if (pre.avalize2Nom) {
+      bytes.push(
+        ...encodeText('Avalize 2: ' + (pre.avalize2Nom || '') + '\n'),
+        ...divider('_', W), LF,
+        ...(pre.avalize2Phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + pre.avalize2Phone + '\n'), ...CMD.NORMAL_FONT] : []),
+        LF,
+      )
+    }
+
+    // Responsab
+    bytes.push(
+      ...encodeText('Responsab Kredi:\n'),
+      ...divider('_', W), LF,
+      LF,
+    )
+  }
+
+  // ── Pye resi ────────────────────────────────────────────────
+  bytes.push(
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_CENTER,
+    ...CMD.BOLD_ON, ...encodeText('Mesi! / Merci!\n'), ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText(bizName + '\n'),
+    ...(tenant?.phone ? [...encodeText('Tel: ' + tenant.phone + '\n')] : []),
+    ...CMD.NORMAL_FONT,
+    LF, LF, ...CMD.CUT,
+  )
+
+  await dispatch(bytes)
+}

@@ -59,14 +59,14 @@ function calcPreviewEcheances(kapital, tauxMwa, nbrPeman, frekans) {
   const tauxP = (() => {
     switch (frekans) {
       case 'jounal':    return Math.pow(1 + r, 1/30)  - 1
-      case 'semaine':   return Math.pow(1 + r, 7/30)  - 1
+      case 'semen':   return Math.pow(1 + r, 7/30)  - 1
       case 'biweekly':  return Math.pow(1 + r, 14/30) - 1
-      case 'mois':      return r
-      case 'trimestre': return Math.pow(1 + r, 3)     - 1
+      case 'mwa':      return r
+      case 'trimes': return Math.pow(1 + r, 3)     - 1
       default:          return r
     }
   })()
-  if (!kapital || !tauxMwa || !nbrPeman) return { pmt: 0, totalDu: 0, totalInteret: 0 }
+  if (!kapital || !tMwa || !nbrPeman) return { pmt: 0, totalDu: 0, totalInteret: 0 }
   const pmt = tauxP === 0 ? kapital / nbrPeman
     : kapital * tauxP / (1 - Math.pow(1 + tauxP, -nbrPeman))
   const totalDu      = Math.round(pmt * nbrPeman * 100) / 100
@@ -239,10 +239,24 @@ function usePrinter() {
     disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
   }, [])
 
-  const printPre = useCallback(({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
+  const printPre = useCallback(async ({ pre, echeances = [], tenant, type = 'ouverture', paiement = null }) => {
+    // ✅ Si Bluetooth konekte — ESC/POS dirèk
+    if (connected) {
+      try {
+        const { printPreReceipt } = await import('../../services/printerService')
+        await printPreReceipt(pre, echeances, tenant, type, paiement, largeur)
+        toast.success('✅ Resi enprime via Bluetooth!')
+        return
+      } catch (err) {
+        console.error('Bluetooth print error:', err)
+        toast.error('Erè Bluetooth: ' + (err.message || 'Pa ka enprime'))
+        // Fallback: ouvri fenèt
+      }
+    }
+    // Fallback: HTML popup si pa konekte Bluetooth
     const html = genHtmlResi({ pre, echeances, tenant, type, paiement, largeur })
     ouvrirFenetreImpresyon(html)
-  }, [largeur])
+  }, [connected, largeur])
 
   return { connected, connecting, connect, disconnect, printPre, largeur, setLargeur }
 }
@@ -719,7 +733,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
       </Section>
 
       {/* Kalandriye */}
-      <Section icon="📅" title="Kalandriye Rembourseman">
+      <Section icon="📅" title="Kalandriye Ranbousman">
         <div className="ke-form-row">
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Dat Premye Peman</label>
