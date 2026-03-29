@@ -298,7 +298,7 @@ router.post('/', async (req, res) => {
 
     const { clientNom, clientPhone, clientNifCin, clientAdres, kontKaneEpayId,
             montant, tauxInteret, dureeEnMois, montantBloke,
-            tipKalkil,
+            tipKalkil, pemaParJou, nombreJou,
             datDebut, periode, method, reference, notes } = req.body
 
     if (!clientNom?.trim())       return res.status(400).json({ message: 'Non kliyan obligatwa.' })
@@ -327,14 +327,18 @@ router.post('/', async (req, res) => {
       case 'trimestre': datPremyePeman.setMonth(datPremyePeman.getMonth() + 3);  break
     }
 
-    const echeances = genereEcheances(
-      Number(montant), Number(tauxInteret), nbrPeman, datPremyePeman, periode || 'mois',
-      tipKalkil || 'declining'
-    ).echeances
+    const isBousSoleil = tipKalkil === 'bous_soleil'
+    const nbrPeman  = isBousSoleil
+      ? Number(nombreJou || 30)
+      : calcNbrPeman(Number(dureeEnMois), periode || 'mois')
 
-    // Total dwe = som tout peman (declining balance)
-    const totalDu = echeances.reduce((s, e) => s + e.montantTotal, 0)
-    const totalDuRonde = Math.round(totalDu * 100) / 100
+    const result = genereEcheances(
+      Number(montant), Number(tauxInteret || 0), nbrPeman, datPremyePeman, periode || 'mois',
+      tipKalkil || 'declining',
+      { pemaParJou: Number(pemaParJou || 0), nombreJou: Number(nombreJou || 0) }
+    )
+    const echeances = result.echeances
+    const totalDuRonde = result.totalDu
 
     // Kreye prè + echeans nan yon sèl tranzaksyon
     const pre = await prisma.$transaction(async (tx) => {
@@ -578,10 +582,3 @@ router.post('/:id/cloture', async (req, res) => {
 })
 
 module.exports = router
-
-// NOTE: Ajoute nan schema.prisma model Pre, apre "notes String?":
-// avalize1Nom    String?  @map("avalize1_nom")   @db.VarChar(200)
-// avalize1Phone  String?  @map("avalize1_phone") @db.VarChar(50)
-// avalize2Nom    String?  @map("avalize2_nom")   @db.VarChar(200)
-// avalize2Phone  String?  @map("avalize2_phone") @db.VarChar(50)
-// garantiByens   String?  @map("garanti_byens")

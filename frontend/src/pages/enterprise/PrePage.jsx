@@ -75,6 +75,13 @@ const TIP_KALKIL = [
     color: '#27ae60',
     emoji: '📐',
   },
+  {
+    value: 'bous_soleil',
+    label: 'Bous Solèy (Joualye)',
+    desc:  'Kliyan peye yon montan fiks chak jou pou nombre jou fiks. Enterè = (Peman/jou × Jou) − Kapital.',
+    color: '#F59E0B',
+    emoji: '☀️',
+  },
 ]
 
 // ─── Kalkil 3 tip (frontend preview) ────────────────────────
@@ -623,7 +630,9 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     montant: '', tauxInteret: '', dureeEnMois: '6',
     datDebut: new Date().toISOString().split('T')[0],
     periode: 'mois', montantBloke: '',
-    tipKalkil: 'declining',  // ✅ defòlt declining balance
+    tipKalkil: 'declining',
+    // Bous Solèy champs spesifik
+    pemaParJou: '', nombreJou: '',
     method: 'cash', reference: '', notes: '',
     garantiByens: '',
     avalize1Nom: '', avalize1Phone: '',
@@ -632,11 +641,26 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   const [errors, setErrors] = useState({})
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const kapital  = Number(form.montant || 0)
-  const nbrPeman = calcNbrPeman(Number(form.dureeEnMois || 1), form.periode)
-  const { pmtMwayèn, pmt, premyePeman, dènyePeman, totalDu, totalInteret } = calcPreviewEcheances(
-    kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode, form.tipKalkil
-  )
+  const isBousSoleil = form.tipKalkil === 'bous_soleil'
+  const kapital    = Number(form.montant || 0)
+  const nbrPeman   = isBousSoleil
+    ? Number(form.nombreJou || 0)
+    : calcNbrPeman(Number(form.dureeEnMois || 1), form.periode)
+
+  // Preview kalkil
+  let previewData = { pmtMwayèn: 0, pmt: 0, premyePeman: 0, dènyePeman: 0, totalDu: 0, totalInteret: 0 }
+  if (isBousSoleil) {
+    const pjou = Number(form.pemaParJou || 0)
+    const njou = Number(form.nombreJou  || 0)
+    if (kapital > 0 && pjou > 0 && njou > 0) {
+      const totalDu      = Math.round(pjou * njou * 100) / 100
+      const totalInteret = Math.round((totalDu - kapital) * 100) / 100
+      previewData = { pmtMwayèn: pjou, pmt: pjou, premyePeman: pjou, dènyePeman: pjou, totalDu, totalInteret }
+    }
+  } else {
+    previewData = calcPreviewEcheances(kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode, form.tipKalkil)
+  }
+  const { pmtMwayèn, pmt, premyePeman, dènyePeman, totalDu, totalInteret } = previewData
   const tipCfg = TIP_KALKIL.find(t => t.value === form.tipKalkil) || TIP_KALKIL[1]
 
   if (kesFemen) return (
@@ -652,10 +676,19 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 
   const validate = () => {
     const e = {}
-    if (!kaneKont)         e.kane    = 'Chwazi yon kont Kanè Epay obligatwa'
-    if (kapital <= 0)      e.montant = 'Montan dwe > 0'
-    if (!form.tauxInteret) e.taux    = 'To enterè obligatwa'
-    if (!form.dureeEnMois) e.duree   = 'Dire obligatwa'
+    if (!kaneKont) e.kane = 'Chwazi yon kont Kanè Epay obligatwa'
+
+    if (isBousSoleil) {
+      if (kapital <= 0)                  e.montant    = 'Kapital dwe > 0'
+      if (!form.pemaParJou || Number(form.pemaParJou) <= 0) e.pemaParJou = 'Peman pa jou obligatwa'
+      if (!form.nombreJou  || Number(form.nombreJou)  <= 0) e.nombreJou  = 'Nombre jou obligatwa'
+      if (Number(form.pemaParJou) * Number(form.nombreJou) <= kapital)
+        e.pemaParJou = 'Total peman dwe plis ke kapital (dwe gen enterè)'
+    } else {
+      if (kapital <= 0)      e.montant = 'Montan dwe > 0'
+      if (!form.tauxInteret) e.taux    = 'To enterè obligatwa'
+      if (!form.dureeEnMois) e.duree   = 'Dire obligatwa'
+    }
     setErrors(e); return !Object.keys(e).length
   }
 
@@ -686,10 +719,13 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
       clientNifCin:   kaneKont.nifOrCin || undefined,
       kontKaneEpayId: kaneKont.id,
       montant:        kapital,
-      tauxInteret:    Number(form.tauxInteret),
-      dureeEnMois:    Number(form.dureeEnMois),
+      tauxInteret:    isBousSoleil ? 0 : Number(form.tauxInteret),
+      dureeEnMois:    isBousSoleil ? Math.ceil(Number(form.nombreJou) / 30) : Number(form.dureeEnMois),
       montantBloke:   Number(form.montantBloke || 0),
       tipKalkil:      form.tipKalkil,
+      // Bous Solèy params
+      pemaParJou:     isBousSoleil ? Number(form.pemaParJou) : undefined,
+      nombreJou:      isBousSoleil ? Number(form.nombreJou)  : undefined,
       datDebut:       form.datDebut,
       periode:        form.periode,
       method:         form.method,
@@ -737,7 +773,82 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 
       {/* Tèm finansye */}
       <Section icon="💰" title="Tèm Finansye">
-        <label style={labelStyle}>Montan Kapital (HTG) *</label>
+        {/* Bous Solèy — champs spesifik */}
+        {isBousSoleil ? (
+          <>
+            <div style={{ background: `${tipCfg.color}10`, border: `1px solid ${tipCfg.color}30`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+              <span style={{ fontSize: 20 }}>☀️</span>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: tipCfg.color, margin: '0 0 3px' }}>Bous Solèy — Peman Joualye</p>
+                <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
+                  Antrepriz bay kapital → kliyan ranbouse yon montan fiks chak jou.
+                  <br/>Total = Peman/jou × Nombre jou &nbsp;|&nbsp; Enterè = Total − Kapital
+                </p>
+              </div>
+            </div>
+
+            <label style={labelStyle}>Kapital (HTG) *</label>
+            <input type="number" min="0" step="0.01" className="ke-input"
+              style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
+              value={form.montant} onChange={e => set('montant', e.target.value)}
+              placeholder="5,000.00" onFocus={e => e.target.select()} />
+            {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
+
+            <div className="ke-form-row">
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, color: tipCfg.color }}>Peman Pa Jou (HTG) *</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="number" min="1" step="0.01" className="ke-input"
+                    style={{ ...inputStyle, color: tipCfg.color, borderColor: errors.pemaParJou ? D.red : `${tipCfg.color}40`, paddingRight: 40 }}
+                    value={form.pemaParJou} onChange={e => set('pemaParJou', e.target.value)}
+                    placeholder="200" onFocus={e => e.target.select()} />
+                  <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: tipCfg.color, fontWeight: 700 }}>G/j</span>
+                </div>
+                {errors.pemaParJou && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.pemaParJou}</p>}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, color: D.blue }}>Nombre Jou *</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="number" min="1" max="365" className="ke-input"
+                    style={{ ...inputStyle, color: D.blue, borderColor: errors.nombreJou ? D.red : `${D.blue}40`, paddingRight: 40 }}
+                    value={form.nombreJou} onChange={e => set('nombreJou', e.target.value)}
+                    placeholder="30" onFocus={e => e.target.select()} />
+                  <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: D.blue, fontWeight: 700 }}>jou</span>
+                </div>
+                {errors.nombreJou && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.nombreJou}</p>}
+              </div>
+            </div>
+
+            {/* Preview Bous Solèy */}
+            {kapital > 0 && Number(form.pemaParJou) > 0 && Number(form.nombreJou) > 0 && (
+              <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman/Jou</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: tipCfg.color, margin: 0 }}>{fmt(Number(form.pemaParJou))} G</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Enterè</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Dwe</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.green, margin: 0 }}>{fmt(totalDu)} G</p>
+                  </div>
+                </div>
+                <div style={{ background: `${tipCfg.color}15`, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: tipCfg.color, margin: 0 }}>
+                    {fmt(Number(form.pemaParJou))} G × {form.nombreJou} jou = <strong style={{ fontSize: 14 }}>{fmt(totalDu)} G</strong>
+                  </p>
+                  <p style={{ fontSize: 11, color: D.muted, margin: '3px 0 0' }}>
+                    Taux reyèl: {kapital > 0 ? Math.round((totalInteret/kapital)*100*100)/100 : 0}% sou kapital
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         <input type="number" min="0" step="0.01" className="ke-input"
           style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
           value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()} />
@@ -827,6 +938,8 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
             placeholder="Ex: Kay nan Pòtoprens, Motosiklèt Honda CG 125, Tè nan Mirebalè..." />
           <p style={{ fontSize: 10, color: D.muted, margin: '3px 0 0' }}>Dekri byens kliyan a ofri kòm garanti pou prè a</p>
         </div>
+        </> {/* fèmen else (pa bous_soleil) */}
+        )}
       </Section>
 
       {/* Kalandriye */}

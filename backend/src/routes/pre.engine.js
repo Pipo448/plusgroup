@@ -5,9 +5,10 @@
 // KONSTANT
 // ══════════════════════════════════════════════════════════════
 const TIP_KALKIL = {
-  FLAT:      'flat',       // Enterè sou kapital total (pwogresif)
-  DECLINING: 'declining',  // Enterè sou rès kapital (degressif)
-  CONSTANT:  'constant',   // Kapital egal chak peman (amortissement constant)
+  FLAT:        'flat',        // Enterè sou kapital total (pwogresif)
+  DECLINING:   'declining',   // Enterè sou rès kapital (degressif)
+  CONSTANT:    'constant',    // Kapital egal chak peman (amortissement constant)
+  BOUS_SOLEIL: 'bous_soleil', // Peman fiks chak jou × nombre jou
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -210,15 +211,77 @@ function genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, freka
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// TIP 4: BOUS SOLÈY (Tontine Kredi Joualye)
+// Kliyan peye yon montan fiks chak jou pou nombre jou defini
+// Total = peman_pa_jou × nombre_jou
+// Enterè = Total - Kapital
+// Chak echeans = 1 jou, montan = peman_pa_jou
+// ══════════════════════════════════════════════════════════════
+function genereEcheancesBousSoleil(kapital, pemaParJou, nombreJou, datDebut) {
+  if (!pemaParJou || pemaParJou <= 0) throw new Error('Peman pa jou dwe > 0')
+  if (!nombreJou  || nombreJou  <= 0) throw new Error('Nombre jou dwe > 0')
+
+  const totalPaye   = round2(pemaParJou * nombreJou)
+  const totalInteret = round2(totalPaye - kapital)
+
+  const echeances = []
+  let resteKapital = kapital
+
+  for (let i = 1; i <= nombreJou; i++) {
+    const dat         = new Date(datDebut)
+    dat.setDate(dat.getDate() + (i - 1))
+    const datLimit    = dat.toISOString().split('T')[0]
+
+    // Alokasyon enterè/kapital pa jou (pwopòsyonèl)
+    const enterePajou  = round2(totalInteret / nombreJou)
+    const capitalPajou = round2(pemaParJou - enterePajou)
+    const balansAvant  = round2(resteKapital)
+
+    // Dènye jou — ajiste pou evite arondiman
+    const isLast = i === nombreJou
+    const capReyèl = isLast ? round2(resteKapital) : capitalPajou
+    const intReyèl = isLast ? round2(pemaParJou - capReyèl) : enterePajou
+    const totReyèl = round2(capReyèl + intReyèl)
+
+    resteKapital = round2(Math.max(0, resteKapital - capReyèl))
+
+    echeances.push({
+      numero:         i,
+      datLimit,
+      montantCapital: capReyèl,
+      montantInteret: intReyèl,
+      montantTotal:   totReyèl,
+      balansAvant,
+      balansApre:     resteKapital,
+      statut:         'attente',
+      montantPaye:    0,
+      interetKouru:   0,
+      jouReta:        0,
+    })
+  }
+
+  return {
+    echeances,
+    totalDu:      round2(echeances.reduce((s, e) => s + e.montantTotal, 0)),
+    totalInteret: round2(totalInteret),
+    pmtMwayèn:    round2(pemaParJou),
+    pemaParJou:   round2(pemaParJou),
+    nombreJou,
+  }
+}
+
 // ══════════════════════════════════════════════════════════════
 // DISPATCHER — chwazi tip kalkil
 // ══════════════════════════════════════════════════════════════
-function genereEcheances(kapital, tauxMensuel, nbrPeman, datDebut, frekans, tipKalkil = 'declining') {
+function genereEcheances(kapital, tauxMensuel, nbrPeman, datDebut, frekans, tipKalkil = 'declining', opts = {}) {
   switch (tipKalkil) {
-    case TIP_KALKIL.FLAT:     return genereEcheancesFlat(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
-    case TIP_KALKIL.CONSTANT: return genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
+    case TIP_KALKIL.FLAT:        return genereEcheancesFlat(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
+    case TIP_KALKIL.CONSTANT:    return genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
+    case TIP_KALKIL.BOUS_SOLEIL: return genereEcheancesBousSoleil(kapital, opts.pemaParJou || 0, opts.nombreJou || nbrPeman, datDebut)
     case TIP_KALKIL.DECLINING:
-    default:                  return genereEcheancesDeclining(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
+    default:                     return genereEcheancesDeclining(kapital, tauxMensuel, nbrPeman, datDebut, frekans)
   }
 }
 
@@ -305,6 +368,7 @@ module.exports = {
   genereEcheancesFlat,
   genereEcheancesDeclining,
   genereEcheancesConstant,
+  genereEcheancesBousSoleil,
   calcNbrPeman,
   calcDateLimite,
   calcInteretKouru,
