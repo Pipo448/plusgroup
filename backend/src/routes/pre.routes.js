@@ -298,6 +298,7 @@ router.post('/', async (req, res) => {
 
     const { clientNom, clientPhone, clientNifCin, clientAdres, kontKaneEpayId,
             montant, tauxInteret, dureeEnMois, montantBloke,
+            tipKalkil,
             datDebut, periode, method, reference, notes } = req.body
 
     if (!clientNom?.trim())       return res.status(400).json({ message: 'Non kliyan obligatwa.' })
@@ -327,8 +328,9 @@ router.post('/', async (req, res) => {
     }
 
     const echeances = genereEcheances(
-      Number(montant), Number(tauxInteret), nbrPeman, datPremyePeman, periode || 'mois'
-    )
+      Number(montant), Number(tauxInteret), nbrPeman, datPremyePeman, periode || 'mois',
+      tipKalkil || 'declining'
+    ).echeances
 
     // Total dwe = som tout peman (declining balance)
     const totalDu = echeances.reduce((s, e) => s + e.montantTotal, 0)

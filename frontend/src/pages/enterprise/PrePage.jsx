@@ -53,25 +53,78 @@ const PERIODES = [
   { value: 'trimestre', label: 'Trimès'   },
 ]
 
-// ─── Kalkil declining balance preview ───────────────────────
-function calcPreviewEcheances(kapital, tauxMwa, nbrPeman, frekans) {
-  const r = tauxMwa / 100
-  const tauxP = (() => {
-    switch (frekans) {
-      case 'jounal':    return Math.pow(1 + r, 1/30)  - 1
-      case 'semaine':   return Math.pow(1 + r, 7/30)  - 1
-      case 'biweekly':  return Math.pow(1 + r, 14/30) - 1
-      case 'mois':      return r
-      case 'trimestre': return Math.pow(1 + r, 3)     - 1
-      default:          return r
+const TIP_KALKIL = [
+  {
+    value: 'flat',
+    label: 'Flat (Pwogresif)',
+    desc:  'Enterè kalkile sou kapital total. Peman yo egal tout tan.',
+    color: '#3B82F6',
+    emoji: '📊',
+  },
+  {
+    value: 'declining',
+    label: 'Degressif (Declining Balance)',
+    desc:  'Enterè kalkile sou rès kapital ki rete. Peman egal, enterè diminye.',
+    color: '#C9A84C',
+    emoji: '📉',
+  },
+  {
+    value: 'constant',
+    label: 'Amortissement Constant',
+    desc:  'Kapital egal chak peman. Total peman diminye chak fwa.',
+    color: '#27ae60',
+    emoji: '📐',
+  },
+]
+
+// ─── Kalkil 3 tip (frontend preview) ────────────────────────
+function _tp(r, frekans) {
+  switch (frekans) {
+    case 'jounal':    return Math.pow(1 + r, 1/30)  - 1
+    case 'semaine':   return Math.pow(1 + r, 7/30)  - 1
+    case 'biweekly':  return Math.pow(1 + r, 14/30) - 1
+    case 'mois':      return r
+    case 'trimestre': return Math.pow(1 + r, 3)     - 1
+    default:          return r
+  }
+}
+const r2 = (n) => Math.round(n * 100) / 100
+
+function calcPreviewEcheances(kapital, tauxMwa, nbrPeman, frekans, tipKalkil = 'declining') {
+  if (!kapital || !tauxMwa || !nbrPeman)
+    return { pmtMwayèn: 0, pmt: 0, premyePeman: 0, dènyePeman: 0, totalDu: 0, totalInteret: 0 }
+
+  const tp = _tp(tauxMwa / 100, frekans)
+  const K  = kapital
+  const n  = nbrPeman
+
+  if (tipKalkil === 'flat') {
+    const totalInteret = r2(K * tp * n)
+    const totalDu      = r2(K + totalInteret)
+    const pmt          = r2(totalDu / n)
+    return { pmtMwayèn: pmt, pmt, premyePeman: pmt, dènyePeman: pmt, totalDu, totalInteret }
+  }
+
+  if (tipKalkil === 'constant') {
+    const capFixe      = r2(K / n)
+    const premyeEntere = r2(K * tp)
+    const dènyeEntere  = r2(capFixe * tp)
+    const totalInteret = r2(K * tp * (n + 1) / 2)
+    const totalDu      = r2(K + totalInteret)
+    const pmtMwayèn    = r2(totalDu / n)
+    return {
+      pmtMwayèn, pmt: pmtMwayèn,
+      premyePeman: r2(capFixe + premyeEntere),
+      dènyePeman:  r2(capFixe + dènyeEntere),
+      totalDu, totalInteret,
     }
-  })()
-  if (!kapital || !tauxMwa || !nbrPeman) return { pmt: 0, totalDu: 0, totalInteret: 0 }
-  const pmt = tauxP === 0 ? kapital / nbrPeman
-    : kapital * tauxP / (1 - Math.pow(1 + tauxP, -nbrPeman))
-  const totalDu      = Math.round(pmt * nbrPeman * 100) / 100
-  const totalInteret = Math.round((totalDu - kapital) * 100) / 100
-  return { pmt: Math.round(pmt * 100) / 100, totalDu, totalInteret }
+  }
+
+  // declining (defòlt)
+  const pmt          = tp === 0 ? r2(K / n) : r2(K * tp / (1 - Math.pow(1 + tp, -n)))
+  const totalDu      = r2(pmt * n)
+  const totalInteret = r2(totalDu - K)
+  return { pmtMwayèn: pmt, pmt, premyePeman: pmt, dènyePeman: pmt, totalDu, totalInteret }
 }
 
 function calcNbrPeman(dureeEnMois, frekans) {
@@ -570,8 +623,8 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     montant: '', tauxInteret: '', dureeEnMois: '6',
     datDebut: new Date().toISOString().split('T')[0],
     periode: 'mois', montantBloke: '',
+    tipKalkil: 'declining',  // ✅ defòlt declining balance
     method: 'cash', reference: '', notes: '',
-    // Nouvo champs V5
     garantiByens: '',
     avalize1Nom: '', avalize1Phone: '',
     avalize2Nom: '', avalize2Phone: '',
@@ -581,7 +634,10 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 
   const kapital  = Number(form.montant || 0)
   const nbrPeman = calcNbrPeman(Number(form.dureeEnMois || 1), form.periode)
-  const { pmt, totalDu, totalInteret } = calcPreviewEcheances(kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode)
+  const { pmtMwayèn, pmt, premyePeman, dènyePeman, totalDu, totalInteret } = calcPreviewEcheances(
+    kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode, form.tipKalkil
+  )
+  const tipCfg = TIP_KALKIL.find(t => t.value === form.tipKalkil) || TIP_KALKIL[1]
 
   if (kesFemen) return (
     <Modal onClose={onClose} title="💸 Nouvo Prè" width={420}>
@@ -633,6 +689,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
       tauxInteret:    Number(form.tauxInteret),
       dureeEnMois:    Number(form.dureeEnMois),
       montantBloke:   Number(form.montantBloke || 0),
+      tipKalkil:      form.tipKalkil,
       datDebut:       form.datDebut,
       periode:        form.periode,
       method:         form.method,
@@ -657,6 +714,25 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
         </div>
         <KaneEpaySearch selected={kaneKont} onSelect={setKaneKont} onClear={() => setKaneKont(null)} />
         {errors.kane && <p style={{ fontSize: 10, color: D.red, margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={11} /> {errors.kane}</p>}
+      </Section>
+
+      {/* ✅ Tip Kalkil */}
+      <Section icon="⚙️" title="Tip Kalkil Enterè">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {TIP_KALKIL.map(tip => (
+            <button key={tip.value} onClick={() => set('tipKalkil', tip.value)}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${form.tipKalkil === tip.value ? tip.color + '60' : D.cardBorder}`, background: form.tipKalkil === tip.value ? `${tip.color}10` : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+              <span style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>{tip.emoji}</span>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 800, color: form.tipKalkil === tip.value ? tip.color : D.text, margin: '0 0 2px' }}>{tip.label}</p>
+                <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{tip.desc}</p>
+              </div>
+              {form.tipKalkil === tip.value && (
+                <CheckCircle size={14} style={{ color: tip.color, flexShrink: 0, marginLeft: 'auto', marginTop: 2 }} />
+              )}
+            </button>
+          ))}
+        </div>
       </Section>
 
       {/* Tèm finansye */}
@@ -686,33 +762,49 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
           </div>
         </div>
 
-        {/* Preview declining balance */}
+        {/* Preview 3 tip */}
         {kapital > 0 && form.tauxInteret && (
-          <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${D.cardBorder}` }}>
-            <p style={{ fontSize: 10, color: D.muted, margin: '0 0 8px', fontWeight: 700, textTransform: 'uppercase' }}>Kalkil Declining Balance</p>
+          <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
+            <p style={{ fontSize: 10, color: tipCfg.color, margin: '0 0 8px', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+              {tipCfg.emoji} {tipCfg.label}
+            </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman Fiks</p>
-                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.blue, margin: 0 }}>{fmt(pmt)} G</p>
-              </div>
+              {form.tipKalkil === 'constant' ? (
+                <>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>1ye Peman</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.red, margin: 0 }}>{fmt(premyePeman)} G</p>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Dènye Peman</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.green, margin: 0 }}>{fmt(dènyePeman)} G</p>
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', gridColumn: '1/3' }}>
+                  <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman Fiks</p>
+                  <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: tipCfg.color, margin: 0 }}>{fmt(pmtMwayèn)} G</p>
+                </div>
+              )}
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Enterè</p>
-                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Dwe</p>
-                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.green, margin: 0 }}>{fmt(totalDu)} G</p>
+                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
               </div>
             </div>
             <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'flex', overflow: 'hidden' }}>
               <div style={{ width: `${Math.min((kapital/totalDu)*100, 100)}%`, background: D.gold }} />
-              <div style={{ flex: 1, background: D.orange }} />
+              <div style={{ flex: 1, background: tipCfg.color }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4 }}>
               <span style={{ color: D.gold }}>💰 {fmt(kapital)}</span>
-              <span style={{ color: D.orange }}>📈 +{fmt(totalInteret)}</span>
-              <span style={{ color: D.muted }}>{nbrPeman} peman</span>
+              <span style={{ color: tipCfg.color }}>📈 +{fmt(totalInteret)}</span>
+              <span style={{ color: D.green, fontWeight: 700 }}>= {fmt(totalDu)} G total</span>
             </div>
+            {form.tipKalkil === 'constant' && (
+              <p style={{ fontSize: 10, color: D.muted, margin: '6px 0 0', textAlign: 'center' }}>
+                ⬇️ Peman yo diminye chak fwa — {nbrPeman} peman
+              </p>
+            )}
           </div>
         )}
 
@@ -753,10 +845,25 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
             </select>
           </div>
         </div>
-        {pmt > 0 && (
-          <div style={{ marginTop: 10, background: `${D.blue}10`, border: `1px solid ${D.blue}25`, borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: D.muted }}>Chak {PERIODES.find(p => p.value === form.periode)?.label}:</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.blue }}>{fmt(pmt)} HTG</span>
+        {pmtMwayèn > 0 && (
+          <div style={{ marginTop: 10, background: `${tipCfg.color}10`, border: `1px solid ${tipCfg.color}25`, borderRadius: 10, padding: '10px 14px' }}>
+            {form.tipKalkil === 'constant' ? (
+              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
+                <div>
+                  <p style={{ fontSize: 10, color: D.muted, margin: '0 0 1px' }}>1ye peman:</p>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.red }}>{fmt(premyePeman)} HTG</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 10, color: D.muted, margin: '0 0 1px' }}>Dènye peman:</p>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.green }}>{fmt(dènyePeman)} HTG</span>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: D.muted }}>Chak {PERIODES.find(p => p.value === form.periode)?.label}:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: tipCfg.color }}>{fmt(pmtMwayèn)} HTG</span>
+              </div>
+            )}
           </div>
         )}
       </Section>
