@@ -316,7 +316,6 @@ router.post('/', async (req, res) => {
     datFin.setMonth(datFin.getMonth() + Number(dureeEnMois))
 
     // ✅ Kalkile echeans declining balance
-    const nbrPeman  = calcNbrPeman(Number(dureeEnMois), periode || 'mois')
     // Premye peman = mwa apre dat debut
     const datPremyePeman = new Date(debut)
     switch (periode) {
@@ -328,7 +327,7 @@ router.post('/', async (req, res) => {
     }
 
     const isBousSoleil = tipKalkil === 'bous_soleil'
-    const nbrPeman  = isBousSoleil
+    const nbrPeman = isBousSoleil
       ? Number(nombreJou || 30)
       : calcNbrPeman(Number(dureeEnMois), periode || 'mois')
 
