@@ -511,9 +511,6 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
   await dispatch(bytes)
 }
 
-// ══════════════════════════════════════════════════════════════
-// AJOUTE SA NAN FIN printerService.js — apre printKaneReceipt
-// ══════════════════════════════════════════════════════════════
 
 // Fonksyon pou enprime Kontra/Resi Prè via Bluetooth ESC/POS
 export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouverture', paiement = null, largeur = 80) => {
@@ -551,7 +548,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     // Titre
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(
-      type === 'ouveti' ? 'KONTRA PRE\n'
+      type === 'ouverture' ? 'KONTRA PRE\n'
       : type === 'peman' ? 'RESI PEMAN\n'
       : 'KLOTIRE PRE\n'
     ),
@@ -561,7 +558,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
 
     // ── Info kliyan ──────────────────────────────────────────
     ...CMD.SMALL_FONT,
-    ...makeLine('No. Pre:', pre.nimeroPre || '', W), LF,
+    ...makeLine('No. Pre:', pre.numeroPre || '', W), LF,
     ...makeLine('Dat:', fmtD(new Date()), W), LF,
     ...divider('-', W), LF,
     ...CMD.BOLD_ON, ...encodeText((pre.clientNom || '').substring(0, W) + '\n'), ...CMD.BOLD_OFF,
@@ -577,7 +574,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...makeLine('Dire:', pre.dureeEnMois + ' mwa', W), LF,
     ...makeLine('Frekans:', PERIODES[pre.periode] || pre.periode || 'Mwa', W), LF,
     ...(Number(pre.montantBloke) > 0 ? [...makeLine('Depozit bloke:', fmt(pre.montantBloke) + ' G', W), LF] : []),
-    ...(pre.garantiByen ? [...encodeText('Garanti: ' + pre.garantiByen.substring(0, W - 9) + '\n')] : []),
+    ...(pre.garantiByens ? [...encodeText('Garanti: ' + pre.garantiByens.substring(0, W - 9) + '\n')] : []),
     ...CMD.NORMAL_FONT,
     ...divider('=', W), LF,
     ...CMD.BOLD_ON,

@@ -621,7 +621,7 @@ function AvalizelSection({ form, set }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: KREYE PRÈ — V5
+// MODAL: KREYE PRÈ — V5  ✅ useMutation ANVAN if(kesFemen) — Rules of Hooks respekte
 // ═══════════════════════════════════════════════════════════════
 function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   const { tenant } = useAuthStore()
@@ -663,6 +663,26 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   const { pmtMwayèn, pmt, premyePeman, dènyePeman, totalDu, totalInteret } = previewData
   const tipCfg = TIP_KALKIL.find(t => t.value === form.tipKalkil) || TIP_KALKIL[1]
 
+  // ✅ FIX: useMutation ANVAN if (kesFemen) return
+  const mutation = useMutation({
+    mutationFn: (d) => preAPI.create(d),
+    onSuccess: async (res) => {
+      toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye!`)
+      onSuccess()
+      try {
+        printer.printPre({
+          pre:       res.data.pre,
+          echeances: res.data.echeances || [],
+          tenant,
+          type:      'ouverture',
+        })
+      } catch {}
+      onClose()
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
+  })
+
+  // Retou kondisyonèl APRE tout hooks
   if (kesFemen) return (
     <Modal onClose={onClose} title="💸 Nouvo Prè" width={420}>
       <div style={{ textAlign: 'center', padding: '30px 20px' }}>
@@ -691,25 +711,6 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     }
     setErrors(e); return !Object.keys(e).length
   }
-
-  const mutation = useMutation({
-    mutationFn: (d) => preAPI.create(d),
-    onSuccess: async (res) => {
-      toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye!`)
-      onSuccess()
-      // Enprime imedyatman avèk kalandriye
-      try {
-        printer.printPre({
-          pre:       res.data.pre,
-          echeances: res.data.echeances || [],
-          tenant,
-          type:      'ouverture',
-        })
-      } catch {}
-      onClose()
-    },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
-  })
 
   const handleSubmit = () => {
     if (!validate()) return
@@ -752,7 +753,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
         {errors.kane && <p style={{ fontSize: 10, color: D.red, margin: '6px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}><AlertCircle size={11} /> {errors.kane}</p>}
       </Section>
 
-      {/* ✅ Tip Kalkil */}
+      {/* Tip Kalkil */}
       <Section icon="⚙️" title="Tip Kalkil Enterè">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {TIP_KALKIL.map(tip => (
@@ -773,7 +774,6 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 
       {/* Tèm finansye */}
       <Section icon="💰" title="Tèm Finansye">
-        {/* Bous Solèy — champs spesifik */}
         {isBousSoleil ? (
           <>
             <div style={{ background: `${tipCfg.color}10`, border: `1px solid ${tipCfg.color}30`, borderRadius: 10, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -819,7 +819,6 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
               </div>
             </div>
 
-            {/* Preview Bous Solèy */}
             {kapital > 0 && Number(form.pemaParJou) > 0 && Number(form.nombreJou) > 0 && (
               <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
@@ -849,96 +848,93 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
           </>
         ) : (
           <>
-        <input type="number" min="0" step="0.01" className="ke-input"
-          style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
-          value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()} />
-        {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
+            <input type="number" min="0" step="0.01" className="ke-input"
+              style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
+              value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()} />
+            {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
 
-        <div className="ke-form-row">
-          <div style={{ flex: 1 }}>
-            <label style={{ ...labelStyle, color: D.orange }}>To Enterè (% / mwa) *</label>
-            <div style={{ position: 'relative' }}>
-              <input type="number" min="0" max="100" step="0.1" className="ke-input"
-                style={{ ...inputStyle, color: D.orange, borderColor: errors.taux ? D.red : `${D.orange}40`, paddingRight: 52 }}
-                value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)} placeholder="ex: 3" onFocus={e => e.target.select()} />
-              <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: D.orange, fontWeight: 700 }}>% / mwa</span>
-            </div>
-            {errors.taux && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.taux}</p>}
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ ...labelStyle, color: D.blue }}>Dire (mwa) *</label>
-            <input type="number" min="1" max="120" className="ke-input"
-              style={{ ...inputStyle, color: D.blue, borderColor: errors.duree ? D.red : `${D.blue}40` }}
-              value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)} onFocus={e => e.target.select()} />
-          </div>
-        </div>
-
-        {/* Preview 3 tip */}
-        {kapital > 0 && form.tauxInteret && (
-          <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
-            <p style={{ fontSize: 10, color: tipCfg.color, margin: '0 0 8px', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
-              {tipCfg.emoji} {tipCfg.label}
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
-              {form.tipKalkil === 'constant' ? (
-                <>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>1ye Peman</p>
-                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.red, margin: 0 }}>{fmt(premyePeman)} G</p>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Dènye Peman</p>
-                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.green, margin: 0 }}>{fmt(dènyePeman)} G</p>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', gridColumn: '1/3' }}>
-                  <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman Fiks</p>
-                  <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: tipCfg.color, margin: 0 }}>{fmt(pmtMwayèn)} G</p>
+            <div className="ke-form-row">
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, color: D.orange }}>To Enterè (% / mwa) *</label>
+                <div style={{ position: 'relative' }}>
+                  <input type="number" min="0" max="100" step="0.1" className="ke-input"
+                    style={{ ...inputStyle, color: D.orange, borderColor: errors.taux ? D.red : `${D.orange}40`, paddingRight: 52 }}
+                    value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)} placeholder="ex: 3" onFocus={e => e.target.select()} />
+                  <span style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: D.orange, fontWeight: 700 }}>% / mwa</span>
                 </div>
-              )}
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Enterè</p>
-                <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
+                {errors.taux && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.taux}</p>}
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ ...labelStyle, color: D.blue }}>Dire (mwa) *</label>
+                <input type="number" min="1" max="120" className="ke-input"
+                  style={{ ...inputStyle, color: D.blue, borderColor: errors.duree ? D.red : `${D.blue}40` }}
+                  value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)} onFocus={e => e.target.select()} />
               </div>
             </div>
-            <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'flex', overflow: 'hidden' }}>
-              <div style={{ width: `${Math.min((kapital/totalDu)*100, 100)}%`, background: D.gold }} />
-              <div style={{ flex: 1, background: tipCfg.color }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4 }}>
-              <span style={{ color: D.gold }}>💰 {fmt(kapital)}</span>
-              <span style={{ color: tipCfg.color }}>📈 +{fmt(totalInteret)}</span>
-              <span style={{ color: D.green, fontWeight: 700 }}>= {fmt(totalDu)} G total</span>
-            </div>
-            {form.tipKalkil === 'constant' && (
-              <p style={{ fontSize: 10, color: D.muted, margin: '6px 0 0', textAlign: 'center' }}>
-                ⬇️ Peman yo diminye chak fwa — {nbrPeman} peman
-              </p>
+
+            {kapital > 0 && form.tauxInteret && (
+              <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
+                <p style={{ fontSize: 10, color: tipCfg.color, margin: '0 0 8px', fontWeight: 700, textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {tipCfg.emoji} {tipCfg.label}
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 8 }}>
+                  {form.tipKalkil === 'constant' ? (
+                    <>
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>1ye Peman</p>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.red, margin: 0 }}>{fmt(premyePeman)} G</p>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Dènye Peman</p>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.green, margin: 0 }}>{fmt(dènyePeman)} G</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ textAlign: 'center', gridColumn: '1/3' }}>
+                      <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Peman Fiks</p>
+                      <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: tipCfg.color, margin: 0 }}>{fmt(pmtMwayèn)} G</p>
+                    </div>
+                  )}
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase' }}>Total Enterè</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: D.orange, margin: 0 }}>{fmt(totalInteret)} G</p>
+                  </div>
+                </div>
+                <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.06)', display: 'flex', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min((kapital/totalDu)*100, 100)}%`, background: D.gold }} />
+                  <div style={{ flex: 1, background: tipCfg.color }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4 }}>
+                  <span style={{ color: D.gold }}>💰 {fmt(kapital)}</span>
+                  <span style={{ color: tipCfg.color }}>📈 +{fmt(totalInteret)}</span>
+                  <span style={{ color: D.green, fontWeight: 700 }}>= {fmt(totalDu)} G total</span>
+                </div>
+                {form.tipKalkil === 'constant' && (
+                  <p style={{ fontSize: 10, color: D.muted, margin: '6px 0 0', textAlign: 'center' }}>
+                    ⬇️ Peman yo diminye chak fwa — {nbrPeman} peman
+                  </p>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Depozit bloke */}
-        <div style={{ marginTop: 10 }}>
-          <label style={{ ...labelStyle, color: D.purple }}>Depozit Bloke (opsyonèl)</label>
-          <input type="number" min="0" step="0.01" className="ke-input"
-            style={{ ...inputStyle, color: D.purple, borderColor: `${D.purple}40` }}
-            value={form.montantBloke} onChange={e => set('montantBloke', e.target.value)}
-            placeholder="0.00 — kite vid si pa nesesè" onFocus={e => e.target.select()} />
-        </div>
+            <div style={{ marginTop: 10 }}>
+              <label style={{ ...labelStyle, color: D.purple }}>Depozit Bloke (opsyonèl)</label>
+              <input type="number" min="0" step="0.01" className="ke-input"
+                style={{ ...inputStyle, color: D.purple, borderColor: `${D.purple}40` }}
+                value={form.montantBloke} onChange={e => set('montantBloke', e.target.value)}
+                placeholder="0.00 — kite vid si pa nesesè" onFocus={e => e.target.select()} />
+            </div>
 
-        {/* Garanti / Byens */}
-        <div style={{ marginTop: 10 }}>
-          <label style={{ ...labelStyle, color: D.gold, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Home size={12} /> Garanti / Byens (opsyonèl)
-          </label>
-          <textarea className="ke-input" style={{ ...inputStyle, height: 56, resize: 'vertical', fontSize: 12 }}
-            value={form.garantiByens} onChange={e => set('garantiByens', e.target.value)}
-            placeholder="Ex: Kay nan Pòtoprens, Motosiklèt Honda CG 125, Tè nan Mirebalè..." />
-          <p style={{ fontSize: 10, color: D.muted, margin: '3px 0 0' }}>Dekri byens kliyan a ofri kòm garanti pou prè a</p>
-        </div>
-        </> {/* fèmen else (pa bous_soleil) */}
+            <div style={{ marginTop: 10 }}>
+              <label style={{ ...labelStyle, color: D.gold, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Home size={12} /> Garanti / Byens (opsyonèl)
+              </label>
+              <textarea className="ke-input" style={{ ...inputStyle, height: 56, resize: 'vertical', fontSize: 12 }}
+                value={form.garantiByens} onChange={e => set('garantiByens', e.target.value)}
+                placeholder="Ex: Kay nan Pòtoprens, Motosiklèt Honda CG 125, Tè nan Mirebalè..." />
+              <p style={{ fontSize: 10, color: D.muted, margin: '3px 0 0' }}>Dekri byens kliyan a ofri kòm garanti pou prè a</p>
+            </div>
+          </>
         )}
       </Section>
 
@@ -1029,7 +1025,7 @@ function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: PEMAN
+// MODAL: PEMAN — ✅ useMutation ANVAN if(kesFemen) — Rules of Hooks respekte
 // ═══════════════════════════════════════════════════════════════
 function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   const { tenant } = useAuthStore()
@@ -1038,17 +1034,7 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   const amt         = Number(form.montant || 0)
   const resteAPayer = Math.max(0, Number(pre.totalDu || 0) - Number(pre.totalPaye || 0))
 
-  if (kesFemen) return (
-    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={420}>
-      <div style={{ textAlign: 'center', padding: '30px 20px' }}>
-        <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
-        <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
-        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou pa ka anrejistre peman apre ou fèmen kès la.</p>
-        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
-      </div>
-    </Modal>
-  )
-
+  // ✅ FIX: useMutation ANVAN if (kesFemen) return
   const mutation = useMutation({
     mutationFn: (d) => preAPI.paiement(pre.id, d),
     onSuccess: async (res) => {
@@ -1060,6 +1046,18 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè peman.'),
   })
+
+  // Retou kondisyonèl APRE tout hooks
+  if (kesFemen) return (
+    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={420}>
+      <div style={{ textAlign: 'center', padding: '30px 20px' }}>
+        <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
+        <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
+        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou pa ka anrejistre peman apre ou fèmen kès la.</p>
+        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
+      </div>
+    </Modal>
+  )
 
   return (
     <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={440}>
@@ -1537,7 +1535,6 @@ export default function PrePage() {
             <RefreshCw size={14} />
           </button>
 
-          {/* ✅ Bluetooth — menm jan ak KaneEpayPage */}
           <button className="ke-btn"
             onClick={printer.connected ? printer.disconnect : printer.connect}
             disabled={printer.connecting}
