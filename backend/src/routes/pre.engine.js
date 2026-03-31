@@ -1,4 +1,4 @@
-// src/routes/pre.engine.js — V2
+// src/routes/pre.engine.js — V2.1
 // 3 Tip Kalkil: Flat | Declining Balance | Amortissement Constant
 
 // ══════════════════════════════════════════════════════════════
@@ -60,11 +60,9 @@ const round2 = (n) => Math.round(n * 100) / 100
 
 // ══════════════════════════════════════════════════════════════
 // TIP 1: FLAT (Pwogresif / Intérêt simple)
-// Enterè kalkile yon sèl fwa sou kapital total la
-// Chak peman = (kapital + total enterè) / nbrPeman
 // ══════════════════════════════════════════════════════════════
 function genereEcheancesFlat(kapital, tauxMensuel, nbrPeman, datDebut, frekans) {
-  const r           = tauxParPeriode(tauxMensuel, frekans)
+  const r            = tauxParPeriode(tauxMensuel, frekans)
   const totalInteret = round2(kapital * r * nbrPeman)
   const totalDu      = round2(kapital + totalInteret)
   const pmt          = round2(totalDu / nbrPeman)
@@ -76,7 +74,6 @@ function genereEcheancesFlat(kapital, tauxMensuel, nbrPeman, datDebut, frekans) 
   for (let i = 1; i <= nbrPeman; i++) {
     const interetPeriode = round2(totalInteret / nbrPeman)
 
-    // Dènye peman — ajiste pou evite diferans arondiman
     let capitalPeriode, montantTotal
     if (i === nbrPeman) {
       capitalPeriode = round2(resteKapital)
@@ -115,13 +112,10 @@ function genereEcheancesFlat(kapital, tauxMensuel, nbrPeman, datDebut, frekans) 
 
 // ══════════════════════════════════════════════════════════════
 // TIP 2: DECLINING BALANCE (Degressif / Réduisant)
-// Enterè kalkile sou rès kapital ki rete
-// Anuité konstant: PMT = K × i / (1 - (1+i)^-n)
 // ══════════════════════════════════════════════════════════════
 function genereEcheancesDeclining(kapital, tauxMensuel, nbrPeman, datDebut, frekans) {
   const r = tauxParPeriode(tauxMensuel, frekans)
 
-  // Kalkil PMT (anuité konstant)
   const pmt = r === 0
     ? round2(kapital / nbrPeman)
     : round2(kapital * r / (1 - Math.pow(1 + r, -nbrPeman)))
@@ -130,12 +124,11 @@ function genereEcheancesDeclining(kapital, tauxMensuel, nbrPeman, datDebut, frek
   let balans = kapital
 
   for (let i = 1; i <= nbrPeman; i++) {
-    const balansAvant      = round2(balans)
-    const interetPeriode   = round2(balans * r)
-    let   capitalPeriode   = round2(pmt - interetPeriode)
-    let   montantTotal     = pmt
+    const balansAvant    = round2(balans)
+    const interetPeriode = round2(balans * r)
+    let   capitalPeriode = round2(pmt - interetPeriode)
+    let   montantTotal   = pmt
 
-    // Dènye peman — ajiste
     if (i === nbrPeman) {
       capitalPeriode = round2(balans)
       montantTotal   = round2(capitalPeriode + interetPeriode)
@@ -167,13 +160,11 @@ function genereEcheancesDeclining(kapital, tauxMensuel, nbrPeman, datDebut, frek
 }
 
 // ══════════════════════════════════════════════════════════════
-// TIP 3: AMORTISSEMENT CONSTANT (Kapital egal chak peman)
-// Kapital = K / n (menm pou tout peman)
-// Enterè diminye chak peman → total peman diminye tou
+// TIP 3: AMORTISSEMENT CONSTANT
 // ══════════════════════════════════════════════════════════════
 function genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, frekans) {
-  const r              = tauxParPeriode(tauxMensuel, frekans)
-  const capitalFixe    = round2(kapital / nbrPeman)
+  const r           = tauxParPeriode(tauxMensuel, frekans)
+  const capitalFixe = round2(kapital / nbrPeman)
 
   const echeances = []
   let balans = kapital
@@ -181,8 +172,6 @@ function genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, freka
   for (let i = 1; i <= nbrPeman; i++) {
     const balansAvant    = round2(balans)
     const interetPeriode = round2(balans * r)
-
-    // Dènye peman — ajiste kapital pou evite arondiman
     const capitalPeriode = i === nbrPeman ? round2(balans) : capitalFixe
     const montantTotal   = round2(capitalPeriode + interetPeriode)
 
@@ -211,39 +200,32 @@ function genereEcheancesConstant(kapital, tauxMensuel, nbrPeman, datDebut, freka
   }
 }
 
-
 // ══════════════════════════════════════════════════════════════
-// TIP 4: BOUS SOLÈY (Tontine Kredi Joualye)
-// Kliyan peye yon montan fiks chak jou pou nombre jou defini
-// Total = peman_pa_jou × nombre_jou
-// Enterè = Total - Kapital
-// Chak echeans = 1 jou, montan = peman_pa_jou
+// TIP 4: BOUS SOLÈY
 // ══════════════════════════════════════════════════════════════
 function genereEcheancesBousSoleil(kapital, pemaParJou, nombreJou, datDebut) {
   if (!pemaParJou || pemaParJou <= 0) throw new Error('Peman pa jou dwe > 0')
   if (!nombreJou  || nombreJou  <= 0) throw new Error('Nombre jou dwe > 0')
 
-  const totalPaye   = round2(pemaParJou * nombreJou)
+  const totalPaye    = round2(pemaParJou * nombreJou)
   const totalInteret = round2(totalPaye - kapital)
 
   const echeances = []
   let resteKapital = kapital
 
   for (let i = 1; i <= nombreJou; i++) {
-    const dat         = new Date(datDebut)
+    const dat      = new Date(datDebut)
     dat.setDate(dat.getDate() + (i - 1))
-    const datLimit    = dat.toISOString().split('T')[0]
+    const datLimit = dat.toISOString().split('T')[0]
 
-    // Alokasyon enterè/kapital pa jou (pwopòsyonèl)
     const enterePajou  = round2(totalInteret / nombreJou)
     const capitalPajou = round2(pemaParJou - enterePajou)
     const balansAvant  = round2(resteKapital)
 
-    // Dènye jou — ajiste pou evite arondiman
-    const isLast = i === nombreJou
-    const capReyèl = isLast ? round2(resteKapital) : capitalPajou
-    const intReyèl = isLast ? round2(pemaParJou - capReyèl) : enterePajou
-    const totReyèl = round2(capReyèl + intReyèl)
+    const isLast       = i === nombreJou
+    const capReyèl     = isLast ? round2(resteKapital) : capitalPajou
+    const intReyèl     = isLast ? round2(pemaParJou - capReyèl) : enterePajou
+    const totReyèl     = round2(capReyèl + intReyèl)
 
     resteKapital = round2(Math.max(0, resteKapital - capReyèl))
 
@@ -273,7 +255,7 @@ function genereEcheancesBousSoleil(kapital, pemaParJou, nombreJou, datDebut) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// DISPATCHER — chwazi tip kalkil
+// DISPATCHER
 // ══════════════════════════════════════════════════════════════
 function genereEcheances(kapital, tauxMensuel, nbrPeman, datDebut, frekans, tipKalkil = 'declining', opts = {}) {
   switch (tipKalkil) {
@@ -287,7 +269,6 @@ function genereEcheances(kapital, tauxMensuel, nbrPeman, datDebut, frekans, tipK
 
 // ══════════════════════════════════════════════════════════════
 // KALKIL ENTERE KOURU (si an reta)
-// Fòmil: I = Balans × (taux/30) × jou_reta
 // ══════════════════════════════════════════════════════════════
 function calcInteretKouru(balans, tauxMensuel, datLimit, aujourdui = new Date()) {
   const datLimite = new Date(datLimit)
@@ -299,11 +280,14 @@ function calcInteretKouru(balans, tauxMensuel, datLimit, aujourdui = new Date())
 }
 
 // ══════════════════════════════════════════════════════════════
-// ALOKASYON PEMAN (enterè anvan kapital — règ standard)
+// ALOKASYON PEMAN — FIX: datPaye ajoute pou peman pasyèl tou
 // ══════════════════════════════════════════════════════════════
 function alokePaiement(echeances, montantPaye, tauxMensuel, datPaiement = new Date()) {
   let resteAPayer = montantPaye
   const echeancesMise = []
+  const datStr = datPaiement instanceof Date
+    ? datPaiement.toISOString().split('T')[0]
+    : datPaiement
 
   for (const ech of echeances) {
     if (resteAPayer <= 0) break
@@ -315,19 +299,22 @@ function alokePaiement(echeances, montantPaye, tauxMensuel, datPaiement = new Da
     const totalDweAjou = round2(ech.montantTotal + interetKouru - ech.montantPaye)
 
     if (resteAPayer >= totalDweAjou) {
+      // Peman konplè
       echeancesMise.push({
         ...ech,
         montantPaye:  round2(ech.montantPaye + totalDweAjou),
-        datPaye:      datPaiement.toISOString().split('T')[0],
+        datPaye:      datStr,   // ✅ toujou set
         statut:       'paye',
         interetKouru,
         jouReta,
       })
       resteAPayer = round2(resteAPayer - totalDweAjou)
     } else {
+      // Peman pasyèl — FIX: datPaye te manke isit
       echeancesMise.push({
         ...ech,
         montantPaye:  round2(ech.montantPaye + resteAPayer),
+        datPaye:      datStr,   // ✅ ajoute — te undefined anvan
         statut:       'partiel',
         interetKouru,
         jouReta,

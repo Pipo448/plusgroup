@@ -1,9 +1,9 @@
-// src/routes/pre.routes.js  — V4 (Declining Balance + Echéancier + Enterè Kouru)
+// src/routes/pre.routes.js  — V6
 const express  = require('express')
 const { PrismaClient } = require('@prisma/client')
 const {
   genereEcheances, calcNbrPeman, calcInteretKouru, alokePaiement,
-} = require('./pre.engine')  // ← mete nan menm dosye a
+} = require('./pre.engine')
 
 const router = express.Router()
 const prisma = new PrismaClient()
@@ -20,9 +20,7 @@ const getTB = (req) => ({
   userId:   req.user?.id || null,
 })
 
-const HAITI_DATE = `(NOW() - INTERVAL '5 hours')::date`
-
-async function isKesFemen(tenantId, userId) {
+async function isKesFermen(tenantId, userId) {
   const r = await prisma.$queryRaw`
     SELECT id FROM pre_rapo_kesye
     WHERE tenant_id = ${tenantId}
@@ -34,7 +32,7 @@ async function isKesFemen(tenantId, userId) {
 }
 
 async function genereNumeroPre(tenantId) {
-  const ane = new Date().getFullYear()
+  const ane   = new Date().getFullYear()
   const count = await prisma.pre.count({
     where: { tenantId, createdAt: { gte: new Date(`${ane}-01-01`), lt: new Date(`${ane + 1}-01-01`) } },
   })
@@ -49,7 +47,6 @@ async function getKapitalDisponib(tenantId) {
   return Math.max(0, Number(enj[0]?.total || 0) - Number(pre[0]?.total || 0))
 }
 
-// Mete ajou enterè kouru pou tout echeans an reta
 async function majInteretKouru(tenantId) {
   const aujourdui = new Date()
   const ech = await prisma.$queryRaw`
@@ -61,14 +58,17 @@ async function majInteretKouru(tenantId) {
       AND e.dat_limit < CURRENT_DATE
   `
   for (const e of ech) {
+    const tauxNum = Number(e.taux_interet || 0)
+    if (tauxNum === 0) continue   // Bous Solèy — pa gen enterè kouru
     const { interetKouru, jouReta } = calcInteretKouru(
-      Number(e.balans_avant), Number(e.taux_interet), e.dat_limit, aujourdui
+      Number(e.balans_avant), tauxNum, e.dat_limit, aujourdui
     )
     await prisma.$executeRaw`
       UPDATE pre_echeances
-      SET interet_kouru = ${interetKouru}, jou_reta = ${jouReta},
-          statut = CASE WHEN statut = 'attente' THEN 'reta' ELSE statut END,
-          updated_at = NOW()
+      SET interet_kouru = ${interetKouru},
+          jou_reta      = ${jouReta},
+          statut        = CASE WHEN statut = 'attente' THEN 'reta' ELSE statut END,
+          updated_at    = NOW()
       WHERE id = ${e.id}
     `
   }
@@ -93,14 +93,12 @@ router.get('/stats', async (req, res) => {
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
     ])
 
-    // Total enterè kouru aktyèl
     const interetKouruAgg = await prisma.$queryRaw`
       SELECT COALESCE(SUM(interet_kouru),0) as total
       FROM pre_echeances
       WHERE tenant_id = ${tenantId} AND statut IN ('reta','partiel')
     `
 
-    const koleksyonMwa = Number(kolMwaAgg._sum.montant || 0)
     const kapitalDisponib = await getKapitalDisponib(tenantId)
 
     return res.json({
@@ -109,7 +107,7 @@ router.get('/stats', async (req, res) => {
         totalEnReta:      pretsEnReta,
         totalPortfeuye:   Number(portAgg._sum.montant || 0),
         totalDesèmanMwa:  Number(desMwaAgg._sum.montant || 0),
-        totalPaiemanMwa:  koleksyonMwa,
+        totalPaiemanMwa:  Number(kolMwaAgg._sum.montant || 0),
         enterèKouruTotal: Number(interetKouruAgg[0]?.total || 0),
         kapitalDisponib,
       },
@@ -130,10 +128,10 @@ router.get('/kane-epay-search', async (req, res) => {
     if (q.length < 2) return res.json({ accounts: [] })
     const accounts = await prisma.kaneEpay.findMany({
       where: { tenantId, isActive: true, OR: [
-        { firstName: { contains: q, mode: 'insensitive' } },
-        { lastName:  { contains: q, mode: 'insensitive' } },
-        { phone:     { contains: q, mode: 'insensitive' } },
-        { nifOrCin:  { contains: q, mode: 'insensitive' } },
+        { firstName:     { contains: q, mode: 'insensitive' } },
+        { lastName:      { contains: q, mode: 'insensitive' } },
+        { phone:         { contains: q, mode: 'insensitive' } },
+        { nifOrCin:      { contains: q, mode: 'insensitive' } },
         { accountNumber: { contains: q, mode: 'insensitive' } },
       ]},
       select: { id: true, accountNumber: true, firstName: true, lastName: true, phone: true, balance: true, photoUrl: true },
@@ -173,8 +171,8 @@ router.get('/rapo/kes-status', async (req, res) => {
         AND date_rapo = (NOW() - INTERVAL '5 hours')::date
       LIMIT 1
     `
-    return res.json({ kesFemen: r.length > 0 })
-  } catch (err) { return res.json({ kesFemen: false }) }
+    return res.json({ kesFermen: r.length > 0 })
+  } catch (err) { return res.json({ kesFermen: false }) }
 })
 
 // ═══════════════════════════════════════════════════════════════
@@ -195,37 +193,53 @@ router.get('/rapo/kesye', async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════
 // GET /pre  — lis prè
+// FIX V6: pa itilize interetKouruTotal/totalDuAjou nan Prisma select
+//         (si kolòn sa yo pa nan schema.prisma → findMany kraze)
+//         Itilize $queryRawUnsafe pito
 // ═══════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     const { search = '', page = 1, limit = 15, statut, branchId } = req.query
-    const skip = (Number(page) - 1) * Number(limit)
-    const where = {
-      tenantId,
-      ...(statut   && { statut }),
-      ...(branchId && { branchId }),
-      ...(search && { OR: [
-        { clientNom:    { contains: search, mode: 'insensitive' } },
-        { clientPhone:  { contains: search, mode: 'insensitive' } },
-        { numeroPre:    { contains: search, mode: 'insensitive' } },
-      ]}),
+    const pageNum  = Number(page)
+    const limitNum = Number(limit)
+    const offset   = (pageNum - 1) * limitNum
+
+    // Bati klaòz WHERE ak paramèt safe (evite SQL injection)
+    const tid = tenantId.replace(/'/g, "''")
+    const conditions = [`p.tenant_id = '${tid}'`]
+    if (statut)                 conditions.push(`p.statut = '${statut.replace(/'/g, "''")}'`)
+    if (branchId)               conditions.push(`p.branch_id = '${branchId.replace(/'/g, "''")}'`)
+    if (search && search.length > 1) {
+      const s = search.replace(/'/g, "''")
+      conditions.push(`(p.client_nom ILIKE '%${s}%' OR p.client_phone ILIKE '%${s}%' OR p.numero_pre ILIKE '%${s}%')`)
     }
-    const [prets, total] = await Promise.all([
-      prisma.pre.findMany({
-        where, orderBy: { createdAt: 'desc' }, skip, take: Number(limit),
-        select: {
-          id: true, numeroPre: true, clientNom: true, clientPhone: true,
-          montant: true, tauxInteret: true, dureeEnMois: true,
-          totalDu: true, totalPaye: true, montantBloke: true,
-          datDebut: true, datFin: true, periode: true,
-          statut: true, createdAt: true, branchId: true, kontKaneEpayId: true,
-          interetKouruTotal: true, totalDuAjou: true,
-        },
-      }),
-      prisma.pre.count({ where }),
+    const whereClause = conditions.join(' AND ')
+
+    const [prets, countResult] = await Promise.all([
+      prisma.$queryRawUnsafe(`
+        SELECT
+          p.id, p.numero_pre, p.client_nom, p.client_phone,
+          p.montant, p.taux_interet, p.duree_en_mois,
+          p.total_du, p.total_paye, p.montant_bloke,
+          p.dat_debut, p.dat_fin, p.periode,
+          p.statut, p.created_at, p.branch_id, p.kont_kane_epay_id,
+          COALESCE(p.interet_kouru_total, 0)                     AS interet_kouru_total,
+          COALESCE(p.total_du_ajou, GREATEST(0, p.total_du - p.total_paye)) AS total_du_ajou
+        FROM prets p
+        WHERE ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `),
+      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM prets p WHERE ${whereClause}`),
     ])
-    return res.json({ prets, total, page: Number(page), limit: Number(limit) })
+
+    return res.json({
+      prets,
+      total: Number(countResult[0]?.total || 0),
+      page: pageNum,
+      limit: limitNum,
+    })
   } catch (err) {
     console.error('[PRE GET /]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
@@ -255,7 +269,7 @@ router.post('/kapital/enjekte', async (req, res) => {
 router.post('/rapo/femen-kes', async (req, res) => {
   try {
     const { tenantId, userId } = getTB(req)
-    if (await isKesFemen(tenantId, userId))
+    if (await isKesFermen(tenantId, userId))
       return res.status(400).json({ message: 'Kès ou deja fèmen jodi a.' })
     const { notes } = req.body
     const debiJou = new Date(); debiJou.setHours(0,0,0,0)
@@ -275,11 +289,17 @@ router.post('/rapo/femen-kes', async (req, res) => {
       totalEntere = Math.round(totalKoleksyon * ratio * 100) / 100
     }
     await prisma.$executeRaw`
-      INSERT INTO pre_rapo_kesye (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
-      VALUES (${tenantId}, ${userId}, (NOW() - INTERVAL '5 hours')::date,
-              ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes||null})
+      INSERT INTO pre_rapo_kesye
+        (tenant_id, user_id, date_rapo, total_pre_kreye, montant_deseman, total_koleksyon, total_entere, nb_paieman, notes)
+      VALUES
+        (${tenantId}, ${userId}, (NOW() - INTERVAL '5 hours')::date,
+         ${totalPreKreye}, ${montantDeseman}, ${totalKoleksyon}, ${totalEntere}, ${paiemanJou.length}, ${notes||null})
     `
-    return res.json({ rapo: { date: new Date().toISOString().split('T')[0], totalPreKreye, montantDeseman, totalKoleksyon, totalEntere, nbPaieman: paiemanJou.length } })
+    return res.json({ rapo: {
+      date: new Date().toISOString().split('T')[0],
+      totalPreKreye, montantDeseman, totalKoleksyon, totalEntere,
+      nbPaieman: paiemanJou.length,
+    }})
   } catch (err) {
     console.error('[PRE /rapo/femen-kes]', err)
     return res.status(500).json({ message: 'Erè sèvè.' })
@@ -293,7 +313,7 @@ router.post('/', async (req, res) => {
   try {
     const { tenantId, userId } = getTB(req)
 
-    if (await isKesFemen(tenantId, userId))
+    if (await isKesFermen(tenantId, userId))
       return res.status(403).json({ message: 'Kès ou fèmen jodi a.' })
 
     const { clientNom, clientPhone, clientNifCin, clientAdres, kontKaneEpayId,
@@ -301,44 +321,55 @@ router.post('/', async (req, res) => {
             tipKalkil, pemaParJou, nombreJou,
             datDebut, periode, method, reference, notes } = req.body
 
+    const isBousSoleil = tipKalkil === 'bous_soleil'
+
     if (!clientNom?.trim())       return res.status(400).json({ message: 'Non kliyan obligatwa.' })
     if (!montant || montant <= 0) return res.status(400).json({ message: 'Montan dwe > 0.' })
-    if (!tauxInteret)             return res.status(400).json({ message: 'Taux enterè obligatwa.' })
-    if (!dureeEnMois)             return res.status(400).json({ message: 'Durasyon obligatwa.' })
     if (!kontKaneEpayId)          return res.status(400).json({ message: 'Kont Kanè Epay obligatwa.' })
+
+    if (!isBousSoleil) {
+      if (tauxInteret === undefined || tauxInteret === null || tauxInteret === '')
+        return res.status(400).json({ message: 'Taux enterè obligatwa.' })
+      if (!dureeEnMois)
+        return res.status(400).json({ message: 'Durasyon obligatwa.' })
+    } else {
+      if (!pemaParJou || pemaParJou <= 0)
+        return res.status(400).json({ message: 'Peman pa jou obligatwa pou Bous Solèy.' })
+      if (!nombreJou || nombreJou <= 0)
+        return res.status(400).json({ message: 'Nonm jou obligatwa pou Bous Solèy.' })
+    }
 
     const kaneKont = await prisma.kaneEpay.findFirst({ where: { id: kontKaneEpayId, tenantId } })
     if (!kaneKont) return res.status(400).json({ message: 'Kont Kanè Epay pa jwenn.' })
 
-    const numeroPre = await genereNumeroPre(tenantId)
-    const debut     = datDebut ? new Date(datDebut) : new Date()
-    const datFin    = new Date(debut)
-    datFin.setMonth(datFin.getMonth() + Number(dureeEnMois))
+    const numeroPre      = await genereNumeroPre(tenantId)
+    const debut          = datDebut ? new Date(datDebut) : new Date()
+    const datFin         = new Date(debut)
+    const dureeNum       = isBousSoleil ? Math.ceil(Number(nombreJou || 30) / 30) : Number(dureeEnMois)
+    datFin.setMonth(datFin.getMonth() + dureeNum)
 
-    // Premye peman = mwa apre dat debut
     const datPremyePeman = new Date(debut)
     switch (periode) {
-      case 'jounal':    datPremyePeman.setDate(datPremyePeman.getDate() + 1);    break
-      case 'semaine':   datPremyePeman.setDate(datPremyePeman.getDate() + 7);    break
-      case 'biweekly':  datPremyePeman.setDate(datPremyePeman.getDate() + 14);   break
-      case 'mois':      datPremyePeman.setMonth(datPremyePeman.getMonth() + 1);  break
-      case 'trimestre': datPremyePeman.setMonth(datPremyePeman.getMonth() + 3);  break
+      case 'jounal':    datPremyePeman.setDate(datPremyePeman.getDate() + 1);   break
+      case 'semaine':   datPremyePeman.setDate(datPremyePeman.getDate() + 7);   break
+      case 'biweekly':  datPremyePeman.setDate(datPremyePeman.getDate() + 14);  break
+      case 'mois':      datPremyePeman.setMonth(datPremyePeman.getMonth() + 1); break
+      case 'trimestre': datPremyePeman.setMonth(datPremyePeman.getMonth() + 3); break
     }
 
-    const isBousSoleil = tipKalkil === 'bous_soleil'
-    const nbrPeman  = isBousSoleil
+    const nbrPeman = isBousSoleil
       ? Number(nombreJou || 30)
       : calcNbrPeman(Number(dureeEnMois), periode || 'mois')
 
-    const result = genereEcheances(
-      Number(montant), Number(tauxInteret || 0), nbrPeman, datPremyePeman, periode || 'mois',
+    const result       = genereEcheances(
+      Number(montant), Number(tauxInteret || 0), nbrPeman,
+      datPremyePeman, periode || 'mois',
       tipKalkil || 'declining',
       { pemaParJou: Number(pemaParJou || 0), nombreJou: Number(nombreJou || 0) }
     )
-    const echeances = result.echeances
+    const echeances    = result.echeances
     const totalDuRonde = result.totalDu
 
-    // Kreye prè + echeans nan yon sèl tranzaksyon
     const pre = await prisma.$transaction(async (tx) => {
       const p = await tx.pre.create({
         data: {
@@ -346,7 +377,7 @@ router.post('/', async (req, res) => {
           clientNom: clientNom.trim(), clientPhone: clientPhone||null,
           clientNifCin: clientNifCin||null, clientAdres: clientAdres||null,
           kontKaneEpayId, montant: Number(montant),
-          tauxInteret: Number(tauxInteret), dureeEnMois: Number(dureeEnMois),
+          tauxInteret: Number(tauxInteret || 0), dureeEnMois: dureeNum,
           montantBloke: Number(montantBloke||0),
           totalDu: totalDuRonde, totalPaye: 0, totalDuAjou: totalDuRonde,
           datDebut: debut, datFin, periode: periode||'mois',
@@ -359,18 +390,14 @@ router.post('/', async (req, res) => {
           garantiByens:  req.body.garantiByens  || null,
         },
       })
-
-      // Enstale echeans yo — insert yon pa yon (solid)
       for (const e of echeances) {
-        const datLimitStr = e.datLimit // string YYYY-MM-DD
         await tx.$executeRaw`
           INSERT INTO pre_echeances
             (tenant_id, pre_id, numero, dat_limit,
              montant_capital, montant_interet, montant_total,
              balans_avant, balans_apre, statut)
           VALUES (
-            ${tenantId}, ${p.id}, ${e.numero},
-            ${datLimitStr}::date,
+            ${tenantId}, ${p.id}, ${e.numero}, ${e.datLimit}::date,
             ${e.montantCapital}, ${e.montantInteret}, ${e.montantTotal},
             ${e.balansAvant}, ${e.balansApre}, 'attente'
           )
@@ -381,10 +408,9 @@ router.post('/', async (req, res) => {
 
     await prisma.$executeRaw`
       INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'prè', ${pre.id}, ${`Dekèsman ${numeroPre}`}, ${userId})
+      VALUES (${tenantId}, ${Number(montant)}, 'pre', ${pre.id}, ${`Dekèsman ${numeroPre}`}, ${userId})
     `
 
-    // Retounen prè + echeans
     const echCreye = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${pre.id} ORDER BY numero
     `
@@ -396,32 +422,24 @@ router.post('/', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /pre/:id  — Prè ak echeans + enterè kouru ajou
+// GET /pre/:id
 // ═══════════════════════════════════════════════════════════════
 router.get('/:id', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     const pre = await prisma.pre.findFirst({
-      where: { id: req.params.id, tenantId },
+      where:   { id: req.params.id, tenantId },
       include: { paiements: { orderBy: { createdAt: 'desc' } } },
     })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
 
-    // Mete ajou enterè kouru anvan retounen
     await majInteretKouru(tenantId)
 
-    // Jwenn echeans ajou
     const echeances = await prisma.$queryRaw`
-      SELECT * FROM pre_echeances
-      WHERE pre_id = ${req.params.id}
-      ORDER BY numero
+      SELECT * FROM pre_echeances WHERE pre_id = ${req.params.id} ORDER BY numero
     `
-
-    // Kalkile total enterè kouru aktyèl
-    const interetKouruTotal = echeances.reduce((s, e) =>
-      s + Number(e.interet_kouru || 0), 0
-    )
-    const totalDuAjou = Number(pre.totalDu) + interetKouruTotal - Number(pre.totalPaye)
+    const interetKouruTotal = echeances.reduce((s, e) => s + Number(e.interet_kouru || 0), 0)
+    const totalDuAjou       = Number(pre.totalDu) + interetKouruTotal - Number(pre.totalPaye)
 
     return res.json({ pre: { ...pre, interetKouruTotal, totalDuAjou: Math.max(0, totalDuAjou) }, echeances })
   } catch (err) {
@@ -431,33 +449,41 @@ router.get('/:id', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// POST /pre/:id/paieman  — Peman avèk alokasyon declining balance
+// POST /pre/:id/paiement  — V6
+// FIX 1: prePaiement.create → $executeRaw  (evite schema mismatch)
+// FIX 2: nouvoStatut — verifye TOUT echeans ki rete, pa sèlman echeancesMise
+// FIX 3: dat_paye nan $executeRaw — pa pase string nan ::date si null
 // ═══════════════════════════════════════════════════════════════
 router.post('/:id/paiement', async (req, res) => {
+  const LP = `[PAIEMENT ${req.params.id}]`
   try {
     const { tenantId, userId } = getTB(req)
-    const { id } = req.params
+    const { id }               = req.params
     const { montant, method, reference, notes } = req.body
 
-    if (await isKesFemen(tenantId, userId))
+    console.log(`${LP} S1 — debut. montant=${montant} userId=${userId}`)
+
+    if (await isKesFermen(tenantId, userId))
       return res.status(403).json({ message: 'Kès ou fèmen jodi a.' })
-    if (!montant || montant <= 0)
+    if (!montant || Number(montant) <= 0)
       return res.status(400).json({ message: 'Montan peman dwe > 0.' })
 
+    console.log(`${LP} S2 — jwenn prè`)
     const pre = await prisma.pre.findFirst({ where: { id, tenantId } })
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'     })
     if (pre.statut === 'cloture') return res.status(400).json({ message: 'Prè deja klotire.' })
     if (pre.statut === 'annule')  return res.status(400).json({ message: 'Prè sa anile.'     })
 
-    // Mete ajou enterè kouru anvan
+    console.log(`${LP} S3 — majInteretKouru`)
     await majInteretKouru(tenantId)
 
-    // Jwenn echeans ki poko peye
+    console.log(`${LP} S4 — jwenn echeans`)
     const echeancesRaw = await prisma.$queryRaw`
       SELECT * FROM pre_echeances
       WHERE pre_id = ${id} AND statut != 'paye'
       ORDER BY numero
     `
+    console.log(`${LP} S4 OK — ${echeancesRaw.length} echeans`)
 
     const echeances = echeancesRaw.map(e => ({
       id:             e.id,
@@ -468,60 +494,106 @@ router.post('/:id/paiement', async (req, res) => {
       montantTotal:   Number(e.montant_total),
       balansAvant:    Number(e.balans_avant),
       balansApre:     Number(e.balans_apre),
-      montantPaye:    Number(e.montant_paye || 0),
+      montantPaye:    Number(e.montant_paye  || 0),
       statut:         e.statut,
       interetKouru:   Number(e.interet_kouru || 0),
-      jouReta:        Number(e.jou_reta || 0),
+      jouReta:        Number(e.jou_reta      || 0),
     }))
 
-    // Aloke peman — itilize taux reyèl (0 pou bous_soleil pa pwoblèm)
-    const { echeancesMise } = alokePaiement(
-      echeances, Number(montant), Number(pre.tauxInteret || 0), new Date()
-    )
+    const tauxNum = Number(pre.tauxInteret || 0)
+    console.log(`${LP} S5 — alokePaiement taux=${tauxNum}`)
+    const engineResult  = alokePaiement(echeances, Number(montant), tauxNum, new Date())
+    const echeancesMise = engineResult?.echeancesMise ?? []
+    console.log(`${LP} S5 OK — ${echeancesMise.length} echeans aloke`)
 
-    // Nouvo totalPaye
-    const nouvoTotalPaye = Number(pre.totalPaye) + Number(montant)
-    const resteAPayer    = echeances.reduce((s, e) =>
-      s + e.montantTotal + e.interetKouru - e.montantPaye, 0
-    ) - Number(montant)
+    const montan         = Number(montant)
+    const nouvoTotalPaye = Number(pre.totalPaye) + montan
+
+    // nouvoStatut — FIX V6:
+    // Konbine echeans ki PA t touche + echeans ki fèk mize pou kalkile rès total
+    const idsMise = new Set(echeancesMise.map(e => String(e.id)))
+    const echFinal = [
+      ...echeancesRaw
+        .filter(e => !idsMise.has(String(e.id)))
+        .map(e => ({
+          montantTotal: Number(e.montant_total),
+          montantPaye:  Number(e.montant_paye  || 0),
+          interetKouru: Number(e.interet_kouru || 0),
+          statut:       e.statut,
+        })),
+      ...echeancesMise.map(e => ({
+        montantTotal: Number(e.montantTotal),
+        montantPaye:  Number(e.montantPaye  || 0),
+        interetKouru: Number(e.interetKouru || 0),
+        statut:       e.statut,
+      })),
+    ]
+    const totalReste = echFinal.reduce(
+      (s, e) => s + Math.max(0, e.montantTotal + e.interetKouru - e.montantPaye), 0
+    )
+    const genReta = echFinal.some(e => e.statut === 'reta' && e.montantTotal > e.montantPaye)
 
     let nouvoStatut = 'actif'
-    if (resteAPayer <= 0.01) nouvoStatut = 'cloture'
-    else if (echeances.some(e => e.statut === 'reta')) nouvoStatut = 'reta'
+    if (totalReste <= 0.01)  nouvoStatut = 'cloture'
+    else if (genReta)        nouvoStatut = 'reta'
 
-    const interetKouruTotalCalc = echeances.reduce((s, e) => s + Number(e.interetKouru || 0), 0)
+    const interetKouruTotalCalc = echeances.reduce((s, e) => s + e.interetKouru, 0)
 
-    // Atomik: peman + update echeans + update prè
+    console.log(`${LP} S6 — tranzaksyon DB. statut=${nouvoStatut} reste=${totalReste.toFixed(2)}`)
+
     await prisma.$transaction(async (tx) => {
-      // Anrejistre peman
-      await tx.prePaiement.create({
-        data: {
-          tenantId, preId: id,
-          montant:      Number(montant),
-          balanceAvant: Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye)),
-          balanceApre:  Math.max(0, resteAPayer),
-          method:       method    || 'cash',
-          reference:    reference || null,
-          notes:        notes     || null,
-          createdBy:    userId,
-        },
-      })
 
-      // Update chak echeans aloke
+      // 6a — Peman via $executeRaw (evite champ schema mismatch nan prePaiement)
+      await tx.$executeRaw`
+        INSERT INTO pre_paiements
+          (tenant_id, pre_id, montant, balance_avant, balance_apre,
+           method, reference, notes, created_by, created_at)
+        VALUES (
+          ${tenantId}, ${id}, ${montan},
+          ${Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye))},
+          ${Math.max(0, totalReste)},
+          ${method    || 'cash'},
+          ${reference || null},
+          ${notes     || null},
+          ${userId},
+          NOW()
+        )
+      `
+
+      // 6b — Update chak echeans
       for (const e of echeancesMise) {
-        await tx.$executeRaw`
-          UPDATE pre_echeances SET
-            montant_paye   = ${e.montantPaye},
-            statut         = ${e.statut},
-            dat_paye       = ${e.datPaye ? e.datPaye : null},
-            interet_kouru  = ${e.interetKouru},
-            jou_reta       = ${e.jouReta},
-            updated_at     = NOW()
-          WHERE id = ${e.id}
-        `
+        const datPayeStr = e.datPaye
+          ? (e.datPaye instanceof Date
+              ? e.datPaye.toISOString().split('T')[0]
+              : String(e.datPaye).split('T')[0])
+          : null
+
+        if (datPayeStr) {
+          await tx.$executeRaw`
+            UPDATE pre_echeances SET
+              montant_paye  = ${Number(e.montantPaye  || 0)},
+              statut        = ${e.statut},
+              dat_paye      = ${datPayeStr}::date,
+              interet_kouru = ${Number(e.interetKouru || 0)},
+              jou_reta      = ${Number(e.jouReta      || 0)},
+              updated_at    = NOW()
+            WHERE id = ${e.id}
+          `
+        } else {
+          await tx.$executeRaw`
+            UPDATE pre_echeances SET
+              montant_paye  = ${Number(e.montantPaye  || 0)},
+              statut        = ${e.statut},
+              dat_paye      = NULL,
+              interet_kouru = ${Number(e.interetKouru || 0)},
+              jou_reta      = ${Number(e.jouReta      || 0)},
+              updated_at    = NOW()
+            WHERE id = ${e.id}
+          `
+        }
       }
 
-      // Update prè — san interetKouruTotal pou evite erè schema
+      // 6c — Update prè (champs de baz)
       await tx.$executeRaw`
         UPDATE prets SET
           total_paye = ${nouvoTotalPaye},
@@ -530,40 +602,53 @@ router.post('/:id/paiement', async (req, res) => {
         WHERE id = ${id}
       `
 
-      // Mete ajou interetKouruTotal si kolòn nan egziste
+      // 6d — Kolòn opsyonèl (skip si pa egziste)
       try {
         await tx.$executeRaw`
-          UPDATE prets SET interet_kouru_total = ${interetKouruTotalCalc}
+          UPDATE prets SET
+            interet_kouru_total = ${interetKouruTotalCalc},
+            total_du_ajou       = ${Math.max(0, totalReste)}
           WHERE id = ${id}
         `
-      } catch { /* silans si kolòn pa egziste */ }
+      } catch (_) {
+        console.warn(`${LP} S6d skip — interet_kouru_total/total_du_ajou pa nan schema`)
+      }
     })
 
-    // Retounen prè + echeans ajou
-    await prisma.$executeRaw`
-      INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'retou', ${id}, ${`Peman ${pre.numeroPre}`}, ${userId})
-    `
+    console.log(`${LP} S6 OK — tranzaksyon reyisi`)
+
+    // 7 — Retou kapital (pa bloke repons si echè)
+    try {
+      await prisma.$executeRaw`
+        INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
+        VALUES (${tenantId}, ${montan}, 'retou', ${id}, ${`Peman ${pre.numeroPre}`}, ${userId})
+      `
+      console.log(`${LP} S7 OK`)
+    } catch (kapErr) {
+      console.warn(`${LP} S7 SKIP — pre_kapital 'retou':`, kapErr?.message)
+    }
 
     const preAjou = await prisma.pre.findUnique({ where: { id } })
-    const echAjou = await prisma.$queryRaw`SELECT * FROM pre_echeances WHERE pre_id=${id} ORDER BY numero`
+    const echAjou = await prisma.$queryRaw`SELECT * FROM pre_echeances WHERE pre_id = ${id} ORDER BY numero`
 
+    console.log(`${LP} DONE`)
     return res.json({ pre: preAjou, echeances: echAjou })
+
   } catch (err) {
-    console.error('[PRE POST /:id/paiement]', err)
-    return res.status(500).json({ message: 'Erè sèvè.' })
+    console.error(`${LP} ECHEK:`, err?.message || err)
+    console.error(`${LP} STACK:`, err?.stack)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
   }
 })
 
 // ═══════════════════════════════════════════════════════════════
-// GET /pre/:id/echeances  — Echeans ajou pou yon prè
+// GET /pre/:id/echeances
 // ═══════════════════════════════════════════════════════════════
 router.get('/:id/echeances', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
-
     await majInteretKouru(tenantId)
     const echeances = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${req.params.id} ORDER BY numero
@@ -589,10 +674,3 @@ router.post('/:id/cloture', async (req, res) => {
 })
 
 module.exports = router
-
-// NOTE: Ajoute nan schema.prisma model Pre, apre "notes String?":
-// avalize1Nom    String?  @map("avalize1_nom")   @db.VarChar(200)
-// avalize1Phone  String?  @map("avalize1_phone") @db.VarChar(50)
-// avalize2Nom    String?  @map("avalize2_nom")   @db.VarChar(200)
-// avalize2Phone  String?  @map("avalize2_phone") @db.VarChar(50)
-// garantiByens   String?  @map("garanti_byens")
