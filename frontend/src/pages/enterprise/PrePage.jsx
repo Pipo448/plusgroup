@@ -247,8 +247,39 @@ function genHtmlResi({ pre, echeances = [], tenant, type = 'ouverture', paiement
         <div style="border-top:1px solid #ccc;margin-top:4px;padding-top:4px;display:flex;justify-content:space-between">
           <b>Total dwe:</b><b style="color:#dc2626">${fmt(pre.totalDu)} HTG</b>
         </div>
-        ${type==='paiement'&&paiement ? `<div style="display:flex;justify-content:space-between;margin-top:3px"><span>Peman:</span><b style="color:#16a34a">${fmt(paiement.montant)} HTG</b></div>` : ''}
-        ${type==='paiement'&&paiement ? `<div style="display:flex;justify-content:space-between"><span>Rete:</span><b>${fmt(Number(pre.totalDu)-Number(pre.totalPaye))} HTG</b></div>` : ''}
+        ${type==='paiement' && paiement ? `
+          <div style="border-top:2px solid #16a34a;margin-top:6px;padding-top:6px">
+            <div style="text-align:center;font-weight:900;font-size:${fsBig};color:#16a34a;margin-bottom:4px">✅ PEMAN ANREJISTRE</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>Montan Peye:</span><b style="color:#16a34a;font-size:${fsBig}">${fmt(paiement.montant)} HTG</b></div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:2px"><span>Total Peye:</span><b>${fmt(pre.totalPaye)} HTG</b></div>
+            <div style="display:flex;justify-content:space-between;border-top:1px dashed #ccc;padding-top:3px;margin-top:3px">
+              <span>Rete Dwe:</span>
+              <b style="color:${Math.max(0,Number(pre.totalDu)-Number(pre.totalPaye))<=0?'#16a34a':'#dc2626'}">${fmt(Math.max(0,Number(pre.totalDu)-Number(pre.totalPaye)))} HTG ${Math.max(0,Number(pre.totalDu)-Number(pre.totalPaye))<=0?'✅':''}</b>
+            </div>
+          </div>` : ''}
+        ${(() => {
+          if (type !== 'paiement' || echeances.length === 0) return ''
+          const peye = echeances.filter(e => (e.statut === 'paye' || e.statut === 'partiel') && (e.dat_paye || e.datPaye))
+          if (peye.length === 0) return ''
+          const lignes = peye.map(e => `<tr>
+            <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs}">${e.numero}</td>
+            <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs}">${fmtD(e.dat_paye||e.datPaye)}</td>
+            <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs};text-align:right">${fmt(e.montant_total||e.montantTotal)}</td>
+            <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs};text-align:center;color:${e.statut==='paye'?'#16a34a':'#d97706'};font-weight:700">${e.statut==='paye'?'✅':'½'}</td>
+          </tr>`).join('')
+          return `<div style="border-top:1px dashed #aaa;margin:6px 0;padding-top:5px">
+            <div style="font-weight:800;font-size:${fs};margin-bottom:4px;text-align:center">DAT PEMAN TCHEKE</div>
+            <table style="width:100%;border-collapse:collapse">
+              <thead><tr style="background:#f5f5f5">
+                <th style="padding:2px 3px;font-size:${fs};text-align:left">#</th>
+                <th style="padding:2px 3px;font-size:${fs};text-align:left">Dat Peye</th>
+                <th style="padding:2px 3px;font-size:${fs};text-align:right">Montan</th>
+                <th style="padding:2px 3px;font-size:${fs};text-align:center">Estat</th>
+              </tr></thead>
+              <tbody>${lignes}</tbody>
+            </table>
+          </div>`
+        })()}
       </div>
 
       ${echeancierHtml}
@@ -1041,7 +1072,11 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
       toast.success(`✅ Peman ${fmt(amt)} HTG anrejistre!`)
       qc.invalidateQueries(['pre-echeances', pre.id])
       onSuccess()
-      try { printer.printPre({ pre: { ...pre, totalPaye: Number(pre.totalPaye) + amt }, paiement: { montant: amt }, tenant, type: 'paiement' }) } catch {}
+      try {
+      const preAjou   = res.data?.pre || { ...pre, totalPaye: Number(pre.totalPaye) + amt }
+      const echPeye   = (res.data?.echeances || []).filter(e => e.statut === 'paye' || e.statut === 'partiel')
+      printer.printPre({ pre: preAjou, paiement: { montant: amt }, echeances: echPeye, tenant, type: 'paiement' })
+    } catch(err) { console.warn('Print:', err) }
       onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè peman.'),
