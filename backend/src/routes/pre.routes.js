@@ -566,23 +566,20 @@ router.post('/:id/paiement', async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
 
-      // 6a — Peman via $executeRaw (evite champ schema mismatch nan prePaiement)
-      // FIX: kaste method → "PaymentMethod" enum (PostgreSQL pa aksepte text dirèk)
-      await tx.$executeRaw`
-        INSERT INTO pre_paiements
-          (tenant_id, pre_id, montant, balance_avant, balance_apre,
-           method, reference, notes, created_by, created_at)
-        VALUES (
-          ${tenantId}, ${id}, ${montan},
-          ${Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye))},
-          ${Math.max(0, totalReste)},
-          ${method || 'cash'}::"PaymentMethod",
-          ${reference || null},
-          ${notes     || null},
-          ${userId},
-          NOW()
-        )
-      `
+      // 6a — Peman via Prisma ORM (schema konfime — Prisma jere PaymentMethod enum otomatikman)
+      await tx.prePaiement.create({
+        data: {
+          tenantId,
+          preId:        id,
+          montant:      montan,
+          balanceAvant: Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye)),
+          balanceApre:  Math.max(0, totalReste),
+          method:       (method || 'cash'),
+          reference:    reference || null,
+          notes:        notes     || null,
+          createdBy:    userId,
+        },
+      })
 
       // 6b — Update chak echeans
       for (const e of echeancesMise) {
@@ -617,11 +614,11 @@ router.post('/:id/paiement', async (req, res) => {
         }
       }
 
-      // 6c — Update prè (champs de baz)
+      // 6c — Update prè — FIX: kaste statut → "PreStatut" enum
       await tx.$executeRaw`
         UPDATE prets SET
           total_paye = ${nouvoTotalPaye},
-          statut     = ${nouvoStatut},
+          statut     = ${nouvoStatut}::"PreStatut",
           updated_at = NOW()
         WHERE id = ${id}
       `
