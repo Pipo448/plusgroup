@@ -216,7 +216,7 @@ router.get('/', async (req, res) => {
     }
     const whereClause = conditions.join(' AND ')
 
-    const [prets, countResult] = await Promise.all([
+    const [pretsRaw, countResult] = await Promise.all([
       prisma.$queryRawUnsafe(`
         SELECT
           p.id, p.numero_pre, p.client_nom, p.client_phone,
@@ -233,6 +233,29 @@ router.get('/', async (req, res) => {
       `),
       prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM prets p WHERE ${whereClause}`),
     ])
+
+    // Map snake_case → camelCase pou frontend la ka jwenn numeroPre, clientNom, etc.
+    const prets = pretsRaw.map(p => ({
+      id:                 p.id,
+      numeroPre:          p.numero_pre,
+      clientNom:          p.client_nom,
+      clientPhone:        p.client_phone,
+      montant:            p.montant,
+      tauxInteret:        p.taux_interet,
+      dureeEnMois:        p.duree_en_mois,
+      totalDu:            p.total_du,
+      totalPaye:          p.total_paye,
+      montantBloke:       p.montant_bloke,
+      datDebut:           p.dat_debut,
+      datFin:             p.dat_fin,
+      periode:            p.periode,
+      statut:             p.statut,
+      createdAt:          p.created_at,
+      branchId:           p.branch_id,
+      kontKaneEpayId:     p.kont_kane_epay_id,
+      interetKouruTotal:  Number(p.interet_kouru_total || 0),
+      totalDuAjou:        Number(p.total_du_ajou       || 0),
+    }))
 
     return res.json({
       prets,
@@ -544,6 +567,7 @@ router.post('/:id/paiement', async (req, res) => {
     await prisma.$transaction(async (tx) => {
 
       // 6a — Peman via $executeRaw (evite champ schema mismatch nan prePaiement)
+      // FIX: kaste method → "PaymentMethod" enum (PostgreSQL pa aksepte text dirèk)
       await tx.$executeRaw`
         INSERT INTO pre_paiements
           (tenant_id, pre_id, montant, balance_avant, balance_apre,
@@ -552,7 +576,7 @@ router.post('/:id/paiement', async (req, res) => {
           ${tenantId}, ${id}, ${montan},
           ${Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye))},
           ${Math.max(0, totalReste)},
-          ${method    || 'cash'},
+          ${method || 'cash'}::"PaymentMethod",
           ${reference || null},
           ${notes     || null},
           ${userId},
