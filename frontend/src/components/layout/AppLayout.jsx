@@ -9,7 +9,7 @@ import {
   GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
-  DollarSign, ChevronUp,
+  DollarSign, ChevronUp, BookOpen,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -55,15 +55,15 @@ const NAV = [
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
 ]
 
-// ─── Mikwo Kredi gen 2 sub-items: Epay + Prè ─────────────────
+// ─── Mikwo Kredi: Kanè Epay + Prè + Gid ─────────────────────
 const MIKWO_KREDI_ITEMS = [
-  { to:'/app/kane-epay', icon:Wallet,      label:'Kanè Epay', pageKey:'kane-epay' },
-  { to:'/app/pre',       icon:DollarSign,  label:'Prè',       pageKey:'pre'       },
+  { to:'/app/kane-epay',       icon:Wallet,     label:'Kanè Epay', pageKey:'kane-epay' },
+  { to:'/app/pre',             icon:DollarSign, label:'Prè',       pageKey:'pre'       },
+  { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        }, // null = toujou aksesib
 ]
 
 const ENTERPRISE_ITEMS = [
   { to:'/app/kane',     icon:CreditCard, label:'Ti Kanè Kès',      pageKey:'kane'      },
-  // Mikwo Kredi jere separe anba (avèk sub-items)
   { to:'/app/sabotay',  icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
   { to:'/app/mobilpay', icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
 ]
@@ -150,9 +150,10 @@ export default function AppLayout() {
   const [branches, setBranches]         = useState([])
   const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
 
-  // ✅ Mikwo Kredi collapse — ouvri otomatik si nou sou /app/kane-epay oswa /app/pre
+  // ✅ Mikwo Kredi — ouvri otomatik si nou sou nenpòt sou-paj Mikwo Kredi
   const isMikwoActive = location.pathname.startsWith('/app/kane-epay') ||
-                        location.pathname.startsWith('/app/pre')
+                        location.pathname.startsWith('/app/pre') ||
+                        location.pathname.startsWith('/app/mikwo-kredi-gid')
   const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
 
   const langRef   = useRef(null)
@@ -168,18 +169,9 @@ export default function AppLayout() {
     deviceName,
   } = usePrinterStore()
 
-  const onAndroid = useMemo(() => isAndroid(), [])
-  const onSunmi   = useMemo(() => isSunmi(),   [])
-
-  const hasBluetooth = useMemo(
-    () => typeof navigator !== 'undefined' && !!navigator.bluetooth,
-    []
-  )
-
-  const currentLang = useMemo(
-    () => LANGS.find(l => l.code === i18n.language) || LANGS[0],
-    [i18n.language]
-  )
+  const onSunmi      = useMemo(() => isSunmi(), [])
+  const hasBluetooth = useMemo(() => typeof navigator !== 'undefined' && !!navigator.bluetooth, [])
+  const currentLang  = useMemo(() => LANGS.find(l => l.code === i18n.language) || LANGS[0], [i18n.language])
 
   const isAdmin = useMemo(
     () => user?.role === 'admin' || user?.isAdmin === true,
@@ -188,29 +180,22 @@ export default function AppLayout() {
 
   const isEnterprise = useMemo(() => {
     const planName = tenant?.plan?.name || ''
-    return ['antepriz', 'antrepriz', 'entreprise', 'enterprise']
-      .includes(planName.toLowerCase().trim())
+    return ['antepriz', 'antrepriz', 'entreprise', 'enterprise'].includes(planName.toLowerCase().trim())
   }, [tenant?.plan?.name])
 
   const planName = tenant?.plan?.name || ''
 
+  // pageKey=null → toujou aksesib (Gid)
   const isPageAllowed = useCallback((pageKey) => {
+    if (pageKey === null || pageKey === undefined) return true
     const ap = tenant?.allowedPages
     if (!ap || typeof ap !== 'object') return true
     if (ap[pageKey] === false) return false
     return true
   }, [tenant?.allowedPages])
 
-  const currentBranchId = useMemo(
-    () => localStorage.getItem('plusgroup-branch-id'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
-  const currentBranchName = useMemo(
-    () => localStorage.getItem('plusgroup-branch-name'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  )
+  const currentBranchId   = useMemo(() => localStorage.getItem('plusgroup-branch-id'),   []) // eslint-disable-line
+  const currentBranchName = useMemo(() => localStorage.getItem('plusgroup-branch-name'), []) // eslint-disable-line
 
   useEffect(() => {
     const branchId = localStorage.getItem('plusgroup-branch-id')
@@ -233,24 +218,19 @@ export default function AppLayout() {
         }
       })
       .catch(err => {
-        if (err.response?.status === 401) {
-          logout()
-          navigate('/login', { replace: true })
-        }
+        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
       })
   }, [token]) // eslint-disable-line
 
   useEffect(() => {
     if (!isAdmin || !token) return
-    branchAPI.getAll()
-      .then(r => setBranches(r.data?.branches || []))
-      .catch(() => {})
+    branchAPI.getAll().then(r => setBranches(r.data?.branches || [])).catch(() => {})
   }, [isAdmin, token])
 
   useEffect(() => {
     const onDoc = (e) => {
       if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
-      if (langRef.current && !langRef.current.contains(e.target)) setShowLang(false)
+      if (langRef.current   && !langRef.current.contains(e.target))   setShowLang(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -268,23 +248,20 @@ export default function AppLayout() {
   }, [open, isDesktop])
 
   // Ouvri Mikwo Kredi otomatikman lè route chanje
-  useEffect(() => {
-    if (isMikwoActive) setMikwoOpen(true)
-  }, [isMikwoActive])
+  useEffect(() => { if (isMikwoActive) setMikwoOpen(true) }, [isMikwoActive])
+
+  // ✅ Fèmen sidebar sou mobil otomatikman lè route chanje
+  useEffect(() => { if (!isDesktop) setOpen(false) }, [location.pathname, isDesktop])
 
   const handleLogout = useCallback(() => {
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
-    logout()
-    toast.success('Ou dekonekte.')
-    navigate('/login')
+    logout(); toast.success('Ou dekonekte.'); navigate('/login')
   }, [logout, navigate])
 
   const changeLanguage = useCallback((code) => {
-    i18n.changeLanguage(code)
-    localStorage.setItem('plusgroup-lang', code)
-    setShowLang(false)
+    i18n.changeLanguage(code); localStorage.setItem('plusgroup-lang', code); setShowLang(false)
   }, [i18n])
 
   const handleSwitchBranch = useCallback((branch) => {
@@ -293,17 +270,14 @@ export default function AppLayout() {
     localStorage.setItem('plusgroup-branch-id', branch.id)
     localStorage.setItem('plusgroup-branch-name', branch.name)
     api.defaults.headers.common['X-Branch-Id'] = branch.id
-    setShowBranches(false)
-    toast.success(`Branch: ${branch.name}`)
+    setShowBranches(false); toast.success(`Branch: ${branch.name}`)
     window.location.href = '/app/dashboard'
   }, [currentBranchId])
 
   const handleClearBranch = useCallback(() => {
-    localStorage.removeItem('plusgroup-branch-id')
-    localStorage.removeItem('plusgroup-branch-name')
+    localStorage.removeItem('plusgroup-branch-id'); localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
-    setShowBranches(false)
-    toast.success('Wè tout branch yo')
+    setShowBranches(false); toast.success('Wè tout branch yo')
     window.location.href = '/app/dashboard'
   }, [])
 
@@ -330,7 +304,7 @@ export default function AppLayout() {
     position:      isDesktop ? 'relative' : 'fixed',
     inset:         isDesktop ? 'auto' : '0 auto 0 0',
     zIndex:        40,
-    width:         248,
+    width:         isDesktop ? 248 : 'min(248px, 85vw)', // ✅ responsive mobil
     minHeight:     '100vh',
     background:    `linear-gradient(170deg, ${C.sidebarTop} 0%, ${C.sidebarBg} 50%, #1a1f35 100%)`,
     display:       'flex',
@@ -346,24 +320,14 @@ export default function AppLayout() {
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
 
       {open && !isDesktop && (
-        <div onClick={() => setOpen(false)} style={{
-          position:'fixed', inset:0, zIndex:35,
-          background:'rgba(0,0,0,0.7)',
-        }}/>
+        <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:35, background:'rgba(0,0,0,0.7)' }}/>
       )}
 
       <aside style={sidebarStyle}>
-        <div style={{
-          height: 3, flexShrink: 0,
-          background: `linear-gradient(90deg, #b34200 0%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 100%)`,
-        }}/>
+        <div style={{ height:3, flexShrink:0, background:`linear-gradient(90deg, #b34200 0%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 100%)` }}/>
 
         {!isDesktop && (
-          <button onClick={() => setOpen(false)} style={{
-            position:'absolute', top:12, right:12, zIndex:50,
-            background:'rgba(255,255,255,0.07)', border:`1px solid ${C.border}`,
-            borderRadius:8, padding:6, cursor:'pointer', color:C.muted, display:'flex',
-          }}>
+          <button onClick={() => setOpen(false)} style={{ position:'absolute', top:12, right:12, zIndex:50, background:'rgba(255,255,255,0.07)', border:`1px solid ${C.border}`, borderRadius:8, padding:6, cursor:'pointer', color:C.muted, display:'flex' }}>
             <X size={16}/>
           </button>
         )}
@@ -372,64 +336,37 @@ export default function AppLayout() {
         <div style={{ padding:'18px 16px 14px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
-              ? <img src={tenantLogoUrl} alt="logo" style={{
-                  width:44, height:44, borderRadius:12, objectFit:'contain',
-                  background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0,
-                  boxShadow:`0 0 0 2px ${C.goldBorder}`,
-                }}/>
-              : <div style={{
-                  width:44, height:44, borderRadius:12, flexShrink:0,
-                  background:`linear-gradient(135deg, ${C.gold}, ${C.goldLt})`,
-                  display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:20, fontWeight:900, color:'#fff',
-                }}>
+              ? <img src={tenantLogoUrl} alt="logo" style={{ width:44, height:44, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0, boxShadow:`0 0 0 2px ${C.goldBorder}` }}/>
+              : <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg, ${C.gold}, ${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff' }}>
                   {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </div>
             }
-
             <div style={{ minWidth:0, flex:1 }}>
               <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                 {tenant?.name || 'PLUS GROUP'}
               </p>
               {currentBranchName
-                ? <p style={{ color:C.green, fontSize:10, fontWeight:700, letterSpacing:'0.07em', margin:'3px 0 0', textTransform:'uppercase' }}>
-                    📍 {currentBranchName}
-                  </p>
-                : <p style={{ color:C.gold, fontSize:10, fontWeight:700, letterSpacing:'0.09em', margin:'3px 0 0', textTransform:'uppercase' }}>
-                    Innov@tion &amp; Tech
-                  </p>
+                ? <p style={{ color:C.green, fontSize:10, fontWeight:700, letterSpacing:'0.07em', margin:'3px 0 0', textTransform:'uppercase' }}>📍 {currentBranchName}</p>
+                : <p style={{ color:C.gold, fontSize:10, fontWeight:700, letterSpacing:'0.09em', margin:'3px 0 0', textTransform:'uppercase' }}>Innov@tion &amp; Tech</p>
               }
             </div>
 
             {isAdmin && branches.length > 0 && (
               <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
-                <button
-                  onClick={() => setShowBranches(!showBranches)}
-                  title="Chanje branch"
-                  style={{
-                    background: showBranches ? `rgba(245,104,12,0.18)` : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`,
-                    borderRadius:8, padding:'5px 7px', cursor:'pointer',
-                    display:'flex', alignItems:'center', gap:3,
-                  }}
-                >
+                <button onClick={() => setShowBranches(!showBranches)} title="Chanje branch"
+                  style={{ background: showBranches ? `rgba(245,104,12,0.18)` : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)', border:`1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`, borderRadius:8, padding:'5px 7px', cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
                   <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }}/>
-                  <ChevronDown size={11} style={{
-                    color: showBranches ? C.gold : currentBranchId ? C.green : C.muted,
-                    transform: showBranches ? 'rotate(180deg)' : 'none',
-                    transition: 'transform 0.2s',
-                  }}/>
+                  <ChevronDown size={11} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted, transform: showBranches ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
                 </button>
 
                 {showBranches && (
-                  <div style={{ position:'fixed', top:70, left:252, minWidth:220, zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
+                  // ✅ Pozisyon dropdown korije pou mobil
+                  <div style={{ position:'fixed', top:70, left: isDesktop ? 252 : 16, minWidth:220, maxWidth:'calc(100vw - 32px)', zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
                     <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
                       <GitBranch size={12} style={{ color:C.gold }}/>
                       <span style={{ color:C.gold, fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Chanje Branch</span>
                     </div>
-
-                    <button onClick={handleClearBranch}
-                      style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
+                    <button onClick={handleClearBranch} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
                       <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold }}/>
                       <div style={{ flex:1, textAlign:'left' }}>
                         <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
@@ -437,7 +374,6 @@ export default function AppLayout() {
                       </div>
                       {!currentBranchId && <span style={{ fontSize:10, color:C.gold, fontWeight:700, flexShrink:0 }}>✓</span>}
                     </button>
-
                     {branches.map(branch => {
                       const isCurrent = branch.id === currentBranchId
                       return (
@@ -448,16 +384,12 @@ export default function AppLayout() {
                             <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
                             <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
                           </div>
-                          {isCurrent
-                            ? <span style={{ fontSize:10, color:C.green, fontWeight:700, flexShrink:0 }}>✓</span>
-                            : !branch.isActive
-                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
-                              : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }}/>
-                          }
+                          {isCurrent ? <span style={{ fontSize:10, color:C.green, fontWeight:700, flexShrink:0 }}>✓</span>
+                            : !branch.isActive ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
+                            : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }}/>}
                         </button>
                       )
                     })}
-
                     <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
                       style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.10)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
                       <GitBranch size={11}/> Jere Branch yo →
@@ -468,20 +400,14 @@ export default function AppLayout() {
             )}
           </div>
 
-          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)', border: `1px solid ${isEnterprise ? C.entBorder : C.border}` }}>
-            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : C.muted, fontWeight:700 }}>
-              {planName || 'Free'}
-            </span>
-            {!isEnterprise && (
-              <NavLink to="/app/plans" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>
-                Upgrade →
-              </NavLink>
-            )}
+          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)', border:`1px solid ${isEnterprise ? C.entBorder : C.border}` }}>
+            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : C.muted, fontWeight:700 }}>{planName || 'Free'}</span>
+            {!isEnterprise && <NavLink to="/app/plans" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>Upgrade →</NavLink>}
           </div>
         </div>
 
         {/* ── NAV ── */}
-        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none' }}>
+        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none', WebkitOverflowScrolling:'touch' }}>
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
           </p>
@@ -490,31 +416,20 @@ export default function AppLayout() {
             const locked = !isPageAllowed(pageKey)
             return (
               <NavLink key={to} to={locked ? '#' : to}
-                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
-                style={({ isActive }) => ({
-                  ...navLinkStyle(locked ? false : isActive),
-                  opacity: locked ? 0.4 : 1,
-                  cursor:  locked ? 'not-allowed' : 'pointer',
-                })}>
+                onClick={(e) => { if (locked) { e.preventDefault(); return } }}
+                style={({ isActive }) => ({ ...navLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
                 {({ isActive }) => (<>
                   <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.mutedMd }}/>
                   <span style={{ flex:1 }}>{t(labelKey)}</span>
-                  {locked
-                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>
-                  }
+                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
             )
           })}
 
           {isAdmin && isPageAllowed('branches') && (
-            <NavLink to="/app/branches" onClick={() => setOpen(false)}
-              style={({ isActive }) => ({
-                ...navLinkStyle(isActive),
-                background: isActive ? C.entDim : 'transparent',
-                borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
-              })}>
+            <NavLink to="/app/branches"
+              style={({ isActive }) => ({ ...navLinkStyle(isActive), background: isActive ? C.entDim : 'transparent', borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent' })}>
               {({ isActive }) => (<>
                 <GitBranch size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
                 <span style={{ flex:1 }}>{t('nav.branches') || 'Branches'}</span>
@@ -533,91 +448,66 @@ export default function AppLayout() {
 
           {/* Ti Kanè Kès */}
           <NavLink to={!isPageAllowed('kane') ? '#' : '/app/kane'}
-            onClick={(e) => { if (!isPageAllowed('kane')) { e.preventDefault(); return } setOpen(false) }}
-            style={({ isActive }) => ({
-              ...enterpriseLinkStyle(!isPageAllowed('kane') ? false : isActive),
-              opacity: !isPageAllowed('kane') ? 0.4 : 1,
-              cursor:  !isPageAllowed('kane') ? 'not-allowed' : 'pointer',
-            })}>
+            onClick={(e) => { if (!isPageAllowed('kane')) e.preventDefault() }}
+            style={({ isActive }) => ({ ...enterpriseLinkStyle(!isPageAllowed('kane') ? false : isActive), opacity: !isPageAllowed('kane') ? 0.4 : 1, cursor: !isPageAllowed('kane') ? 'not-allowed' : 'pointer' })}>
             {({ isActive }) => (<>
               <CreditCard size={15} style={{ flexShrink:0, color: !isPageAllowed('kane') ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
               <span style={{ flex:1 }}>Ti Kanè Kès</span>
-              {!isPageAllowed('kane')
-                ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
-              }
+              {!isPageAllowed('kane') ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
             </>)}
           </NavLink>
 
-          {/* ── MIKWO KREDI — bouton collapse avèk sub-items ── */}
+          {/* ── MIKWO KREDI — collapse ── */}
           {(() => {
             const kaneAllowed = isPageAllowed('kane-epay')
             const preAllowed  = isPageAllowed('pre')
-            const anyAllowed  = kaneAllowed || preAllowed
-            const locked      = !anyAllowed
+            const locked      = !kaneAllowed && !preAllowed
 
             return (
               <div>
-                {/* Bouton prensipal Mikwo Kredi */}
-                <button
-                  onClick={() => { if (!locked) setMikwoOpen(v => !v) }}
-                  style={{
-                    width: '100%',
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-                    background: isMikwoActive ? C.entDim : 'transparent',
-                    color: isMikwoActive ? '#ffffff' : C.muted,
-                    borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
-                    fontWeight: isMikwoActive ? 700 : 500,
-                    fontSize: 13,
-                    border: 'none',
-                    cursor: locked ? 'not-allowed' : 'pointer',
-                    opacity: locked ? 0.4 : 1,
-                    textAlign: 'left',
-                  }}
-                >
+                <button onClick={() => { if (!locked) setMikwoOpen(v => !v) }}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, background: isMikwoActive ? C.entDim : 'transparent', color: isMikwoActive ? '#ffffff' : C.muted, borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent', fontWeight: isMikwoActive ? 700 : 500, fontSize:13, border:'none', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, textAlign:'left' }}>
                   <Wallet size={15} style={{ flexShrink:0, color: locked ? '#475569' : isMikwoActive ? C.enterprise : C.mutedMd }}/>
                   <span style={{ flex:1 }}>Mikwo Kredi</span>
-                  {locked
-                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : mikwoOpen
-                      ? <ChevronUp   size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
-                      : <ChevronDown size={13} style={{ color:C.muted,      flexShrink:0 }}/>
-                  }
+                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                    : mikwoOpen ? <ChevronUp size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
+                    : <ChevronDown size={13} style={{ color:C.muted, flexShrink:0 }}/>}
                 </button>
 
-                {/* Sub-items — Kanè Epay + Prè */}
+                {/* Sub-items: Kanè Epay + Prè + Gid */}
                 {mikwoOpen && !locked && (
-                  <div style={{
-                    marginLeft: 14,
-                    paddingLeft: 12,
-                    borderLeft: `2px solid rgba(201,168,76,0.25)`,
-                    marginBottom: 4,
-                  }}>
+                  <div style={{ marginLeft:14, paddingLeft:12, borderLeft:`2px solid rgba(201,168,76,0.25)`, marginBottom:4 }}>
                     {MIKWO_KREDI_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
+                      // pageKey=null → Gid, toujou aksesib
                       const subLocked = !isPageAllowed(pageKey)
+                      const isGid     = to === '/app/mikwo-kredi-gid'
+
                       return (
                         <NavLink key={to} to={subLocked ? '#' : to}
-                          onClick={(e) => { if (subLocked) { e.preventDefault(); return } setOpen(false) }}
+                          onClick={(e) => { if (subLocked) e.preventDefault() }}
                           style={({ isActive }) => ({
-                            display: 'flex', alignItems: 'center', gap: 9,
-                            padding: '8px 12px', borderRadius: 9, marginBottom: 2,
-                            textDecoration: 'none',
-                            background: (!subLocked && isActive) ? `rgba(201,168,76,0.12)` : 'transparent',
-                            color: (!subLocked && isActive) ? '#ffffff' : C.muted,
-                            borderLeft: (!subLocked && isActive) ? `2px solid ${C.enterprise}` : '2px solid transparent',
+                            display:'flex', alignItems:'center', gap:9,
+                            padding:'8px 12px', borderRadius:9, marginBottom:2,
+                            textDecoration:'none',
+                            background: (!subLocked && isActive)
+                              ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)')
+                              : 'transparent',
+                            color: (!subLocked && isActive) ? '#ffffff'
+                              : isGid ? 'rgba(147,187,239,0.65)'
+                              : C.muted,
+                            borderLeft: (!subLocked && isActive)
+                              ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}`
+                              : '2px solid transparent',
                             fontWeight: (!subLocked && isActive) ? 700 : 400,
                             fontSize: 12,
                             opacity: subLocked ? 0.4 : 1,
-                            cursor:  subLocked ? 'not-allowed' : 'pointer',
+                            cursor: subLocked ? 'not-allowed' : 'pointer',
                           })}>
                           {({ isActive }) => (<>
-                            <Icon size={13} style={{ flexShrink:0, color: subLocked ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
+                            <Icon size={13} style={{ flexShrink:0, color: subLocked ? '#475569' : isActive ? (isGid ? '#3B82F6' : C.enterprise) : isGid ? 'rgba(147,187,239,0.5)' : C.mutedMd }}/>
                             <span style={{ flex:1 }}>{label}</span>
-                            {subLocked
-                              ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
-                              : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
-                            }
+                            {subLocked ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
+                              : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
                           </>)}
                         </NavLink>
                       )
@@ -633,19 +523,12 @@ export default function AppLayout() {
             const locked = !isPageAllowed(pageKey)
             return (
               <NavLink key={to} to={locked ? '#' : to}
-                onClick={(e) => { if (locked) { e.preventDefault(); return } setOpen(false) }}
-                style={({ isActive }) => ({
-                  ...enterpriseLinkStyle(locked ? false : isActive),
-                  opacity: locked ? 0.4 : 1,
-                  cursor:  locked ? 'not-allowed' : 'pointer',
-                })}>
+                onClick={(e) => { if (locked) e.preventDefault() }}
+                style={({ isActive }) => ({ ...enterpriseLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
                 {({ isActive }) => (<>
                   <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
                   <span style={{ flex:1 }}>{label}</span>
-                  {locked
-                    ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>
-                  }
+                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
             )
@@ -662,19 +545,12 @@ export default function AppLayout() {
                 </div>
                 {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
                   <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
-                    onClick={(e) => { if (hotelLocked) { e.preventDefault(); return } setOpen(false) }}
-                    style={({ isActive }) => ({
-                      ...hotelLinkStyle(hotelLocked ? false : isActive),
-                      opacity: hotelLocked ? 0.4 : 1,
-                      cursor:  hotelLocked ? 'not-allowed' : 'pointer',
-                    })}>
+                    onClick={(e) => { if (hotelLocked) e.preventDefault() }}
+                    style={({ isActive }) => ({ ...hotelLinkStyle(hotelLocked ? false : isActive), opacity: hotelLocked ? 0.4 : 1, cursor: hotelLocked ? 'not-allowed' : 'pointer' })}>
                     {({ isActive }) => (<>
                       <Icon size={15} style={{ flexShrink:0, color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd }}/>
                       <span style={{ flex:1 }}>{label}</span>
-                      {hotelLocked
-                        ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                        : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>
-                      }
+                      {hotelLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>}
                     </>)}
                   </NavLink>
                 ))}
@@ -692,26 +568,12 @@ export default function AppLayout() {
                   <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
                 </div>
                 <NavLink to={dryLocked ? '#' : '/app/dry'}
-                  onClick={(e) => { if (dryLocked) { e.preventDefault(); return } setOpen(false) }}
-                  style={({ isActive }) => ({
-                    display:'flex', alignItems:'center', gap:10,
-                    padding:'9px 14px', borderRadius:10, marginBottom:3,
-                    textDecoration:'none',
-                    background: (!dryLocked && isActive) ? C.dryDim : 'transparent',
-                    color: (!dryLocked && isActive) ? '#ffffff' : C.muted,
-                    borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent',
-                    fontWeight: (!dryLocked && isActive) ? 700 : 500,
-                    fontSize:13,
-                    opacity: dryLocked ? 0.4 : 1,
-                    cursor: dryLocked ? 'not-allowed' : 'pointer',
-                  })}>
+                  onClick={(e) => { if (dryLocked) e.preventDefault() }}
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!dryLocked && isActive) ? C.dryDim : 'transparent', color: (!dryLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent', fontWeight: (!dryLocked && isActive) ? 700 : 500, fontSize:13, opacity: dryLocked ? 0.4 : 1, cursor: dryLocked ? 'not-allowed' : 'pointer' })}>
                   {({ isActive }) => (<>
                     <Scissors size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
                     <span style={{ flex:1 }}>Jestyon Prese</span>
-                    {dryLocked
-                      ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                      : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>
-                    }
+                    {dryLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
               </>
@@ -722,15 +584,8 @@ export default function AppLayout() {
 
         {/* ── SETTINGS + USER ── */}
         <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
-          <NavLink to="/app/settings" onClick={() => setOpen(false)}
-            style={({ isActive }) => ({
-              display:'flex', alignItems:'center', gap:10,
-              padding:'9px 14px', borderRadius:10, marginBottom:8, textDecoration:'none',
-              background: isActive ? `rgba(245,104,12,0.12)` : 'transparent',
-              color: isActive ? '#fff' : C.muted,
-              borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
-              fontSize:13, fontWeight: isActive ? 700 : 500,
-            })}>
+          <NavLink to="/app/settings"
+            style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:8, textDecoration:'none', background: isActive ? `rgba(245,104,12,0.12)` : 'transparent', color: isActive ? '#fff' : C.muted, borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent', fontSize:13, fontWeight: isActive ? 700 : 500 })}>
             {({ isActive }) => (<>
               <Settings size={15} style={{ color: isActive ? C.gold : C.mutedMd, flexShrink:0 }}/>
               <span>{t('nav.settings')}</span>
@@ -742,12 +597,8 @@ export default function AppLayout() {
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ color:'#fff', fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {user?.fullName}
-              </p>
-              <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>
-                {ROLE_LABELS[user?.role] || user?.role}
-              </p>
+              <p style={{ color:'#fff', fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.fullName}</p>
+              <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>{ROLE_LABELS[user?.role] || user?.role}</p>
             </div>
             <button onClick={handleLogout} title="Dekonekte" style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, borderRadius:6, display:'flex' }}>
               <LogOut size={15}/>
@@ -761,14 +612,7 @@ export default function AppLayout() {
       ══════════════════════════════════════════════ */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
 
-        <header style={{
-          minHeight:58, background:'#fff',
-          borderBottom:`1px solid rgba(245,104,12,0.15)`,
-          boxShadow:'0 1px 8px rgba(0,0,0,0.06)',
-          display:'flex', alignItems:'center', gap:6,
-          padding:'0 12px', flexShrink:0, position:'relative', zIndex:10,
-          flexWrap:'wrap',
-        }}>
+        <header style={{ minHeight:58, background:'#fff', borderBottom:`1px solid rgba(245,104,12,0.15)`, boxShadow:'0 1px 8px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:6, padding:'0 12px', flexShrink:0, position:'relative', zIndex:10, flexWrap:'wrap' }}>
           <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,#C0392B 20%,${C.gold} 50%,#C0392B 80%,transparent)` }}/>
 
           {!isDesktop && (
@@ -843,7 +687,8 @@ export default function AppLayout() {
           <NotificationBell lang={i18n.language}/>
         </header>
 
-        <main style={{ flex:1, overflowY:'auto' }}>
+        {/* ✅ WebkitOverflowScrolling pou smooth scroll sou iOS */}
+        <main style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
           <div style={{ padding:'16px', paddingBottom:46 }}><Outlet /></div>
         </main>
       </div>

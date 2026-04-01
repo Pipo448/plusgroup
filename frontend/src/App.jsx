@@ -32,6 +32,7 @@ const KaneEpayPage      = lazy(() => import('./pages/enterprise/KaneEpayPage'))
 const PrePage           = lazy(() => import('./pages/enterprise/PrePage'))
 const SabotayPage       = lazy(() => import('./pages/enterprise/SabotayPage'))
 const MobilPayPage      = lazy(() => import('./pages/enterprise/MobilPayPage'))
+const MikwoKrediGuide   = lazy(() => import('./pages/enterprise/MikwoKrediGuide'))
 const SolDashboardPage  = lazy(() => import('./pages/sol/SolDashboardPage'))
 const HotelDashboard    = lazy(() => import('./pages/hotel/HotelDashboard'))
 const ReservationsPage  = lazy(() => import('./pages/hotel/ReservationsPage'))
@@ -125,6 +126,8 @@ export default function App() {
             <Route path="pre"              element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
             <Route path="sabotay"          element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
             <Route path="mobilpay"         element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
+            {/* ✅ Gid Mikwo Kredi — aksesib pou tout moun ki konekte */}
+            <Route path="mikwo-kredi-gid"  element={<MikwoKrediGuide />} />
             <Route path="hotel"                  element={<ProtectedPage pageKey="hotel"><HotelDashboard /></ProtectedPage>} />
             <Route path="hotel/reservations"     element={<ProtectedPage pageKey="hotel"><ReservationsPage /></ProtectedPage>} />
             <Route path="hotel/reservations/new" element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
