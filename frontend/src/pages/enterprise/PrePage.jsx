@@ -1231,37 +1231,225 @@ function ModalKapital({ onClose, onSuccess }) {
 // MODAL: FEMEN KÈS
 // ═══════════════════════════════════════════════════════════════
 function ModalRapoKesye({ onClose, onKesFemen }) {
-  const [rapo, setRapo] = useState(null)
-  const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(false)
+  const qc = useQueryClient()
+  const [etap,         setEtap]         = useState(1)   // 1=rezime, 2=konfimasyon
+  const [notes,        setNotes]        = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [rapo,         setRapo]         = useState(null)
+  const [montantFizik, setMontantFizik] = useState('')
+  const [kaneStats,    setKaneStats]    = useState(null)
+ 
+  // Chaje stats Kane Epay pou rezime konplè
+  useEffect(() => {
+    api.get('/kane-epay/stats').then(r => setKaneStats(r.data.stats)).catch(() => {})
+  }, [])
+ 
+  // ── Totals ──────────────────────────────────────────────────
+  // Kane Epay jodi a
+  const depoJou  = Number(kaneStats?.todayDepositAmount  || 0)
+  const retrèJou = Number(kaneStats?.todayWithdrawAmount || 0)
+  // Prè mwa a (disponib depi statsData nan PrePage via endpoint /pre/stats)
+  // Nou pa gen aksè dirèk — modal la pral fetch l
+ 
+  const [preStats, setPreStats] = useState(null)
+  useEffect(() => {
+    api.get('/pre/stats').then(r => setPreStats(r.data.stats)).catch(() => {})
+  }, [])
+ 
+  const kolPre = Number(preStats?.totalPaiemanMwa || 0)
+  const desPre = Number(preStats?.totalDesèmanMwa || 0)
+ 
+  // Kalkil cash flow sistèm
+  const totalCashIn  = depoJou + kolPre     // Depo Kane + Koleksyon Prè
+  const totalCashOut = retrèJou + desPre    // Retrè Kane + Dekèsman Prè
+  const netSystem    = totalCashIn - totalCashOut
+ 
+  const montFizikNum = Number(montantFizik || 0)
+  const diferans     = montFizikNum - netSystem
+  const hasMontant   = montFizikNum > 0
+ 
+  // Koulè diferans
+  const difColor = Math.abs(diferans) < 0.01 ? D.green : diferans > 0 ? D.orange : D.red
+  const difLabel = Math.abs(diferans) < 0.01
+    ? '✅ Balans kòrèkt — pa gen diferans'
+    : diferans > 0
+      ? `📈 ${fmt(diferans)} HTG anplis nan kès la`
+      : `📉 ${fmt(Math.abs(diferans))} HTG mank nan kès la`
+ 
   const handleFemen = async () => {
+    if (!hasMontant) return
     setLoading(true)
-    try { const res = await preAPI.femenKes({ notes: notes || undefined }); setRapo(res.data.rapo); toast.success('✅ Kès fèmen!'); onKesFemen() }
-    catch (e) { toast.error(e.response?.data?.message || 'Erè fèmen kès.') }
-    finally { setLoading(false) }
+    try {
+      const notesFinale = [
+        notes || '',
+        `Montan fizik: ${fmt(montFizikNum)} HTG`,
+        `Nèt sistèm: ${fmt(netSystem)} HTG`,
+        `Diferans: ${diferans >= 0 ? '+' : ''}${fmt(diferans)} HTG`,
+      ].filter(Boolean).join(' | ')
+ 
+      const res = await preAPI.femenKes({ notes: notesFinale })
+      setRapo(res.data.rapo)
+      toast.success('✅ Kès fèmen!')
+      // Invalide cache pou tou 2 paj yo detekte chanjman
+      qc.invalidateQueries(['kes-status'])
+      onKesFemen()
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Erè fèmen kès.')
+    } finally { setLoading(false) }
   }
+ 
+  const debiJou = new Date(); debiJou.setHours(0,0,0,0)
+ 
   return (
-    <Modal onClose={onClose} title="📊 Fèmen Kès" width={440}>
+    <Modal onClose={onClose} title={`📊 Fèmen Kès${etap === 2 ? ' — Etap 2/2' : ' — Rezime'}`} width={500}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {!rapo ? (
+ 
+        {/* ══ ETAP 1: REZIME ══ */}
+        {etap === 1 && !rapo && (
           <>
             <div style={{ background: `${D.orange}10`, border: `1px solid ${D.orange}25`, borderRadius: 10, padding: '10px 14px' }}>
-              <p style={{ fontSize: 12, color: D.orange, margin: 0 }}>⚠️ Apre ou fèmen kès la, ou p ap ka fè okenn tranzaksyon jiskaske demen.</p>
+              <p style={{ fontSize: 12, color: D.orange, margin: 0 }}>
+                ⚠️ Fèmen kès la ap <strong>bloke tou 2 paj yo</strong> (Kanè Epay + Mikwo Kredi) jiskaske demen.
+              </p>
             </div>
+ 
+            {/* Rezime Kane Epay */}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                💳 Kanè Epay — Jodi a
+              </p>
+              {kaneStats ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { label: 'Total Depo',  val: `${fmt(depoJou)} HTG`,                          color: D.green  },
+                    { label: 'Total Retrè', val: `${fmt(retrèJou)} HTG`,                         color: D.red    },
+                    { label: 'Nouvo Kont',  val: `${kaneStats?.todayNewAccounts || 0}`,           color: D.gold   },
+                    { label: 'Tranzaksyon', val: `${kaneStats?.todayTransactions || 0}`,          color: D.blue   },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
+                      <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
+                      <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: item.color, margin: 0 }}>{item.val}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', color: D.muted, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span style={{ width: 14, height: 14, border: `2px solid ${D.gold}30`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                  Ap chaje stats Kanè...
+                </div>
+              )}
+            </div>
+ 
+            {/* Rezime Prè */}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                💸 Mikwo Kredi — Mwa a
+              </p>
+              {preStats ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { label: 'Dekèsman',  val: `${fmt(desPre)} HTG`,            color: D.orange },
+                    { label: 'Koleksyon', val: `${fmt(kolPre)} HTG`,            color: D.green  },
+                    { label: 'Prè Aktif', val: `${preStats?.pretsActifs || 0}`, color: D.blue   },
+                    { label: 'An Reta',   val: `${preStats?.totalEnReta || 0}`, color: D.red    },
+                  ].map(item => (
+                    <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
+                      <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
+                      <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: item.color, margin: 0 }}>{item.val}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ textAlign: 'center', color: D.muted, padding: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <span style={{ width: 14, height: 14, border: `2px solid ${D.gold}30`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
+                  Ap chaje stats Prè...
+                </div>
+              )}
+            </div>
+ 
+            {/* Notes */}
             <div>
               <label style={labelStyle}>Nòt (opsyonèl)</label>
-              <textarea className="ke-input" style={{ ...inputStyle, height: 60, resize: 'vertical' }}
-                value={notes} onChange={e => setNotes(e.target.value)} placeholder="Obsèvasyon, pwoblèm..." />
+              <textarea className="ke-input" style={{ ...inputStyle, height: 52, resize: 'vertical' }}
+                value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Obsèvasyon jounen an..." />
             </div>
+ 
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>Anile</button>
-              <button className="ke-btn" onClick={handleFemen} disabled={loading}
-                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.orange},${D.orange}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                {loading ? <><Spinner /> Ap jenere...</> : <><FileText size={15} /> Fèmen Kès</>}
+              <button className="ke-btn" onClick={() => setEtap(2)}
+                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg,${D.orange},${D.orange}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                <FileText size={15} /> Kontinye → Konfimasyon
               </button>
             </div>
           </>
-        ) : (
+        )}
+ 
+        {/* ══ ETAP 2: MONTAN FIZIK + KONFIMASYON ══ */}
+        {etap === 2 && !rapo && (
+          <>
+            <div style={{ background: `${D.red}10`, border: `1px solid ${D.red}30`, borderRadius: 10, padding: '10px 14px' }}>
+              <p style={{ fontSize: 12, color: D.red, margin: 0, fontWeight: 700 }}>
+                🔒 Etap final — aksyon sa a <strong>p ap ka defèt</strong>. Tou 2 paj yo ap fèmen.
+              </p>
+            </div>
+ 
+            {/* Nèt sistèm */}
+            <div>
+              <label style={labelStyle}>Nèt Sistèm (Kalkile Otomatikman)</label>
+              <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '12px 14px', border: `1px solid ${D.cardBorder}`, fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ color: D.muted }}>Lajan Rantre (Depo + Koleksyon Prè):</span>
+                  <span style={{ color: D.green, fontFamily: 'monospace', fontWeight: 700 }}>+{fmt(totalCashIn)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ color: D.muted }}>Lajan Soti (Retrè + Dekèsman Prè):</span>
+                  <span style={{ color: D.red, fontFamily: 'monospace', fontWeight: 700 }}>−{fmt(totalCashOut)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${D.cardBorder}`, paddingTop: 8 }}>
+                  <span style={{ fontWeight: 800, color: D.text }}>Nèt Sistèm:</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 15, color: D.gold }}>{fmt(netSystem)} HTG</span>
+                </div>
+              </div>
+            </div>
+ 
+            {/* Input montan fizik */}
+            <div>
+              <label style={{ ...labelStyle, color: D.blue }}>Montan Lajan Fizik nan Kès (HTG) *</label>
+              <input type="number" min="0" step="0.01" className="ke-input"
+                style={{ ...inputStyle, fontSize: 24, fontWeight: 800, textAlign: 'center', color: D.blue, borderColor: `${D.blue}50` }}
+                value={montantFizik} onChange={e => setMontantFizik(e.target.value)}
+                placeholder="0.00" onFocus={e => e.target.select()} autoFocus />
+              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>Konte tout lajan fizik ki nan kès la epi antre montan an</p>
+            </div>
+ 
+            {/* Diferans */}
+            {hasMontant && (
+              <div style={{ background: `${difColor}12`, borderRadius: 10, padding: '12px 14px', border: `1px solid ${difColor}35` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: difColor }}>Diferans:</span>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: difColor }}>
+                    {diferans >= 0 ? '+' : ''}{fmt(diferans)} HTG
+                  </span>
+                </div>
+                <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{difLabel}</p>
+              </div>
+            )}
+ 
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="ke-btn" onClick={() => setEtap(1)} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>← Retou</button>
+              <button className="ke-btn" onClick={handleFemen} disabled={loading || !hasMontant}
+                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: loading || !hasMontant ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.red},#a00)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: loading || !hasMontant ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                {loading
+                  ? <><span style={{ width: 14, height: 14, border: '2px solid #fff4', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} /> Ap fèmen...</>
+                  : <><Lock size={15} /> Fèmen Kès Definitiv</>}
+              </button>
+            </div>
+          </>
+        )}
+ 
+        {/* ══ KONFIRMASYON ══ */}
+        {rapo && (
           <>
             <div style={{ background: D.greenBg, border: `1px solid ${D.green}30`, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
               <CheckCircle size={28} style={{ color: D.green, margin: '0 auto 8px', display: 'block' }} />
@@ -1270,19 +1458,22 @@ function ModalRapoKesye({ onClose, onKesFemen }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               {[
-                { label: 'Prè Kreye', val: rapo.totalPreKreye,               color: D.gold,   suffix: 'prè' },
-                { label: 'Dekèsman',  val: `${fmt(rapo.montantDeseman)} HTG`, color: D.orange, suffix: '' },
-                { label: 'Koleksyon', val: `${fmt(rapo.totalKoleksyon)} HTG`, color: D.green,  suffix: '' },
-                { label: 'Enterè',    val: `${fmt(rapo.totalEntere)} HTG`,    color: D.purple, suffix: '' },
+                { label: 'Prè Kreye',   val: `${rapo.totalPreKreye} prè`,       color: D.gold   },
+                { label: 'Koleksyon',   val: `${fmt(rapo.totalKoleksyon)} HTG`,  color: D.green  },
+                { label: 'Depo Kane',   val: `${fmt(depoJou)} HTG`,             color: D.blue   },
+                { label: 'Retrè Kane',  val: `${fmt(retrèJou)} HTG`,            color: D.red    },
+                { label: 'Lajan Fizik', val: `${fmt(montFizikNum)} HTG`,        color: D.purple },
+                { label: 'Diferans',    val: `${diferans >= 0 ? '+' : ''}${fmt(diferans)} HTG`, color: difColor },
               ].map(item => (
                 <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
                   <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
-                  <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: item.color, margin: 0 }}>{item.val} {item.suffix}</p>
+                  <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color: item.color, margin: 0 }}>{item.val}</p>
                 </div>
               ))}
             </div>
-            <button className="ke-btn" onClick={onClose}
-              style={{ padding: '13px', borderRadius: 12, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>Fèmen</button>
+            <button className="ke-btn" onClick={onClose} style={{ padding: '13px', borderRadius: 12, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+              Fèmen
+            </button>
           </>
         )}
       </div>
@@ -1501,7 +1692,6 @@ export default function PrePage() {
   const [modal,           setModal]           = useState(null)
   const [selPre,          setSelPre]          = useState(null)
   const [filterStatut,    setFilterStatut]    = useState(null)
-  const [kesFemen,        setKesFemen]        = useState(false)
   const searchTimeout = useRef(null)
 
   useEffect(() => {
@@ -1511,9 +1701,16 @@ export default function PrePage() {
     return () => document.head.removeChild(el)
   }, [])
 
-  useEffect(() => {
-    preAPI.checkKesFemen().then(r => setKesFemen(r.data.kesFemen === true)).catch(() => {})
-  }, [])
+  // ── kesFemen via useQuery — menm cache key 'kes-status' ak KaneEpayPage
+  // → Si KaneEpayPage fèmen kès, PrePage ap detekte l nan mwens 30s (ak refetchOnWindowFocus)
+  const { data: kesData } = useQuery({
+    queryKey:            ['kes-status'],
+    queryFn:             () => preAPI.checkKesFemen().then(r => r.data),
+    refetchInterval:     30000,
+    staleTime:           0,
+    refetchOnWindowFocus: true,
+  })
+  const kesFemen = kesData?.kesFermen === true
 
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['pre-stats'],
@@ -1674,9 +1871,9 @@ export default function PrePage() {
           <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{total} prè • paj {page}/{totalPages}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {prets.map(pre => {
-              const resteAPayer    = Number(pre.totalDu || 0) - Number(pre.totalPaye || 0)
-              const pctPaye        = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
-              const cfg            = STATUTS[pre.statut] || STATUTS.attente
+              const resteAPayer     = Number(pre.totalDu || 0) - Number(pre.totalPaye || 0)
+              const pctPaye         = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye) / Number(pre.totalDu)) * 100, 100) : 0
+              const cfg             = STATUTS[pre.statut] || STATUTS.attente
               const interetKouruPre = Number(pre.interetKouruTotal || 0)
 
               return (
@@ -1763,7 +1960,7 @@ export default function PrePage() {
       {/* Modals */}
       {modal === 'create'  && <ModalCreePre   onClose={() => setModal(null)} onSuccess={refresh} printer={printer} kesFemen={kesFemen} />}
       {modal === 'kapital' && <ModalKapital   onClose={() => setModal(null)} onSuccess={refresh} />}
-      {modal === 'rapo'    && <ModalRapoKesye onClose={() => setModal(null)} onKesFemen={() => setKesFemen(true)} />}
+      {modal === 'rapo'    && <ModalRapoKesye onClose={() => setModal(null)} onKesFemen={() => qc.invalidateQueries(['kes-status'])} />}
       {modal === 'detail'  && selPre && <ModalDetailPre preId={selPre.id} onClose={() => setModal(null)} onPaieman={() => setModal('paieman')} printer={printer} />}
       {modal === 'paieman' && selPre && <ModalPaieman   pre={selPre} onClose={() => setModal(null)} onSuccess={refresh} printer={printer} kesFemen={kesFemen} />}
     </div>
