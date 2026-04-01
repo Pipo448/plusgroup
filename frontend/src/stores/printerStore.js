@@ -255,7 +255,7 @@ function buildPreHtml(pre, echeances, tenant, type, paiement, largeur) {
   const PERIODES = { jounal:'Chak Jou', semaine:'Semèn', biweekly:'2 Semèn', mois:'Mwa', trimestre:'Trimès' }
   const w = largeur === 57 ? '57mm' : '80mm'
  
-  let echHtml = ''
+let echHtml = ''
   if (type === 'ouverture' && echeances.length > 0) {
     const lignes = echeances.map(e => `
       <tr>
@@ -282,6 +282,31 @@ function buildPreHtml(pre, echeances, tenant, type, paiement, largeur) {
           </tr></tfoot>
         </table>
       </div>`
+  }
+
+  // ── Dat Peman Tcheke (paiement sèlman) ─────────────────
+  let peyeHtml = ''
+  if (type === 'paiement' && echeances.length > 0) {
+    const peye = echeances.filter(e => (e.statut === 'paye' || e.statut === 'partiel') && (e.dat_paye || e.datPaye))
+    if (peye.length > 0) {
+      const lignes = peye.map(e => `
+        <tr>
+          <td>${e.numero}</td>
+          <td>${fmtD(e.dat_paye || e.datPaye)}</td>
+          <td style="text-align:right">${fmt(e.montant_total || e.montantTotal)}</td>
+          <td style="text-align:center;color:${e.statut==='paye'?'green':'orange'};font-weight:bold">${e.statut==='paye'?'OK':'1/2'}</td>
+        </tr>`).join('')
+      peyeHtml = `
+        <div style="border-top:1px dashed #000;margin:6px 0;padding-top:4px">
+          <div style="font-weight:bold;text-align:center;margin-bottom:4px">DAT PEMAN TCHEKE</div>
+          <table style="width:100%;border-collapse:collapse;font-size:9px">
+            <thead><tr style="border-bottom:1px solid #000">
+              <th>#</th><th>Dat Peye</th><th style="text-align:right">Montan</th><th style="text-align:center">Estat</th>
+            </tr></thead>
+            <tbody>${lignes}</tbody>
+          </table>
+        </div>`
+    }
   }
  
   const siyatiLine = (label, nom = '') => `
@@ -320,12 +345,25 @@ function buildPreHtml(pre, echeances, tenant, type, paiement, largeur) {
           <span>TOTAL DWE:</span><span style="color:#dc2626">${fmt(pre.totalDu)} G</span>
         </div>
       </div>
-      ${type === 'paiement' && paiement ? `
-        <div style="font-size:9px;padding:3px 0">
-          <div style="display:flex;justify-content:space-between;font-weight:bold"><span>PEMAN:</span><span style="color:green">+${fmt(paiement.montant)} G</span></div>
-          <div style="display:flex;justify-content:space-between"><span>Rete:</span><span>${fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0)))} G</span></div>
+     ${type === 'paiement' && paiement ? `
+        <div style="border-top:2px solid green;margin-top:5px;padding-top:5px;font-size:9px">
+          <div style="text-align:center;font-weight:bold;font-size:12px;color:green;margin-bottom:3px">✅ PEMAN ANREJISTRE</div>
+          <div style="display:flex;justify-content:space-between;font-weight:bold">
+            <span>Montan Peye:</span><span style="color:green;font-size:12px">+${fmt(paiement.montant)} G</span>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span>Total Peye:</span><span>${fmt(pre.totalPaye || 0)} G</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;border-top:1px dashed #000;margin-top:3px;padding-top:3px">
+            <span>Rete Dwe:</span>
+            <span style="color:${Math.max(0,Number(pre.totalDu)-Number(pre.totalPaye||0))<=0?'green':'red'};font-weight:bold">
+              ${fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0)))} G
+            </span>
+          </div>
           ${paiement.method ? `<div>Metod: ${paiement.method}</div>` : ''}
+          ${paiement.reference ? `<div>Ref: ${paiement.reference}</div>` : ''}
         </div>` : ''}
+      ${peyeHtml}
       ${echHtml}
       ${type === 'ouverture' ? `
         <div style="border-top:1px solid #000;margin-top:8px;padding-top:5px">
