@@ -16,6 +16,7 @@ import {
 import {
   connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt
 } from '../../services/printerService'
+import { UserBadge } from './kaneShared.jsx'
 
 // ─── API wrapper ─────────────────────────────────────────────
 const kaneAPI = {
@@ -954,6 +955,7 @@ export default function KaneEpayPage() {
           <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Kont depo ak retrè</p>
         </div>
         <div className="ke-header-right">
+          <UserBadge />
           <button className="ke-btn" onClick={() => { refresh(); refetchStats() }} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.cardBorder}`, background: D.card, color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <RefreshCw size={14} />
           </button>

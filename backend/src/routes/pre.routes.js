@@ -40,11 +40,42 @@ async function genereNumeroPre(tenantId) {
 }
 
 async function getKapitalDisponib(tenantId) {
-  const [enj, pre] = await Promise.all([
-    prisma.$queryRaw`SELECT COALESCE(SUM(montant),0) as total FROM pre_kapital WHERE tenant_id=${tenantId} AND type='enjeksyon'`,
-    prisma.$queryRaw`SELECT COALESCE(SUM(montant),0) as total FROM prets WHERE tenant_id=${tenantId} AND statut IN ('actif','reta','attente')`,
+  const [enjeksyon, preDekès, preRetou, kaneRetre, kaneDep] = await Promise.all([
+    // Kapital enjekte pa admin chak jou
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(montant),0) AS total
+      FROM pre_kapital
+      WHERE tenant_id = ${tenantId} AND type = 'enjeksyon'`,
+    // Lajan ki soti — dekèsman prè
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(montant),0) AS total
+      FROM pre_kapital
+      WHERE tenant_id = ${tenantId} AND type = 'pre'`,
+    // Lajan ki antre — ranbousman prè
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(montant),0) AS total
+      FROM pre_kapital
+      WHERE tenant_id = ${tenantId} AND type = 'retou'`,
+    // Lajan ki soti — retrè Kane Epay
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(amount),0) AS total
+      FROM kane_transactions
+      WHERE tenant_id = ${tenantId} AND type = 'retrait'`,
+    // Lajan ki antre — depo + ouverture Kane Epay
+    prisma.$queryRaw`
+      SELECT COALESCE(SUM(amount),0) AS total
+      FROM kane_transactions
+      WHERE tenant_id = ${tenantId} AND type IN ('depot', 'ouverture')`,
   ])
-  return Math.max(0, Number(enj[0]?.total || 0) - Number(pre[0]?.total || 0))
+
+  const disponib =
+    Number(enjeksyon[0]?.total || 0)  // ✅ Admin enjekte
+    + Number(preRetou[0]?.total  || 0) // ✅ Kliyan ranbouse prè
+    + Number(kaneDep[0]?.total   || 0) // ✅ Kliyan depoze Kane
+    - Number(preDekès[0]?.total  || 0) // ❌ Prè dekèse
+    - Number(kaneRetre[0]?.total || 0) // ❌ Kliyan retire Kane
+
+  return Math.max(0, disponib)
 }
 
 async function majInteretKouru(tenantId) {

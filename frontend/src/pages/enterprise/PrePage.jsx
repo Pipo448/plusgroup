@@ -13,7 +13,7 @@ import {
   UserPlus, Home, Bluetooth, BluetoothOff,
 } from 'lucide-react'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printPreReceipt } from '../../services/printerService'
-import { D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES } from './kaneShared.jsx'
+import { D, fmt, fmtDate, fmtShort, PAYMENT_METHODS, inputStyle, labelStyle, SHARED_STYLES, UserBadge } from './kaneShared.jsx'
 
 // ─── API ─────────────────────────────────────────────────────
 const preAPI = {
@@ -1758,6 +1758,7 @@ export default function PrePage() {
           <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Jere, suiv ak kolekte prè yo</p>
         </div>
         <div className="ke-header-right">
+          <UserBadge />
           {/* Printer toggle 57/80mm */}
           <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
             {[57, 80].map(mm => (

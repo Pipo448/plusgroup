@@ -5,6 +5,7 @@
 
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { useAuthStore } from '../../stores/authStore'
 
 // ─── Helpers ────────────────────────────────────────────────
 export const fmt = (n) =>
@@ -57,6 +58,63 @@ export const D = {
   label:      'rgba(201,168,76,0.75)',
   input:      '#060f1e',
   shadow:     '0 4px 20px rgba(0,0,0,0.4)',
+}
+
+// ─── Wòl itilizatè ───────────────────────────────────────────
+const ROLE_CFG = {
+  admin:         { label: 'Admin',        color: '#C9A84C' },
+  cashier:       { label: 'Kesye',        color: '#27ae60' },
+  stock_manager: { label: 'Jesyon Estòk', color: '#3B82F6' },
+  viewer:        { label: 'Obsèvatè',     color: '#6b7a99' },
+}
+
+// ─── UserBadge — afiche non + wòl itilizatè ─────────────────
+export function UserBadge() {
+  const { user } = useAuthStore()
+  if (!user) return null
+
+  const cfg = ROLE_CFG[user.role] || { label: user.role || '—', color: '#6b7a99' }
+  const inityal = user.fullName
+    ? user.fullName.trim().split(' ').slice(0, 2).map(w => w[0]?.toUpperCase()).join('')
+    : '?'
+  const prenon = user.fullName?.split(' ')[0] || 'Itilizatè'
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 8,
+      padding: '5px 10px', borderRadius: 10,
+      background: 'rgba(255,255,255,0.05)',
+      border: '1px solid rgba(255,255,255,0.09)',
+      flexShrink: 0,
+    }}>
+      {/* Avatar inisyal */}
+      <div style={{
+        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+        background: `${cfg.color}22`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 11, fontWeight: 800, color: cfg.color,
+      }}>
+        {inityal}
+      </div>
+
+      {/* Non + Wòl */}
+      <div style={{ minWidth: 0 }}>
+        <p style={{
+          fontSize: 12, fontWeight: 700, color: D.text,
+          margin: 0, whiteSpace: 'nowrap',
+          overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 90,
+        }}>
+          {prenon}
+        </p>
+        <p style={{
+          fontSize: 9, color: cfg.color, margin: 0,
+          fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
+        }}>
+          {cfg.label}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 // ─── Shared CSS (append nan KaneEpayPage AK PrePage) ─────────
