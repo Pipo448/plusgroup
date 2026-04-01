@@ -1075,7 +1075,13 @@ function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
       try {
       const preAjou   = res.data?.pre || { ...pre, totalPaye: Number(pre.totalPaye) + amt }
       const echPeye   = (res.data?.echeances || []).filter(e => e.statut === 'paye' || e.statut === 'partiel')
-      printer.printPre({ pre: preAjou, paiement: { montant: amt }, echeances: echPeye, tenant, type: 'paiement' })
+        printer.printPre({
+        pre:       preAjou,
+        paiement:  { montant: amt, method: form.method, reference: form.reference || null },
+        echeances: echPeye,
+        tenant,
+        type: 'paiement',
+      })
     } catch(err) { console.warn('Print:', err) }
       onClose()
     },

@@ -589,9 +589,32 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
       ...CMD.BOLD_ON, ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF, ...CMD.BOLD_OFF,
       ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0))) + ' G', W), LF,
       ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
-      ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
+    ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
       ...CMD.NORMAL_FONT,
     ] : []),
+
+    // ── Dat Echeans Peye (resi paiement) ─────────────────────
+    ...(type === 'paiement' && echeances.length > 0 ? (() => {
+      const peye = echeances.filter(e => e.statut === 'paye' || e.statut === 'partiel')
+      if (peye.length === 0) return []
+      const rows = []
+      rows.push(
+        ...divider('-', W), LF,
+        ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+        ...encodeText('DAT PEMAN TCHEKE\n'),
+        ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
+        ...CMD.SMALL_FONT,
+      )
+      for (const e of peye) {
+        const num  = String(e.numero || '').padEnd(3)
+        const dat  = fmtD(e.dat_paye || e.datPaye || '').substring(0, 10).padEnd(12)
+        const tot  = fmt(e.montant_total || e.montantTotal || 0).padStart(W - 3 - 12 - 3)
+        const stat = e.statut === 'paye' ? ' OK' : ' 1/2'
+        rows.push(...encodeText(num + dat + tot + stat + '\n'))
+      }
+      rows.push(...CMD.NORMAL_FONT)
+      return rows
+    })() : []),
   ]
 
   // ── Kalandriye (sèlman pou ouverture) ───────────────────────
