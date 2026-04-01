@@ -11,6 +11,7 @@ import {
   X, Printer, ChevronLeft, ChevronRight, Users, Wallet,
   TrendingUp, Activity, CreditCard, AlertCircle,
   Bluetooth, BluetoothOff, RefreshCw, UserPlus,
+  Lock, DollarSign, FileText, CheckCircle,
 } from 'lucide-react'
 import {
   connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt
@@ -18,12 +19,14 @@ import {
 
 // ─── API wrapper ─────────────────────────────────────────────
 const kaneAPI = {
-  getStats: ()         => api.get('/kane-epay/stats'),
-  getAll:   (p)        => api.get('/kane-epay', { params: p }),
-  getOne:   (id)       => api.get(`/kane-epay/${id}`),
-  create:   (data)     => api.post('/kane-epay', data),
-  deposit:  (id, data) => api.post(`/kane-epay/${id}/deposit`, data),
-  withdraw: (id, data) => api.post(`/kane-epay/${id}/withdraw`, data),
+  getStats:      ()         => api.get('/kane-epay/stats'),
+  getAll:        (p)        => api.get('/kane-epay', { params: p }),
+  getOne:        (id)       => api.get(`/kane-epay/${id}`),
+  create:        (data)     => api.post('/kane-epay', data),
+  deposit:       (id, data) => api.post(`/kane-epay/${id}/deposit`, data),
+  withdraw:      (id, data) => api.post(`/kane-epay/${id}/withdraw`, data),
+  checkKesFemen: ()         => api.get('/pre/rapo/kes-status'),
+  femenKes:      (data)     => api.post('/pre/rapo/femen-kes', data),
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -256,6 +259,10 @@ const labelStyle = {
   marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.05em',
 }
 
+function Spinner({ size = 14, color = '#fff' }) {
+  return <span style={{ width: size, height: size, border: `2px solid ${color}30`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
+}
+
 function StatCard({ label, value, sub, icon, color, highlight }) {
   return (
     <div style={{
@@ -266,11 +273,7 @@ function StatCard({ label, value, sub, icon, color, highlight }) {
       display: 'flex', alignItems: 'center', gap: 10,
       animation: 'fadeUp 0.3s ease',
     }}>
-      <div style={{
-        width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-        background: `${color}22`, display: 'flex', alignItems: 'center',
-        justifyContent: 'center', color,
-      }}>{icon}</div>
+      <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: D.muted, margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</p>
         <p className="ke-stat-val" style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: highlight ? color : D.text, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
@@ -278,10 +281,6 @@ function StatCard({ label, value, sub, icon, color, highlight }) {
       </div>
     </div>
   )
-}
-
-function Spinner({ size = 14, color = '#fff' }) {
-  return <span style={{ width: size, height: size, border: `2px solid ${color}30`, borderTopColor: color, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block', flexShrink: 0 }} />
 }
 
 function Section({ icon, title, children }) {
@@ -376,8 +375,8 @@ function ModalCreate({ onClose, onSuccess, printer }) {
 
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
   const opening = Number(form.openingAmount || 0)
-  const fee     = Number(form.kaneFee     || 0)
-  const locked  = Number(form.lockedAmount || 0)
+  const fee     = Number(form.kaneFee       || 0)
+  const locked  = Number(form.lockedAmount  || 0)
   const balance = opening - fee - locked
   const balOk   = balance >= 0
 
@@ -561,16 +560,8 @@ function ModalCreate({ onClose, onSuccess, printer }) {
       )}
 
       <div style={{ display: 'flex', gap: 10 }}>
-        <button className="ke-btn" onClick={onClose} style={{
-          flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)',
-          background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-        }}>Anile</button>
-        <button className="ke-btn" onClick={handleSubmit} disabled={mutation.isPending || !balOk} style={{
-          flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer',
-          background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14,
-          opacity: mutation.isPending || !balOk ? 0.6 : 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-        }}>
+        <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>Anile</button>
+        <button className="ke-btn" onClick={handleSubmit} disabled={mutation.isPending || !balOk} style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, opacity: mutation.isPending || !balOk ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
           {mutation.isPending ? <><Spinner color="#0a1222" /> Ap kreye...</> : <><Printer size={15} /> Kreye + Enprime</>}
         </button>
       </div>
@@ -588,11 +579,8 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
   const isW   = type === 'retrait'
   const color = isW ? D.red : D.green
   const bal   = Number(account.balance)
-
-  // ✅ Kalkil rapid — monnen ki ap rete apre tranzaksyon
-  const newBal   = isW ? bal - amt : bal + amt
-  const balOk    = !isW || amt <= bal
-  const isExact  = !isW && amt > 0
+  const newBal = isW ? bal - amt : bal + amt
+  const balOk  = !isW || amt <= bal
 
   const mutation = useMutation({
     mutationFn: (d) => isW ? kaneAPI.withdraw(account.id, d) : kaneAPI.deposit(account.id, d),
@@ -601,9 +589,7 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
       toast.success(`${isW ? 'Retrè' : 'Depo'} ${fmt(transaction.amount)} HTG ✅`)
       onSuccess()
       onClose()
-      try {
-        await printer.print(account, transaction, tenant, type)
-      } catch { /* silans */ }
+      try { await printer.print(account, transaction, tenant, type) } catch { /* silans */ }
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè tranzaksyon.'),
   })
@@ -614,7 +600,6 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
     <Modal onClose={onClose} title={`${isW ? '↑ Retrè' : '↓ Depo'} — ${account.accountNumber}`} width={420}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* Info kont */}
         <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 14px', border: `1px solid ${D.cardBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 800, color: D.text, margin: 0 }}>{account.firstName} {account.lastName}</p>
@@ -623,13 +608,10 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
           <div style={{ textAlign: 'right' }}>
             <p style={{ fontSize: 10, color: D.muted, margin: '0 0 2px' }}>Balans aktyèl</p>
             <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, color: D.green, margin: 0 }}>{fmt(bal)} HTG</p>
-            {Number(account.lockedAmount) > 0 && (
-              <p style={{ fontSize: 10, color: D.orange, margin: '2px 0 0' }}>🔒 {fmt(account.lockedAmount)} bloke</p>
-            )}
+            {Number(account.lockedAmount) > 0 && <p style={{ fontSize: 10, color: D.orange, margin: '2px 0 0' }}>🔒 {fmt(account.lockedAmount)} bloke</p>}
           </div>
         </div>
 
-        {/* Input montan */}
         <div>
           <label style={{ ...labelStyle, color }}>{isW ? 'Montan Retrè' : 'Montan Depo'} (HTG) *</label>
           <input type="number" min="0.01" step="0.01" className="ke-input"
@@ -638,13 +620,8 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
             placeholder="0.00" onFocus={e => e.target.select()} autoFocus />
         </div>
 
-        {/* ✅ Preview nouvo balans */}
         {amt > 0 && (
-          <div style={{
-            background: balOk ? (isW ? D.redBg : D.greenBg) : D.redBg,
-            borderRadius: 10, padding: '12px 14px',
-            border: `1px solid ${balOk ? color + '25' : D.red + '40'}`,
-          }}>
+          <div style={{ background: balOk ? (isW ? D.redBg : D.greenBg) : D.redBg, borderRadius: 10, padding: '12px 14px', border: `1px solid ${balOk ? color + '25' : D.red + '40'}` }}>
             {!balOk ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: D.red }}>
                 <AlertCircle size={14} />
@@ -653,15 +630,12 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
             ) : (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color }}>Nouvo balans:</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 900, color }}>
-                  {fmt(newBal)} HTG
-                </span>
+                <span style={{ fontFamily: 'monospace', fontSize: 17, fontWeight: 900, color }}>{fmt(newBal)} HTG</span>
               </div>
             )}
           </div>
         )}
 
-        {/* Metod + referans */}
         <div className="ke-form-row">
           <div style={{ flex: 1 }}>
             <label style={labelStyle}>Metod</label>
@@ -675,21 +649,12 @@ function ModalTx({ account, type, onClose, onSuccess, printer }) {
           </div>
         </div>
 
-        {/* Bouton */}
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="ke-btn" onClick={onClose} style={{
-            flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)',
-            background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-          }}>Anile</button>
+          <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>Anile</button>
           <button className="ke-btn"
             onClick={() => mutation.mutate({ amount: amt, method: form.method, reference: form.reference || undefined })}
             disabled={disabled}
-            style={{
-              flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
-              background: `linear-gradient(135deg,${color},${color}bb)`,
-              color: '#fff', fontWeight: 800, fontSize: 14, opacity: disabled ? 0.5 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            }}>
+            style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${color},${color}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: disabled ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             {mutation.isPending ? <Spinner /> : isW ? <ArrowUpCircle size={15} /> : <ArrowDownCircle size={15} />}
             {mutation.isPending ? 'Ap trete...' : `Konfime ${isW ? 'Retrè' : 'Depo'}`}
           </button>
@@ -724,7 +689,6 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
     </Modal>
   )
 
-  // ✅ Kalkil rezime kont
   const totalDepo    = account.transactions?.filter(t => t.type === 'depot').reduce((s, t) => s + Number(t.amount), 0) || 0
   const totalRetrait = account.transactions?.filter(t => t.type === 'retrait').reduce((s, t) => s + Number(t.amount), 0) || 0
 
@@ -732,7 +696,6 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
     <Modal onClose={onClose} title={`📋 ${account.accountNumber}`} width={580}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
-        {/* Bannè kont */}
         <div style={{ background: D.goldBtn, borderRadius: 14, padding: '14px 16px', color: '#0a1222', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{account.firstName} {account.lastName}</p>
@@ -748,7 +711,6 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           </div>
         </div>
 
-        {/* ✅ Rezime mouvman */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
           <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.green}20` }}>
             <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>Total Depo</p>
@@ -760,7 +722,6 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           </div>
         </div>
 
-        {/* Foto KYC */}
         {(account.photoUrl || account.idPhotoUrl) && (
           <div style={{ display: 'grid', gridTemplateColumns: account.photoUrl && account.idPhotoUrl ? '1fr 1fr' : '1fr', gap: 10 }}>
             {account.photoUrl   && <div><p style={{ ...labelStyle, marginBottom: 5 }}>Foto Kliyan</p><img src={account.photoUrl}   alt="foto" style={{ width: '100%', height: 90, objectFit: 'cover', borderRadius: 10, border: `1px solid ${D.cardBorder}` }} /></div>}
@@ -768,9 +729,8 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           </div>
         )}
 
-        {/* Aksyon */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="ke-btn" onClick={onDepo} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.green}30`, background: D.greenBg, color: D.green, fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+          <button className="ke-btn" onClick={onDepo}    style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.green}30`, background: D.greenBg, color: D.green, fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
             <ArrowDownCircle size={14} /> Depo
           </button>
           <button className="ke-btn" onClick={onRetrait} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.red}30`, background: D.redBg, color: D.red, fontWeight: 800, fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -782,7 +742,6 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
           </button>
         </div>
 
-        {/* Istwa tranzaksyon */}
         <div>
           <p style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', color: D.muted, margin: '0 0 8px', letterSpacing: '0.06em' }}>
             Istwa ({account.transactions?.length || 0})
@@ -823,6 +782,154 @@ function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODAL: FEMEN KÈS — Kane Epay + Prè kombiné
+// ═══════════════════════════════════════════════════════════════
+function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
+  const [rapo,     setRapo]     = useState(null)
+  const [notes,    setNotes]    = useState('')
+  const [loading,  setLoading]  = useState(false)
+  const [preStats, setPreStats] = useState(null)
+
+  // Chaje stats Prè pou jounen an
+  useEffect(() => {
+    api.get('/pre/stats').then(r => setPreStats(r.data.stats)).catch(() => {})
+  }, [])
+
+  const handleFemen = async () => {
+    setLoading(true)
+    try {
+      const res = await kaneAPI.femenKes({ notes: notes || undefined })
+      setRapo(res.data.rapo)
+      toast.success('✅ Kès fèmen!')
+      onKesFemen()
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Erè fèmen kès.')
+    } finally { setLoading(false) }
+  }
+
+  const depoJou   = Number(statsKane?.todayDepositAmount  || 0)
+  const retrèJou  = Number(statsKane?.todayWithdrawAmount || 0)
+  const nouvoKont = Number(statsKane?.todayNewAccounts    || 0)
+  const txTotal   = Number(statsKane?.todayTransactions   || 0)
+  const netKane   = depoJou - retrèJou
+  const kolPre    = Number(preStats?.totalPaiemanMwa || 0)
+  const desPre    = Number(preStats?.totalDesèmanMwa || 0)
+
+  return (
+    <Modal onClose={onClose} title="📊 Fèmen Kès — Rezime Jounen" width={480}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {!rapo ? (
+          <>
+            {/* ── Avètisman ── */}
+            <div style={{ background: `${D.orange}10`, border: `1px solid ${D.orange}25`, borderRadius: 10, padding: '10px 14px' }}>
+              <p style={{ fontSize: 12, color: D.orange, margin: 0 }}>
+                ⚠️ Apre ou fèmen kès la, ou p ap ka fè okenn tranzaksyon jiskaske demen — ni nan Kanè Epay ni nan Mikwo Kredi.
+              </p>
+            </div>
+
+            {/* ── Rezime Kane Epay ── */}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <CreditCard size={13} /> Kanè Epay — Jodi a
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { label: 'Total Depo',  val: `${fmt(depoJou)} HTG`,  color: D.green  },
+                  { label: 'Total Retrè', val: `${fmt(retrèJou)} HTG`, color: D.red    },
+                  { label: 'Nouvo Kont',  val: `${nouvoKont}`,         color: D.gold   },
+                  { label: 'Tranzaksyon', val: `${txTotal}`,           color: D.blue   },
+                ].map(item => (
+                  <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
+                    <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: item.color, margin: 0 }}>{item.val}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Nèt Kane */}
+              <div style={{ marginTop: 8, padding: '8px 12px', background: `${netKane >= 0 ? D.green : D.red}10`, borderRadius: 10, border: `1px solid ${netKane >= 0 ? D.green : D.red}25`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: netKane >= 0 ? D.green : D.red }}>Nèt Kane Epay:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14, color: netKane >= 0 ? D.green : D.red }}>
+                  {netKane >= 0 ? '+' : ''}{fmt(netKane)} HTG
+                </span>
+              </div>
+            </div>
+
+            {/* ── Rezime Prè ── */}
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 800, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <DollarSign size={13} /> Mikwo Kredi — Mwa a
+              </p>
+              {preStats ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {[
+                      { label: 'Dekèsman',  val: `${fmt(desPre)} HTG`,            color: D.orange },
+                      { label: 'Koleksyon', val: `${fmt(kolPre)} HTG`,            color: D.green  },
+                      { label: 'Prè Aktif', val: `${preStats?.pretsActifs || 0}`, color: D.blue   },
+                      { label: 'An Reta',   val: `${preStats?.totalEnReta || 0}`, color: D.red    },
+                    ].map(item => (
+                      <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
+                        <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: item.color, margin: 0 }}>{item.val}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ textAlign: 'center', color: D.muted, padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Spinner color={D.gold} size={14} /> Ap chaje stats Prè...
+                </div>
+              )}
+            </div>
+
+            {/* ── Nòt ── */}
+            <div>
+              <label style={labelStyle}>Nòt (opsyonèl)</label>
+              <textarea className="ke-input" style={{ ...inputStyle, height: 56, resize: 'vertical' }}
+                value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="Obsèvasyon, pwoblèm jounen an..." />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 14 }}>Anile</button>
+              <button className="ke-btn" onClick={handleFemen} disabled={loading}
+                style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: loading ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.orange},${D.orange}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: loading ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+                {loading ? <><Spinner /> Ap jenere...</> : <><FileText size={15} /> Konfime Fèmen Kès</>}
+              </button>
+            </div>
+          </>
+        ) : (
+          // ── Ekran konfirmasyon ──
+          <>
+            <div style={{ background: D.greenBg, border: `1px solid ${D.green}30`, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+              <CheckCircle size={28} style={{ color: D.green, margin: '0 auto 8px', display: 'block' }} />
+              <p style={{ fontSize: 15, fontWeight: 800, color: D.green, margin: '0 0 4px' }}>Kès Fèmen ✅</p>
+              <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{rapo.date}</p>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                { label: 'Depo Kane',   val: `${fmt(depoJou)} HTG`,            color: D.green  },
+                { label: 'Retrè Kane',  val: `${fmt(retrèJou)} HTG`,           color: D.red    },
+                { label: 'Prè Kreye',   val: `${rapo.totalPreKreye} prè`,      color: D.gold   },
+                { label: 'Koleksyon',   val: `${fmt(rapo.totalKoleksyon)} HTG`, color: D.purple },
+              ].map(item => (
+                <div key={item.label} style={{ background: `${item.color}10`, borderRadius: 10, padding: '10px 12px', border: `1px solid ${item.color}20` }}>
+                  <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', textTransform: 'uppercase', fontWeight: 700 }}>{item.label}</p>
+                  <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: item.color, margin: 0 }}>{item.val}</p>
+                </div>
+              ))}
+            </div>
+            <button className="ke-btn" onClick={onClose} style={{ padding: '13px', borderRadius: 12, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
+              Fèmen
+            </button>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
 // PAGE PRENSIPAL
 // ═══════════════════════════════════════════════════════════════
 export default function KaneEpayPage() {
@@ -835,7 +942,8 @@ export default function KaneEpayPage() {
   const [page,            setPage]            = useState(1)
   const [modal,           setModal]           = useState(null)
   const [selAcc,          setSelAcc]          = useState(null)
-  const [filterActive,    setFilterActive]    = useState(null) // null=tout, true=aktif, false=inaktif
+  const [filterActive,    setFilterActive]    = useState(null)
+  const [kesFemen,        setKesFemen]        = useState(false)
   const searchTimeout = useRef(null)
 
   useEffect(() => {
@@ -845,10 +953,15 @@ export default function KaneEpayPage() {
     return () => document.head.removeChild(el)
   }, [])
 
+  // Verifye si kès deja fèmen jodi a
+  useEffect(() => {
+    kaneAPI.checkKesFemen().then(r => setKesFemen(r.data.kesFermen === true)).catch(() => {})
+  }, [])
+
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['kane-stats'],
     queryFn: () => kaneAPI.getStats().then(r => r.data.stats),
-    refetchInterval: 30000, // ✅ rafrayi chak 30s (pa 60s)
+    refetchInterval: 30000,
   })
 
   const { data: listData, isLoading } = useQuery({
@@ -872,24 +985,30 @@ export default function KaneEpayPage() {
   }
 
   const openDetail  = (acc) => { setSelAcc(acc); setModal('detail')  }
-  const openDepo    = (acc) => { setSelAcc(acc); setModal('depot')   }
-  const openRetrait = (acc) => { setSelAcc(acc); setModal('retrait') }
+  const openDepo    = (acc) => { if (kesFemen) return; setSelAcc(acc); setModal('depot')   }
+  const openRetrait = (acc) => { if (kesFemen) return; setSelAcc(acc); setModal('retrait') }
 
   const handleSearch = (e) => {
     const val = e.target.value
     setSearch(val)
     clearTimeout(searchTimeout.current)
-    searchTimeout.current = setTimeout(() => {
-      setDebouncedSearch(val)
-      setPage(1)
-    }, 400)
+    searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
   }
 
-  // ✅ Kalkil nèt jodi a (depo - retrè)
   const todayNet = (statsData?.todayDepositAmount || 0) - (statsData?.todayWithdrawAmount || 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14, fontFamily: 'DM Sans, sans-serif', padding: '14px 14px 80px', maxWidth: 900, margin: '0 auto' }}>
+
+      {/* ── Bannè Kès Fèmen ── */}
+      {kesFemen && (
+        <div style={{ background: `${D.red}15`, border: `1px solid ${D.red}40`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Lock size={16} style={{ color: D.red, flexShrink: 0 }} />
+          <p style={{ fontSize: 13, color: D.red, margin: 0, fontWeight: 700 }}>
+            Kès fèmen jodi a — Okenn nouvo tranzaksyon p ap aksepte jiskaske demen.
+          </p>
+        </div>
+      )}
 
       {/* ── Header ── */}
       <div className="ke-header">
@@ -900,7 +1019,7 @@ export default function KaneEpayPage() {
           <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Kont depo ak retrè</p>
         </div>
         <div className="ke-header-right">
-          {/* Refresh bouton */}
+          {/* Refresh */}
           <button className="ke-btn" onClick={() => { refresh(); refetchStats() }}
             style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.cardBorder}`, background: D.card, color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <RefreshCw size={14} />
@@ -910,67 +1029,45 @@ export default function KaneEpayPage() {
           <button className="ke-btn"
             onClick={printer.connected ? printer.disconnect : printer.connect}
             disabled={printer.connecting}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5, padding: '9px 11px',
-              borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)',
-              color: printer.connected ? D.green : D.muted,
-              fontWeight: 700, fontSize: 12,
-            }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 11px', borderRadius: 10, border: 'none', cursor: 'pointer', background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: printer.connected ? D.green : D.muted, fontWeight: 700, fontSize: 12 }}>
             {printer.connecting ? <Spinner size={13} color={D.muted} /> : printer.connected ? <Bluetooth size={14} /> : <BluetoothOff size={14} />}
-            <span style={{ display: 'none' }}>{printer.connected ? 'BT' : 'BT'}</span>
           </button>
 
-          {/* Nouvo kont */}
-          <button className="ke-btn" onClick={() => setModal('create')} style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '10px 15px',
-            borderRadius: 12, border: 'none', cursor: 'pointer',
-            background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 13,
-            boxShadow: '0 4px 14px rgba(201,168,76,0.28)', whiteSpace: 'nowrap',
-          }}>
-            <UserPlus size={15} /> Nouvo Kont
+          {/* Fèmen Kès */}
+          {!kesFemen && (
+            <button className="ke-btn" onClick={() => setModal('rapo')}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 12px', borderRadius: 10, border: `1px solid ${D.orange}30`, background: `${D.orange}10`, color: D.orange, cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
+              <FileText size={14} /> Fèmen Kès
+            </button>
+          )}
+
+          {/* Nouvo Kont */}
+          <button className="ke-btn" onClick={() => !kesFemen && setModal('create')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 15px', borderRadius: 12, border: 'none', cursor: kesFemen ? 'not-allowed' : 'pointer', background: kesFemen ? 'rgba(255,255,255,0.08)' : D.goldBtn, color: kesFemen ? D.muted : '#0a1222', fontWeight: 800, fontSize: 13, boxShadow: kesFemen ? 'none' : '0 4px 14px rgba(201,168,76,0.28)', whiteSpace: 'nowrap', opacity: kesFemen ? 0.5 : 1 }}>
+            {kesFemen ? <Lock size={15} /> : <UserPlus size={15} />}
+            {kesFemen ? 'Kès Fèmen' : 'Nouvo Kont'}
           </button>
         </div>
       </div>
 
-      {/* ── Stats ranje 1 — total ── */}
+      {/* ── Stats ranje 1 ── */}
       <div className="ke-stats-grid">
-        <StatCard label="Total Kont"    value={statsData?.totalAccounts  || 0}              icon={<Users size={17}/>}     color={D.gold}   />
-        <StatCard label="Kont Aktif"    value={statsData?.activeAccounts || 0}              icon={<Activity size={17}/>}  color={D.green}  />
-        <StatCard label="Total Balans"  value={`${fmt(statsData?.totalBalance || 0)} G`}    icon={<Wallet size={17}/>}    color={D.blue}   />
-        <StatCard label="Kont Jodi a"   value={statsData?.todayNewAccounts || 0}            icon={<UserPlus size={17}/>}  color={D.purple} />
+        <StatCard label="Total Kont"  value={statsData?.totalAccounts    || 0}           icon={<Users size={17}/>}     color={D.gold}   />
+        <StatCard label="Kont Aktif"  value={statsData?.activeAccounts   || 0}           icon={<Activity size={17}/>}  color={D.green}  />
+        <StatCard label="Total Balans" value={`${fmt(statsData?.totalBalance || 0)} G`}  icon={<Wallet size={17}/>}    color={D.blue}   />
+        <StatCard label="Kont Jodi a" value={statsData?.todayNewAccounts || 0}           icon={<UserPlus size={17}/>}  color={D.purple} />
       </div>
 
-      {/* ── Stats ranje 2: aktivite jodi a — highlight ── */}
+      {/* ── Aktivite jodi a ── */}
       <div style={{ background: D.card, borderRadius: 14, padding: '12px 14px', border: `1px solid ${D.cardBorder}` }}>
         <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: D.gold, margin: '0 0 10px', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: D.green, display: 'inline-block', animation: 'pulse 2s infinite' }} />
           Aktivite Jodi a
         </p>
         <div className="ke-today-grid">
-          <StatCard
-            label="Depo Jodi a"
-            value={`${fmt(statsData?.todayDepositAmount || 0)} G`}
-            sub={`${statsData?.todayTransactions || 0} tranzaksyon total`}
-            icon={<ArrowDownCircle size={17}/>}
-            color={D.green}
-            highlight
-          />
-          <StatCard
-            label="Retrè Jodi a"
-            value={`${fmt(statsData?.todayWithdrawAmount || 0)} G`}
-            icon={<ArrowUpCircle size={17}/>}
-            color={D.red}
-            highlight
-          />
-          <StatCard
-            label="Nèt Jodi a"
-            value={`${todayNet >= 0 ? '+' : ''}${fmt(todayNet)} G`}
-            sub="Depo - Retrè"
-            icon={<TrendingUp size={17}/>}
-            color={todayNet >= 0 ? D.green : D.red}
-            highlight
-          />
+          <StatCard label="Depo Jodi a"   value={`${fmt(statsData?.todayDepositAmount  || 0)} G`} sub={`${statsData?.todayTransactions || 0} tranzaksyon total`} icon={<ArrowDownCircle size={17}/>} color={D.green}  highlight />
+          <StatCard label="Retrè Jodi a"  value={`${fmt(statsData?.todayWithdrawAmount || 0)} G`} icon={<ArrowUpCircle size={17}/>}  color={D.red}    highlight />
+          <StatCard label="Nèt Jodi a"    value={`${todayNet >= 0 ? '+' : ''}${fmt(todayNet)} G`} sub="Depo - Retrè" icon={<TrendingUp size={17}/>} color={todayNet >= 0 ? D.green : D.red} highlight />
         </div>
       </div>
 
@@ -979,26 +1076,16 @@ export default function KaneEpayPage() {
         <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 160 }}>
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: D.muted, pointerEvents: 'none' }} />
           <input className="ke-input" style={{ ...inputStyle, paddingLeft: 36 }}
-            placeholder="Chèche non, nimewo, NIF..."
-            value={search}
-            onChange={handleSearch} />
+            placeholder="Chèche non, nimewo, NIF..." value={search} onChange={handleSearch} />
         </div>
-
-        {/* ✅ Filtre rapide */}
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           {[
-            { val: null,  label: 'Tout'   },
-            { val: true,  label: '✅ Aktif' },
-            { val: false, label: '⛔ Inaktif' },
+            { val: null,  label: 'Tout'        },
+            { val: true,  label: '✅ Aktif'     },
+            { val: false, label: '⛔ Inaktif'   },
           ].map(f => (
             <button key={String(f.val)} className="ke-tab-btn ke-btn" onClick={() => { setFilterActive(f.val); setPage(1) }}
-              style={{
-                padding: '8px 12px', borderRadius: 8, border: `1px solid ${filterActive === f.val ? D.gold + '60' : D.cardBorder}`,
-                background: filterActive === f.val ? D.goldDim : 'transparent',
-                color: filterActive === f.val ? D.gold : D.muted,
-                cursor: 'pointer', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap',
-                transition: 'all 0.15s',
-              }}>
+              style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${filterActive === f.val ? D.gold + '60' : D.cardBorder}`, background: filterActive === f.val ? D.goldDim : 'transparent', color: filterActive === f.val ? D.gold : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
               {f.label}
             </button>
           ))}
@@ -1052,13 +1139,15 @@ export default function KaneEpayPage() {
                 </div>
 
                 <div className="ke-acc-row-btns">
+                  {/* Bouton Depo — bloke si kès fèmen */}
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openDepo(acc) }}
-                    style={{ flex: 1, padding: '8px 6px', borderRadius: 8, border: 'none', background: D.greenBg, color: D.green, cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                    <ArrowDownCircle size={13} /> Depo
+                    style={{ flex: 1, padding: '8px 6px', borderRadius: 8, border: 'none', background: kesFemen ? 'rgba(255,255,255,0.05)' : D.greenBg, color: kesFemen ? D.muted : D.green, cursor: kesFemen ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    {kesFemen ? <Lock size={12} /> : <ArrowDownCircle size={13} />} Depo
                   </button>
+                  {/* Bouton Retrè — bloke si kès fèmen */}
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openRetrait(acc) }}
-                    style={{ flex: 1, padding: '8px 6px', borderRadius: 8, border: 'none', background: D.redBg, color: D.red, cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                    <ArrowUpCircle size={13} /> Retrè
+                    style={{ flex: 1, padding: '8px 6px', borderRadius: 8, border: 'none', background: kesFemen ? 'rgba(255,255,255,0.05)' : D.redBg, color: kesFemen ? D.muted : D.red, cursor: kesFemen ? 'not-allowed' : 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                    {kesFemen ? <Lock size={12} /> : <ArrowUpCircle size={13} />} Retrè
                   </button>
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openDetail(acc) }}
                     style={{ padding: '8px 13px', borderRadius: 8, border: `1px solid ${D.cardBorder}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -1093,11 +1182,20 @@ export default function KaneEpayPage() {
       {modal === 'create' && (
         <ModalCreate onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
       )}
+      {modal === 'rapo' && (
+        <ModalRapoKesyeKane
+          onClose={() => setModal(null)}
+          onKesFemen={() => setKesFemen(true)}
+          statsKane={statsData}
+        />
+      )}
       {modal === 'detail' && selAcc && (
         <ModalDetail accountId={selAcc.id} onClose={() => setModal(null)}
-          onDepo={() => setModal('depot')} onRetrait={() => setModal('retrait')} printer={printer} />
+          onDepo={() => !kesFemen && setModal('depot')}
+          onRetrait={() => !kesFemen && setModal('retrait')}
+          printer={printer} />
       )}
-      {(modal === 'depot' || modal === 'retrait') && selAcc && (
+      {(modal === 'depot' || modal === 'retrait') && selAcc && !kesFemen && (
         <ModalTx account={selAcc} type={modal} onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
       )}
     </div>
