@@ -1,0 +1,130 @@
+// prisma/schema/mikwo-kredi.prisma
+// ─── Kanè Epay + Prè Mikwo Kredi ─────────────────────────────
+
+model KaneEpay {
+  id             String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId       String            @map("tenant_id")
+  branchId       String?           @map("branch_id")
+  accountNumber  String            @map("account_number") @db.VarChar(30)
+  firstName      String            @map("first_name") @db.VarChar(100)
+  lastName       String            @map("last_name") @db.VarChar(100)
+  address        String?
+  nifOrCin       String?           @map("nif_or_cin") @db.VarChar(50)
+  phone          String?           @db.VarChar(50)
+  openingAmount  Decimal           @default(0) @map("opening_amount") @db.Decimal(14, 2)
+  kaneFee        Decimal           @default(0) @map("kane_fee") @db.Decimal(14, 2)
+  lockedAmount   Decimal           @default(0) @map("locked_amount") @db.Decimal(14, 2)
+  balance        Decimal           @default(0) @db.Decimal(14, 2)
+  isActive       Boolean           @default(true) @map("is_active")
+  createdBy      String?           @map("created_by")
+  createdAt      DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  familyRelation String?           @map("family_relation") @db.VarChar(100)
+  familyName     String?           @map("family_name") @db.VarChar(100)
+  photoUrl       String?           @map("photo_url")
+  idPhotoUrl     String?           @map("id_photo_url")
+  branch         Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_branch_fk")
+  creator        User?             @relation("KaneCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "kane_epay_accounts_creator_fk")
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_epay_accounts_tenant_fk")
+  transactions   KaneTransaction[]
+  prets          Pre[]
+
+  @@unique([tenantId, accountNumber], map: "kane_epay_accounts_tenant_account_key")
+  @@index([tenantId, isActive], map: "kane_epay_accounts_active_idx")
+  @@index([branchId], map: "kane_epay_accounts_branch_idx")
+  @@index([tenantId], map: "kane_epay_accounts_tenant_idx")
+  @@map("kane_epay_accounts")
+}
+
+model KaneTransaction {
+  id            String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId      String              @map("tenant_id")
+  accountId     String              @map("account_id")
+  type          KaneTransactionType
+  amount        Decimal             @db.Decimal(14, 2)
+  balanceBefore Decimal             @map("balance_before") @db.Decimal(14, 2)
+  balanceAfter  Decimal             @map("balance_after") @db.Decimal(14, 2)
+  method        PaymentMethod       @default(cash)
+  reference     String?             @db.VarChar(200)
+  notes         String?
+  createdBy     String?             @map("created_by")
+  createdAt     DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  account       KaneEpay            @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_account_fk")
+  creator       User?               @relation("KaneTxCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "kane_transactions_creator_fk")
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "kane_transactions_tenant_fk")
+
+  @@index([accountId], map: "kane_transactions_account_idx")
+  @@index([createdAt], map: "kane_transactions_created_idx")
+  @@index([tenantId], map: "kane_transactions_tenant_idx")
+  @@map("kane_transactions")
+}
+
+model Pre {
+  id                String      @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId          String      @map("tenant_id")
+  branchId          String?     @map("branch_id")
+  numeroPre         String      @map("numero_pre") @db.VarChar(30)
+  clientNom         String      @map("client_nom") @db.VarChar(200)
+  clientPhone       String?     @map("client_phone") @db.VarChar(50)
+  clientNifCin      String?     @map("client_nif_cin") @db.VarChar(50)
+  clientAdres       String?     @map("client_adres")
+  kontKaneEpayId    String?     @map("kont_kane_epay_id")
+  montant           Decimal     @db.Decimal(14, 2)
+  tauxInteret       Decimal     @map("taux_interet") @db.Decimal(6, 3)
+  dureeEnMois       Int         @map("duree_en_mois")
+  totalDu           Decimal     @default(0) @map("total_du") @db.Decimal(14, 2)
+  totalPaye         Decimal     @default(0) @map("total_paye") @db.Decimal(14, 2)
+  interetKouruTotal Decimal     @default(0) @map("interet_kouru_total") @db.Decimal(14, 2)
+  totalDuAjou       Decimal     @default(0) @map("total_du_ajou") @db.Decimal(14, 2)
+  montantBloke      Decimal     @default(0) @map("montant_bloke") @db.Decimal(14, 2)
+  datDebut          DateTime    @map("dat_debut") @db.Timestamptz(6)
+  datFin            DateTime?   @map("dat_fin") @db.Timestamptz(6)
+  periode           String      @default("mois") @db.VarChar(20)
+  methodDeseman     String      @default("cash") @map("method_deseman") @db.VarChar(20)
+  referenceDeseman  String?     @map("reference_deseman") @db.VarChar(200)
+  statut            PreStatut   @default(actif)
+  notes             String?
+  tipKalkil         String      @default("declining") @map("tip_kalkil") @db.VarChar(20)
+  avalize1Nom       String?     @map("avalize1_nom") @db.VarChar(200)
+  avalize1Phone     String?     @map("avalize1_phone") @db.VarChar(50)
+  avalize2Nom       String?     @map("avalize2_nom") @db.VarChar(200)
+  avalize2Phone     String?     @map("avalize2_phone") @db.VarChar(50)
+  garantiByens      String?     @map("garanti_byens")
+  createdBy         String?     @map("created_by")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch            Branch?     @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  creator           User?       @relation("PreCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  kaneEpay          KaneEpay?   @relation(fields: [kontKaneEpayId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  paiements         PrePaiement[]
+
+  @@unique([tenantId, numeroPre])
+  @@index([tenantId])
+  @@index([tenantId, statut])
+  @@index([branchId])
+  @@index([createdAt])
+  @@map("prets")
+}
+
+model PrePaiement {
+  id           String        @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId     String        @map("tenant_id")
+  preId        String        @map("pre_id")
+  montant      Decimal       @db.Decimal(14, 2)
+  balanceAvant Decimal       @map("balance_avant") @db.Decimal(14, 2)
+  balanceApre  Decimal       @map("balance_apre") @db.Decimal(14, 2)
+  method       PaymentMethod @default(cash)
+  reference    String?       @db.VarChar(200)
+  notes        String?
+  createdBy    String?       @map("created_by")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  pre          Pre           @relation(fields: [preId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator      User?         @relation("PrePaiementCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([preId])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@map("pre_paiements")
+}

@@ -4,13 +4,13 @@ import { lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import AppLayout from './components/layout/AppLayout'
 
-// ✅ Chajman dirèk — paj ki itilize souvan / rapid
+// ✅ Chajman dirèk
 import LoginPage      from './pages/auth/LoginPage'
 import WelcomePage    from './pages/WelcomePage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import SolLoginPage   from './pages/sol/SolLoginPage'
 
-// ✅ Lazy load — tout lòt paj (redui bundle initial la)
+// ✅ Lazy load
 const Dashboard         = lazy(() => import('./pages/dashboard/Dashboard'))
 const ProductsPage      = lazy(() => import('./pages/products/ProductsPage'))
 const ClientsPage       = lazy(() => import('./pages/clients/ClientsPage'))
@@ -42,6 +42,15 @@ const NewRoomPage       = lazy(() => import('./pages/hotel/NewRoomPage'))
 const RoomTypesPage     = lazy(() => import('./pages/hotel/RoomTypesPage'))
 const DryOrdersPage     = lazy(() => import('./pages/dry/DryOrdersPage'))
 const DryOrderDetail    = lazy(() => import('./pages/dry/DryOrderDetail'))
+
+// ✅ Klinik — src/pages/klinik/
+const KlinikDashboard      = lazy(() => import('./pages/klinik/KlinikDashboard'))
+const PatientsPage         = lazy(() => import('./pages/klinik/PatientsPage'))
+const AppointmentsPage     = lazy(() => import('./pages/klinik/AppointmentsPage'))
+const ConsultationPage     = lazy(() => import('./pages/klinik/ConsultationPage'))
+const PrescriptionsPage    = lazy(() => import('./pages/klinik/PrescriptionsPage'))
+const LabPage              = lazy(() => import('./pages/klinik/LabPage'))
+const HospitalizationsPage = lazy(() => import('./pages/klinik/HospitalizationsPage'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -75,9 +84,7 @@ const RootRedirect = () => {
   const token   = useAuthStore(s => s.token)
   const loading = useAuthStore(s => s.loading)
   if (loading) return <Spinner />
-  return token
-    ? <Navigate to="/app/dashboard" replace />
-    : <WelcomePage />
+  return token ? <Navigate to="/app/dashboard" replace /> : <WelcomePage />
 }
 
 export default function App() {
@@ -86,7 +93,7 @@ export default function App() {
       <Suspense fallback={<Spinner />}>
         <Routes>
 
-          {/* ✅ Root */}
+          {/* Root */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/welcome" element={<WelcomePage />} />
 
@@ -98,44 +105,58 @@ export default function App() {
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin"           element={<Navigate to="/admin/login" replace />} />
 
-          {/* ✅ Sol Member Portal */}
+          {/* Sol Member Portal */}
           <Route path="/app/sol/login"     element={<SolLoginPage />} />
           <Route path="/app/sol/dashboard" element={<SolDashboardPage />} />
 
-          {/* ✅ App principal */}
+          {/* App principal */}
           <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard"        element={<Dashboard />} />
-            <Route path="products"         element={<ProtectedPage pageKey="products"><ProductsPage /></ProtectedPage>} />
-            <Route path="clients"          element={<ProtectedPage pageKey="clients"><ClientsPage /></ProtectedPage>} />
-            <Route path="quotes"           element={<ProtectedPage pageKey="quotes"><QuotesPage /></ProtectedPage>} />
-            <Route path="quotes/new"       element={<QuoteForm />} />
-            <Route path="quotes/:id"       element={<QuoteDetail />} />
-            <Route path="quotes/:id/edit"  element={<QuoteForm />} />
-            <Route path="invoices"         element={<ProtectedPage pageKey="invoices"><InvoicesPage /></ProtectedPage>} />
-            <Route path="invoices/new"     element={<NewInvoicePage />} />
-            <Route path="invoices/:id"     element={<InvoiceDetail />} />
-            <Route path="stock"            element={<ProtectedPage pageKey="stock"><StockPage /></ProtectedPage>} />
-            <Route path="reports"          element={<ProtectedPage pageKey="reports"><ReportsPage /></ProtectedPage>} />
-            <Route path="settings"         element={<ProtectedPage pageKey="settings"><SettingsPage /></ProtectedPage>} />
-            <Route path="settings/users"   element={<ProtectedPage pageKey="users"><UsersPage /></ProtectedPage>} />
-            <Route path="plans"            element={<PlansPage />} />
-            <Route path="branches"         element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
-            <Route path="kane"             element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
-            <Route path="kane-epay"        element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
-            <Route path="pre"              element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
-            <Route path="sabotay"          element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
-            <Route path="mobilpay"         element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
-            {/* ✅ Gid Mikwo Kredi — aksesib pou tout moun ki konekte */}
-            <Route path="mikwo-kredi-gid"  element={<MikwoKrediGuide />} />
+            <Route path="dashboard"       element={<Dashboard />} />
+            <Route path="products"        element={<ProtectedPage pageKey="products"><ProductsPage /></ProtectedPage>} />
+            <Route path="clients"         element={<ProtectedPage pageKey="clients"><ClientsPage /></ProtectedPage>} />
+            <Route path="quotes"          element={<ProtectedPage pageKey="quotes"><QuotesPage /></ProtectedPage>} />
+            <Route path="quotes/new"      element={<QuoteForm />} />
+            <Route path="quotes/:id"      element={<QuoteDetail />} />
+            <Route path="quotes/:id/edit" element={<QuoteForm />} />
+            <Route path="invoices"        element={<ProtectedPage pageKey="invoices"><InvoicesPage /></ProtectedPage>} />
+            <Route path="invoices/new"    element={<NewInvoicePage />} />
+            <Route path="invoices/:id"    element={<InvoiceDetail />} />
+            <Route path="stock"           element={<ProtectedPage pageKey="stock"><StockPage /></ProtectedPage>} />
+            <Route path="reports"         element={<ProtectedPage pageKey="reports"><ReportsPage /></ProtectedPage>} />
+            <Route path="settings"        element={<ProtectedPage pageKey="settings"><SettingsPage /></ProtectedPage>} />
+            <Route path="settings/users"  element={<ProtectedPage pageKey="users"><UsersPage /></ProtectedPage>} />
+            <Route path="plans"           element={<PlansPage />} />
+            <Route path="branches"        element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
+
+            {/* Antrepriz */}
+            <Route path="kane"           element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
+            <Route path="kane-epay"      element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
+            <Route path="pre"            element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
+            <Route path="sabotay"        element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
+            <Route path="mobilpay"       element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
+            <Route path="mikwo-kredi-gid" element={<MikwoKrediGuide />} />
+
+            {/* Hotel */}
             <Route path="hotel"                  element={<ProtectedPage pageKey="hotel"><HotelDashboard /></ProtectedPage>} />
             <Route path="hotel/reservations"     element={<ProtectedPage pageKey="hotel"><ReservationsPage /></ProtectedPage>} />
             <Route path="hotel/reservations/new" element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
             <Route path="hotel/reservations/:id" element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
             <Route path="hotel/rooms/new"        element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
-            <Route path="dry"                    element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
-            <Route path="dry/:id"                element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
+
+            {/* Dry */}
+            <Route path="dry"    element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
+            <Route path="dry/:id" element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
+
+            {/* ✅ Klinik */}
+            <Route path="klinik"                element={<ProtectedPage pageKey="klinik"><KlinikDashboard /></ProtectedPage>} />
+            <Route path="klinik/patients"       element={<ProtectedPage pageKey="klinik"><PatientsPage /></ProtectedPage>} />
+            <Route path="klinik/randevou"       element={<ProtectedPage pageKey="klinik"><AppointmentsPage /></ProtectedPage>} />
+            <Route path="klinik/konsiltasyon"   element={<ProtectedPage pageKey="klinik"><ConsultationPage /></ProtectedPage>} />
+            <Route path="klinik/preskripsyon"   element={<ProtectedPage pageKey="klinik"><PrescriptionsPage /></ProtectedPage>} />
+            <Route path="klinik/lab"            element={<ProtectedPage pageKey="klinik"><LabPage /></ProtectedPage>} />
+            <Route path="klinik/ospitalizasyon" element={<ProtectedPage pageKey="klinik"><HospitalizationsPage /></ProtectedPage>} />
           </Route>
 
           {/* Legacy redirects */}

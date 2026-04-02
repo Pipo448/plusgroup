@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "PLUS GROUP — Innov@tion & Tech | Stock & Invoicing SaaS API",
   "main": "src/index.js",
+  "prisma": {
+    "schema": "prisma/schema"
+  },
   "scripts": {
     "dev": "nodemon src/index.js",
     "start": "npx prisma generate && node src/index.js",
@@ -34,6 +37,6 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.3",
-    "prisma": "^5.10.0"
+    "prisma": "^5.22.0"
   }
 }

@@ -38,13 +38,13 @@ const dashboardFullRoute = require('./modules/reports/dashboard-full.route');
 const pushRoutes = require('./modules/push/push.routes')
 const dryRoutes = require('./modules/dry/dry.routes')
 const preRoutes = require('./routes/pre.routes')
+const klinikRoutes = require('./routes/klinik.routes')   // ✅ NOUVO
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
 
 // ✅ Enterprise routes (Plan Antepriz sèlman)
 const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
-// ⚠️  sabotayRouter RETIRE nan enterprise.routes — sabotayRoutes dirèk la pran plas li
 
 const app  = require('express')();
 const PORT = process.env.PORT || 5000;
@@ -73,7 +73,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Tenant-Slug', 'X-Branch-Id']
 }));
 
-// ✅ FIX CLOUDFLARE CACHE
 app.use('/api', (req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
   res.set('Pragma', 'no-cache')
@@ -155,17 +154,17 @@ app.use(`${API}/hotel`,         hotelRoutes)
 app.use(`${API}/dashboard`,     dashboardFullRoute);
 app.use('/api/v1/push',         pushRoutes);
 app.use('/api/v1/dry',          dryRoutes)
-app.use(`${API}/pre`, preRoutes)
+app.use(`${API}/pre`,           preRoutes)
+app.use(`${API}/klinik`,        klinikRoutes)    // ✅ NOUVO
 
-
-// ✅ SABOTAY — yon sèl route, sou /api/v1/sabotay
+// ✅ SABOTAY
 app.use(`${API}/sabotay`,       sabotayRoutes);
 
 // ✅ Sol Member Portal
 app.use(`${API}/sol`,           solRoutes);
 app.use('/api/sol',             solRoutes);
 
-// ✅ Enterprise routes (san sabotay — li deja anrejistre anwo a)
+// ✅ Enterprise routes
 app.use(`${API}/kane`,    kaneRouter);
 app.use(`${API}/moncash`, moncashRouter);
 app.use(`${API}/natcash`, natcashRouter);
@@ -185,7 +184,6 @@ server.listen(PORT, () => {
   logger.info(`🌐 URL: ${process.env.API_URL}`);
   logger.info(`✅ CORS aktivé pou: localhost, plusgroup-frontend.onrender.com, app.plusgroupe.com`);
 
-  // ✅ Kòmanse cron jobs — apre sèvè a leve
   startScheduler();
 });
 

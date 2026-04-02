@@ -1,0 +1,251 @@
+// prisma/schema/auth.prisma
+// ─── Otantifikasyon, Tenant, Branch, Itilizatè ───────────────
+
+model SuperAdmin {
+  id           String   @id @default(uuid())
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(150)
+  passwordHash String   @map("password_hash")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  tenants      Tenant[]
+
+  @@map("super_admins")
+}
+
+model SubscriptionPlan {
+  id            String               @id @default(uuid())
+  name          String               @db.VarChar(100)
+  nameFr        String?              @map("name_fr") @db.VarChar(100)
+  nameEn        String?              @map("name_en") @db.VarChar(100)
+  maxUsers      Int                  @default(5) @map("max_users")
+  maxProducts   Int                  @default(500) @map("max_products")
+  priceMonthly  Decimal              @map("price_monthly") @db.Decimal(10, 2)
+  priceAnnual   Decimal?             @map("price_annual") @db.Decimal(10, 2)
+  features      Json                 @default("[]")
+  isActive      Boolean              @default(true) @map("is_active")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  maxBranches   Int                  @default(1) @map("max_branches")
+  subscriptions TenantSubscription[]
+  tenants       Tenant[]
+
+  @@map("subscription_plans")
+}
+
+model Tenant {
+  id                   String                @id @default(uuid())
+  name                 String                @db.VarChar(200)
+  slug                 String                @unique @db.VarChar(100)
+  logoUrl              String?               @map("logo_url")
+  primaryColor         String?               @default("#1E40AF") @map("primary_color") @db.VarChar(7)
+  address              String?
+  phone                String?               @db.VarChar(50)
+  email                String?               @db.VarChar(150)
+  website              String?               @db.VarChar(200)
+  defaultCurrency      DefaultCurrency       @default(HTG) @map("default_currency")
+  defaultLanguage      DefaultLanguage       @default(ht) @map("default_language")
+  exchangeRate         Decimal               @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
+  taxRate              Decimal               @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  planId               String?               @map("plan_id")
+  status               TenantStatus          @default(pending)
+  trialEndsAt          DateTime?             @map("trial_ends_at")
+  subscriptionEndsAt   DateTime?             @map("subscription_ends_at")
+  createdBy            String?               @map("created_by")
+  createdAt            DateTime              @default(now()) @map("created_at")
+  updatedAt            DateTime              @updatedAt @map("updated_at")
+  receiptSize          String                @default("80mm") @map("receipt_size") @db.VarChar(10)
+  printerConnection    String                @default("usb") @map("printer_connection") @db.VarChar(20)
+  exchangeRates        String?               @default("{}")
+  showExchangeRate     Boolean               @default(false)
+  visibleCurrencies    String?               @default("[\"USD\"]")
+  showQrCode           Boolean               @default(true) @map("show_qr_code")
+  requireQuote         Boolean               @default(false) @map("require_quote")
+  allowedPages         Json?                 @default("{}") @map("allowed_pages")
+  monthlyPrice         Int                   @default(0) @map("monthly_price")
+
+  // ─── Relations ───────────────────────────────────────────────
+  creator              SuperAdmin?           @relation(fields: [createdBy], references: [id])
+  plan                 SubscriptionPlan?     @relation(fields: [planId], references: [id])
+
+  // Auth
+  users                User[]
+  branches             Branch[]
+  subscriptions        TenantSubscription[]
+
+  // Commerce
+  activityLogs         ActivityLog[]
+  clients              Client[]
+  documentSequences    DocumentSequence[]
+  invoiceItems         InvoiceItem[]
+  invoices             Invoice[]
+  notifications        Notification[]
+  payments             Payment[]
+  productCategories    ProductCategory[]
+  products             Product[]
+  push_subscriptions   PushSubscription[]
+  quoteItems           QuoteItem[]
+  quotes               Quote[]
+  stockMovements       StockMovement[]
+
+  // Mikwo Kredi
+  kaneAccounts         KaneEpay[]
+  kaneTransactions     KaneTransaction[]
+  prets                Pre[]
+  prePaiements         PrePaiement[]
+
+  // Sabotay / Sol
+  sabotayPlans         SabotayPlan[]
+  solExchanges         SolPositionExchange[]
+  solPushSubscriptions SolPushSubscription[]
+
+  // Hotel
+  hotelPayments        HotelPayment[]
+  hotelServices        HotelService[]
+  reservations         Reservation[]
+  roomTypes            RoomType[]
+  rooms                Room[]
+
+  // Dry
+  dryOrders            DryOrder[]
+  dryItems             DryOrderItem[]
+  dryPayments          DryPayment[]
+
+  // Klinik
+  klinikPatients       KlinikPatient[]
+  klinikAppointments   KlinikAppointment[]
+  klinikConsultations  KlinikConsultation[]
+  klinikPrescriptions  KlinikPrescription[]
+  klinikLabOrders      KlinikLabOrder[]
+  klinikHospitalizations KlinikHospitalization[]
+
+  @@map("tenants")
+}
+
+model TenantSubscription {
+  id           String           @id @default(uuid())
+  tenantId     String           @map("tenant_id")
+  planId       String           @map("plan_id")
+  billingCycle String?          @map("billing_cycle") @db.VarChar(10)
+  amountPaid   Decimal?         @map("amount_paid") @db.Decimal(10, 2)
+  currency     String           @default("USD") @db.VarChar(3)
+  startsAt     DateTime         @map("starts_at")
+  endsAt       DateTime         @map("ends_at")
+  paymentRef   String?          @map("payment_ref") @db.VarChar(200)
+  notes        String?
+  createdAt    DateTime         @default(now()) @map("created_at")
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_subscriptions")
+}
+
+model Branch {
+  id                String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId          String            @map("tenant_id")
+  name              String            @db.VarChar(200)
+  slug              String            @db.VarChar(100)
+  description       String?
+  address           String?
+  phone             String?           @db.VarChar(50)
+  email             String?           @db.VarChar(150)
+  isActive          Boolean           @default(false) @map("is_active")
+  unlockedAt        DateTime?         @map("unlocked_at") @db.Timestamptz(6)
+  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  // Relations
+  branchUsers       BranchUser[]
+  clients           Client[]
+  invoices          Invoice[]
+  kaneAccounts      KaneEpay[]
+  prets             Pre[]
+  productCategories ProductCategory[]
+  products          Product[]
+  quotes            Quote[]
+  reservations      Reservation[]
+  dryOrders         DryOrder[]
+  rooms             Room[]
+  sabotayPlans      SabotayPlan[]
+  stockMovements    StockMovement[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model BranchUser {
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  branchId  String   @map("branch_id")
+  userId    String   @map("user_id")
+  role      String   @default("cashier")
+  isAdmin   Boolean  @default(false) @map("is_admin")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([branchId, userId])
+  @@index([branchId])
+  @@index([userId])
+  @@map("branch_users")
+}
+
+model User {
+  id                   String             @id @default(uuid())
+  tenantId             String             @map("tenant_id")
+  fullName             String             @map("full_name") @db.VarChar(150)
+  email                String             @db.VarChar(150)
+  passwordHash         String             @map("password_hash")
+  phone                String?            @db.VarChar(50)
+  avatarUrl            String?            @map("avatar_url")
+  role                 UserRole           @default(cashier)
+  permissions          Json               @default("{}")
+  preferredLang        DefaultLanguage    @default(ht) @map("preferred_lang")
+  isActive             Boolean            @default(true) @map("is_active")
+  lastLoginAt          DateTime?          @map("last_login_at")
+  passwordResetToken   String?            @map("password_reset_token")
+  passwordResetExpires DateTime?          @map("password_reset_expires")
+  createdBy            String?            @map("created_by")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  passwordChangedAt    DateTime?          @map("password_changed_at") @db.Timestamptz(6)
+  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Commerce
+  activityLogs            ActivityLog[]
+  branchUsers             BranchUser[]
+  clients                 Client[]
+  invoicesCancelled       Invoice[]          @relation("InvoiceCancelledBy")
+  invoicesCreated         Invoice[]          @relation("InvoiceCreatedBy")
+  payments                Payment[]
+  products                Product[]
+  push_subscriptions      PushSubscription[]
+  quotesCreated           Quote[]            @relation("QuoteCreatedBy")
+  stockMovements          StockMovement[]
+  notifications           Notification[]
+
+  // Mikwo Kredi
+  kaneAccountsCreated     KaneEpay[]         @relation("KaneCreatedBy")
+  kaneTransactionsCreated KaneTransaction[]  @relation("KaneTxCreatedBy")
+  pretsCreated            Pre[]              @relation("PreCreatedBy")
+  prePaiementsCreated     PrePaiement[]      @relation("PrePaiementCreatedBy")
+
+  // Hotel
+  hotelPaymentsCreated    HotelPayment[]     @relation("HotelPaymentCreatedBy")
+  hotelServicesCreated    HotelService[]     @relation("HotelServiceCreatedBy")
+  reservationsCreated     Reservation[]      @relation("ReservationCreatedBy")
+
+  // Dry
+  dryOrdersCreated        DryOrder[]         @relation("DryOrderCreatedBy")
+  dryPaymentsCreated      DryPayment[]       @relation("DryPaymentCreatedBy")
+
+  // Sabotay
+  sabotayMembersCreated   SabotayMember[]    @relation("SabotayMemberCreatedBy")
+  sabotayPaymentsCreated  SabotayPayment[]   @relation("SabotayPaymentCreatedBy")
+  sabotayPlansCreated     SabotayPlan[]      @relation("SabotayPlanCreatedBy")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}

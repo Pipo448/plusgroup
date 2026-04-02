@@ -1,0 +1,183 @@
+// prisma/schema/main.prisma
+// ─── Generator + Datasource + Tout Enums ─────────────────────
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["prismaSchemaFolder"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── ENUMS ────────────────────────────────────────────────────
+
+enum TenantStatus {
+  pending
+  active
+  suspended
+  cancelled
+}
+
+enum DefaultCurrency {
+  HTG
+  USD
+}
+
+enum DefaultLanguage {
+  ht
+  fr
+  en
+}
+
+enum UserRole {
+  admin
+  cashier
+  stock_manager
+  viewer
+}
+
+enum QuoteStatus {
+  draft
+  sent
+  accepted
+  converted
+  cancelled
+  expired
+}
+
+enum InvoiceStatus {
+  unpaid
+  partial
+  paid
+  cancelled
+  refunded
+}
+
+enum PaymentMethod {
+  cash
+  card
+  transfer
+  moncash
+  natcash
+  check
+  other
+  credit
+}
+
+enum StockMovementType {
+  sale
+  purchase
+  adjustment
+  return_item
+  loss
+  transfer
+}
+
+enum KaneTransactionType {
+  ouverture
+  depot
+  retrait
+}
+
+enum RoomStatus {
+  available
+  occupied
+  cleaning
+  maintenance
+  reserved
+}
+
+enum ReservationStatus {
+  pending
+  confirmed
+  checked_in
+  checked_out
+  cancelled
+  no_show
+}
+
+enum ServiceType {
+  food
+  drink
+  laundry
+  transport
+  spa
+  room_service
+  other
+}
+
+enum DryOrderStatus {
+  received
+  processing
+  ready
+  delivered
+  cancelled
+}
+
+enum PreStatut {
+  attente
+  actif
+  reta
+  cloture
+  annule
+}
+
+// ─── Enums Klinik ─────────────────────────────────────────────
+
+enum Sexe {
+  M
+  F
+  AUTRE
+}
+
+enum GroupeSanguin {
+  A_POS
+  A_NEG
+  B_POS
+  B_NEG
+  AB_POS
+  AB_NEG
+  O_POS
+  O_NEG
+  INCONNU
+}
+
+enum AppointmentStatut {
+  en_attente
+  confirme
+  en_cours
+  complete
+  annule
+  absent
+}
+
+enum ConsultationStatut {
+  brouillon
+  complete
+  signe
+}
+
+enum PrescriptionStatut {
+  active
+  dispensee
+  expiree
+  annulee
+}
+
+enum LabOrderStatut {
+  en_attente
+  en_cours
+  complete
+  annule
+}
+
+enum HospitalizationStatut {
+  admis
+  en_soin
+  sorti
+  transfere
+  decede
+}

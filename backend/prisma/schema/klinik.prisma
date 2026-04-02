@@ -1,0 +1,204 @@
+// prisma/schema/klinik.prisma
+// ─── Plus Klinik — Modèl Medikal ─────────────────────────────
+
+model KlinikPatient {
+  id               String        @id @default(uuid())
+  tenantId         String        @map("tenant_id")
+  numeroDossier    String        @unique @map("numero_dossier")
+  nom              String
+  prenom           String
+  dateNaissance    DateTime?     @map("date_naissance")
+  sexe             Sexe          @default(AUTRE)
+  adresse          String?
+  telephone        String?
+  email            String?
+  groupeSanguin    GroupeSanguin @default(INCONNU) @map("groupe_sanguin")
+  allergies        String?
+  antecedentsMed   String?       @map("antecedents_med")
+  antecedentsChir  String?       @map("antecedents_chir")
+  antecedentsFam   String?       @map("antecedents_fam")
+  photoUrl         String?       @map("photo_url")
+  assurance        String?
+  numAssurance     String?       @map("num_assurance")
+  isActive         Boolean       @default(true) @map("is_active")
+  notes            String?
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments     KlinikAppointment[]
+  consultations    KlinikConsultation[]
+  prescriptions    KlinikPrescription[]
+  labOrders        KlinikLabOrder[]
+  hospitalizations KlinikHospitalization[]
+
+  @@index([tenantId])
+  @@index([numeroDossier])
+  @@map("klinik_patients")
+}
+
+model KlinikAppointment {
+  id           String             @id @default(uuid())
+  tenantId     String             @map("tenant_id")
+  patientId    String             @map("patient_id")
+  doctorName   String             @map("doctor_name")
+  dateHeure    DateTime           @map("date_heure")
+  dureeMin     Int                @default(30) @map("duree_min")
+  motif        String
+  statut       AppointmentStatut  @default(en_attente)
+  notes        String?
+  createdBy    String?            @map("created_by")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
+  consultation KlinikConsultation?
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@index([dateHeure])
+  @@map("klinik_appointments")
+}
+
+model KlinikConsultation {
+  id             String             @id @default(uuid())
+  tenantId       String             @map("tenant_id")
+  patientId      String             @map("patient_id")
+  appointmentId  String?            @unique @map("appointment_id")
+  doctorName     String             @map("doctor_name")
+  date           DateTime           @default(now())
+  statut         ConsultationStatut @default(brouillon)
+
+  // Siy vital
+  poidsKg        Float?  @map("poids_kg")
+  tailleCm       Float?  @map("taille_cm")
+  tensionSys     Int?    @map("tension_sys")
+  tensionDia     Int?    @map("tension_dia")
+  temperature    Float?
+  pouls          Int?
+  spo2           Int?
+  glycemie       Float?
+
+  // Klinik
+  motif          String?
+  anamnese       String?
+  examenClinique String? @map("examen_clinique")
+  diagnostic     String?
+  traitement     String?
+  notesInternes  String? @map("notes_internes")
+
+  createdBy      String? @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient       KlinikPatient       @relation(fields: [patientId], references: [id])
+  appointment   KlinikAppointment?  @relation(fields: [appointmentId], references: [id])
+  prescriptions KlinikPrescription[]
+  labOrders     KlinikLabOrder[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("klinik_consultations")
+}
+
+model KlinikPrescription {
+  id             String             @id @default(uuid())
+  tenantId       String             @map("tenant_id")
+  consultationId String?            @map("consultation_id")
+  patientId      String             @map("patient_id")
+  doctorName     String             @map("doctor_name")
+  date           DateTime           @default(now())
+  statut         PrescriptionStatut @default(active)
+  notes          String?
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
+  consultation KlinikConsultation? @relation(fields: [consultationId], references: [id])
+  items        KlinikPrescriptionItem[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("klinik_prescriptions")
+}
+
+model KlinikPrescriptionItem {
+  id             String   @id @default(uuid())
+  prescriptionId String   @map("prescription_id")
+  medicamentNom  String   @map("medicament_nom")
+  dosage         String
+  frequence      String
+  duree          String
+  instructions   String?
+  quantite       Int      @default(1)
+
+  prescription KlinikPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@map("klinik_prescription_items")
+}
+
+model KlinikLabOrder {
+  id             String         @id @default(uuid())
+  tenantId       String         @map("tenant_id")
+  consultationId String?        @map("consultation_id")
+  patientId      String         @map("patient_id")
+  doctorName     String         @map("doctor_name")
+  dateCommande   DateTime       @default(now()) @map("date_commande")
+  statut         LabOrderStatut @default(en_attente)
+  notes          String?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
+  consultation KlinikConsultation? @relation(fields: [consultationId], references: [id])
+  items        KlinikLabItem[]
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("klinik_lab_orders")
+}
+
+model KlinikLabItem {
+  id            String    @id @default(uuid())
+  labOrderId    String    @map("lab_order_id")
+  testNom       String    @map("test_nom")
+  testCode      String?   @map("test_code")
+  valeurNormale String?   @map("valeur_normale")
+  valeur        String?
+  unite         String?
+  estAnormal    Boolean   @default(false) @map("est_anormal")
+  notesResultat String?   @map("notes_resultat")
+  dateResultat  DateTime? @map("date_resultat")
+
+  labOrder KlinikLabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+
+  @@map("klinik_lab_items")
+}
+
+model KlinikHospitalization {
+  id              String                @id @default(uuid())
+  tenantId        String                @map("tenant_id")
+  patientId       String                @map("patient_id")
+  doctorName      String                @map("doctor_name")
+  dateAdmission   DateTime              @default(now()) @map("date_admission")
+  dateDecharge    DateTime?             @map("date_decharge")
+  chambre         String?
+  lit             String?
+  motifAdmission  String                @map("motif_admission")
+  diagnosticFinal String?               @map("diagnostic_final")
+  statut          HospitalizationStatut @default(admis)
+  notes           String?
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  patient KlinikPatient @relation(fields: [patientId], references: [id])
+
+  @@index([tenantId])
+  @@index([patientId])
+  @@map("klinik_hospitalizations")
+}

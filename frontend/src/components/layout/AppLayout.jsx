@@ -10,6 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
+  Stethoscope, FlaskConical, BedDouble, HeartPulse, Calendar,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -36,6 +37,9 @@ const C = {
   dry:         '#8B5CF6',
   dryDim:      'rgba(139,92,246,0.15)',
   dryBorder:   'rgba(139,92,246,0.28)',
+  klinik:      '#0EA5E9',
+  klinikDim:   'rgba(14,165,233,0.15)',
+  klinikBorder:'rgba(14,165,233,0.28)',
   white:       '#FFFFFF',
   muted:       'rgba(255,255,255,0.45)',
   mutedMd:     'rgba(255,255,255,0.65)',
@@ -72,6 +76,16 @@ const HOTEL_ITEMS = [
   { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
   { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
   { to:'/app/hotel/room-types',   icon:Tag,          label:'Tip Chanm',       end:false },
+]
+
+const KLINIK_ITEMS = [
+  { to:'/app/klinik',                icon:HeartPulse,   label:'Dashboard',      end:true  },
+  { to:'/app/klinik/patients',       icon:Users,        label:'Pasyan',         end:false },
+  { to:'/app/klinik/randevou',       icon:Calendar,     label:'Randevou',       end:false },
+  { to:'/app/klinik/konsiltasyon',   icon:Stethoscope,  label:'Konsiltasyon',   end:false },
+  { to:'/app/klinik/preskripsyon',   icon:Receipt,      label:'Preskripsyon',   end:false },
+  { to:'/app/klinik/lab',            icon:FlaskConical, label:'Laboratwa',      end:false },
+  { to:'/app/klinik/ospitalizasyon', icon:BedDouble,    label:'Ospitalizasyon', end:false },
 ]
 
 const LANGS = [
@@ -137,6 +151,18 @@ const hotelLinkStyle = (isActive) => ({
   cursor: 'pointer',
 })
 
+const klinikLinkStyle = (isActive) => ({
+  display: 'flex', alignItems: 'center', gap: 10,
+  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
+  textDecoration: 'none',
+  background: isActive ? C.klinikDim : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  borderLeft: isActive ? `3px solid ${C.klinik}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500,
+  fontSize: 13,
+  cursor: 'pointer',
+})
+
 export default function AppLayout() {
   const { user, tenant, token, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
@@ -155,6 +181,8 @@ export default function AppLayout() {
                         location.pathname.startsWith('/app/pre') ||
                         location.pathname.startsWith('/app/mikwo-kredi-gid')
   const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
+
+  const isKlinikActive = location.pathname.startsWith('/app/klinik')
 
   const langRef   = useRef(null)
   const branchRef = useRef(null)
@@ -576,6 +604,37 @@ export default function AppLayout() {
                     {dryLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
+              </>
+            )
+          })()}
+
+          {/* ── KLINIK ── */}
+          {(() => {
+            const klinikLocked = !isPageAllowed('klinik')
+            return (
+              <>
+                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: klinikLocked ? 0.4 : 1 }}>
+                  <span style={{ color:C.klinik, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏥 Klinik</span>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.klinik }}/>
+                </div>
+                {KLINIK_ITEMS.map(({ to, icon: Icon, label, end }) => (
+                  <NavLink key={to} to={klinikLocked ? '#' : to} end={end}
+                    onClick={(e) => { if (klinikLocked) e.preventDefault() }}
+                    style={({ isActive }) => ({
+                      ...klinikLinkStyle(klinikLocked ? false : isActive),
+                      opacity: klinikLocked ? 0.4 : 1,
+                      cursor:  klinikLocked ? 'not-allowed' : 'pointer',
+                    })}>
+                    {({ isActive }) => (<>
+                      <Icon size={15} style={{ flexShrink:0, color: klinikLocked ? '#475569' : isActive ? C.klinik : C.mutedMd }}/>
+                      <span style={{ flex:1 }}>{label}</span>
+                      {klinikLocked
+                        ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
+                        : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.klinik, flexShrink:0 }}/>
+                      }
+                    </>)}
+                  </NavLink>
+                ))}
               </>
             )
           })()}
