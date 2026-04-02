@@ -2,9 +2,15 @@
 const prisma = require('../../config/prisma')
 
 const ALL_PAGES = [
+  // ── Prensipal ──────────────────────────────────────────────
   'dashboard', 'products', 'clients', 'quotes', 'invoices',
   'stock', 'reports', 'branches', 'settings', 'users',
-  'kane', 'kane-epay', 'sabotay', 'mobilpay', 'hotel'
+  // ── Antrepriz ──────────────────────────────────────────────
+  'kane', 'kane-epay', 'pre', 'sabotay', 'mobilpay',
+  // ── Modil ──────────────────────────────────────────────────
+  'hotel', 'dry',
+  // ── Klinik ─────────────────────────────────────────────────
+  'klinik',
 ]
 
 const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
@@ -44,7 +50,6 @@ exports.updatePages = async (req, res) => {
     })
     sanitized['dashboard'] = true
 
-    // ✅ Sèvi ak $executeRaw — pa bezwen champ nan schema Prisma
     await prisma.$executeRaw`
       UPDATE tenants
       SET allowed_pages = ${JSON.stringify(sanitized)}::jsonb
@@ -57,5 +62,5 @@ exports.updatePages = async (req, res) => {
   }
 }
 
-exports.ALL_PAGES   = ALL_PAGES
+exports.ALL_PAGES    = ALL_PAGES
 exports.DEFAULT_PAGES = DEFAULT_PAGES

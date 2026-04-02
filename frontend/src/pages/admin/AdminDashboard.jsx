@@ -12,7 +12,8 @@ import {
   GitBranch, Power, PowerOff, Lock, Unlock, LayoutGrid,
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
   TrendingUp, Settings, Smartphone, Phone, Wallet,
-  History, Edit2, DollarSign, Save, ChevronLeft, UserCog
+   History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
+  Scissors, Stethoscope,
 } from 'lucide-react'
 
 const PDG_PHOTO = "/FB_IMG_1771787479362.jpg"
@@ -80,7 +81,10 @@ const PAGE_DEFINITIONS = [
   { key:'kane-epay',  label:'Kanè Epay',         icon:<Wallet size={14}/>,          group:'Antrepriz' },
   { key:'sabotay',    label:'Sabotay',           icon:<Smartphone size={14}/>,      group:'Antrepriz' },
   { key:'mobilpay',   label:'MonCash / NatCash', icon:<Phone size={14}/>,           group:'Antrepriz' },
-  { key:'hotel',      label:'Otèl (Rezèvasyon & Dashboard)', icon:<Building2 size={14}/>, group:'Antrepriz' },
+  { key:'hotel',  label:'Otèl (Rezèvasyon & Dashboard)', icon:<Building2 size={14}/>,   group:'Antrepriz' },
+  { key:'pre',    label:'Prè Mikwo Kredi',               icon:<Wallet size={14}/>,      group:'Antrepriz' },
+  { key:'dry',    label:'Prese (Teinturerie)',            icon:<Scissors size={14}/>,    group:'Modil'     },
+  { key:'klinik', label:'Klinik Medikal',                 icon:<Stethoscope size={14}/>, group:'Modil'     },
 ]
 
 const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: true }), {})
