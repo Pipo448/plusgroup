@@ -2,15 +2,18 @@
 // ─── Plus Klinik — Tout Routes Backend ───────────────────────
 'use strict'
 
-const express = require('express')
+const express  = require('express')
 const { PrismaClient } = require('@prisma/client')
+const { identifyTenant, authenticate } = require('../middleware/auth')
+const { extractBranch }               = require('../middleware/branch')
 
 const router = express.Router()
 const prisma  = new PrismaClient()
 
+router.use(identifyTenant, authenticate, extractBranch)
 
 // ─── Helper ───────────────────────────────────────────────────
-const tid = (req) => req.user.tenantId
+const tid = (req) => req.tenant.id
 
 async function genNumeroDossier(tenantId) {
   const ane   = new Date().getFullYear()
