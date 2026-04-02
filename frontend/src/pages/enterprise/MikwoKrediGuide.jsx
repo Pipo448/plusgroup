@@ -10,27 +10,31 @@ import {
 } from 'lucide-react'
 
 // ─── Design ──────────────────────────────────────────────────
+// ✅ Koulè tèks: min kontrast 4.5:1 sou fon #0d1b2a
+// #a8b8cc = tèks kò prensipal  (kontrast ~6.2:1)
+// #8fa3ba = tèks secondè/header (kontrast ~4.8:1)
 const GUIDE_STYLES = `
   .gd-tabs        { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:16px; }
-  .gd-tab         { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:10px; border:1px solid rgba(201,168,76,0.18); background:transparent; color:#6b7a99; cursor:pointer; font-size:12px; font-weight:700; transition:all 0.15s; }
-  .gd-tab.active  { background:rgba(201,168,76,0.12); border-color:rgba(201,168,76,0.5); color:#C9A84C; }
-  .gd-tab:hover:not(.active) { background:rgba(255,255,255,0.04); color:#e8eaf0; }
+  .gd-tab         { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:10px; border:1px solid rgba(201,168,76,0.22); background:rgba(255,255,255,0.03); color:#a8b8cc; cursor:pointer; font-size:12px; font-weight:700; transition:all 0.15s; }
+  .gd-tab.active  { background:rgba(201,168,76,0.15); border-color:rgba(201,168,76,0.55); color:#C9A84C; }
+  .gd-tab:hover:not(.active) { background:rgba(255,255,255,0.06); color:#e8eaf0; }
   .gd-card        { background:#0d1b2a; border:1px solid rgba(201,168,76,0.18); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
   .gd-steps       { list-style:none; padding:0; margin:0; counter-reset:gd-step; }
-  .gd-steps li    { counter-increment:gd-step; display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
+  .gd-steps li    { counter-increment:gd-step; display:flex; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.07); }
   .gd-steps li:last-child { border-bottom:none; }
-  .gd-steps li::before { content:counter(gd-step); width:22px; height:22px; border-radius:50%; background:rgba(59,130,246,0.15); color:#3B82F6; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
-  .gd-warn        { background:rgba(217,119,6,0.1); border:1px solid rgba(217,119,6,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:#D97706; line-height:1.6; margin-top:10px; }
-  .gd-tip         { background:rgba(39,174,96,0.1); border:1px solid rgba(39,174,96,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:#27ae60; line-height:1.6; margin-top:10px; }
-  .gd-danger      { background:rgba(192,57,43,0.1); border:1px solid rgba(192,57,43,0.3); border-radius:8px; padding:10px 14px; font-size:12px; color:#C0392B; line-height:1.6; margin-top:10px; }
+  .gd-steps li::before { content:counter(gd-step); width:22px; height:22px; border-radius:50%; background:rgba(59,130,246,0.2); color:#7eb8f7; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+  .gd-steps li span { color:#a8b8cc; font-size:13px; line-height:1.65; }
+  .gd-warn        { background:rgba(217,119,6,0.12); border:1px solid rgba(217,119,6,0.4); border-radius:8px; padding:10px 14px; font-size:12px; color:#f0a832; line-height:1.6; margin-top:10px; }
+  .gd-tip         { background:rgba(39,174,96,0.12); border:1px solid rgba(39,174,96,0.4); border-radius:8px; padding:10px 14px; font-size:12px; color:#4ecb82; line-height:1.6; margin-top:10px; }
+  .gd-danger      { background:rgba(192,57,43,0.12); border:1px solid rgba(192,57,43,0.4); border-radius:8px; padding:10px 14px; font-size:12px; color:#e06b5f; line-height:1.6; margin-top:10px; }
   .gd-table       { width:100%; border-collapse:collapse; font-size:12px; }
-  .gd-table th    { text-align:left; font-size:10px; font-weight:800; color:#6b7a99; text-transform:uppercase; letter-spacing:0.06em; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.06); }
-  .gd-table td    { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.04); color:#6b7a99; vertical-align:top; font-size:12px; line-height:1.6; }
-  .gd-table td:first-child { color:#e8eaf0; font-weight:600; }
+  .gd-table th    { text-align:left; font-size:10px; font-weight:800; color:#8fa3ba; text-transform:uppercase; letter-spacing:0.06em; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,0.09); }
+  .gd-table td    { padding:9px 10px; border-bottom:1px solid rgba(255,255,255,0.06); color:#a8b8cc; vertical-align:top; font-size:12px; line-height:1.6; }
+  .gd-table td:first-child { color:#dce6f0; font-weight:600; }
   .gd-table tr:last-child td { border-bottom:none; }
-  .gd-formula     { background:rgba(59,130,246,0.07); border-left:2px solid #3B82F6; border-radius:0 8px 8px 0; padding:10px 14px; font-family:'Courier New',monospace; font-size:12px; color:#93BBEF; margin:10px 0; line-height:1.8; }
+  .gd-formula     { background:rgba(59,130,246,0.09); border-left:2px solid #4d8fd4; border-radius:0 8px 8px 0; padding:10px 14px; font-family:'Courier New',monospace; font-size:12px; color:#a8ccf0; margin:10px 0; line-height:1.8; }
   .gd-flow        { display:flex; flex-direction:column; gap:6px; margin-top:10px; }
-  .gd-flow-row    { display:flex; align-items:center; gap:10px; padding:9px 12px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:12px; color:#6b7a99; }
+  .gd-flow-row    { display:flex; align-items:center; gap:10px; padding:9px 12px; background:rgba(255,255,255,0.04); border-radius:8px; font-size:12px; color:#a8b8cc; }
   .gd-2col        { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   @media(max-width:560px){ .gd-2col { grid-template-columns:1fr; } }
 `
@@ -63,7 +67,7 @@ function CardSection({ icon, title, sub, children }) {
         </div>
         <div>
           <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:0 }}>{title}</p>
-          {sub && <p style={{ fontSize:11, color:D.muted, margin:'1px 0 0' }}>{sub}</p>}
+          {sub && <p style={{ fontSize:11, color:"#a8b8cc", margin:'1px 0 0' }}>{sub}</p>}
         </div>
       </div>
       {children}
@@ -76,17 +80,17 @@ function SectionVue() {
   return (
     <>
       <CardSection icon={<BookOpen size={16}/>} title="Kouman sistèm lan fonksyone" sub="Relasyon ant tou 2 modil yo">
-        <p style={{ fontSize:12, color:D.muted, lineHeight:1.65, marginBottom:12 }}>
+        <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.65, marginBottom:12 }}>
           Mikwo Kredi gen 2 pati ki travay ansanm: <strong style={{color:D.text}}>Kanè Epay</strong> (kont epay pou kliyan) ak <strong style={{color:D.text}}>Prè</strong> (mikwo kredi). Tou 2 pataje yon sèl kès lajan kote admin enjekte kapital chak maten.
         </p>
         <div className="gd-flow">
           <div className="gd-flow-row"><PiggyBank size={14} style={{color:D.purple,flexShrink:0}}/><span><strong style={{color:D.text}}>Admin</strong> enjekte kapital jounen an anvan kès ouvri</span></div>
-          <div style={{ display:'flex', justifyContent:'center', color:D.muted, fontSize:20 }}>↓</div>
+          <div style={{ display:'flex', justifyContent:'center', color:'#8fa3ba', fontSize:20 }}>↓</div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
             <div className="gd-flow-row"><ArrowDownCircle size={13} style={{color:D.green,flexShrink:0}}/><span>Kliyan <strong style={{color:D.text}}>depoze / retire</strong> Kanè Epay</span></div>
             <div className="gd-flow-row"><DollarSign size={13} style={{color:D.blue,flexShrink:0}}/><span>Kesye <strong style={{color:D.text}}>dekèse prè</strong> pou kliyan</span></div>
           </div>
-          <div style={{ display:'flex', justifyContent:'center', color:D.muted, fontSize:20 }}>↓</div>
+          <div style={{ display:'flex', justifyContent:'center', color:'#8fa3ba', fontSize:20 }}>↓</div>
           <div className="gd-flow-row"><Lock size={13} style={{color:D.orange,flexShrink:0}}/><span><strong style={{color:D.text}}>Fèmen kès</strong> — denye kontwòl + kalkil diferans lajan fizik</span></div>
         </div>
       </CardSection>
@@ -96,13 +100,13 @@ function SectionVue() {
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             <CreditCard size={14} style={{color:D.green}}/><strong style={{fontSize:13,color:D.text}}>Kanè Epay</strong>
           </div>
-          <p style={{ fontSize:12, color:D.muted, lineHeight:1.6, margin:0 }}>Kliyan ouvri kont, depoze ak retire lajan. Foto KYC, istwa konplè, resi otomatik.</p>
+          <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.6, margin:0 }}>Kliyan ouvri kont, depoze ak retire lajan. Foto KYC, istwa konplè, resi otomatik.</p>
         </div>
         <div className="gd-card">
           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
             <DollarSign size={14} style={{color:D.blue}}/><strong style={{fontSize:13,color:D.text}}>Prè Mikwo Kredi</strong>
           </div>
-          <p style={{ fontSize:12, color:D.muted, lineHeight:1.6, margin:0 }}>4 tip kalkil enterè. Kalandriye otomatik. Deteksyon reta. Enterè kouru si an reta.</p>
+          <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.6, margin:0 }}>4 tip kalkil enterè. Kalandriye otomatik. Deteksyon reta. Enterè kouru si an reta.</p>
         </div>
       </div>
 
@@ -243,7 +247,7 @@ function SectionPre() {
 
       <div className="gd-card">
         <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:'0 0 6px' }}>Enterè kouru — c'est quoi?</p>
-        <p style={{ fontSize:12, color:D.muted, lineHeight:1.65, margin:'0 0 8px' }}>Si yon echeans pa peye nan dat limit li, sistèm kalkile enterè siplemantè <strong style={{color:D.text}}>chak jou</strong> pou chak echeans an reta.</p>
+        <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.65, margin:'0 0 8px' }}>Si yon echeans pa peye nan dat limit li, sistèm kalkile enterè siplemantè <strong style={{color:D.text}}>chak jou</strong> pou chak echeans an reta.</p>
         <div className="gd-formula">
 Enterè Kouru = Balans × (Taux / 30) × Jou Reta
         </div>
@@ -285,7 +289,7 @@ function SectionKapital() {
 
       <div className="gd-card">
         <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:'0 0 8px' }}>Konsèy: ki montan pou enjekte?</p>
-        <p style={{ fontSize:12, color:D.muted, lineHeight:1.65, margin:0 }}>
+        <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.65, margin:0 }}>
           Konte <strong style={{color:D.text}}>lajan fizik ki nan kès la</strong> maten an. Konpare l ak <strong style={{color:D.text}}>kapital disponib</strong> ki nan sistèm lan. Si yo diferan, enjekte diferans lan pou yo matche anvan ou kòmanse jounen an.
         </p>
       </div>
@@ -335,7 +339,7 @@ function SectionKes() {
 
       <div className="gd-card">
         <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:'0 0 8px' }}>Apre kès fèmen</p>
-        <p style={{ fontSize:12, color:D.muted, lineHeight:1.65, margin:'0 0 8px' }}>
+        <p style={{ fontSize:12, color:"#a8b8cc", lineHeight:1.65, margin:'0 0 8px' }}>
           Tou 2 paj bloke otomatikman. Bouton <strong style={{color:D.text}}>Depo, Retrè, Nouvo Kont, Peman Prè, Nouvo Prè</strong> yo tout dezaktive jiskaske demen maten.
         </p>
         <div className="gd-tip">Si ou fèmen kès pa aksidan, yon admin ka kouri SQL sa nan Supabase pou reouvri: <br/><code style={{fontSize:11, color:'#93BBEF'}}>DELETE FROM pre_rapo_kesye WHERE date_rapo = (NOW() - INTERVAL '5 hours')::date;</code></div>
@@ -438,7 +442,7 @@ export default function MikwoKrediGuide() {
           <BookOpen size={20} style={{color:D.gold}}/>
           <h1 style={{ fontSize:18, fontWeight:900, color:D.gold, margin:0 }}>Gid Mikwo Kredi</h1>
         </div>
-        <p style={{ fontSize:12, color:D.muted, margin:0, lineHeight:1.6 }}>
+        <p style={{ fontSize:12, color:"#a8b8cc", margin:0, lineHeight:1.6 }}>
           Gid konplè pou kesye ak admin — Kanè Epay, Prè, Kapital, Fèmen Kès, ak Pèmisyon.
         </p>
       </div>
