@@ -497,7 +497,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     <div class="main-msg">Mesi paske ou achte lakay nou!</div>
     <div class="sub-msg">Machandiz pa reprann ni chanje.</div>
     <div class="sep-dsh mt1"></div>
-    <div class="brand">Pwodwi pa: Plus Group | +509 4244-9024</div>
+    <div class="brand">Mete sistèm nan biznis ou ak PLUS GROUP | +509 4244-9024</div>
   </div>
 
 </body>

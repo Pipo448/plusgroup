@@ -139,6 +139,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
   const bizName = tenant?.businessName || tenant?.name || 'PLUS GROUP'
 
+  // ── Tèks footer konfigirab ──────────────────────────────────
+  const thankYouMsg  = tenant?.receiptThankYou   || 'Mèsi paske ou achte lakay nou!'
+  const footerNote   = tenant?.receiptFooterNote || null
+
   const S = {
     wrap: {
       fontFamily: "'Courier New', Courier, monospace",
@@ -194,11 +198,11 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       {/* ════ INFO RESI ════ */}
       <div style={{ fontSize: is57 ? '9px' : '10px', marginBottom:'2px' }}>
-        <Row2 label="Dat:"    value={toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')} />
+        <Row2 label="Dat:"     value={toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')} />
         <Row2 label="Resi N°:" value={invoice.invoiceNumber} bold />
         {snap.name  && <Row2 label="Kliyan:" value={snap.name} />}
         {snap.phone && <Row2 label="Tel:"    value={snap.phone} />}
-        {!is57      && <Row2 label="Kesye:"  value={invoice.cashierName || invoice.createdByName || 'Admin'} />}
+        {!is57      && <Row2 label="Kasye:"  value={invoice.cashierName || invoice.createdByName || 'Admin'} />}
         {snap.nif   && <Row2 label="NIF:"    value={snap.nif} />}
       </div>
 
@@ -350,15 +354,25 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       )}
 
       {/* ════ PIE ════ */}
-      <div style={{ ...S.center, fontSize: is57 ? '8px' : '9px', color:'#444', lineHeight:'1.5', marginTop:'3px', borderTop:'1px dashed #bbb', paddingTop:'4px' }}>
+      <div style={{
+        ...S.center,
+        fontSize: is57 ? '8px' : '9px',
+        color: '#444',
+        lineHeight: '1.5',
+        marginTop: '3px',
+        borderTop: '1px dashed #bbb',
+        paddingTop: '4px',
+      }}>
         <div style={{ fontWeight:'700', fontSize: is57 ? '10px' : '11px', marginBottom:'2px' }}>
-          Mèsi paske ou achte lakay nou!
+          {thankYouMsg}
         </div>
-        <div style={{ fontStyle:'italic', color:'#666', marginBottom:'3px' }}>
-          Tout machandiz vann pa reprann ni chanje.
-        </div>
+        {footerNote && (
+          <div style={{ fontStyle:'italic', color:'#666', marginBottom:'3px' }}>
+            {footerNote}
+          </div>
+        )}
         <div style={{ fontWeight:'600', color:'#333' }}>
-          Pwodwi pa <strong>Plus Group</strong> · +509 4244-9024
+          Pwodwi pa <strong>{bizName}</strong> · {tenant?.phone || '+509 4244-9024'}
         </div>
       </div>
 
@@ -401,10 +415,6 @@ export default function InvoiceDetail() {
     catch { return false }
   })()
 
-  // ✅ Detekte si USB (Windows driver) oswa Bluetooth
-  // Nan Paramèt → printerConnection = 'usb'       → HTML popup → Windows GDI → RP327
-  // Nan Paramèt → printerConnection = 'bluetooth'  → ESC/POS Bluetooth
-  // Default: 'usb' pou Windows
   const printerConnection = tenant?.printerConnection || 'usb'
   const isUsbPrinter      = printerConnection === 'usb'
 
@@ -451,9 +461,7 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice, showQrCode])
 
-  // ✅ handlePrint — detekte USB vs Bluetooth
   const handlePrint = async () => {
-    // ── USB / Windows driver → HTML popup → window.print() → RP327
     if (isUsbPrinter) {
       try {
         setPrinting(true)
@@ -466,7 +474,6 @@ export default function InvoiceDetail() {
       return
     }
 
-    // ── Fallback: metòd orijinal window.print() CSS (non-USB)
     setPrinting(true)
     const toastId = toast.loading('Ap prepare resi...')
     try {
@@ -620,7 +627,6 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        {/* ✅ Badge: afiche ki mode printer k ap itilize a */}
         {isUsbPrinter && (
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -632,10 +638,8 @@ export default function InvoiceDetail() {
           </div>
         )}
 
-        {/* Bouton aksyon yo */}
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
 
-          {/* ✅ Bouton Enprime — USB → printInvoiceHTML | Lòt → window.print() */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -646,7 +650,6 @@ export default function InvoiceDetail() {
             {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
           </button>
 
-          {/* Sunmi — sèlman si onSunmi */}
           {onSunmi && (
             <button
               onClick={handleSunmiPrint}
@@ -659,7 +662,6 @@ export default function InvoiceDetail() {
             </button>
           )}
 
-          {/* Bluetooth — sèlman si btSupported */}
           {btSupported && (
             <>
               {!connected ? (
@@ -701,7 +703,6 @@ export default function InvoiceDetail() {
             </>
           )}
 
-          {/* PDF */}
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
               style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -727,14 +728,12 @@ export default function InvoiceDetail() {
             )}
           </div>
 
-          {/* Peman */}
           {!isCancelled && !isPaid && hasRole(['admin','cashier']) && (
             <button onClick={openPaymentModal} className="btn-primary" style={{ display:'flex', alignItems:'center', gap:6 }}>
               <Plus size={16} /> Anrejistre Peman
             </button>
           )}
 
-          {/* Anile */}
           {!isCancelled && hasRole('admin') && (
             <button onClick={() => {
               const reason = prompt('Rezon anilasyon:')
@@ -879,7 +878,6 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
-            {/* ✅ Bouton sidebar — menm lojik USB vs lòt */}
             <button
               onClick={handlePrint}
               disabled={printing}
