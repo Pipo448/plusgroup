@@ -7,6 +7,8 @@ import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinterStore } from '../../stores/printerStore'
 import { isAndroid, isSunmi } from '../../services/printerService'
+// ✅ NOUVO — HTML/Windows driver printing pou RP327 USB
+import { printInvoiceHTML } from '../../services/printReceiptHTML'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
@@ -96,7 +98,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
   const receiptWidth = tenant?.receiptSize === '57mm' ? '57mm' : '80mm'
   const is57         = receiptWidth === '57mm'
-  const PW           = is57 ? '57mm' : '80mm'   // papye lajè
+  const PW           = is57 ? '57mm' : '80mm'
 
   const totalHtg = Number(invoice.totalHtg || 0)
   const paidHtg  = Number(invoice.amountPaidHtg || 0)
@@ -109,7 +111,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
   const lastPay     = invoice.payments?.length > 0
     ? invoice.payments[invoice.payments.length - 1] : null
 
-  // ✅ amountGiven + change — sove sou peman an
   const amountGiven = Number(lastPay?.amountGiven || 0)
   const change      = Number(lastPay?.change || 0)
   const dueDate     = lastPay?.dueDate || invoice.dueDate || null
@@ -138,7 +139,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
   const bizName = tenant?.businessName || tenant?.name || 'PLUS GROUP'
 
-  // ── Estil global
   const S = {
     wrap: {
       fontFamily: "'Courier New', Courier, monospace",
@@ -155,7 +155,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     dash:    { borderTop: '1px dashed #888', margin: '3px 0', border: 'none', borderTopStyle: 'dashed', borderTopWidth: 1, borderTopColor:'#888' },
   }
 
-  // ── Ranje 2 kolòn: label | valè
   const Row2 = ({ label, value, bold, color, large }) => (
     <div style={{
       display: 'flex', justifyContent: 'space-between',
@@ -169,7 +168,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
     </div>
   )
 
-  // ── Separatè
   const HR   = () => <div style={S.hr}   />
   const DASH = () => <div style={S.dash} />
 
@@ -206,9 +204,8 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       <DASH/>
 
-      {/* ════ ATIK YO — tablo klasik monospace ════ */}
+      {/* ════ ATIK YO ════ */}
       <div style={{ marginBottom:'2px' }}>
-        {/* ── Entèt kolòn */}
         <div style={{
           display:'grid',
           gridTemplateColumns: is57 ? '1fr 18px 44px 44px' : '1fr 22px 52px 52px',
@@ -225,7 +222,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           <span style={{ textAlign:'right' }}>Total</span>
         </div>
 
-        {/* ── Liy atik yo */}
         {invoice.items?.map((item, i) => {
           const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
           return (
@@ -271,7 +267,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           value={`${fmtR(totalHtg)} G`}
           bold large
         />
-        {/* Deviz sou yon liy separe, adwat */}
         {(toUSD(totalHtg) || toDOP(totalHtg)) && (
           <div style={{ textAlign:'right', fontSize:'9px', color:'#666', marginBottom:'1px' }}>
             {toUSD(totalHtg) && <span>≈ ${toUSD(totalHtg)} USD</span>}
@@ -285,23 +280,15 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       {/* ════ PEMAN ════ */}
       <div style={{ fontSize: is57 ? '9px' : '10px', marginBottom:'2px' }}>
-
-        {/* ✅ Kòb kliyan bay — sèlman si li bay plis ke total */}
         {amountGiven > 0 && (
           <Row2 label="Kòb kliyan bay:" value={`${fmtR(amountGiven)} G`} bold />
         )}
-
-        {/* ✅ Monnen remèt */}
         {change > 0 && (
           <Row2 label="Monnen remèt:" value={`${fmtR(change)} G`} bold />
         )}
-
-        {/* ✅ Kòb peye (toujou afiche) */}
         {paidHtg > 0 && (
           <Row2 label="Kòb peye:" value={`${fmtR(paidHtg)} G`} bold />
         )}
-
-        {/* Metod peman */}
         {lastPay?.method && (
           <Row2
             label="Metod:"
@@ -311,8 +298,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         {lastPay?.reference && (
           <Row2 label="Ref:" value={lastPay.reference} />
         )}
-
-        {/* ✅ Balans ki rete */}
         {balHtg > 0 && (
           <>
             <DASH/>
@@ -323,8 +308,6 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
             />
           </>
         )}
-
-        {/* ✅ Dat limit peman kredi */}
         {dueDate && balHtg > 0 && (
           <div style={{
             background:'rgba(217,119,6,0.08)',
@@ -398,7 +381,6 @@ export default function InvoiceDetail() {
   const [logoBase64, setLogoBase64]   = useState(null)
   const [printing, setPrinting]       = useState(false)
 
-  // ✅ dueDate ajoute pou peman kredi
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '', dueDate: '' })
 
   const {
@@ -414,13 +396,18 @@ export default function InvoiceDetail() {
   const onSunmi    = isSunmi()
   const showQrCode = tenant?.showQrCode !== false
 
-  // ✅ Detekte BT san krash — iOS Safari ak vye navigatè pa sipote navigator.bluetooth
   const btSupported = (() => {
     try { return !onSunmi && typeof navigator !== 'undefined' && !!navigator.bluetooth }
     catch { return false }
   })()
 
-  // ✅ Wrapper connect ak try/catch an plis pou evite krash nenpòt ki kote
+  // ✅ Detekte si USB (Windows driver) oswa Bluetooth
+  // Nan Paramèt → printerConnection = 'usb'       → HTML popup → Windows GDI → RP327
+  // Nan Paramèt → printerConnection = 'bluetooth'  → ESC/POS Bluetooth
+  // Default: 'usb' pou Windows
+  const printerConnection = tenant?.printerConnection || 'usb'
+  const isUsbPrinter      = printerConnection === 'usb'
+
   const handleConnect = async () => {
     try {
       await connect()
@@ -464,7 +451,22 @@ export default function InvoiceDetail() {
       .catch(err => console.error('QR Code error:', err))
   }, [invoice, showQrCode])
 
+  // ✅ handlePrint — detekte USB vs Bluetooth
   const handlePrint = async () => {
+    // ── USB / Windows driver → HTML popup → window.print() → RP327
+    if (isUsbPrinter) {
+      try {
+        setPrinting(true)
+        await printInvoiceHTML(invoice, tenant, user)
+      } catch (err) {
+        toast.error('Ere enpresyon: ' + err.message)
+      } finally {
+        setPrinting(false)
+      }
+      return
+    }
+
+    // ── Fallback: metòd orijinal window.print() CSS (non-USB)
     setPrinting(true)
     const toastId = toast.loading('Ap prepare resi...')
     try {
@@ -593,10 +595,9 @@ export default function InvoiceDetail() {
         }
       `}</style>
 
-      {/* ══════════ HEADER — responsiv mobil ══════════ */}
+      {/* ══════════ HEADER ══════════ */}
       <div style={{ marginBottom: 24 }}>
 
-        {/* Ranje 1 — Titre + badge */}
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
           <button onClick={() => navigate('/app/invoices')} className="btn-ghost p-2">
             <ArrowLeft size={18} />
@@ -619,10 +620,22 @@ export default function InvoiceDetail() {
           </div>
         </div>
 
-        {/* Ranje 2 — Bouton aksyon yo — wrap sou mobil */}
+        {/* ✅ Badge: afiche ki mode printer k ap itilize a */}
+        {isUsbPrinter && (
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '3px 10px', marginBottom: 10, borderRadius: 20,
+            background: 'rgba(37,99,235,0.07)', border: '1px solid rgba(37,99,235,0.2)',
+            fontSize: 11, color: '#2563eb', fontWeight: 700,
+          }}>
+            🖨 Mode USB — Windows Driver (RP327)
+          </div>
+        )}
+
+        {/* Bouton aksyon yo */}
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
 
-          {/* Enprime window.print */}
+          {/* ✅ Bouton Enprime — USB → printInvoiceHTML | Lòt → window.print() */}
           <button
             onClick={handlePrint}
             disabled={printing}
@@ -630,7 +643,7 @@ export default function InvoiceDetail() {
             style={{ display:'flex', alignItems:'center', gap:6 }}
           >
             <Printer size={14} />
-            {printing ? 'Ap enprime...' : 'Enprime Resi'}
+            {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
           </button>
 
           {/* Sunmi — sèlman si onSunmi */}
@@ -646,7 +659,7 @@ export default function InvoiceDetail() {
             </button>
           )}
 
-          {/* ✅ Bluetooth — sèlman si btSupported (safe check) */}
+          {/* Bluetooth — sèlman si btSupported */}
           {btSupported && (
             <>
               {!connected ? (
@@ -802,7 +815,6 @@ export default function InvoiceDetail() {
             </div>
           )}
 
-          {/* ✅ Afiche dat limit peman si gen dueDate ak balans */}
           {invoice.dueDate && balance > 0 && (
             <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'rgba(217,119,6,0.07)', border:'1px solid rgba(217,119,6,0.3)', borderRadius:12 }}>
               <span style={{ fontSize:20 }}>📅</span>
@@ -836,7 +848,6 @@ export default function InvoiceDetail() {
               {balance > 0 && (
                 <div className="flex justify-between text-red-600">
                   <span className="flex items-center gap-1.5"><Clock size={14} /> Balans</span>
-                  {/* ✅ Siy negatif nan sidebar tou */}
                   <span className="font-mono font-bold">-{fmt(balance)} HTG</span>
                 </div>
               )}
@@ -868,6 +879,7 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
+            {/* ✅ Bouton sidebar — menm lojik USB vs lòt */}
             <button
               onClick={handlePrint}
               disabled={printing}
@@ -875,7 +887,7 @@ export default function InvoiceDetail() {
               style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}
             >
               <Printer size={15} />
-              {printing ? 'Ap enprime...' : 'Enprime Resi'}
+              {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
             </button>
 
             {onSunmi && (
@@ -939,7 +951,6 @@ export default function InvoiceDetail() {
                 )}
                 <div style={{ borderTop:'1px solid #fecaca', marginTop:8, paddingTop:8 }} className="flex justify-between items-center">
                   <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans ki rete:</span>
-                  {/* ✅ Siy negatif nan modal tou */}
                   <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>-{fmt(balance)} HTG</span>
                 </div>
               </div>
@@ -1002,7 +1013,6 @@ export default function InvoiceDetail() {
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
               </div>
 
-              {/* ✅ DAT KREDI — montre sèlman si se peman pasyal */}
               {amtNum > 0 && amtNum < balance && (
                 <div>
                   <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -1034,8 +1044,8 @@ export default function InvoiceDetail() {
                     paymentMutation.mutate({
                       ...payData,
                       amountHtg:    amtToRecord,
-                      amountGiven:  monnen > 0 ? amtNum : 0,   // ✅ kòb kliyan te bay
-                      change:       monnen > 0 ? monnen : 0,   // ✅ monnen kesye remèt
+                      amountGiven:  monnen > 0 ? amtNum : 0,
+                      change:       monnen > 0 ? monnen : 0,
                       dueDate:      payData.dueDate || undefined,
                     })
                   }}
