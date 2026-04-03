@@ -6,7 +6,7 @@
 
 // ─── CSS pou 80mm ─────────────────────────────────────────────
 const CSS_80MM = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { margin: 0; padding: 0; box-sizing: border-box; color: #000 !important; font-weight: 700; }
 
   @page {
     size: 80mm auto;
@@ -66,7 +66,8 @@ const CSS_80MM = `
   }
   .biz-sub {
     font-size: 8pt;
-    font-weight: 800;
+    font-weight: 900;
+    color: #000;
     text-align: center;
     letter-spacing: 1px;
     margin-top: 1px;
@@ -222,7 +223,8 @@ const CSS_80MM = `
   .fx-line {
     text-align: right;
     font-size: 7.5pt;
-    font-weight: 700;
+    font-weight: 900;
+    color: #000;
     padding: 1px 0;
   }
 
@@ -236,6 +238,8 @@ const CSS_80MM = `
   }
   .qr-num {
     font-size: 7.5pt;
+    font-weight: 900;
+    color: #000;
     text-align: center;
     margin-top: 2px;
     letter-spacing: 1px;
@@ -247,15 +251,18 @@ const CSS_80MM = `
     font-size: 9.5pt;
     font-weight: 900;
     letter-spacing: 0.5px;
+    color: #000;
   }
   .footer .sub-msg {
     font-size: 7.5pt;
-    font-weight: 700;
+    font-weight: 900;
+    color: #000;
     margin-top: 2px;
   }
   .footer .brand {
     font-size: 7.5pt;
-    font-weight: 700;
+    font-weight: 900;
+    color: #000;
     margin-top: 2px;
   }
 
@@ -329,7 +336,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
     const dis = Number(item.discountPct) > 0
-      ? `<tr><td colspan="4" class="sm" style="padding-left:4px;color:#444;font-style:italic">
+      ? `<tr><td colspan="4" class="sm" style="padding-left:4px;color:#000;font-style:normal;font-weight:900">
            ↳ Remiz: -${item.discountPct}%
          </td></tr>` : ''
     return `
