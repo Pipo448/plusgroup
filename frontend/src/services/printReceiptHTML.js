@@ -386,7 +386,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     ${snap.name   ? `<tr><td>Kliyan :</td><td>${snap.name}</td></tr>` : ''}
     ${snap.phone  ? `<tr><td>Tel&nbsp;&nbsp;&nbsp;:</td><td>${snap.phone}</td></tr>` : ''}
     ${snap.nif    ? `<tr><td>NIF&nbsp;&nbsp;&nbsp;:</td><td>${snap.nif}</td></tr>` : ''}
-    ${cashierName ? `<tr><td>Kasye&nbsp;&nbsp;:</td><td>${cashierName}</td></tr>` : ''}
+    ${cashierName ? `<tr><td>Kesye&nbsp;&nbsp;:</td><td>${cashierName}</td></tr>` : ''}
   </table>
 
   <!-- TABLO PWODWI -->

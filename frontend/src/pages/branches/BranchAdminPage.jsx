@@ -209,7 +209,7 @@ const BranchUsersModal = ({ branch, lang, onClose }) => {
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)}
               style={{ flex: 1, padding: '7px 10px', borderRadius: 8, fontSize: 12, background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }}>
-              <option value="cashier" style={{ background: '#0f172a' }}>Kasye</option>
+              <option value="cashier" style={{ background: '#0f172a' }}>Kesye</option>
               <option value="manager" style={{ background: '#0f172a' }}>Manadjè</option>
               <option value="accountant" style={{ background: '#0f172a' }}>Kontab</option>
               <option value="viewer" style={{ background: '#0f172a' }}>Wè sèlman</option>

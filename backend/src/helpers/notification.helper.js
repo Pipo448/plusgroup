@@ -81,7 +81,7 @@ async function checkAndNotifyLowStock({ tenantId, product }) {
       where: { tenantId, isActive: true },
       select: { id: true, role: true },
     });
-    // Kasye wè alèt stòk tou — yo ki fè vant
+    // Kesye wè alèt stòk tou — yo ki fè vant
     const targetIds = users.map(u => u.id);
 
     if (isZero) {

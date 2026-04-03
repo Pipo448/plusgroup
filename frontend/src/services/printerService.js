@@ -23,6 +23,7 @@ const LF  = 0x0A
 
 const CMD = {
   INIT:          [ESC, 0x40],
+  DENSITY_DARK: [GS, 0x45, 0x03], // max darkness (0–3)
   ALIGN_LEFT:    [ESC, 0x61, 0x00],
   ALIGN_CENTER:  [ESC, 0x61, 0x01],
   ALIGN_RIGHT:   [ESC, 0x61, 0x02],
@@ -333,7 +334,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     ...(snap.name     ? [...CMD.BOLD_ON, ...encodeText('Kliyan : '), ...CMD.BOLD_OFF, ...encodeText(snap.name.substring(0, W - 10) + '\n')] : []),
     ...(snap.phone    ? [...CMD.BOLD_ON, ...encodeText('Tel    : '), ...CMD.BOLD_OFF, ...encodeText(snap.phone + '\n')] : []),
     ...(snap.nif      ? [...CMD.BOLD_ON, ...encodeText('NIF    : '), ...CMD.BOLD_OFF, ...encodeText(snap.nif + '\n')] : []),
-    ...(cashierName   ? [...CMD.BOLD_ON, ...encodeText('Kasye  : '), ...CMD.BOLD_OFF, ...encodeText(cashierName.substring(0, W - 10) + '\n')] : []),
+    ...(cashierName   ? [...CMD.BOLD_ON, ...encodeText('Kesye  : '), ...CMD.BOLD_OFF, ...encodeText(cashierName.substring(0, W - 10) + '\n')] : []),
 
     // ══ TABLO PWODWI ═════════════════════════════════════════
     ...divider('-', W), LF,

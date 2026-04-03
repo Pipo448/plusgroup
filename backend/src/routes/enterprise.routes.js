@@ -34,7 +34,7 @@ kaneRouter.post('/', async (req, res) => {
     if (!description || !amount) {
       return res.status(400).json({ success: false, message: 'Deskripsyon ak montan obligatwa.' })
     }
-    const cashierName = req.user?.fullName || 'Kasye'
+    const cashierName = req.user?.fullName || 'Kesye'
     const kaneNumber = `KNE-${Date.now().toString().slice(-6)}`
     // TODO: Sove nan baz done ou a
     const kane = {

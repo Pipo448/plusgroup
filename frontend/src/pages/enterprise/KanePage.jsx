@@ -17,7 +17,7 @@ const T = {
     noKane: 'Pa gen kanè. Kreye premye kanè ou a!',
     kaneNum: 'Nimewo', totalToday: 'Total Jodi a', totalPaid: 'Total Peye', totalPending: 'Annatant',
     confirmPaid: 'Mete kanè sa a kòm peye?', confirmCancel: 'Anile kanè sa a?',
-    receiptTitle: 'REÇU KÈS', receiptCashier: 'Kasye', receiptTotal: 'TOTAL', receiptThanks: 'Mèsi pou achte ou!',
+    receiptTitle: 'REÇU KÈS', receiptCashier: 'Kesye', receiptTotal: 'TOTAL', receiptThanks: 'Mèsi pou achte ou!',
     apiError: 'Erè koneksyon ak sèvè a.',
     sectionInfo: 'ENFÒMASYON TITILÈ', sectionAmount: 'MONTAN OUVERTURE', sectionFamily: 'REFERANS FANMI',
     firstName: 'PRENON', lastName: 'NON', nif: 'NIF / CIN', address: 'ADRÈS',
