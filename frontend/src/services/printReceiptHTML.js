@@ -10,12 +10,12 @@ const CSS_80MM = `
 
   @page {
     size: 80mm auto;
-    margin: 2mm 1mm 2mm 0mm;
+    margin: 2mm 0mm 2mm 0mm;
   }
 
   body {
-    width: 79mm;
-    max-width: 79mm;
+    width: 78mm;
+    max-width: 78mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     font-weight: 700;
