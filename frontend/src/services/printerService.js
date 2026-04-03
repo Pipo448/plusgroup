@@ -1,4 +1,6 @@
 // src/services/printerService.js
+// RP327 80mm + Goojprt 58mm — ESC/POS via Web Bluetooth
+// ✅ 80mm resi amelyore — bèl, pwofesyonèl, alinye kòrèkteman
 
 const KNOWN_PAIRS = [
   { svc: '000018f0-0000-1000-8000-00805f9b34fb', chr: '00002af1-0000-1000-8000-00805f9b34fb' },
@@ -29,6 +31,7 @@ const CMD = {
   BOLD_OFF:      [ESC, 0x45, 0x00],
   DOUBLE_HEIGHT: [ESC, 0x21, 0x10],
   DOUBLE_BOTH:   [ESC, 0x21, 0x30],
+  DOUBLE_WIDTH:  [ESC, 0x21, 0x20],
   NORMAL_SIZE:   [ESC, 0x21, 0x00],
   SMALL_FONT:    [ESC, 0x4D, 0x01],
   NORMAL_FONT:   [ESC, 0x4D, 0x00],
@@ -60,11 +63,13 @@ const _isSunmi   = /sunmi/i.test(_ua)
 export const isAndroid = () => _isAndroid
 export const isSunmi   = () => _isSunmi
 
+// ── Largè selon papye ─────────────────────────────────────────
 const getWidth = (tenant) => {
-  const size = tenant?.receiptSize || '58mm'
+  const size = tenant?.receiptSize || '80mm'
   return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
 }
 
+// ── Liy ak tèks gòch ak dwat ──────────────────────────────────
 const makeLine = (left, right, width) => {
   const l = String(left)
   const r = String(right)
@@ -73,7 +78,15 @@ const makeLine = (left, right, width) => {
   return encodeText(l + ' '.repeat(spaces) + r)
 }
 
+// ── Separatè ──────────────────────────────────────────────────
 const divider = (char, width) => encodeText(char.repeat(width))
+
+// ── Tèks santré manyèlman ─────────────────────────────────────
+const center = (text, width) => {
+  const t = String(text).substring(0, width)
+  const pad = Math.max(0, Math.floor((width - t.length) / 2))
+  return encodeText(' '.repeat(pad) + t)
+}
 
 const makeQR = (content) => {
   const data = encodeText(content)
@@ -137,24 +150,14 @@ const sendViaRawBT = (bytes) => {
   window.location.href = 'intent:' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'
 }
 
-// ══════════════════════════════════════════════════════════════
-// ✅ CONNECT — acceptAllDevices AN PREMYE pou Android Chrome
-// ══════════════════════════════════════════════════════════════
 export const connectPrinter = async () => {
   if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
-
-  // ✅ acceptAllDevices montre TOUT aparèy BT, enkli printer
-  // ki pa anonse UUID yo (pifò printer bon mache fè sa).
-  // C se sa ki te kòz "Appareil inconnu" sou Android Chrome.
   _device = await navigator.bluetooth.requestDevice({
     acceptAllDevices: true,
     optionalServices: ALL_SERVICE_UUIDS,
   })
-
   const server = await _device.gatt.connect()
   _device.addEventListener('gattserverdisconnected', () => { _char = null; _device = null })
-
-  // Eseye UUID konnu yo an premye
   for (const { svc, chr } of KNOWN_PAIRS) {
     try {
       const service   = await server.getPrimaryService(svc)
@@ -165,8 +168,6 @@ export const connectPrinter = async () => {
       }
     } catch { /* eseye pwochen */ }
   }
-
-  // Auto-discovery: jwenn nenpòt characteristic ki ka ekri
   try {
     const services = await server.getPrimaryServices()
     for (const service of services) {
@@ -181,7 +182,6 @@ export const connectPrinter = async () => {
       } catch { /* kontinye */ }
     }
   } catch (e) { console.error('Auto-discovery echwe:', e) }
-
   _char = null; _device = null
   throw new Error('PRINTER_UUID_NOT_FOUND')
 }
@@ -218,12 +218,16 @@ const dispatch = async (bytes) => {
   throw new Error('Okenn printer disponib. Konekte yon printer Bluetooth dabò.')
 }
 
+// ══════════════════════════════════════════════════════════════
+// ✅ PRINT INVOICE — 80mm amelyore, 58mm pa chanje
+// ══════════════════════════════════════════════════════════════
 export const printInvoice = async (invoice, tenant, cashier = null) => {
   const fmt = (n) => Number(n || 0)
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
   const W           = getWidth(tenant)
+  const is80        = W >= 48  // ← RP327 80mm
   const snap        = invoice.clientSnapshot || {}
   const cashierName = cashier?.fullName || cashier?.name || null
   const totalHtg    = Number(invoice.totalHtg    || 0)
@@ -246,89 +250,226 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const toUSD   = (n) => rateUSD > 0 ? (n / rateUSD).toFixed(2) : null
   const toDOP   = (n) => rateDOP > 0 ? (n / rateDOP).toFixed(2) : null
 
-  const METOD = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', transfer:'Virement', check:'Chek', credit:'Kredi', other:'Lot' }
+  const METOD      = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', transfer:'Virement', check:'Chek', credit:'Kredi', other:'Lot' }
   const statusLine = isPaid ? 'TOTAL PEYE' : isCancelled ? 'ANILE' : isCredit ? 'KREDI' : isPartial ? 'PASYAL' : 'IMPAYE'
-  const C = W >= 48 ? { nom: 22, qte: 4, pri: 11, tot: 11 } : { nom: 16, qte: 3, pri: 7, tot: 6 }
-  const tblHeader = 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri'.padStart(C.pri) + 'Tot'.padStart(C.tot)
+  const bizName    = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const dateStr    = new Date(invoice.issueDate).toLocaleDateString('fr-HT')
+  const logoUrl    = tenant?.logoUrl || tenant?.logo
+  const logoBytes  = logoUrl ? await logoWithTimeout(logoUrl, is80 ? 200 : 120) : []
+  const qrContent  = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
-  const logoUrl   = tenant?.logoUrl || tenant?.logo
-  const logoBytes = logoUrl ? await logoWithTimeout(logoUrl, W >= 48 ? 200 : 120) : []
-  const dateStr   = new Date(invoice.issueDate).toLocaleDateString('fr-HT')
-  const bizName   = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-  const qrContent = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
+  // ── Kolòn tablo 80mm: Nom(20) Q(4) Pri(12) Tot(12) = 48
+  // ── Kolòn tablo 58mm: Nom(16) Q(3) Pri(7)  Tot(6)  = 32
+  const C = is80
+    ? { nom: 20, qte: 4, pri: 12, tot: 12 }
+    : { nom: 16, qte: 3, pri:  7, tot:  6 }
 
+  // ── Header kolòn tablo ──────────────────────────────────────
+  const tblHeader = is80
+    ? 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri (G)'.padStart(C.pri) + 'Total'.padStart(C.tot)
+    : 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri'.padStart(C.pri)    + 'Tot'.padStart(C.tot)
+
+  // ══════════════════════════════════════════════════════════
+  // BYTES PRENSIPAL
+  // ══════════════════════════════════════════════════════════
   const bytes = [
     ...CMD.INIT,
+
+    // ── HEADER ───────────────────────────────────────────────
     ...CMD.ALIGN_CENTER,
+
+    // Logo bitmap si disponib
     ...(logoBytes.length > 0 ? [...logoBytes, LF] : []),
-    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText(bizName + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...(tenant?.tagline ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+
+    // Non biznis — DOUBLE_BOTH pou 80mm, DOUBLE_HEIGHT pou 58mm
+    ...CMD.BOLD_ON,
+    ...(is80 ? CMD.DOUBLE_BOTH : CMD.DOUBLE_HEIGHT),
+    ...encodeText(bizName + '\n'),
+    ...CMD.NORMAL_SIZE,
+    ...CMD.BOLD_OFF,
+
+    // Slogan / adres / tel — sèlman 80mm
+    ...(is80 && tenant?.tagline  ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline  + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(is80 && tenant?.address  ? [...CMD.SMALL_FONT, ...encodeText(tenant.address  + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.phone             ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+
+    // Sèparatè epès
     ...CMD.ALIGN_LEFT,
+    LF,
     ...divider('=', W), LF,
-    ...CMD.SMALL_FONT,
-    ...makeLine('Dat:', dateStr, W), LF,
-    ...makeLine('Resi N:', invoice.invoiceNumber, W), LF,
-    ...(snap.name   ? [...makeLine('Kliyan:', snap.name.substring(0, W - 9), W), LF] : []),
-    ...(snap.phone  ? [...makeLine('Tel:', snap.phone, W), LF] : []),
-    ...(snap.nif    ? [...makeLine('NIF:', snap.nif, W), LF] : []),
-    ...(cashierName ? [...makeLine('Kesye:', cashierName.substring(0, W - 8), W), LF] : []),
-    ...CMD.NORMAL_FONT,
+
+    // ── INFO TRANSAKSYON ─────────────────────────────────────
+    ...(is80 ? [
+      // 80mm: 2 kolòn sou menm liy
+      ...CMD.SMALL_FONT,
+      ...makeLine('Dat   : ' + dateStr, 'Resi N: ' + (invoice.invoiceNumber || ''), W), LF,
+      ...(snap.name     ? [...makeLine('Kliyan: ' + snap.name.substring(0, 28), '', W), LF] : []),
+      ...(snap.phone    ? [...makeLine('Tel   : ' + snap.phone, '', W), LF] : []),
+      ...(snap.nif      ? [...makeLine('NIF   : ' + snap.nif, '', W), LF] : []),
+      ...(cashierName   ? [...makeLine('Kasye : ' + cashierName.substring(0, 28), '', W), LF] : []),
+      ...CMD.NORMAL_FONT,
+    ] : [
+      // 58mm: yon liy chak
+      ...CMD.SMALL_FONT,
+      ...makeLine('Dat:', dateStr, W), LF,
+      ...makeLine('Resi N:', invoice.invoiceNumber, W), LF,
+      ...(snap.name     ? [...makeLine('Kliyan:', snap.name.substring(0, W - 9), W), LF] : []),
+      ...(snap.phone    ? [...makeLine('Tel:', snap.phone, W), LF] : []),
+      ...(snap.nif      ? [...makeLine('NIF:', snap.nif, W), LF] : []),
+      ...(cashierName   ? [...makeLine('Kesye:', cashierName.substring(0, W - 8), W), LF] : []),
+      ...CMD.NORMAL_FONT,
+    ]),
+
+    // ── TABLO PWODWI ─────────────────────────────────────────
     ...divider('-', W), LF,
     ...CMD.SMALL_FONT,
+    ...CMD.BOLD_ON,
     ...encodeText(tblHeader.substring(0, W) + '\n'),
+    ...CMD.BOLD_OFF,
     ...divider('-', W), LF,
+
+    // Liy pwodwi
     ...(invoice.items || []).flatMap(item => {
       const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
       const qty = String(Number(item.quantity))
       const pri = fmt(item.unitPriceHtg)
       const tot = fmt(item.totalHtg)
       const result = []
+
       if (nom.length > C.nom) {
-        result.push(...encodeText(nom.substring(0, W) + '\n'))
-        result.push(...encodeText(''.padEnd(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
+        // Non long — 2 liy
+        result.push(...encodeText('  ' + nom.substring(0, W - 2) + '\n'))
+        result.push(...encodeText(' '.repeat(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
       } else {
         result.push(...encodeText(nom.padEnd(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
       }
-      if (Number(item.discountPct) > 0) result.push(...encodeText('  Remiz: ' + item.discountPct + '%\n'))
+      if (Number(item.discountPct) > 0) {
+        result.push(...encodeText('  Remiz: -' + item.discountPct + '%\n'))
+      }
       return result
     }),
     ...CMD.NORMAL_FONT,
-    ...(Number(invoice.discountHtg) > 0 ? [...CMD.SMALL_FONT, ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' G', W), LF, ...CMD.NORMAL_FONT] : []),
-    ...(Number(invoice.taxHtg) > 0 ? [...CMD.SMALL_FONT, ...makeLine('Taks (' + Number(invoice.taxRate || 0) + '%):', fmt(invoice.taxHtg) + ' G', W), LF, ...CMD.NORMAL_FONT] : []),
+
+    // ── SOUS-TOTAL / REMIZ / TAKS ─────────────────────────────
+    ...divider('-', W), LF,
+    ...(Number(invoice.discountHtg) > 0 ? [
+      ...CMD.SMALL_FONT,
+      ...makeLine(is80 ? '  Remiz:' : 'Remiz:', '-' + fmt(invoice.discountHtg) + ' G', W), LF,
+      ...CMD.NORMAL_FONT,
+    ] : []),
+    ...(Number(invoice.taxHtg) > 0 ? [
+      ...CMD.SMALL_FONT,
+      ...makeLine(is80 ? '  Taks (' + Number(invoice.taxRate || 0) + '%):' : 'Taks:', fmt(invoice.taxHtg) + ' G', W), LF,
+      ...CMD.NORMAL_FONT,
+    ] : []),
+
+    // ── TOTAL ────────────────────────────────────────────────
     ...divider('=', W), LF,
-    ...CMD.BOLD_ON, ...makeLine('TOTAL:', fmt(totalHtg) + ' G', W), LF, ...CMD.BOLD_OFF,
-    ...(toUSD(totalHtg) ? [...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT, ...encodeText('= $' + toUSD(totalHtg) + ' USD\n'), ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT] : []),
-    ...(toDOP(totalHtg) ? [...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT, ...encodeText('= RD$' + toDOP(totalHtg) + ' DOP\n'), ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT] : []),
+    ...CMD.BOLD_ON,
+    ...(is80 ? CMD.DOUBLE_HEIGHT : []),
+    ...makeLine('  TOTAL:', fmt(totalHtg) + ' G', W), LF,
+    ...(is80 ? CMD.NORMAL_SIZE : []),
+    ...CMD.BOLD_OFF,
+
+    // Konvèsyon monnaie (sèlman 80mm)
+    ...(is80 && toUSD(totalHtg) ? [
+      ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
+      ...encodeText('= $' + toUSD(totalHtg) + ' USD\n'),
+      ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+    ] : []),
+    ...(is80 && toDOP(totalHtg) ? [
+      ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
+      ...encodeText('= RD$' + toDOP(totalHtg) + ' DOP\n'),
+      ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+    ] : []),
+
+    // ── PEMAN ────────────────────────────────────────────────
     ...divider('-', W), LF,
     ...CMD.SMALL_FONT,
-    ...(amountGiven > 0 ? [...CMD.BOLD_ON, ...makeLine('Kòb kliyan bay:', fmt(amountGiven) + ' G', W), LF, ...CMD.BOLD_OFF] : []),
-    ...CMD.BOLD_ON, ...makeLine('Kòb kesye resevwa:', fmt(paidHtg > 0 ? paidHtg : totalHtg) + ' G', W), LF, ...CMD.BOLD_OFF,
-    ...(change > 0 ? [...CMD.BOLD_ON, ...makeLine('Monnen remèt:', fmt(change) + ' G', W), LF, ...CMD.BOLD_OFF] : []),
-    ...(lastPay?.method    ? [...makeLine('Metod:', METOD[lastPay.method] || lastPay.method, W), LF] : []),
-    ...(lastPay?.reference ? [...makeLine('Ref:', lastPay.reference.substring(0, W - 6), W), LF] : []),
+
+    // Kòb kliyan ba (si aplikab)
+    ...(amountGiven > 0 ? [
+      ...makeLine(is80 ? '  Kob kliyan bay:' : 'Kob kliyan:', fmt(amountGiven) + ' G', W), LF,
+    ] : []),
+
+    // Kòb resevwa
+    ...CMD.BOLD_ON,
+    ...makeLine(is80 ? '  Kob peye:' : 'Kob peye:', fmt(paidHtg > 0 ? paidHtg : totalHtg) + ' G', W), LF,
+    ...CMD.BOLD_OFF,
+
+    // Monnen
+    ...(change > 0 ? [
+      ...makeLine(is80 ? '  Monnen remèt:' : 'Monnen:', fmt(change) + ' G', W), LF,
+    ] : []),
+
+    // Metod peman
+    ...(lastPay?.method    ? [...makeLine(is80 ? '  Metod:' : 'Metod:', METOD[lastPay.method] || lastPay.method, W), LF] : []),
+    ...(lastPay?.reference ? [...makeLine(is80 ? '  Ref:' : 'Ref:', lastPay.reference.substring(0, W - 8), W), LF] : []),
     ...CMD.NORMAL_FONT,
+
+    // ── BALANS (kredi) ───────────────────────────────────────
     ...(balanceHtg > 0 ? [
       ...divider('-', W), LF,
-      ...CMD.BOLD_ON, ...makeLine('Balans ki rete:', '-' + fmt(balanceHtg) + ' G', W), LF, ...CMD.BOLD_OFF,
-      ...(toUSD(balanceHtg) ? [...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT, ...encodeText('= -$' + toUSD(balanceHtg) + ' USD\n'), ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT] : []),
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('*** KREDI ***\n'), ...CMD.BOLD_OFF,
+      ...CMD.BOLD_ON,
+      ...makeLine(is80 ? '  Balans ki rete:' : 'Balans:', '-' + fmt(balanceHtg) + ' G', W), LF,
+      ...CMD.BOLD_OFF,
+      ...(is80 && toUSD(balanceHtg) ? [
+        ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
+        ...encodeText('= -$' + toUSD(balanceHtg) + ' USD\n'),
+        ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+      ] : []),
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+      ...encodeText('*** KREDI ***\n'),
+      ...CMD.BOLD_OFF,
       ...CMD.SMALL_FONT,
-      ...(dueDate ? [...encodeText('Dat limit: ' + new Date(dueDate).toLocaleDateString('fr-HT') + '\n')] : [...encodeText('Peye pi vit posib\n')]),
+      ...(dueDate
+        ? [...encodeText('Dat limit: ' + new Date(dueDate).toLocaleDateString('fr-HT') + '\n')]
+        : [...encodeText('Peye pi vit posib\n')]
+      ),
       ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
     ] : []),
+
+    // ── STATUT FINAL ─────────────────────────────────────────
     ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText(statusLine + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
-    ...makeLine(isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:', fmt(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg) + ' G', W), LF,
+    ...CMD.ALIGN_CENTER,
+    ...CMD.BOLD_ON,
+    ...(is80 ? CMD.DOUBLE_BOTH : CMD.DOUBLE_HEIGHT),
+    ...encodeText(statusLine + '\n'),
+    ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-    ...(tenant?.showQrCode !== false ? [...CMD.ALIGN_CENTER, ...makeQR(qrContent), ...CMD.SMALL_FONT, ...encodeText(invoice.invoiceNumber + '\n'), ...CMD.NORMAL_FONT] : []),
+
+    // Liy total peye final
+    ...CMD.ALIGN_LEFT,
+    ...CMD.BOLD_ON,
+    ...makeLine(
+      is80 ? '  ' + (isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:')
+           : (isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : 'TOTAL:'),
+      fmt(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg) + ' G',
+      W
+    ), LF,
+    ...CMD.BOLD_OFF,
+
+    // ── QR CODE ──────────────────────────────────────────────
+    ...(tenant?.showQrCode !== false ? [
+      LF,
+      ...CMD.ALIGN_CENTER,
+      ...makeQR(qrContent),
+      ...CMD.SMALL_FONT,
+      ...encodeText(invoice.invoiceNumber + '\n'),
+      ...CMD.NORMAL_FONT,
+    ] : []),
+
+    // ── FOOTER ───────────────────────────────────────────────
     ...CMD.ALIGN_CENTER,
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON, ...encodeText('Mesi paske ou achte lakay nou!\n'), ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON,
+    ...encodeText('Mesi paske ou achte lakay nou!\n'),
+    ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText('Tout machandiz vann pa reprann ni chanje.\n'),
+    ...(is80
+      ? [...encodeText('Tout machandiz vann pa reprann ni chanje.\n')]
+      : [...encodeText('Machandiz pa reprann ni chanje.\n')]
+    ),
     ...divider('-', W), LF,
     ...encodeText('Pwodwi pa: Plus Group\n'),
     ...encodeText('+509 4244-9024\n'),
@@ -339,6 +480,9 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   await dispatch(bytes)
 }
 
+// ══════════════════════════════════════════════════════════════
+// SABOTAY — pa chanje
+// ══════════════════════════════════════════════════════════════
 export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) => {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
   const savedSize   = typeof localStorage !== 'undefined' ? localStorage.getItem('receipt_size') : null
@@ -348,23 +492,21 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0
   const payout      = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
 
-  // ✅ slotCount ak pozisyon yo
   const slotCount   = allSlots.length > 0 ? allSlots.length : 1
   const posLabel    = allSlots.length > 1
     ? allSlots.map(s => '#' + s.position).join(' / ')
     : '#' + member.position
 
-  // ✅ amtPaid — sòme tout men ki deja peye anvan peman jodi a
   const amtPaid = allSlots.length > 1
-  ? allSlots.reduce((acc, slot) => {
-      const slotPaid = Object.keys(slot.payments || {})
-        .filter(d => slot.payments[d] && !paidDates.includes(d)).length  // ← retire paidDates
-      return acc + slotPaid * plan.amount
-    }, 0)
-  : Object.keys(member.payments || {})
-      .filter(d => member.payments[d] && !paidDates.includes(d)).length * plan.amount
-const totalAmt = paidDates.length * plan.amount * slotCount
-const kontribisyonTotal = amtPaid + totalAmt
+    ? allSlots.reduce((acc, slot) => {
+        const slotPaid = Object.keys(slot.payments || {})
+          .filter(d => slot.payments[d] && !paidDates.includes(d)).length
+        return acc + slotPaid * plan.amount
+      }, 0)
+    : Object.keys(member.payments || {})
+        .filter(d => member.payments[d] && !paidDates.includes(d)).length * plan.amount
+  const totalAmt = paidDates.length * plan.amount * slotCount
+  const kontribisyonTotal = amtPaid + totalAmt
 
   const FREQ = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
@@ -389,31 +531,22 @@ const kontribisyonTotal = amtPaid + totalAmt
     ...divider('-', W), LF,
     ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
     ...(member.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    // ✅ Pozisyon: #23 / #26 si plizyè men
     ...makeLine('Pozisyon:', posLabel, W), LF,
-    // ✅ Afiche kantite men si > 1
     ...(slotCount > 1 ? [...makeLine('Men:', slotCount + ' (' + fmt(plan.amount * slotCount) + ' G/sik)', W), LF] : []),
     ...makeLine('Frekans:', FREQ[plan.frequency] || plan.frequency, W), LF,
     ...divider('-', W), LF,
     ...(type === 'peman' ? [
       ...CMD.BOLD_ON, ...encodeText('Dat Peye:\n'), ...CMD.BOLD_OFF,
-      // ✅ Chak dat: "20/03/2026 — 2 x 250 = 500 G" si plizyè men
       ...paidDates.flatMap(d => [
         ...CMD.SMALL_FONT,
-        ...encodeText(
-          '  ' + d.split('-').reverse().join('/') + ' — ' +
-          (slotCount > 1
-            ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount)
-            : fmt(plan.amount)
-          ) + ' G\n'
-        ),
+        ...encodeText('  ' + d.split('-').reverse().join('/') + ' — ' +
+          (slotCount > 1 ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount) : fmt(plan.amount)) + ' G\n'),
         ...CMD.NORMAL_FONT,
       ]),
-     ...divider('=', W), LF,
-...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
-...makeLine('TOTAL PEYE:', fmt(totalAmt) + ' G', W), LF,
-...CMD.BOLD_OFF,
-...makeLine('Kontribisyon total:', fmt(kontribisyonTotal) + ' G', W), LF,
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
+      ...makeLine('TOTAL PEYE:', fmt(totalAmt) + ' G', W), LF, ...CMD.BOLD_OFF,
+      ...makeLine('Kontribisyon total:', fmt(kontribisyonTotal) + ' G', W), LF,
     ] : type === 'tiraj' ? [
       ...CMD.ALIGN_CENTER,
       ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
@@ -429,11 +562,11 @@ const kontribisyonTotal = amtPaid + totalAmt
       ...CMD.ALIGN_LEFT,
     ] : [
       ...makeLine('Montan / Peman:', fmt(plan.amount) + ' G', W), LF,
-      ...makeLine('Peman Fet:', totalPaid + '/' + activeMemberCount, W), LF,
       ...makeLine('Total Kontribye:', fmt(amtPaid) + ' G', W), LF,
       ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
     ]),
     ...divider('-', W), LF,
     ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
@@ -511,8 +644,6 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
   await dispatch(bytes)
 }
 
-
-// Fonksyon pou enprime Kontra/Resi Prè via Bluetooth ESC/POS
 export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouverture', paiement = null, largeur = 80) => {
   const fmt = (n) => Number(n || 0)
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -524,15 +655,11 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     catch { return '' }
   }
 
-  // Largeur selon tay papye
   const W = (largeur === 57 || largeur === 58) ? 32 : 48
-
   const PERIODES = { jounal: 'Chak Jou', semaine: 'Semèn', biweekly: '2 Semèn', mois: 'Mwa', trimestre: 'Trimès' }
   const bizName  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
 
-  // ── Header ─────────────────────────────────────────────────
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
@@ -544,8 +671,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
     ...divider('=', W), LF,
-
-    // Titre
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
     ...encodeText(
       type === 'ouverture' ? 'KONTRA PRE\n'
@@ -555,8 +680,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...divider('=', W), LF,
     ...CMD.ALIGN_LEFT,
-
-    // ── Info kliyan ──────────────────────────────────────────
     ...CMD.SMALL_FONT,
     ...makeLine('No. Pre:', pre.numeroPre || '', W), LF,
     ...makeLine('Dat:', fmtD(new Date()), W), LF,
@@ -565,8 +688,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...(pre.clientPhone  ? [...encodeText('Tel: ' + pre.clientPhone  + '\n')] : []),
     ...(pre.clientNifCin ? [...encodeText('CIN/NIF: ' + pre.clientNifCin + '\n')] : []),
     ...CMD.NORMAL_FONT,
-
-    // ── Tèm finansye ─────────────────────────────────────────
     ...divider('-', W), LF,
     ...CMD.SMALL_FONT,
     ...makeLine('Kapital:', fmt(pre.montant) + ' G', W), LF,
@@ -580,8 +701,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...CMD.BOLD_ON,
     ...makeLine('TOTAL DWE:', fmt(pre.totalDu) + ' G', W), LF,
     ...CMD.BOLD_OFF,
-
-    // ── Peman (si type === paiement) ─────────────────────────
     ...(type === 'paiement' && paiement ? [
       ...divider('-', W), LF,
       ...CMD.SMALL_FONT,
@@ -589,11 +708,9 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
       ...CMD.BOLD_ON, ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF, ...CMD.BOLD_OFF,
       ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0))) + ' G', W), LF,
       ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
-    ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
+      ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
       ...CMD.NORMAL_FONT,
     ] : []),
-
-    // ── Dat Echeans Peye (resi paiement) ─────────────────────
     ...(type === 'paiement' && echeances.length > 0 ? (() => {
       const peye = echeances.filter(e => e.statut === 'paye' || e.statut === 'partiel')
       if (peye.length === 0) return []
@@ -617,7 +734,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     })() : []),
   ]
 
-  // ── Kalandriye (sèlman pou ouverture) ───────────────────────
   if (type === 'ouverture' && echeances.length > 0) {
     bytes.push(
       ...divider('=', W), LF,
@@ -625,10 +741,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
       ...encodeText('KALANDRIYE RANBOUSMAN\n'),
       ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
     )
-
-    // Header tablo
     if (W >= 48) {
-      // 48 chars: #  | Dat        | Capital  | Intere   | Total
       bytes.push(...CMD.SMALL_FONT, ...encodeText('#  Dat        Capital   Intere    Total\n'), ...CMD.NORMAL_FONT)
       bytes.push(...divider('-', W), LF)
       for (const e of echeances) {
@@ -640,7 +753,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
         bytes.push(...CMD.SMALL_FONT, ...encodeText(num + dat + cap + ' ' + int_ + ' ' + tot + '\n'), ...CMD.NORMAL_FONT)
       }
     } else {
-      // 32 chars: # Dat      Cap   Intere Tot
       bytes.push(...CMD.SMALL_FONT, ...encodeText('#  Dat     Capital  Int    Tot\n'), ...CMD.NORMAL_FONT)
       bytes.push(...divider('-', W), LF)
       for (const e of echeances) {
@@ -652,32 +764,23 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
         bytes.push(...CMD.SMALL_FONT, ...encodeText(num + dat + cap + int_ + tot + '\n'), ...CMD.NORMAL_FONT)
       }
     }
-
-    // Total
     bytes.push(
       ...divider('-', W), LF,
-      ...CMD.SMALL_FONT,
-      ...CMD.BOLD_ON,
+      ...CMD.SMALL_FONT, ...CMD.BOLD_ON,
       ...makeLine('TOTAL:', fmt(echeances.reduce((s, e) => s + Number(e.montant_total || e.montantTotal || 0), 0)) + ' G', W), LF,
-      ...CMD.BOLD_OFF,
-      ...CMD.NORMAL_FONT,
+      ...CMD.BOLD_OFF, ...CMD.NORMAL_FONT,
     )
   }
 
-  // ── Seksyon Siyati ──────────────────────────────────────────
   if (type === 'ouverture') {
     bytes.push(
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('SIYATI\n'), ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
-      LF,
+      ...CMD.ALIGN_LEFT, LF,
       ...encodeText('Emprunteur / Kliyan:\n'),
       ...divider('_', W), LF,
-      ...encodeText((pre.clientNom || '').substring(0, W) + '\n'),
-      LF,
+      ...encodeText((pre.clientNom || '').substring(0, W) + '\n'), LF,
     )
-
-    // Avalize 1
     if (pre.avalize1Nom) {
       bytes.push(
         ...encodeText('Avalize 1: ' + (pre.avalize1Nom || '') + '\n'),
@@ -686,8 +789,6 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
         LF,
       )
     }
-
-    // Avalize 2
     if (pre.avalize2Nom) {
       bytes.push(
         ...encodeText('Avalize 2: ' + (pre.avalize2Nom || '') + '\n'),
@@ -696,16 +797,12 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
         LF,
       )
     }
-
-    // Responsab
     bytes.push(
       ...encodeText('Responsab Kredi:\n'),
-      ...divider('_', W), LF,
-      LF,
+      ...divider('_', W), LF, LF,
     )
   }
 
-  // ── Pye resi ────────────────────────────────────────────────
   bytes.push(
     ...divider('=', W), LF,
     ...CMD.ALIGN_CENTER,
