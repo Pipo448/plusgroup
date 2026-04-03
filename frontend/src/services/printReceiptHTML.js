@@ -437,11 +437,11 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <table class="pay-table">
     ${amountGiven > 0 ? `
     <tr>
-      <td>Kob kliyan bay :</td>
+      <td>Kòb kliyan bay :</td>
       <td>${fmtN(amountGiven)} G</td>
     </tr>` : ''}
     <tr>
-      <td>Kob peye :</td>
+      <td>Kòb peye :</td>
       <td>${fmtN(paidHtg > 0 ? paidHtg : totalHtg)} G</td>
     </tr>
     ${change > 0 ? `
