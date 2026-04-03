@@ -16,8 +16,9 @@ const CSS_80MM = `
   body {
     width: 72mm;
     max-width: 72mm;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 9.5pt;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 9pt;
+    font-weight: 700;
     color: #000;
     background: #fff;
     -webkit-print-color-adjust: exact;
@@ -32,11 +33,11 @@ const CSS_80MM = `
 
   /* ── Tay tèks ── */
   .xxl  { font-size: 17pt; font-weight: 900; letter-spacing: 1px; }
-  .xl   { font-size: 13pt; font-weight: 800; }
-  .lg   { font-size: 11pt; font-weight: 700; }
-  .md   { font-size: 9.5pt; font-weight: 600; }
-  .sm   { font-size: 7.5pt; }
-  .bold { font-weight: 800; }
+  .xl   { font-size: 13pt; font-weight: 900; }
+  .lg   { font-size: 11pt; font-weight: 800; }
+  .md   { font-size: 9pt;  font-weight: 700; }
+  .sm   { font-size: 7.5pt; font-weight: 700; }
+  .bold { font-weight: 900; }
 
   /* ── Logo ── */
   .logo-wrap {
@@ -65,13 +66,14 @@ const CSS_80MM = `
   }
   .biz-sub {
     font-size: 8pt;
+    font-weight: 800;
     text-align: center;
     letter-spacing: 1px;
     margin-top: 1px;
   }
   .biz-phone {
     font-size: 10pt;
-    font-weight: 700;
+    font-weight: 900;
     text-align: center;
     margin-top: 2px;
   }
@@ -90,12 +92,12 @@ const CSS_80MM = `
   }
   .info-table td:first-child {
     width: 26mm;
-    font-weight: 700;
+    font-weight: 900;
     white-space: nowrap;
   }
   .info-table td:last-child {
     text-align: right;
-    font-weight: 600;
+    font-weight: 800;
     word-break: break-word;
   }
   .info-table tr td {
@@ -131,6 +133,7 @@ const CSS_80MM = `
     padding: 2px 1px;
     vertical-align: top;
     font-size: 8.5pt;
+    font-weight: 700;
     overflow: hidden;
   }
   .item-name {
@@ -138,11 +141,13 @@ const CSS_80MM = `
     overflow-wrap: break-word;
     hyphens: auto;
     line-height: 1.2;
+    font-weight: 800;
   }
   .item-price, .item-total {
     text-align: right;
     white-space: nowrap;
     font-size: 8pt;
+    font-weight: 800;
   }
 
   /* ── Seksyon total ── */
@@ -152,6 +157,7 @@ const CSS_80MM = `
     align-items: baseline;
     padding: 2px 0;
     font-size: 9pt;
+    font-weight: 800;
     gap: 4px;
   }
   .total-row span:last-child {
@@ -188,7 +194,7 @@ const CSS_80MM = `
     border: 2px dashed #000;
     padding: 3px;
     margin: 3px 0;
-    font-weight: 800;
+    font-weight: 900;
     font-size: 9.5pt;
   }
 
@@ -201,11 +207,11 @@ const CSS_80MM = `
   }
   .pay-table td:first-child {
     width: 32mm;
-    font-weight: 600;
+    font-weight: 800;
   }
   .pay-table td:last-child {
     text-align: right;
-    font-weight: 700;
+    font-weight: 900;
     white-space: nowrap;
   }
   .pay-table tr td {
@@ -216,7 +222,7 @@ const CSS_80MM = `
   .fx-line {
     text-align: right;
     font-size: 7.5pt;
-    color: #333;
+    font-weight: 700;
     padding: 1px 0;
   }
 
@@ -239,16 +245,17 @@ const CSS_80MM = `
   .footer { text-align: center; margin-top: 4px; }
   .footer .main-msg {
     font-size: 9.5pt;
-    font-weight: 800;
+    font-weight: 900;
     letter-spacing: 0.5px;
   }
   .footer .sub-msg {
     font-size: 7.5pt;
+    font-weight: 700;
     margin-top: 2px;
-    color: #333;
   }
   .footer .brand {
     font-size: 7.5pt;
+    font-weight: 700;
     margin-top: 2px;
   }
 
