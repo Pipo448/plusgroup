@@ -10,12 +10,12 @@ const CSS_80MM = `
 
   @page {
     size: 80mm auto;
-    margin: 2mm 2mm 2mm 1mm;
+    margin: 2mm 1mm 2mm 0mm;
   }
 
   body {
-    width: 77mm;
-    max-width: 77mm;
+    width: 79mm;
+    max-width: 79mm;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     font-weight: 700;
@@ -92,7 +92,7 @@ const CSS_80MM = `
     table-layout: fixed;
   }
   .info-table td:first-child {
-    width: 26mm;
+    width: 28mm;
     font-weight: 900;
     white-space: nowrap;
   }
@@ -112,10 +112,10 @@ const CSS_80MM = `
     font-size: 8.5pt;
     table-layout: fixed;
   }
-  .items-table col.col-nom  { width: 32mm; }
+  .items-table col.col-nom  { width: 36mm; }
   .items-table col.col-qty  { width: 6mm;  }
-  .items-table col.col-pri  { width: 17mm; }
-  .items-table col.col-tot  { width: 17mm; }
+  .items-table col.col-pri  { width: 18mm; }
+  .items-table col.col-tot  { width: 19mm; }
 
   .items-table th {
     font-weight: 900;
@@ -207,7 +207,7 @@ const CSS_80MM = `
     table-layout: fixed;
   }
   .pay-table td:first-child {
-    width: 32mm;
+    width: 36mm;
     font-weight: 800;
   }
   .pay-table td:last-child {
@@ -386,7 +386,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     ${snap.name   ? `<tr><td>Kliyan :</td><td>${snap.name}</td></tr>` : ''}
     ${snap.phone  ? `<tr><td>Tel&nbsp;&nbsp;&nbsp;:</td><td>${snap.phone}</td></tr>` : ''}
     ${snap.nif    ? `<tr><td>NIF&nbsp;&nbsp;&nbsp;:</td><td>${snap.nif}</td></tr>` : ''}
-    ${cashierName ? `<tr><td>Kasye&nbsp;&nbsp;:</td><td>${cashierName}</td></tr>` : ''}
+    ${cashierName ? `<tr><td>Kesye&nbsp;&nbsp;:</td><td>${cashierName}</td></tr>` : ''}
   </table>
 
   <!-- TABLO PWODWI -->
