@@ -10,17 +10,20 @@ const CSS_80MM = `
 
   @page {
     size: 80mm auto;
-    margin: 3mm 2mm 5mm 2mm;
+    margin: 0mm 2mm 4mm 2mm;
   }
 
   html {
     width: 80mm;
+    margin: 0;
+    padding: 0;
   }
 
   body {
     width: 76mm;
     max-width: 76mm;
     margin: 0 auto;
+    padding-top: 0;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     font-weight: 700;
@@ -53,8 +56,8 @@ const CSS_80MM = `
     width: 100%;
   }
   .logo-wrap img {
-    max-width: 40mm;
-    max-height: 16mm;
+    max-width: 50mm;
+    max-height: 20mm;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -394,12 +397,8 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <style>${CSS_80MM}</style>
 </head>
 <body>
-
   <!-- LOGO + HEADER -->
-  ${logoUrl ? `
-  <div class="logo-wrap">
-    <img src="${logoUrl}" alt="${bizName}" />
-  </div>` : ''}
+  ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="${bizName}" /></div>` : ''}
 
   <div class="center">
     <div class="biz-name">${bizName}</div>
