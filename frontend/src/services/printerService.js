@@ -1,6 +1,6 @@
 // src/services/printerService.js
-// RP327 80mm + Goojprt 58mm — ESC/POS via Web Bluetooth
-// ✅ 80mm resi amelyore — bèl, pwofesyonèl, alinye kòrèkteman
+// RP327 80mm — ESC/POS via Web Bluetooth
+// ✅ FIX: Logo full width + tèks gwo + pa gen SMALL_FONT sou tèks enpòtan
 
 const KNOWN_PAIRS = [
   { svc: '000018f0-0000-1000-8000-00805f9b34fb', chr: '00002af1-0000-1000-8000-00805f9b34fb' },
@@ -12,7 +12,6 @@ const KNOWN_PAIRS = [
   { svc: '0000ffe0-0000-1000-8000-00805f9b34fb', chr: '0000ffe1-0000-1000-8000-00805f9b34fb' },
   { svc: '6e400001-b5a3-f393-e0a9-e50e24dcca9e', chr: '6e400003-b5a3-f393-e0a9-e50e24dcca9e' },
 ]
-
 const ALL_SERVICE_UUIDS = [...new Set(KNOWN_PAIRS.map(p => p.svc))]
 
 let _device = null
@@ -29,20 +28,21 @@ const CMD = {
   ALIGN_RIGHT:   [ESC, 0x61, 0x02],
   BOLD_ON:       [ESC, 0x45, 0x01],
   BOLD_OFF:      [ESC, 0x45, 0x00],
-  DOUBLE_HEIGHT: [ESC, 0x21, 0x10],
-  DOUBLE_BOTH:   [ESC, 0x21, 0x30],
-  DOUBLE_WIDTH:  [ESC, 0x21, 0x20],
+  DOUBLE_HEIGHT: [ESC, 0x21, 0x10],  // 2x hautè
+  DOUBLE_BOTH:   [ESC, 0x21, 0x30],  // 2x hautè + 2x lajè
   NORMAL_SIZE:   [ESC, 0x21, 0x00],
-  SMALL_FONT:    [ESC, 0x4D, 0x01],
+  // ✅ PA ITILIZE SMALL_FONT sou tèks enpòtan — sa ki koze tèks pa klè
+  SMALL_FONT:    [ESC, 0x4D, 0x01],  // sèlman pou nòt anba
   NORMAL_FONT:   [ESC, 0x4D, 0x00],
   LINE_FEED:     [LF],
   CUT:           [GS, 0x56, 0x41, 0x03],
   QR_MODEL:      [GS, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00],
-  QR_SIZE:       [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06],
+  QR_SIZE:       [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x07],  // ✅ size 7 = pi gwo QR
   QR_ERROR:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30],
   QR_PRINT:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30],
 }
 
+// ── Retire aksan ESC/POS ──────────────────────────────────────
 const encodeText = (text) => {
   const clean = String(text)
     .replace(/[àâäáã]/g, 'a').replace(/[èéêë]/g, 'e')
@@ -63,13 +63,22 @@ const _isSunmi   = /sunmi/i.test(_ua)
 export const isAndroid = () => _isAndroid
 export const isSunmi   = () => _isSunmi
 
-// ── Largè selon papye ─────────────────────────────────────────
+// ── Largè papye en DOTS ───────────────────────────────────────
+// RP327 80mm = 576 dots (203 DPI)
+// 58mm printer = 384 dots
+const getDotWidth = (tenant) => {
+  const size = tenant?.receiptSize || '80mm'
+  return (size === '57mm' || size === '58mm' || size === '58') ? 384 : 576
+}
+
+// ── Largè en karaktè tèks ─────────────────────────────────────
+// 80mm nòmal font = 48 char, DOUBLE_WIDTH = 24 char
 const getWidth = (tenant) => {
   const size = tenant?.receiptSize || '80mm'
   return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
 }
 
-// ── Liy ak tèks gòch ak dwat ──────────────────────────────────
+// ── Tèks liy ak 2 bout ───────────────────────────────────────
 const makeLine = (left, right, width) => {
   const l = String(left)
   const r = String(right)
@@ -78,15 +87,7 @@ const makeLine = (left, right, width) => {
   return encodeText(l + ' '.repeat(spaces) + r)
 }
 
-// ── Separatè ──────────────────────────────────────────────────
 const divider = (char, width) => encodeText(char.repeat(width))
-
-// ── Tèks santré manyèlman ─────────────────────────────────────
-const center = (text, width) => {
-  const t = String(text).substring(0, width)
-  const pad = Math.max(0, Math.floor((width - t.length) / 2))
-  return encodeText(' '.repeat(pad) + t)
-}
 
 const makeQR = (content) => {
   const data = encodeText(content)
@@ -100,45 +101,71 @@ const makeQR = (content) => {
   ]
 }
 
-const logoToEscPos = async (base64url, targetWidth) => {
+// ✅ LOGO — plen largè papye pou enpresyon klè
+const logoToEscPos = async (base64url, dotWidth) => {
   try {
     const canvas = document.createElement('canvas')
     const ctx    = canvas.getContext('2d')
     const img    = new Image()
-    await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = base64url })
-    const maxH  = 80
-    const ratio = Math.min(targetWidth / img.width, maxH / img.height)
-    const w = Math.floor(img.width * ratio)
-    const h = Math.floor(img.height * ratio)
-    const pw = Math.ceil(w / 8) * 8
-    canvas.width = pw; canvas.height = h
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, pw, h)
+    await new Promise((resolve, reject) => {
+      img.onload  = resolve
+      img.onerror = reject
+      img.src     = base64url
+    })
+
+    // ✅ Logo plen largè papye — pa limite a 200px ankò
+    // 80mm = 576 dots, 58mm = 384 dots
+    const maxW  = dotWidth        // plen largè
+    const maxH  = Math.round(dotWidth * 0.4)  // max 40% lajè = pa twò wo
+
+    const ratio = Math.min(maxW / img.width, maxH / img.height)
+    const w  = Math.floor(img.width  * ratio)
+    const h  = Math.floor(img.height * ratio)
+    const pw = Math.ceil(w / 8) * 8   // arondi a 8 bits
+
+    canvas.width  = pw
+    canvas.height = h
+
+    // Fon blan
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, pw, h)
+    // Kontrast maximòm pou printer nwa e blan
+    ctx.filter = 'contrast(200%) brightness(90%)'
     ctx.drawImage(img, 0, 0, w, h)
-    const pixels = ctx.getImageData(0, 0, pw, h).data
+
+    const pixels      = ctx.getImageData(0, 0, pw, h).data
     const bytesPerRow = pw / 8
     const bitmapBytes = []
+
     for (let row = 0; row < h; row++) {
       for (let byteIdx = 0; byteIdx < bytesPerRow; byteIdx++) {
         let byte = 0
         for (let bit = 0; bit < 8; bit++) {
           const idx = (row * pw + byteIdx * 8 + bit) * 4
           const lum = pixels[idx] * 0.299 + pixels[idx+1] * 0.587 + pixels[idx+2] * 0.114
-          if (pixels[idx+3] > 128 && lum < 160) byte |= (0x80 >> bit)
+          // ✅ Sèy 128 (pito 160) pou pi bon kontrast
+          if (pixels[idx+3] > 128 && lum < 128) byte |= (0x80 >> bit)
         }
         bitmapBytes.push(byte)
       }
     }
-    const wL = bytesPerRow & 0xFF, wH = (bytesPerRow >> 8) & 0xFF
-    const hL = h & 0xFF,           hH = (h >> 8) & 0xFF
+
+    const wL = bytesPerRow & 0xFF
+    const wH = (bytesPerRow >> 8) & 0xFF
+    const hL = h & 0xFF
+    const hH = (h >> 8) & 0xFF
     return [GS, 0x76, 0x30, 0x00, wL, wH, hL, hH, ...bitmapBytes]
-  } catch (e) { console.warn('Logo bitmap error:', e); return [] }
+  } catch (e) {
+    console.warn('Logo bitmap error:', e)
+    return []
+  }
 }
 
-const logoWithTimeout = async (logoUrl, width, ms = 3000) => {
-  const key = `${logoUrl}_${width}`
+const logoWithTimeout = async (logoUrl, dotWidth, ms = 4000) => {
+  const key = `${logoUrl}_${dotWidth}`
   if (_logoCache.has(key)) return _logoCache.get(key)
   const result = await Promise.race([
-    logoToEscPos(logoUrl, width),
+    logoToEscPos(logoUrl, dotWidth),
     new Promise(r => setTimeout(() => { console.warn('Logo timeout'); r([]) }, ms))
   ])
   if (result.length > 0) _logoCache.set(key, result)
@@ -150,6 +177,7 @@ const sendViaRawBT = (bytes) => {
   window.location.href = 'intent:' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'
 }
 
+// ── Bluetooth connect ─────────────────────────────────────────
 export const connectPrinter = async () => {
   if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
   _device = await navigator.bluetooth.requestDevice({
@@ -163,10 +191,9 @@ export const connectPrinter = async () => {
       const service   = await server.getPrimaryService(svc)
       const candidate = await service.getCharacteristic(chr)
       if (candidate.properties.write || candidate.properties.writeWithoutResponse) {
-        _char = candidate
-        return _device.name || 'Bluetooth Printer'
+        _char = candidate; return _device.name || 'Bluetooth Printer'
       }
-    } catch { /* eseye pwochen */ }
+    } catch {}
   }
   try {
     const services = await server.getPrimaryServices()
@@ -175,11 +202,10 @@ export const connectPrinter = async () => {
         const chars = await service.getCharacteristics()
         for (const chr of chars) {
           if (chr.properties.write || chr.properties.writeWithoutResponse) {
-            _char = chr
-            return _device.name || 'Bluetooth Printer'
+            _char = chr; return _device.name || 'Bluetooth Printer'
           }
         }
-      } catch { /* kontinye */ }
+      } catch {}
     }
   } catch (e) { console.error('Auto-discovery echwe:', e) }
   _char = null; _device = null
@@ -215,11 +241,14 @@ const dispatch = async (bytes) => {
   if (_isSunmi) { sendViaRawBT(bytes); return }
   if (_char)    { await sendViaBluetooth(bytes); return }
   if (_isAndroid) throw new Error('ANDROID_USE_BROWSER_PRINT')
-  throw new Error('Okenn printer disponib. Konekte yon printer Bluetooth dabò.')
+  throw new Error('Okenn printer disponib.')
 }
 
 // ══════════════════════════════════════════════════════════════
-// ✅ PRINT INVOICE — 80mm amelyore, 58mm pa chanje
+// ══════════════════════════════════════════════════════════════
+// PRINT INVOICE — tèks maksimòm klè pou RP327 80mm
+// Règ: NORMAL_FONT tout kote, SMALL_FONT sèlman nòt/pye
+// Logo 350px, tout valè enpòtan an BOLD
 // ══════════════════════════════════════════════════════════════
 export const printInvoice = async (invoice, tenant, cashier = null) => {
   const fmt = (n) => Number(n || 0)
@@ -227,10 +256,10 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
   const W           = getWidth(tenant)
-  const is80        = W >= 48  // ← RP327 80mm
+  const is80        = W >= 48
   const snap        = invoice.clientSnapshot || {}
   const cashierName = cashier?.fullName || cashier?.name || null
-  const totalHtg    = Number(invoice.totalHtg    || 0)
+  const totalHtg    = Number(invoice.totalHtg     || 0)
   const paidHtg     = Number(invoice.amountPaidHtg || 0)
   const balanceHtg  = Number(invoice.balanceDueHtg || 0)
   const lastPay     = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
@@ -243,7 +272,8 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const isCredit    = lastPay?.method === 'credit' || (balanceHtg > 0 && paidHtg === 0)
 
   const exchangeRates = (() => {
-    try { const er = tenant?.exchangeRates; if (!er) return {}; return typeof er === 'object' ? er : JSON.parse(String(er)) } catch { return {} }
+    try { const er = tenant?.exchangeRates; if (!er) return {}
+      return typeof er === 'object' ? er : JSON.parse(String(er)) } catch { return {} }
   })()
   const rateUSD = Number(exchangeRates.USD || invoice.exchangeRate || 132)
   const rateDOP = Number(exchangeRates.DOP || 0)
@@ -255,201 +285,171 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const bizName    = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const dateStr    = new Date(invoice.issueDate).toLocaleDateString('fr-HT')
   const logoUrl    = tenant?.logoUrl || tenant?.logo
-  const logoBytes  = logoUrl ? await logoWithTimeout(logoUrl, is80 ? 200 : 120) : []
+  // ✅ Logo pi gwo: 350px pou 80mm (pa 200)
+  const logoBytes  = logoUrl ? await logoWithTimeout(logoUrl, is80 ? 350 : 120) : []
   const qrContent  = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
-  // ── Kolòn tablo 80mm: Nom(20) Q(4) Pri(12) Tot(12) = 48
-  // ── Kolòn tablo 58mm: Nom(16) Q(3) Pri(7)  Tot(6)  = 32
+  // ── Kolòn 80mm: Nom(20) Q(4) Pri(12) Tot(12) = 48
+  // ── Kolòn 58mm: Nom(16) Q(3) Pri(7)  Tot(6)  = 32
   const C = is80
     ? { nom: 20, qte: 4, pri: 12, tot: 12 }
     : { nom: 16, qte: 3, pri:  7, tot:  6 }
 
-  // ── Header kolòn tablo ──────────────────────────────────────
+  // Header kolòn — GRAS pou lisibilite
   const tblHeader = is80
     ? 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri (G)'.padStart(C.pri) + 'Total'.padStart(C.tot)
-    : 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri'.padStart(C.pri)    + 'Tot'.padStart(C.tot)
+    : 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri'.padStart(C.pri)     + 'Tot'.padStart(C.tot)
 
-  // ══════════════════════════════════════════════════════════
-  // BYTES PRENSIPAL
-  // ══════════════════════════════════════════════════════════
   const bytes = [
     ...CMD.INIT,
 
-    // ── HEADER ───────────────────────────────────────────────
+    // ══ HEADER ══════════════════════════════════════════════
     ...CMD.ALIGN_CENTER,
 
-    // Logo bitmap si disponib
-    ...(logoBytes.length > 0 ? [...logoBytes, LF] : []),
+    // Logo — pi gwo, santré
+    ...(logoBytes.length > 0 ? [...logoBytes, LF, LF] : []),
 
-    // Non biznis — DOUBLE_BOTH pou 80mm, DOUBLE_HEIGHT pou 58mm
+    // Non biznis — DOUBLE_BOTH (pi gwo posib)
     ...CMD.BOLD_ON,
-    ...(is80 ? CMD.DOUBLE_BOTH : CMD.DOUBLE_HEIGHT),
+    ...CMD.DOUBLE_BOTH,
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-
-    // Slogan / adres / tel — sèlman 80mm
-    ...(is80 && tenant?.tagline  ? [...CMD.SMALL_FONT, ...encodeText(tenant.tagline  + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(is80 && tenant?.address  ? [...CMD.SMALL_FONT, ...encodeText(tenant.address  + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.phone             ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-
-    // Sèparatè epès
-    ...CMD.ALIGN_LEFT,
     LF,
+
+    // Adres ak telefòn — NORMAL_FONT (pa SMALL!) pou lisibilite
+    ...(tenant?.address ? [...encodeText(tenant.address + '\n')] : []),
+    ...(tenant?.phone   ? [...CMD.BOLD_ON, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.BOLD_OFF] : []),
+    ...(tenant?.tagline ? [...encodeText(tenant.tagline + '\n')] : []),
+    LF,
+
+    // ══ INFO TRANSAKSYON ═════════════════════════════════════
+    ...CMD.ALIGN_LEFT,
     ...divider('=', W), LF,
 
-    // ── INFO TRANSAKSYON ─────────────────────────────────────
-    ...(is80 ? [
-      // 80mm: 2 kolòn sou menm liy
-      ...CMD.SMALL_FONT,
-      ...makeLine('Dat   : ' + dateStr, 'Resi N: ' + (invoice.invoiceNumber || ''), W), LF,
-      ...(snap.name     ? [...makeLine('Kliyan: ' + snap.name.substring(0, 28), '', W), LF] : []),
-      ...(snap.phone    ? [...makeLine('Tel   : ' + snap.phone, '', W), LF] : []),
-      ...(snap.nif      ? [...makeLine('NIF   : ' + snap.nif, '', W), LF] : []),
-      ...(cashierName   ? [...makeLine('Kasye : ' + cashierName.substring(0, 28), '', W), LF] : []),
-      ...CMD.NORMAL_FONT,
-    ] : [
-      // 58mm: yon liy chak
-      ...CMD.SMALL_FONT,
-      ...makeLine('Dat:', dateStr, W), LF,
-      ...makeLine('Resi N:', invoice.invoiceNumber, W), LF,
-      ...(snap.name     ? [...makeLine('Kliyan:', snap.name.substring(0, W - 9), W), LF] : []),
-      ...(snap.phone    ? [...makeLine('Tel:', snap.phone, W), LF] : []),
-      ...(snap.nif      ? [...makeLine('NIF:', snap.nif, W), LF] : []),
-      ...(cashierName   ? [...makeLine('Kesye:', cashierName.substring(0, W - 8), W), LF] : []),
-      ...CMD.NORMAL_FONT,
-    ]),
+    // Tout info an NORMAL_FONT + BOLD pou valè
+    ...CMD.BOLD_ON, ...encodeText('Dat    : '), ...CMD.BOLD_OFF, ...encodeText(dateStr + '\n'),
+    ...CMD.BOLD_ON, ...encodeText('Resi N : '), ...CMD.BOLD_OFF, ...encodeText((invoice.invoiceNumber || '') + '\n'),
+    ...(snap.name     ? [...CMD.BOLD_ON, ...encodeText('Kliyan : '), ...CMD.BOLD_OFF, ...encodeText(snap.name.substring(0, W - 10) + '\n')] : []),
+    ...(snap.phone    ? [...CMD.BOLD_ON, ...encodeText('Tel    : '), ...CMD.BOLD_OFF, ...encodeText(snap.phone + '\n')] : []),
+    ...(snap.nif      ? [...CMD.BOLD_ON, ...encodeText('NIF    : '), ...CMD.BOLD_OFF, ...encodeText(snap.nif + '\n')] : []),
+    ...(cashierName   ? [...CMD.BOLD_ON, ...encodeText('Kasye  : '), ...CMD.BOLD_OFF, ...encodeText(cashierName.substring(0, W - 10) + '\n')] : []),
 
-    // ── TABLO PWODWI ─────────────────────────────────────────
+    // ══ TABLO PWODWI ═════════════════════════════════════════
     ...divider('-', W), LF,
-    ...CMD.SMALL_FONT,
     ...CMD.BOLD_ON,
     ...encodeText(tblHeader.substring(0, W) + '\n'),
     ...CMD.BOLD_OFF,
     ...divider('-', W), LF,
 
-    // Liy pwodwi
+    // Liy pwodwi — NORMAL_FONT, gras pou total
     ...(invoice.items || []).flatMap(item => {
       const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
       const qty = String(Number(item.quantity))
       const pri = fmt(item.unitPriceHtg)
       const tot = fmt(item.totalHtg)
       const result = []
-
       if (nom.length > C.nom) {
-        // Non long — 2 liy
-        result.push(...encodeText('  ' + nom.substring(0, W - 2) + '\n'))
+        result.push(...encodeText(nom.substring(0, W) + '\n'))
         result.push(...encodeText(' '.repeat(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
       } else {
         result.push(...encodeText(nom.padEnd(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
       }
       if (Number(item.discountPct) > 0) {
-        result.push(...encodeText('  Remiz: -' + item.discountPct + '%\n'))
+        result.push(...CMD.SMALL_FONT, ...encodeText('  Remiz: -' + item.discountPct + '%\n'), ...CMD.NORMAL_FONT)
       }
       return result
     }),
-    ...CMD.NORMAL_FONT,
 
-    // ── SOUS-TOTAL / REMIZ / TAKS ─────────────────────────────
+    // Remiz / Taks
     ...divider('-', W), LF,
     ...(Number(invoice.discountHtg) > 0 ? [
-      ...CMD.SMALL_FONT,
-      ...makeLine(is80 ? '  Remiz:' : 'Remiz:', '-' + fmt(invoice.discountHtg) + ' G', W), LF,
-      ...CMD.NORMAL_FONT,
+      ...makeLine('Remiz:', '-' + fmt(invoice.discountHtg) + ' G', W), LF,
     ] : []),
     ...(Number(invoice.taxHtg) > 0 ? [
-      ...CMD.SMALL_FONT,
-      ...makeLine(is80 ? '  Taks (' + Number(invoice.taxRate || 0) + '%):' : 'Taks:', fmt(invoice.taxHtg) + ' G', W), LF,
-      ...CMD.NORMAL_FONT,
+      ...makeLine('Taks (' + Number(invoice.taxRate || 0) + '%):', fmt(invoice.taxHtg) + ' G', W), LF,
     ] : []),
 
-    // ── TOTAL ────────────────────────────────────────────────
+    // ══ TOTAL ════════════════════════════════════════════════
     ...divider('=', W), LF,
     ...CMD.BOLD_ON,
-    ...(is80 ? CMD.DOUBLE_HEIGHT : []),
+    ...CMD.DOUBLE_HEIGHT,
     ...makeLine('  TOTAL:', fmt(totalHtg) + ' G', W), LF,
-    ...(is80 ? CMD.NORMAL_SIZE : []),
+    ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
 
-    // Konvèsyon monnaie (sèlman 80mm)
-    ...(is80 && toUSD(totalHtg) ? [
-      ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
-      ...encodeText('= $' + toUSD(totalHtg) + ' USD\n'),
-      ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+    // Konvèsyon (NORMAL_FONT, pa SMALL)
+    ...(toUSD(totalHtg) ? [
+      ...CMD.ALIGN_RIGHT, ...encodeText('= $' + toUSD(totalHtg) + ' USD\n'), ...CMD.ALIGN_LEFT,
     ] : []),
-    ...(is80 && toDOP(totalHtg) ? [
-      ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
-      ...encodeText('= RD$' + toDOP(totalHtg) + ' DOP\n'),
-      ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+    ...(toDOP(totalHtg) ? [
+      ...CMD.ALIGN_RIGHT, ...encodeText('= RD$' + toDOP(totalHtg) + ' DOP\n'), ...CMD.ALIGN_LEFT,
     ] : []),
 
-    // ── PEMAN ────────────────────────────────────────────────
+    // ══ PEMAN ════════════════════════════════════════════════
     ...divider('-', W), LF,
-    ...CMD.SMALL_FONT,
 
-    // Kòb kliyan ba (si aplikab)
     ...(amountGiven > 0 ? [
-      ...makeLine(is80 ? '  Kob kliyan bay:' : 'Kob kliyan:', fmt(amountGiven) + ' G', W), LF,
+      ...encodeText('Kob kliyan bay : '),
+      ...CMD.BOLD_ON, ...encodeText(fmt(amountGiven) + ' G\n'), ...CMD.BOLD_OFF,
     ] : []),
 
-    // Kòb resevwa
-    ...CMD.BOLD_ON,
-    ...makeLine(is80 ? '  Kob peye:' : 'Kob peye:', fmt(paidHtg > 0 ? paidHtg : totalHtg) + ' G', W), LF,
-    ...CMD.BOLD_OFF,
+    ...encodeText('Kob peye       : '),
+    ...CMD.BOLD_ON, ...encodeText(fmt(paidHtg > 0 ? paidHtg : totalHtg) + ' G\n'), ...CMD.BOLD_OFF,
 
-    // Monnen
     ...(change > 0 ? [
-      ...makeLine(is80 ? '  Monnen remèt:' : 'Monnen:', fmt(change) + ' G', W), LF,
+      ...encodeText('Monnen remèt   : '),
+      ...CMD.BOLD_ON, ...encodeText(fmt(change) + ' G\n'), ...CMD.BOLD_OFF,
     ] : []),
 
-    // Metod peman
-    ...(lastPay?.method    ? [...makeLine(is80 ? '  Metod:' : 'Metod:', METOD[lastPay.method] || lastPay.method, W), LF] : []),
-    ...(lastPay?.reference ? [...makeLine(is80 ? '  Ref:' : 'Ref:', lastPay.reference.substring(0, W - 8), W), LF] : []),
-    ...CMD.NORMAL_FONT,
+    ...(lastPay?.method ? [
+      ...encodeText('Metod          : '),
+      ...CMD.BOLD_ON, ...encodeText((METOD[lastPay.method] || lastPay.method) + '\n'), ...CMD.BOLD_OFF,
+    ] : []),
+    ...(lastPay?.reference ? [
+      ...encodeText('Ref            : ' + lastPay.reference.substring(0, W - 18) + '\n'),
+    ] : []),
 
-    // ── BALANS (kredi) ───────────────────────────────────────
+    // Balans / Kredi
     ...(balanceHtg > 0 ? [
       ...divider('-', W), LF,
       ...CMD.BOLD_ON,
-      ...makeLine(is80 ? '  Balans ki rete:' : 'Balans:', '-' + fmt(balanceHtg) + ' G', W), LF,
+      ...makeLine('Balans ki rete :', '-' + fmt(balanceHtg) + ' G', W), LF,
       ...CMD.BOLD_OFF,
-      ...(is80 && toUSD(balanceHtg) ? [
-        ...CMD.SMALL_FONT, ...CMD.ALIGN_RIGHT,
-        ...encodeText('= -$' + toUSD(balanceHtg) + ' USD\n'),
-        ...CMD.ALIGN_LEFT, ...CMD.NORMAL_FONT,
+      ...(toUSD(balanceHtg) ? [
+        ...CMD.ALIGN_RIGHT, ...encodeText('= -$' + toUSD(balanceHtg) + ' USD\n'), ...CMD.ALIGN_LEFT,
       ] : []),
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
-      ...encodeText('*** KREDI ***\n'),
-      ...CMD.BOLD_OFF,
-      ...CMD.SMALL_FONT,
+      ...CMD.ALIGN_CENTER,
+      ...CMD.BOLD_ON, ...encodeText('*** KREDI ***\n'), ...CMD.BOLD_OFF,
       ...(dueDate
         ? [...encodeText('Dat limit: ' + new Date(dueDate).toLocaleDateString('fr-HT') + '\n')]
         : [...encodeText('Peye pi vit posib\n')]
       ),
-      ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
+      ...CMD.ALIGN_LEFT,
     ] : []),
 
-    // ── STATUT FINAL ─────────────────────────────────────────
+    // ══ STATUT FINAL ══════════════════════════════════════════
     ...divider('=', W), LF,
     ...CMD.ALIGN_CENTER,
     ...CMD.BOLD_ON,
-    ...(is80 ? CMD.DOUBLE_BOTH : CMD.DOUBLE_HEIGHT),
+    ...CMD.DOUBLE_BOTH,
     ...encodeText(statusLine + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
-
-    // Liy total peye final
+    LF,
+    // Total final — BOLD + DOUBLE_HEIGHT
     ...CMD.ALIGN_LEFT,
     ...CMD.BOLD_ON,
+    ...CMD.DOUBLE_HEIGHT,
     ...makeLine(
-      is80 ? '  ' + (isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:')
-           : (isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : 'TOTAL:'),
+      isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:',
       fmt(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg) + ' G',
       W
     ), LF,
+    ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
 
-    // ── QR CODE ──────────────────────────────────────────────
+    // ══ QR CODE ══════════════════════════════════════════════
     ...(tenant?.showQrCode !== false ? [
       LF,
       ...CMD.ALIGN_CENTER,
@@ -459,20 +459,16 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
       ...CMD.NORMAL_FONT,
     ] : []),
 
-    // ── FOOTER ───────────────────────────────────────────────
+    // ══ FOOTER ═══════════════════════════════════════════════
     ...CMD.ALIGN_CENTER,
     ...divider('-', W), LF,
     ...CMD.BOLD_ON,
     ...encodeText('Mesi paske ou achte lakay nou!\n'),
     ...CMD.BOLD_OFF,
-    ...CMD.SMALL_FONT,
-    ...(is80
-      ? [...encodeText('Tout machandiz vann pa reprann ni chanje.\n')]
-      : [...encodeText('Machandiz pa reprann ni chanje.\n')]
-    ),
+    ...encodeText('Machandiz pa reprann ni chanje.\n'),
     ...divider('-', W), LF,
-    ...encodeText('Pwodwi pa: Plus Group\n'),
-    ...encodeText('+509 4244-9024\n'),
+    ...CMD.SMALL_FONT,
+    ...encodeText('Pwodwi pa: Plus Group | +509 4244-9024\n'),
     ...CMD.NORMAL_FONT,
     LF, LF, ...CMD.CUT,
   ]
@@ -480,9 +476,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   await dispatch(bytes)
 }
 
-// ══════════════════════════════════════════════════════════════
-// SABOTAY — pa chanje
-// ══════════════════════════════════════════════════════════════
+
 export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) => {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
   const savedSize   = typeof localStorage !== 'undefined' ? localStorage.getItem('receipt_size') : null
