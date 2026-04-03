@@ -10,12 +10,17 @@ const CSS_80MM = `
 
   @page {
     size: 80mm auto;
-    margin: 2mm 0mm 2mm 0mm;
+    margin: 3mm 2mm 5mm 2mm;
+  }
+
+  html {
+    width: 80mm;
   }
 
   body {
-    width: 78mm;
-    max-width: 78mm;
+    width: 76mm;
+    max-width: 76mm;
+    margin: 0 auto;
     font-family: Arial, Helvetica, sans-serif;
     font-size: 9pt;
     font-weight: 700;
@@ -23,7 +28,9 @@ const CSS_80MM = `
     background: #fff;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
-    overflow-x: hidden;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
   }
 
   /* ── Alinman ── */
@@ -46,8 +53,8 @@ const CSS_80MM = `
     width: 100%;
   }
   .logo-wrap img {
-    max-width: 45mm;
-    max-height: 18mm;
+    max-width: 40mm;
+    max-height: 16mm;
     width: auto;
     height: auto;
     object-fit: contain;
@@ -57,23 +64,26 @@ const CSS_80MM = `
 
   /* ── Header biznis ── */
   .biz-name {
-    font-size: 16pt;
+    font-size: 14pt;
     font-weight: 900;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     text-align: center;
-    line-height: 1.1;
-    word-break: keep-all;
+    line-height: 1.2;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
   }
   .biz-sub {
     font-size: 8pt;
     font-weight: 900;
     color: #000;
     text-align: center;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     margin-top: 1px;
+    word-break: break-word;
   }
   .biz-phone {
-    font-size: 10pt;
+    font-size: 9pt;
     font-weight: 900;
     text-align: center;
     margin-top: 2px;
@@ -88,18 +98,21 @@ const CSS_80MM = `
   .info-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 9pt;
+    font-size: 8.5pt;
     table-layout: fixed;
   }
+  .info-table col:first-child { width: 26mm; }
+  .info-table col:last-child  { width: 50mm; }
   .info-table td:first-child {
-    width: 28mm;
     font-weight: 900;
     white-space: nowrap;
+    vertical-align: top;
   }
   .info-table td:last-child {
     text-align: right;
     font-weight: 800;
     word-break: break-word;
+    overflow-wrap: break-word;
   }
   .info-table tr td {
     padding: 1.5px 1px;
@@ -109,20 +122,20 @@ const CSS_80MM = `
   .items-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 8.5pt;
+    font-size: 8pt;
     table-layout: fixed;
   }
-  .items-table col.col-nom  { width: 36mm; }
-  .items-table col.col-qty  { width: 6mm;  }
-  .items-table col.col-pri  { width: 18mm; }
-  .items-table col.col-tot  { width: 19mm; }
+  .items-table col.col-nom  { width: 34mm; }
+  .items-table col.col-qty  { width: 7mm;  }
+  .items-table col.col-pri  { width: 17mm; }
+  .items-table col.col-tot  { width: 18mm; }
 
   .items-table th {
     font-weight: 900;
     padding: 2px 1px;
     border-bottom: 1.5px solid #000;
     border-top: 1.5px solid #000;
-    font-size: 8pt;
+    font-size: 7.5pt;
     overflow: hidden;
   }
   .items-table th.r,
@@ -133,7 +146,7 @@ const CSS_80MM = `
   .items-table td {
     padding: 2px 1px;
     vertical-align: top;
-    font-size: 8.5pt;
+    font-size: 8pt;
     font-weight: 700;
     overflow: hidden;
   }
@@ -141,13 +154,14 @@ const CSS_80MM = `
     word-break: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
-    line-height: 1.2;
+    line-height: 1.25;
     font-weight: 800;
+    max-width: 34mm;
   }
   .item-price, .item-total {
     text-align: right;
     white-space: nowrap;
-    font-size: 8pt;
+    font-size: 7.5pt;
     font-weight: 800;
   }
 
@@ -157,22 +171,31 @@ const CSS_80MM = `
     justify-content: space-between;
     align-items: baseline;
     padding: 2px 0;
-    font-size: 9pt;
+    font-size: 8.5pt;
     font-weight: 800;
     gap: 4px;
+    width: 100%;
+  }
+  .total-row span:first-child {
+    flex: 1;
+    white-space: nowrap;
   }
   .total-row span:last-child {
     white-space: nowrap;
     flex-shrink: 0;
   }
   .total-grand {
-    font-size: 15pt;
+    font-size: 14pt;
     font-weight: 900;
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     padding: 3px 0;
     gap: 4px;
+    width: 100%;
+  }
+  .total-grand span:first-child {
+    flex: 1;
   }
   .total-grand span:last-child {
     white-space: nowrap;
@@ -180,13 +203,15 @@ const CSS_80MM = `
   }
   .status-box {
     text-align: center;
-    font-size: 15pt;
+    font-size: 14pt;
     font-weight: 900;
     border: 2.5px solid #000;
-    padding: 3px 2px;
+    padding: 4px 2px;
     margin: 4px 0;
     letter-spacing: 2px;
     width: 100%;
+    display: block;
+    box-sizing: border-box;
   }
 
   /* ── Badge kredi ── */
@@ -196,19 +221,23 @@ const CSS_80MM = `
     padding: 3px;
     margin: 3px 0;
     font-weight: 900;
-    font-size: 9.5pt;
+    font-size: 9pt;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   /* ── Tablo peman ── */
   .pay-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 9pt;
+    font-size: 8.5pt;
     table-layout: fixed;
   }
+  .pay-table col:first-child { width: 38mm; }
+  .pay-table col:last-child  { width: 38mm; }
   .pay-table td:first-child {
-    width: 36mm;
     font-weight: 800;
+    word-break: break-word;
   }
   .pay-table td:last-child {
     text-align: right;
@@ -217,6 +246,7 @@ const CSS_80MM = `
   }
   .pay-table tr td {
     padding: 2px 1px;
+    vertical-align: top;
   }
 
   /* ── Konvèsyon deviz ── */
@@ -231,8 +261,8 @@ const CSS_80MM = `
   /* ── QR code ── */
   .qr-wrap { text-align: center; margin: 5px 0 3px; }
   .qr-wrap img {
-    width: 26mm;
-    height: 26mm;
+    width: 24mm;
+    height: 24mm;
     display: block;
     margin: 0 auto;
   }
@@ -248,7 +278,7 @@ const CSS_80MM = `
   /* ── Footer ── */
   .footer { text-align: center; margin-top: 4px; }
   .footer .main-msg {
-    font-size: 9.5pt;
+    font-size: 9pt;
     font-weight: 900;
     letter-spacing: 0.5px;
     color: #000;
@@ -258,12 +288,14 @@ const CSS_80MM = `
     font-weight: 900;
     color: #000;
     margin-top: 2px;
+    word-break: break-word;
   }
   .footer .brand {
-    font-size: 7.5pt;
+    font-size: 7pt;
     font-weight: 900;
     color: #000;
     margin-top: 2px;
+    word-break: break-word;
   }
 
   /* ── Espas ── */
@@ -271,6 +303,10 @@ const CSS_80MM = `
   .mt2 { margin-top: 4px; }
   .mt3 { margin-top: 6px; }
   .mb1 { margin-bottom: 2px; }
+
+  /* ── Evite koupe nan mitan elemè ── */
+  tr { page-break-inside: avoid; }
+  .status-box, .credit-badge, .total-grand { page-break-inside: avoid; }
 `
 
 // ─── Fòmate nimerik ───────────────────────────────────────────
@@ -284,7 +320,7 @@ const fmtDate = (d) => {
 
 // ─── Jenere QR code URL ───────────────────────────────────────
 const qrUrl = (text) =>
-  `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=110x110&margin=2`
+  `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=100x100&margin=2`
 
 // ══════════════════════════════════════════════════════════════
 // PRINT INVOICE — HTML 80mm
@@ -353,6 +389,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
 <html lang="ht">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resi ${invoice.invoiceNumber || ''}</title>
   <style>${CSS_80MM}</style>
 </head>
@@ -375,6 +412,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
 
   <!-- INFO TRANSAKSYON -->
   <table class="info-table">
+    <colgroup><col><col></colgroup>
     <tr>
       <td>Dat&nbsp;&nbsp;&nbsp;:</td>
       <td>${fmtDate(invoice.issueDate)}</td>
@@ -435,6 +473,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <!-- PEMAN -->
   <div class="sep-dsh"></div>
   <table class="pay-table">
+    <colgroup><col><col></colgroup>
     ${amountGiven > 0 ? `
     <tr>
       <td>Kòb kliyan bay :</td>
@@ -536,6 +575,7 @@ export const printKaneReceiptHTML = (account, transaction, tenant, type = 'ouver
 
   const html = `<!DOCTYPE html>
 <html lang="ht"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Kane Epay</title><style>${CSS_80MM}</style></head>
 <body>
   ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="logo"/></div>` : ''}
@@ -548,6 +588,7 @@ export const printKaneReceiptHTML = (account, transaction, tenant, type = 'ouver
   <div class="status-box">${TX_LABELS[type] || 'TRANZAKSYON'}</div>
   <div class="sep-dsh"></div>
   <table class="info-table">
+    <colgroup><col><col></colgroup>
     <tr><td>No. Kont :</td><td>${account.accountNumber || ''}</td></tr>
     <tr><td>Dat :</td><td>${txDate}</td></tr>
   </table>
@@ -578,7 +619,7 @@ export const printKaneReceiptHTML = (account, transaction, tenant, type = 'ouver
   <div class="sep-eq mt2"></div>
   <div class="footer">
     <div class="main-msg">Mesi!</div>
-    <div class="brand">PlusGroup — Tel: +50942449024</div>
+    <div class="brand">${bizName} | ${tenant?.phone || '+50942449024'}</div>
   </div>
 </body></html>`
 
@@ -610,16 +651,17 @@ export const printPreReceiptHTML = (pre, echeances = [], tenant, type = 'ouvertu
 
   const html = `<!DOCTYPE html>
 <html lang="ht"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prè ${pre.numeroPre || ''}</title><style>
 ${CSS_80MM}
-.ech-table { width:100%; border-collapse:collapse; font-size:7.5pt; table-layout:fixed; }
+.ech-table { width:100%; border-collapse:collapse; font-size:7pt; table-layout:fixed; }
 .ech-table col:nth-child(1) { width:6mm; }
-.ech-table col:nth-child(2) { width:18mm; }
-.ech-table col:nth-child(3) { width:16mm; }
-.ech-table col:nth-child(4) { width:16mm; }
-.ech-table col:nth-child(5) { width:16mm; }
-.ech-table th { border-bottom:1px solid #000; padding:2px 1px; font-weight:800; overflow:hidden; }
-.ech-table td { padding:1.5px 1px; border-bottom:1px dotted #ccc; overflow:hidden; }
+.ech-table col:nth-child(2) { width:17mm; }
+.ech-table col:nth-child(3) { width:15mm; }
+.ech-table col:nth-child(4) { width:15mm; }
+.ech-table col:nth-child(5) { width:15mm; }
+.ech-table th { border-bottom:1px solid #000; padding:2px 1px; font-weight:800; overflow:hidden; font-size:7pt; }
+.ech-table td { padding:1.5px 1px; border-bottom:1px dotted #ccc; overflow:hidden; font-size:7pt; }
 .sign-line { border-bottom:2px solid #000; margin:14px 0 3px; }
 </style></head>
 <body>
@@ -633,6 +675,7 @@ ${CSS_80MM}
   <div class="status-box">${type === 'ouverture' ? 'KONTRA PRÈ' : type === 'peman' ? 'RESI PEMAN' : 'KLOTIRE PRÈ'}</div>
   <div class="sep-dsh"></div>
   <table class="info-table">
+    <colgroup><col><col></colgroup>
     <tr><td>No. Prè :</td><td>${pre.numeroPre || ''}</td></tr>
     <tr><td>Dat :</td><td>${new Date().toLocaleDateString('fr-HT')}</td></tr>
   </table>
@@ -642,6 +685,7 @@ ${CSS_80MM}
   ${pre.clientNifCin ? `<div class="sm">CIN/NIF: ${pre.clientNifCin}</div>` : ''}
   <div class="sep-dsh mt1"></div>
   <table class="info-table">
+    <colgroup><col><col></colgroup>
     <tr><td>Kapital :</td><td>${fmtN(pre.montant)} G</td></tr>
     <tr><td>To Entere :</td><td>${pre.tauxInteret}% / mwa</td></tr>
     <tr><td>Dire :</td><td>${pre.dureeEnMois} mwa</td></tr>
@@ -658,6 +702,7 @@ ${CSS_80MM}
   ${type === 'peman' && paiement ? `
   <div class="sep-dsh mt1"></div>
   <table class="pay-table">
+    <colgroup><col><col></colgroup>
     <tr><td>Deja Peye :</td><td>${fmtN(Number(pre.totalPaye || 0) - Number(paiement.montant || 0))} G</td></tr>
     <tr><td>PEMAN JÈ A :</td><td>${fmtN(paiement.montant)} G</td></tr>
     <tr><td>Rete :</td><td>${fmtN(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0)))} G</td></tr>
