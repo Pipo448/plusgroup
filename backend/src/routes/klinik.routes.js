@@ -113,26 +113,72 @@ router.post('/patients', async (req, res) => {
   try {
     const tenantId      = tid(req)
     const numeroDossier = await genNumeroDossier(tenantId)
-    const { id, createdAt, updatedAt, _count,
-            appointments, consultations, prescriptions,
-            labOrders, hospitalizations, ...data } = req.body
-    const patient = await prisma.klinikPatient.create({
-      data: { ...data, tenantId, numeroDossier },
-    })
-    res.status(201).json({ patient })
+    const {
+      prenom, nom, dateNesans, sexe, telephone,
+      adresse, groupeSangin, nifCin, email, notes,
+    } = req.body
+
+    const rows = await prisma.$queryRawUnsafe(`
+      INSERT INTO klinik_patients
+        (tenant_id, numero_dossier, prenom, nom, date_naissance, sexe,
+         telephone, adresse, groupe_sanguin, nif_cin, email, notes, is_active)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,true)
+      RETURNING *
+    `,
+      tenantId, numeroDossier,
+      prenom   || null,
+      nom      || null,
+      dateNesans ? new Date(dateNesans) : null,
+      sexe     || null,
+      telephone || null,
+      adresse  || null,
+      groupeSangin || null,
+      nifCin   || null,
+      email    || null,
+      notes    || null,
+    )
+    res.status(201).json({ patient: rows[0] })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
 router.put('/patients/:id', async (req, res) => {
   try {
-    const { id, tenantId, numeroDossier, createdAt, updatedAt,
-            appointments, consultations, prescriptions,
-            labOrders, hospitalizations, _count, ...data } = req.body
-    const patient = await prisma.klinikPatient.update({
-      where: { id: req.params.id },
-      data,
-    })
-    res.json({ patient })
+    const {
+      prenom, nom, dateNesans, sexe, telephone,
+      adresse, groupeSangin, nifCin, email, notes,
+    } = req.body
+
+    const rows = await prisma.$queryRawUnsafe(`
+      UPDATE klinik_patients SET
+        prenom          = COALESCE($1, prenom),
+        nom             = COALESCE($2, nom),
+        date_naissance  = COALESCE($3, date_naissance),
+        sexe            = COALESCE($4, sexe),
+        telephone       = COALESCE($5, telephone),
+        adresse         = COALESCE($6, adresse),
+        groupe_sanguin  = COALESCE($7, groupe_sanguin),
+        nif_cin         = COALESCE($8, nif_cin),
+        email           = COALESCE($9, email),
+        notes           = COALESCE($10, notes),
+        updated_at      = NOW()
+      WHERE id = $11 AND tenant_id = $12
+      RETURNING *
+    `,
+      prenom    || null,
+      nom       || null,
+      dateNesans ? new Date(dateNesans) : null,
+      sexe      || null,
+      telephone || null,
+      adresse   || null,
+      groupeSangin || null,
+      nifCin    || null,
+      email     || null,
+      notes     || null,
+      req.params.id,
+      tid(req),
+    )
+    if (!rows[0]) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
+    res.json({ patient: rows[0] })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
