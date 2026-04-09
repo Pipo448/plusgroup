@@ -677,4 +677,111 @@ router.delete('/services/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+
+// ═══════════════════════════════════════════════════════════════
+// ANPLWAYE
+// ═══════════════════════════════════════════════════════════════
+router.get('/employees', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { search, poste, statut, page = 1, limit = 20 } = req.query
+    const offset = (Number(page) - 1) * Number(limit)
+
+    let where = `WHERE tenant_id = $1`
+    const params = [tenantId]
+    let idx = 2
+
+    if (poste)  { where += ` AND poste = $${idx++}`;  params.push(poste)  }
+    if (statut) { where += ` AND statut = $${idx++}`; params.push(statut) }
+    if (search) {
+      where += ` AND (nom ILIKE $${idx} OR prenom ILIKE $${idx} OR poste ILIKE $${idx})`
+      params.push(`%${search}%`); idx++
+    }
+
+    const [rows, countRow] = await Promise.all([
+      prisma.$queryRawUnsafe(`SELECT * FROM klinik_employees ${where} ORDER BY created_at DESC LIMIT ${Number(limit)} OFFSET ${offset}`, ...params),
+      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_employees ${where}`, ...params),
+    ])
+    res.json({ employees: rows, total: Number(countRow[0]?.total || 0) })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+router.post('/employees', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { nom, prenom, poste, telephone, email, adresse, dateEmbauche, salaireBase, statut, notes } = req.body
+    const rows = await prisma.$queryRaw`
+      INSERT INTO klinik_employees (tenant_id,nom,prenom,poste,telephone,email,adresse,date_embauche,salaire_base,statut,notes)
+      VALUES (${tenantId},${nom||null},${prenom||null},${poste||null},${telephone||null},${email||null},${adresse||null},
+              ${dateEmbauche ? new Date(dateEmbauche) : null},${Number(salaireBase||0)},${statut||'actif'},${notes||null})
+      RETURNING *
+    `
+    res.status(201).json({ employee: rows[0] })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+router.put('/employees/:id', async (req, res) => {
+  try {
+    const { nom, prenom, poste, telephone, email, adresse, dateEmbauche, salaireBase, statut, notes } = req.body
+    const rows = await prisma.$queryRaw`
+      UPDATE klinik_employees SET
+        nom=COALESCE(${nom||null},nom), prenom=COALESCE(${prenom||null},prenom),
+        poste=COALESCE(${poste||null},poste), telephone=COALESCE(${telephone||null},telephone),
+        email=COALESCE(${email||null},email), adresse=COALESCE(${adresse||null},adresse),
+        date_embauche=COALESCE(${dateEmbauche?new Date(dateEmbauche):null},date_embauche),
+        salaire_base=COALESCE(${salaireBase!==undefined?Number(salaireBase):null},salaire_base),
+        statut=COALESCE(${statut||null},statut), notes=COALESCE(${notes||null},notes),
+        updated_at=NOW()
+      WHERE id=${req.params.id}::uuid AND tenant_id=${tid(req)}
+      RETURNING *
+    `
+    res.json({ employee: rows[0] })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// PAYROLL
+// ═══════════════════════════════════════════════════════════════
+router.get('/payroll', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { mois, page = 1, limit = 20 } = req.query
+    const offset = (Number(page) - 1) * Number(limit)
+
+    let where = `WHERE p.tenant_id = $1`
+    const params = [tenantId]
+    let idx = 2
+
+    if (mois) { where += ` AND p.mois = $${idx++}`; params.push(mois) }
+
+    const [rows, countRow] = await Promise.all([
+      prisma.$queryRawUnsafe(`
+        SELECT p.*, e.nom, e.prenom, e.poste
+        FROM klinik_payroll p
+        LEFT JOIN klinik_employees e ON e.id = p.employee_id
+        ${where} ORDER BY p.created_at DESC
+        LIMIT ${Number(limit)} OFFSET ${offset}
+      `, ...params),
+      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_payroll p ${where}`, ...params),
+    ])
+    res.json({ payrolls: rows, total: Number(countRow[0]?.total || 0) })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+router.post('/payroll', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { employeeId, mois, salaireBase, bonus=0, deduction=0, salaireNet, methode_paiement, datePaiement, notes, statut='paye' } = req.body
+    if (!employeeId) return res.status(400).json({ message: 'employeeId obligatwa.' })
+    if (!mois)       return res.status(400).json({ message: 'mois obligatwa.' })
+    const rows = await prisma.$queryRaw`
+      INSERT INTO klinik_payroll (tenant_id,employee_id,mois,salaire_base,bonus,deduction,salaire_net,statut,methode_paiement,date_paiement,notes,created_by)
+      VALUES (${tenantId},${employeeId}::uuid,${mois},${Number(salaireBase||0)},${Number(bonus)},${Number(deduction)},
+              ${Number(salaireNet||0)},${statut},${methode_paiement||null},${datePaiement?new Date(datePaiement):null},${notes||null},${req.user?.id||null})
+      RETURNING *
+    `
+    res.status(201).json({ payroll: rows[0] })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
 module.exports = router
