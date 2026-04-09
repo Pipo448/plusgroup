@@ -122,7 +122,11 @@ router.post('/patients', async (req, res) => {
       INSERT INTO klinik_patients
         (tenant_id, numero_dossier, prenom, nom, date_naissance, sexe,
          telephone, adresse, groupe_sanguin, email, notes, is_active)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true)
+      VALUES ($1,$2,$3,$4,$5,
+        $6::"Sexe",
+        $7,$8,
+        $9::"GroupeSanguin",
+        $10,$11,true)
       RETURNING *
     `,
       tenantId,
@@ -153,10 +157,10 @@ router.put('/patients/:id', async (req, res) => {
         prenom         = COALESCE($1, prenom),
         nom            = COALESCE($2, nom),
         date_naissance = COALESCE($3, date_naissance),
-        sexe           = COALESCE($4, sexe),
+        sexe           = COALESCE($4::"Sexe", sexe),
         telephone      = COALESCE($5, telephone),
         adresse        = COALESCE($6, adresse),
-        groupe_sanguin = COALESCE($7, groupe_sanguin),
+        groupe_sanguin = COALESCE($7::"GroupeSanguin", groupe_sanguin),
         email          = COALESCE($8, email),
         notes          = COALESCE($9, notes),
         updated_at     = NOW()
