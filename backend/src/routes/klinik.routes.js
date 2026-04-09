@@ -221,6 +221,10 @@ router.get('/appointments', async (req, res) => {
 router.post('/appointments', async (req, res) => {
   try {
     const { id, createdAt, updatedAt, patient, consultation, ...data } = req.body
+    // ✅ Konvèti dateHeure an objè Date — Prisma bezwen timezone
+    if (data.dateHeure) {
+      data.dateHeure = new Date(data.dateHeure)
+    }
     const appointment = await prisma.klinikAppointment.create({
       data:    { ...data, tenantId: tid(req), createdBy: req.user.id },
       include: { patient: { select: { nom: true, prenom: true, telephone: true } } },
@@ -232,6 +236,10 @@ router.post('/appointments', async (req, res) => {
 router.put('/appointments/:id', async (req, res) => {
   try {
     const { id, tenantId, createdAt, updatedAt, patient, consultation, ...data } = req.body
+    // ✅ Konvèti dateHeure an objè Date
+    if (data.dateHeure) {
+      data.dateHeure = new Date(data.dateHeure)
+    }
     const appointment = await prisma.klinikAppointment.update({
       where:   { id: req.params.id },
       data,
