@@ -1,56 +1,45 @@
-// src/App.jsx
+// src/App.jsx — PLUS GROUP (klinik retire — app separe)
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import AppLayout from './components/layout/AppLayout'
 
-// ✅ Chajman dirèk
 import LoginPage      from './pages/auth/LoginPage'
 import WelcomePage    from './pages/WelcomePage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import SolLoginPage   from './pages/sol/SolLoginPage'
 
-// ✅ Lazy load
-const Dashboard         = lazy(() => import('./pages/dashboard/Dashboard'))
-const ProductsPage      = lazy(() => import('./pages/products/ProductsPage'))
-const ClientsPage       = lazy(() => import('./pages/clients/ClientsPage'))
-const QuotesPage        = lazy(() => import('./pages/quotes/QuotesPage'))
-const QuoteForm         = lazy(() => import('./pages/quotes/QuoteForm'))
-const QuoteDetail       = lazy(() => import('./pages/quotes/QuoteDetail'))
-const InvoicesPage      = lazy(() => import('./pages/invoices/InvoicesPage'))
-const InvoiceDetail     = lazy(() => import('./pages/invoices/InvoiceDetail'))
-const NewInvoicePage    = lazy(() => import('./pages/invoices/NewInvoicePage'))
-const StockPage         = lazy(() => import('./pages/stock/StockPage'))
-const ReportsPage       = lazy(() => import('./pages/reports/ReportsPage'))
-const SettingsPage      = lazy(() => import('./pages/settings/SettingsPage'))
-const UsersPage         = lazy(() => import('./pages/settings/UsersPage'))
-const AdminDashboard    = lazy(() => import('./pages/admin/AdminDashboard'))
-const PlansPage         = lazy(() => import('./pages/plans/PlansPage'))
-const BranchAdminPage   = lazy(() => import('./pages/branches/BranchAdminPage'))
-const KanePage          = lazy(() => import('./pages/enterprise/KanePage'))
-const KaneEpayPage      = lazy(() => import('./pages/enterprise/KaneEpayPage'))
-const PrePage           = lazy(() => import('./pages/enterprise/PrePage'))
-const SabotayPage       = lazy(() => import('./pages/enterprise/SabotayPage'))
-const MobilPayPage      = lazy(() => import('./pages/enterprise/MobilPayPage'))
-const MikwoKrediGuide   = lazy(() => import('./pages/enterprise/MikwoKrediGuide'))
-const SolDashboardPage  = lazy(() => import('./pages/sol/SolDashboardPage'))
-const HotelDashboard    = lazy(() => import('./pages/hotel/HotelDashboard'))
-const ReservationsPage  = lazy(() => import('./pages/hotel/ReservationsPage'))
+const Dashboard          = lazy(() => import('./pages/dashboard/Dashboard'))
+const ProductsPage       = lazy(() => import('./pages/products/ProductsPage'))
+const ClientsPage        = lazy(() => import('./pages/clients/ClientsPage'))
+const QuotesPage         = lazy(() => import('./pages/quotes/QuotesPage'))
+const QuoteForm          = lazy(() => import('./pages/quotes/QuoteForm'))
+const QuoteDetail        = lazy(() => import('./pages/quotes/QuoteDetail'))
+const InvoicesPage       = lazy(() => import('./pages/invoices/InvoicesPage'))
+const InvoiceDetail      = lazy(() => import('./pages/invoices/InvoiceDetail'))
+const NewInvoicePage     = lazy(() => import('./pages/invoices/NewInvoicePage'))
+const StockPage          = lazy(() => import('./pages/stock/StockPage'))
+const ReportsPage        = lazy(() => import('./pages/reports/ReportsPage'))
+const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage'))
+const UsersPage          = lazy(() => import('./pages/settings/UsersPage'))
+const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'))
+const PlansPage          = lazy(() => import('./pages/plans/PlansPage'))
+const BranchAdminPage    = lazy(() => import('./pages/branches/BranchAdminPage'))
+const KanePage           = lazy(() => import('./pages/enterprise/KanePage'))
+const KaneEpayPage       = lazy(() => import('./pages/enterprise/KaneEpayPage'))
+const PrePage            = lazy(() => import('./pages/enterprise/PrePage'))
+const SabotayPage        = lazy(() => import('./pages/enterprise/SabotayPage'))
+const MobilPayPage       = lazy(() => import('./pages/enterprise/MobilPayPage'))
+const MikwoKrediGuide    = lazy(() => import('./pages/enterprise/MikwoKrediGuide'))
+const SolDashboardPage   = lazy(() => import('./pages/sol/SolDashboardPage'))
+const HotelDashboard     = lazy(() => import('./pages/hotel/HotelDashboard'))
+const ReservationsPage   = lazy(() => import('./pages/hotel/ReservationsPage'))
 const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage'))
-const ReservationDetail = lazy(() => import('./pages/hotel/ReservationDetail'))
-const NewRoomPage       = lazy(() => import('./pages/hotel/NewRoomPage'))
-const RoomTypesPage     = lazy(() => import('./pages/hotel/RoomTypesPage'))
-const DryOrdersPage     = lazy(() => import('./pages/dry/DryOrdersPage'))
-const DryOrderDetail    = lazy(() => import('./pages/dry/DryOrderDetail'))
-
-// ✅ Klinik — src/pages/klinik/
-const KlinikDashboard      = lazy(() => import('./pages/klinik/KlinikDashboard'))
-const PatientsPage         = lazy(() => import('./pages/klinik/PatientsPage'))
-const AppointmentsPage     = lazy(() => import('./pages/klinik/AppointmentsPage'))
-const ConsultationPage     = lazy(() => import('./pages/klinik/ConsultationPage'))
-const PrescriptionsPage    = lazy(() => import('./pages/klinik/PrescriptionsPage'))
-const LabPage              = lazy(() => import('./pages/klinik/LabPage'))
-const HospitalizationsPage = lazy(() => import('./pages/klinik/HospitalizationsPage'))
+const ReservationDetail  = lazy(() => import('./pages/hotel/ReservationDetail'))
+const NewRoomPage        = lazy(() => import('./pages/hotel/NewRoomPage'))
+const RoomTypesPage      = lazy(() => import('./pages/hotel/RoomTypesPage'))
+const DryOrdersPage      = lazy(() => import('./pages/dry/DryOrdersPage'))
+const DryOrderDetail     = lazy(() => import('./pages/dry/DryOrderDetail'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -92,24 +81,17 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<Spinner />}>
         <Routes>
-
-          {/* Root */}
           <Route path="/" element={<RootRedirect />} />
           <Route path="/welcome" element={<WelcomePage />} />
-
-          {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* Super Admin */}
           <Route path="/admin/login"     element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
           <Route path="/admin"           element={<Navigate to="/admin/login" replace />} />
 
-          {/* Sol Member Portal */}
           <Route path="/app/sol/login"     element={<SolLoginPage />} />
           <Route path="/app/sol/dashboard" element={<SolDashboardPage />} />
 
-          {/* App principal */}
           <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard"       element={<Dashboard />} />
@@ -129,15 +111,13 @@ export default function App() {
             <Route path="plans"           element={<PlansPage />} />
             <Route path="branches"        element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
 
-            {/* Antrepriz */}
-            <Route path="kane"           element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
-            <Route path="kane-epay"      element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
-            <Route path="pre"            element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
-            <Route path="sabotay"        element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
-            <Route path="mobilpay"       element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
+            <Route path="kane"            element={<ProtectedPage pageKey="kane"><KanePage /></ProtectedPage>} />
+            <Route path="kane-epay"       element={<ProtectedPage pageKey="kane-epay"><KaneEpayPage /></ProtectedPage>} />
+            <Route path="pre"             element={<ProtectedPage pageKey="pre"><PrePage /></ProtectedPage>} />
+            <Route path="sabotay"         element={<ProtectedPage pageKey="sabotay"><SabotayPage /></ProtectedPage>} />
+            <Route path="mobilpay"        element={<ProtectedPage pageKey="mobilpay"><MobilPayPage /></ProtectedPage>} />
             <Route path="mikwo-kredi-gid" element={<MikwoKrediGuide />} />
 
-            {/* Hotel */}
             <Route path="hotel"                  element={<ProtectedPage pageKey="hotel"><HotelDashboard /></ProtectedPage>} />
             <Route path="hotel/reservations"     element={<ProtectedPage pageKey="hotel"><ReservationsPage /></ProtectedPage>} />
             <Route path="hotel/reservations/new" element={<ProtectedPage pageKey="hotel"><NewReservationPage /></ProtectedPage>} />
@@ -145,21 +125,10 @@ export default function App() {
             <Route path="hotel/rooms/new"        element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
 
-            {/* Dry */}
-            <Route path="dry"    element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
+            <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
             <Route path="dry/:id" element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
-
-            {/* ✅ Klinik */}
-            <Route path="klinik"                element={<ProtectedPage pageKey="klinik"><KlinikDashboard /></ProtectedPage>} />
-            <Route path="klinik/patients"       element={<ProtectedPage pageKey="klinik"><PatientsPage /></ProtectedPage>} />
-            <Route path="klinik/randevou"       element={<ProtectedPage pageKey="klinik"><AppointmentsPage /></ProtectedPage>} />
-            <Route path="klinik/konsiltasyon"   element={<ProtectedPage pageKey="klinik"><ConsultationPage /></ProtectedPage>} />
-            <Route path="klinik/preskripsyon"   element={<ProtectedPage pageKey="klinik"><PrescriptionsPage /></ProtectedPage>} />
-            <Route path="klinik/lab"            element={<ProtectedPage pageKey="klinik"><LabPage /></ProtectedPage>} />
-            <Route path="klinik/ospitalizasyon" element={<ProtectedPage pageKey="klinik"><HospitalizationsPage /></ProtectedPage>} />
           </Route>
 
-          {/* Legacy redirects */}
           <Route path="/dashboard"      element={<Navigate to="/app/dashboard" replace />} />
           <Route path="/products"       element={<Navigate to="/app/products"  replace />} />
           <Route path="/clients"        element={<Navigate to="/app/clients"   replace />} />
@@ -176,9 +145,7 @@ export default function App() {
           <Route path="/mobilpay"       element={<Navigate to="/app/mobilpay"  replace />} />
           <Route path="/plans"          element={<Navigate to="/app/plans"     replace />} />
 
-          {/* Catch all */}
           <Route path="*" element={<Navigate to="/" replace />} />
-
         </Routes>
       </Suspense>
     </BrowserRouter>
