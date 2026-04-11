@@ -3534,7 +3534,11 @@ const closePlan = useMutation({
             {[
               {label:'Plan Aktif',    val:activePlans,       color:D.gold,   bg:D.goldDim,   icon:<Wallet size={16}/>  },
               {label:'Total Manm',   val:totalMembers,       color:D.blue,   bg:D.blueBg,    icon:<Users size={16}/>   },
-              {label:'Kolekte (HTG)',val:fmt(totalCollected), color:D.green,  bg:D.greenBg,   icon:<Trophy size={16}/>  },
+              {label:'Kolekte Jodi',  val:fmt(plans.reduce((a,p)=>{
+  const todayD = new Date(new Date().getTime()-5*60*60*1000).toISOString().split('T')[0]
+  return a+(p.members||[]).filter(m=>m.status!=='stopped').reduce((b,m)=>
+    b+(m.payments?.[todayD]?Number(p.amount):0),0)
+},0)), color:D.green, bg:D.greenBg, icon:<Trophy size={16}/>},
             ].map(({label,val,color,bg,icon})=>(
               <div key={label} className="stat-card" style={{background:D.card,border:`1px solid ${D.border}`,
                 borderRadius:13,padding:'13px 15px',display:'flex',alignItems:'center',gap:12}}>
