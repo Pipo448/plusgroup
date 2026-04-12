@@ -2447,8 +2447,11 @@ function PlanDetail({plan,onBack,onAddMember,onPaymentSaved,onBlindDraw,onEditPl
       <div className="detail-stats" style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(120px,1fr))',gap:9,marginBottom:16}}>
         {[
           {label:'Manm Aktif',  val:`${activeMembers.length}`, color:D.blue },
-          {label:'Kolekte',     val:`${fmt(totColl)} HTG`,      color:D.green},
-          {label:'Rès Atann',   val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
+          {label:'Kolekte Total', val:`${fmt(totColl)} HTG`,    color:D.green},
+{label:'Jodi a ✨',     val:`${fmt(activeMembers.reduce((a,m)=>
+  a+(m.payments?.[today]?Number(plan.amount):0),0))} HTG`, color:'#00d084'},
+{label:'Rès Atann',    val:`${fmt(Math.max(0,totExp-totColl))} HTG`, color:D.red},
+{label:'Manm Touche',  val:`${fmt(payout)} HTG`,      color:D.gold},
           {label:'Manm Touche', val:`${fmt(payout)} HTG`,       color:D.gold },
         ].map(({label,val,color})=>(
           <div key={label} style={{background:D.card,border:`1px solid ${D.border}`,borderRadius:10,padding:'11px 13px',textAlign:'center'}}>
@@ -3431,6 +3434,11 @@ const closePlan = useMutation({
       const allD = getAllPaymentDates(p)
       return b+allD.filter(d=>m.payments?.[d]).length*p.amount
     },0),0)
+    const todayCollected = plans.reduce((a,p)=>{
+  const todayD = new Date(new Date().getTime()-5*60*60*1000).toISOString().split('T')[0]
+  return a+(p.members||[]).filter(m=>m.status!=='stopped')
+    .reduce((b,m)=>b+(m.payments?.[todayD]?Number(p.amount):0),0)
+},0)
   const activePlans = plans.filter(p=>p.status!=='closed'&&p.status!=='finished').length
 
   // Konte avètisman global
@@ -3534,11 +3542,8 @@ const closePlan = useMutation({
             {[
               {label:'Plan Aktif',    val:activePlans,       color:D.gold,   bg:D.goldDim,   icon:<Wallet size={16}/>  },
               {label:'Total Manm',   val:totalMembers,       color:D.blue,   bg:D.blueBg,    icon:<Users size={16}/>   },
-              {label:'Kolekte Jodi',  val:fmt(plans.reduce((a,p)=>{
-  const todayD = new Date(new Date().getTime()-5*60*60*1000).toISOString().split('T')[0]
-  return a+(p.members||[]).filter(m=>m.status!=='stopped').reduce((b,m)=>
-    b+(m.payments?.[todayD]?Number(p.amount):0),0)
-},0)), color:D.green, bg:D.greenBg, icon:<Trophy size={16}/>},
+              {label:'Total Kolekte', val:fmt(totalCollected), color:D.green,  bg:D.greenBg,   icon:<Trophy size={16}/>},
+              {label:'Jodi a ✨',     val:fmt(todayCollected), color:'#00d084', bg:'rgba(0,208,132,0.10)', icon:<CheckCircle size={16}/>},
             ].map(({label,val,color,bg,icon})=>(
               <div key={label} className="stat-card" style={{background:D.card,border:`1px solid ${D.border}`,
                 borderRadius:13,padding:'13px 15px',display:'flex',alignItems:'center',gap:12}}>
