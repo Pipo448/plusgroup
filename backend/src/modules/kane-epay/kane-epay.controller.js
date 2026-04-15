@@ -79,48 +79,43 @@ exports.withdraw = async (req, res) => {
 
 // ═══════════════════════════════════════════════════════════════
 // ✅ DELETE /kane-epay/transactions/:txId — Admin efase yon transaksyon
+// FIX: pa itilize kane_epay_id — kalkile balans depi transaksyon yo
 // ═══════════════════════════════════════════════════════════════
 exports.deleteTransaction = async (req, res) => {
   try {
     const { tenantId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
 
-    // Jwenn transaksyon an
-    const txRows = await prisma.$queryRaw`
-      SELECT * FROM kane_transactions
-      WHERE id = ${req.params.txId}::uuid AND tenant_id = ${tenantId}
-      LIMIT 1
-    `
-    if (!txRows[0]) return res.status(404).json({ success: false, message: 'Transaksyon pa jwenn.' })
+    // 1. Jwenn transaksyon an via Prisma ORM (evite raw SQL column name issues)
+    const tx = await prisma.kaneTransaction.findFirst({
+      where: { id: req.params.txId, tenantId },
+    })
+    if (!tx) return res.status(404).json({ success: false, message: 'Tranzaksyon pa jwenn.' })
 
-    const tx    = txRows[0]
-    const kaneId = tx.kane_epay_id || tx.kaneEpayId
+    // 2. Efase transaksyon an
+    await prisma.kaneTransaction.delete({ where: { id: req.params.txId } })
 
-    // Kalkile ajisteman balans
-    // depot/ouverture → retire montant an (balans te monte)
-    // retrait          → ajoute montant an (balans te desann)
-    const delta = (tx.type === 'depot' || tx.type === 'ouverture')
-      ? -Number(tx.amount)
-      :  Number(tx.amount)
+    // 3. Kalkile nouvo balans kont lan (SUM tout tranzaksyon ki rete)
+    // depot/ouverture = positif, retrait = negatif
+    const remaining = await prisma.kaneTransaction.findMany({
+      where: { kaneEpayId: tx.kaneEpayId, tenantId },
+      select: { type: true, amount: true },
+    })
 
-    await prisma.$transaction(async (ptx) => {
-      // 1. Efase transaksyon
-      await ptx.$executeRaw`
-        DELETE FROM kane_transactions
-        WHERE id = ${req.params.txId}::uuid AND tenant_id = ${tenantId}
-      `
-      // 2. Korije balans kont kan
-      if (kaneId) {
-        await ptx.$executeRaw`
-          UPDATE kane_epay SET
-            balance    = GREATEST(0, balance + ${delta}),
-            updated_at = NOW()
-          WHERE id = ${kaneId}::uuid AND tenant_id = ${tenantId}
-        `
-      }
-    }, { maxWait: 10000, timeout: 20000 })
+    const newBalance = remaining.reduce((sum, t) => {
+      const amt = Number(t.amount)
+      if (t.type === 'depot' || t.type === 'ouverture') return sum + amt
+      if (t.type === 'retrait') return sum - amt
+      return sum
+    }, 0)
 
-    return res.json({ success: true, message: 'Transaksyon efase epi balans korije.' })
+    // 4. Mizajou balans kont lan
+    await prisma.kaneEpay.update({
+      where: { id: tx.kaneEpayId },
+      data:  { balance: Math.max(0, newBalance), updatedAt: new Date() },
+    })
+
+    return res.json({ success: true, message: 'Tranzaksyon efase epi balans korije.', newBalance: Math.max(0, newBalance) })
   } catch (e) {
     console.error('[KANE DELETE TX]', e)
     res.status(500).json({ success: false, message: e.message })
@@ -135,12 +130,13 @@ exports.deleteAccount = async (req, res) => {
     const { tenantId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
 
+    // 1. Verifye kont lan egziste
     const account = await prisma.kaneEpay.findFirst({
-      where: { id: req.params.id, tenantId }
+      where: { id: req.params.id, tenantId },
     })
     if (!account) return res.status(404).json({ success: false, message: 'Kont pa jwenn.' })
 
-    // Verifye si kont lan gen prè aktif
+    // 2. Verifye si gen prè aktif
     const pretsActifs = await prisma.$queryRaw`
       SELECT COUNT(*) as total FROM prets
       WHERE kont_kane_epay_id = ${req.params.id}
@@ -150,18 +146,15 @@ exports.deleteAccount = async (req, res) => {
     if (Number(pretsActifs[0]?.total) > 0) {
       return res.status(400).json({
         success: false,
-        message: `Kont sa gen ${pretsActifs[0].total} prè aktif. Klotire yo dabò anvan efase kont lan.`
+        message: `Kont sa gen ${pretsActifs[0].total} prè aktif. Klotire yo dabò anvan efase kont lan.`,
       })
     }
 
-    await prisma.$transaction(async (ptx) => {
-      // Efase tout transaksyon kont lan
-      await ptx.$executeRaw`
-        DELETE FROM kane_transactions WHERE kane_epay_id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
-      `
-      // Efase kont lan
-      await ptx.kaneEpay.delete({ where: { id: req.params.id } })
-    }, { maxWait: 10000, timeout: 20000 })
+    // 3. Efase tout transaksyon + kont via Prisma ORM
+    await prisma.$transaction(async (tx) => {
+      await tx.kaneTransaction.deleteMany({ where: { kaneEpayId: req.params.id, tenantId } })
+      await tx.kaneEpay.delete({ where: { id: req.params.id } })
+    })
 
     return res.json({ success: true, message: `Kont ${account.accountNumber} efase avèk siksè.` })
   } catch (e) {
