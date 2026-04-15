@@ -480,9 +480,9 @@ router.delete('/:id', async (req, res) => {
     await prisma.$transaction(async (tx) => {
       // ✅ Prisma ORM pou peman
       await tx.prePaiement.deleteMany({ where: { preId: pid } })
-      // ✅ $executeRawUnsafe — evite text=uuid bug nan Prisma template literal
-      await tx.$executeRawUnsafe(`DELETE FROM pre_echeances WHERE pre_id = '${pid}'::uuid`)
-      await tx.$executeRawUnsafe(`DELETE FROM pre_kapital WHERE pre_id = '${pid}'::uuid AND tenant_id = '${tid}'`)
+      // ✅ pre_id nan pre_echeances/pre_kapital se TEXT — pa mete ::uuid cast
+      await tx.$executeRawUnsafe(`DELETE FROM pre_echeances WHERE pre_id = '${pid}'`)
+      await tx.$executeRawUnsafe(`DELETE FROM pre_kapital WHERE pre_id = '${pid}' AND tenant_id = '${tid}'`)
       // ✅ Prisma ORM pou prè
       await tx.pre.delete({ where: { id: pid } })
     }, { maxWait: 10000, timeout: 20000 })
@@ -518,7 +518,7 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
       // 1. ✅ Efase peman via Prisma ORM
       await tx.prePaiement.delete({ where: { id: req.params.paiementId } })
 
-      // 2. ✅ $executeRawUnsafe — evite text=uuid bug
+      // 2. ✅ prets.id = UUID primary key → ::uuid kòrèk
       await tx.$executeRawUnsafe(`
         UPDATE prets SET
           total_paye = GREATEST(0, total_paye - ${montantPeman}),
@@ -527,19 +527,19 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
             ELSE statut
           END,
           updated_at = NOW()
-        WHERE id = '${pid}'::uuid AND tenant_id = '${tid}'
+        WHERE id = '${pid}' AND tenant_id = '${tid}'
       `)
 
-      // 3. ✅ Efase kapital retou
+      // 3. ✅ pre_kapital.pre_id = TEXT — pa mete ::uuid
       await tx.$executeRawUnsafe(`
         DELETE FROM pre_kapital
-        WHERE pre_id = '${pid}'::uuid
+        WHERE pre_id = '${pid}'
           AND tenant_id = '${tid}'
           AND type = 'retou'
           AND montant = ${montantPeman}
           AND id = (
             SELECT id FROM pre_kapital
-            WHERE pre_id = '${pid}'::uuid
+            WHERE pre_id = '${pid}'
               AND type = 'retou'
               AND montant = ${montantPeman}
             ORDER BY created_at DESC
@@ -547,14 +547,14 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
           )
       `)
 
-      // 4. ✅ Reset echeances
+      // 4. ✅ pre_echeances.pre_id = TEXT — pa mete ::uuid
       await tx.$executeRawUnsafe(`
         UPDATE pre_echeances SET
           montant_paye  = 0,
           statut        = 'attente',
           dat_paye      = NULL,
           updated_at    = NOW()
-        WHERE pre_id = '${pid}'::uuid
+        WHERE pre_id = '${pid}'
           AND statut = 'paye'
           AND dat_paye::date = '${datPaye}'::date
       `)
