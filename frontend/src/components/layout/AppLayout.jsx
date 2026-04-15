@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  Stethoscope, FlaskConical, BedDouble, HeartPulse, Calendar,
+  TrendingDown, UserCog,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -37,9 +37,9 @@ const C = {
   dry:         '#8B5CF6',
   dryDim:      'rgba(139,92,246,0.15)',
   dryBorder:   'rgba(139,92,246,0.28)',
-  klinik:      '#0EA5E9',
-  klinikDim:   'rgba(14,165,233,0.15)',
-  klinikBorder:'rgba(14,165,233,0.28)',
+  rh:          '#10B981',
+  rhDim:       'rgba(16,185,129,0.15)',
+  rhBorder:    'rgba(16,185,129,0.28)',
   white:       '#FFFFFF',
   muted:       'rgba(255,255,255,0.45)',
   mutedMd:     'rgba(255,255,255,0.65)',
@@ -59,11 +59,10 @@ const NAV = [
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
 ]
 
-// ─── Mikwo Kredi: Kanè Epay + Prè + Gid ─────────────────────
 const MIKWO_KREDI_ITEMS = [
   { to:'/app/kane-epay',       icon:Wallet,     label:'Kanè Epay', pageKey:'kane-epay' },
   { to:'/app/pre',             icon:DollarSign, label:'Prè',       pageKey:'pre'       },
-  { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        }, // null = toujou aksesib
+  { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        },
 ]
 
 const ENTERPRISE_ITEMS = [
@@ -76,16 +75,6 @@ const HOTEL_ITEMS = [
   { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
   { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
   { to:'/app/hotel/room-types',   icon:Tag,          label:'Tip Chanm',       end:false },
-]
-
-const KLINIK_ITEMS = [
-  { to:'/app/klinik',                icon:HeartPulse,   label:'Dashboard',      end:true  },
-  { to:'/app/klinik/patients',       icon:Users,        label:'Pasyan',         end:false },
-  { to:'/app/klinik/randevou',       icon:Calendar,     label:'Randevou',       end:false },
-  { to:'/app/klinik/konsiltasyon',   icon:Stethoscope,  label:'Konsiltasyon',   end:false },
-  { to:'/app/klinik/preskripsyon',   icon:Receipt,      label:'Preskripsyon',   end:false },
-  { to:'/app/klinik/lab',            icon:FlaskConical, label:'Laboratwa',      end:false },
-  { to:'/app/klinik/ospitalizasyon', icon:BedDouble,    label:'Ospitalizasyon', end:false },
 ]
 
 const LANGS = [
@@ -115,52 +104,33 @@ const safeJson = (val, fallback) => {
 }
 
 const navLinkStyle = (isActive) => ({
-  display: 'flex', alignItems: 'center', gap: 10,
-  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none',
-  background: isActive
-    ? `linear-gradient(90deg, rgba(245,104,12,0.18) 0%, rgba(245,104,12,0.05) 100%)`
-    : 'transparent',
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 14px', borderRadius:10, marginBottom:3,
+  textDecoration:'none',
+  background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.18) 0%,rgba(245,104,12,0.05) 100%)` : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500,
-  fontSize: 13,
+  fontWeight: isActive ? 700 : 500, fontSize:13,
 })
 
 const enterpriseLinkStyle = (isActive) => ({
-  display: 'flex', alignItems: 'center', gap: 10,
-  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none',
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 14px', borderRadius:10, marginBottom:3,
+  textDecoration:'none',
   background: isActive ? C.entDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500,
-  fontSize: 13,
-  cursor: 'pointer',
+  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
 })
 
 const hotelLinkStyle = (isActive) => ({
-  display: 'flex', alignItems: 'center', gap: 10,
-  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none',
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 14px', borderRadius:10, marginBottom:3,
+  textDecoration:'none',
   background: isActive ? C.hotelDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500,
-  fontSize: 13,
-  cursor: 'pointer',
-})
-
-const klinikLinkStyle = (isActive) => ({
-  display: 'flex', alignItems: 'center', gap: 10,
-  padding: '9px 14px', borderRadius: 10, marginBottom: 3,
-  textDecoration: 'none',
-  background: isActive ? C.klinikDim : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.klinik}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500,
-  fontSize: 13,
-  cursor: 'pointer',
+  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
 })
 
 export default function AppLayout() {
@@ -176,44 +146,29 @@ export default function AppLayout() {
   const [branches, setBranches]         = useState([])
   const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
 
-  // ✅ Mikwo Kredi — ouvri otomatik si nou sou nenpòt sou-paj Mikwo Kredi
   const isMikwoActive = location.pathname.startsWith('/app/kane-epay') ||
                         location.pathname.startsWith('/app/pre') ||
                         location.pathname.startsWith('/app/mikwo-kredi-gid')
   const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
 
-  const isKlinikActive = location.pathname.startsWith('/app/klinik')
-
   const langRef   = useRef(null)
   const branchRef = useRef(null)
   const meCalled  = useRef(false)
 
-  const {
-    connected:  btConnected,
-    connecting: btConnecting,
-    printing:   btPrinting,
-    connect:    btConnect,
-    disconnect: btDisconnect,
-    deviceName,
-  } = usePrinterStore()
-
+  const { connected:btConnected, connecting:btConnecting, printing:btPrinting, connect:btConnect, disconnect:btDisconnect, deviceName } = usePrinterStore()
   const onSunmi      = useMemo(() => isSunmi(), [])
   const hasBluetooth = useMemo(() => typeof navigator !== 'undefined' && !!navigator.bluetooth, [])
   const currentLang  = useMemo(() => LANGS.find(l => l.code === i18n.language) || LANGS[0], [i18n.language])
 
-  const isAdmin = useMemo(
-    () => user?.role === 'admin' || user?.isAdmin === true,
-    [user?.role, user?.isAdmin]
-  )
+  const isAdmin = useMemo(() => user?.role === 'admin' || user?.isAdmin === true, [user?.role, user?.isAdmin])
 
   const isEnterprise = useMemo(() => {
     const planName = tenant?.plan?.name || ''
-    return ['antepriz', 'antrepriz', 'entreprise', 'enterprise'].includes(planName.toLowerCase().trim())
+    return ['antepriz','antrepriz','entreprise','enterprise'].includes(planName.toLowerCase().trim())
   }, [tenant?.plan?.name])
 
   const planName = tenant?.plan?.name || ''
 
-  // pageKey=null → toujou aksesib (Gid)
   const isPageAllowed = useCallback((pageKey) => {
     if (pageKey === null || pageKey === undefined) return true
     const ap = tenant?.allowedPages
@@ -222,8 +177,8 @@ export default function AppLayout() {
     return true
   }, [tenant?.allowedPages])
 
-  const currentBranchId   = useMemo(() => localStorage.getItem('plusgroup-branch-id'),   []) // eslint-disable-line
-  const currentBranchName = useMemo(() => localStorage.getItem('plusgroup-branch-name'), []) // eslint-disable-line
+  const currentBranchId   = useMemo(() => localStorage.getItem('plusgroup-branch-id'),   [])  // eslint-disable-line
+  const currentBranchName = useMemo(() => localStorage.getItem('plusgroup-branch-name'), [])  // eslint-disable-line
 
   useEffect(() => {
     const branchId = localStorage.getItem('plusgroup-branch-id')
@@ -246,9 +201,9 @@ export default function AppLayout() {
         }
       })
       .catch(err => {
-        if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) }
+        if (err.response?.status === 401) { logout(); navigate('/login', { replace:true }) }
       })
-  }, [token]) // eslint-disable-line
+  }, [token])  // eslint-disable-line
 
   useEffect(() => {
     if (!isAdmin || !token) return
@@ -275,10 +230,7 @@ export default function AppLayout() {
     return () => { document.body.style.overflow = '' }
   }, [open, isDesktop])
 
-  // Ouvri Mikwo Kredi otomatikman lè route chanje
   useEffect(() => { if (isMikwoActive) setMikwoOpen(true) }, [isMikwoActive])
-
-  // ✅ Fèmen sidebar sou mobil otomatikman lè route chanje
   useEffect(() => { if (!isDesktop) setOpen(false) }, [location.pathname, isDesktop])
 
   const handleLogout = useCallback(() => {
@@ -322,7 +274,7 @@ export default function AppLayout() {
   const tenantLogoUrl = useMemo(() => logoSrc(tenant?.logoUrl), [tenant?.logoUrl])
 
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background: C.sidebarTop }}>
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:C.sidebarTop }}>
       <div style={{ width:36, height:36, border:`3px solid ${C.goldDim}`, borderTop:`3px solid ${C.gold}`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
@@ -332,9 +284,9 @@ export default function AppLayout() {
     position:      isDesktop ? 'relative' : 'fixed',
     inset:         isDesktop ? 'auto' : '0 auto 0 0',
     zIndex:        40,
-    width:         isDesktop ? 248 : 'min(248px, 85vw)', // ✅ responsive mobil
+    width:         isDesktop ? 248 : 'min(248px, 85vw)',
     minHeight:     '100vh',
-    background:    `linear-gradient(170deg, ${C.sidebarTop} 0%, ${C.sidebarBg} 50%, #1a1f35 100%)`,
+    background:    `linear-gradient(170deg,${C.sidebarTop} 0%,${C.sidebarBg} 50%,#1a1f35 100%)`,
     display:       'flex',
     flexDirection: 'column',
     transform:     isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
@@ -352,7 +304,7 @@ export default function AppLayout() {
       )}
 
       <aside style={sidebarStyle}>
-        <div style={{ height:3, flexShrink:0, background:`linear-gradient(90deg, #b34200 0%, ${C.gold} 35%, ${C.goldLt} 50%, ${C.gold} 65%, #b34200 100%)` }}/>
+        <div style={{ height:3, flexShrink:0, background:`linear-gradient(90deg,#b34200 0%,${C.gold} 35%,${C.goldLt} 50%,${C.gold} 65%,#b34200 100%)` }}/>
 
         {!isDesktop && (
           <button onClick={() => setOpen(false)} style={{ position:'absolute', top:12, right:12, zIndex:50, background:'rgba(255,255,255,0.07)', border:`1px solid ${C.border}`, borderRadius:8, padding:6, cursor:'pointer', color:C.muted, display:'flex' }}>
@@ -360,12 +312,12 @@ export default function AppLayout() {
           </button>
         )}
 
-        {/* ── LOGO ZONE ── */}
+        {/* LOGO */}
         <div style={{ padding:'18px 16px 14px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <div style={{ display:'flex', alignItems:'center', gap:12 }}>
             {tenantLogoUrl
               ? <img src={tenantLogoUrl} alt="logo" style={{ width:44, height:44, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0, boxShadow:`0 0 0 2px ${C.goldBorder}` }}/>
-              : <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg, ${C.gold}, ${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff' }}>
+              : <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${C.gold},${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff' }}>
                   {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
                 </div>
             }
@@ -388,7 +340,6 @@ export default function AppLayout() {
                 </button>
 
                 {showBranches && (
-                  // ✅ Pozisyon dropdown korije pou mobil
                   <div style={{ position:'fixed', top:70, left: isDesktop ? 252 : 16, minWidth:220, maxWidth:'calc(100vw - 32px)', zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
                     <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
                       <GitBranch size={12} style={{ color:C.gold }}/>
@@ -434,13 +385,13 @@ export default function AppLayout() {
           </div>
         </div>
 
-        {/* ── NAV ── */}
+        {/* NAV */}
         <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none', WebkitOverflowScrolling:'touch' }}>
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
           </p>
 
-          {NAV.map(({ to, icon: Icon, labelKey, pageKey }) => {
+          {NAV.map(({ to, icon:Icon, labelKey, pageKey }) => {
             const locked = !isPageAllowed(pageKey)
             return (
               <NavLink key={to} to={locked ? '#' : to}
@@ -466,15 +417,12 @@ export default function AppLayout() {
             </NavLink>
           )}
 
-          {/* ════════════════════════════════════════
-              ✦ ANTREPRIZ
-          ════════════════════════════════════════ */}
+          {/* ═══ ANTREPRIZ ═══ */}
           <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(201,168,76,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
             <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>✦ Antrepriz</span>
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
           </div>
 
-          {/* Ti Kanè Kès */}
           <NavLink to={!isPageAllowed('kane') ? '#' : '/app/kane'}
             onClick={(e) => { if (!isPageAllowed('kane')) e.preventDefault() }}
             style={({ isActive }) => ({ ...enterpriseLinkStyle(!isPageAllowed('kane') ? false : isActive), opacity: !isPageAllowed('kane') ? 0.4 : 1, cursor: !isPageAllowed('kane') ? 'not-allowed' : 'pointer' })}>
@@ -485,12 +433,11 @@ export default function AppLayout() {
             </>)}
           </NavLink>
 
-          {/* ── MIKWO KREDI — collapse ── */}
+          {/* Mikwo Kredi collapse */}
           {(() => {
             const kaneAllowed = isPageAllowed('kane-epay')
             const preAllowed  = isPageAllowed('pre')
             const locked      = !kaneAllowed && !preAllowed
-
             return (
               <div>
                 <button onClick={() => { if (!locked) setMikwoOpen(v => !v) }}
@@ -501,15 +448,11 @@ export default function AppLayout() {
                     : mikwoOpen ? <ChevronUp size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
                     : <ChevronDown size={13} style={{ color:C.muted, flexShrink:0 }}/>}
                 </button>
-
-                {/* Sub-items: Kanè Epay + Prè + Gid */}
                 {mikwoOpen && !locked && (
                   <div style={{ marginLeft:14, paddingLeft:12, borderLeft:`2px solid rgba(201,168,76,0.25)`, marginBottom:4 }}>
-                    {MIKWO_KREDI_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
-                      // pageKey=null → Gid, toujou aksesib
+                    {MIKWO_KREDI_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
                       const subLocked = !isPageAllowed(pageKey)
                       const isGid     = to === '/app/mikwo-kredi-gid'
-
                       return (
                         <NavLink key={to} to={subLocked ? '#' : to}
                           onClick={(e) => { if (subLocked) e.preventDefault() }}
@@ -517,25 +460,16 @@ export default function AppLayout() {
                             display:'flex', alignItems:'center', gap:9,
                             padding:'8px 12px', borderRadius:9, marginBottom:2,
                             textDecoration:'none',
-                            background: (!subLocked && isActive)
-                              ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)')
-                              : 'transparent',
-                            color: (!subLocked && isActive) ? '#ffffff'
-                              : isGid ? 'rgba(147,187,239,0.65)'
-                              : C.muted,
-                            borderLeft: (!subLocked && isActive)
-                              ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}`
-                              : '2px solid transparent',
-                            fontWeight: (!subLocked && isActive) ? 700 : 400,
-                            fontSize: 12,
-                            opacity: subLocked ? 0.4 : 1,
-                            cursor: subLocked ? 'not-allowed' : 'pointer',
+                            background: (!subLocked && isActive) ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)') : 'transparent',
+                            color: (!subLocked && isActive) ? '#ffffff' : isGid ? 'rgba(147,187,239,0.65)' : C.muted,
+                            borderLeft: (!subLocked && isActive) ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}` : '2px solid transparent',
+                            fontWeight: (!subLocked && isActive) ? 700 : 400, fontSize:12,
+                            opacity: subLocked ? 0.4 : 1, cursor: subLocked ? 'not-allowed' : 'pointer',
                           })}>
                           {({ isActive }) => (<>
                             <Icon size={13} style={{ flexShrink:0, color: subLocked ? '#475569' : isActive ? (isGid ? '#3B82F6' : C.enterprise) : isGid ? 'rgba(147,187,239,0.5)' : C.mutedMd }}/>
                             <span style={{ flex:1 }}>{label}</span>
-                            {subLocked ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
-                              : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
+                            {subLocked ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
                           </>)}
                         </NavLink>
                       )
@@ -546,8 +480,7 @@ export default function AppLayout() {
             )
           })()}
 
-          {/* Sabotay + MonCash */}
-          {ENTERPRISE_ITEMS.map(({ to, icon: Icon, label, pageKey }) => {
+          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
             const locked = !isPageAllowed(pageKey)
             return (
               <NavLink key={to} to={locked ? '#' : to}
@@ -562,7 +495,7 @@ export default function AppLayout() {
             )
           })}
 
-          {/* ── HOTEL ── */}
+          {/* ═══ HOTEL ═══ */}
           {(() => {
             const hotelLocked = !isPageAllowed('hotel')
             return (
@@ -571,7 +504,7 @@ export default function AppLayout() {
                   <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏨 Hotel</span>
                   <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
                 </div>
-                {HOTEL_ITEMS.map(({ to, icon: Icon, label, end }) => (
+                {HOTEL_ITEMS.map(({ to, icon:Icon, label, end }) => (
                   <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
                     onClick={(e) => { if (hotelLocked) e.preventDefault() }}
                     style={({ isActive }) => ({ ...hotelLinkStyle(hotelLocked ? false : isActive), opacity: hotelLocked ? 0.4 : 1, cursor: hotelLocked ? 'not-allowed' : 'pointer' })}>
@@ -586,7 +519,7 @@ export default function AppLayout() {
             )
           })()}
 
-          {/* ── PRESE ── */}
+          {/* ═══ PRESE ═══ */}
           {(() => {
             const dryLocked = !isPageAllowed('dry')
             return (
@@ -608,40 +541,45 @@ export default function AppLayout() {
             )
           })()}
 
-          {/* ── KLINIK ── */}
+          {/* ═══ RH & FINANS ═══ */}
           {(() => {
-            const klinikLocked = !isPageAllowed('klinik')
+            const empLocked = !isPageAllowed('employees')
+            const expLocked = !isPageAllowed('expenses')
             return (
               <>
-                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: klinikLocked ? 0.4 : 1 }}>
-                  <span style={{ color:C.klinik, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏥 Klinik</span>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.klinik }}/>
+                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(16,185,129,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ color:C.rh, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💼 RH & Finans</span>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh }}/>
                 </div>
-                {KLINIK_ITEMS.map(({ to, icon: Icon, label, end }) => (
-                  <NavLink key={to} to={klinikLocked ? '#' : to} end={end}
-                    onClick={(e) => { if (klinikLocked) e.preventDefault() }}
-                    style={({ isActive }) => ({
-                      ...klinikLinkStyle(klinikLocked ? false : isActive),
-                      opacity: klinikLocked ? 0.4 : 1,
-                      cursor:  klinikLocked ? 'not-allowed' : 'pointer',
-                    })}>
-                    {({ isActive }) => (<>
-                      <Icon size={15} style={{ flexShrink:0, color: klinikLocked ? '#475569' : isActive ? C.klinik : C.mutedMd }}/>
-                      <span style={{ flex:1 }}>{label}</span>
-                      {klinikLocked
-                        ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                        : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.klinik, flexShrink:0 }}/>
-                      }
-                    </>)}
-                  </NavLink>
-                ))}
+
+                {/* Anplwaye */}
+                <NavLink to={empLocked ? '#' : '/app/employees'}
+                  onClick={(e) => { if (empLocked) e.preventDefault() }}
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!empLocked && isActive) ? C.rhDim : 'transparent', color: (!empLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!empLocked && isActive) ? `3px solid ${C.rh}` : '3px solid transparent', fontWeight: (!empLocked && isActive) ? 700 : 500, fontSize:13, opacity: empLocked ? 0.4 : 1, cursor: empLocked ? 'not-allowed' : 'pointer' })}>
+                  {({ isActive }) => (<>
+                    <UserCog size={15} style={{ flexShrink:0, color: empLocked ? '#475569' : isActive ? C.rh : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>Anplwaye</span>
+                    {empLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh, flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
+
+                {/* Depans */}
+                <NavLink to={expLocked ? '#' : '/app/expenses'}
+                  onClick={(e) => { if (expLocked) e.preventDefault() }}
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!expLocked && isActive) ? 'rgba(239,68,68,0.12)' : 'transparent', color: (!expLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!expLocked && isActive) ? '3px solid #EF4444' : '3px solid transparent', fontWeight: (!expLocked && isActive) ? 700 : 500, fontSize:13, opacity: expLocked ? 0.4 : 1, cursor: expLocked ? 'not-allowed' : 'pointer' })}>
+                  {({ isActive }) => (<>
+                    <TrendingDown size={15} style={{ flexShrink:0, color: expLocked ? '#475569' : isActive ? '#EF4444' : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>Depans</span>
+                    {expLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#EF4444', flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
               </>
             )
           })()}
 
         </nav>
 
-        {/* ── SETTINGS + USER ── */}
+        {/* SETTINGS + USER */}
         <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
           <NavLink to="/app/settings"
             style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:8, textDecoration:'none', background: isActive ? `rgba(245,104,12,0.12)` : 'transparent', color: isActive ? '#fff' : C.muted, borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent', fontSize:13, fontWeight: isActive ? 700 : 500 })}>
@@ -652,7 +590,7 @@ export default function AppLayout() {
           </NavLink>
 
           <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`rgba(245,104,12,0.08)`, border:`1px solid ${C.goldBorder}` }}>
-            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg, #ef4444, #dc2626)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:14 }}>
+            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg,#ef4444,#dc2626)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:14 }}>
               {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div style={{ flex:1, minWidth:0 }}>
@@ -666,11 +604,8 @@ export default function AppLayout() {
         </div>
       </aside>
 
-      {/* ══════════════════════════════════════════════
-          MAIN CONTENT
-      ══════════════════════════════════════════════ */}
+      {/* MAIN CONTENT */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
-
         <header style={{ minHeight:58, background:'#fff', borderBottom:`1px solid rgba(245,104,12,0.15)`, boxShadow:'0 1px 8px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:6, padding:'0 12px', flexShrink:0, position:'relative', zIndex:10, flexWrap:'wrap' }}>
           <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,#C0392B 20%,${C.gold} 50%,#C0392B 80%,transparent)` }}/>
 
@@ -746,7 +681,6 @@ export default function AppLayout() {
           <NotificationBell lang={i18n.language}/>
         </header>
 
-        {/* ✅ WebkitOverflowScrolling pou smooth scroll sou iOS */}
         <main style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
           <div style={{ padding:'16px', paddingBottom:46 }}><Outlet /></div>
         </main>

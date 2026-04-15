@@ -39,6 +39,8 @@ const pushRoutes = require('./modules/push/push.routes')
 const dryRoutes = require('./modules/dry/dry.routes')
 const preRoutes = require('./routes/pre.routes')
 const klinikRoutes = require('./routes/klinik.routes')   // ✅ NOUVO
+const pgEmployeesRoutes = require('./routes/pg-employees.routes')
+const pgExpensesRoutes  = require('./routes/pg-expenses.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -156,6 +158,8 @@ app.use('/api/v1/push',         pushRoutes);
 app.use('/api/v1/dry',          dryRoutes)
 app.use(`${API}/pre`,           preRoutes)
 app.use(`${API}/klinik`,        klinikRoutes)    // ✅ NOUVO
+app.use(`${API}/pg-employees`, pgEmployeesRoutes)
+app.use(`${API}/pg-expenses`,  pgExpensesRoutes)
 
 // ✅ SABOTAY
 app.use(`${API}/sabotay`,       sabotayRoutes);
