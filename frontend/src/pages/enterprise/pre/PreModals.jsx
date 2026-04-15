@@ -373,39 +373,107 @@ export function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: ENJEKTE KAPITAL
+// MODAL: ENJEKTE KAPITAL — ✅ Edit 5 minit apre
 // ═══════════════════════════════════════════════════════════════
 export function ModalKapital({ onClose, onSuccess }) {
-  const [form, setForm] = useState({ montant: '', notes: '' })
+  const [form, setForm]       = useState({ montant: '', notes: '' })
+  const [lastId, setLastId]   = useState(null)   // ID enjeksyon ki fèk kreye
+  const [sekon,  setSekon]    = useState(0)       // Segond ki rete pou edite
+  const [editing, setEditing] = useState(false)   // Mòd edisyon
+
   const amt = Number(form.montant || 0)
+
+  // Countdown timer
+  useEffect(() => {
+    if (sekon <= 0) return
+    const t = setInterval(() => setSekon(s => { if (s <= 1) { clearInterval(t); return 0 } return s - 1 }), 1000)
+    return () => clearInterval(t)
+  }, [sekon])
+
   const mutation = useMutation({
     mutationFn: (d) => preAPI.enjekteKapital(d),
-    onSuccess: () => { toast.success(`✅ ${fmt(amt)} HTG enjekte!`); onSuccess(); onClose() },
-    onError:   (e) => toast.error(e.response?.data?.message || 'Erè enjeksyon.'),
+    onSuccess: (res) => {
+      toast.success(`✅ ${fmt(amt)} HTG enjekte!`)
+      onSuccess()
+      // Kounye a admin gen 5 minit pou edite
+      if (res.data?.id) { setLastId(res.data.id); setSekon(300); setEditing(true) }
+      else { onClose() }
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè enjeksyon.'),
   })
+
+  const mutEdit = useMutation({
+    mutationFn: (d) => preAPI.updateKapital(lastId, d),
+    onSuccess: (res) => {
+      toast.success(`✅ Enjeksyon modifye — ${fmt(amt)} HTG!`)
+      if (res.data?.expired) { toast.error('Limite 5 minit depase.'); onClose() }
+      else { onSuccess(); onClose() }
+    },
+    onError: (e) => {
+      toast.error(e.response?.data?.message || 'Erè modifikasyon.')
+      if (e.response?.data?.expired) onClose()
+    },
+  })
+
+  const fmtTimer = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
+  const timerColor = sekon > 60 ? D.green : sekon > 20 ? D.orange : D.red
+
   return (
-    <Modal onClose={onClose} title="💼 Enjekte Kapital" width={400}>
+    <Modal onClose={onClose} title={editing ? '✏️ Modifye Enjeksyon' : '💼 Enjekte Kapital'} width={400}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+        {editing && sekon > 0 && (
+          <div style={{ background: `${timerColor}15`, border: `1px solid ${timerColor}40`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 12, color: timerColor, margin: 0, fontWeight: 700 }}>⏱ Tan pou modifye:</p>
+            <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: timerColor }}>{fmtTimer(sekon)}</span>
+          </div>
+        )}
+
+        {editing && sekon === 0 && (
+          <div style={{ background: D.redBg, border: `1px solid ${D.red}40`, borderRadius: 10, padding: '10px 14px' }}>
+            <p style={{ fontSize: 12, color: D.red, margin: 0, fontWeight: 700 }}>⛔ Limite 5 minit depase — pa ka modifye ankò.</p>
+          </div>
+        )}
+
         <div style={{ background: `${D.purple}10`, border: `1px solid ${D.purple}25`, borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
           <PiggyBank size={16} style={{ color: D.purple, flexShrink: 0 }}/>
-          <p style={{ fontSize: 12, color: D.purple, margin: 0 }}>Lajan ou enjekte a ap disponib pou kesye yo ka prète kliyan.</p>
+          <p style={{ fontSize: 12, color: D.purple, margin: 0 }}>
+            {editing ? 'Modifye montan enjeksyon an — limite 5 minit apre kreye a.' : 'Lajan ou enjekte a ap disponib pou kesye yo ka prète kliyan.'}
+          </p>
         </div>
+
         <div>
           <label style={{ ...labelStyle, color: D.purple }}>Montan (HTG) *</label>
           <input type="number" min="0.01" step="0.01" className="ke-input"
             style={{ ...inputStyle, fontSize: 26, fontWeight: 800, textAlign: 'center', color: D.purple, borderColor: `${D.purple}50` }}
-            value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))} placeholder="0.00" onFocus={e => e.target.select()} autoFocus/>
+            value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))}
+            placeholder="0.00" onFocus={e => e.target.select()} autoFocus/>
         </div>
+
         <div>
           <label style={labelStyle}>Nòt (opsyonèl)</label>
           <input className="ke-input" style={inputStyle} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Sous lajan, rezon..."/>
         </div>
+
         <div style={{ display: 'flex', gap: 10 }}>
-          <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button className="ke-btn" onClick={() => mutation.mutate({ montant: amt, notes: form.notes||undefined })} disabled={mutation.isPending||amt<=0}
-            style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: mutation.isPending||amt<=0 ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.purple},${D.purple}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: mutation.isPending||amt<=0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            {mutation.isPending ? <><Spinner/> Ap enjekte...</> : <><PiggyBank size={15}/> Konfime Enjeksyon</>}
+          <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>
+            {editing ? 'Fèmen' : 'Anile'}
           </button>
+
+          {!editing ? (
+            <button className="ke-btn" onClick={() => mutation.mutate({ montant: amt, notes: form.notes||undefined })}
+              disabled={mutation.isPending || amt <= 0}
+              style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: mutation.isPending||amt<=0 ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.purple},${D.purple}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: mutation.isPending||amt<=0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              {mutation.isPending ? <><Spinner/> Ap enjekte...</> : <><PiggyBank size={15}/> Konfime Enjeksyon</>}
+            </button>
+          ) : (
+            <button className="ke-btn"
+              onClick={() => sekon > 0 && mutEdit.mutate({ montant: amt, notes: form.notes||undefined })}
+              disabled={mutEdit.isPending || amt <= 0 || sekon === 0}
+              style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: mutEdit.isPending||amt<=0||sekon===0 ? 'not-allowed' : 'pointer', background: sekon > 0 ? `linear-gradient(135deg,${D.orange},${D.orange}bb)` : 'rgba(255,255,255,0.08)', color: sekon > 0 ? '#fff' : D.muted, fontWeight: 800, fontSize: 14, opacity: mutEdit.isPending||sekon===0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+              {mutEdit.isPending ? <><Spinner/> Ap modifye...</> : <><PiggyBank size={15}/> Sove Chanjman</>}
+            </button>
+          )}
         </div>
       </div>
     </Modal>

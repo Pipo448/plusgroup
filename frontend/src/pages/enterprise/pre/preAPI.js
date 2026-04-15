@@ -13,6 +13,8 @@ export const preAPI = {
   enjekteKapital: (data)       => api.post('/pre/kapital/enjekte', data),
   femenKes:       (data)       => api.post('/pre/rapo/femen-kes', data),
   checkKesFermen: ()           => api.get('/pre/rapo/kes-status'),
+  // ✅ Admin edit kapital (5 minit)
+  updateKapital:  (id, data)   => api.put(`/pre/kapital/${id}`, data),
   // ✅ Admin delete
   deletePre:      (id)         => api.delete(`/pre/${id}`),
   deletePaiement: (preId, pId) => api.delete(`/pre/${preId}/paiement/${pId}`),

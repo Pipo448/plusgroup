@@ -169,8 +169,8 @@ router.get('/rapo/kes-status', async (req, res) => {
         AND date_rapo = (NOW() - INTERVAL '5 hours')::date
       LIMIT 1
     `
-    return res.json({ kesFemen: r.length > 0 })
-  } catch (err) { return res.json({ kesFemen: false }) }
+    return res.json({ kesFermen: r.length > 0 })
+  } catch (err) { return res.json({ kesFermen: false }) }
 })
 
 // ═══════════════════════════════════════════════════════════════
@@ -252,11 +252,13 @@ router.post('/kapital/enjekte', async (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
     const { montant, notes } = req.body
     if (!montant || montant <= 0) return res.status(400).json({ message: 'Montan dwe > 0.' })
-    await prisma.$executeRaw`
+    const inserted = await prisma.$queryRaw`
       INSERT INTO pre_kapital (tenant_id, montant, type, notes, created_by)
       VALUES (${tenantId}, ${Number(montant)}, 'enjeksyon', ${notes||null}, ${userId})
+      RETURNING id
     `
-    return res.json({ message: 'Kapital enjekte.', kapitalDisponib: await getKapitalDisponib(tenantId) })
+    const newId = inserted[0]?.id || null
+    return res.json({ message: 'Kapital enjekte.', id: newId, kapitalDisponib: await getKapitalDisponib(tenantId) })
   } catch (err) { return res.status(500).json({ message: 'Erè sèvè.' }) }
 })
 
@@ -283,6 +285,54 @@ router.delete('/kapital/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 // POST /pre/rapo/femen-kes
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// PUT /pre/kapital/:id — Admin modifye enjeksyon (5 minit sèlman)
+// ═══════════════════════════════════════════════════════════════
+router.put('/kapital/:id', async (req, res) => {
+  try {
+    const { tenantId, userId } = getTB(req)
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+
+    const rows = await prisma.$queryRaw`
+      SELECT id, montant, notes, created_at FROM pre_kapital
+      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId} AND type = 'enjeksyon'
+      LIMIT 1
+    `
+    if (!rows[0]) return res.status(404).json({ message: 'Enjeksyon pa jwenn.' })
+
+    // Verifye 5 minit limite
+    const createdAt  = new Date(rows[0].created_at)
+    const now        = new Date()
+    const diffMinutes = (now - createdAt) / 1000 / 60
+
+    if (diffMinutes > 5) {
+      return res.status(403).json({
+        message: `Limite 5 minit depase. Ou te kreye enjeksyon sa ${Math.round(diffMinutes)} minit pase.`,
+        expired: true,
+      })
+    }
+
+    const { montant, notes } = req.body
+    if (!montant || montant <= 0) return res.status(400).json({ message: 'Montan dwe > 0.' })
+
+    await prisma.$executeRaw`
+      UPDATE pre_kapital SET montant = ${Number(montant)}, notes = ${notes||null}
+      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
+    `
+
+    const sekonRete = Math.max(0, 300 - Math.round((now - createdAt) / 1000))
+    return res.json({
+      message: 'Enjeksyon modifye.',
+      kapitalDisponib: await getKapitalDisponib(tenantId),
+      sekonRete,
+    })
+  } catch (err) {
+    console.error('[PRE PUT /kapital/:id]', err)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
+  }
+})
+
 router.post('/rapo/femen-kes', async (req, res) => {
   try {
     const { tenantId, userId } = getTB(req)
