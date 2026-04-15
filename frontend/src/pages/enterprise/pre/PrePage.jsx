@@ -42,7 +42,7 @@ export default function PrePage() {
     queryFn:  () => preAPI.checkKesFermen().then(r => r.data),
     refetchInterval: 30000, staleTime: 0, refetchOnWindowFocus: true,
   })
-  const kesFemen = kesData?.kesFermen === true
+  const kesFemen = kesData?.kesFemen === true
 
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['pre-stats'],
@@ -124,9 +124,9 @@ export default function PrePage() {
               <PiggyBank size={14}/> Kapital
             </button>
           )}
-          <button className="ke-btn" onClick={() => !kesFermen && setModal('create')}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 15px', borderRadius:12, border:'none', cursor:kesFermen?'not-allowed':'pointer', background:kesFermen?'rgba(255,255,255,0.08)':D.goldBtn, color:kesFermen?D.muted:'#0a1222', fontWeight:800, fontSize:13, whiteSpace:'nowrap', opacity:kesFermen?0.5:1 }}>
-            {kesFermen ? <Lock size={15}/> : <Plus size={15}/>} {kesFermen ? 'Kès Fèmen' : 'Nouvo Prè'}
+          <button className="ke-btn" onClick={() => !kesFemen && setModal('create')}
+            style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 15px', borderRadius:12, border:'none', cursor:kesFemen?'not-allowed':'pointer', background:kesFemen?'rgba(255,255,255,0.08)':D.goldBtn, color:kesFemen?D.muted:'#0a1222', fontWeight:800, fontSize:13, whiteSpace:'nowrap', opacity:kesFemen?0.5:1 }}>
+            {kesFemen ? <Lock size={15}/> : <Plus size={15}/>} {kesFemen ? 'Kès Fèmen' : 'Nouvo Prè'}
           </button>
         </div>
       </div>
