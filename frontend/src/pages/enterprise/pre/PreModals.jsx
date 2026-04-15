@@ -64,7 +64,7 @@ export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
   })
 
-  if (kesFermen) return (
+  if (kesFemen) return (
     <Modal onClose={onClose} title="💸 Nouvo Prè" width={420}>
       <div style={{ textAlign: 'center', padding: '30px 20px' }}>
         <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />

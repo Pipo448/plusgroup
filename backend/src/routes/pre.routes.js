@@ -169,8 +169,8 @@ router.get('/rapo/kes-status', async (req, res) => {
         AND date_rapo = (NOW() - INTERVAL '5 hours')::date
       LIMIT 1
     `
-    return res.json({ kesFermen: r.length > 0 })
-  } catch (err) { return res.json({ kesFermen: false }) }
+    return res.json({ kesFemen: r.length > 0 })
+  } catch (err) { return res.json({ kesFemen: false }) }
 })
 
 // ═══════════════════════════════════════════════════════════════

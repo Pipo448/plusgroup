@@ -889,7 +889,7 @@ export default function KaneEpayPage() {
     return () => document.head.removeChild(el)
   }, [])
 
-  // ── kesFermen via useQuery (menm cache key 'kes-status' ak PrePage)
+  // ── kesFemen via useQuery (menm cache key 'kes-status' ak PrePage)
   // → Si yon lòt paj fèmen kès, sa a ap detekte l nan 30s
   const { data: kesData } = useQuery({
     queryKey:       ['kes-status'],
@@ -897,7 +897,7 @@ export default function KaneEpayPage() {
     refetchInterval: 30000,
     staleTime:      0,
   })
-  const kesFemen = kesData?.kesFermen === true
+  const kesFemen = kesData?.kesFemen === true
 
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['kane-stats'],
