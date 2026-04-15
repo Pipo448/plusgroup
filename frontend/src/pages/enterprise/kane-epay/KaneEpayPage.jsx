@@ -2,11 +2,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
+import toast from 'react-hot-toast'
 import {
   Search, ArrowDownCircle, ArrowUpCircle, Eye,
   ChevronLeft, ChevronRight, Users, Wallet,
   TrendingUp, Activity, CreditCard, UserPlus,
-  Bluetooth, BluetoothOff, RefreshCw, Lock, FileText,
+  Bluetooth, BluetoothOff, RefreshCw, Lock, FileText, Trash2,
 } from 'lucide-react'
 import { D } from '../kaneShared.jsx'
 import { fmt, fmtShort, usePrinter } from './kaneEpayUtils'
@@ -25,7 +26,8 @@ const inputStyle = {
 export default function KaneEpayPage() {
   const qc      = useQueryClient()
   const printer = usePrinter()
-  const { tenant } = useAuthStore()
+  const { tenant, user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
 
   const [search,          setSearch]          = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -79,6 +81,15 @@ export default function KaneEpayPage() {
     const val = e.target.value; setSearch(val)
     clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
+  }
+
+  // ✅ Admin: efase kont dirèkteman nan lis
+  const handleDeleteAccount = (e, acc) => {
+    e.stopPropagation()
+    if (!window.confirm(`Efase kont ${acc.accountNumber} — ${acc.firstName} ${acc.lastName}?\n⚠️ IREVERSIB — tout tranzaksyon ap efase.`)) return
+    kaneAPI.deleteAccount(acc.id)
+      .then(() => { toast.success('✅ Kont efase!'); refresh() })
+      .catch(err => toast.error(err.response?.data?.message || 'Erè efase kont.'))
   }
 
   const todayNet = (statsData?.todayDepositAmount||0) - (statsData?.todayWithdrawAmount||0)
@@ -195,6 +206,8 @@ export default function KaneEpayPage() {
                     <p style={{ fontSize:9, margin:'3px 0 0', fontWeight:700, color: acc.idPhotoUrl ? D.green : D.orange }}>{acc.idPhotoUrl ? '✅ KYC' : '⚠ KYC'}</p>
                   </div>
                 </div>
+
+                {/* Boutons aksyon */}
                 <div className="ke-acc-row-btns">
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openDepo(acc) }}
                     style={{ flex:1, padding:'8px 6px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.greenBg, color:kesFemen?D.muted:D.green, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:12, display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
@@ -208,6 +221,14 @@ export default function KaneEpayPage() {
                     style={{ padding:'8px 13px', borderRadius:8, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center' }}>
                     <Eye size={13}/>
                   </button>
+                  {/* ✅ Admin: Bouton efase dirèkteman nan lis */}
+                  {isAdmin && (
+                    <button className="ke-btn" title="Admin: Efase kont"
+                      onClick={e => handleDeleteAccount(e, acc)}
+                      style={{ padding:'8px 10px', borderRadius:8, border:'1px solid rgba(251,113,133,0.3)', background:'rgba(251,113,133,0.08)', color:'#FB7185', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                      <Trash2 size={13}/>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
