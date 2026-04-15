@@ -474,15 +474,13 @@ router.delete('/:id', async (req, res) => {
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
 
-    // Efase nan lòd: paiements → echeances → kapital → pre
     await prisma.$transaction(async (tx) => {
-      // Efase paiements
-      await tx.$executeRaw`DELETE FROM pre_paiements WHERE pre_id = ${req.params.id}`
-      // Efase echeances
-      await tx.$executeRaw`DELETE FROM pre_echeances WHERE pre_id = ${req.params.id}`
-      // Efase kapital entries
+      // ✅ Prisma ORM pou peman (evite raw SQL column name issues)
+      await tx.prePaiement.deleteMany({ where: { preId: req.params.id } })
+      // ✅ ::uuid cast kòrèk
+      await tx.$executeRaw`DELETE FROM pre_echeances WHERE pre_id = ${req.params.id}::uuid`
       await tx.$executeRaw`DELETE FROM pre_kapital WHERE pre_id = ${req.params.id}::uuid AND tenant_id = ${tenantId}`
-      // Efase pre
+      // ✅ Prisma ORM pou prè
       await tx.pre.delete({ where: { id: req.params.id } })
     }, { maxWait: 10000, timeout: 20000 })
 
@@ -509,10 +507,10 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
     const montantPeman = Number(paiement.montant)
 
     await prisma.$transaction(async (tx) => {
-      // 1. Efase peman an
+      // 1. ✅ Efase peman via Prisma ORM
       await tx.prePaiement.delete({ where: { id: req.params.paiementId } })
 
-      // 2. Retire montant nan total_paye prè a
+      // 2. ✅ Restore total_paye — ::uuid cast kòrèk
       await tx.$executeRaw`
         UPDATE prets SET
           total_paye = GREATEST(0, total_paye - ${montantPeman}),
@@ -521,10 +519,10 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
             ELSE statut
           END,
           updated_at = NOW()
-        WHERE id = ${req.params.id} AND tenant_id = ${tenantId}
+        WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
       `
 
-      // 3. Efase kapital retou ki koresponn
+      // 3. ✅ Efase kapital retou — ::uuid cast kòrèk
       await tx.$executeRaw`
         DELETE FROM pre_kapital
         WHERE pre_id = ${req.params.id}::uuid
@@ -541,16 +539,16 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
           )
       `
 
-      // 4. Reset echeances ki te paye nan dat sa a
+      // 4. ✅ Reset echeances — ::uuid cast kòrèk
       await tx.$executeRaw`
         UPDATE pre_echeances SET
           montant_paye  = 0,
           statut        = 'attente',
           dat_paye      = NULL,
           updated_at    = NOW()
-        WHERE pre_id = ${req.params.id}
+        WHERE pre_id = ${req.params.id}::uuid
           AND statut = 'paye'
-          AND dat_paye = ${paiement.createdAt}::date
+          AND dat_paye::date = ${paiement.createdAt}::date
       `
     }, { maxWait: 10000, timeout: 20000 })
 
