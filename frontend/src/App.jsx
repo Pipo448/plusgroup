@@ -40,8 +40,9 @@ const NewRoomPage        = lazy(() => import('./pages/hotel/NewRoomPage'))
 const RoomTypesPage      = lazy(() => import('./pages/hotel/RoomTypesPage'))
 const DryOrdersPage      = lazy(() => import('./pages/dry/DryOrdersPage'))
 const DryOrderDetail     = lazy(() => import('./pages/dry/DryOrderDetail'))
-const EmployeesPage = lazy(() => import('./pages/employees/EmployeesPage'))
-const ExpensesPage  = lazy(() => import('./pages/expenses/ExpensesPage'))
+const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
+const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
+
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
     <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -128,8 +129,13 @@ export default function App() {
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
             <Route path="dry/:id" element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
+
+            {/* ✅ RH & Finans — ANDEDAN /app */}
+            <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />
+            <Route path="expenses"  element={<ProtectedPage pageKey="expenses"><ExpensesPage /></ProtectedPage>} />
           </Route>
 
+          {/* Legacy redirects */}
           <Route path="/dashboard"      element={<Navigate to="/app/dashboard" replace />} />
           <Route path="/products"       element={<Navigate to="/app/products"  replace />} />
           <Route path="/clients"        element={<Navigate to="/app/clients"   replace />} />
@@ -145,8 +151,6 @@ export default function App() {
           <Route path="/sabotay"        element={<Navigate to="/app/sabotay"   replace />} />
           <Route path="/mobilpay"       element={<Navigate to="/app/mobilpay"  replace />} />
           <Route path="/plans"          element={<Navigate to="/app/plans"     replace />} />
-          <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />
-          <Route path="expenses"  element={<ProtectedPage pageKey="expenses"><ExpensesPage /></ProtectedPage>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
