@@ -474,14 +474,17 @@ router.delete('/:id', async (req, res) => {
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
 
+    const pid = req.params.id   // UUID string
+    const tid = tenantId
+
     await prisma.$transaction(async (tx) => {
-      // ✅ Prisma ORM pou peman (evite raw SQL column name issues)
-      await tx.prePaiement.deleteMany({ where: { preId: req.params.id } })
-      // ✅ ::uuid cast kòrèk
-      await tx.$executeRaw`DELETE FROM pre_echeances WHERE pre_id = ${req.params.id}::uuid`
-      await tx.$executeRaw`DELETE FROM pre_kapital WHERE pre_id = ${req.params.id}::uuid AND tenant_id = ${tenantId}`
+      // ✅ Prisma ORM pou peman
+      await tx.prePaiement.deleteMany({ where: { preId: pid } })
+      // ✅ $executeRawUnsafe — evite text=uuid bug nan Prisma template literal
+      await tx.$executeRawUnsafe(`DELETE FROM pre_echeances WHERE pre_id = '${pid}'::uuid`)
+      await tx.$executeRawUnsafe(`DELETE FROM pre_kapital WHERE pre_id = '${pid}'::uuid AND tenant_id = '${tid}'`)
       // ✅ Prisma ORM pou prè
-      await tx.pre.delete({ where: { id: req.params.id } })
+      await tx.pre.delete({ where: { id: pid } })
     }, { maxWait: 10000, timeout: 20000 })
 
     return res.json({ success: true, message: `Prè ${pre.numeroPre} efase avèk siksè.` })
@@ -505,13 +508,18 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
     if (!paiement) return res.status(404).json({ message: 'Peman pa jwenn.' })
 
     const montantPeman = Number(paiement.montant)
+    const pid = req.params.id
+    const tid = tenantId
+    const datPaye = paiement.createdAt instanceof Date
+      ? paiement.createdAt.toISOString().split('T')[0]
+      : String(paiement.createdAt).split('T')[0]
 
     await prisma.$transaction(async (tx) => {
       // 1. ✅ Efase peman via Prisma ORM
       await tx.prePaiement.delete({ where: { id: req.params.paiementId } })
 
-      // 2. ✅ Restore total_paye — ::uuid cast kòrèk
-      await tx.$executeRaw`
+      // 2. ✅ $executeRawUnsafe — evite text=uuid bug
+      await tx.$executeRawUnsafe(`
         UPDATE prets SET
           total_paye = GREATEST(0, total_paye - ${montantPeman}),
           statut     = CASE
@@ -519,37 +527,37 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
             ELSE statut
           END,
           updated_at = NOW()
-        WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
-      `
+        WHERE id = '${pid}'::uuid AND tenant_id = '${tid}'
+      `)
 
-      // 3. ✅ Efase kapital retou — ::uuid cast kòrèk
-      await tx.$executeRaw`
+      // 3. ✅ Efase kapital retou
+      await tx.$executeRawUnsafe(`
         DELETE FROM pre_kapital
-        WHERE pre_id = ${req.params.id}::uuid
-          AND tenant_id = ${tenantId}
+        WHERE pre_id = '${pid}'::uuid
+          AND tenant_id = '${tid}'
           AND type = 'retou'
           AND montant = ${montantPeman}
           AND id = (
             SELECT id FROM pre_kapital
-            WHERE pre_id = ${req.params.id}::uuid
+            WHERE pre_id = '${pid}'::uuid
               AND type = 'retou'
               AND montant = ${montantPeman}
             ORDER BY created_at DESC
             LIMIT 1
           )
-      `
+      `)
 
-      // 4. ✅ Reset echeances — ::uuid cast kòrèk
-      await tx.$executeRaw`
+      // 4. ✅ Reset echeances
+      await tx.$executeRawUnsafe(`
         UPDATE pre_echeances SET
           montant_paye  = 0,
           statut        = 'attente',
           dat_paye      = NULL,
           updated_at    = NOW()
-        WHERE pre_id = ${req.params.id}::uuid
+        WHERE pre_id = '${pid}'::uuid
           AND statut = 'paye'
-          AND dat_paye::date = ${paiement.createdAt}::date
-      `
+          AND dat_paye::date = '${datPaye}'::date
+      `)
     }, { maxWait: 10000, timeout: 20000 })
 
     return res.json({ success: true, message: 'Peman efase epi prè mizajou.' })
