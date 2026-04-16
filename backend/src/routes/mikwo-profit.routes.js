@@ -53,7 +53,7 @@ router.get('/', async (req, res) => {
       prisma.$queryRawUnsafe(`
         SELECT COUNT(*) as total_kont,
                COALESCE(SUM(kane_fee), 0) as total_fre
-        FROM kane_epay
+        FROM kane_epays
         WHERE tenant_id = '${tenantId}'
           AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
       `),
@@ -92,7 +92,7 @@ router.get('/', async (req, res) => {
 
       // Kane aktif
       prisma.$queryRawUnsafe(`
-        SELECT COUNT(*) as total FROM kane_epay
+        SELECT COUNT(*) as total FROM kane_epays
         WHERE tenant_id = '${tenantId}' AND is_active = true
       `),
 
