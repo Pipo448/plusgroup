@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog,
+  TrendingDown, UserCog, BarChart2,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -63,6 +63,7 @@ const MIKWO_KREDI_ITEMS = [
   { to:'/app/kane-epay',       icon:Wallet,     label:'Kanè Epay', pageKey:'kane-epay' },
   { to:'/app/pre',             icon:DollarSign, label:'Prè',       pageKey:'pre'       },
   { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        },
+  { to:'/app/mikwo-profit',    icon:BarChart2,  label:'Pwofi/Pèt', pageKey:null        },
 ]
 
 const ENTERPRISE_ITEMS = [

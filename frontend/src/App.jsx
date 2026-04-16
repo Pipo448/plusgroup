@@ -42,6 +42,7 @@ const DryOrdersPage      = lazy(() => import('./pages/dry/DryOrdersPage'))
 const DryOrderDetail     = lazy(() => import('./pages/dry/DryOrderDetail'))
 const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
 const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
+const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -126,6 +127,7 @@ export default function App() {
             <Route path="hotel/reservations/:id" element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
             <Route path="hotel/rooms/new"        element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
+            <Route path="mikwo-profit" element={<ProtectedPage pageKey="pre"><MikwoKrediProfit/></ProtectedPage>}/>
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
             <Route path="dry/:id" element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
