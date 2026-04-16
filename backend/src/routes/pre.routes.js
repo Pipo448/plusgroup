@@ -452,10 +452,16 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
 
     // ✅ FIX: maxWait 15s, timeout 30s — evite "Transaction not found" sou cold start
     const pre = await prisma.$transaction(async (tx) => {
-      const count = await tx.pre.count({
-    where: { tenantId, kontKaneEpayId }
+   const egzistan = await tx.pre.findMany({
+    where: { tenantId, kontKaneEpayId },
+    select: { numeroPre: true }
   })
-  const numeroPre = `${kaneKont.accountNumber}-${String(count + 1).padStart(3, '0')}`
+  const usedNums = new Set(
+    egzistan.map(p => parseInt(p.numeroPre.split('-').pop()))
+  )
+  let seq = 1
+  while (usedNums.has(seq)) seq++
+  const numeroPre = `${kaneKont.accountNumber}-${String(seq).padStart(3, '0')}`
       const p = await tx.pre.create({
         data: {
           tenantId, numeroPre,

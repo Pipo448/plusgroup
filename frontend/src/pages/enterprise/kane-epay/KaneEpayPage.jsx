@@ -1,4 +1,4 @@
-// src/pages/enterprise/kane-epay/KaneEpayPage.jsx — Paj prensipal (slim)
+// src/pages/enterprise/kane-epay/KaneEpayPage.jsx
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
@@ -15,6 +15,16 @@ import { KANE_STYLES } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
 import { Spinner, StatCard } from './KaneEpayComponents'
 import { ModalCreate, ModalTx, ModalDetail, ModalRapoKesyeKane } from './KaneEpayModals'
+
+// ✅ Responsive styles ajoute
+const EXTRA_STYLES = `
+  .ke-acc-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 640px) { .ke-acc-grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .ke-acc-grid { grid-template-columns: 1fr 1fr 1fr; } }
+  .ke-page-pad { padding: 12px 10px 80px; }
+  @media (min-width: 480px) { .ke-page-pad { padding: 14px 16px 80px; } }
+  @media (min-width: 900px) { .ke-page-pad { padding: 16px 20px 80px; } }
+`
 
 const inputStyle = {
   width:'100%', padding:'11px 13px', borderRadius:10, fontSize:14,
@@ -39,27 +49,31 @@ export default function KaneEpayPage() {
 
   useEffect(() => {
     const el = document.createElement('style')
-    el.textContent = KANE_STYLES
+    el.textContent = KANE_STYLES + EXTRA_STYLES
     document.head.appendChild(el)
     return () => document.head.removeChild(el)
   }, [])
 
+  // ✅ staleTime ajoute — evite refetch inutil
   const { data: kesData } = useQuery({
-    queryKey: ['kes-status'],
-    queryFn:  () => kaneAPI.checkKesFemen().then(r => r.data),
-    refetchInterval: 30000, staleTime: 0,
+    queryKey:        ['kes-status'],
+    queryFn:         () => kaneAPI.checkKesFemen().then(r => r.data),
+    staleTime:       30000,
+    refetchInterval: 30000,
   })
   const kesFemen = kesData?.kesFemen === true
 
   const { data: statsData, refetch: refetchStats } = useQuery({
-    queryKey: ['kane-stats'],
-    queryFn:  () => kaneAPI.getStats().then(r => r.data.stats),
-    refetchInterval: 30000,
+    queryKey:        ['kane-stats'],
+    queryFn:         () => kaneAPI.getStats().then(r => r.data.stats),
+    staleTime:       60000,   // ✅ 1 minit
+    refetchInterval: 60000,   // ✅ 30s → 60s
   })
 
   const { data: listData, isLoading } = useQuery({
-    queryKey: ['kane-accounts', debouncedSearch, page, filterActive],
-    queryFn:  () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit:15, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
+    queryKey:         ['kane-accounts', debouncedSearch, page, filterActive],
+    queryFn:          () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit:15, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
+    staleTime:        30000,   // ✅ pa refetch si done frèch
     keepPreviousData: true,
   })
 
@@ -83,20 +97,20 @@ export default function KaneEpayPage() {
     searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
   }
 
-  // ✅ Admin: efase kont dirèkteman nan lis
   const handleDeleteAccount = (e, acc) => {
     e.stopPropagation()
-    if (!window.confirm(`Efase kont ${acc.accountNumber} — ${acc.firstName} ${acc.lastName}?\n⚠️ IREVERSIB — tout tranzaksyon ap efase.`)) return
+    if (!window.confirm(`Efase kont ${acc.accountNumber} — ${acc.firstName} ${acc.lastName}?\n⚠️ IREVERSIB.`)) return
     kaneAPI.deleteAccount(acc.id)
       .then(() => { toast.success('✅ Kont efase!'); refresh() })
-      .catch(err => toast.error(err.response?.data?.message || 'Erè efase kont.'))
+      .catch(err => toast.error(err.response?.data?.message || 'Erè.'))
   }
 
   const todayNet = (statsData?.todayDepositAmount||0) - (statsData?.todayWithdrawAmount||0)
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:'DM Sans, sans-serif', padding:'14px 14px 80px', maxWidth:900, margin:'0 auto' }}>
+    <div className="ke-page-pad" style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:'DM Sans, sans-serif', maxWidth:960, margin:'0 auto' }}>
 
+      {/* Bannè kès fèmen */}
       {kesFemen && (
         <div style={{ background:`${D.red}15`, border:`1px solid ${D.red}40`, borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
           <Lock size={16} style={{ color:D.red, flexShrink:0 }}/>
@@ -124,7 +138,7 @@ export default function KaneEpayPage() {
           {!kesFemen && (
             <button className="ke-btn" onClick={() => setModal('rapo')}
               style={{ display:'flex', alignItems:'center', gap:5, padding:'9px 12px', borderRadius:10, border:`1px solid ${D.orange}30`, background:`${D.orange}10`, color:D.orange, cursor:'pointer', fontWeight:700, fontSize:12 }}>
-              <FileText size={14}/> Fèmen Kès
+              <FileText size={14}/> <span style={{ display:'none' }} className="ke-btn-label">Fèmen Kès</span>
             </button>
           )}
           <button className="ke-btn" onClick={() => !kesFemen && setModal('create')}
@@ -134,7 +148,7 @@ export default function KaneEpayPage() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats grid — responsive */}
       <div className="ke-stats-grid">
         <StatCard label="Total Kont"   value={statsData?.totalAccounts   ||0}           icon={<Users size={17}/>}     color={D.gold}  />
         <StatCard label="Kont Aktif"   value={statsData?.activeAccounts  ||0}           icon={<Activity size={17}/>}  color={D.green} />
@@ -142,7 +156,7 @@ export default function KaneEpayPage() {
         <StatCard label="Kont Jodi a"  value={statsData?.todayNewAccounts||0}           icon={<UserPlus size={17}/>}  color="#8B5CF6" />
       </div>
 
-      {/* Aktivite */}
+      {/* Aktivite jodi a */}
       <div style={{ background:D.card, borderRadius:14, padding:'12px 14px', border:`1px solid ${D.cardBorder}` }}>
         <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 10px', letterSpacing:'0.08em' }}>● Aktivite Jodi a</p>
         <div className="ke-today-grid">
@@ -154,21 +168,21 @@ export default function KaneEpayPage() {
 
       {/* Rechèch + Filtre */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-        <div style={{ position:'relative', flex:'1 1 200px', minWidth:160 }}>
+        <div style={{ position:'relative', flex:'1 1 180px', minWidth:140 }}>
           <Search size={14} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted, pointerEvents:'none' }}/>
-          <input className="ke-input" style={{ ...inputStyle, paddingLeft:36 }} placeholder="Chèche non, nimewo, NIF..." value={search} onChange={handleSearch}/>
+          <input className="ke-input" style={{ ...inputStyle, paddingLeft:36 }} placeholder="Chèche non, nimewo..." value={search} onChange={handleSearch}/>
         </div>
-        <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-          {[{val:null,label:'Tout'},{val:true,label:'✅ Aktif'},{val:false,label:'⛔ Inaktif'}].map(f => (
+        <div style={{ display:'flex', gap:5, flexShrink:0 }}>
+          {[{val:null,label:'Tout'},{val:true,label:'✅'},{val:false,label:'⛔'}].map(f => (
             <button key={String(f.val)} className="ke-tab-btn ke-btn" onClick={() => { setFilterActive(f.val); setPage(1) }}
-              style={{ padding:'8px 12px', borderRadius:8, border:`1px solid ${filterActive===f.val ? D.gold+'60' : D.cardBorder}`, background:filterActive===f.val ? D.goldDim : 'transparent', color:filterActive===f.val ? D.gold : D.muted, cursor:'pointer', fontWeight:700, fontSize:12, whiteSpace:'nowrap' }}>
+              style={{ padding:'8px 10px', borderRadius:8, border:`1px solid ${filterActive===f.val ? D.gold+'60' : D.cardBorder}`, background:filterActive===f.val ? D.goldDim : 'transparent', color:filterActive===f.val ? D.gold : D.muted, cursor:'pointer', fontWeight:700, fontSize:12 }}>
               {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Lis */}
+      {/* Lis kont */}
       {isLoading ? (
         <div style={{ textAlign:'center', color:D.muted, padding:40, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
           <Spinner color={D.gold} size={18}/> Ap chaje...
@@ -181,52 +195,50 @@ export default function KaneEpayPage() {
       ) : (
         <>
           <p style={{ fontSize:11, color:D.muted, margin:0 }}>{total} kont • paj {page}/{totalPages}</p>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          {/* ✅ Grid responsive: 1 kolòn mobil, 2 tablet, 3 desktop */}
+          <div className="ke-acc-grid">
             {accounts.map(acc => (
               <div key={acc.id} className="ke-row" onClick={() => openDetail(acc)}
-                style={{ background:D.card, border:`1px solid ${D.cardBorder}`, borderRadius:14, padding:'12px 13px', cursor:'pointer', boxShadow:D.shadow, transition:'background 0.15s', animation:'fadeUp 0.2s ease' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8 }}>
+                style={{ background:D.card, border:`1px solid ${D.cardBorder}`, borderRadius:14, padding:'12px 13px', cursor:'pointer', boxShadow:D.shadow, transition:'background 0.15s', animation:'fadeUp 0.2s ease', display:'flex', flexDirection:'column' }}>
+                {/* Top: avatar + info + balans */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:10 }}>
                   <div style={{ display:'flex', gap:10, alignItems:'flex-start', minWidth:0, flex:1 }}>
-                    {acc.photoUrl
-                      ? <img src={acc.photoUrl} alt="" style={{ width:40, height:40, borderRadius:10, objectFit:'cover', flexShrink:0, border:`2px solid ${D.cardBorder}` }}/>
-                      : <div style={{ width:40, height:40, borderRadius:10, flexShrink:0, background:D.goldDim, border:`1px solid ${D.cardBorder}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:800, color:D.gold }}>
-                          {acc.firstName?.[0]?.toUpperCase()}{acc.lastName?.[0]?.toUpperCase()}
-                        </div>}
+                    {/* ✅ Pa montre foto nan lis — sèlman inisyal (foto retire nan backend) */}
+                    <div style={{ width:38, height:38, borderRadius:10, flexShrink:0, background:D.goldDim, border:`1px solid ${D.cardBorder}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:D.gold }}>
+                      {acc.firstName?.[0]?.toUpperCase()}{acc.lastName?.[0]?.toUpperCase()}
+                    </div>
                     <div style={{ minWidth:0 }}>
-                      <p className="ke-acc-num" style={{ fontFamily:'monospace', fontWeight:800, color:D.gold, fontSize:11, margin:'0 0 2px' }}>{acc.accountNumber}</p>
-                      <p className="ke-acc-name" style={{ fontSize:14, fontWeight:700, color:D.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acc.firstName} {acc.lastName}</p>
+                      <p className="ke-acc-num" style={{ fontFamily:'monospace', fontWeight:800, color:D.gold, fontSize:10, margin:'0 0 1px' }}>{acc.accountNumber}</p>
+                      <p className="ke-acc-name" style={{ fontSize:13, fontWeight:700, color:D.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acc.firstName} {acc.lastName}</p>
                       {acc.phone && <p style={{ fontSize:11, color:D.muted, margin:'1px 0 0' }}>{acc.phone}</p>}
-                      <p style={{ fontSize:10, color:D.muted, margin:'2px 0 0', fontFamily:'monospace' }}>{fmtShort(acc.createdAt)}</p>
                     </div>
                   </div>
                   <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <p style={{ fontFamily:'monospace', fontSize:16, fontWeight:900, color:D.green, margin:0 }}>{fmt(acc.balance)}</p>
-                    <p style={{ fontSize:10, color:D.muted, margin:'1px 0 0' }}>HTG</p>
-                    {Number(acc.lockedAmount) > 0 && <p style={{ fontSize:10, color:D.orange, margin:'2px 0 0' }}>🔒 {fmt(acc.lockedAmount)}</p>}
-                    <p style={{ fontSize:9, margin:'3px 0 0', fontWeight:700, color: acc.idPhotoUrl ? D.green : D.orange }}>{acc.idPhotoUrl ? '✅ KYC' : '⚠ KYC'}</p>
+                    <p style={{ fontFamily:'monospace', fontSize:15, fontWeight:900, color:D.green, margin:0 }}>{fmt(acc.balance)}</p>
+                    <p style={{ fontSize:9, color:D.muted, margin:'1px 0 0' }}>HTG</p>
+                    {Number(acc.lockedAmount) > 0 && <p style={{ fontSize:9, color:D.orange, margin:'1px 0 0' }}>🔒 {fmt(acc.lockedAmount)}</p>}
+                    <p style={{ fontSize:9, margin:'2px 0 0', fontWeight:700, color: acc.idPhotoUrl ? D.green : D.orange }}>{acc.idPhotoUrl ? '✅ KYC' : '⚠ KYC'}</p>
                   </div>
                 </div>
 
                 {/* Boutons aksyon */}
-                <div className="ke-acc-row-btns">
+                <div className="ke-acc-row-btns" style={{ marginTop:'auto' }}>
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openDepo(acc) }}
-                    style={{ flex:1, padding:'8px 6px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.greenBg, color:kesFemen?D.muted:D.green, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:12, display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
-                    {kesFemen ? <Lock size={12}/> : <ArrowDownCircle size={13}/>} Depo
+                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.greenBg, color:kesFemen?D.muted:D.green, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
+                    {kesFemen ? <Lock size={11}/> : <ArrowDownCircle size={12}/>} Depo
                   </button>
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openRetrait(acc) }}
-                    style={{ flex:1, padding:'8px 6px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.redBg, color:kesFemen?D.muted:D.red, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:12, display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
-                    {kesFemen ? <Lock size={12}/> : <ArrowUpCircle size={13}/>} Retrè
+                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.redBg, color:kesFemen?D.muted:D.red, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
+                    {kesFemen ? <Lock size={11}/> : <ArrowUpCircle size={12}/>} Retrè
                   </button>
                   <button className="ke-btn" onClick={e => { e.stopPropagation(); openDetail(acc) }}
-                    style={{ padding:'8px 13px', borderRadius:8, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center' }}>
-                    <Eye size={13}/>
+                    style={{ padding:'7px 10px', borderRadius:8, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center' }}>
+                    <Eye size={12}/>
                   </button>
-                  {/* ✅ Admin: Bouton efase dirèkteman nan lis */}
                   {isAdmin && (
-                    <button className="ke-btn" title="Admin: Efase kont"
-                      onClick={e => handleDeleteAccount(e, acc)}
-                      style={{ padding:'8px 10px', borderRadius:8, border:'1px solid rgba(251,113,133,0.3)', background:'rgba(251,113,133,0.08)', color:'#FB7185', cursor:'pointer', display:'flex', alignItems:'center' }}>
-                      <Trash2 size={13}/>
+                    <button className="ke-btn" title="Efase kont" onClick={e => handleDeleteAccount(e, acc)}
+                      style={{ padding:'7px 9px', borderRadius:8, border:'1px solid rgba(251,113,133,0.3)', background:'rgba(251,113,133,0.08)', color:'#FB7185', cursor:'pointer', display:'flex', alignItems:'center' }}>
+                      <Trash2 size={12}/>
                     </button>
                   )}
                 </div>
@@ -239,7 +251,7 @@ export default function KaneEpayPage() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 2px' }}>
-          <span style={{ fontSize:12, color:D.muted }}>{total} kont total</span>
+          <span style={{ fontSize:12, color:D.muted }}>{total} kont</span>
           <div style={{ display:'flex', gap:6, alignItems:'center' }}>
             <button className="ke-btn" onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
               style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.cardBorder}`, background:D.card, color:D.muted, cursor:page===1?'default':'pointer', opacity:page===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
