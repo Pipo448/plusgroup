@@ -491,10 +491,11 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
       return p
     }, { maxWait: 15000, timeout: 30000 })  // ✅ FIX timeout
 
-    await prisma.$executeRaw`
-      INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-      VALUES (${tenantId}, ${Number(montant)}, 'pre', ${pre.id}, ${`Dekèsman ${numeroPre}`}, ${userId})
-    `
+    // ✅ KÒRÈK — sèvi ak pre.numeroPre
+await prisma.$executeRaw`
+  INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
+  VALUES (${tenantId}, ${Number(montant)}, 'pre', ${pre.id}, ${`Dekèsman ${pre.numeroPre}`}, ${userId})
+`
 
     const echCreye = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${pre.id} ORDER BY numero
