@@ -31,12 +31,25 @@ async function isKesFermen(tenantId, userId) {
   return r.length > 0
 }
 
-async function genereNumeroPre(tenantId) {
-  const ane   = new Date().getFullYear()
-  const count = await prisma.pre.count({
-    where: { tenantId, createdAt: { gte: new Date(`${ane}-01-01`), lt: new Date(`${ane + 1}-01-01`) } },
+async function genereNumeroPre(tenantId, kontKaneEpayId) {
+  
+  // 1. Jwenn accountNumber kont Kane Epay la
+  const kont = await prisma.kaneEpay.findFirst({
+    where: { id: kontKaneEpayId, tenantId },
+    select: { accountNumber: true }
   })
-  return `PRE-${ane}-${String(count + 1).padStart(5, '0')}`
+  if (!kont) throw new Error('Kont Kane Epay pa jwenn.')
+
+  const accountNumber = kont.accountNumber // "YK-2026-00029"
+
+  // 2. ANNDAN transaction — konte prè egzistan pou kont sa SÈLMAN
+  const count = await prisma.pre.count({
+    where: { tenantId, kontKaneEpayId }
+  })
+
+  const sequence = String(count + 1).padStart(3, '0') // 001, 002...
+  return `${accountNumber}-${sequence}`
+  // Rezilta: "YK-2026-00029-001"
 }
 
 async function getKapitalDisponib(tenantId) {
@@ -407,13 +420,13 @@ router.post('/', async (req, res) => {
     }
 
     const kaneKont = await prisma.kaneEpay.findFirst({ where: { id: kontKaneEpayId, tenantId } })
-    if (!kaneKont) return res.status(400).json({ message: 'Kont Kanè Epay pa jwenn.' })
+if (!kaneKont) return res.status(400).json({ message: 'Kont Kanè Epay pa jwenn.' })
 
-    const numeroPre      = await genereNumeroPre(tenantId)
-    const debut          = datDebut ? new Date(datDebut) : new Date()
-    const datFin         = new Date(debut)
-    const dureeNum       = isBousSoleil ? Math.ceil(Number(nombreJou || 30) / 30) : Number(dureeEnMois)
-    datFin.setMonth(datFin.getMonth() + dureeNum)
+// ✅ numeroPre ap jenere ANNDAN transaction an kounye a (wè anba)
+const debut    = datDebut ? new Date(datDebut) : new Date()
+const datFin   = new Date(debut)
+const dureeNum = isBousSoleil ? Math.ceil(Number(nombreJou || 30) / 30) : Number(dureeEnMois)
+datFin.setMonth(datFin.getMonth() + dureeNum)
 
     const datPremyePeman = new Date(debut)
     switch (periode) {
@@ -439,6 +452,10 @@ router.post('/', async (req, res) => {
 
     // ✅ FIX: maxWait 15s, timeout 30s — evite "Transaction not found" sou cold start
     const pre = await prisma.$transaction(async (tx) => {
+      const count = await tx.pre.count({
+    where: { tenantId, kontKaneEpayId }
+  })
+  const numeroPre = `${kaneKont.accountNumber}-${String(count + 1).padStart(3, '0')}`
       const p = await tx.pre.create({
         data: {
           tenantId, numeroPre,
