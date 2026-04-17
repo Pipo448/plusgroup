@@ -1,12 +1,12 @@
 // src/pages/enterprise/mikwo-kredi/MikwoKrediProfit.jsx
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../../services/api'
 import toast from 'react-hot-toast'
 import {
   TrendingUp, TrendingDown, DollarSign, CreditCard, Wallet,
   Plus, Trash2, Edit2, RefreshCw, X, ChevronLeft, ChevronRight,
-  AlertCircle, CheckCircle, BarChart2,
+  BarChart2, AlertTriangle,
 } from 'lucide-react'
 
 const fmt = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits:2, maximumFractionDigits:2 })
@@ -109,6 +109,25 @@ function ModalDepans({ dep, onClose, onSuccess }) {
   )
 }
 
+// ─── Kat Revni ────────────────────────────────────────────────
+function KatRevni({ label, val, color, icon, desc, badge }) {
+  return (
+    <div style={{ background:D.card, borderRadius:12, padding:'12px 14px', border:`1px solid ${color}30`, display:'flex', alignItems:'center', gap:12 }}>
+      <div style={{ width:38, height:38, borderRadius:10, background:`${color}20`, display:'flex', alignItems:'center', justifyContent:'center', color, flexShrink:0 }}>
+        {icon}
+      </div>
+      <div style={{ minWidth:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+          <p style={{ fontSize:10, color:D.muted, margin:0, textTransform:'uppercase', fontWeight:700 }}>{label}</p>
+          {badge && <span style={{ fontSize:9, padding:'1px 6px', borderRadius:99, background:`${color}20`, color, fontWeight:800 }}>{badge}</span>}
+        </div>
+        <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color, margin:0 }}>{fmt(val)} HTG</p>
+        <p style={{ fontSize:10, color:D.muted, margin:'1px 0 0' }}>{desc}</p>
+      </div>
+    </div>
+  )
+}
+
 // ─── Paj Prensipal ────────────────────────────────────────────
 export default function MikwoKrediProfit() {
   const qc  = useQueryClient()
@@ -120,7 +139,7 @@ export default function MikwoKrediProfit() {
   const [selDep,    setSelDep]    = useState(null)
   const [pageDep,   setPageDep]   = useState(1)
 
-  const { data: profitData, isLoading: loadingProfit, refetch: refetchProfit } = useQuery({
+  const { data: profitData, isLoading: loadingProfit } = useQuery({
     queryKey: ['mikwo-profit', debutDate, finDate],
     queryFn:  () => api.get('/mikwo-profit', { params: { debutDate, finDate } }).then(r => r.data),
   })
@@ -131,7 +150,10 @@ export default function MikwoKrediProfit() {
     keepPreviousData: true,
   })
 
-  const refresh = () => { qc.invalidateQueries(['mikwo-profit']); qc.invalidateQueries(['mikwo-expenses']) }
+  const refresh = () => {
+    qc.invalidateQueries(['mikwo-profit'])
+    qc.invalidateQueries(['mikwo-expenses'])
+  }
 
   const mutDelete = useMutation({
     mutationFn: (id) => api.delete(`/mikwo-expenses/${id}`),
@@ -139,14 +161,21 @@ export default function MikwoKrediProfit() {
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
   })
 
-  const p      = profitData || {}
-  const exps   = expData?.expenses || []
+  const p          = profitData || {}
+  const exps       = expData?.expenses || []
   const totalPages = Math.ceil((expData?.total||0) / 10) || 1
 
-  const pwofiNèt  = Number(p.pwofiNèt || 0)
-  const revni     = p.revni || {}
-  const kout      = p.kout  || {}
-  const stats     = p.stats || {}
+  const pwofiNèt = Number(p.pwofiNèt || 0)
+  const revni    = p.revni  || {}
+  const kout     = p.kout   || {}
+  const kapital  = p.kapital || {}
+  const stats    = p.stats  || {}
+
+  // ✅ Vrè revni breakdown
+  const totalEnteret  = Number(revni.enteret  || 0)
+  const totalPenalite = Number(revni.penalite || 0)
+  const totalFreKane  = Number(revni.freKane  || 0)
+  const totalRevni    = Number(revni.total    || 0)
 
   return (
     <div style={{ padding:'14px 14px 80px', maxWidth:900, margin:'0 auto', fontFamily:'DM Sans, sans-serif', color:D.text }}>
@@ -179,7 +208,7 @@ export default function MikwoKrediProfit() {
         <div style={{ textAlign:'center', padding:60, color:D.muted }}>Ap chaje...</div>
       ) : (
         <>
-          {/* Bòks Pwofi/Pèt */}
+          {/* ── Bòks Pwofi/Pèt ── */}
           <div style={{ background: pwofiNèt >= 0 ? D.greenBg : D.redBg, border:`2px solid ${pwofiNèt>=0 ? D.green : D.red}40`, borderRadius:16, padding:'20px 22px', marginBottom:20, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:14 }}>
             <div>
               <p style={{ fontSize:12, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 4px' }}>
@@ -192,7 +221,7 @@ export default function MikwoKrediProfit() {
             <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
               <div style={{ textAlign:'center' }}>
                 <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase' }}>Revni Total</p>
-                <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:16, color:D.green, margin:0 }}>+{fmt(revni.total||0)}</p>
+                <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:16, color:D.green, margin:0 }}>+{fmt(totalRevni)}</p>
               </div>
               <div style={{ textAlign:'center' }}>
                 <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase' }}>Depans Total</p>
@@ -201,47 +230,94 @@ export default function MikwoKrediProfit() {
             </div>
           </div>
 
-          {/* 4 kat revni */}
+          {/* ── 4 Kat Revni — BREAKDOWN REYÈL ── */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10, marginBottom:20 }}>
-            {[
-              { label:'Peman Prè Kolekte',    val:revni.paimanPre||0,  color:D.green,  icon:<DollarSign size={16}/>,  desc:'Kapital + enterè retounen' },
-              { label:`Frè Kanè (${revni.nbrKontKane||0} kont)`, val:revni.freKane||0, color:D.gold, icon:<CreditCard size={16}/>, desc:'250 HTG × kont kreye' },
-              { label:'Total Depans',          val:kout.depans||0,     color:D.red,    icon:<TrendingDown size={16}/>, desc:'Loye, salè, lòt depans' },
-              { label:'Portfeuye Prè Aktif',  val:stats.totalPortfeuye||0, color:D.blue, icon:<Wallet size={16}/>, desc:`${stats.nbrPreActif||0} prè aktif` },
-            ].map((item, i) => (
-              <div key={i} style={{ background:D.card, borderRadius:12, padding:'12px 14px', border:`1px solid ${item.color}30`, display:'flex', alignItems:'center', gap:12 }}>
-                <div style={{ width:38, height:38, borderRadius:10, background:`${item.color}20`, display:'flex', alignItems:'center', justifyContent:'center', color:item.color, flexShrink:0 }}>
-                  {item.icon}
-                </div>
-                <div style={{ minWidth:0 }}>
-                  <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
-                  <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color:item.color, margin:0 }}>{fmt(item.val)} HTG</p>
-                  <p style={{ fontSize:10, color:D.muted, margin:'1px 0 0' }}>{item.desc}</p>
-                </div>
-              </div>
-            ))}
+
+            {/* ✅ Enterè Sèlman */}
+            <KatRevni
+              label="Enterè Kolekte"
+              val={totalEnteret}
+              color={D.green}
+              icon={<DollarSign size={16}/>}
+              desc="Enterè sèlman sou prè peye"
+            />
+
+            {/* ✅ Penalite Reta */}
+            <KatRevni
+              label="Penalite Reta"
+              val={totalPenalite}
+              color={D.orange}
+              icon={<AlertTriangle size={16}/>}
+              desc="Enterè kouru pou jou reta"
+              badge={totalPenalite > 0 ? '⚠️' : null}
+            />
+
+            {/* ✅ Frè Kanè */}
+            <KatRevni
+              label={`Frè Kanè (${revni.nbrKontKane||0} kont)`}
+              val={totalFreKane}
+              color={D.gold}
+              icon={<CreditCard size={16}/>}
+              desc="250 HTG × kont kreye"
+            />
+
+            {/* Portfeuye */}
+            <KatRevni
+              label="Portfeuye Prè Aktif"
+              val={stats.totalPortfeuye||0}
+              color={D.blue}
+              icon={<Wallet size={16}/>}
+              desc={`${stats.nbrPreActif||0} prè aktif • ${stats.nbrKaneActif||0} kanè`}
+            />
           </div>
 
-          {/* Kapital */}
+          {/* ── Kat Depans ── */}
+          <div style={{ background:D.card, borderRadius:12, padding:'12px 14px', border:`1px solid ${D.red}30`, display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+            <div style={{ width:38, height:38, borderRadius:10, background:`${D.red}20`, display:'flex', alignItems:'center', justifyContent:'center', color:D.red, flexShrink:0 }}>
+              <TrendingDown size={16}/>
+            </div>
+            <div style={{ flex:1 }}>
+              <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>Total Depans Operasyonèl</p>
+              <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color:D.red, margin:0 }}>{fmt(kout.depans||0)} HTG</p>
+              <p style={{ fontSize:10, color:D.muted, margin:'1px 0 0' }}>Loye, salè, lòt depans</p>
+            </div>
+            {/* Mini breakdown revni vs depans */}
+            <div style={{ display:'flex', flexDirection:'column', gap:4, alignItems:'flex-end' }}>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <span style={{ fontSize:10, color:D.muted }}>Enterè</span>
+                <span style={{ fontSize:12, fontWeight:800, color:D.green, fontFamily:'monospace' }}>{fmt(totalEnteret)}</span>
+              </div>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <span style={{ fontSize:10, color:D.muted }}>Penalite</span>
+                <span style={{ fontSize:12, fontWeight:800, color:D.orange, fontFamily:'monospace' }}>{fmt(totalPenalite)}</span>
+              </div>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <span style={{ fontSize:10, color:D.muted }}>Frè Kanè</span>
+                <span style={{ fontSize:12, fontWeight:800, color:D.gold, fontFamily:'monospace' }}>{fmt(totalFreKane)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Kapital ── */}
           <div style={{ background:D.card, borderRadius:12, padding:'12px 16px', border:`1px solid ${D.cardBorder}`, marginBottom:20 }}>
             <p style={{ fontSize:11, fontWeight:800, color:D.gold, textTransform:'uppercase', margin:'0 0 10px', letterSpacing:'0.07em' }}>💰 Kapital Operasyonèl</p>
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
               {[
-                { label:'Enjekte',   val: p.kapital?.enjekte||0, color:D.purple },
-                { label:'Retounen',  val: p.kapital?.retou||0,   color:D.green  },
-                { label:'Nèt Kapital', val: p.kapital?.nèt||0,   color: (p.kapital?.nèt||0)>=0 ? D.green : D.red },
+                { label:'Enjekte',     val: kapital.enjekte  || 0, color:D.purple },
+                { label:'Retounen',    val: kapital.retounen || 0, color:D.green  },
+                { label:'Nèt Kapital', val: kapital.nèt      || 0, color:(kapital.nèt||0)>=0 ? D.green : D.red },
               ].map((item,i) => (
                 <div key={i} style={{ background:`${item.color}10`, borderRadius:10, padding:'10px 12px', border:`1px solid ${item.color}20` }}>
                   <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
                   <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:14, color:item.color, margin:0 }}>
-                    {(p.kapital?.nèt||0)>=0 && item.label==='Nèt Kapital' ? '+' : ''}{fmt(item.val)} G
+                    {item.label==='Nèt Kapital' && (kapital.nèt||0)>=0 ? '+' : ''}{fmt(item.val)} G
                   </p>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Lis Depans */}
+          {/* ── Lis Depans ── */}
           <div style={{ background:D.card, borderRadius:14, border:`1px solid ${D.cardBorder}`, overflow:'hidden' }}>
             <div style={{ padding:'12px 16px', borderBottom:`1px solid ${D.cardBorder}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
               <p style={{ fontSize:12, fontWeight:800, color:D.text, margin:0 }}>
@@ -311,7 +387,7 @@ export default function MikwoKrediProfit() {
       )}
 
       {modal === 'depans' && (
-        <ModalDepans dep={modal==='depans' && selDep ? selDep : null} onClose={() => { setModal(null); setSelDep(null) }} onSuccess={refresh}/>
+        <ModalDepans dep={selDep} onClose={() => { setModal(null); setSelDep(null) }} onSuccess={refresh}/>
       )}
     </div>
   )
