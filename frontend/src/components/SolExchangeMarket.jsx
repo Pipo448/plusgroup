@@ -19,9 +19,9 @@ const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigit
 
 // ─── Modal konfirmasyon echanj ────────────────────────────────
 function ModalConfirmExchange({ offer, myPos, onConfirm, onClose, loading }) {
-  const myNewPos  = offer.initiatorPos
-  const willRise  = myNewPos < myPos
-  const fee       = offer.feePreview
+  const myNewPos = offer.initiatorPos
+  const willRise = myNewPos < myPos
+  const fee      = offer.feePreview
 
   return (
     <div style={{ position:'fixed', inset:0, zIndex:1100, background:'rgba(0,0,0,0.9)', backdropFilter:'blur(4px)', display:'flex', alignItems:'flex-end', justifyContent:'center' }}
@@ -84,19 +84,18 @@ function ModalConfirmExchange({ offer, myPos, onConfirm, onClose, loading }) {
 }
 
 // ─── Modal kreye ofri ─────────────────────────────────────────
-function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
-  const allSlots  = member.allSlots || [{ position: member.position }]
+function ModalCreateOffer({ member, plan, token, planId, feeFixed, feeSellerFixed, feeAdminFixed, onClose, onCreated }) {
+  const allSlots    = member.allSlots || [{ position: member.position }]
   const hasMultiple = allSlots.length > 1
 
-  // ✅ Si gen plizyè men — kòmanse ak dènye a (pi ba = vann pou monte)
   const [selectedPos, setSelectedPos] = useState(
     hasMultiple
       ? Math.max(...allSlots.map(s => s.position))
       : member.position
   )
-  const [offerType, setOfferType]   = useState('buy')
-  const [notes,     setNotes]       = useState('')
-  const [loading,   setLoading]     = useState(false)
+  const [offerType, setOfferType] = useState('buy')
+  const [notes,     setNotes]     = useState('')
+  const [loading,   setLoading]   = useState(false)
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -104,11 +103,7 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
       const res = await fetch(`${SOL_API}/api/sol/exchange/${planId}/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          offerType,
-          notes,
-          memberPosition: selectedPos, // ✅ Voye ki men manm vle vann
-        }),
+        body: JSON.stringify({ offerType, notes, memberPosition: selectedPos }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Erè')
@@ -125,12 +120,12 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
   const typeConfigs = {
     buy: {
       label: '⬆️ Mwen Vle MONTE',
-      desc: `Ou nan Men #${selectedPos}. Ou vle echanje ak yon moun ki gen yon men DEVAN ou (piti nimewo). Ou ap touche pi rapid men ou ap peye frè.`,
+      desc:  `Ou nan Men #${selectedPos}. Ou vle echanje ak yon moun ki gen yon men DEVAN ou (piti nimewo). Ou ap touche pi rapid men ou ap peye frè.`,
       color: D.green,
     },
     sell: {
       label: '⬇️ Mwen Vle DESANN',
-      desc: `Ou nan Men #${selectedPos}. Ou vle desann pou bay yon moun ki vle monte. Ou ap resevwa yon pati frè a.`,
+      desc:  `Ou nan Men #${selectedPos}. Ou vle desann pou bay yon moun ki vle monte. Ou ap resevwa yon pati frè a.`,
       color: D.orange,
     },
   }
@@ -144,33 +139,19 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
         </div>
         <h3 style={{ fontSize:15, fontWeight:800, color:'#fff', margin:'0 0 16px' }}>📢 Pibliye Ofri Echanj</h3>
 
-        {/* ✅ SELECTOR MEN — afiche sèlman si gen plizyè men */}
+        {/* ✅ Selector men */}
         {hasMultiple ? (
           <div style={{ marginBottom:14 }}>
             <label style={{ display:'block', fontSize:10, fontWeight:700, color:'rgba(201,168,76,0.75)', marginBottom:8, textTransform:'uppercase', letterSpacing:'0.06em' }}>
               Ki Men Ou Vle Echanje?
             </label>
             <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-              {allSlots
-                .slice()
-                .sort((a, b) => a.position - b.position)
-                .map(slot => (
-                  <button
-                    key={slot.position}
-                    onClick={() => setSelectedPos(slot.position)}
-                    style={{
-                      padding:'10px 16px', borderRadius:10, cursor:'pointer',
-                      fontWeight:800, fontSize:13, fontFamily:'monospace',
-                      border:`2px solid ${selectedPos===slot.position ? D.gold : D.borderSub}`,
-                      background: selectedPos===slot.position ? D.goldDim : 'transparent',
-                      color: selectedPos===slot.position ? D.gold : D.muted,
-                      transition:'all 0.15s',
-                    }}
-                  >
-                    Men #{slot.position}
-                  </button>
-                ))
-              }
+              {allSlots.slice().sort((a,b) => a.position - b.position).map(slot => (
+                <button key={slot.position} onClick={() => setSelectedPos(slot.position)}
+                  style={{ padding:'10px 16px', borderRadius:10, cursor:'pointer', fontWeight:800, fontSize:13, fontFamily:'monospace', border:`2px solid ${selectedPos===slot.position ? D.gold : D.borderSub}`, background:selectedPos===slot.position ? D.goldDim : 'transparent', color:selectedPos===slot.position ? D.gold : D.muted, transition:'all 0.15s' }}>
+                  Men #{slot.position}
+                </button>
+              ))}
             </div>
           </div>
         ) : (
@@ -179,10 +160,11 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
           </div>
         )}
 
-        {/* Chwazi tip */}
+        {/* Tip ofri */}
         <div style={{ display:'flex', gap:8, marginBottom:14 }}>
           {Object.entries(typeConfigs).map(([type, cfg]) => (
-            <button key={type} onClick={() => setOfferType(type)} style={{ flex:1, padding:'11px 8px', borderRadius:10, cursor:'pointer', fontWeight:700, fontSize:12, border:`2px solid ${offerType===type ? cfg.color : D.borderSub}`, background:offerType===type ? `${cfg.color}15` : 'transparent', color:offerType===type ? cfg.color : D.muted, transition:'all 0.15s' }}>
+            <button key={type} onClick={() => setOfferType(type)}
+              style={{ flex:1, padding:'11px 8px', borderRadius:10, cursor:'pointer', fontWeight:700, fontSize:12, border:`2px solid ${offerType===type ? cfg.color : D.borderSub}`, background:offerType===type ? `${cfg.color}15` : 'transparent', color:offerType===type ? cfg.color : D.muted, transition:'all 0.15s' }}>
               {cfg.label}
             </button>
           ))}
@@ -192,16 +174,37 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
           {typeConfigs[offerType].desc}
         </div>
 
+        {/* ✅ Frè estimasyon */}
+        <div style={{ background:D.goldDim, border:`1px solid ${D.border}`, borderRadius:10, padding:'10px 13px', marginBottom:14 }}>
+          <div style={{ fontSize:10, color:D.muted, textTransform:'uppercase', fontWeight:700, marginBottom:8 }}>Frè Echanj (pa plas)</div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:3 }}>
+            <span style={{ color:D.muted }}>Total frè pa plas:</span>
+            <span style={{ color:D.red, fontWeight:800 }}>{fmt(feeFixed)} HTG</span>
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:3 }}>
+            <span style={{ color:D.muted }}>Ou resevwa si ou desann:</span>
+            <span style={{ color:D.green, fontWeight:800 }}>+{fmt(feeSellerFixed)} HTG/plas</span>
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12 }}>
+            <span style={{ color:D.muted }}>Pati admin:</span>
+            <span style={{ color:D.muted }}>{fmt(feeAdminFixed)} HTG/plas</span>
+          </div>
+        </div>
+
+        {/* Nòt */}
         <div style={{ marginBottom:14 }}>
           <label style={{ display:'block', fontSize:10, fontWeight:700, color:'rgba(201,168,76,0.75)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.06em' }}>
             Nòt (Opsyonèl)
           </label>
-          <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: Mwen bezwen kòb rapid..." style={{ width:'100%', padding:'10px 12px', borderRadius:10, fontSize:13, border:'1.5px solid rgba(255,255,255,0.09)', outline:'none', color:D.text, background:D.bg, fontFamily:'inherit', resize:'none', boxSizing:'border-box' }} />
+          <textarea rows={2} value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="Ex: Mwen bezwen kòb rapid..."
+            style={{ width:'100%', padding:'10px 12px', borderRadius:10, fontSize:13, border:'1.5px solid rgba(255,255,255,0.09)', outline:'none', color:D.text, background:D.bg, fontFamily:'inherit', resize:'none', boxSizing:'border-box' }} />
         </div>
 
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={onClose} style={{ flex:1, padding:'13px', borderRadius:10, border:`1px solid ${D.borderSub}`, background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>Anile</button>
-          <button onClick={handleSubmit} disabled={loading} style={{ flex:2, padding:'13px', borderRadius:10, border:'none', cursor:loading?'default':'pointer', background:loading?'rgba(201,168,76,0.3)':D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
+          <button onClick={handleSubmit} disabled={loading}
+            style={{ flex:2, padding:'13px', borderRadius:10, border:'none', cursor:loading?'default':'pointer', background:loading?'rgba(201,168,76,0.3)':D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
             {loading ? <span style={{ width:14, height:14, border:'2px solid rgba(0,0,0,0.2)', borderTopColor:'#0a1222', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }} /> : '📢'}
             {loading ? 'Ap pibliye...' : 'Pibliye Ofri'}
           </button>
@@ -213,8 +216,21 @@ function ModalCreateOffer({ member, plan, token, planId, onClose, onCreated }) {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────
 export default function SolExchangeMarket({ token, member, plan }) {
-  // ✅ FIX: planId sot nan plan.id dirèkteman (pa kòm prop separe)
   const planId = plan?.id
+
+  // ✅ FIX: decode token pou jwenn vrè accountId
+  const myAccountId = (() => {
+    try { return JSON.parse(atob(token.split('.')[1])).accountId }
+    catch { return null }
+  })()
+
+  const allSlots      = member.allSlots || [{ position: member.position }]
+  const myPos         = Math.min(...allSlots.map(s => s.position))
+
+  // ✅ Frè fikse depi plan (reutilize kolòn exchangeFeePct kòm HTG)
+  const feeFixed       = Number(plan?.exchangeFeePct      ?? 1250)
+  const feeAdminFixed  = Number(plan?.exchangeFeeAdminPct ?? 250)
+  const feeSellerFixed = feeFixed - feeAdminFixed
 
   const [offers,       setOffers]       = useState([])
   const [myExchanges,  setMyExchanges]  = useState([])
@@ -223,10 +239,6 @@ export default function SolExchangeMarket({ token, member, plan }) {
   const [showCreate,   setShowCreate]   = useState(false)
   const [accepting,    setAccepting]    = useState(false)
   const [activeTab,    setActiveTab]    = useState('market')
-
-  // ✅ myPos = pozisyon prensipal (pi ba nan tout slot yo)
-  const allSlots = member.allSlots || [{ position: member.position }]
-  const myPos    = Math.min(...allSlots.map(s => s.position))
 
   const fetchData = useCallback(async () => {
     if (!planId) return
@@ -276,7 +288,7 @@ export default function SolExchangeMarket({ token, member, plan }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || 'Erè')
-      toast('Ofri refize.', { icon: '❌' })
+      toast('Ofri anile.', { icon: '🚫' })
       fetchData()
     } catch (err) {
       toast.error(err.message)
@@ -285,14 +297,14 @@ export default function SolExchangeMarket({ token, member, plan }) {
 
   const statusColors = {
     pending:   { color: D.orange, bg: D.orangeBg, label: '⏳ K ap tann' },
-    accepted:  { color: D.green,  bg: D.greenBg,  label: '✅ Aksepte' },
-    rejected:  { color: D.red,    bg: D.redBg,    label: '❌ Refize' },
-    cancelled: { color: D.muted,  bg: 'rgba(255,255,255,0.04)', label: '🚫 Anile' },
+    accepted:  { color: D.green,  bg: D.greenBg,  label: '✅ Aksepte'   },
+    rejected:  { color: D.red,    bg: D.redBg,    label: '❌ Refize'    },
+    cancelled: { color: D.muted,  bg: 'rgba(255,255,255,0.04)', label: '🚫 Anile'   },
     expired:   { color: D.muted,  bg: 'rgba(255,255,255,0.04)', label: '⌛ Ekspire' },
   }
 
-  const marketOffers    = offers.filter(o => o.initiatorId !== member.id)
-  const myPendingOffers = offers.filter(o => o.targetId === member.id && o.status === 'pending')
+  const marketOffers    = offers.filter(o => o.initiatorId !== myAccountId)
+  const myPendingOffers = offers.filter(o => o.targetId === myAccountId && o.status === 'pending')
 
   return (
     <div>
@@ -301,7 +313,8 @@ export default function SolExchangeMarket({ token, member, plan }) {
       {/* TABS */}
       <div style={{ display:'flex', gap:6, marginBottom:14 }}>
         {[['market', `🏪 Mache (${marketOffers.length})`], ['my', `📋 Istwa Mwen (${myExchanges.length})`]].map(([t, l]) => (
-          <button key={t} onClick={() => setActiveTab(t)} style={{ flex:1, padding:'9px 6px', borderRadius:8, cursor:'pointer', fontSize:11, fontWeight:700, border:`1px solid ${activeTab===t ? D.gold : D.borderSub}`, background:activeTab===t ? D.goldDim : 'transparent', color:activeTab===t ? D.gold : D.muted, fontFamily:'inherit', transition:'all 0.15s' }}>
+          <button key={t} onClick={() => setActiveTab(t)}
+            style={{ flex:1, padding:'9px 6px', borderRadius:8, cursor:'pointer', fontSize:11, fontWeight:700, border:`1px solid ${activeTab===t ? D.gold : D.borderSub}`, background:activeTab===t ? D.goldDim : 'transparent', color:activeTab===t ? D.gold : D.muted, fontFamily:'inherit', transition:'all 0.15s' }}>
             {l}
           </button>
         ))}
@@ -323,9 +336,11 @@ export default function SolExchangeMarket({ token, member, plan }) {
         </div>
       )}
 
+      {/* ── TAB MACHE ── */}
       {activeTab === 'market' && (
         <>
-          <button onClick={() => setShowCreate(true)} style={{ width:'100%', padding:'12px', borderRadius:12, border:`1px solid ${D.gold}40`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:800, fontSize:13, marginBottom:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontFamily:'inherit' }}>
+          <button onClick={() => setShowCreate(true)}
+            style={{ width:'100%', padding:'12px', borderRadius:12, border:`1px solid ${D.gold}40`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:800, fontSize:13, marginBottom:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontFamily:'inherit' }}>
             📢 Pibliye Ofri Echanj Mwen
           </button>
 
@@ -356,9 +371,7 @@ export default function SolExchangeMarket({ token, member, plan }) {
                         <div style={{ fontSize:12, color:D.muted }}>
                           Men Aktyèl: <strong style={{ color:D.gold, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong>
                           {offer.feePreview && (
-                            <span style={{ marginLeft:8 }}>
-                              → Ou ap al: <strong style={{ color:D.blue, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong>
-                            </span>
+                            <span style={{ marginLeft:8 }}>→ Ou ap al: <strong style={{ color:D.blue, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong></span>
                           )}
                         </div>
                       </div>
@@ -377,7 +390,8 @@ export default function SolExchangeMarket({ token, member, plan }) {
                     )}
 
                     {offer.feePreview ? (
-                      <button onClick={() => setConfirmOffer(offer)} style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                      <button onClick={() => setConfirmOffer(offer)}
+                        style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
                         🔄 Aksepte — Echanje Men #{myPos} ak Men #{offer.initiatorPos}
                       </button>
                     ) : (
@@ -393,6 +407,7 @@ export default function SolExchangeMarket({ token, member, plan }) {
         </>
       )}
 
+      {/* ── TAB ISTWA ── */}
       {activeTab === 'my' && (
         <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
           {myExchanges.length === 0 ? (
@@ -401,24 +416,50 @@ export default function SolExchangeMarket({ token, member, plan }) {
             </div>
           ) : myExchanges.map(ex => {
             const cfg = statusColors[ex.status] || statusColors.pending
-            const isInitiator = ex.initiatorId === member.id
+
+            // ✅ FIX: konpare ak myAccountId (accountId) — pa member.id (memberId)
+            const isInitiator = ex.initiatorId === myAccountId
+
             return (
               <div key={ex.id} style={{ background:D.card, border:`1px solid ${D.border}`, borderRadius:12, padding:'12px 14px' }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+
+                {/* Tit */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
                   <span style={{ fontSize:12, fontWeight:700, color:D.text }}>
-                    {isInitiator ? `📤 Men #${ex.initiatorPos} → Men #${ex.targetPos || '?'}` : `📥 Men #${ex.initiatorPos} → Ou`}
+                    {isInitiator
+                      ? `📤 Men #${ex.initiatorPos} → Men #${ex.targetPos || '?'}`
+                      : `📥 Men #${ex.initiatorPos} → Ou (Men #${ex.targetPos || myPos})`}
                   </span>
-                  <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, fontWeight:700, background:cfg.bg, color:cfg.color }}>{cfg.label}</span>
+                  <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, fontWeight:700, background:cfg.bg, color:cfg.color }}>
+                    {cfg.label}
+                  </span>
                 </div>
-                {ex.feeAmount > 0 && (
-                  <div style={{ fontSize:11, color:D.muted }}>
-                    Frè: <strong style={{ color:D.red }}>{fmt(ex.feeAmount)} HTG</strong>
-                    {' '}(Vendè: {fmt(ex.feeSellerAmt)} • Admin: {fmt(ex.feeAdminAmt)})
+
+                {/* ✅ Breakdown frè — toujou afiche */}
+                <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'8px 10px', marginBottom:8, fontSize:11 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ color:D.muted }}>Diferans pozisyon:</span>
+                    <span style={{ color:D.text, fontWeight:700 }}>{ex.positionDiff || '—'} plas</span>
                   </div>
-                )}
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ color:D.muted }}>Total frè:</span>
+                    <span style={{ color:D.red, fontWeight:700 }}>{fmt(ex.feeAmount)} HTG</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3 }}>
+                    <span style={{ color:D.muted }}>→ Pati vendè:</span>
+                    <span style={{ color:D.green, fontWeight:700 }}>+{fmt(ex.feeSellerAmt)} HTG</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ color:D.muted }}>→ Pati admin:</span>
+                    <span style={{ color:D.muted }}>{fmt(ex.feeAdminAmt)} HTG</span>
+                  </div>
+                </div>
+
+                {/* ✅ Bouton Anile — sèlman si isInitiator + pending */}
                 {ex.status === 'pending' && isInitiator && (
-                  <button onClick={() => handleReject(ex.id)} style={{ marginTop:8, padding:'6px 12px', borderRadius:8, border:'none', background:D.redBg, color:D.red, fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
-                    🚫 Anile Ofri
+                  <button onClick={() => handleReject(ex.id)}
+                    style={{ padding:'8px 14px', borderRadius:8, border:'none', background:D.redBg, color:D.red, fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:'inherit', width:'100%' }}>
+                    🚫 Anile Ofri Sa
                   </button>
                 )}
               </div>
@@ -427,6 +468,7 @@ export default function SolExchangeMarket({ token, member, plan }) {
         </div>
       )}
 
+      {/* MODALS */}
       {confirmOffer && (
         <ModalConfirmExchange
           offer={confirmOffer}
@@ -443,6 +485,9 @@ export default function SolExchangeMarket({ token, member, plan }) {
           plan={plan}
           token={token}
           planId={planId}
+          feeFixed={feeFixed}
+          feeSellerFixed={feeSellerFixed}
+          feeAdminFixed={feeAdminFixed}
           onClose={() => setShowCreate(false)}
           onCreated={fetchData}
         />
