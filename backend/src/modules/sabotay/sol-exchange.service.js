@@ -2,15 +2,10 @@
 const prisma     = require('../../config/prisma')
 const solPushSvc = require('./sol-push.service')
 
-// ─────────────────────────────────────────────────────────────
-// KALKILE FRÈ — MONTANT FIKSE (HTG pa plas, pa pousantaj)
-// feeFixed      = total frè pa plas (ex: 1250 HTG)
-// feeAdminFixed = pati admin pa plas (ex: 250 HTG)
-// feeSellerAmt  = sa ki pou manm ki vann = feeFixed - feeAdminFixed
-// ─────────────────────────────────────────────────────────────
+// ✅ FIX: frè fikse flat — pa multipliye pa posDiff
 function calcFee(posDiff, feeFixed, feeAdminFixed) {
-  const feeAmount    = feeFixed * posDiff
-  const feeAdminAmt  = feeAdminFixed * posDiff
+  const feeAmount    = feeFixed             // montant fikse — pa × posDiff
+  const feeAdminAmt  = feeAdminFixed
   const feeSellerAmt = feeAmount - feeAdminAmt
   return { feeAmount, feeAdminAmt, feeSellerAmt, positionDiff: posDiff }
 }
