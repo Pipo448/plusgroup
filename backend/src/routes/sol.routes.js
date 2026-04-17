@@ -492,7 +492,8 @@ router.get('/exchange/:planId/my', authMember, async (req, res) => {
 
 router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
   try {
-    const { planId } = req.params
+    // ✅ Itilize planId depi token si URL planId pa match
+    const planId  = req.params.planId || req.solMember.planId
     const { tenantId, accountId } = req.solMember
     const exchange = await exchangeSvc.initiateExchange(tenantId, planId, accountId, req.body)
     return res.status(201).json({ success: true, exchange })

@@ -51,16 +51,28 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
   })
   if (!initiatorAcc) throw new Error('Kont ou pa jwenn.')
 
-  // Jwenn SabotayMember pou initiator nan plan sa a
-  const initiatorPos = await prisma.solMemberPosition.findFirst({
-    where: { accountId: initiatorAccountId, planId, status: 'active' }
+  // ✅ FIX: Itilize planId ki sot nan kont manm nan si diferan
+  const actualPlanId = initiatorAcc.planId || planId
+
+  // Jwenn pozisyon — eseye planId URL a dabò, apre kont la
+  let initiatorPos = await prisma.solMemberPosition.findFirst({
+    where: { accountId: initiatorAccountId, planId: actualPlanId, status: 'active' }
   })
+
+  // ✅ FIX: Si pa jwenn, eseye san filtè planId (pran premye aktif)
+  if (!initiatorPos) {
+    initiatorPos = await prisma.solMemberPosition.findFirst({
+      where: { accountId: initiatorAccountId, status: 'active' },
+      orderBy: { memberPosition: 'asc' }
+    })
+  }
   if (!initiatorPos) throw new Error('Ou pa nan plan sa a.')
 
   // Verifye pa gen ofri pending déjà
   const existing = await prisma.solPositionExchange.findFirst({
     where: {
-      planId, initiatorId: initiatorAccountId,
+      planId: initiatorPos.planId,
+      initiatorId: initiatorAccountId,
       status: 'pending',
       expiresAt: { gt: new Date() }
     }
@@ -68,31 +80,29 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
   if (existing) throw new Error('Ou gen deja yon ofri k ap tann. Anile l anvan ou kreye yon nouvo.')
 
   // Jwenn config frè
-  const { feePct, feeAdminPct, planAmount } = await getPlanExchangeConfig(planId)
+  const { feePct, feeAdminPct, planAmount } = await getPlanExchangeConfig(initiatorPos.planId)
 
   let targetPos = null
   let targetId  = null
-  let posDiff   = 0
   let feeCalc   = { feeAmount: 0, feeAdminAmt: 0, feeSellerAmt: 0, positionDiff: 0 }
 
   if (targetAccountId) {
-    // Echanj dirèk ak yon manm espesifik
     const targetPosRec = await prisma.solMemberPosition.findFirst({
-      where: { accountId: targetAccountId, planId, status: 'active' }
+      where: { accountId: targetAccountId, planId: initiatorPos.planId, status: 'active' }
     })
     if (!targetPosRec) throw new Error('Manm cible a pa nan plan sa a.')
     if (targetAccountId === initiatorAccountId) throw new Error('Pa ka echanje ak tèt ou.')
 
     targetId  = targetAccountId
     targetPos = targetPosRec.memberPosition
-    posDiff   = Math.abs(initiatorPos.memberPosition - targetPos)
+    const posDiff = Math.abs(initiatorPos.memberPosition - targetPos)
     feeCalc   = calcFee(posDiff, planAmount, 0, feePct, feeAdminPct)
   }
 
   const exchange = await prisma.solPositionExchange.create({
     data: {
       tenantId,
-      planId,
+      planId:         initiatorPos.planId,  // ✅ planId reyèl la
       initiatorId:    initiatorAccountId,
       initiatorPos:   initiatorPos.memberPosition,
       targetId:       targetId   || null,
@@ -119,8 +129,7 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
       data:  { url: '/sol/dashboard' },
     }).catch(() => {})
   } else {
-    // Ofri piblik — notifye tout manm plan an
-    await notifyAllPlanMembers(planId, initiatorAcc, initiatorPos.memberPosition, offerType, exchange.id)
+    await notifyAllPlanMembers(initiatorPos.planId, initiatorAcc, initiatorPos.memberPosition, offerType, exchange.id)
   }
 
   return exchange
