@@ -10,7 +10,7 @@ router.use(identifyTenant, authenticate)
 
 const tid = (req) => req.tenant.id
 
-// GET /mikwo-profit?debutDate=&finDate=&periode=mois|jou|ane
+// GET /mikwo-profit?debutDate=&finDate=
 router.get('/', async (req, res) => {
   try {
     const tenantId  = tid(req)
@@ -19,37 +19,39 @@ router.get('/', async (req, res) => {
     const finDate   = req.query.finDate   || new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0]
 
     const [
-      // 1. Enterè kolekte (peman Prè - kapital)
-      enteretKolekte,
-      // 2. Frè Kanè Epay (250G × kont kreye nan peryòd la)
+      enteretData,
+      penaliteData,
       freKane,
-      // 3. Depans
       depans,
-      // 4. Kapital enjekte total
       kapitalEnjekte,
-      // 5. Kapital retounen (ranbousman)
       kapitalRetou,
-      // 6. Stats jeneral
       nbrPreActif,
       nbrKaneActif,
       totalPortfeuye,
-      // 7. Peman resan (pou grafik)
       paimanResan,
-      // 8. Depans resan
       depansResan,
     ] = await Promise.all([
 
-      // Enterè = totalPaye - (sum peman kapital sèlman)
-      // Apwòch: kalkile depi paiements nan peryòd la
+      // ✅ Vrè Enterè sèlman (pa kapital) — depi echeyans ki peye nan peryòd la
       prisma.$queryRawUnsafe(`
-        SELECT COALESCE(SUM(pp.montant), 0) as total
-        FROM pre_paiements pp
-        JOIN prets p ON p.id = pp.pre_id
-        WHERE pp.tenant_id = '${tenantId}'
-          AND pp.created_at::date BETWEEN '${debutDate}' AND '${finDate}'
+        SELECT COALESCE(SUM(pe.montant_interet), 0) as total
+        FROM pre_echeances pe
+        WHERE pe.tenant_id = '${tenantId}'
+          AND pe.paiement_id IS NOT NULL
+          AND pe.dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
       `),
 
-      // Frè Kanè: 250 × nbre kont kreye nan peryòd la
+      // ✅ Penalite (enterè kouru pou jou reta) — echeyans peye nan peryòd la
+      prisma.$queryRawUnsafe(`
+        SELECT COALESCE(SUM(pe.interet_kouru), 0) as total
+        FROM pre_echeances pe
+        WHERE pe.tenant_id = '${tenantId}'
+          AND pe.paiement_id IS NOT NULL
+          AND pe.dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
+          AND pe.jou_reta > 0
+      `),
+
+      // Frè Kanè (250G × kont kreye)
       prisma.$queryRawUnsafe(`
         SELECT COUNT(*) as total_kont,
                COALESCE(SUM(kane_fee), 0) as total_fre
@@ -58,7 +60,7 @@ router.get('/', async (req, res) => {
           AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
       `),
 
-      // Depans
+      // Depans operasyonèl
       prisma.$queryRawUnsafe(`
         SELECT COALESCE(SUM(montant), 0) as total
         FROM mikwo_expenses
@@ -66,54 +68,57 @@ router.get('/', async (req, res) => {
           AND date_depans BETWEEN '${debutDate}' AND '${finDate}'
       `),
 
-      // Kapital enjekte
+      // Kapital enjekte (tout tan — pa filtre sou dat, se total)
       prisma.$queryRawUnsafe(`
         SELECT COALESCE(SUM(montant), 0) as total
         FROM pre_kapital
         WHERE tenant_id = '${tenantId}'
           AND type = 'enjeksyon'
-          AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
       `),
 
-      // Kapital retounen
+      // Kapital retounen (ranbousman kapital sèlman)
       prisma.$queryRawUnsafe(`
-        SELECT COALESCE(SUM(montant), 0) as total
-        FROM pre_kapital
-        WHERE tenant_id = '${tenantId}'
-          AND type = 'retou'
-          AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
+        SELECT COALESCE(SUM(pe.montant_capital), 0) as total
+        FROM pre_echeances pe
+        WHERE pe.tenant_id = '${tenantId}'
+          AND pe.paiement_id IS NOT NULL
+          AND pe.dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
       `),
 
-      // Prè aktif
+      // Statistik: prè aktif
       prisma.$queryRawUnsafe(`
         SELECT COUNT(*) as total FROM prets
         WHERE tenant_id = '${tenantId}' AND statut IN ('actif','reta')
       `),
 
-      // Kane aktif
+      // Statistik: kanè aktif
       prisma.$queryRawUnsafe(`
         SELECT COUNT(*) as total FROM kane_epay_accounts
         WHERE tenant_id = '${tenantId}' AND is_active = true
       `),
 
-      // Total portfeuye prè
+      // Portfeuye prè (balans restan)
       prisma.$queryRawUnsafe(`
         SELECT COALESCE(SUM(total_du - total_paye), 0) as total
         FROM prets
         WHERE tenant_id = '${tenantId}' AND statut IN ('actif','reta','attente')
       `),
 
-      // Peman 7 dènye jou (pou grafik)
+      // Grafik: peman 7 dènye jou
       prisma.$queryRawUnsafe(`
-        SELECT DATE(created_at) as dat, COALESCE(SUM(montant),0) as total
-        FROM pre_paiements
+        SELECT DATE(dat_paye) as dat,
+               COALESCE(SUM(montant_interet), 0) as enteret,
+               COALESCE(SUM(interet_kouru), 0)   as penalite,
+               COALESCE(SUM(montant_capital), 0) as kapital
+        FROM pre_echeances
         WHERE tenant_id = '${tenantId}'
-          AND created_at >= NOW() - INTERVAL '7 days'
-        GROUP BY DATE(created_at)
+          AND paiement_id IS NOT NULL
+          AND dat_paye >= NOW() - INTERVAL '7 days'
+        GROUP BY DATE(dat_paye)
         ORDER BY dat ASC
       `),
 
-      // Depans 7 dènye jou
+      // Grafik: depans 7 dènye jou
       prisma.$queryRawUnsafe(`
         SELECT date_depans as dat, COALESCE(SUM(montant),0) as total
         FROM mikwo_expenses
@@ -124,47 +129,63 @@ router.get('/', async (req, res) => {
       `),
     ])
 
-    const totalPeman    = Number(enteretKolekte[0]?.total || 0)
-    const totalFreKane  = Number(freKane[0]?.total_fre   || 0)
-    const totalDepans   = Number(depans[0]?.total        || 0)
-    const totalEnjekte  = Number(kapitalEnjekte[0]?.total|| 0)
-    const totalRetou    = Number(kapitalRetou[0]?.total  || 0)
-    const nbrKont       = Number(freKane[0]?.total_kont  || 0)
+    // ── Kalkil ──────────────────────────────────────────────
+    const totalEnteret   = Number(enteretData[0]?.total   || 0)
+    const totalPenalite  = Number(penaliteData[0]?.total  || 0)
+    const totalFreKane   = Number(freKane[0]?.total_fre   || 0)
+    const totalDepans    = Number(depans[0]?.total        || 0)
+    const totalEnjekte   = Number(kapitalEnjekte[0]?.total|| 0)
+    const totalRetouKap  = Number(kapitalRetou[0]?.total  || 0)
+    const nbrKont        = Number(freKane[0]?.total_kont  || 0)
 
-    // Kalkil pwofi nèt:
-    // Revni = Peman Prè (enterè + kapital retounen) + Frè Kane
-    // Kout  = Depans + Kapital enjekte
-    // Pwofi = Revni - Depans sèlman (pa retire kapital paske se envèstisman)
-    const revniTotal    = totalPeman + totalFreKane
-    const pwofiNèt      = revniTotal - totalDepans
+    // ✅ Vrè Revni = Enterè + Penalite + Frè Kanè (PAS kapital!)
+    const vrèRevni   = totalEnteret + totalPenalite + totalFreKane
+
+    // ✅ Vrè Pwofi Nèt = Vrè Revni - Depans
+    const vrèPwofi   = vrèRevni - totalDepans
 
     res.json({
       periode: { debutDate, finDate },
+
+      // Vrè pwofi — zòn ki chanje
       revni: {
-        paimanPre:  totalPeman,
-        freKane:    totalFreKane,
-        nbrKontKane: nbrKont,
-        total:      revniTotal,
+        enteret:      totalEnteret,     // ✅ Enterè sèlman
+        penalite:     totalPenalite,    // ✅ Penalite pou reta
+        freKane:      totalFreKane,     // ✅ Frè kanè
+        nbrKontKane:  nbrKont,
+        total:        vrèRevni,
       },
       kout: {
-        depans:     totalDepans,
-        total:      totalDepans,
+        depans:       totalDepans,
+        total:        totalDepans,
       },
+
+      // Kapital — info sèlman, pa konte nan pwofi
       kapital: {
-        enjekte:    totalEnjekte,
-        retou:      totalRetou,
-        nèt:        totalRetou - totalEnjekte,
+        enjekte:      totalEnjekte,
+        retounen:     totalRetouKap,
+        nèt:          totalRetouKap - totalEnjekte,
       },
-      pwofiNèt,
-      isFans: pwofiNèt >= 0,
+
+      pwofiNèt:  vrèPwofi,
+      isFans:    vrèPwofi >= 0,
+
       stats: {
         nbrPreActif:    Number(nbrPreActif[0]?.total    || 0),
         nbrKaneActif:   Number(nbrKaneActif[0]?.total   || 0),
         totalPortfeuye: Number(totalPortfeuye[0]?.total || 0),
       },
       grafik: {
-        paimanResan: paimanResan.map(r => ({ dat: r.dat, total: Number(r.total) })),
-        depansResan:  depansResan.map(r => ({ dat: r.dat, total: Number(r.total) })),
+        paimanResan: paimanResan.map(r => ({
+          dat:      r.dat,
+          enteret:  Number(r.enteret),
+          penalite: Number(r.penalite),
+          kapital:  Number(r.kapital),
+        })),
+        depansResan: depansResan.map(r => ({
+          dat:   r.dat,
+          total: Number(r.total),
+        })),
       },
     })
   } catch(e) {
