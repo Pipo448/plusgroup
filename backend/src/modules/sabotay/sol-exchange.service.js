@@ -1,38 +1,44 @@
 // backend/src/modules/sabotay/sol-exchange.service.js
-// ✅ Sèvis echanj pozisyon Sol — mache men sol
-
 const prisma     = require('../../config/prisma')
 const solPushSvc = require('./sol-push.service')
 
-function calcFee(posDiff, planAmount, totalMembers, feePct, feeAdminPct) {
-  const base         = planAmount * posDiff
-  const feeAmount    = Math.round((base * feePct) / 100)
-  const feeAdminAmt  = Math.round((feeAmount * feeAdminPct) / 100)
+// ─────────────────────────────────────────────────────────────
+// KALKILE FRÈ — MONTANT FIKSE (HTG pa plas, pa pousantaj)
+// feeFixed      = total frè pa plas (ex: 1250 HTG)
+// feeAdminFixed = pati admin pa plas (ex: 250 HTG)
+// feeSellerAmt  = sa ki pou manm ki vann = feeFixed - feeAdminFixed
+// ─────────────────────────────────────────────────────────────
+function calcFee(posDiff, feeFixed, feeAdminFixed) {
+  const feeAmount    = feeFixed * posDiff
+  const feeAdminAmt  = feeAdminFixed * posDiff
   const feeSellerAmt = feeAmount - feeAdminAmt
   return { feeAmount, feeAdminAmt, feeSellerAmt, positionDiff: posDiff }
 }
 
+// ─────────────────────────────────────────────────────────────
+// KONFIGIRASYON FRÈ — kounye a se HTG fikse (reutilize kolòn yo)
+// exchangeFeePct      → maintenant = HTG total pa plas
+// exchangeFeeAdminPct → maintenant = HTG admin pa plas
+// ─────────────────────────────────────────────────────────────
 async function getPlanExchangeConfig(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
     where:  { id: planId },
     select: { id: true, amount: true, maxMembers: true, exchangeFeePct: true, exchangeFeeAdminPct: true }
   })
   return {
-    feePct:      Number(plan?.exchangeFeePct      ?? 10),
-    feeAdminPct: Number(plan?.exchangeFeeAdminPct ?? 50),
-    planAmount:  Number(plan?.amount ?? 0),
-    maxMembers:  plan?.maxMembers ?? 0,
+    feeFixed:      Number(plan?.exchangeFeePct      ?? 1250), // HTG total pa plas
+    feeAdminFixed: Number(plan?.exchangeFeeAdminPct ?? 250),  // HTG admin pa plas
+    planAmount:    Number(plan?.amount ?? 0),
+    maxMembers:    plan?.maxMembers ?? 0,
   }
 }
 
 // ─────────────────────────────────────────────────────────────
 // INISYE yon ofri echanj
-// ✅ FIX: Aksepte memberPosition nan body pou manm ki gen plizyè men
 // ─────────────────────────────────────────────────────────────
 async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
   const { offerType, targetAccountId, notes, memberPosition } = data
 
-  // Verifye initiator kont
   const initiatorAcc = await prisma.solMemberAccount.findFirst({
     where: { id: initiatorAccountId, tenantId }
   })
@@ -40,89 +46,88 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
 
   const actualPlanId = initiatorAcc.planId || planId
 
-  // ✅ Si manm espesifye ki men li vle vann — itilize sa dirèkteman
+  // ✅ Bloke si manm nan deja touche
+  if (initiatorAcc.memberId) {
+    const memberRec = await prisma.sabotayMember.findUnique({
+      where: { id: initiatorAcc.memberId }
+    })
+    if (memberRec?.hasWon) {
+      throw new Error('Ou deja touche men ou a. Sèlman manm ki poko touche ka fè echanj.')
+    }
+  }
+
+  // Jwenn pozisyon — respekte memberPosition si bay
   let initiatorMemberPos = null
 
   if (memberPosition) {
-    // Eseye jwenn ranje espesifik sa nan sol_member_positions
     const posRecord = await prisma.solMemberPosition.findFirst({
-      where: {
-        accountId:      initiatorAccountId,
-        status:         'active',
-        memberPosition: Number(memberPosition),
-      }
+      where: { accountId: initiatorAccountId, status: 'active', memberPosition: Number(memberPosition) }
     })
-
     if (posRecord) {
       initiatorMemberPos = posRecord.memberPosition
     } else {
-      // Fallback: verifye nan sabotayMember dirèkteman
+      // Fallback: verifye nan sabotayMember
       const memberRec = await prisma.sabotayMember.findFirst({
-        where: {
-          planId:   actualPlanId,
-          position: Number(memberPosition),
-          isActive: true,
-        }
+        where: { planId: actualPlanId, position: Number(memberPosition), isActive: true }
       })
       if (memberRec) {
+        // ✅ Bloke si men espesifik sa deja touche
+        if (memberRec.hasWon) {
+          throw new Error(`Men #${memberPosition} deja touche. Pa ka vann plas sa a.`)
+        }
         initiatorMemberPos = memberRec.position
       }
     }
   }
 
-  // Si memberPosition pa t bay oswa pa jwenn — pran pi ba a (premye)
   if (!initiatorMemberPos) {
     const posRecord = await prisma.solMemberPosition.findFirst({
       where:   { accountId: initiatorAccountId, status: 'active' },
       orderBy: { memberPosition: 'asc' }
     })
-
-    if (posRecord) {
-      initiatorMemberPos = posRecord.memberPosition
-    } else {
-      // Dènye fallback: kont la menm
-      initiatorMemberPos = initiatorAcc.memberPosition
-    }
+    initiatorMemberPos = posRecord?.memberPosition ?? initiatorAcc.memberPosition
   }
 
   if (!initiatorMemberPos) throw new Error('Pozisyon ou pa jwenn.')
 
-  // Verifye pa gen ofri pending déjà pou menm pozisyon sa
+  // Pa gen ofri pending pou menm men sa
   const existing = await prisma.solPositionExchange.findFirst({
     where: {
-      planId:      actualPlanId,
-      initiatorId: initiatorAccountId,
+      planId:       actualPlanId,
+      initiatorId:  initiatorAccountId,
       initiatorPos: initiatorMemberPos,
-      status:      'pending',
-      expiresAt:   { gt: new Date() }
+      status:       'pending',
+      expiresAt:    { gt: new Date() }
     }
   })
   if (existing) throw new Error('Ou gen deja yon ofri k ap tann pou men sa. Anile l anvan ou kreye yon nouvo.')
 
-  const { feePct, feeAdminPct, planAmount } = await getPlanExchangeConfig(actualPlanId)
+  const { feeFixed, feeAdminFixed } = await getPlanExchangeConfig(actualPlanId)
 
   let targetPos = null
   let targetId  = null
   let feeCalc   = { feeAmount: 0, feeAdminAmt: 0, feeSellerAmt: 0, positionDiff: 0 }
 
   if (targetAccountId) {
-    // Eseye jwenn pozisyon target nan sol_member_positions oswa solMemberAccount
+    // Bloke si target la deja touche
+    const targetAcc = await prisma.solMemberAccount.findFirst({ where: { id: targetAccountId } })
+    if (targetAcc?.memberId) {
+      const targetMember = await prisma.sabotayMember.findUnique({ where: { id: targetAcc.memberId } })
+      if (targetMember?.hasWon) throw new Error('Manm cible a deja touche. Pa ka echanje ak li.')
+    }
+
     const targetPosRec = await prisma.solMemberPosition.findFirst({
-      where: { accountId: targetAccountId, planId: actualPlanId, status: 'active' },
+      where:   { accountId: targetAccountId, planId: actualPlanId, status: 'active' },
       orderBy: { memberPosition: 'asc' }
     })
-    const targetAccRec = await prisma.solMemberAccount.findFirst({
-      where: { id: targetAccountId }
-    })
-
-    const targetMemberPos = targetPosRec?.memberPosition ?? targetAccRec?.memberPosition
+    const targetMemberPos = targetPosRec?.memberPosition ?? targetAcc?.memberPosition
     if (!targetMemberPos) throw new Error('Manm cible a pa nan plan sa a.')
     if (targetAccountId === initiatorAccountId) throw new Error('Pa ka echanje ak tèt ou.')
 
     targetId  = targetAccountId
     targetPos = targetMemberPos
     const posDiff = Math.abs(initiatorMemberPos - targetPos)
-    feeCalc   = calcFee(posDiff, planAmount, 0, feePct, feeAdminPct)
+    feeCalc   = calcFee(posDiff, feeFixed, feeAdminFixed)
   }
 
   const exchange = await prisma.solPositionExchange.create({
@@ -130,13 +135,13 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
       tenantId,
       planId:       actualPlanId,
       initiatorId:  initiatorAccountId,
-      initiatorPos: initiatorMemberPos,  // ✅ Men espesifik manm te chwazi
+      initiatorPos: initiatorMemberPos,
       targetId:     targetId  || null,
       targetPos:    targetPos || null,
       offerType:    offerType || 'buy',
       positionDiff: feeCalc.positionDiff,
-      feePct,
-      feeAdminPct,
+      feePct:       feeFixed,       // stocke HTG fikse (reutilize kolòn)
+      feeAdminPct:  feeAdminFixed,  // stocke HTG fikse admin
       feeAmount:    feeCalc.feeAmount,
       feeAdminAmt:  feeCalc.feeAdminAmt,
       feeSellerAmt: feeCalc.feeSellerAmt,
@@ -161,7 +166,7 @@ async function initiateExchange(tenantId, planId, initiatorAccountId, data) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Notifye tout manm yon plan (pou ofri piblik)
+// Notifye tout manm plan an
 // ─────────────────────────────────────────────────────────────
 async function notifyAllPlanMembers(planId, initiatorAcc, initiatorPos, offerType, exchangeId) {
   try {
@@ -186,6 +191,7 @@ async function notifyAllPlanMembers(planId, initiatorAcc, initiatorPos, offerTyp
 
 // ─────────────────────────────────────────────────────────────
 // AKSEPTE yon echanj
+// ✅ Apre echanj: update balans — ki monte peye, ki desann resevwa
 // ─────────────────────────────────────────────────────────────
 async function acceptExchange(tenantId, exchangeId, acceptorAccountId) {
   const exchange = await prisma.solPositionExchange.findFirst({
@@ -198,7 +204,18 @@ async function acceptExchange(tenantId, exchangeId, acceptorAccountId) {
   }
   if (exchange.initiatorId === acceptorAccountId) throw new Error('Pa ka aksepte pwòp ofri ou.')
 
-  // Jwenn pozisyon acceptor — sol_member_positions oswa solMemberAccount
+  // ✅ Bloke acceptor si deja touche
+  const acceptorAccCheck = await prisma.solMemberAccount.findFirst({ where: { id: acceptorAccountId } })
+  if (acceptorAccCheck?.memberId) {
+    const acceptorMember = await prisma.sabotayMember.findUnique({ where: { id: acceptorAccCheck.memberId } })
+    if (acceptorMember?.hasWon) throw new Error('Ou deja touche men ou a. Pa ka fè echanj.')
+  }
+
+  if (exchange.targetId && exchange.targetId !== acceptorAccountId) {
+    throw new Error('Ofri sa a pa pou ou.')
+  }
+
+  // Jwenn pozisyon acceptor
   let acceptorMemberPos = null
   const acceptorPosRec = await prisma.solMemberPosition.findFirst({
     where:   { accountId: acceptorAccountId, planId: exchange.planId, status: 'active' },
@@ -207,36 +224,38 @@ async function acceptExchange(tenantId, exchangeId, acceptorAccountId) {
   if (acceptorPosRec) {
     acceptorMemberPos = acceptorPosRec.memberPosition
   } else {
-    const acceptorAccRec = await prisma.solMemberAccount.findFirst({
-      where: { id: acceptorAccountId }
-    })
-    acceptorMemberPos = acceptorAccRec?.memberPosition
+    const accRec = await prisma.solMemberAccount.findFirst({ where: { id: acceptorAccountId } })
+    acceptorMemberPos = accRec?.memberPosition
   }
   if (!acceptorMemberPos) throw new Error('Ou pa nan plan sa a.')
 
-  if (exchange.targetId && exchange.targetId !== acceptorAccountId) {
-    throw new Error('Ofri sa a pa pou ou.')
-  }
-
-  const { feePct, feeAdminPct, planAmount } = await getPlanExchangeConfig(exchange.planId)
+  // Kalkile frè ak montant fikse
+  const { feeFixed, feeAdminFixed } = await getPlanExchangeConfig(exchange.planId)
   const posDiff = Math.abs(exchange.initiatorPos - acceptorMemberPos)
-  const feeCalc = calcFee(posDiff, planAmount, 0, feePct, feeAdminPct)
+  const feeCalc = calcFee(posDiff, feeFixed, feeAdminFixed)
 
   const newInitiatorPos = acceptorMemberPos
   const newTargetPos    = exchange.initiatorPos
 
+  // ✅ Detèmine ki moun ki monte vs desann
+  // Moun ki monte (pran plas pi devan = piti nimewo) → PEYE frè
+  // Moun ki desann (bay plas pi devan) → RESEVWA pati frè
+  const initiatorMonte = newInitiatorPos < exchange.initiatorPos
+  const initiatorBalanceDelta = initiatorMonte ? -feeCalc.feeAmount   : feeCalc.feeSellerAmt
+  const acceptorBalanceDelta  = initiatorMonte ?  feeCalc.feeSellerAmt : -feeCalc.feeAmount
+
   await prisma.$transaction(async (tx) => {
+    // 1. Mete ajou SolMemberPosition
     await tx.solMemberPosition.updateMany({
       where: { accountId: exchange.initiatorId, planId: exchange.planId, memberPosition: exchange.initiatorPos },
       data:  { memberPosition: newInitiatorPos }
     })
-
     await tx.solMemberPosition.updateMany({
       where: { accountId: acceptorAccountId, planId: exchange.planId, memberPosition: acceptorMemberPos },
       data:  { memberPosition: newTargetPos }
     })
 
-    // Mete ajou sabotayMember tou
+    // 2. Mete ajou SabotayMember
     const initiatorMemRec = await tx.solMemberPosition.findFirst({
       where: { accountId: exchange.initiatorId, planId: exchange.planId, memberPosition: newInitiatorPos }
     })
@@ -256,6 +275,17 @@ async function acceptExchange(tenantId, exchangeId, acceptorAccountId) {
       })
     }
 
+    // 3. ✅ Mete ajou balans kont manm yo
+    await tx.solMemberAccount.updateMany({
+      where: { id: exchange.initiatorId },
+      data:  { balance: { increment: initiatorBalanceDelta } }
+    })
+    await tx.solMemberAccount.updateMany({
+      where: { id: acceptorAccountId },
+      data:  { balance: { increment: acceptorBalanceDelta } }
+    })
+
+    // 4. Mete ajou echanj la
     await tx.solPositionExchange.update({
       where: { id: exchangeId },
       data: {
@@ -281,13 +311,13 @@ async function acceptExchange(tenantId, exchangeId, acceptorAccountId) {
   await Promise.all([
     solPushSvc.sendToSolMember(initiatorAcc?.memberId, {
       title: '✅ Echanj Aksepte!',
-      body:  `${acceptorAcc?.memberName} aksepte echanj la. Ou pase Men #${exchange.initiatorPos} → Men #${newInitiatorPos}. Frè vendè: ${feeCalc.feeSellerAmt.toLocaleString('fr-HT')} HTG`,
+      body:  `${acceptorAcc?.memberName} aksepte echanj la. Ou pase Men #${exchange.initiatorPos} → Men #${newInitiatorPos}. ${initiatorMonte ? `Ou peye: ${feeCalc.feeAmount.toLocaleString('fr-HT')} HTG` : `Ou resevwa: ${feeCalc.feeSellerAmt.toLocaleString('fr-HT')} HTG`}`,
       tag:   `exchange-done-${exchangeId}`,
       data:  { url: '/sol/dashboard' },
     }).catch(() => {}),
     solPushSvc.sendToSolMember(acceptorAcc?.memberId, {
       title: '✅ Echanj Aksepte!',
-      body:  `Ou pase Men #${acceptorMemberPos} → Men #${newTargetPos}. Frè ou peye: ${feeCalc.feeAmount.toLocaleString('fr-HT')} HTG`,
+      body:  `Ou pase Men #${acceptorMemberPos} → Men #${newTargetPos}. ${!initiatorMonte ? `Ou peye: ${feeCalc.feeAmount.toLocaleString('fr-HT')} HTG` : `Ou resevwa: ${feeCalc.feeSellerAmt.toLocaleString('fr-HT')} HTG`}`,
       tag:   `exchange-done2-${exchangeId}`,
       data:  { url: '/sol/dashboard' },
     }).catch(() => {}),
@@ -329,7 +359,7 @@ async function rejectExchange(tenantId, exchangeId, rejectorAccountId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// JWENN ofri piblik yo nan yon plan
+// JWENN ofri piblik
 // ─────────────────────────────────────────────────────────────
 async function getPublicOffers(tenantId, planId, viewerAccountId) {
   const offers = await prisma.solPositionExchange.findMany({
@@ -348,7 +378,7 @@ async function getPublicOffers(tenantId, planId, viewerAccountId) {
       where:  { id: o.initiatorId },
       select: { memberName: true, memberPhone: true }
     })
-    const { feePct, feeAdminPct, planAmount } = await getPlanExchangeConfig(planId)
+    const { feeFixed, feeAdminFixed } = await getPlanExchangeConfig(planId)
 
     let feePreview = null
     if (viewerAccountId && viewerAccountId !== o.initiatorId) {
@@ -356,13 +386,12 @@ async function getPublicOffers(tenantId, planId, viewerAccountId) {
         where:   { accountId: viewerAccountId, planId, status: 'active' },
         orderBy: { memberPosition: 'asc' }
       })
-      const viewerAcc = await prisma.solMemberAccount.findFirst({
-        where: { id: viewerAccountId }
-      })
+      const viewerAcc = await prisma.solMemberAccount.findFirst({ where: { id: viewerAccountId } })
       const viewerPos = viewerPosRec?.memberPosition ?? viewerAcc?.memberPosition
+
       if (viewerPos) {
         const diff = Math.abs(o.initiatorPos - viewerPos)
-        feePreview = calcFee(diff, planAmount, 0, feePct, feeAdminPct)
+        feePreview = calcFee(diff, feeFixed, feeAdminFixed)
         feePreview.viewerCurrentPos = viewerPos
       }
     }
@@ -374,13 +403,12 @@ async function getPublicOffers(tenantId, planId, viewerAccountId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// JWENN echanj pou yon manm
+// JWENN echanj manm
 // ─────────────────────────────────────────────────────────────
 async function getMemberExchanges(tenantId, accountId, planId) {
   return prisma.solPositionExchange.findMany({
     where: {
-      tenantId,
-      planId,
+      tenantId, planId,
       OR: [{ initiatorId: accountId }, { targetId: accountId }],
     },
     orderBy: { createdAt: 'desc' },
@@ -408,6 +436,7 @@ async function getAdminExchanges(tenantId, planId, params = {}) {
   return { exchanges, total }
 }
 
+// ✅ Konfigirasyon frè — kounye a stocke HTG fikse (reutilize kolòn yo)
 async function updateExchangeConfig(tenantId, planId, userId, config) {
   const { exchangeFeePct, exchangeFeeAdminPct } = config
   const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
