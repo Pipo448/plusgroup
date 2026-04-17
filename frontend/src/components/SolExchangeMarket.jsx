@@ -303,8 +303,8 @@ export default function SolExchangeMarket({ token, member, plan }) {
     expired:   { color: D.muted,  bg: 'rgba(255,255,255,0.04)', label: '⌛ Ekspire' },
   }
 
-  const marketOffers    = offers.filter(o => o.initiatorId !== myAccountId)
-  const myPendingOffers = offers.filter(o => o.targetId === myAccountId && o.status === 'pending')
+  const marketOffers    = offers  // pa filtre ankò
+const myPendingOffers = offers.filter(o => o.targetId === myAccountId && o.status === 'pending')
 
   return (
     <div>
@@ -338,74 +338,112 @@ export default function SolExchangeMarket({ token, member, plan }) {
 
       {/* ── TAB MACHE ── */}
       {activeTab === 'market' && (
-        <>
-          <button onClick={() => setShowCreate(true)}
-            style={{ width:'100%', padding:'12px', borderRadius:12, border:`1px solid ${D.gold}40`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:800, fontSize:13, marginBottom:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontFamily:'inherit' }}>
-            📢 Pibliye Ofri Echanj Mwen
-          </button>
-
-          {loading ? (
-            <div style={{ textAlign:'center', padding:30, color:D.muted, fontSize:12 }}>Ap chaje mache a...</div>
-          ) : marketOffers.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'30px 0', color:D.muted }}>
-              <div style={{ fontSize:32, marginBottom:8 }}>🏪</div>
-              <p style={{ margin:0, fontSize:12 }}>Pa gen ofri disponib kounye a.</p>
-              <p style={{ margin:'4px 0 0', fontSize:11, opacity:0.7 }}>Ou ka pibliye pa ou an.</p>
+  <>
+    {/* ✅ BANNER — Pwòp ofri ou k ap tann */}
+    {myExchanges.filter(ex => ex.status === 'pending' && ex.initiatorId === myAccountId).map(ex => (
+      <div key={ex.id} style={{ background:'linear-gradient(135deg,rgba(201,168,76,0.18),rgba(201,168,76,0.06))', border:`2px solid ${D.gold}60`, borderRadius:14, padding:'14px 16px', marginBottom:14 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <span style={{ fontSize:18 }}>📢</span>
+            <div>
+              <div style={{ fontSize:13, fontWeight:800, color:D.gold }}>Ofri Ou K Ap Tann Repons</div>
+              <div style={{ fontSize:11, color:D.muted }}>Men #{ex.initiatorPos} • {ex.offerType === 'buy' ? '⬆️ Vle Monte' : '⬇️ Vle Desann'}</div>
             </div>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {marketOffers.map(offer => {
-                const isBuy     = offer.offerType === 'buy'
-                const typeColor = isBuy ? D.green : D.orange
+          </div>
+          <span style={{ fontSize:10, padding:'3px 8px', borderRadius:10, background:D.orangeBg, color:D.orange, fontWeight:700 }}>⏳ K ap tann</span>
+        </div>
+        {ex.notes && (
+          <p style={{ fontSize:11, color:D.muted, margin:'0 0 10px', fontStyle:'italic', background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'6px 10px' }}>
+            💬 "{ex.notes}"
+          </p>
+        )}
+        <button onClick={() => handleReject(ex.id)}
+          style={{ width:'100%', padding:'8px', borderRadius:8, border:'none', background:D.redBg, color:D.red, fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+          🚫 Anile Ofri Sa
+        </button>
+      </div>
+    ))}
 
-                return (
-                  <div key={offer.id} style={{ background:D.card, border:`1px solid ${D.border}`, borderRadius:12, padding:'13px 14px' }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
-                      <div>
-                        <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
-                          <span style={{ fontSize:14, fontWeight:800, color:D.text }}>{offer.initiatorName}</span>
-                          <span style={{ fontSize:9, padding:'2px 7px', borderRadius:10, fontWeight:700, background:`${typeColor}15`, color:typeColor }}>
-                            {isBuy ? '⬆️ Vle Monte' : '⬇️ Vle Desann'}
-                          </span>
-                        </div>
-                        <div style={{ fontSize:12, color:D.muted }}>
-                          Men Aktyèl: <strong style={{ color:D.gold, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong>
-                          {offer.feePreview && (
-                            <span style={{ marginLeft:8 }}>→ Ou ap al: <strong style={{ color:D.blue, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong></span>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ textAlign:'right', flexShrink:0 }}>
-                        <div style={{ fontSize:9, color:D.muted }}>Frè pou Ou</div>
-                        <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:14, color:D.red }}>
-                          {offer.feePreview ? `${fmt(offer.feePreview.feeAmount)} HTG` : '—'}
-                        </div>
-                      </div>
-                    </div>
+    <button onClick={() => setShowCreate(true)}
+      style={{ width:'100%', padding:'12px', borderRadius:12, border:`1px solid ${D.gold}40`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:800, fontSize:13, marginBottom:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontFamily:'inherit' }}>
+      📢 Pibliye Ofri Echanj Mwen
+    </button>
 
-                    {offer.notes && (
-                      <p style={{ fontSize:11, color:D.muted, margin:'0 0 10px', fontStyle:'italic', background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'6px 10px' }}>
-                        💬 "{offer.notes}"
-                      </p>
-                    )}
+    {loading ? (
+      <div style={{ textAlign:'center', padding:30, color:D.muted, fontSize:12 }}>Ap chaje mache a...</div>
+    ) : marketOffers.length === 0 ? (
+      <div style={{ textAlign:'center', padding:'30px 0', color:D.muted }}>
+        <div style={{ fontSize:32, marginBottom:8 }}>🏪</div>
+        <p style={{ margin:0, fontSize:12 }}>Pa gen ofri disponib kounye a.</p>
+        <p style={{ margin:'4px 0 0', fontSize:11, opacity:0.7 }}>Ou ka pibliye pa ou an.</p>
+      </div>
+    ) : (
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {marketOffers.map(offer => {
+          const isBuy      = offer.offerType === 'buy'
+          const typeColor  = isBuy ? D.green : D.orange
+          const isMyOffer  = offer.initiatorId === myAccountId  // ✅ pwòp ofri ou
 
-                    {offer.feePreview ? (
-                      <button onClick={() => setConfirmOffer(offer)}
-                        style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
-                        🔄 Aksepte — Echanje Men #{myPos} ak Men #{offer.initiatorPos}
-                      </button>
-                    ) : (
-                      <div style={{ fontSize:11, color:D.muted, textAlign:'center', padding:'8px', background:'rgba(255,255,255,0.03)', borderRadius:8 }}>
-                        Menm pozisyon oswa pa ka echanje
-                      </div>
+          return (
+            <div key={offer.id} style={{ background:D.card, border:`1px solid ${isMyOffer ? D.gold+'60' : D.border}`, borderRadius:12, padding:'13px 14px', opacity: isMyOffer ? 0.85 : 1 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:3 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color: isMyOffer ? D.gold : D.text }}>
+                      {isMyOffer ? '👤 Ofri Ou' : offer.initiatorName}
+                    </span>
+                    <span style={{ fontSize:9, padding:'2px 7px', borderRadius:10, fontWeight:700, background:`${typeColor}15`, color:typeColor }}>
+                      {isBuy ? '⬆️ Vle Monte' : '⬇️ Vle Desann'}
+                    </span>
+                    {isMyOffer && (
+                      <span style={{ fontSize:9, padding:'2px 7px', borderRadius:10, fontWeight:700, background:D.goldDim, color:D.gold, border:`1px solid ${D.border}` }}>
+                        ⭐ Pa Ou
+                      </span>
                     )}
                   </div>
+                  <div style={{ fontSize:12, color:D.muted }}>
+                    Men Aktyèl: <strong style={{ color:D.gold, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong>
+                    {!isMyOffer && offer.feePreview && (
+                      <span style={{ marginLeft:8 }}>→ Ou ap al: <strong style={{ color:D.blue, fontFamily:'monospace' }}>#{offer.initiatorPos}</strong></span>
+                    )}
+                  </div>
+                </div>
+                {!isMyOffer && (
+                  <div style={{ textAlign:'right', flexShrink:0 }}>
+                    <div style={{ fontSize:9, color:D.muted }}>Frè pou Ou</div>
+                    <div style={{ fontFamily:'monospace', fontWeight:900, fontSize:14, color:D.red }}>
+                      {offer.feePreview ? `${fmt(offer.feePreview.feeAmount)} HTG` : '—'}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {offer.notes && (
+                <p style={{ fontSize:11, color:D.muted, margin:'0 0 10px', fontStyle:'italic', background:'rgba(255,255,255,0.03)', borderRadius:8, padding:'6px 10px' }}>
+                  💬 "{offer.notes}"
+                </p>
+              )}
+
+              {/* Bouton aksepte — sèlman si pa pwòp ofri ou */}
+              {!isMyOffer && (
+                offer.feePreview ? (
+                  <button onClick={() => setConfirmOffer(offer)}
+                    style={{ width:'100%', padding:'10px', borderRadius:10, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                    🔄 Aksepte — Echanje Men #{myPos} ak Men #{offer.initiatorPos}
+                  </button>
+                ) : (
+                  <div style={{ fontSize:11, color:D.muted, textAlign:'center', padding:'8px', background:'rgba(255,255,255,0.03)', borderRadius:8 }}>
+                    Menm pozisyon oswa pa ka echanje
+                  </div>
                 )
-              })}
+              )}
             </div>
-          )}
-        </>
-      )}
+          )
+        })}
+      </div>
+    )}
+  </>
+)}
 
       {/* ── TAB ISTWA ── */}
       {activeTab === 'my' && (
