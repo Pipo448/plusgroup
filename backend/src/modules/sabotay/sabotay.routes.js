@@ -188,4 +188,28 @@ router.get('/admin-cash', async (req, res) => {
   }
 })
 
+// PATCH /sabotay/plans/:planId/exchange-config
+router.patch('/plans/:planId/exchange-config', async (req, res) => {
+  try {
+    const { planId } = req.params
+    const tenantId   = req.tenant.id
+    const { exchangeFeePct, exchangeFeeAdminPct } = req.body
+
+    const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+    if (!plan) return res.status(404).json({ message: 'Plan pa jwenn.' })
+
+    const updated = await prisma.sabotayPlan.update({
+      where: { id: planId },
+      data: {
+        ...(exchangeFeePct      !== undefined && { exchangeFeePct:      Number(exchangeFeePct) }),
+        ...(exchangeFeeAdminPct !== undefined && { exchangeFeeAdminPct: Number(exchangeFeeAdminPct) }),
+      }
+    })
+    return res.json({ success: true, plan: updated })
+  } catch (e) {
+    console.error('[EXCHANGE CONFIG]', e)
+    return res.status(500).json({ message: e.message })
+  }
+})
+
 module.exports = router

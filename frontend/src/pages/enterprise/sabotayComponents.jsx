@@ -1497,10 +1497,13 @@ export function ExchangeTab({ plan }) {
   const qc = useQueryClient()
 
   const saveConfig = useMutation({
-    mutationFn: () => fetch(`${API_URL}/sol/admin/exchange/${plan.id}/config`, { method: 'PATCH', headers: authH, body: JSON.stringify(cfg) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries(['sabotay-plans']); setShowConfig(false); toast.success('✅ Konfigirasyon sove!') },
-    onError: e => toast.error(e.message),
-  })
+  mutationFn: () => apiFetch(`/sabotay/plans/${plan.id}/exchange-config`, {
+    method: 'PATCH',
+    body: JSON.stringify(cfg)
+  }),
+  onSuccess: () => { qc.invalidateQueries(['sabotay-plans']); setShowConfig(false); toast.success('✅ Konfigirasyon sove!') },
+  onError: e => toast.error(e.message),
+})
 
   const STATUS = {
     pending:  { label: 'Annatandan', color: D.orange, bg: D.orangeBg, icon: '⏳' },
