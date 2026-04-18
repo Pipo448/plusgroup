@@ -138,6 +138,7 @@ model SolMemberAccount {
   fines                Json                  @default("{}")
   plainPassword        String?               @map("plain_password")
   status               String                @default("active")
+  balance              Float                 @default(0)          
   sol_member_positions SolMemberPosition[]
   exchangesInitiated   SolPositionExchange[] @relation("ExchangeInitiator")
   exchangesReceived    SolPositionExchange[] @relation("ExchangeTarget")

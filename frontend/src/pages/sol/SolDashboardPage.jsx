@@ -384,12 +384,12 @@ function SolCalendar({ dates, member, plan, today, allSlots }) {
           const isPast = ds < today, isWinDay = winDatesSet.has(ds)
           let bg = 'transparent', border = 'transparent', color = isPast ? 'rgba(255,255,255,0.1)' : D.muted
           if      (isPayDay && paid && timing === 'early') { bg = 'rgba(0,208,132,0.15)'; border = 'rgba(0,208,132,0.4)'; color = '#00d084' }
-else if (isPayDay && paid && timing === 'late')  { bg = D.orangeBg; border = `${D.orange}40`; color = D.orange }
-else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
-else if (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
-else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
-else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
-else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
+          else if (isPayDay && paid && timing === 'late')  { bg = D.orangeBg; border = `${D.orange}40`; color = D.orange }
+          else if (isPayDay && paid)                       { bg = D.greenBg; border = `${D.green}40`; color = D.green }
+          else if (isToday)                                { bg = D.goldDim; border = D.gold; color = D.gold }
+          else if (isWinDay)                               { bg = 'rgba(34,197,94,0.15)'; border = `${D.green}50`; color = D.green }
+          else if (isPayDay && isPast)                     { bg = D.redBg; border = `${D.red}30`; color = D.red }
+          else if (isPayDay)                               { bg = D.blueBg; border = 'rgba(96,165,250,0.3)'; color = D.blue }
           return (
             <div key={day} className="sol-cal-day" style={{ background: bg, border: `1px solid ${border}` }}>
               <span style={{ fontSize: 10, fontWeight: isPayDay || isToday ? 800 : 400, color, fontFamily: isPayDay ? 'DM Mono, monospace' : 'inherit' }}>{day}</span>
@@ -429,24 +429,21 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
         const h = Math.floor(diffToDue / 3600000)
         const m = Math.floor((diffToDue % 3600000) / 60000)
         const s = Math.floor((diffToDue % 60000) / 1000)
-        setTimeLeft(
-          daysUntil > 0
-            ? `${daysUntil}j ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-            : `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-        )
+        setTimeLeft(daysUntil > 0
+          ? `${daysUntil}j ${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+          : `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
         setStatus('pending')
       } else if (diffToEnd > 0) {
         const h = Math.floor(diffToEnd / 3600000)
         const m = Math.floor((diffToEnd % 3600000) / 60000)
         const s = Math.floor((diffToEnd % 60000) / 1000)
-        setTimeLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`)
+        setTimeLeft(`${String(h).padStart(2,'00')}:${String(m).padStart(2,'00')}:${String(s).padStart(2,'00')}`)
         setStatus('due')
       } else {
         setTimeLeft('00:00:00')
         setStatus('late')
       }
     }
-
     tick()
     const iv = setInterval(tick, 1000)
     return () => clearInterval(iv)
@@ -478,22 +475,16 @@ function PaymentCountdown({ nextUnpaidDate, plan, daysUntil }) {
   )
 }
 
-// ✅ NOUVO — Countdown blokaj (dat pase pa peye)
 function BlockingCountdown({ nextUnpaidDate, plan, lastPaidDate }) {
   const [timeLeft, setTimeLeft] = useState('')
 
   useEffect(() => {
     const tick = () => {
       const now = new Date()
-      // Blokaj = minui nan dat ki pase a (UTC-5 → +5h UTC)
       const dateParts = nextUnpaidDate.split('-').map(Number)
       const blockTime = new Date(Date.UTC(dateParts[0], dateParts[1]-1, dateParts[2]+1, 5, 0, 0))
       const diff = blockTime - now
-
-      if (diff <= 0) {
-        setTimeLeft('Kont ou bloke!')
-        return
-      }
+      if (diff <= 0) { setTimeLeft('Kont ou bloke!'); return }
       const h = Math.floor(diff / 3600000)
       const m = Math.floor((diff % 3600000) / 60000)
       const s = Math.floor((diff % 60000) / 1000)
@@ -505,33 +496,18 @@ function BlockingCountdown({ nextUnpaidDate, plan, lastPaidDate }) {
   }, [nextUnpaidDate])
 
   return (
-    <div className="sol-alert" style={{
-      background: D.redBg, border: `1px solid ${D.red}40`,
-      flexDirection: 'column', alignItems: 'flex-start', gap: 10,
-    }}>
+    <div className="sol-alert" style={{ background: D.redBg, border: `1px solid ${D.red}40`, flexDirection: 'column', alignItems: 'flex-start', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <Bell size={22} style={{ color: D.red, flexShrink: 0 }} />
         <div>
-          <p style={{ fontSize: 13, color: D.red, fontWeight: 800, margin: '0 0 2px' }}>
-            ⚠️ Pèman {nextUnpaidDate.split('-').reverse().join('/')} pa peye!
-          </p>
-          <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
-            Dènye pèman ou: {lastPaidDate?.split('-').reverse().join('/') || '—'}
-          </p>
+          <p style={{ fontSize: 13, color: D.red, fontWeight: 800, margin: '0 0 2px' }}>⚠️ Pèman {nextUnpaidDate.split('-').reverse().join('/')} pa peye!</p>
+          <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Dènye pèman ou: {lastPaidDate?.split('-').reverse().join('/') || '—'}</p>
         </div>
       </div>
       <div style={{ width: '100%', background: 'rgba(239,68,68,0.08)', borderRadius: 12, padding: '12px 16px' }}>
-        <p style={{ fontSize: 10, color: D.red, fontWeight: 700, margin: '0 0 6px',
-          textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          Tan avan blokaj:
-        </p>
-        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 32, fontWeight: 900,
-          color: D.red, margin: 0, letterSpacing: '0.05em' }}>
-          {timeLeft}
-        </p>
-        <p style={{ fontSize: 11, color: D.muted, margin: '6px 0 0' }}>
-          Peye imedyatman pou evite blokaj kont ou!
-        </p>
+        <p style={{ fontSize: 10, color: D.red, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tan avan blokaj:</p>
+        <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 32, fontWeight: 900, color: D.red, margin: 0, letterSpacing: '0.05em' }}>{timeLeft}</p>
+        <p style={{ fontSize: 11, color: D.muted, margin: '6px 0 0' }}>Peye imedyatman pou evite blokaj kont ou!</p>
       </div>
     </div>
   )
@@ -540,123 +516,50 @@ function BlockingCountdown({ nextUnpaidDate, plan, lastPaidDate }) {
 function PerformanceMessage({ scoreData }) {
   const [visible, setVisible] = useState(true)
   if (!scoreData || !visible) return null
-
   const isChampion = scoreData.early >= 5
   const isLate     = scoreData.late >= 3 && scoreData.early === 0
-
   if (!isChampion && !isLate) return null
 
   if (isChampion) return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(0,208,132,0.12), rgba(201,168,76,0.10))',
-      border: '1px solid rgba(0,208,132,0.35)',
-      borderRadius: 20, padding: '20px 22px', marginBottom: 20,
-      position: 'relative', overflow: 'hidden',
-      animation: 'fadeUp 0.5s ease',
-    }}>
-      {/* Dekorasyon */}
+    <div style={{ background: 'linear-gradient(135deg, rgba(0,208,132,0.12), rgba(201,168,76,0.10))', border: '1px solid rgba(0,208,132,0.35)', borderRadius: 20, padding: '20px 22px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
       <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌸</div>
       <div style={{ position: 'absolute', bottom: -10, left: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌺</div>
-
-      <button onClick={() => setVisible(false)} style={{
-        position: 'absolute', top: 10, right: 12,
-        background: 'none', border: 'none', color: '#00d084',
-        cursor: 'pointer', fontSize: 16, opacity: 0.6,
-      }}>×</button>
-
+      <button onClick={() => setVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: '#00d084', cursor: 'pointer', fontSize: 16, opacity: 0.6 }}>×</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 36, lineHeight: 1 }}>🌸</div>
         <div>
-          <p style={{
-            fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900,
-            color: '#00d084', margin: '0 0 2px',
-          }}>
-            🏆 Bravo! Ou se yon Chanpyon Sòl!
-          </p>
-          <p style={{ fontSize: 11, color: 'rgba(0,208,132,0.7)', margin: 0 }}>
-            {scoreData.early} pèman bonè • Pèfòmans ekselan
-          </p>
+          <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900, color: '#00d084', margin: '0 0 2px' }}>🏆 Bravo! Ou se yon Chanpyon Sòl!</p>
+          <p style={{ fontSize: 11, color: 'rgba(0,208,132,0.7)', margin: 0 }}>{scoreData.early} pèman bonè • Pèfòmans ekselan</p>
         </div>
       </div>
-
-      <p style={{
-        fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0,
-        lineHeight: 1.8, fontStyle: 'italic',
-      }}>
-        🌺 <strong style={{ color: '#00d084' }}>Felisitasyon!</strong> Ou bay nou kè kontan anpil —
-        ou peye <strong style={{ color: '#E8C87A' }}>{scoreData.early} fwa bonè</strong> deja!
-        Sa montre ou se yon moun serye e ki gen konviksyon ak responsabilite.
-        🌸 <strong style={{ color: '#00d084' }}>Kontinye konsa</strong> — plis ou peye bonè,
-        plis ou bati konfyans ou ak avantaj ou nan Sòl la.
-        Nou fyè de ou! 🌟
+      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: 1.8, fontStyle: 'italic' }}>
+        🌺 <strong style={{ color: '#00d084' }}>Felisitasyon!</strong> Ou bay nou kè kontan anpil — ou peye <strong style={{ color: '#E8C87A' }}>{scoreData.early} fwa bonè</strong> deja! Sa montre ou se yon moun serye e ki gen konviksyon ak responsabilite. 🌸 <strong style={{ color: '#00d084' }}>Kontinye konsa</strong> — plis ou peye bonè, plis ou bati konfyans ou ak avantaj ou nan Sòl la. Nou fyè de ou! 🌟
       </p>
-
-      <div style={{
-        marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap',
-      }}>
+      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {['⚡ Disiplin', '🌟 Fyète', '💪 Responsabilite'].map(tag => (
-          <span key={tag} style={{
-            fontSize: 10, fontWeight: 700, color: '#00d084',
-            background: 'rgba(0,208,132,0.12)', border: '1px solid rgba(0,208,132,0.25)',
-            borderRadius: 20, padding: '3px 10px',
-          }}>{tag}</span>
+          <span key={tag} style={{ fontSize: 10, fontWeight: 700, color: '#00d084', background: 'rgba(0,208,132,0.12)', border: '1px solid rgba(0,208,132,0.25)', borderRadius: 20, padding: '3px 10px' }}>{tag}</span>
         ))}
       </div>
     </div>
   )
 
   return (
-    <div style={{
-      background: 'linear-gradient(135deg, rgba(239,68,68,0.10), rgba(245,158,11,0.08))',
-      border: '1px solid rgba(239,68,68,0.30)',
-      borderRadius: 20, padding: '20px 22px', marginBottom: 20,
-      position: 'relative', overflow: 'hidden',
-      animation: 'fadeUp 0.5s ease',
-    }}>
+    <div style={{ background: 'linear-gradient(135deg, rgba(239,68,68,0.10), rgba(245,158,11,0.08))', border: '1px solid rgba(239,68,68,0.30)', borderRadius: 20, padding: '20px 22px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
       <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 60, opacity: 0.07, userSelect: 'none' }}>⚠️</div>
-
-      <button onClick={() => setVisible(false)} style={{
-        position: 'absolute', top: 10, right: 12,
-        background: 'none', border: 'none', color: D.red,
-        cursor: 'pointer', fontSize: 16, opacity: 0.6,
-      }}>×</button>
-
+      <button onClick={() => setVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: D.red, cursor: 'pointer', fontSize: 16, opacity: 0.6 }}>×</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 36, lineHeight: 1 }}>⚠️</div>
         <div>
-          <p style={{
-            fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900,
-            color: D.red, margin: '0 0 2px',
-          }}>
-            Atansyon — Pèman Reta!
-          </p>
-          <p style={{ fontSize: 11, color: 'rgba(239,68,68,0.7)', margin: 0 }}>
-            {scoreData.late} pèman reta • Sa ap afekte pèfòmans ou
-          </p>
+          <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 16, fontWeight: 900, color: D.red, margin: '0 0 2px' }}>Atansyon — Pèman Reta!</p>
+          <p style={{ fontSize: 11, color: 'rgba(239,68,68,0.7)', margin: 0 }}>{scoreData.late} pèman reta • Sa ap afekte pèfòmans ou</p>
         </div>
       </div>
-
-      <p style={{
-        fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0,
-        lineHeight: 1.8,
-      }}>
-        ⏰ Nou remake ou gen <strong style={{ color: D.orange }}>{scoreData.late} pèman reta</strong>.
-        pèman reta ka <strong style={{ color: D.red }}>bloke kont ou</strong> epi
-        afekte chans ou pou jwenn pi bon pozisyon nan Sòl la.
-        💡 <strong style={{ color: D.orange }}>Chak pèman bonè</strong> ba ou pwen,
-        epi pwen yo ouvri pòt pou plis avantaj.
-        Fè efò — <strong style={{ color: '#E8C87A' }}>ou kapab fè plis efò!</strong> 🙏
+      <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.8 }}>
+        ⏰ Nou remake ou gen <strong style={{ color: D.orange }}>{scoreData.late} pèman reta</strong>. pèman reta ka <strong style={{ color: D.red }}>bloke kont ou</strong> epi afekte chans ou pou jwenn pi bon pozisyon nan Sòl la. 💡 <strong style={{ color: D.orange }}>Chak pèman bonè</strong> ba ou pwen, epi pwen yo ouvri pòt pou plis avantaj. Fè efò — <strong style={{ color: '#E8C87A' }}>ou kapab fè plis efò!</strong> 🙏
       </p>
-
-      <div style={{
-        marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap',
-      }}>
+      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {['📅 Peye Bonè', '⬆️ Amelyore Pèfòmans', '🔓 Evite Blokaj'].map(tag => (
-          <span key={tag} style={{
-            fontSize: 10, fontWeight: 700, color: D.orange,
-            background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: 20, padding: '3px 10px',
-          }}>{tag}</span>
+          <span key={tag} style={{ fontSize: 10, fontWeight: 700, color: D.orange, background: 'rgba(245,158,11,0.10)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 20, padding: '3px 10px' }}>{tag}</span>
         ))}
       </div>
     </div>
@@ -668,88 +571,55 @@ function SolChat({ token, plan, member, onNewMessage }) {
   const [input,    setInput]    = useState('')
   const [sending,  setSending]  = useState(false)
   const [loading,  setLoading]  = useState(true)
-  const bottomRef   = useRef(null)
-  const prevCountRef = useRef(0)  // ✅ Track kantite mesaj anvan
+  const bottomRef    = useRef(null)
+  const prevCountRef = useRef(0)
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(`${SOL_API}/api/sol/chat/${plan.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      const res = await fetch(`${SOL_API}/api/sol/chat/${plan.id}`, { headers: { Authorization: `Bearer ${token}` } })
       const data = await res.json()
       const newMsgs = data.messages || []
-
-      // ✅ Si gen nouvo mesaj — notifye paran pou badge
       if (newMsgs.length > prevCountRef.current && prevCountRef.current > 0) {
-        const diff = newMsgs.length - prevCountRef.current
-        onNewMessage?.(diff)
+        onNewMessage?.(newMsgs.length - prevCountRef.current)
       }
       prevCountRef.current = newMsgs.length
-
       setMessages(newMsgs)
     } catch {}
     finally { setLoading(false) }
   }, [plan.id, token, onNewMessage])
 
-  useEffect(() => {
-    fetchMessages()
-    const iv = setInterval(fetchMessages, 5000)
-    return () => clearInterval(iv)
-  }, [fetchMessages])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useEffect(() => { fetchMessages(); const iv = setInterval(fetchMessages, 5000); return () => clearInterval(iv) }, [fetchMessages])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   const send = async () => {
     if (!input.trim() || sending) return
     setSending(true)
     try {
       const res = await fetch(`${SOL_API}/api/sol/chat/${plan.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: input.trim() })
       })
-      if (res.ok) {
-        setInput('')
-        fetchMessages()
-      }
+      if (res.ok) { setInput(''); fetchMessages() }
     } catch {}
     finally { setSending(false) }
-  }
-  const handleKey = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
 
   const fmtTime = (d) => new Date(d).toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
   const fmtDate = (d) => new Date(d).toLocaleDateString('fr-HT')
-
   let lastDate = null
 
   return (
     <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: 520 }}>
-
-      {/* Tèt chat */}
       <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: D.text }}>
-            💬 Chat Sol — {plan.name}
-          </span>
-          <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>
-            Diskisyon anonymous pami manm yo
-          </p>
+          <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 14, fontWeight: 700, color: D.text }}>💬 Chat Sol — {plan.name}</span>
+          <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>Diskisyon anonymous pami manm yo</p>
         </div>
-        <button onClick={fetchMessages} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <RefreshCw size={12} />
-        </button>
+        <button onClick={fetchMessages} style={{ width: 30, height: 30, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RefreshCw size={12} /></button>
       </div>
-
-      {/* Mesaj yo */}
       <div className="sol-scroll" style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 32, color: D.muted }}>
-            <div style={{ width: 24, height: 24, border: `2px solid ${D.gold}30`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} />
-          </div>
+          <div style={{ textAlign: 'center', padding: 32, color: D.muted }}><div style={{ width: 24, height: 24, border: `2px solid ${D.gold}30`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto' }} /></div>
         ) : messages.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 32, color: D.muted }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>💬</div>
@@ -757,58 +627,28 @@ function SolChat({ token, plan, member, onNewMessage }) {
             <p style={{ margin: '4px 0 0', fontSize: 11 }}>Kòmanse diskisyon an!</p>
           </div>
         ) : messages.map((msg, i) => {
-          const isMe    = msg.authorId === member.id
+          const isMe = msg.authorId === member.id
           const isAdmin = msg.isAdmin
           const msgDate = fmtDate(msg.createdAt)
           const showDate = msgDate !== lastDate
           lastDate = msgDate
-
           return (
             <div key={msg.id}>
-              {/* Separatè dat */}
               {showDate && (
                 <div style={{ textAlign: 'center', margin: '8px 0', fontSize: 10, color: D.muted }}>
-                  <span style={{ background: D.card, padding: '2px 10px', borderRadius: 10, border: `1px solid ${D.borderSub}` }}>
-                    {msgDate}
-                  </span>
+                  <span style={{ background: D.card, padding: '2px 10px', borderRadius: 10, border: `1px solid ${D.borderSub}` }}>{msgDate}</span>
                 </div>
               )}
-
               <div style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: 8 }}>
-                {/* Avatar */}
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                  background: isAdmin ? D.goldBtn : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.08)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 800,
-                  color: isAdmin ? '#0a1222' : '#fff',
-                }}>
-                 {isAdmin ? '👑' : msg.authorName.replace('Manm #', '')}
+                <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: isAdmin ? D.goldBtn : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: isAdmin ? '#0a1222' : '#fff' }}>
+                  {isAdmin ? '👑' : msg.authorName.replace('Manm #', '')}
                 </div>
-
-                {/* Bilbòd mesaj */}
                 <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 3 }}>
-                  {!isMe && (
-                    <span style={{ fontSize: 9, color: isAdmin ? D.gold : D.muted, fontWeight: 700, marginLeft: 4 }}>
-                      {msg.authorName}
-                    </span>
-                  )}
-                  <div style={{
-                    padding: '9px 13px', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                    background: isAdmin
-                      ? 'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08))'
-                      : isMe
-                        ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)'
-                        : 'rgba(255,255,255,0.06)',
-                    border: `1px solid ${isAdmin ? D.gold+'40' : isMe ? 'transparent' : D.borderSub}`,
-                  }}>
-                    <p style={{ fontSize: 13, color: isMe ? '#fff' : D.text, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>
-                      {msg.message}
-                    </p>
+                  {!isMe && <span style={{ fontSize: 9, color: isAdmin ? D.gold : D.muted, fontWeight: 700, marginLeft: 4 }}>{msg.authorName}</span>}
+                  <div style={{ padding: '9px 13px', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: isAdmin ? 'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08))' : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.06)', border: `1px solid ${isAdmin ? D.gold+'40' : isMe ? 'transparent' : D.borderSub}` }}>
+                    <p style={{ fontSize: 13, color: isMe ? '#fff' : D.text, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>{msg.message}</p>
                   </div>
-                  <span style={{ fontSize: 9, color: D.muted, marginLeft: 4, marginRight: 4 }}>
-                    {fmtTime(msg.createdAt)}
-                  </span>
+                  <span style={{ fontSize: 9, color: D.muted, marginLeft: 4, marginRight: 4 }}>{fmtTime(msg.createdAt)}</span>
                 </div>
               </div>
             </div>
@@ -816,39 +656,11 @@ function SolChat({ token, plan, member, onNewMessage }) {
         })}
         <div ref={bottomRef} />
       </div>
-
-      {/* Input */}
       <div style={{ padding: '12px 16px', borderTop: `1px solid ${D.borderSub}`, display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <textarea
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Ekri yon mesaj... (Enter pou voye)"
-          rows={1}
-          style={{
-            flex: 1, padding: '10px 14px', borderRadius: 14,
-            border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.04)',
-            color: D.text, fontSize: 13, fontFamily: 'inherit',
-            resize: 'none', outline: 'none', lineHeight: 1.5,
-            maxHeight: 100, overflowY: 'auto',
-          }}
-        />
-        <button
-          onClick={send}
-          disabled={sending || !input.trim()}
-          style={{
-            width: 42, height: 42, borderRadius: 12, border: 'none',
-            background: input.trim() ? D.goldBtn : 'rgba(255,255,255,0.06)',
-            color: input.trim() ? '#0a1222' : D.muted,
-            cursor: input.trim() ? 'pointer' : 'default',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, transition: 'all 0.2s',
-          }}
-        >
-          {sending
-            ? <div style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            : <span style={{ fontSize: 18 }}>➤</span>
-          }
+        <textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} placeholder="Ekri yon mesaj... (Enter pou voye)" rows={1}
+          style={{ flex: 1, padding: '10px 14px', borderRadius: 14, border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.04)', color: D.text, fontSize: 13, fontFamily: 'inherit', resize: 'none', outline: 'none', lineHeight: 1.5, maxHeight: 100, overflowY: 'auto' }} />
+        <button onClick={send} disabled={sending || !input.trim()} style={{ width: 42, height: 42, borderRadius: 12, border: 'none', background: input.trim() ? D.goldBtn : 'rgba(255,255,255,0.06)', color: input.trim() ? '#0a1222' : D.muted, cursor: input.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.2s' }}>
+          {sending ? <div style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : <span style={{ fontSize: 18 }}>➤</span>}
         </button>
       </div>
     </div>
@@ -864,8 +676,6 @@ export default function SolDashboardPage() {
   const [tab, setTab] = useState('history')
   const [unreadCount, setUnreadCount] = useState(0)
   const [theme, setTheme] = useState(() => localStorage.getItem('sol_theme') || 'dark')
-
-  // ✅ ICI — apre tout useState yo
   const D = getD(theme)
 
   useEffect(() => {
@@ -920,7 +730,8 @@ export default function SolDashboardPage() {
       </div>
     </div>
   )
-if (!data) return null
+
+  if (!data) return null
   const { member, plan, tenant } = data
   if (!member || !plan) return null
 
@@ -928,32 +739,33 @@ if (!data) return null
     const now = new Date()
     return new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
   })()
-  // ✅ 1. allSlots ANVAN tout lòt kalkil
+
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
-  // ✅ 2. totalSlotCount
   const totalSlotCount = Math.max(
     data?.plan?.activeMemberCount || 0, data?.plan?.maxMembers || 0,
     allSlots.reduce((max, s) => Math.max(max, s.position), 0)
   )
 
-  // ✅ 3. Kalkil
-const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
+  const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
+  const totalPaid  = dates.filter(d => member.payments?.[d]).length
+  const totalDue   = dates.filter(d => d <= today).length
+  const amountPaid = totalPaid * plan.amount * allSlots.length
+  const amountDue  = totalDue  * plan.amount * allSlots.length
 
-// ✅ Konte dat inik — pa sòme pa men
-const totalPaid  = dates.filter(d => member.payments?.[d]).length
-const totalDue   = dates.filter(d => d <= today).length
-const amountPaid = totalPaid * plan.amount * allSlots.length
-const amountDue  = totalDue  * plan.amount * allSlots.length
-const payout     = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)  // ✅ AJOUTE
-const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+  // ✅ Payout debaz + ajisteman frè echanj
+  const payoutDebaz   = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+  const memberBalance = Number(member.balance || 0)   // ✅ Frè echanj (+ resevwa, - peye)
+  const payoutAjiste  = payoutDebaz + memberBalance    // ✅ Vrè montan manm ap touche
+
+  const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
   const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
 
   const timings = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
-    const early = timings.filter(t => t === 'early').length
+    const early  = timings.filter(t => t === 'early').length
     const onTime = timings.filter(t => t === 'onTime').length
-    const late = timings.filter(t => t === 'late').length
+    const late   = timings.filter(t => t === 'late').length
     return { score: Math.round(((early * 2 + onTime) / (timings.length * 2)) * 100), early, onTime, late }
   })() : null
 
@@ -964,15 +776,13 @@ const progress   = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
     return null
   }
 
- // ✅ Jwenn dènye dat peye a
-const lastPaidDate = [...dates].reverse().find(d => member.payments?.[d]) || null
+  const lastPaidDate   = [...dates].reverse().find(d => member.payments?.[d]) || null
+  const nextUnpaidDate = lastPaidDate
+    ? dates.find(d => d > lastPaidDate && !member.payments?.[d])
+    : dates.find(d => !member.payments?.[d])
 
-// ✅ Pwochen peman = premye dat san peman APRE dènye dat peye a
-const nextUnpaidDate = lastPaidDate
-  ? dates.find(d => d > lastPaidDate && !member.payments?.[d])
-  : dates.find(d => !member.payments?.[d]) // si poko peye ditou
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
-  const posStr = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
+  const posStr     = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
 
   const SidebarContent = () => (
     <>
@@ -985,7 +795,6 @@ const nextUnpaidDate = lastPaidDate
           <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>Kont Sabotay</div>
         </div>
       </div>
-
       <div style={{ background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 16, padding: '18px', marginBottom: 28 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: D.text, fontFamily: 'Syne, sans-serif', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
         <div style={{ fontSize: 11, color: D.muted, marginBottom: 10 }}>{member.phone}</div>
@@ -993,30 +802,22 @@ const nextUnpaidDate = lastPaidDate
         {allSlots.length > 1 && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>{allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik</div>}
         {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>⏰ Peye ant {plan.dueTime} — {plan.dueTimeEnd || '15:00'}</div>}
       </div>
-
       <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 14 }}>Menu</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
         {[
-          { id: 'history',  icon: <CreditCard size={15} />, label: 'Istwa Peman'   },
-          { id: 'calendar', icon: <TrendingUp size={15} />, label: 'Kalandriye'    },
-          { id: 'exchange', icon: <RefreshCw  size={15} />, label: 'Mache Echanj'  },
+          { id: 'history',  icon: <CreditCard size={15} />, label: 'Istwa Peman'  },
+          { id: 'calendar', icon: <TrendingUp size={15} />, label: 'Kalandriye'   },
+          { id: 'exchange', icon: <RefreshCw  size={15} />, label: 'Mache Echanj' },
         ].map(item => (
           <button key={item.id} className={`sol-nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
             {item.icon} {item.label}
           </button>
         ))}
       </div>
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
-        <button onClick={() => setShowPayModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
-          📱 Moncash / Natcash
-        </button>
-        <button onClick={() => setShowChangePw(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
-          <Key size={13} /> Chanje Modpas
-        </button>
-        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>
-          <LogOut size={13} /> Dekonekte
-        </button>
+        <button onClick={() => setShowPayModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}>📱 Moncash / Natcash</button>
+        <button onClick={() => setShowChangePw(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}><Key size={13} /> Chanje Modpas</button>
+        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'DM Sans, sans-serif', width: '100%' }}><LogOut size={13} /> Dekonekte</button>
       </div>
     </>
   )
@@ -1055,47 +856,29 @@ const nextUnpaidDate = lastPaidDate
               </div>
               <div>
                 <p style={{ fontSize: 16, fontWeight: 800, color: D.green, margin: '0 0 4px', fontFamily: 'Syne, sans-serif' }}>🎉 Se Jou Ou Jodi a!</p>
-                <p style={{ fontSize: 13, color: D.mutedLt, margin: 0 }}>Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payout)} HTG</span></p>
+                <p style={{ fontSize: 13, color: D.mutedLt, margin: 0 }}>Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payoutAjiste)} HTG</span></p>
               </div>
             </div>
           )}
 
- {!isWinner && (() => {
-  const neverPaid = !lastPaidDate
-
-  // Si poko peye ditou
-  if (neverPaid) return (
-    <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
-      <Bell size={22} style={{ color: D.blue, flexShrink: 0 }} />
-      <div>
-        <p style={{ fontSize: 13, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>
-          Ou poko fè premye peman ou!
-        </p>
-        <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>
-          Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • Peye ant {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '15:00'}
-        </p>
-      </div>
-    </div>
-  )
-
-  if (!nextUnpaidDate) return null
-
-  const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
-  const isOverdue = nextUnpaidDate < today  // dat pase — kont ap bloke
-
-  // Si dat pase — afiche an wouj ak countdown blokaj
-  if (isOverdue) return (
-    <BlockingCountdown
-      nextUnpaidDate={nextUnpaidDate}
-      plan={plan}
-      lastPaidDate={lastPaidDate}
-    />
-  )
-
-  // Pwochen peman nòmal
-  if (daysUntil > 3) return null
-  return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} daysUntil={daysUntil} />
-})()}
+          {!isWinner && (() => {
+            const neverPaid = !lastPaidDate
+            if (neverPaid) return (
+              <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
+                <Bell size={22} style={{ color: D.blue, flexShrink: 0 }} />
+                <div>
+                  <p style={{ fontSize: 13, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>Ou poko fè premye peman ou!</p>
+                  <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • Peye ant {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '15:00'}</p>
+                </div>
+              </div>
+            )
+            if (!nextUnpaidDate) return null
+            const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
+            const isOverdue = nextUnpaidDate < today
+            if (isOverdue) return <BlockingCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} lastPaidDate={lastPaidDate} />
+            if (daysUntil > 3) return null
+            return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} daysUntil={daysUntil} />
+          })()}
 
           {/* HERO */}
           <div className="sol-hero">
@@ -1106,9 +889,9 @@ const nextUnpaidDate = lastPaidDate
                 <div style={{ fontSize: 13, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
                 <div style={{ fontSize: 12, color: D.mutedLt, marginBottom: plan.dueTime ? 12 : 0 }}>{posStr} • {plan.name}</div>
                 {plan.dueTime && (
-                 <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 9, padding: '5px 12px', fontSize: 12, color: D.gold, fontWeight: 600 }}>
-  ⏰ Peye ant <strong>{plan.dueTime}</strong> — <strong>{plan.dueTimeEnd || '15:00'}</strong>
-</div>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 9, padding: '5px 12px', fontSize: 12, color: D.gold, fontWeight: 600 }}>
+                    ⏰ Peye ant <strong>{plan.dueTime}</strong> — <strong>{plan.dueTimeEnd || '15:00'}</strong>
+                  </div>
                 )}
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -1122,9 +905,7 @@ const nextUnpaidDate = lastPaidDate
                 <span style={{ fontSize: 11, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sòl la</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 15, color: D.gold }}>{Math.round(progress)}%</span>
               </div>
-              <div className="sol-progress-track">
-                <div className="sol-progress-fill" style={{ width: `${progress}%` }} />
-              </div>
+              <div className="sol-progress-track"><div className="sol-progress-fill" style={{ width: `${progress}%` }} /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 11, color: D.muted }}>
                 <span>{totalPaid} peman fèt</span>
                 <span>{totalSlotCount - totalPaid} rès</span>
@@ -1134,6 +915,7 @@ const nextUnpaidDate = lastPaidDate
 
           {/* STATS */}
           <div className="sol-stats-grid">
+            {/* Rès pou Peye */}
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
@@ -1143,28 +925,55 @@ const nextUnpaidDate = lastPaidDate
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
             </div>
 
+            {/* ✅ Kat Men — ak ajisteman frè echanj */}
             {allSlots.map(slot => (
               <div key={slot.position} className="sol-stat-card" style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={15} style={{ color: D.gold }} /></div>
                   <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Men #{slot.position}</span>
                 </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.gold }}>{fmt(payout)}</div>
-                <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}</div>
+
+                {/* ✅ Montan ajiste ak frè echanj */}
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.gold }}>
+                  {fmt(payoutAjiste)}
+                </div>
+                <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}</div>
+
+                {/* ✅ Badge ajisteman si gen frè echanj */}
+                {memberBalance !== 0 && (
+                  <div style={{ marginTop: 8, padding: '5px 8px', borderRadius: 8, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
+                      {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
+                    </span>
+                    <span style={{ fontSize: 10, color: D.muted }}>
+                      {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
+                    </span>
+                  </div>
+                )}
+                {/* Montan debaz pou referans */}
+                {memberBalance !== 0 && (
+                  <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
+                    Debaz: {fmt(payoutDebaz)} HTG
+                  </div>
+                )}
               </div>
             ))}
 
+            {/* Total si plizyè men */}
             {allSlots.length > 1 && (
               <div className="sol-stat-card" style={{ borderColor: `${D.green}30`, background: 'rgba(34,197,94,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 10, background: D.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Star size={15} style={{ color: D.green }} /></div>
                   <span style={{ fontSize: 10, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Ap Touche</span>
                 </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.green }}>{fmt(payout * allSlots.length)}</div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.green }}>
+                  {fmt(payoutAjiste * allSlots.length)}
+                </div>
                 <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG total — {allSlots.length} men</div>
               </div>
             )}
 
+            {/* Frekans */}
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.blueBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrendingUp size={15} style={{ color: D.blue }} /></div>
@@ -1175,13 +984,11 @@ const nextUnpaidDate = lastPaidDate
             </div>
           </div>
 
-         {/* PÈFÒMANS */}
+          {/* PÈFÒMANS */}
           {scoreData && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
-                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <Shield size={13} /> Pèfòmans Ou
-                </span>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.08em', display: 'flex', alignItems: 'center', gap: 7 }}><Shield size={13} /> Pèfòmans Ou</span>
                 <ScoreBadge score={scoreData.score} />
               </div>
               <div className="sol-score-row">
@@ -1192,10 +999,8 @@ const nextUnpaidDate = lastPaidDate
             </div>
           )}
 
-          {/* ✅ Mesaj Motivasyon */}
           <PerformanceMessage scoreData={scoreData} />
 
-          {/* REGLEMAN */}
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
               <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>📜 Regleman Sòl la</p>
@@ -1206,16 +1011,8 @@ const nextUnpaidDate = lastPaidDate
           {/* BOUTON TÈM */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {Object.entries(THEMES).map(([key, t]) => (
-              <button key={key} onClick={() => {
-                setTheme(key)
-                localStorage.setItem('sol_theme', key)
-              }} style={{
-                padding: '5px 10px', borderRadius: 20, cursor: 'pointer',
-                fontSize: 11, fontWeight: 700, border: 'none',
-                background: theme === key ? t.accent : 'rgba(128,128,128,0.15)',
-                color: theme === key ? '#fff' : D.muted,
-                transition: 'all 0.2s',
-              }}>
+              <button key={key} onClick={() => { setTheme(key); localStorage.setItem('sol_theme', key) }}
+                style={{ padding: '5px 10px', borderRadius: 20, cursor: 'pointer', fontSize: 11, fontWeight: 700, border: 'none', background: theme === key ? t.accent : 'rgba(128,128,128,0.15)', color: theme === key ? '#fff' : D.muted, transition: 'all 0.2s' }}>
                 {t.name}
               </button>
             ))}
@@ -1223,37 +1020,12 @@ const nextUnpaidDate = lastPaidDate
 
           {/* TABS */}
           <div className="sol-tabs">
-            {[
-              ['history', '📋 Istwa Peman'],
-              ['calendar', '📅 Kalandriye'],
-              ['exchange', '🔄 Mache'],
-              ['chat', '💬 Chat'],
-            ].map(([t, l]) => (
-              <button key={t} className="sol-tab-btn"
-                onClick={() => {
-                  setTab(t)
-                  if (t === 'chat') setUnreadCount(0)
-                }}
-                style={{
-                  border: 'none',
-                  background: tab === t ? D.goldDim : 'transparent',
-                  color: tab === t ? D.gold : D.muted,
-                  fontFamily: 'DM Sans, sans-serif',
-                  position: 'relative',
-                }}
-              >
+            {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t, l]) => (
+              <button key={t} className="sol-tab-btn" onClick={() => { setTab(t); if (t === 'chat') setUnreadCount(0) }}
+                style={{ border: 'none', background: tab === t ? D.goldDim : 'transparent', color: tab === t ? D.gold : D.muted, fontFamily: 'DM Sans, sans-serif', position: 'relative' }}>
                 {l}
-                {/* ✅ Badge mesaj poko li */}
                 {t === 'chat' && unreadCount > 0 && (
-                  <span style={{
-                    position: 'absolute', top: -6, right: -6,
-                    background: '#ef4444', color: '#fff',
-                    borderRadius: '50%', minWidth: 18, height: 18,
-                    fontSize: 10, fontWeight: 900,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    padding: '0 4px',
-                    boxShadow: '0 2px 8px rgba(239,68,68,0.5)',
-                  }}>
+                  <span style={{ position: 'absolute', top: -6, right: -6, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 18, height: 18, fontSize: 10, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px', boxShadow: '0 2px 8px rgba(239,68,68,0.5)' }}>
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
@@ -1280,11 +1052,7 @@ const nextUnpaidDate = lastPaidDate
                         {isWin && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0, border: `1px solid ${D.border}` }}>🏆 Touche</span>}
                         {d === today && !isWin && <span style={{ fontSize: 9, background: D.blueBg, color: D.blue, padding: '2px 8px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>Jodi</span>}
                         {paid && timingBadge(timing)}
-                        {paid && allSlots.length > 1 && (
-                          <span style={{ fontSize: 9, color: D.muted, flexShrink: 0 }}>
-                            {allSlots.length}×{fmt(plan.amount)}
-                          </span>
-                        )}
+                        {paid && allSlots.length > 1 && <span style={{ fontSize: 9, color: D.muted, flexShrink: 0 }}>{allSlots.length}×{fmt(plan.amount)}</span>}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 600, color: paid ? D.green : isPast ? D.red : D.muted, whiteSpace: 'nowrap' }}>
@@ -1301,25 +1069,12 @@ const nextUnpaidDate = lastPaidDate
 
           {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
-          {tab === 'chat' && (
-            <SolChat
-              token={token}
-              plan={plan}
-              member={member}
-              onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)}
-            />
-          )}
+          {tab === 'chat' && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
 
-          {/* MOBILE ACTIONS */}
           <div className="sol-mobile-actions">
-            <button onClick={() => setShowPayModal(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>
-              📱 Peye pa Moncash / Natcash
-            </button>
-            <button onClick={() => setShowChangePw(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>
-              <Key size={14} /> Chanje Modpas
-            </button>
+            <button onClick={() => setShowPayModal(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}>📱 Peye pa Moncash / Natcash</button>
+            <button onClick={() => setShowChangePw(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'DM Sans, sans-serif' }}><Key size={14} /> Chanje Modpas</button>
           </div>
-
         </div>
       </div>
 

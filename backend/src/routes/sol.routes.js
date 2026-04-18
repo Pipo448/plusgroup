@@ -216,6 +216,7 @@ router.get('/members/me', authMember, async (req, res) => {
         name:           sabotayMember.name,
         phone:          sabotayMember.phone || '',
         position:       sabotayMember.position,
+        balance:  Number(account.balance || 0),  // ✅ AJOUTE SA
         payments,
         paymentTimings,
         allSlots: allSlots.map(s => {
