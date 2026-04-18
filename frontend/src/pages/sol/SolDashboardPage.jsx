@@ -926,38 +926,43 @@ export default function SolDashboardPage() {
             </div>
 
             {/* ✅ Kat Men — ak ajisteman frè echanj */}
-            {allSlots.map(slot => (
-              <div key={slot.position} className="sol-stat-card" style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={15} style={{ color: D.gold }} /></div>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Men #{slot.position}</span>
-                </div>
+{allSlots.map(slot => {
+  // ✅ Balance aplike sèlman sou men ki chanje a (member.position)
+  // Lòt men yo rete ak payout debaz la
+  const isExchangedSlot = slot.position === member.position
+  const slotPayout = isExchangedSlot ? payoutAjiste : payoutDebaz
 
-                {/* ✅ Montan ajiste ak frè echanj */}
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.gold }}>
-                  {fmt(payoutAjiste)}
-                </div>
-                <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}</div>
+  return (
+    <div key={slot.position} className="sol-stat-card" style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 10 }}>
+        <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Trophy size={15} style={{ color: D.gold }} /></div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Men #{slot.position}</span>
+      </div>
 
-                {/* ✅ Badge ajisteman si gen frè echanj */}
-                {memberBalance !== 0 && (
-                  <div style={{ marginTop: 8, padding: '5px 8px', borderRadius: 8, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
-                      {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
-                    </span>
-                    <span style={{ fontSize: 10, color: D.muted }}>
-                      {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
-                    </span>
-                  </div>
-                )}
-                {/* Montan debaz pou referans */}
-                {memberBalance !== 0 && (
-                  <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
-                    Debaz: {fmt(payoutDebaz)} HTG
-                  </div>
-                )}
-              </div>
-            ))}
+      <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.gold }}>
+        {fmt(slotPayout)}
+      </div>
+      <div style={{ fontSize: 11, color: D.muted, marginTop: 2 }}>HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}</div>
+
+      {/* ✅ Badge ajisteman — sèlman sou men ki echanje a */}
+      {isExchangedSlot && memberBalance !== 0 && (
+        <div style={{ marginTop: 8, padding: '5px 8px', borderRadius: 8, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
+            {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
+          </span>
+          <span style={{ fontSize: 10, color: D.muted }}>
+            {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
+          </span>
+        </div>
+      )}
+      {isExchangedSlot && memberBalance !== 0 && (
+        <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
+          Debaz: {fmt(payoutDebaz)} HTG
+        </div>
+      )}
+    </div>
+  )
+})}
 
             {/* Total si plizyè men */}
             {allSlots.length > 1 && (
@@ -967,7 +972,7 @@ export default function SolDashboardPage() {
                   <span style={{ fontSize: 10, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Ap Touche</span>
                 </div>
                 <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.green }}>
-                  {fmt(payoutAjiste * allSlots.length)}
+                  {fmt(payoutDebaz * allSlots.length + memberBalance)}
                 </div>
                 <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG total — {allSlots.length} men</div>
               </div>
