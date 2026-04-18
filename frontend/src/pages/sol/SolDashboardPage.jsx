@@ -929,7 +929,7 @@ export default function SolDashboardPage() {
 {allSlots.map(slot => {
   // ✅ Balance aplike sèlman sou men ki chanje a (member.position)
   // Lòt men yo rete ak payout debaz la
-  const isExchangedSlot = slot.position === member.position
+  const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
   const slotPayout = isExchangedSlot ? payoutAjiste : payoutDebaz
 
   return (
