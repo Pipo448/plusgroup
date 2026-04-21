@@ -913,7 +913,11 @@ router.get('/famasi/ventes', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
-// POST /klinik/famasi/vente
+// ═══════════════════════════════════════════════════════════════
+// RANPLASE sèlman route POST /famasi/vente nan klinik.routes.js
+// FIX: klinik_ventes bezwen ::uuid, products pa bezwen
+// ═══════════════════════════════════════════════════════════════
+
 router.post('/famasi/vente', async (req, res) => {
   try {
     const tenantId = tid(req)
@@ -923,8 +927,9 @@ router.post('/famasi/vente', async (req, res) => {
     if (!productId) return res.status(400).json({ message: 'productId obligatwa.' })
     if (!quantite || Number(quantite) <= 0) return res.status(400).json({ message: 'Kantite obligatwa.' })
 
+    // ✅ products — tenant_id se TEXT, pa ::uuid
     const cur = await prisma.$queryRawUnsafe(
-      `SELECT * FROM products WHERE id=$1 AND tenant_id=$2`,
+      `SELECT * FROM products WHERE id = $1 AND tenant_id = $2`,
       productId, tenantId
     )
     const p = cur[0]
@@ -938,25 +943,27 @@ router.post('/famasi/vente', async (req, res) => {
     const totalCout   = costHtg  * Number(quantite)
     const totalBenefi = totalVant - totalCout
 
+    // ✅ products — retire estòk (TEXT tenant_id)
     await prisma.$queryRawUnsafe(
-      `UPDATE products SET quantity=quantity-$1, updated_at=NOW() WHERE id=$2 AND tenant_id=$3`,
+      `UPDATE products SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
       Number(quantite), productId, tenantId
     )
 
+    // ✅ klinik_ventes — tenant_id se UUID, bezwen ::uuid
     const vente = await prisma.$queryRawUnsafe(`
       INSERT INTO klinik_ventes
-        (tenant_id,product_id,product_name,quantite,price_htg,cost_price_htg,
-         total_vant,total_cout,total_benefi,kliyan,note,created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+        (tenant_id, product_id, product_name, quantite, price_htg, cost_price_htg,
+         total_vant, total_cout, total_benefi, kliyan, note, created_by)
+      VALUES
+        ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `,
       tenantId, productId, p.name, Number(quantite),
       priceHtg, costHtg, totalVant, totalCout, totalBenefi,
-      kliyan||null, note||null, userId
+      kliyan || null, note || null, userId
     )
 
     res.status(201).json({ vente: vente[0], newQuantity: Number(p.quantity) - Number(quantite) })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
-
 module.exports = router
