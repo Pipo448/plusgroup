@@ -785,85 +785,9 @@ router.post('/payroll', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
-// RANPLASE routes famasi nan klinik.routes.js — jis anvan module.exports
-// FIX: Retire tout ::uuid — kolòn yo se type TEXT
+// RANPLASE route GET /famasi/ventes nan klinik.routes.js
+// FIX: klinik_ventes.tenant_id se UUID — bezwen ::uuid cast
 // ═══════════════════════════════════════════════════════════════
-
-// GET /klinik/famasi
-router.get('/famasi', async (req, res) => {
-  try {
-    const tenantId = tid(req)
-    const { search, page = 1, limit = 24, filter } = req.query
-    const offset = (Number(page) - 1) * Number(limit)
-
-    let where = `WHERE p.tenant_id = $1 AND p.is_active = true`
-    const params = [tenantId]
-    let idx = 2
-
-    if (search) { where += ` AND p.name ILIKE $${idx++}`; params.push(`%${search}%`) }
-    if (filter === 'low') where += ` AND p.quantity > 0 AND p.quantity <= COALESCE(p.alert_threshold,10)`
-    if (filter === 'out') where += ` AND p.quantity <= 0`
-
-    const [products, countRow, statsRow] = await Promise.all([
-      prisma.$queryRawUnsafe(`
-        SELECT p.*,
-          CASE WHEN p.cost_price_htg > 0 AND p.price_htg > 0
-            THEN ROUND(((p.price_htg - p.cost_price_htg)/p.price_htg)*100,1) ELSE 0 END AS benefis_pct,
-          CASE WHEN p.cost_price_htg > 0
-            THEN ROUND(p.price_htg - p.cost_price_htg,2) ELSE 0 END AS benefis_unit
-        FROM products p ${where} ORDER BY p.name ASC LIMIT ${Number(limit)} OFFSET ${offset}
-      `, ...params),
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM products p ${where}`, ...params),
-      prisma.$queryRawUnsafe(`
-        SELECT
-          COALESCE(SUM(p.price_htg*p.quantity),0)      AS valeur_stock,
-          COALESCE(SUM(p.cost_price_htg*p.quantity),0) AS cout_stock,
-          COUNT(*) FILTER (WHERE p.quantity<=0)          AS san_estok,
-          COUNT(*) FILTER (WHERE p.quantity>0 AND p.quantity<=COALESCE(p.alert_threshold,10)) AS ba_estok
-        FROM products p WHERE p.tenant_id=$1 AND p.is_active=true
-      `, tenantId),
-    ])
-
-    res.json({
-      products,
-      total: Number(countRow[0]?.total || 0),
-      stats: {
-        valeurStock:      Number(statsRow[0]?.valeur_stock || 0),
-        coutStock:        Number(statsRow[0]?.cout_stock   || 0),
-        benefisPotansyel: Number(statsRow[0]?.valeur_stock || 0) - Number(statsRow[0]?.cout_stock || 0),
-        sanEstok:         Number(statsRow[0]?.san_estok    || 0),
-        baEstok:          Number(statsRow[0]?.ba_estok     || 0),
-      }
-    })
-  } catch (e) { res.status(500).json({ message: e.message }) }
-})
-
-// PATCH /klinik/famasi/:id/stock
-router.patch('/famasi/:id/stock', async (req, res) => {
-  try {
-    const tenantId = tid(req)
-    const { delta, raison } = req.body
-    if (delta === undefined || delta === null) return res.status(400).json({ message: 'delta obligatwa.' })
-
-    if (Number(delta) < 0) {
-      const cur = await prisma.$queryRawUnsafe(
-        `SELECT quantity FROM products WHERE id=$1 AND tenant_id=$2`,
-        req.params.id, tenantId
-      )
-      if (!cur[0]) return res.status(404).json({ message: 'Pwodui pa jwenn.' })
-      if (Number(cur[0].quantity) + Number(delta) < 0)
-        return res.status(400).json({ message: `Pa gen ase estòk. Disponib: ${cur[0].quantity}` })
-    }
-
-    const result = await prisma.$queryRawUnsafe(`
-      UPDATE products SET quantity=GREATEST(0,quantity+$1), updated_at=NOW()
-      WHERE id=$2 AND tenant_id=$3 RETURNING *
-    `, Number(delta), req.params.id, tenantId)
-
-    if (!result[0]) return res.status(404).json({ message: 'Pwodui pa jwenn.' })
-    res.json({ product: result[0] })
-  } catch (e) { res.status(500).json({ message: e.message }) }
-})
 
 // GET /klinik/famasi/ventes  ⚠ ANVAN :id nenpòt
 router.get('/famasi/ventes', async (req, res) => {
@@ -872,28 +796,46 @@ router.get('/famasi/ventes', async (req, res) => {
     const { page = 1, limit = 50, productId, periode } = req.query
     const offset = (Number(page) - 1) * Number(limit)
 
-    let where = `WHERE tenant_id=$1`
+    // ✅ ::uuid — klinik_ventes.tenant_id se UUID
+    let where = `WHERE tenant_id=$1::uuid`
     const params = [tenantId]
     let idx = 2
 
-    if (productId) { where += ` AND product_id=$${idx++}`; params.push(productId) }
+    if (productId) {
+      // ✅ ::uuid — klinik_ventes.product_id se UUID tou
+      where += ` AND product_id=$${idx++}::uuid`
+      params.push(productId)
+    }
     if (periode === 'today') where += ` AND created_at>=CURRENT_DATE`
     else if (periode === 'week') where += ` AND created_at>=CURRENT_DATE-INTERVAL '7 days'`
     else if (periode === 'month') where += ` AND created_at>=date_trunc('month',NOW())`
 
     const [ventes, countRow, totals, parJou] = await Promise.all([
-      prisma.$queryRawUnsafe(`SELECT * FROM klinik_ventes ${where} ORDER BY created_at DESC LIMIT ${Number(limit)} OFFSET ${offset}`, ...params),
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_ventes ${where}`, ...params),
+      prisma.$queryRawUnsafe(
+        `SELECT * FROM klinik_ventes ${where} ORDER BY created_at DESC LIMIT ${Number(limit)} OFFSET ${offset}`,
+        ...params
+      ),
+      prisma.$queryRawUnsafe(
+        `SELECT COUNT(*) as total FROM klinik_ventes ${where}`,
+        ...params
+      ),
       prisma.$queryRawUnsafe(`
-        SELECT COALESCE(SUM(total_vant),0) AS total_revni, COALESCE(SUM(total_cout),0) AS total_cout,
-               COALESCE(SUM(total_benefi),0) AS total_benefi, COUNT(*) AS nb_ventes
+        SELECT
+          COALESCE(SUM(total_vant),0)   AS total_revni,
+          COALESCE(SUM(total_cout),0)   AS total_cout,
+          COALESCE(SUM(total_benefi),0) AS total_benefi,
+          COUNT(*)                       AS nb_ventes
         FROM klinik_ventes ${where}
       `, ...params),
+      // ✅ ::uuid nan query grafik la tou
       prisma.$queryRawUnsafe(`
-        SELECT TO_CHAR(created_at,'MM-DD') AS jou,
-               COALESCE(SUM(total_vant),0) AS revni, COALESCE(SUM(total_benefi),0) AS benefi
+        SELECT
+          TO_CHAR(created_at,'MM-DD')    AS jou,
+          COALESCE(SUM(total_vant),0)    AS revni,
+          COALESCE(SUM(total_benefi),0)  AS benefi
         FROM klinik_ventes
-        WHERE tenant_id=$1 AND created_at>=CURRENT_DATE-INTERVAL '6 days'
+        WHERE tenant_id=$1::uuid
+          AND created_at>=CURRENT_DATE-INTERVAL '6 days'
         GROUP BY TO_CHAR(created_at,'MM-DD'), DATE(created_at)
         ORDER BY DATE(created_at) ASC
       `, tenantId),
@@ -908,61 +850,12 @@ router.get('/famasi/ventes', async (req, res) => {
         totalBenefi: Number(totals[0]?.total_benefi || 0),
         nbVentes:    Number(totals[0]?.nb_ventes    || 0),
       },
-      grafik: parJou.map(r => ({ jou:r.jou, revni:Number(r.revni||0), benefi:Number(r.benefi||0) }))
+      grafik: parJou.map(r => ({
+        jou:    r.jou,
+        revni:  Number(r.revni  || 0),
+        benefi: Number(r.benefi || 0),
+      }))
     })
-  } catch (e) { res.status(500).json({ message: e.message }) }
-})
-// ═══════════════════════════════════════════════════════════════
-// RANPLASE sèlman route POST /famasi/vente nan klinik.routes.js
-// FIX: klinik_ventes bezwen ::uuid, products pa bezwen
-// ═══════════════════════════════════════════════════════════════
-
-router.post('/famasi/vente', async (req, res) => {
-  try {
-    const tenantId = tid(req)
-    const userId   = req.user?.id || null
-    const { productId, quantite, kliyan, note } = req.body
-
-    if (!productId) return res.status(400).json({ message: 'productId obligatwa.' })
-    if (!quantite || Number(quantite) <= 0) return res.status(400).json({ message: 'Kantite obligatwa.' })
-
-    // ✅ products — tenant_id se TEXT, pa ::uuid
-    const cur = await prisma.$queryRawUnsafe(
-      `SELECT * FROM products WHERE id = $1 AND tenant_id = $2`,
-      productId, tenantId
-    )
-    const p = cur[0]
-    if (!p) return res.status(404).json({ message: 'Pwodui pa jwenn.' })
-    if (Number(p.quantity) < Number(quantite))
-      return res.status(400).json({ message: `Pa gen ase estòk. Disponib: ${p.quantity}` })
-
-    const priceHtg    = Number(p.price_htg     || 0)
-    const costHtg     = Number(p.cost_price_htg || 0)
-    const totalVant   = priceHtg * Number(quantite)
-    const totalCout   = costHtg  * Number(quantite)
-    const totalBenefi = totalVant - totalCout
-
-    // ✅ products — retire estòk (TEXT tenant_id)
-    await prisma.$queryRawUnsafe(
-      `UPDATE products SET quantity = quantity - $1, updated_at = NOW() WHERE id = $2 AND tenant_id = $3`,
-      Number(quantite), productId, tenantId
-    )
-
-    // ✅ klinik_ventes — tenant_id se UUID, bezwen ::uuid
-    const vente = await prisma.$queryRawUnsafe(`
-      INSERT INTO klinik_ventes
-        (tenant_id, product_id, product_name, quantite, price_htg, cost_price_htg,
-         total_vant, total_cout, total_benefi, kliyan, note, created_by)
-      VALUES
-        ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::uuid)
-      RETURNING *
-    `,
-      tenantId, productId, p.name, Number(quantite),
-      priceHtg, costHtg, totalVant, totalCout, totalBenefi,
-      kliyan || null, note || null, userId
-    )
-
-    res.status(201).json({ vente: vente[0], newQuantity: Number(p.quantity) - Number(quantite) })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
