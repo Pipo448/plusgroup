@@ -955,7 +955,7 @@ router.post('/famasi/vente', async (req, res) => {
         (tenant_id, product_id, product_name, quantite, price_htg, cost_price_htg,
          total_vant, total_cout, total_benefi, kliyan, note, created_by)
       VALUES
-        ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *
     `,
       tenantId, productId, p.name, Number(quantite),
@@ -966,4 +966,5 @@ router.post('/famasi/vente', async (req, res) => {
     res.status(201).json({ vente: vente[0], newQuantity: Number(p.quantity) - Number(quantite) })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
+
 module.exports = router
