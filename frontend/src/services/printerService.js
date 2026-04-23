@@ -701,18 +701,16 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
   ...divider('-', W), LF,
   ...CMD.SMALL_FONT,
 
-  // ✅ Anvan peman jodi a = totalPaye - peman jodi a
-  ...makeLine('Deja Peye:', fmt(Math.max(0, Number(pre.totalPaye || 0) - Number(paiement.montant || 0))) + ' G', W), LF,
+  // ✅ Deja Peye = pre.totalPaye (sa sistèm lan montre kòm Peye)
+  ...makeLine('Deja Peye:', fmt(Number(pre.totalPaye || 0) - Number(paiement.montant || 0)) + ' G', W), LF,
 
-  // ✅ Peman jodi a
   ...CMD.BOLD_ON,
   ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF,
   ...CMD.BOLD_OFF,
 
-  // ✅ Total peye = pre.totalPaye (deja kòrèk nan BD)
-  ...makeLine('Total Peye:', fmt(pre.totalPaye || 0) + ' G', W), LF,
+  ...makeLine('Total Peye:', fmt(Number(pre.totalPaye || 0)) + ' G', W), LF,
 
-  // ✅ Rete = totalDu - totalPaye
+  // ✅ Rete = totalDu - totalPaye (sa sistèm lan montre kòm Rete)
   ...CMD.BOLD_ON,
   ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu || 0) - Number(pre.totalPaye || 0))) + ' G', W), LF,
   ...CMD.BOLD_OFF,
