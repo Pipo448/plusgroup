@@ -697,28 +697,37 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...makeLine('TOTAL DWE:', fmt(pre.totalDu) + ' G', W), LF,
     ...CMD.BOLD_OFF,
    
-   ...(type === 'paiement' && paiement ? [
-  ...divider('-', W), LF,
-  ...CMD.SMALL_FONT,
+   ...(type === 'paiement' && paiement ? (() => {
+  // ✅ pre.totalPaye = aktyèlman RETE anvan peman (envèse nan frontend)
+  const reteAnvan    = Number(pre.totalPaye || 0)
+  const montantJodi  = Number(paiement.montant || 0)
+  const totalDu      = Number(pre.totalDu || 0)
 
-  // ✅ Deja Peye = pre.totalPaye (sa sistèm lan montre kòm Peye)
-  ...makeLine('Deja Peye:', fmt(Number(pre.totalPaye || 0) - Number(paiement.montant || 0)) + ' G', W), LF,
+  const dejaPayeAvan = totalDu - reteAnvan           // 126,000 - 80,500 = 45,500 ✅
+  const totalPayeApre = dejaPayeAvan + montantJodi    // 45,500 + 3,000 = 48,500 ✅
+  const reteApre      = reteAnvan - montantJodi        // 80,500 - 3,000 = 77,500 ✅
 
-  ...CMD.BOLD_ON,
-  ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF,
-  ...CMD.BOLD_OFF,
+  return [
+    ...divider('-', W), LF,
+    ...CMD.SMALL_FONT,
 
-  ...makeLine('Total Peye:', fmt(Number(pre.totalPaye || 0)) + ' G', W), LF,
+    ...makeLine('Deja Peye:', fmt(Math.max(0, dejaPayeAvan)) + ' G', W), LF,
 
-  // ✅ Rete = totalDu - totalPaye (sa sistèm lan montre kòm Rete)
-  ...CMD.BOLD_ON,
-  ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu || 0) - Number(pre.totalPaye || 0))) + ' G', W), LF,
-  ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON,
+    ...makeLine('PEMAN JE A:', fmt(montantJodi) + ' G', W), LF,
+    ...CMD.BOLD_OFF,
 
-  ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
-  ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
-  ...CMD.NORMAL_FONT,
-] : []),
+    ...makeLine('Total Peye:', fmt(totalPayeApre) + ' G', W), LF,
+
+    ...CMD.BOLD_ON,
+    ...makeLine('Rete:', fmt(Math.max(0, reteApre)) + ' G', W), LF,
+    ...CMD.BOLD_OFF,
+
+    ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
+    ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
+    ...CMD.NORMAL_FONT,
+  ]
+})() : []),
     ...(type === 'paiement' && echeances.length > 0 ? (() => {
       const peye = echeances.filter(e => e.statut === 'paye' || e.statut === 'partiel')
       if (peye.length === 0) return []
