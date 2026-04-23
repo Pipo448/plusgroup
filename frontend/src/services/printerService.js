@@ -696,16 +696,30 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...CMD.BOLD_ON,
     ...makeLine('TOTAL DWE:', fmt(pre.totalDu) + ' G', W), LF,
     ...CMD.BOLD_OFF,
-    ...(type === 'paiement' && paiement ? [
-      ...divider('-', W), LF,
-      ...CMD.SMALL_FONT,
-      ...makeLine('Deja Peye:', fmt(Number(pre.totalPaye || 0) - Number(paiement.montant || 0)) + ' G', W), LF,
-      ...CMD.BOLD_ON, ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF, ...CMD.BOLD_OFF,
-      ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0))) + ' G', W), LF,
-      ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
-      ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
-      ...CMD.NORMAL_FONT,
-    ] : []),
+   ...(type === 'paiement' && paiement ? [
+  ...divider('-', W), LF,
+  ...CMD.SMALL_FONT,
+
+  // ✅ Deja Peye = sa ki te peye ANVAN peman jodi a
+  ...makeLine('Deja Peye:', fmt(Math.max(0, Number(pre.totalPaye || 0) - Number(paiement.montant || 0))) + ' G', W), LF,
+
+  // ✅ Peman Jodi a
+  ...CMD.BOLD_ON,
+  ...makeLine('PEMAN JE A:', fmt(paiement.montant) + ' G', W), LF,
+  ...CMD.BOLD_OFF,
+
+  // ✅ Total Peye kounye a = Deja Peye + Peman Jodi a
+  ...makeLine('Total Peye:', fmt(pre.totalPaye || 0) + ' G', W), LF,
+
+  // ✅ Rete = TotalDu - TotalPaye (apre peman jodi a)
+  ...CMD.BOLD_ON,
+  ...makeLine('Rete:', fmt(Math.max(0, Number(pre.totalDu) - Number(pre.totalPaye || 0))) + ' G', W), LF,
+  ...CMD.BOLD_OFF,
+
+  ...(paiement.method    ? [...makeLine('Metod:', paiement.method, W), LF] : []),
+  ...(paiement.reference ? [...makeLine('Ref:', paiement.reference, W), LF] : []),
+  ...CMD.NORMAL_FONT,
+] : []),
     ...(type === 'paiement' && echeances.length > 0 ? (() => {
       const peye = echeances.filter(e => e.statut === 'paye' || e.statut === 'partiel')
       if (peye.length === 0) return []
