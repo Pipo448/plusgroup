@@ -92,28 +92,67 @@ router.post('/patients', async (req, res) => {
     const tenantId      = tid(req)
     const numeroDossier = await genNumeroDossier(tenantId)
     const { prenom, nom, dateNesans, sexe, telephone, adresse, groupeSangin, email, notes } = req.body
-    const rows = await prisma.$queryRawUnsafe(`
-      INSERT INTO klinik_patients (tenant_id,numero_dossier,prenom,nom,date_naissance,sexe,telephone,adresse,groupe_sanguin,email,notes,is_active)
-      VALUES ($1,$2,$3,$4,$5,$6::"Sexe",$7,$8,$9::"GroupeSanguin",$10,$11,true) RETURNING *
-    `, tenantId, numeroDossier, prenom||null, nom||null, dateNesans?new Date(dateNesans):null, sexe||null, telephone||null, adresse||null, groupeSangin||null, email||null, notes||null)
-    res.status(201).json({ patient: rows[0] })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+ 
+    // Validasyon
+    if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
+    if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
+    if (!sexe)                      return res.status(400).json({ message: 'Seks obligatwa.' })
+ 
+    console.log('[POST /patients] data:', { prenom, nom, sexe, telephone, groupeSangin })
+ 
+    const patient = await prisma.klinikPatient.create({
+      data: {
+        tenantId,
+        numeroDossier,
+        prenom:        prenom.trim(),
+        nom:           nom.trim(),
+        dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        sexe,
+        telephone:     telephone || null,
+        adresse:       adresse || null,
+        groupeSanguin: groupeSangin || null,
+        email:         email || null,
+        notes:         notes || null,
+        isActive:      true,
+      },
+    })
+ 
+    res.status(201).json({ patient })
+  } catch (e) {
+    console.error('[POST /patients] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.put('/patients/:id', async (req, res) => {
   try {
     const { prenom, nom, dateNesans, sexe, telephone, adresse, groupeSangin, email, notes } = req.body
-    const rows = await prisma.$queryRawUnsafe(`
-      UPDATE klinik_patients SET
-        prenom=$1,nom=$2,date_naissance=$3,sexe=$4::"Sexe",telephone=$5,
-        adresse=$6,groupe_sanguin=$7::"GroupeSanguin",email=$8,notes=$9,updated_at=NOW()
-      WHERE id=$10 AND tenant_id=$11 RETURNING *
-    `, prenom||null, nom||null, dateNesans?new Date(dateNesans):null, sexe||null, telephone||null, adresse||null, groupeSangin||null, email||null, notes||null, req.params.id, tid(req))
-    if (!rows[0]) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
-    res.json({ patient: rows[0] })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+ 
+    if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
+    if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
+ 
+    const patient = await prisma.klinikPatient.update({
+      where: { id: req.params.id },
+      data: {
+        prenom:        prenom.trim(),
+        nom:           nom.trim(),
+        dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        sexe,
+        telephone:     telephone || null,
+        adresse:       adresse || null,
+        groupeSanguin: groupeSangin || null,
+        email:         email || null,
+        notes:         notes || null,
+      },
+    })
+ 
+    res.json({ patient })
+  } catch (e) {
+    console.error('[PUT /patients] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
-
+ 
 // ═══════════════════════════════════════════════════════════════
 // RANDEVOU
 // ═══════════════════════════════════════════════════════════════
