@@ -254,32 +254,102 @@ router.get('/consultations/:id', async (req, res) => {
 
 router.post('/consultations', async (req, res) => {
   try {
-    const { id, createdAt, updatedAt, patient, prescriptions, labOrders, appointment, ...data } = req.body
-    if (data.appointmentId) {
-      await prisma.klinikAppointment.update({ where:{id:data.appointmentId}, data:{statut:'en_cours'} })
+    const { appointmentId, patientId, doctorName, statut,
+            motif, anamnese, examenClinique, diagnostic,
+            traitement, notesInternes,
+            tensionSys, tensionDia, temperature,
+            poidsKg, tailleCm, pouls, spo2, glycemie,
+          } = req.body
+
+    if (!patientId)   return res.status(400).json({ message: 'patientId obligatwa.' })
+    if (!doctorName)  return res.status(400).json({ message: 'doctorName obligatwa.' })
+
+    if (appointmentId) {
+      await prisma.klinikAppointment.update({
+        where: { id: appointmentId }, data: { statut: 'en_cours' }
+      })
     }
+
     const consultation = await prisma.klinikConsultation.create({
-      data: { ...data, tenantId: tid(req), createdBy: req.user.id },
-      include: { patient: { select: { nom:true, prenom:true } } },
+      data: {
+        tenantId:       tid(req),
+        createdBy:      req.user.id,
+        patientId,
+        doctorName,
+        statut:         statut        || 'brouillon',
+        appointmentId:  appointmentId || null,
+        motif:          motif         || null,
+        anamnese:       anamnese      || null,
+        examenClinique: examenClinique|| null,
+        diagnostic:     diagnostic    || null,
+        traitement:     traitement    || null,
+        notesInternes:  notesInternes || null,
+        tensionSys:     tensionSys    ? parseInt(tensionSys)    : null,
+        tensionDia:     tensionDia    ? parseInt(tensionDia)    : null,
+        temperature:    temperature   ? parseFloat(temperature) : null,
+        poidsKg:        poidsKg       ? parseFloat(poidsKg)     : null,
+        tailleCm:       tailleCm      ? parseFloat(tailleCm)    : null,
+        pouls:          pouls         ? parseInt(pouls)         : null,
+        spo2:           spo2          ? parseInt(spo2)          : null,
+        glycemie:       glycemie      ? parseFloat(glycemie)    : null,
+      },
+      include: { patient: { select: { nom: true, prenom: true } } },
     })
+
     res.status(201).json({ consultation })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[POST /consultations] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.put('/consultations/:id', async (req, res) => {
   try {
-    const { id, tenantId, createdAt, updatedAt, patient, prescriptions, labOrders, appointment, ...data } = req.body
-    const consultation = await prisma.klinikConsultation.update({
-      where: { id: req.params.id }, data,
-      include: { patient:{select:{nom:true,prenom:true}}, prescriptions:{include:{items:true}}, labOrders:{include:{items:true}} },
-    })
-    if (data.statut === 'signe' && consultation.appointmentId) {
-      await prisma.klinikAppointment.update({ where:{id:consultation.appointmentId}, data:{statut:'complete'} })
-    }
-    res.json({ consultation })
-  } catch (e) { res.status(500).json({ message: e.message }) }
-})
+    const { doctorName, statut, motif, anamnese, examenClinique,
+            diagnostic, traitement, notesInternes,
+            tensionSys, tensionDia, temperature,
+            poidsKg, tailleCm, pouls, spo2, glycemie,
+          } = req.body
 
+    const consultation = await prisma.klinikConsultation.update({
+      where: { id: req.params.id },
+      data: {
+        doctorName,
+        statut:         statut         || 'brouillon',
+        motif:          motif          || null,
+        anamnese:       anamnese       || null,
+        examenClinique: examenClinique || null,
+        diagnostic:     diagnostic     || null,
+        traitement:     traitement     || null,
+        notesInternes:  notesInternes  || null,
+        tensionSys:     tensionSys     ? parseInt(tensionSys)    : null,
+        tensionDia:     tensionDia     ? parseInt(tensionDia)    : null,
+        temperature:    temperature    ? parseFloat(temperature) : null,
+        poidsKg:        poidsKg        ? parseFloat(poidsKg)     : null,
+        tailleCm:       tailleCm       ? parseFloat(tailleCm)    : null,
+        pouls:          pouls          ? parseInt(pouls)         : null,
+        spo2:           spo2           ? parseInt(spo2)          : null,
+        glycemie:       glycemie       ? parseFloat(glycemie)    : null,
+      },
+      include: {
+        patient: { select: { nom: true, prenom: true } },
+        prescriptions: { include: { items: true } },
+        labOrders: { include: { items: true } },
+      },
+    })
+
+    if (statut === 'signe' && consultation.appointmentId) {
+      await prisma.klinikAppointment.update({
+        where: { id: consultation.appointmentId }, data: { statut: 'complete' }
+      })
+    }
+
+    res.json({ consultation })
+  } catch (e) {
+    console.error('[PUT /consultations] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
 // ═══════════════════════════════════════════════════════════════
 // PRESKRIPSYON
 // ═══════════════════════════════════════════════════════════════
