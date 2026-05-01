@@ -6,6 +6,9 @@ const { PrismaClient } = require('@prisma/client')
 const jwt = require('jsonwebtoken')
 const prisma = new PrismaClient()
 
+// ✅ Import Ranking Service — Sistèm Pozisyon Dinamik
+const rankingSvc = require('../modules/sabotay/position-ranking.service')
+
 // ── SUPER ADMIN middleware ─────────────────────────────────────
 async function authSuperAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
@@ -26,7 +29,6 @@ async function authSuperAdmin(req, res, next) {
 // SUPER ADMIN ROUTES — ANVAN middleware tenant yo
 // ══════════════════════════════════════════════════════════════
 
-// GET /sabotay/admin/overview
 router.get('/admin/overview', authSuperAdmin, async (req, res) => {
   try {
     const plans = await prisma.sabotayPlan.findMany({
@@ -69,7 +71,6 @@ router.get('/admin/overview', authSuperAdmin, async (req, res) => {
   }
 })
 
-// GET /sabotay/admin/plans?slug=tenant-slug
 router.get('/admin/plans', authSuperAdmin, async (req, res) => {
   try {
     const { slug } = req.query
@@ -87,7 +88,6 @@ router.get('/admin/plans', authSuperAdmin, async (req, res) => {
   }
 })
 
-// GET /sabotay/admin/plans/:planId/members?slug=tenant-slug
 router.get('/admin/plans/:planId/members', authSuperAdmin, async (req, res) => {
   try {
     const members = await prisma.sabotayMember.findMany({
@@ -101,7 +101,6 @@ router.get('/admin/plans/:planId/members', authSuperAdmin, async (req, res) => {
   }
 })
 
-// DELETE /sabotay/admin/plans/:planId
 router.delete('/admin/plans/:planId', authSuperAdmin, async (req, res) => {
   try {
     await prisma.sabotayPlan.delete({ where: { id: req.params.planId } })
@@ -111,7 +110,6 @@ router.delete('/admin/plans/:planId', authSuperAdmin, async (req, res) => {
   }
 })
 
-// PATCH /sabotay/admin/members/:memberId
 router.patch('/admin/members/:memberId', authSuperAdmin, async (req, res) => {
   try {
     const member = await prisma.sabotayMember.update({
@@ -137,22 +135,156 @@ router.patch('/plans/:id',        ctrl.updatePlan)
 router.put('/plans/:id',          ctrl.updatePlan)
 router.delete('/plans/:id',       ctrl.deletePlan)
 
-router.post('/plans/:id/blind-draw',                     ctrl.blindDraw)
-router.post('/plans/:id/close',                          ctrl.closePlan)
-router.post('/plans/:planId/members/:memberId/action',   ctrl.memberAction)
+router.post('/plans/:id/blind-draw',   ctrl.blindDraw)
+router.post('/plans/:id/close',        ctrl.closePlan)
 
-router.get('/plans/:planId/members',                     ctrl.getMembers)
-router.post('/plans/:planId/members',                    ctrl.addMember)
-router.patch('/plans/:planId/members/:id',               ctrl.updateMember)
-router.delete('/plans/:planId/members/:id',              ctrl.removeMember)
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Toggle Pozisyon Dinamik
+// PATCH /sabotay/plans/:planId/toggle-dynamic
+// ─────────────────────────────────────────────────────────────
+router.patch('/plans/:planId/toggle-dynamic', async (req, res) => {
+  try {
+    const { planId }  = req.params
+    const tenantId    = req.tenant?.id || req.user?.tenantId
 
-router.get('/plans/:planId/payments',                    ctrl.getPayments)
-router.post('/plans/:planId/members/:memberId/pay',      ctrl.markPaid)
-router.delete('/payments/:paymentId',                    ctrl.unmarkPaid)
+    const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+    if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
 
-router.get('/plans/:planId/members/:memberId/account',   ctrl.getMemberAccount)
+    const newValue = !plan.dynamicPositions
 
-// GET /api/v1/sabotay/sol-account?phone=xxx
+    await prisma.sabotayPlan.update({
+      where: { id: planId },
+      data:  { dynamicPositions: newValue },
+    })
+
+    // Si n ap aktive — rekalile pozisyon imedyatman
+    let ranking = null
+    if (newValue) {
+      ranking = await rankingSvc.recalculatePositions(planId).catch(() => null)
+    }
+
+    return res.json({
+      message:          newValue ? '✅ Pozisyon Dinamik aktive!' : '⏹️ Pozisyon Dinamik dezaktive',
+      dynamicPositions: newValue,
+      ranking,
+    })
+  } catch (err) {
+    console.error('[TOGGLE DYNAMIC]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Rekalile Pozisyon Manyèlman
+// POST /sabotay/plans/:planId/recalculate
+// ─────────────────────────────────────────────────────────────
+router.post('/plans/:planId/recalculate', async (req, res) => {
+  try {
+    const { planId } = req.params
+    const tenantId   = req.tenant?.id || req.user?.tenantId
+
+    const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+    if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
+
+    if (!plan.dynamicPositions) {
+      return res.status(400).json({ message: 'Aktive pozisyon dinamik dabò' })
+    }
+
+    const result = await rankingSvc.recalculatePositions(planId)
+    return res.json({ message: '✅ Pozisyon rekalile!', ...result })
+  } catch (err) {
+    console.error('[RECALCULATE]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Wè Snapshot Klasman
+// GET /sabotay/plans/:planId/ranking
+// ─────────────────────────────────────────────────────────────
+router.get('/plans/:planId/ranking', async (req, res) => {
+  try {
+    const snapshot = await rankingSvc.getRankingSnapshot(req.params.planId)
+    return res.json({ ranking: snapshot })
+  } catch (err) {
+    console.error('[RANKING SNAPSHOT]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
+// Aksyon Manm
+// ─────────────────────────────────────────────────────────────
+router.post('/plans/:planId/members/:memberId/action', ctrl.memberAction)
+
+// ─────────────────────────────────────────────────────────────
+// Manm — GET ak DELETE rete jan yo te ye
+// ─────────────────────────────────────────────────────────────
+router.get('/plans/:planId/members',      ctrl.getMembers)
+router.patch('/plans/:planId/members/:id', ctrl.updateMember)
+router.delete('/plans/:planId/members/:id', ctrl.removeMember)
+
+// ─────────────────────────────────────────────────────────────
+// ✅ Ajoute Manm — middleware ki jenere permanentId ANVAN controller
+// POST /sabotay/plans/:planId/members
+// ─────────────────────────────────────────────────────────────
+router.post('/plans/:planId/members',
+  // Etap 1: Jenere permanentId epi ajoute li nan req.body
+  async (req, res, next) => {
+    try {
+      const pid = await rankingSvc.generatePermanentId(req.params.planId)
+      req.body.permanentId = pid
+      next()
+    } catch (err) {
+      console.warn('[PERMANENT ID GEN]', err.message)
+      next() // pa bloke si rankinSvc echwe
+    }
+  },
+  // Etap 2: Controller orijinal la kreye manm nan
+  ctrl.addMember,
+)
+
+// ─────────────────────────────────────────────────────────────
+// Peman — GET ak DELETE rete jan yo te ye
+// ─────────────────────────────────────────────────────────────
+router.get('/plans/:planId/payments',  ctrl.getPayments)
+router.delete('/payments/:paymentId',  ctrl.unmarkPaid)
+
+// ─────────────────────────────────────────────────────────────
+// ✅ Mache Peye — dekoratè ki rekalile pozisyon APRE controller
+// POST /sabotay/plans/:planId/members/:memberId/pay
+// ─────────────────────────────────────────────────────────────
+router.post('/plans/:planId/members/:memberId/pay',
+  // Etap 1: Entèsepte res.json pou detekte siksè
+  (req, res, next) => {
+    const planId     = req.params.planId
+    const origJson   = res.json.bind(res)
+
+    res.json = function (data) {
+      // Voye repons la dabò
+      origJson(data)
+      // Apre — si peman an reyisi, rekalile pozisyon nan background
+      const success = data && (data.success !== false) && !data.error
+      if (success) {
+        rankingSvc.recalculatePositions(planId).catch(e =>
+          console.warn('[AUTO RECALC AFTER PAY]', e.message)
+        )
+      }
+    }
+    next()
+  },
+  // Etap 2: Controller orijinal la anrejistre peman an
+  ctrl.markPaid,
+)
+
+// ─────────────────────────────────────────────────────────────
+// Kont Manm
+// ─────────────────────────────────────────────────────────────
+router.get('/plans/:planId/members/:memberId/account', ctrl.getMemberAccount)
+
+// ─────────────────────────────────────────────────────────────
+// Sol Account by Phone
+// ─────────────────────────────────────────────────────────────
 router.get('/sol-account', async (req, res) => {
   try {
     const { phone } = req.query
@@ -175,7 +307,9 @@ router.get('/sol-account', async (req, res) => {
   }
 })
 
-// GET /api/v1/sabotay/admin-cash?planId=xxx
+// ─────────────────────────────────────────────────────────────
+// Admin Cash
+// ─────────────────────────────────────────────────────────────
 router.get('/admin-cash', async (req, res) => {
   try {
     const { tenantId } = req.user
@@ -188,7 +322,9 @@ router.get('/admin-cash', async (req, res) => {
   }
 })
 
-// PATCH /sabotay/plans/:planId/exchange-config
+// ─────────────────────────────────────────────────────────────
+// Exchange Config
+// ─────────────────────────────────────────────────────────────
 router.patch('/plans/:planId/exchange-config', async (req, res) => {
   try {
     const { planId } = req.params

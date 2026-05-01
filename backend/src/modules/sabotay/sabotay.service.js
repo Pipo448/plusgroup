@@ -220,11 +220,13 @@ async function getMembers(tenantId, planId) {
 
 // ─────────────────────────────────────────────────────────────
 // ADD MEMBER
+// ✅ FIX: Ajoute permanentId nan destructuring + nan prisma.create
 // ─────────────────────────────────────────────────────────────
 async function addMember(tenantId, planId, userId, data) {
   const {
     name, phone, position, positions, notes, isOwnerSlot, hasWon, fines, credentials,
     cin, nif, address, photoUrl, idPhotoUrl, referenceName, referencePhone, relationship, preferredDate,
+    permanentId,  // ✅ AJOUTE: resevwa permanentId depi middleware route a
   } = data
 
   if (!name)     throw new Error('Non manm obligatwa.')
@@ -257,10 +259,8 @@ async function addMember(tenantId, planId, userId, data) {
 
       if (solAccount) {
         console.log(`[addMember] Kont Sol egziste pou ${phone} — ajoute men #${positionsToCreate} nan kont ${solAccount.username}`)
-        // ... update fields si necesè
       } else {
         console.log(`[addMember] Nouvo kont Sol pou ${phone}`)
-        // ... kreye kont
       }
 
       if (solAccount) {
@@ -318,6 +318,7 @@ async function addMember(tenantId, planId, userId, data) {
         position: Number(pos), dueDate: new Date(dueDate), collectDate: new Date(collectDate),
         notes: notes || null, isActive: true, createdBy: userId,
         isOwnerSlot: isOwnerSlot || false, hasWon: hasWon || false, fines: fines || {},
+        permanentId: permanentId || null,  // ✅ AJOUTE: sove permanentId nan DB
       },
       include: { payments: true, creator: { select: { fullName: true } } }
     })
@@ -429,7 +430,7 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
       include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } }
     })
     createdPayments.push(payment)
-     if (Number(fineAmt) > 0) {
+    if (Number(fineAmt) > 0) {
       await addToAdminCash(
         tenantId, planId, plan.name,
         'late_fine',
@@ -605,12 +606,6 @@ async function closePlan(tenantId, planId, userId) {
   return updated
 }
 
-// ─────────────────────────────────────────────────────────────
-// AKSYON SOU MANM — ✅ KORIJE: updated defini anvan itilize
-// ─────────────────────────────────────────────────────────────
-
-// KÈS ADMIN — Ajoute yon mouvman
-// ─────────────────────────────────────────────────────────────
 async function addToAdminCash(tenantId, planId, planName, type, amount, memberId, memberName, description) {
   if (!amount || amount <= 0) return null
   try {
@@ -629,9 +624,6 @@ async function addToAdminCash(tenantId, planId, planName, type, amount, memberId
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// KÈS ADMIN — Rezime pa tenant + pa plan
-// ─────────────────────────────────────────────────────────────
 async function getAdminCash(tenantId, planId) {
   const where = { tenantId, ...(planId && { planId }) }
 
@@ -647,7 +639,6 @@ async function getAdminCash(tenantId, planId) {
     }),
   ])
 
-  // Rezime pa plan
   const byPlan = {}
   for (const e of entries) {
     if (!byPlan[e.planId]) {
@@ -657,7 +648,6 @@ async function getAdminCash(tenantId, planId) {
     byPlan[e.planId].entries.push(e)
   }
 
-  // Rezime pa tip
   const byType = {}
   for (const e of entries) {
     if (!byType[e.type]) byType[e.type] = 0
@@ -690,7 +680,6 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   const statusMap = { block:'blocked', unblock:'active', stop:'stopped', resume:'active', payout:'active' }
   const newStatus = statusMap[action]
 
-  // ── PAYOUT ──
   if (action === 'payout') {
     const updatedMember = await prisma.sabotayMember.update({
       where: { id: memberId },
@@ -714,7 +703,6 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     return { member: updatedMember, action, newStatus: 'active' }
   }
 
-  // ── STOP — Kalkile penalite + Kès Admin ──
   if (action === 'stop') {
     const stopPenaltyPct = Number(plan.stopPenaltyPct || 0)
     const totalPaid = member.payments.reduce((s, p) => s + Number(p.amount), 0)
@@ -722,7 +710,6 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
       ? Math.round(totalPaid * (stopPenaltyPct / 100))
       : 0
 
-    // Ajoute nan Kès Admin si gen penalite
     if (penaltyAmt > 0) {
       await addToAdminCash(
         tenantId, planId, plan.name,
@@ -733,7 +720,6 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
       )
     }
 
-    // Notifye manm via kont Sol
     try {
       const solPos = await prisma.solMemberPosition.findFirst({
         where: { memberId, planId }, include: { account: true }
@@ -754,7 +740,6 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     } catch(_) {}
   }
 
-  // ── Lòt aksyon (block, unblock, resume) ──
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
     data: {
