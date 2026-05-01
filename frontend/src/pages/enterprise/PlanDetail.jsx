@@ -59,11 +59,11 @@ function PosBadge({ member, plan, dynamic }) {
           {isOwn ? '★' : `#${hasOwnerSlot(plan) ? member.position - 1 : member.position}`}
         </span>
         {/* permanentId toujou vizib anba */}
-        {!isOwn && member.permanentId && (
-          <span style={{ fontSize: 7, color: D.muted, lineHeight: 1, marginTop: 1, fontFamily: 'monospace' }}>
-            {member.permanentId}
-          </span>
-        )}
+    {!isOwn && member.permanentId && (
+  <span style={{ fontSize: 10, color: D.gold, lineHeight: 1, marginTop: 2, fontFamily: 'monospace', fontWeight: 700 }}>
+    {member.permanentId}
+  </span>
+)}
       </div>
       {/* Indikatè pwovizwa (ti pwen animé) */}
       {dynamic && !locked && !isOwn && (
