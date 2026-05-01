@@ -331,7 +331,8 @@ router.post('/accounts', authAdmin, async (req, res) => {
       message:   'Kont kreye!',
       accountId: account.id,
       username:  account.username,
-    })
+     plainPassword: account.plainPassword,  // ✅ AJOUTE SA
+})
   } catch (err) {
     console.error('[SOL CREATE ACCOUNT]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
