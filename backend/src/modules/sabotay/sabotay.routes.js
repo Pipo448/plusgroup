@@ -7,7 +7,7 @@ const jwt = require('jsonwebtoken')
 const prisma = new PrismaClient()
 
 // ✅ Import Ranking Service — Sistèm Pozisyon Dinamik
-const rankingSvc = require('../modules/sabotay/position-ranking.service')
+const rankingSvc = require('./position-ranking.service')
 
 // ── SUPER ADMIN middleware ─────────────────────────────────────
 async function authSuperAdmin(req, res, next) {
