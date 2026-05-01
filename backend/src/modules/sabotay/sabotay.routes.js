@@ -6,7 +6,7 @@ const { PrismaClient } = require('@prisma/client')
 const jwt = require('jsonwebtoken')
 const prisma = new PrismaClient()
 
-// ✅ Import Ranking Service — Sistèm Pozisyon Dinamik
+// ✅ FIX: Chemen relatif kòrèk — menm dosye a
 const rankingSvc = require('./position-ranking.service')
 
 // ── SUPER ADMIN middleware ─────────────────────────────────────
@@ -58,12 +58,12 @@ router.get('/admin/overview', authSuperAdmin, async (req, res) => {
       }
     })
     const summary = {
-      totalPlans:    plans.length,
-      activePlans:   plans.filter(p => p.status === 'open' || p.status === 'active').length,
-      totalMembers:  overview.reduce((a, p) => a + p.activeMembers, 0),
-      totalRevenue:  overview.reduce((a, p) => a + p.expectedRevenue, 0),
-      totalCollected:overview.reduce((a, p) => a + p.totalCollected, 0),
-      totalTenants:  tenantIds.length,
+      totalPlans:     plans.length,
+      activePlans:    plans.filter(p => p.status === 'open' || p.status === 'active').length,
+      totalMembers:   overview.reduce((a, p) => a + p.activeMembers, 0),
+      totalRevenue:   overview.reduce((a, p) => a + p.expectedRevenue, 0),
+      totalCollected: overview.reduce((a, p) => a + p.totalCollected, 0),
+      totalTenants:   tenantIds.length,
     }
     return res.json({ success: true, overview, summary })
   } catch (err) {
@@ -127,46 +127,33 @@ router.patch('/admin/members/:memberId', authSuperAdmin, async (req, res) => {
 // ══════════════════════════════════════════════════════════════
 router.use(identifyTenant, authenticate)
 
-router.get('/plans/stats',        ctrl.getStats)
-router.get('/plans',              ctrl.getPlans)
-router.get('/plans/:id',          ctrl.getPlan)
-router.post('/plans',             ctrl.createPlan)
-router.patch('/plans/:id',        ctrl.updatePlan)
-router.put('/plans/:id',          ctrl.updatePlan)
-router.delete('/plans/:id',       ctrl.deletePlan)
+router.get('/plans/stats',  ctrl.getStats)
+router.get('/plans',        ctrl.getPlans)
+router.get('/plans/:id',    ctrl.getPlan)
+router.post('/plans',       ctrl.createPlan)
+router.patch('/plans/:id',  ctrl.updatePlan)
+router.put('/plans/:id',    ctrl.updatePlan)
+router.delete('/plans/:id', ctrl.deletePlan)
 
-router.post('/plans/:id/blind-draw',   ctrl.blindDraw)
-router.post('/plans/:id/close',        ctrl.closePlan)
+router.post('/plans/:id/blind-draw', ctrl.blindDraw)
+router.post('/plans/:id/close',      ctrl.closePlan)
 
 // ─────────────────────────────────────────────────────────────
-// ✅ NOUVO: Toggle Pozisyon Dinamik
-// PATCH /sabotay/plans/:planId/toggle-dynamic
+// ✅ Toggle Pozisyon Dinamik
 // ─────────────────────────────────────────────────────────────
 router.patch('/plans/:planId/toggle-dynamic', async (req, res) => {
   try {
-    const { planId }  = req.params
-    const tenantId    = req.tenant?.id || req.user?.tenantId
-
+    const { planId } = req.params
+    const tenantId   = req.tenant?.id || req.user?.tenantId
     const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
     if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
-
     const newValue = !plan.dynamicPositions
-
-    await prisma.sabotayPlan.update({
-      where: { id: planId },
-      data:  { dynamicPositions: newValue },
-    })
-
-    // Si n ap aktive — rekalile pozisyon imedyatman
+    await prisma.sabotayPlan.update({ where: { id: planId }, data: { dynamicPositions: newValue } })
     let ranking = null
-    if (newValue) {
-      ranking = await rankingSvc.recalculatePositions(planId).catch(() => null)
-    }
-
+    if (newValue) ranking = await rankingSvc.recalculatePositions(planId).catch(() => null)
     return res.json({
-      message:          newValue ? '✅ Pozisyon Dinamik aktive!' : '⏹️ Pozisyon Dinamik dezaktive',
-      dynamicPositions: newValue,
-      ranking,
+      message: newValue ? '✅ Pozisyon Dinamik aktive!' : '⏹️ Pozisyon Dinamik dezaktive',
+      dynamicPositions: newValue, ranking,
     })
   } catch (err) {
     console.error('[TOGGLE DYNAMIC]', err)
@@ -175,21 +162,15 @@ router.patch('/plans/:planId/toggle-dynamic', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────
-// ✅ NOUVO: Rekalile Pozisyon Manyèlman
-// POST /sabotay/plans/:planId/recalculate
+// ✅ Rekalile Pozisyon Manyèlman
 // ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/recalculate', async (req, res) => {
   try {
     const { planId } = req.params
     const tenantId   = req.tenant?.id || req.user?.tenantId
-
     const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
     if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
-
-    if (!plan.dynamicPositions) {
-      return res.status(400).json({ message: 'Aktive pozisyon dinamik dabò' })
-    }
-
+    if (!plan.dynamicPositions) return res.status(400).json({ message: 'Aktive pozisyon dinamik dabò' })
     const result = await rankingSvc.recalculatePositions(planId)
     return res.json({ message: '✅ Pozisyon rekalile!', ...result })
   } catch (err) {
@@ -199,8 +180,7 @@ router.post('/plans/:planId/recalculate', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────
-// ✅ NOUVO: Wè Snapshot Klasman
-// GET /sabotay/plans/:planId/ranking
+// ✅ Snapshot Klasman
 // ─────────────────────────────────────────────────────────────
 router.get('/plans/:planId/ranking', async (req, res) => {
   try {
@@ -212,60 +192,37 @@ router.get('/plans/:planId/ranking', async (req, res) => {
   }
 })
 
-// ─────────────────────────────────────────────────────────────
-// Aksyon Manm
-// ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/members/:memberId/action', ctrl.memberAction)
 
-// ─────────────────────────────────────────────────────────────
-// Manm — GET ak DELETE rete jan yo te ye
-// ─────────────────────────────────────────────────────────────
-router.get('/plans/:planId/members',      ctrl.getMembers)
-router.patch('/plans/:planId/members/:id', ctrl.updateMember)
+router.get('/plans/:planId/members',        ctrl.getMembers)
+router.patch('/plans/:planId/members/:id',  ctrl.updateMember)
 router.delete('/plans/:planId/members/:id', ctrl.removeMember)
 
 // ─────────────────────────────────────────────────────────────
-// ✅ Ajoute Manm — middleware ki jenere permanentId ANVAN controller
-// POST /sabotay/plans/:planId/members
+// ✅ Ajoute Manm — jenere permanentId ANVAN controller
 // ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/members',
-  // Etap 1: Jenere permanentId epi ajoute li nan req.body
   async (req, res, next) => {
     try {
-      const pid = await rankingSvc.generatePermanentId(req.params.planId)
-      req.body.permanentId = pid
-      next()
+      req.body.permanentId = await rankingSvc.generatePermanentId(req.params.planId)
     } catch (err) {
       console.warn('[PERMANENT ID GEN]', err.message)
-      next() // pa bloke si rankinSvc echwe
     }
+    next()
   },
-  // Etap 2: Controller orijinal la kreye manm nan
   ctrl.addMember,
 )
 
 // ─────────────────────────────────────────────────────────────
-// Peman — GET ak DELETE rete jan yo te ye
-// ─────────────────────────────────────────────────────────────
-router.get('/plans/:planId/payments',  ctrl.getPayments)
-router.delete('/payments/:paymentId',  ctrl.unmarkPaid)
-
-// ─────────────────────────────────────────────────────────────
-// ✅ Mache Peye — dekoratè ki rekalile pozisyon APRE controller
-// POST /sabotay/plans/:planId/members/:memberId/pay
+// ✅ Mache Peye — rekalile APRE peman
 // ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/members/:memberId/pay',
-  // Etap 1: Entèsepte res.json pou detekte siksè
   (req, res, next) => {
-    const planId     = req.params.planId
-    const origJson   = res.json.bind(res)
-
+    const planId   = req.params.planId
+    const origJson = res.json.bind(res)
     res.json = function (data) {
-      // Voye repons la dabò
       origJson(data)
-      // Apre — si peman an reyisi, rekalile pozisyon nan background
-      const success = data && (data.success !== false) && !data.error
-      if (success) {
+      if (data && data.success !== false && !data.error) {
         rankingSvc.recalculatePositions(planId).catch(e =>
           console.warn('[AUTO RECALC AFTER PAY]', e.message)
         )
@@ -273,32 +230,22 @@ router.post('/plans/:planId/members/:memberId/pay',
     }
     next()
   },
-  // Etap 2: Controller orijinal la anrejistre peman an
   ctrl.markPaid,
 )
 
-// ─────────────────────────────────────────────────────────────
-// Kont Manm
-// ─────────────────────────────────────────────────────────────
+router.get('/plans/:planId/payments',                  ctrl.getPayments)
+router.delete('/payments/:paymentId',                  ctrl.unmarkPaid)
 router.get('/plans/:planId/members/:memberId/account', ctrl.getMemberAccount)
 
-// ─────────────────────────────────────────────────────────────
-// Sol Account by Phone
-// ─────────────────────────────────────────────────────────────
 router.get('/sol-account', async (req, res) => {
   try {
     const { phone } = req.query
     if (!phone) return res.json({ account: null })
-
     const { tenantId } = req.user
     const clean = phone.replace(/\s/g, '').trim()
-
     const account = await prisma.solMemberAccount.findFirst({
       where: { memberPhone: clean, tenantId },
-      select: {
-        id: true, username: true, plainPassword: true,
-        memberName: true, memberPhone: true, tenantId: true,
-      }
+      select: { id: true, username: true, plainPassword: true, memberName: true, memberPhone: true, tenantId: true }
     })
     return res.json({ account: account || null })
   } catch (err) {
@@ -307,9 +254,6 @@ router.get('/sol-account', async (req, res) => {
   }
 })
 
-// ─────────────────────────────────────────────────────────────
-// Admin Cash
-// ─────────────────────────────────────────────────────────────
 router.get('/admin-cash', async (req, res) => {
   try {
     const { tenantId } = req.user
@@ -322,18 +266,13 @@ router.get('/admin-cash', async (req, res) => {
   }
 })
 
-// ─────────────────────────────────────────────────────────────
-// Exchange Config
-// ─────────────────────────────────────────────────────────────
 router.patch('/plans/:planId/exchange-config', async (req, res) => {
   try {
     const { planId } = req.params
     const tenantId   = req.tenant.id
     const { exchangeFeePct, exchangeFeeAdminPct } = req.body
-
     const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
     if (!plan) return res.status(404).json({ message: 'Plan pa jwenn.' })
-
     const updated = await prisma.sabotayPlan.update({
       where: { id: planId },
       data: {

@@ -1,7 +1,4 @@
 // src/routes/sol.routes.js
-// API pou pòtal manm Sabotay Sol
-// Mount: app.use('/api/sol', solRouter)
-
 const express = require('express')
 const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
@@ -10,17 +7,11 @@ const { PrismaClient } = require('@prisma/client')
 const router   = express.Router()
 const prisma   = new PrismaClient()
 
-// ✅ Sol Push Service
 const solPushSvc  = require('../modules/sabotay/sol-push.service')
-
-// ✅ Sol Exchange Service — Mache Men Sol
 const exchangeSvc = require('../modules/sabotay/sol-exchange.service')
 
 const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me'
 
-// ─────────────────────────────────────────────────────────────
-// HELPER: Kalkile timing (early / onTime / late)
-// ─────────────────────────────────────────────────────────────
 function computeTiming(dueDate, paidAt) {
   if (!paidAt) return 'onTime'
   const toHaitiDate = (d) => {
@@ -36,30 +27,23 @@ function computeTiming(dueDate, paidAt) {
 }
 
 function buildPaymentMaps(sabotayPayments) {
-  const payments       = {}
-  const paymentTimings = {}
+  const payments = {}, paymentTimings = {}
   for (const p of sabotayPayments) {
     try {
       const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
-      payments[dateKey]       = true
-      const paidAt = p.paidDate || p.paidAt || p.dueDate
-      paymentTimings[dateKey] = computeTiming(p.dueDate, paidAt)
+      payments[dateKey] = true
+      paymentTimings[dateKey] = computeTiming(p.dueDate, p.paidDate || p.paidAt || p.dueDate)
     } catch(_) {}
   }
   return { payments, paymentTimings }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MIDDLEWARE: Verifye token manm sol
-// ─────────────────────────────────────────────────────────────
 function authMember(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token manke' })
   try {
     const payload = jwt.verify(token, SOL_JWT_SECRET)
-    if (payload.role !== 'sol_member') {
-      return res.status(401).json({ message: 'Token pa valid pou manm sol' })
-    }
+    if (payload.role !== 'sol_member') return res.status(401).json({ message: 'Token pa valid pou manm sol' })
     req.solMember = payload
     next()
   } catch {
@@ -67,11 +51,6 @@ function authMember(req, res, next) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// MIDDLEWARE: Verifye token admin
-// ✅ FIX: Itilize SUPER_ADMIN_JWT_SECRET — menm jan ak admin.routes.js
-// Anvan li te itilize JWT_SECRET ki kòze 401 pou tout Super Admin requests
-// ─────────────────────────────────────────────────────────────
 function authAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token admin obligatwa' })
@@ -84,87 +63,37 @@ function authAdmin(req, res, next) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// POST /api/sol/auth/login
+// AUTH
 // ══════════════════════════════════════════════════════════════
+
 router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Non itilizatè ak modpas obligatwa' })
-    }
-
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { username: username.toLowerCase().trim() },
-    })
-    if (!account) {
-      return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
-    }
-
+    if (!username || !password) return res.status(400).json({ message: 'Non itilizatè ak modpas obligatwa' })
+    const account = await prisma.solMemberAccount.findUnique({ where: { username: username.toLowerCase().trim() } })
+    if (!account) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
     const valid = await bcrypt.compare(password, account.passwordHash)
-    if (!valid) {
-      return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
-    }
-
-    const tenant = await prisma.tenant.findUnique({
-      where:  { id: account.tenantId },
-      select: { id: true, name: true, phone: true, address: true, logoUrl: true },
-    })
-
-    const token = jwt.sign(
-      {
-        role:      'sol_member',
-        accountId: account.id,
-        memberId:  account.memberId,
-        planId:    account.planId,
-        tenantId:  account.tenantId,
-      },
-      SOL_JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-
-    return res.json({
-      token,
-      member: {
-        id:       account.memberId,
-        name:     account.memberName,
-        phone:    account.memberPhone,
-        position: account.memberPosition,
-      },
-      tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
-    })
+    if (!valid) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
+    const tenant = await prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true, logoUrl: true } })
+    const token = jwt.sign({ role: 'sol_member', accountId: account.id, memberId: account.memberId, planId: account.planId, tenantId: account.tenantId }, SOL_JWT_SECRET, { expiresIn: '7d' })
+    return res.json({ token, member: { id: account.memberId, name: account.memberName, phone: account.memberPhone, position: account.memberPosition }, tenant: tenant ? { ...tenant, businessName: tenant.name } : null })
   } catch (err) {
     console.error('[SOL LOGIN]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
 
-// ══════════════════════════════════════════════════════════════
-// POST /api/sol/auth/change-password
-// ══════════════════════════════════════════════════════════════
 router.post('/auth/change-password', authMember, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({ message: 'Tout champ yo obligatwa' })
-    }
-    if (newPassword.length < 4) {
-      return res.status(400).json({ message: 'Modpas nouvo dwe gen omwen 4 karaktè' })
-    }
-
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: req.solMember.accountId },
-    })
+    if (!currentPassword || !newPassword) return res.status(400).json({ message: 'Tout champ yo obligatwa' })
+    if (newPassword.length < 4) return res.status(400).json({ message: 'Modpas nouvo dwe gen omwen 4 karaktè' })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
-
     const valid = await bcrypt.compare(currentPassword, account.passwordHash)
     if (!valid) return res.status(401).json({ message: 'Modpas aktyèl la pa kòrèk' })
-
     const newHash = await bcrypt.hash(newPassword, 10)
-    await prisma.solMemberAccount.update({
-      where: { id: account.id },
-      data: { passwordHash: newHash, plainPassword: newPassword },
-    })
-
+    await prisma.solMemberAccount.update({ where: { id: account.id }, data: { passwordHash: newHash, plainPassword: newPassword } })
     return res.json({ message: 'Modpas chanje avèk siksè' })
   } catch (err) {
     console.error('[SOL CHANGE-PW]', err)
@@ -173,79 +102,23 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// GET /api/sol/members/me
+// MEMBERS/ME
 // ══════════════════════════════════════════════════════════════
+
 router.get('/members/me', authMember, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: req.solMember.accountId },
-    })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
-
-    const sabotayMember = await prisma.sabotayMember.findUnique({
-      where: { id: account.memberId },
-      include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } },
-    })
+    const sabotayMember = await prisma.sabotayMember.findUnique({ where: { id: account.memberId }, include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } } })
     if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn' })
-
-    const allSlots = await prisma.sabotayMember.findMany({
-      where: {
-        phone: sabotayMember.phone,
-        planId: sabotayMember.planId,
-        isActive: true,
-      },
-      include: { payments: { orderBy: { dueDate: 'asc' } } },
-      orderBy: { position: 'asc' },
-    })
-
+    const allSlots = await prisma.sabotayMember.findMany({ where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true }, include: { payments: { orderBy: { dueDate: 'asc' } } }, orderBy: { position: 'asc' } })
     const plan = sabotayMember.plan
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
-
-    const tenant = await prisma.tenant.findUnique({
-      where:  { id: account.tenantId },
-      select: { id: true, name: true, phone: true, address: true, logoUrl: true },
-    })
-
-    const activeMemberCount = await prisma.sabotayMember.count({
-      where: { planId: plan.id, isActive: true },
-    }).catch(() => 0)
-
+    const tenant = await prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true, logoUrl: true } })
+    const activeMemberCount = await prisma.sabotayMember.count({ where: { planId: plan.id, isActive: true } }).catch(() => 0)
     return res.json({
-      member: {
-        id:             sabotayMember.id,
-        name:           sabotayMember.name,
-        phone:          sabotayMember.phone || '',
-        position:       sabotayMember.position,
-        accountPosition: account.memberPosition,
-        balance:  Number(account.balance || 0),  // ✅ AJOUTE SA
-        payments,
-        paymentTimings,
-        allSlots: allSlots.map(s => {
-          const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
-          return {
-            id:             s.id,
-            position:       s.position,
-            payments:       sp,
-            paymentTimings: st,
-          }
-        }),
-      },
-      plan: {
-        id:               plan.id,
-        name:             plan.name,
-        amount:           Number(plan.amount),
-        fee:              Number(plan.fee),
-        frequency:        plan.frequency,
-        maxMembers:       plan.maxMembers,
-        activeMemberCount: activeMemberCount,
-        createdAt:        plan.startDate.toISOString().split('T')[0],
-        dueTime:          plan.dueTime             || account.planDueTime      || '08:00',
-        dueTimeEnd:       plan.dueTimeEnd          || account.planDueTimeEnd   || '15:00',
-        interval:         plan.interval            || account.planInterval     || 1,
-        feePerMember:     Number(plan.feePerMember || account.planFeePerMember || 0),
-        penalty:          Number(plan.penalty      || account.planPenalty      || 0),
-        regleman:         plan.regleman            || null,
-      },
+      member: { id: sabotayMember.id, name: sabotayMember.name, phone: sabotayMember.phone || '', position: sabotayMember.position, accountPosition: account.memberPosition, balance: Number(account.balance || 0), payments, paymentTimings, allSlots: allSlots.map(s => { const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments); return { id: s.id, position: s.position, payments: sp, paymentTimings: st } }) },
+      plan: { id: plan.id, name: plan.name, amount: Number(plan.amount), fee: Number(plan.fee), frequency: plan.frequency, maxMembers: plan.maxMembers, activeMemberCount, createdAt: plan.startDate.toISOString().split('T')[0], dueTime: plan.dueTime || account.planDueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00', interval: plan.interval || account.planInterval || 1, feePerMember: Number(plan.feePerMember || account.planFeePerMember || 0), penalty: Number(plan.penalty || account.planPenalty || 0), regleman: plan.regleman || null },
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
   } catch (err) {
@@ -255,99 +128,36 @@ router.get('/members/me', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// POST /api/sol/accounts   (admin sèlman)
+// ACCOUNTS (admin)
 // ══════════════════════════════════════════════════════════════
+
 router.post('/accounts', authAdmin, async (req, res) => {
   try {
     const { memberId, tenantId, dueTime, credentials } = req.body
-
-    if (!memberId || !tenantId || !credentials?.username || !credentials?.password) {
-      return res.status(400).json({
-        message: 'memberId, tenantId, credentials.username, credentials.password obligatwa',
-      })
-    }
-
-    const sabotayMember = await prisma.sabotayMember.findUnique({
-      where:   { id: memberId },
-      include: { plan: true },
-    })
-    if (!sabotayMember) {
-      return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
-    }
-
-    if (sabotayMember.plan.tenantId !== tenantId) {
-      return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
-    }
-
-    const existing = await prisma.solMemberAccount.findUnique({
-      where: { username: credentials.username.toLowerCase().trim() },
-    })
-    if (existing) {
-      return res.status(409).json({ message: 'Non itilizatè sa deja pran' })
-    }
-
-    const existingByMember = await prisma.solMemberAccount.findFirst({
-      where: { memberId: sabotayMember.id },
-    })
-    if (existingByMember) {
-      return res.status(409).json({
-        message: `Manm sa gen deja yon kont (${existingByMember.username})`,
-      })
-    }
-
+    if (!memberId || !tenantId || !credentials?.username || !credentials?.password) return res.status(400).json({ message: 'memberId, tenantId, credentials.username, credentials.password obligatwa' })
+    const sabotayMember = await prisma.sabotayMember.findUnique({ where: { id: memberId }, include: { plan: true } })
+    if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
+    if (sabotayMember.plan.tenantId !== tenantId) return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
+    const existing = await prisma.solMemberAccount.findUnique({ where: { username: credentials.username.toLowerCase().trim() } })
+    if (existing) return res.status(409).json({ message: 'Non itilizatè sa deja pran' })
+    const existingByMember = await prisma.solMemberAccount.findFirst({ where: { memberId: sabotayMember.id } })
+    if (existingByMember) return res.status(409).json({ message: `Manm sa gen deja yon kont (${existingByMember.username})` })
     const rawPassword  = credentials.password
     const passwordHash = await bcrypt.hash(rawPassword, 10)
     const plan         = sabotayMember.plan
-
     const account = await prisma.solMemberAccount.create({
-      data: {
-        username:         credentials.username.toLowerCase().trim(),
-        passwordHash,
-        plainPassword:    rawPassword,
-        tenantId,
-        memberId:         sabotayMember.id,
-        memberName:       sabotayMember.name,
-        memberPhone:      sabotayMember.phone || '',
-        memberPosition:   sabotayMember.position,
-        planId:           plan.id,
-        planName:         plan.name,
-        planAmount:       Number(plan.amount),
-        planFee:          Number(plan.fee),
-        planFrequency:    plan.frequency,
-        planMaxMembers:   plan.maxMembers,
-        planCreatedAt:    plan.startDate.toISOString().split('T')[0],
-        planDueTime:      dueTime || '08:00',
-        planInterval:     Number(plan.interval     || 1),
-        planFeePerMember: Number(plan.feePerMember || 0),
-        planPenalty:      Number(plan.penalty      || 0),
-        planRegleman:     plan.regleman            || null,
-        payments:         {},
-        paymentTimings:   {},
-        fines:            {},
-      },
+      data: { username: credentials.username.toLowerCase().trim(), passwordHash, plainPassword: rawPassword, tenantId, memberId: sabotayMember.id, memberName: sabotayMember.name, memberPhone: sabotayMember.phone || '', memberPosition: sabotayMember.position, planId: plan.id, planName: plan.name, planAmount: Number(plan.amount), planFee: Number(plan.fee), planFrequency: plan.frequency, planMaxMembers: plan.maxMembers, planCreatedAt: plan.startDate.toISOString().split('T')[0], planDueTime: dueTime || '08:00', planInterval: Number(plan.interval || 1), planFeePerMember: Number(plan.feePerMember || 0), planPenalty: Number(plan.penalty || 0), planRegleman: plan.regleman || null, payments: {}, paymentTimings: {}, fines: {} },
     })
-
-    return res.status(201).json({
-      message:   'Kont kreye!',
-      accountId: account.id,
-      username:  account.username,
-     plainPassword: account.plainPassword,  // ✅ AJOUTE SA
-})
+    return res.status(201).json({ message: 'Kont kreye!', accountId: account.id, username: account.username, plainPassword: account.plainPassword })
   } catch (err) {
     console.error('[SOL CREATE ACCOUNT]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
 
-// ══════════════════════════════════════════════════════════════
-// GET /api/sol/members/:memberId/check   (admin)
-// ══════════════════════════════════════════════════════════════
 router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findFirst({
-      where:  { memberId: req.params.memberId },
-      select: { id: true, username: true, createdAt: true },
-    })
+    const account = await prisma.solMemberAccount.findFirst({ where: { memberId: req.params.memberId }, select: { id: true, username: true, createdAt: true } })
     return res.json({ hasAccount: !!account, account: account || null })
   } catch (err) {
     console.error('[SOL CHECK]', err)
@@ -355,34 +165,11 @@ router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   }
 })
 
-// ══════════════════════════════════════════════════════════════
-// GET /api/sol/accounts?tenantId=xxx&planId=xxx  (admin)
-// ══════════════════════════════════════════════════════════════
 router.get('/accounts', authAdmin, async (req, res) => {
   try {
     const { tenantId, planId } = req.query
-    if (!tenantId) {
-      return res.status(400).json({ message: 'tenantId obligatwa' })
-    }
-
-    const accounts = await prisma.solMemberAccount.findMany({
-      where: {
-        tenantId,
-        ...(planId && { planId }),
-      },
-      select: {
-        id:             true,
-        username:       true,
-        plainPassword:  true,
-        memberName:     true,
-        memberPhone:    true,
-        memberPosition: true,
-        planName:       true,
-        createdAt:      true,
-      },
-      orderBy: { memberPosition: 'asc' },
-    })
-
+    if (!tenantId) return res.status(400).json({ message: 'tenantId obligatwa' })
+    const accounts = await prisma.solMemberAccount.findMany({ where: { tenantId, ...(planId && { planId }) }, select: { id: true, username: true, plainPassword: true, memberName: true, memberPhone: true, memberPosition: true, planName: true, createdAt: true }, orderBy: { memberPosition: 'asc' } })
     return res.json({ accounts })
   } catch (err) {
     console.error('[SOL ACCOUNTS LIST]', err)
@@ -390,27 +177,14 @@ router.get('/accounts', authAdmin, async (req, res) => {
   }
 })
 
-// ══════════════════════════════════════════════════════════════
-// PATCH /api/sol/accounts/:accountId/reset-password  (admin)
-// ══════════════════════════════════════════════════════════════
 router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) => {
   try {
     const { newPassword } = req.body
-    if (!newPassword || newPassword.length < 4) {
-      return res.status(400).json({ message: 'Modpas dwe gen omwen 4 karaktè' })
-    }
-
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: req.params.accountId },
-    })
+    if (!newPassword || newPassword.length < 4) return res.status(400).json({ message: 'Modpas dwe gen omwen 4 karaktè' })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.params.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
-
     const passwordHash = await bcrypt.hash(newPassword, 10)
-    await prisma.solMemberAccount.update({
-      where: { id: account.id },
-      data:  { passwordHash, plainPassword: newPassword },
-    })
-
+    await prisma.solMemberAccount.update({ where: { id: account.id }, data: { passwordHash, plainPassword: newPassword } })
     return res.json({ message: 'Modpas reset avèk siksè', username: account.username })
   } catch (err) {
     console.error('[SOL RESET PW]', err)
@@ -419,34 +193,20 @@ router.patch('/accounts/:accountId/reset-password', authAdmin, async (req, res) 
 })
 
 // ══════════════════════════════════════════════════════════════
-// ✅ PUSH NOTIFICATIONS — Manm Sol
+// PUSH NOTIFICATIONS
 // ══════════════════════════════════════════════════════════════
 
 router.get('/push/vapid-public-key', (req, res) => {
-  res.json({
-    success:   true,
-    publicKey: process.env.VAPID_PUBLIC_KEY ||
-      'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
-  })
+  res.json({ success: true, publicKey: process.env.VAPID_PUBLIC_KEY || 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU' })
 })
 
 router.post('/push/subscribe', authMember, async (req, res) => {
   try {
     const { subscription } = req.body
-    if (!subscription) {
-      return res.status(400).json({ message: 'Subscription obligatwa' })
-    }
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: req.solMember.accountId }
-    })
+    if (!subscription) return res.status(400).json({ message: 'Subscription obligatwa' })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
-
-    await solPushSvc.saveSolSubscription(
-      account.tenantId,
-      account.id,
-      account.memberId,
-      subscription
-    )
+    await solPushSvc.saveSolSubscription(account.tenantId, account.id, account.memberId, subscription)
     return res.json({ success: true, message: 'Push subscription anrejistre.' })
   } catch (err) {
     console.error('[SOL PUSH SUBSCRIBE]', err)
@@ -466,14 +226,12 @@ router.delete('/push/unsubscribe', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// ✅ MACHE MEN SOL — Echanj Pozisyon
+// EXCHANGE
 // ══════════════════════════════════════════════════════════════
 
 router.get('/exchange/:planId/offers', authMember, async (req, res) => {
   try {
-    const { planId } = req.params
-    const { tenantId, accountId } = req.solMember
-    const offers = await exchangeSvc.getPublicOffers(tenantId, planId, accountId)
+    const offers = await exchangeSvc.getPublicOffers(req.solMember.tenantId, req.params.planId, req.solMember.accountId)
     return res.json({ success: true, offers })
   } catch (err) {
     console.error('[SOL EXCHANGE OFFERS]', err)
@@ -483,9 +241,7 @@ router.get('/exchange/:planId/offers', authMember, async (req, res) => {
 
 router.get('/exchange/:planId/my', authMember, async (req, res) => {
   try {
-    const { planId } = req.params
-    const { tenantId, accountId } = req.solMember
-    const exchanges = await exchangeSvc.getMemberExchanges(tenantId, accountId, planId)
+    const exchanges = await exchangeSvc.getMemberExchanges(req.solMember.tenantId, req.solMember.accountId, req.params.planId)
     return res.json({ success: true, exchanges })
   } catch (err) {
     console.error('[SOL EXCHANGE MY]', err)
@@ -495,10 +251,8 @@ router.get('/exchange/:planId/my', authMember, async (req, res) => {
 
 router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
   try {
-    // ✅ Itilize planId depi token si URL planId pa match
-    const planId  = req.params.planId || req.solMember.planId
-    const { tenantId, accountId } = req.solMember
-    const exchange = await exchangeSvc.initiateExchange(tenantId, planId, accountId, req.body)
+    const planId = req.params.planId || req.solMember.planId
+    const exchange = await exchangeSvc.initiateExchange(req.solMember.tenantId, planId, req.solMember.accountId, req.body)
     return res.status(201).json({ success: true, exchange })
   } catch (err) {
     console.error('[SOL EXCHANGE INITIATE]', err)
@@ -508,9 +262,7 @@ router.post('/exchange/:planId/initiate', authMember, async (req, res) => {
 
 router.post('/exchange/:exchangeId/accept', authMember, async (req, res) => {
   try {
-    const { exchangeId } = req.params
-    const { tenantId, accountId } = req.solMember
-    const result = await exchangeSvc.acceptExchange(tenantId, exchangeId, accountId)
+    const result = await exchangeSvc.acceptExchange(req.solMember.tenantId, req.params.exchangeId, req.solMember.accountId)
     return res.json({ success: true, ...result })
   } catch (err) {
     console.error('[SOL EXCHANGE ACCEPT]', err)
@@ -520,9 +272,7 @@ router.post('/exchange/:exchangeId/accept', authMember, async (req, res) => {
 
 router.post('/exchange/:exchangeId/reject', authMember, async (req, res) => {
   try {
-    const { exchangeId } = req.params
-    const { tenantId, accountId } = req.solMember
-    const result = await exchangeSvc.rejectExchange(tenantId, exchangeId, accountId)
+    const result = await exchangeSvc.rejectExchange(req.solMember.tenantId, req.params.exchangeId, req.solMember.accountId)
     return res.json({ success: true, ...result })
   } catch (err) {
     console.error('[SOL EXCHANGE REJECT]', err)
@@ -534,10 +284,7 @@ router.get('/admin/exchange', authAdmin, async (req, res) => {
   try {
     const { tenantId, planId, status, page, limit } = req.query
     if (!tenantId) return res.status(400).json({ message: 'tenantId obligatwa' })
-    const result = await exchangeSvc.getAdminExchanges(
-      tenantId, planId,
-      { status, page: Number(page) || 1, limit: Number(limit) || 20 }
-    )
+    const result = await exchangeSvc.getAdminExchanges(tenantId, planId, { status, page: Number(page) || 1, limit: Number(limit) || 20 })
     return res.json({ success: true, ...result })
   } catch (err) {
     console.error('[SOL ADMIN EXCHANGE]', err)
@@ -547,10 +294,9 @@ router.get('/admin/exchange', authAdmin, async (req, res) => {
 
 router.patch('/admin/exchange/:planId/config', authAdmin, async (req, res) => {
   try {
-    const { planId }   = req.params
     const { tenantId } = req.query
     if (!tenantId) return res.status(400).json({ message: 'tenantId obligatwa' })
-    const plan = await exchangeSvc.updateExchangeConfig(tenantId, planId, null, req.body)
+    const plan = await exchangeSvc.updateExchangeConfig(tenantId, req.params.planId, null, req.body)
     return res.json({ success: true, plan })
   } catch (err) {
     console.error('[SOL ADMIN EXCHANGE CONFIG]', err)
@@ -559,21 +305,15 @@ router.patch('/admin/exchange/:planId/config', authAdmin, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// GET /api/sol/account-by-phone?phone=xxx&tenantId=xxx  (admin)
+// ACCOUNT BY PHONE
 // ══════════════════════════════════════════════════════════════
+
 router.get('/account-by-phone', authAdmin, async (req, res) => {
   try {
     const { phone, tenantId } = req.query
     if (!phone) return res.json({ account: null })
-
     const clean = phone.replace(/\s/g, '').trim()
-    const account = await prisma.solMemberAccount.findFirst({
-      where: { memberPhone: clean, ...(tenantId && { tenantId }) },
-      select: {
-        id: true, username: true, plainPassword: true,
-        memberName: true, memberPhone: true, tenantId: true,
-      }
-    })
+    const account = await prisma.solMemberAccount.findFirst({ where: { memberPhone: clean, ...(tenantId && { tenantId }) }, select: { id: true, username: true, plainPassword: true, memberName: true, memberPhone: true, tenantId: true } })
     return res.json({ account: account || null })
   } catch (err) {
     console.error('[SOL ACCOUNT BY PHONE]', err)
@@ -581,12 +321,10 @@ router.get('/account-by-phone', authAdmin, async (req, res) => {
   }
 })
 
-// DEBUG TEMP — retire apre
+// DEBUG TEMP
 router.get('/debug/accounts', async (req, res) => {
   try {
-    const accounts = await prisma.solMemberAccount.findMany({
-      select: { username: true, memberName: true, tenantId: true, passwordHash: true }
-    })
+    const accounts = await prisma.solMemberAccount.findMany({ select: { username: true, memberName: true, tenantId: true, passwordHash: true } })
     return res.json({ count: accounts.length, accounts })
   } catch (err) {
     return res.status(500).json({ error: err.message })
@@ -594,20 +332,12 @@ router.get('/debug/accounts', async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// CHAT SOL — Diskisyon Manm
+// CHAT SOL
 // ══════════════════════════════════════════════════════════════
 
 router.get('/chat/:planId', authMember, async (req, res) => {
   try {
-    const { planId } = req.params
-    const { tenantId } = req.solMember
-
-    const messages = await prisma.solChat.findMany({
-      where: { planId, tenantId },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    })
-
+    const messages = await prisma.solChat.findMany({ where: { planId: req.params.planId, tenantId: req.solMember.tenantId }, orderBy: { createdAt: 'asc' }, take: 100 })
     return res.json({ messages })
   } catch (err) {
     console.error('[SOL CHAT GET]', err)
@@ -620,41 +350,12 @@ router.post('/chat/:planId', authMember, async (req, res) => {
     const { planId } = req.params
     const { tenantId, memberId, accountId } = req.solMember
     const { message } = req.body
-
-    if (!message?.trim()) {
-      return res.status(400).json({ message: 'Mesaj obligatwa' })
-    }
-    if (message.length > 500) {
-      return res.status(400).json({ message: 'Mesaj tro long (max 500 karaktè)' })
-    }
-
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: accountId },
-      select: { memberPosition: true, memberName: true }
-    })
-
+    if (!message?.trim()) return res.status(400).json({ message: 'Mesaj obligatwa' })
+    if (message.length > 500) return res.status(400).json({ message: 'Mesaj tro long (max 500 karaktè)' })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: accountId }, select: { memberPosition: true } })
     const authorName = `Manm #${account?.memberPosition || '?'}`
-
-    const msg = await prisma.solChat.create({
-      data: {
-        planId,
-        tenantId,
-        authorId:   memberId,
-        authorName,
-        isAdmin:    false,
-        message:    message.trim(),
-      }
-    })
-
-    try {
-      await solPushSvc.notifyPlanMembers(tenantId, planId, memberId, {
-        title: `💬 ${authorName}`,
-        body:  message.trim().substring(0, 80),
-      })
-    } catch (e) {
-      console.warn('[SOL CHAT PUSH]', e.message)
-    }
-
+    const msg = await prisma.solChat.create({ data: { planId, tenantId, authorId: memberId, authorName, isAdmin: false, message: message.trim() } })
+    solPushSvc.notifyPlanMembers(tenantId, planId, memberId, { title: `💬 ${authorName}`, body: message.trim().substring(0, 80) }).catch(e => console.warn('[SOL CHAT PUSH]', e.message))
     return res.status(201).json({ message: msg })
   } catch (err) {
     console.error('[SOL CHAT POST]', err)
@@ -664,13 +365,8 @@ router.post('/chat/:planId', authMember, async (req, res) => {
 
 router.get('/admin/chat/:planId', authAdmin, async (req, res) => {
   try {
-    const { planId } = req.params
     const tenantId = req.query.tenantId || req.admin.tenantId
-    const messages = await prisma.solChat.findMany({
-      where: { planId, tenantId },
-      orderBy: { createdAt: 'asc' },
-      take: 100,
-    })
+    const messages = await prisma.solChat.findMany({ where: { planId: req.params.planId, tenantId }, orderBy: { createdAt: 'asc' }, take: 100 })
     return res.json({ messages })
   } catch (err) {
     return res.status(500).json({ message: 'Erè sèvè' })
@@ -682,27 +378,9 @@ router.post('/admin/chat/:planId', authAdmin, async (req, res) => {
     const { planId } = req.params
     const { message } = req.body
     const tenantId = req.query.tenantId || req.admin.tenantId
-
     if (!message?.trim()) return res.status(400).json({ message: 'Mesaj obligatwa' })
-
-    const msg = await prisma.solChat.create({
-      data: {
-        planId,
-        tenantId,
-        authorId:   'admin',
-        authorName: '👑 Admin',
-        isAdmin:    true,
-        message:    message.trim(),
-      }
-    })
-
-    try {
-      await solPushSvc.notifyPlanMembers(tenantId, planId, 'admin', {
-        title: '👑 Admin',
-        body:  message.trim().substring(0, 80),
-      })
-    } catch (e) {}
-
+    const msg = await prisma.solChat.create({ data: { planId, tenantId, authorId: 'admin', authorName: '👑 Admin', isAdmin: true, message: message.trim() } })
+    solPushSvc.notifyPlanMembers(tenantId, planId, 'admin', { title: '👑 Admin', body: message.trim().substring(0, 80) }).catch(() => {})
     return res.status(201).json({ message: msg })
   } catch (err) {
     return res.status(500).json({ message: 'Erè sèvè' })
@@ -710,36 +388,13 @@ router.post('/admin/chat/:planId', authAdmin, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// ✅ SUPER ADMIN — Vue Jeneral: tout plan Sol atravè tout tenant
+// SUPER ADMIN
 // ══════════════════════════════════════════════════════════════
 
-// GET /api/sol/superadmin/overview
 router.get('/superadmin/overview', authAdmin, async (req, res) => {
   try {
-    const plans = await prisma.sabotayPlan.findMany({
-      include: {
-        tenant: { select: { id: true, name: true, slug: true } },
-        _count:  { select: { members: { where: { isActive: true } } } },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const result = plans.map(p => ({
-      planId:      p.id,
-      planName:    p.name,
-      amount:      Number(p.amount),
-      frequency:   p.frequency,
-      status:      p.status,
-      maxMembers:  p.maxMembers,
-      memberCount: p._count.members,
-      startDate:   p.startDate,
-      tenant: {
-        id:   p.tenant.id,
-        name: p.tenant.name,
-        slug: p.tenant.slug,
-      },
-    }))
-
+    const plans = await prisma.sabotayPlan.findMany({ include: { tenant: { select: { id: true, name: true, slug: true } }, _count: { select: { members: { where: { isActive: true } } } } }, orderBy: { createdAt: 'desc' } })
+    const result = plans.map(p => ({ planId: p.id, planName: p.name, amount: Number(p.amount), frequency: p.frequency, status: p.status, maxMembers: p.maxMembers, memberCount: p._count.members, startDate: p.startDate, tenant: { id: p.tenant.id, name: p.tenant.name, slug: p.tenant.slug } }))
     return res.json({ total: result.length, plans: result })
   } catch (err) {
     console.error('[SOL SUPERADMIN OVERVIEW]', err)
@@ -747,29 +402,35 @@ router.get('/superadmin/overview', authAdmin, async (req, res) => {
   }
 })
 
-// GET /api/sol/superadmin/plans/:planId/members
+// ✅ FIX: Pa ka include 'account' dirèkteman sou SabotayMember
+// Relasyon sa pa egziste nan schema — fè 2 query separe
 router.get('/superadmin/plans/:planId/members', authAdmin, async (req, res) => {
   try {
     const members = await prisma.sabotayMember.findMany({
       where:   { planId: req.params.planId },
       orderBy: { position: 'asc' },
-      include: {
-        account: {
-          select: { username: true, plainPassword: true },
-        },
-      },
     })
+
+    // Jwenn kont Sol pou chak manm pa memberId
+    const memberIds = members.map(m => m.id)
+    const solAccounts = await prisma.solMemberAccount.findMany({
+      where:  { memberId: { in: memberIds } },
+      select: { memberId: true, username: true, plainPassword: true },
+    })
+    const accountMap = Object.fromEntries(solAccounts.map(a => [a.memberId, a]))
 
     const result = members.map(m => ({
       id:            m.id,
       name:          m.name,
       phone:         m.phone || '',
       position:      m.position,
+      permanentId:   m.permanentId   || null,
+      performanceScore: m.performanceScore ?? 0,
       isActive:      m.isActive,
       isOwnerSlot:   m.isOwnerSlot || false,
       hasWon:        m.hasWon      || false,
-      username:      m.account?.username      || null,
-      plainPassword: m.account?.plainPassword || null,
+      username:      accountMap[m.id]?.username      || null,
+      plainPassword: accountMap[m.id]?.plainPassword || null,
     }))
 
     return res.json({ members: result })
@@ -779,33 +440,12 @@ router.get('/superadmin/plans/:planId/members', authAdmin, async (req, res) => {
   }
 })
 
-// PATCH /api/sol/superadmin/plans/:planId/members/:memberId
 router.patch('/superadmin/plans/:planId/members/:memberId', authAdmin, async (req, res) => {
   try {
     const { memberId } = req.params
     const { name, position, phone, isOwnerSlot, hasWon, username } = req.body
-
-    const member = await prisma.sabotayMember.update({
-      where: { id: memberId },
-      data: {
-        ...(name        !== undefined && { name }),
-        ...(position    !== undefined && { position: Number(position) }),
-        ...(phone       !== undefined && { phone }),
-        ...(isOwnerSlot !== undefined && { isOwnerSlot }),
-        ...(hasWon      !== undefined && { hasWon }),
-      },
-    })
-
-    if (username) {
-      await prisma.solMemberAccount.updateMany({
-        where: { memberId },
-        data: {
-          username:   username.toLowerCase().trim(),
-          memberName: name || member.name,
-        },
-      })
-    }
-
+    const member = await prisma.sabotayMember.update({ where: { id: memberId }, data: { ...(name !== undefined && { name }), ...(position !== undefined && { position: Number(position) }), ...(phone !== undefined && { phone }), ...(isOwnerSlot !== undefined && { isOwnerSlot }), ...(hasWon !== undefined && { hasWon }) } })
+    if (username) await prisma.solMemberAccount.updateMany({ where: { memberId }, data: { username: username.toLowerCase().trim(), memberName: name || member.name } })
     return res.json({ message: 'Manm ajou avèk siksè!', member })
   } catch (err) {
     console.error('[SOL SUPERADMIN PATCH MEMBER]', err)
