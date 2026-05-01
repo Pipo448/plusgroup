@@ -22,10 +22,11 @@ model SabotayPlan {
   regleman            String?
   dueTime             String                @default("08:00") @map("due_time") @db.VarChar(5)
   warningDelayDays    Int                   @default(3) @map("warningDelayDays")
-  exchangeFeePct      Decimal?  @default(1250) @map("exchange_fee_pct") @db.Decimal(10, 2)
-  exchangeFeeAdminPct Decimal?  @default(250)  @map("exchange_fee_admin_pct") @db.Decimal(10, 2)
+  exchangeFeePct      Decimal?              @default(1250) @map("exchange_fee_pct") @db.Decimal(10, 2)
+  exchangeFeeAdminPct Decimal?              @default(250) @map("exchange_fee_admin_pct") @db.Decimal(10, 2)
   dueTimeEnd          String?               @default("15:00")
   stopPenaltyPct      Float?                @default(0)
+  dynamicPositions    Boolean               @default(false) @map("dynamicPositions") // ✅ NOUVO: Sistèm Pozisyon Dinamik
   members             SabotayMember[]
   payments            SabotayPayment[]
   branch              Branch?               @relation(fields: [branchId], references: [id], onUpdate: NoAction)
@@ -40,25 +41,27 @@ model SabotayPlan {
 }
 
 model SabotayMember {
-  id          String           @id @default(dbgenerated("(gen_random_uuid())::text"))
-  planId      String           @map("plan_id")
-  name        String           @db.VarChar(200)
-  phone       String?          @db.VarChar(50)
-  position    Int
-  dueDate     DateTime?        @map("due_date") @db.Date
-  collectDate DateTime?        @map("collect_date") @db.Date
-  notes       String?
-  isActive    Boolean          @default(true) @map("is_active")
-  createdBy   String?          @map("created_by")
-  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  hasWon      Boolean          @default(false) @map("has_won")
-  isOwnerSlot Boolean          @default(false) @map("is_owner_slot")
-  fines       Json             @default("{}")
-  status      String           @default("active") @db.VarChar(20)
-  creator     User?            @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  plan        SabotayPlan      @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  payments    SabotayPayment[]
+  id               String           @id @default(dbgenerated("(gen_random_uuid())::text"))
+  planId           String           @map("plan_id")
+  name             String           @db.VarChar(200)
+  phone            String?          @db.VarChar(50)
+  position         Int
+  dueDate          DateTime?        @map("due_date") @db.Date
+  collectDate      DateTime?        @map("collect_date") @db.Date
+  notes            String?
+  isActive         Boolean          @default(true) @map("is_active")
+  createdBy        String?          @map("created_by")
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  hasWon           Boolean          @default(false) @map("has_won")
+  isOwnerSlot      Boolean          @default(false) @map("is_owner_slot")
+  fines            Json             @default("{}")
+  status           String           @default("active") @db.VarChar(20)
+  permanentId      String?          @map("permanentId")       // ✅ NOUVO: ID pèmanan manm lan
+  performanceScore Int              @default(0) @map("performanceScore") // ✅ NOUVO: Skor pèfomans
+  creator          User?            @relation("SabotayMemberCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
+  plan             SabotayPlan      @relation(fields: [planId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payments         SabotayPayment[]
 
   @@unique([planId, position], map: "sabotay_members_plan_position_key")
   @@index([planId], map: "sabotay_members_plan_idx")
@@ -138,7 +141,7 @@ model SolMemberAccount {
   fines                Json                  @default("{}")
   plainPassword        String?               @map("plain_password")
   status               String                @default("active")
-  balance              Float                 @default(0)          
+  balance              Float                 @default(0)
   sol_member_positions SolMemberPosition[]
   exchangesInitiated   SolPositionExchange[] @relation("ExchangeInitiator")
   exchangesReceived    SolPositionExchange[] @relation("ExchangeTarget")
@@ -192,8 +195,8 @@ model SolPositionExchange {
   offerType       String            @default("buy") @map("offer_type")
   newInitiatorPos Int?              @map("new_initiator_pos")
   newTargetPos    Int?              @map("new_target_pos")
-  feePct      Decimal?  @default(0)  @map("fee_pct")       @db.Decimal(10, 2)
-  feeAdminPct Decimal?  @default(250) @map("fee_admin_pct") @db.Decimal(10, 2)
+  feePct          Decimal?          @default(0) @map("fee_pct") @db.Decimal(10, 2)
+  feeAdminPct     Decimal?          @default(250) @map("fee_admin_pct") @db.Decimal(10, 2)
   feeAmount       Decimal?          @default(0) @map("fee_amount") @db.Decimal(14, 2)
   feeAdminAmt     Decimal?          @default(0) @map("fee_admin_amt") @db.Decimal(14, 2)
   feeSellerAmt    Decimal?          @default(0) @map("fee_seller_amt") @db.Decimal(14, 2)
