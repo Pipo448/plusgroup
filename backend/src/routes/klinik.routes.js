@@ -429,8 +429,16 @@ router.get('/lab-orders', async (req, res) => {
 router.post('/lab-orders', async (req, res) => {
   try {
     const { items = [], id, createdAt, updatedAt, patient, consultation, ...rest } = req.body
+    const mappedItems = items.map(it => ({
+      testNom:       it.testNom       || it.nomTest       || '',
+      testCode:      it.testCode      || it.code          || null,
+      valeurNormale: it.valeurNormale || null,
+      valeur:        it.valeur        || null,
+      unite:         it.unite         || null,
+      estAnormal:    it.estAnormal    || false,
+    }))
     const labOrder = await prisma.klinikLabOrder.create({
-      data: { ...rest, tenantId: tid(req), items: { create: items } },
+      data: { ...rest, tenantId: tid(req), items: { create: mappedItems } },
       include: { items:true, patient:{select:{nom:true,prenom:true}} },
     })
     res.status(201).json({ labOrder })
@@ -440,15 +448,23 @@ router.post('/lab-orders', async (req, res) => {
 router.put('/lab-orders/:id', async (req, res) => {
   try {
     const { items = [], id, tenantId, createdAt, updatedAt, patient, consultation, ...rest } = req.body
+    const mappedItems = items.map(it => ({
+      testNom:       it.testNom       || it.nomTest       || '',
+      testCode:      it.testCode      || it.code          || null,
+      valeurNormale: it.valeurNormale || null,
+      valeur:        it.valeur        || null,
+      unite:         it.unite         || null,
+      estAnormal:    it.estAnormal    || false,
+    }))
     await prisma.klinikLabItem.deleteMany({ where: { labOrderId: req.params.id } })
     const labOrder = await prisma.klinikLabOrder.update({
-      where: { id: req.params.id }, data: { ...rest, items: { create: items } },
+      where: { id: req.params.id },
+      data: { ...rest, items: { create: mappedItems } },
       include: { items:true, patient:{select:{nom:true,prenom:true}} },
     })
     res.json({ labOrder })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
-
 router.patch('/lab-orders/:orderId/items/:itemId/resultat', async (req, res) => {
   try {
     const { valeur, unite, estAnormal, notesResultat } = req.body
