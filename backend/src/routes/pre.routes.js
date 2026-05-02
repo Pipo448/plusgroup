@@ -103,26 +103,37 @@ router.get('/stats', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     const debiMwa = new Date(); debiMwa.setDate(1); debiMwa.setHours(0,0,0,0)
+    const debiJodi = new Date(); debiJodi.setHours(0,0,0,0)  // ✅ jodi a
+
     await majInteretKouru(tenantId)
-    const [totalPrets, pretsActifs, pretsEnReta, portAgg, desMwaAgg, kolMwaAgg] = await Promise.all([
+
+    const [totalPrets, pretsActifs, pretsEnReta, portAgg, desMwaAgg, kolMwaAgg, desJodiAgg, kolJodiAgg] = await Promise.all([
       prisma.pre.count({ where: { tenantId } }),
       prisma.pre.count({ where: { tenantId, statut: 'actif' } }),
       prisma.pre.count({ where: { tenantId, statut: 'reta'  } }),
       prisma.pre.aggregate({ where: { tenantId, statut: { in: ['actif','reta','attente'] } }, _sum: { montant: true } }),
       prisma.pre.aggregate({ where: { tenantId, statut: { not: 'annule' }, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
+      // ✅ Dekèsman jodi a
+      prisma.pre.aggregate({ where: { tenantId, statut: { not: 'annule' }, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
+      // ✅ Koleksyon jodi a
+      prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
     ])
+
     const interetKouruAgg = await prisma.$queryRaw`
       SELECT COALESCE(SUM(interet_kouru),0) as total
       FROM pre_echeances WHERE tenant_id = ${tenantId} AND statut IN ('reta','partiel')
     `
     const kapitalDisponib = await getKapitalDisponib(tenantId)
+
     return res.json({ stats: {
       totalPrets, pretsActifs, totalEnReta: pretsEnReta,
-      totalPortfeuye:   Number(portAgg._sum.montant   || 0),
-      totalDesèmanMwa:  Number(desMwaAgg._sum.montant || 0),
-      totalPaiemanMwa:  Number(kolMwaAgg._sum.montant || 0),
-      enterèKouruTotal: Number(interetKouruAgg[0]?.total || 0),
+      totalPortfeuye:    Number(portAgg._sum.montant    || 0),
+      totalDesèmanMwa:   Number(desMwaAgg._sum.montant  || 0),
+      totalPaiemanMwa:   Number(kolMwaAgg._sum.montant  || 0),
+      totalDesèmanJodi:  Number(desJodiAgg._sum.montant || 0),  // ✅
+      totalPaiemanJodi:  Number(kolJodiAgg._sum.montant || 0),  // ✅
+      enterèKouruTotal:  Number(interetKouruAgg[0]?.total || 0),
       kapitalDisponib,
     }})
   } catch (err) {
@@ -130,7 +141,6 @@ router.get('/stats', async (req, res) => {
     return res.status(500).json({ message: 'Erè sèvè.' })
   }
 })
-
 // ═══════════════════════════════════════════════════════════════
 // GET /pre/kane-epay-search
 // ═══════════════════════════════════════════════════════════════

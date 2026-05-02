@@ -148,16 +148,17 @@ export default function PrePage() {
           <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color:D.purple }}>{fmt(statsData?.kapitalDisponib||0)} HTG</span>
         </div>
       )}
-
-      {/* Aktivite mwa */}
-      <div style={{ background:D.card, borderRadius:14, padding:'12px 14px', border:`1px solid ${D.cardBorder}` }}>
-        <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 10px', letterSpacing:'0.08em' }}>● Aktivite Mwa a</p>
-        <div className="ke-today-grid">
-          <StatCard label="Dekèsman Mwa a"   value={`${fmt(statsData?.totalDesèmanMwa ||0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight/>
-          <StatCard label="Koleksyon Mwa a"  value={`${fmt(statsData?.totalPaiemanMwa ||0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight/>
-          <StatCard label="Int. Kouru Total" value={`${fmt(statsData?.enterèKouruTotal||0)} G`} icon={<Percent size={17}/>}         color={D.red}    highlight/>
-        </div>
-      </div>
+{/* Aktivite Jodi a + Mwa a */}
+<div style={{ background:D.card, borderRadius:14, padding:'12px 14px', border:`1px solid ${D.cardBorder}` }}>
+  <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 10px', letterSpacing:'0.08em' }}>● Aktivite Mwa a</p>
+  <div className="ke-today-grid">
+    <StatCard label="Dekèsman Jodi a"  value={`${fmt(statsData?.totalDesèmanJodi ||0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight/>
+    <StatCard label="Koleksyon Jodi a" value={`${fmt(statsData?.totalPaiemanJodi ||0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight/>
+    <StatCard label="Dekèsman Mwa a"   value={`${fmt(statsData?.totalDesèmanMwa ||0)} G`} icon={<ArrowDownCircle size={17}/>} color={D.orange} highlight/>
+    <StatCard label="Koleksyon Mwa a"  value={`${fmt(statsData?.totalPaiemanMwa ||0)} G`} icon={<TrendingUp size={17}/>}      color={D.green}  highlight/>
+    <StatCard label="Int. Kouru Total" value={`${fmt(statsData?.enterèKouruTotal||0)} G`} icon={<Percent size={17}/>}         color={D.red}    highlight/>
+  </div>
+</div>
 
       {/* Rechèch + Filtre */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
