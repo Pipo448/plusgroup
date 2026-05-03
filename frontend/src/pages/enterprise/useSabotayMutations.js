@@ -66,44 +66,50 @@ export function useSabotayMutations({
 
   // ─── Ajoute Manm ──────────────────────────────────────────
   const addMember = useMutation({
-    mutationFn: async (data) => {
-      const { _cb, ...body } = data
-      const r = await apiFetch(
-        `/sabotay/plans/${activePlan?.id}/members`,
-        { method: 'POST', body: JSON.stringify(body) }
-      )
-      const savedMember = r.member || r
+  mutationFn: async (data) => {
+    const { _cb, ...body } = data
+    const r = await apiFetch(
+      `/sabotay/plans/${activePlan?.id}/members`,
+      { method: 'POST', body: JSON.stringify(body) }
+    )
 
-      if (body.credentials && savedMember?.id) {
-        try {
-          const { token } = useAuthStore.getState()
-          const solRes = await fetch(`${SOL_API}/api/sol/accounts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              memberId:    savedMember.id,
-              tenantId:    tenant?.id,
-              dueTime:     activePlan?.dueTime || '08:00',
-              credentials: body.credentials,
-            }),
-          })
-          const solData = await solRes.json().catch(() => ({}))
-          if (solData.plainPassword) body.credentials.password = solData.plainPassword
-        } catch (err) {
-          console.error('[SOL ACCOUNT CREATE]', err)
-        }
+    // ✅ FIX: Jwenn savedMember kòmsadwa
+    const savedMember = r?.member || r?.data || r
+    const memberId = savedMember?.id || savedMember?.memberId
+
+    console.log('[DEBUG SOL] savedMember:', savedMember, 'memberId:', memberId)
+
+    if (body.credentials && memberId) {
+      try {
+        const { token } = useAuthStore.getState()
+        const solRes = await fetch(`${SOL_API}/api/sol/accounts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            memberId:    memberId,   // ✅ Itilize memberId dirèkteman
+            tenantId:    tenant?.id,
+            dueTime:     activePlan?.dueTime || '08:00',
+            credentials: body.credentials,
+          }),
+        })
+        const solData = await solRes.json().catch(() => ({}))
+        console.log('[DEBUG SOL] solStatus:', solRes.status, 'solData:', solData)
+        if (solData.plainPassword) body.credentials.password = solData.plainPassword
+      } catch (err) {
+        console.error('[SOL ACCOUNT CREATE]', err)
       }
-      return { r, credentials: body.credentials }
-    },
-    onSuccess: ({ r, credentials }, vars) => {
-      qc.invalidateQueries(['sabotay-plans'])
-      const saved = r.member || r
-      if (saved && activePlan) printer.print(activePlan, saved, [], tenant, 'kont')
-      if (typeof vars._cb === 'function') vars._cb(saved, credentials)
-      else onAddDone?.(saved, credentials)
-    },
-    onError: (e) => toast.error(e.message),
-  })
+    }
+    return { r, credentials: body.credentials }
+  },
+  onSuccess: ({ r, credentials }, vars) => {
+    qc.invalidateQueries(['sabotay-plans'])
+    const saved = r?.member || r?.data || r
+    if (saved && activePlan) printer.print(activePlan, saved, [], tenant, 'kont')
+    if (typeof vars._cb === 'function') vars._cb(saved, credentials)
+    else onAddDone?.(saved, credentials)
+  },
+  onError: (e) => toast.error(e.message),
+})
 
   // ─── Mache Peman ──────────────────────────────────────────
   const markPayment = useMutation({

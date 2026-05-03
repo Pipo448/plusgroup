@@ -107,23 +107,87 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 
 router.get('/members/me', authMember, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
+    const account = await prisma.solMemberAccount.findUnique({ 
+      where: { id: req.solMember.accountId } 
+    })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
-    const sabotayMember = await prisma.sabotayMember.findUnique({ where: { id: account.memberId }, include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } } })
-    if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn' })
-    const allSlots = await prisma.sabotayMember.findMany({ where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true }, include: { payments: { orderBy: { dueDate: 'asc' } } }, orderBy: { position: 'asc' } })
+
+    // ✅ FIX #1: Verifye memberId pa null anvan query
+    if (!account.memberId) {
+      return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
+    }
+
+    const sabotayMember = await prisma.sabotayMember.findUnique({ 
+      where: { id: account.memberId }, 
+      include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } } 
+    })
+
+    // ✅ FIX #2: Verifye sabotayMember jwenn
+    if (!sabotayMember) {
+      return res.status(404).json({ 
+        message: `Manm pa jwenn (memberId: ${account.memberId}). Kont ou dekonekte ak manm nan.` 
+      })
+    }
+
+    // ✅ FIX #3: Verifye plan egziste
+    if (!sabotayMember.plan) {
+      return res.status(404).json({ message: 'Plan manm nan pa jwenn' })
+    }
+
+    const allSlots = await prisma.sabotayMember.findMany({ 
+      where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true }, 
+      include: { payments: { orderBy: { dueDate: 'asc' } } }, 
+      orderBy: { position: 'asc' } 
+    })
+    
     const plan = sabotayMember.plan
     const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
-    const tenant = await prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true, logoUrl: true } })
-    const activeMemberCount = await prisma.sabotayMember.count({ where: { planId: plan.id, isActive: true } }).catch(() => 0)
+    
+    const tenant = await prisma.tenant.findUnique({ 
+      where: { id: account.tenantId }, 
+      select: { id: true, name: true, phone: true, address: true, logoUrl: true } 
+    })
+    
+    const activeMemberCount = await prisma.sabotayMember.count({ 
+      where: { planId: plan.id, isActive: true } 
+    }).catch(() => 0)
+    
     return res.json({
-      member: { id: sabotayMember.id, name: sabotayMember.name, phone: sabotayMember.phone || '', position: sabotayMember.position, accountPosition: account.memberPosition, balance: Number(account.balance || 0), payments, paymentTimings, allSlots: allSlots.map(s => { const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments); return { id: s.id, position: s.position, payments: sp, paymentTimings: st } }) },
-      plan: { id: plan.id, name: plan.name, amount: Number(plan.amount), fee: Number(plan.fee), frequency: plan.frequency, maxMembers: plan.maxMembers, activeMemberCount, createdAt: plan.startDate.toISOString().split('T')[0], dueTime: plan.dueTime || account.planDueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00', interval: plan.interval || account.planInterval || 1, feePerMember: Number(plan.feePerMember || account.planFeePerMember || 0), penalty: Number(plan.penalty || account.planPenalty || 0), regleman: plan.regleman || null },
+      member: { 
+        id: sabotayMember.id, 
+        name: sabotayMember.name, 
+        phone: sabotayMember.phone || '', 
+        position: sabotayMember.position, 
+        accountPosition: account.memberPosition, 
+        balance: Number(account.balance || 0), 
+        payments, 
+        paymentTimings, 
+        allSlots: allSlots.map(s => { 
+          const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
+          return { id: s.id, position: s.position, payments: sp, paymentTimings: st } 
+        }) 
+      },
+      plan: { 
+        id: plan.id, 
+        name: plan.name, 
+        amount: Number(plan.amount), 
+        fee: Number(plan.fee), 
+        frequency: plan.frequency, 
+        maxMembers: plan.maxMembers, 
+        activeMemberCount, 
+        createdAt: plan.startDate.toISOString().split('T')[0], 
+        dueTime: plan.dueTime || account.planDueTime || '08:00', 
+        dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00', 
+        interval: plan.interval || account.planInterval || 1, 
+        feePerMember: Number(plan.feePerMember || account.planFeePerMember || 0), 
+        penalty: Number(plan.penalty || account.planPenalty || 0), 
+        regleman: plan.regleman || null 
+      },
       tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
     })
   } catch (err) {
     console.error('[SOL ME]', err)
-    return res.status(500).json({ message: 'Erè sèvè' })
+    return res.status(500).json({ message: 'Erè sèvè', detail: err.message })
   }
 })
 
