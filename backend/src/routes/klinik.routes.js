@@ -110,7 +110,7 @@ router.post('/patients', async (req, res) => {
         sexe,
         telephone:     telephone || null,
         adresse:       adresse || null,
-        groupeSanguin: groupeSangin || null,
+        groupeSanguin: groupeSangin || 'INCONNU',  // ← CHANJE SA
         email:         email || null,
         notes:         notes || null,
         isActive:      true,
@@ -140,7 +140,7 @@ router.put('/patients/:id', async (req, res) => {
         sexe,
         telephone:     telephone || null,
         adresse:       adresse || null,
-        groupeSanguin: groupeSangin || null,
+        groupeSanguin: groupeSangin || 'INCONNU',  // ← CHANJE SA TOUN
         email:         email || null,
         notes:         notes || null,
       },
