@@ -513,33 +513,39 @@ router.get('/hospitalizations/:id', async (req, res) => {
 
 router.post('/hospitalizations', async (req, res) => {
   try {
-    const { id, createdAt, updatedAt, patient, ...data } = req.body
-    // ← Map numeroChambre → chambre
-    if (data.numeroChambre !== undefined) {
-      data.chambre = data.numeroChambre
-      delete data.numeroChambre
-    }
+    const { id, createdAt, updatedAt, patient,
+            numeroChambre, diagnostic, traitement, ...rest } = req.body
     const hosp = await prisma.klinikHospitalization.create({
-      data: { ...data, tenantId: tid(req) },
+      data: {
+        ...rest,
+        tenantId:       tid(req),
+        chambre:        numeroChambre || rest.chambre || null,
+        diagnosticFinal: diagnostic   || null,
+        // traitement pa nan schema — mete nan notes si disponib
+        notes: rest.notes || traitement || null,
+      },
       include: { patient: { select: { nom:true, prenom:true } } },
     })
     res.status(201).json({ hospitalization: hosp })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch(e) { res.status(500).json({ message: e.message }) }
 })
+
 router.put('/hospitalizations/:id', async (req, res) => {
   try {
-    const { id, tenantId, createdAt, updatedAt, patient, ...data } = req.body
-    // ← Map numeroChambre → chambre
-    if (data.numeroChambre !== undefined) {
-      data.chambre = data.numeroChambre
-      delete data.numeroChambre
-    }
+    const { id, tenantId, createdAt, updatedAt, patient,
+            numeroChambre, diagnostic, traitement, ...rest } = req.body
     const hosp = await prisma.klinikHospitalization.update({
-      where: { id: req.params.id }, data,
+      where: { id: req.params.id },
+      data: {
+        ...rest,
+        chambre:         numeroChambre || rest.chambre || null,
+        diagnosticFinal: diagnostic    || null,
+        notes:           rest.notes    || traitement   || null,
+      },
       include: { patient: { select: { nom:true, prenom:true } } },
     })
     res.json({ hospitalization: hosp })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch(e) { res.status(500).json({ message: e.message }) }
 })
 
 router.patch('/hospitalizations/:id/decharge', async (req, res) => {
