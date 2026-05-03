@@ -6,7 +6,7 @@ import {
   Users, Plus, Eye, CheckCircle, ArrowLeft, Search,
   Trophy, AlertTriangle, Edit3, Lock, Unlock, UserCheck,
   FileText, Shuffle, StopCircle, RefreshCw, Zap, ZapOff,
-  TrendingUp, TrendingDown, Minus,
+  TrendingUp, TrendingDown, Minus, Info,
 } from 'lucide-react'
 
 import {
@@ -25,70 +25,203 @@ import {
 } from './sabotayComponents'
 
 // ─────────────────────────────────────────────────────────────
-// Badge pèfomans — montre tendans skor manm lan
+// ECHÈL PWEN — pou tooltip
 // ─────────────────────────────────────────────────────────────
-function ScoreBadge({ score }) {
+const SCORE_SCALE = [
+  { key: 'earlyDepo',  label: '💰 Depo rezèv (2+ jou davans)', pts: +7, color: '#00d084' },
+  { key: 'earlyDay',   label: '⚡ Jou avan dat la',            pts: +5, color: '#00d084' },
+  { key: 'early',      label: '✅ Avan lè a (menm jou)',       pts: +3, color: '#22c55e' },
+  { key: 'onTime',     label: '🟢 Nan lè a (fenèt peman)',     pts: +1, color: '#22c55e' },
+  { key: 'lateWindow', label: '🟡 Apre lè a (menm jou)',       pts: -1, color: '#f59e0b' },
+  { key: 'late',       label: '🔴 1 jou an reta',              pts: -3, color: '#ef4444' },
+  { key: 'veryLate',   label: '🔴 2+ jou an reta',             pts: -5, color: '#dc2626' },
+  { key: 'missing',    label: '⚫ Pa peye ditou',              pts: -7, color: '#6b7280' },
+]
+
+// ─────────────────────────────────────────────────────────────
+// ScoreDisplay — Badge skor grann, lizib, ak koulè
+// ─────────────────────────────────────────────────────────────
+function ScoreDisplay({ score, inRecovery }) {
   if (score === undefined || score === null) return null
-  const isGood = score > 0
-  const isNeg  = score < 0
-  const color  = isGood ? D.green : isNeg ? D.red : D.muted
-  const Icon   = isGood ? TrendingUp : isNeg ? TrendingDown : Minus
+
+  let color, bg, label, Icon
+  if      (score >= 15) { color = '#00d084'; bg = 'rgba(0,208,132,0.14)';  label = 'Chanpyon'; Icon = TrendingUp   }
+  else if (score >= 6)  { color = D.green;   bg = D.greenBg;               label = 'Bon';      Icon = TrendingUp   }
+  else if (score >= 0)  { color = D.orange;  bg = D.orangeBg;              label = 'Mwayen';   Icon = Minus        }
+  else if (score >= -8) { color = D.red;     bg = D.redBg;                 label = 'Fèb';      Icon = TrendingDown }
+  else                  { color = '#dc2626'; bg = 'rgba(220,38,38,0.15)'; label = 'Kritik';   Icon = TrendingDown }
+
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, fontSize: 9, color, fontWeight: 700, background: `${color}18`, padding: '1px 5px', borderRadius: 8 }}>
-      <Icon size={9} /> {score > 0 ? `+${score}` : score}pts
-    </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 3 }}>
+      {/* Badge prensipal */}
+      <div style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        background: bg, border: `1.5px solid ${color}40`,
+        borderRadius: 10, padding: '5px 10px', width: 'fit-content',
+      }}>
+        <Icon size={13} color={color} />
+        <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14, color, letterSpacing: '0.02em' }}>
+          {score > 0 ? `+${score}` : score}
+        </span>
+        <span style={{ fontSize: 11, color, opacity: 0.85, fontWeight: 700 }}>
+          {label}
+        </span>
+      </div>
+
+      {/* Badge rekiperasyon lant */}
+      {inRecovery && (
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          background: 'rgba(245,158,11,0.10)',
+          border: `1px solid ${D.orange}35`,
+          borderRadius: 8, padding: '3px 8px', width: 'fit-content',
+        }}>
+          <span style={{ fontSize: 10, color: D.orange, fontWeight: 700 }}>
+            ⚠️ Rekiperasyon — plafon +2/peman
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-// Badge pozisyon (permanent ID vs pozisyon pwovizwa)
+// ScoreTooltip — Detay breakdown skor nan yon popòvè
+// ─────────────────────────────────────────────────────────────
+function ScoreTooltip({ breakdown }) {
+  const [show, setShow] = useState(false)
+  if (!breakdown) return null
+
+  const rows = SCORE_SCALE.filter(r => (breakdown[r.key] || 0) > 0)
+
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        onClick={() => setShow(s => !s)}
+        style={{
+          width: 22, height: 22, borderRadius: '50%',
+          border: `1px solid ${D.borderSub}`,
+          background: show ? D.goldDim : 'rgba(255,255,255,0.05)',
+          color: show ? D.gold : D.muted,
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.15s',
+        }}
+      >
+        <Info size={12} />
+      </button>
+
+      {show && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setShow(false)}
+            style={{ position: 'fixed', inset: 0, zIndex: 99 }}
+          />
+          {/* Popòvè */}
+          <div style={{
+            position: 'absolute', right: 0, top: 28, zIndex: 100,
+            background: '#0a1520', border: `1px solid ${D.border}`,
+            borderRadius: 14, padding: '14px 16px', minWidth: 220,
+            boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
+          }}>
+            {/* Tèt */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Detay Skor
+              </span>
+              <button onClick={() => setShow(false)} style={{ background: 'none', border: 'none', color: D.muted, cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Ranje peman yo */}
+            {rows.length === 0 ? (
+              <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Pako gen peman anrejistre.</p>
+            ) : rows.map(r => (
+              <div key={r.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+                <span style={{ fontSize: 11, color: D.muted }}>{r.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: r.color, fontFamily: 'monospace', background: `${r.color}12`, borderRadius: 6, padding: '1px 7px', flexShrink: 0, marginLeft: 8 }}>
+                  {breakdown[r.key]}× ({r.pts > 0 ? '+' : ''}{breakdown[r.key] * r.pts})
+                </span>
+              </div>
+            ))}
+
+            {/* Total */}
+            <div style={{ borderTop: `1px solid ${D.borderSub}`, marginTop: 10, paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: D.text }}>Total</span>
+              <span style={{
+                fontSize: 16, fontWeight: 900,
+                color: breakdown.total >= 0 ? D.green : D.red,
+                fontFamily: 'monospace',
+              }}>
+                {breakdown.total > 0 ? `+${breakdown.total}` : breakdown.total} pts
+              </span>
+            </div>
+
+            {/* Plafon rekiperasyon */}
+            {breakdown.inRecovery && (
+              <div style={{ marginTop: 10, padding: '7px 10px', background: D.orangeBg, border: `1px solid ${D.orange}30`, borderRadius: 9, fontSize: 10, color: D.orange, lineHeight: 1.5 }}>
+                ⚠️ <strong>Plafon aktif</strong> — Ou te an reta resamman. Maksimòm +2 pa peman jiskaske ou rekipere.
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// PosBadge — Badge pozisyon + permanentId
 // ─────────────────────────────────────────────────────────────
 function PosBadge({ member, plan, dynamic }) {
-  const isOwn = member.isOwnerSlot
+  const isOwn  = member.isOwnerSlot
   const locked = member.hasWon
 
   return (
-    <div style={{ position: 'relative', width: 38, height: 38, flexShrink: 0 }}>
+    <div style={{ position: 'relative', width: 44, height: 44, flexShrink: 0 }}>
       <div style={{
-        width: '100%', height: '100%', borderRadius: 10,
+        width: '100%', height: '100%', borderRadius: 11,
         background: isOwn ? D.goldBtn : locked ? 'rgba(39,174,96,0.25)' : D.goldDim,
         border: `1px solid ${locked ? D.green : D.border}`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 1,
       }}>
-        <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 11, color: isOwn ? '#0a1222' : locked ? D.green : D.gold, lineHeight: 1 }}>
+        <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 12, color: isOwn ? '#0a1222' : locked ? D.green : D.gold, lineHeight: 1 }}>
           {isOwn ? '★' : `#${hasOwnerSlot(plan) ? member.position - 1 : member.position}`}
         </span>
-        {/* permanentId toujou vizib anba */}
-    {!isOwn && member.permanentId && (
-  <span style={{ fontSize: 10, color: D.gold, lineHeight: 1, marginTop: 2, fontFamily: 'monospace', fontWeight: 700 }}>
-    {member.permanentId}
-  </span>
-)}
+        {!isOwn && member.permanentId && (
+          <span style={{ fontSize: 10, color: D.gold, lineHeight: 1, fontFamily: 'monospace', fontWeight: 800, opacity: 0.85 }}>
+            {member.permanentId}
+          </span>
+        )}
       </div>
-      {/* Indikatè pwovizwa (ti pwen animé) */}
+
+      {/* Plas pwovizwa — ti pwen ble */}
       {dynamic && !locked && !isOwn && (
         <span style={{
           position: 'absolute', top: -3, right: -3,
-          width: 8, height: 8, borderRadius: '50%',
-          background: D.blue, border: `1.5px solid ${D.bg}`,
+          width: 9, height: 9, borderRadius: '50%',
+          background: D.blue, border: `2px solid ${D.bg}`,
           animation: 'pulse 2s ease-in-out infinite',
         }} title="Plas pwovizwa" />
       )}
-      {/* Plas enchanjab (cadenas vèt) */}
+
+      {/* Plas enchanjab — cadenas vèt */}
       {locked && (
         <span style={{
           position: 'absolute', top: -3, right: -3,
-          width: 12, height: 12, borderRadius: '50%',
-          background: D.green, border: `1.5px solid ${D.bg}`,
+          width: 14, height: 14, borderRadius: '50%',
+          background: D.green, border: `2px solid ${D.bg}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Lock size={6} color="#fff" />
+          <Lock size={7} color="#fff" />
         </span>
       )}
     </div>
   )
 }
 
+// ─────────────────────────────────────────────────────────────
+// MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
   plan,
@@ -103,29 +236,28 @@ export default function PlanDetail({
   onRecalculate,
   printer,
 }) {
-  const [viewMember,       setView]    = useState(null)
-  const [viewMemberSlots,  setSlots]   = useState(null)
-  const [payMember,        setPay]     = useState(null)
-  const [actionModal,      setAction]  = useState(null)
+  const [viewMember,       setView]           = useState(null)
+  const [viewMemberSlots,  setSlots]          = useState(null)
+  const [payMember,        setPay]            = useState(null)
+  const [actionModal,      setAction]         = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
-  const [tab,              setTab]     = useState('members')
-  const [memberSearch,     setMemberSearch]     = useState('')
-  const [showRanking,      setShowRanking]      = useState(false)
+  const [tab,              setTab]            = useState('members')
+  const [memberSearch,     setMemberSearch]   = useState('')
 
   useEffect(() => { setView(null); setSlots(null) }, [plan.regleman, plan.updatedAt, plan.id])
 
-  const today    = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const allDates = useMemo(() => getAllPaymentDates(plan), [plan])
+  const today     = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const allDates  = useMemo(() => getAllPaymentDates(plan), [plan])
   const payoutMap = useMemo(() => getPayoutDateMap(plan), [plan])
   const isDynamic = !!plan.dynamicPositions
 
   const todayWinPos = Object.entries(payoutMap).find(([, d]) => d === today)
   const todayWinner = todayWinPos ? plan.members?.find(m => m.position === Number(todayWinPos[0])) : null
 
-  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
-  const totColl = activeMembers.reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d]).length * plan.amount, 0) || 0
-  const totExp  = activeMembers.reduce((acc, m) => acc + allDates.filter(d => d <= today).length * plan.amount, 0) || 0
-  const payout  = memberPayout(plan)
+  const activeMembers  = (plan.members || []).filter(m => m.status !== 'stopped')
+  const totColl        = activeMembers.reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d]).length * plan.amount, 0) || 0
+  const totExp         = activeMembers.reduce((acc, m) => acc + allDates.filter(d => d <= today).length * plan.amount, 0) || 0
+  const payout         = memberPayout(plan)
   const depoRezevTotal = useMemo(() => calcDepoRezev(plan, today), [plan, today])
 
   const blockedCount = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'blocked').length
@@ -151,6 +283,7 @@ export default function PlanDetail({
 
   return (
     <div>
+
       {/* ─── HEAD ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -160,7 +293,6 @@ export default function PlanDetail({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <h2 style={{ color: D.gold, margin: 0, fontSize: 17, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plan.name}</h2>
             <PlanStatusBadge status={plan.status || 'open'} />
-            {/* Badge Dinamik */}
             {isDynamic && (
               <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: D.blue, padding: '2px 7px', borderRadius: 10, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                 <Zap size={8} /> Dinamik
@@ -186,7 +318,7 @@ export default function PlanDetail({
         )}
       </div>
 
-      {/* ─── ✅ NOUVO: Bann Pozisyon Dinamik ─── */}
+      {/* ─── BANN POZISYON DINAMIK ─── */}
       <div style={{ background: isDynamic ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isDynamic ? `${D.blue}30` : D.borderSub}`, borderRadius: 12, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: isDynamic ? D.blue : D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -195,37 +327,25 @@ export default function PlanDetail({
           </p>
           <p style={{ margin: '2px 0 0', fontSize: 10, color: D.muted }}>
             {isDynamic
-              ? 'Plas yo pwovizwa — yo chanje selon pèfomans. Moun ki peye bonè monte, moun ki an reta desann.'
-              : 'Aktive pou pozisyon yo otomatikman ajiste selon pèfomans chak manm.'}
+              ? 'Plas yo pwovizwa — yo chanje selon pèfomans. Pi bonè ou peye, pi plis pwen, pi devan ou ale.'
+              : 'Aktive pou pozisyon yo ajiste otomatikman selon pèfomans chak manm.'}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
           {isDynamic && (
-            <button onClick={() => onRecalculate(plan.id)} title="Rekalile kounye a"
+            <button onClick={() => onRecalculate(plan.id)}
               style={{ padding: '7px 11px', borderRadius: 8, border: `1px solid ${D.blue}40`, background: D.blueBg, color: D.blue, cursor: 'pointer', fontWeight: 700, fontSize: 11, display: 'flex', alignItems: 'center', gap: 5 }}>
               <RefreshCw size={12} /> Rekalile
             </button>
           )}
-          {/* Toggle switch */}
           <button onClick={() => onToggleDynamic(plan.id)}
-            style={{
-              position: 'relative', width: 44, height: 24, borderRadius: 12,
-              border: 'none', cursor: 'pointer',
-              background: isDynamic ? D.blue : 'rgba(255,255,255,0.1)',
-              transition: 'background 0.2s', flexShrink: 0,
-            }}>
-            <span style={{
-              position: 'absolute', top: 3,
-              left: isDynamic ? 23 : 3,
-              width: 18, height: 18, borderRadius: '50%',
-              background: '#fff', transition: 'left 0.2s',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-            }} />
+            style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: isDynamic ? D.blue : 'rgba(255,255,255,0.1)', transition: 'background 0.2s', flexShrink: 0 }}>
+            <span style={{ position: 'absolute', top: 3, left: isDynamic ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
           </button>
         </div>
       </div>
 
-      {/* AVÈTISMAN */}
+      {/* ─── AVÈTISMAN ─── */}
       {(blockedCount > 0 || lateCount > 0) && (
         <div style={{ background: D.redBg, border: `1px solid ${D.red}30`, borderRadius: 12, padding: '10px 14px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', fontSize: 11 }}>
           <AlertTriangle size={14} style={{ color: D.red, flexShrink: 0 }} />
@@ -245,7 +365,7 @@ export default function PlanDetail({
         </div>
       )}
 
-      {/* GAYAN JODI A */}
+      {/* ─── GAYAN JODI A ─── */}
       {todayWinner && (
         <div style={{ background: 'linear-gradient(135deg,rgba(39,174,96,0.15),rgba(201,168,76,0.08))', border: `1px solid ${D.green}40`, borderRadius: 14, padding: '13px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ width: 44, height: 44, borderRadius: 12, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -261,15 +381,15 @@ export default function PlanDetail({
         </div>
       )}
 
-      {/* STATS */}
+      {/* ─── STATS ─── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 9, marginBottom: 16 }}>
         {[
-          { label: 'Manm Aktif',    val: `${activeMembers.length}`,                                                                                 color: D.blue  },
-          { label: 'Kolekte Total', val: `${fmt(totColl)} HTG`,                                                                                      color: D.green },
-          { label: 'Jodi a ✨',     val: `${fmt(activeMembers.reduce((a, m) => a + (m.payments?.[today] ? Number(plan.amount) : 0), 0))} HTG`,       color: '#00d084'},
-          { label: 'Rès Atann',     val: `${fmt(Math.max(0, totExp - totColl))} HTG`,                                                               color: D.red   },
-          { label: 'Depo Rezèv 💰', val: `${fmt(depoRezevTotal)} HTG`,                                                                              color: D.teal  },
-          { label: 'Manm Touche',   val: `${fmt(payout)} HTG`,                                                                                      color: D.gold  },
+          { label: 'Manm Aktif',    val: `${activeMembers.length}`,                                                                           color: D.blue   },
+          { label: 'Kolekte Total', val: `${fmt(totColl)} HTG`,                                                                               color: D.green  },
+          { label: 'Jodi a ✨',     val: `${fmt(activeMembers.reduce((a, m) => a + (m.payments?.[today] ? Number(plan.amount) : 0), 0))} HTG`, color: '#00d084'},
+          { label: 'Rès Atann',     val: `${fmt(Math.max(0, totExp - totColl))} HTG`,                                                         color: D.red    },
+          { label: 'Depo Rezèv 💰', val: `${fmt(depoRezevTotal)} HTG`,                                                                        color: D.teal   },
+          { label: 'Manm Touche',   val: `${fmt(payout)} HTG`,                                                                                color: D.gold   },
         ].map(({ label, val, color }) => (
           <div key={label} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 10, padding: '11px 13px', textAlign: 'center' }}>
             <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>{label}</div>
@@ -278,7 +398,7 @@ export default function PlanDetail({
         ))}
       </div>
 
-      {/* TABS */}
+      {/* ─── TABS ─── */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
         {[['members', '👥 Manm'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Echanj'], ['regleman', '📜 Regleman'], ['cash', '💰 Kès']].map(([t, l]) => (
           <button key={t} onClick={() => setTab(t)} style={{
@@ -297,24 +417,44 @@ export default function PlanDetail({
       {/* ─── TAB: MANM ─── */}
       {tab === 'members' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-          {/* Legann pou Dinamik */}
+
+          {/* Legann dinamik + echèl pwen */}
           {isDynamic && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 12px', background: 'rgba(59,130,246,0.06)', borderRadius: 10, fontSize: 10, color: D.muted, marginBottom: 4, flexWrap: 'wrap', gap: 10 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: D.blue, display: 'inline-block' }} /> Plas pwovizwa
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Lock size={9} color={D.green} /> Plas enchanjab (touche)
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <TrendingUp size={9} color={D.green} /> Bon pèfomans
-              </span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <TrendingDown size={9} color={D.red} /> Pèfomans fèb
-              </span>
+            <div style={{ background: 'rgba(59,130,246,0.06)', border: `1px solid ${D.blue}20`, borderRadius: 12, padding: '10px 14px', marginBottom: 4 }}>
+              {/* Lejann vizyèl */}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 10, color: D.muted, marginBottom: 10 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: D.blue, display: 'inline-block' }} /> Plas pwovizwa
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <Lock size={9} color={D.green} /> Plas enchanjab
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <TrendingUp size={9} color={D.green} /> Skor monte
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <TrendingDown size={9} color={D.red} /> Skor desann
+                </span>
+              </div>
+
+              {/* Echèl pwen */}
+              <div style={{ borderTop: `1px solid ${D.blue}15`, paddingTop: 9 }}>
+                <p style={{ fontSize: 9, fontWeight: 700, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 7px' }}>Echèl Pwen:</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {SCORE_SCALE.map(({ label, pts, color }) => (
+                    <span key={label} style={{ fontSize: 9, color, fontWeight: 700, background: `${color}12`, border: `1px solid ${color}25`, borderRadius: 8, padding: '2px 7px', display: 'flex', gap: 4, alignItems: 'center', whiteSpace: 'nowrap' }}>
+                      {label}
+                      <span style={{ fontFamily: 'monospace', background: `${color}20`, borderRadius: 4, padding: '0 4px' }}>
+                        {pts > 0 ? `+${pts}` : pts}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
+          {/* Rechèch */}
           {plan.members?.length > 5 && (
             <div style={{ position: 'relative', marginBottom: 4 }}>
               <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: D.muted, pointerEvents: 'none' }} />
@@ -332,11 +472,7 @@ export default function PlanDetail({
             .filter(m => {
               if (!memberSearch) return true
               const q = memberSearch.toLowerCase()
-              return (
-                m.name?.toLowerCase().includes(q) ||
-                m.phone?.includes(q) ||
-                m.permanentId?.toLowerCase().includes(q)  // ← chèche pa ID tou
-              )
+              return m.name?.toLowerCase().includes(q) || m.phone?.includes(q) || m.permanentId?.toLowerCase().includes(q)
             })
             .map(m => {
               const due        = allDates.filter(d => d <= today).length
@@ -347,7 +483,9 @@ export default function PlanDetail({
               const fineTot    = Object.values(m.fines || {}).reduce((a, b) => a + Number(b), 0)
               const mStatus    = computeMemberStatus(m, plan, today)
               const isStopped  = m.status === 'stopped'
-              const score      = m.performanceScore
+              const score      = m.performanceScore ?? null
+              // scoreBreakdown vini depi backend si disponib
+              const breakdown  = m.scoreBreakdown || null
 
               return (
                 <div key={m._virtualKey || m.id} style={{
@@ -355,23 +493,38 @@ export default function PlanDetail({
                   border: `1px solid ${isStopped ? `${D.orange}30` : isOwn ? `${D.gold}50` : isWin ? `${D.green}40` : D.border}`,
                   borderRadius: 12, padding: '11px 13px', opacity: isStopped ? 0.75 : 1,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                    {/* ✅ Badge pozisyon ak permanentId */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+
+                    {/* Badge pozisyon ak permanentId */}
                     <PosBadge member={m} plan={plan} dynamic={isDynamic} />
 
-                    {/* Non + telefòn + ID + skor */}
+                    {/* Non, skor, telefòn */}
                     <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 1 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: isStopped ? D.orange : isOwn ? D.gold : D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 2 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: isStopped ? D.orange : isOwn ? D.gold : D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
                           {isOwn ? 'Pwopriyete Sol' : m.name}
                         </span>
-                        {isWin && !isOwn && <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '1px 6px', borderRadius: 10, fontWeight: 700, flexShrink: 0 }}>🏆</span>}
-                        {/* ✅ Skor pèfomans */}
-                        {isDynamic && !isOwn && <ScoreBadge score={score} />}
+                        {isWin && !isOwn && (
+                          <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '1px 6px', borderRadius: 10, fontWeight: 700, flexShrink: 0 }}>🏆</span>
+                        )}
                       </div>
+
+                      {/* ✅ ScoreDisplay + Tooltip — pi gwo, pi lizib */}
+                      {isDynamic && !isOwn && score !== null && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <ScoreDisplay
+                            score={score}
+                            inRecovery={breakdown?.inRecovery || false}
+                          />
+                          <ScoreTooltip breakdown={breakdown} />
+                        </div>
+                      )}
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <span style={{ fontSize: 11, color: D.muted }}>{m.phone}</span>
-                        {payoutDate && !isStopped && <span style={{ fontSize: 9, color: D.blue }}>🏆 {payoutDate.split('-').reverse().join('/')}</span>}
+                        {payoutDate && !isStopped && (
+                          <span style={{ fontSize: 9, color: D.blue }}>🏆 {payoutDate.split('-').reverse().join('/')}</span>
+                        )}
                       </div>
                     </div>
 
@@ -402,7 +555,8 @@ export default function PlanDetail({
                         <Eye size={14} />
                       </button>
                       {!m.hasWon && (
-                        <button onClick={() => setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
+                        <button
+                          onClick={() => setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
                           title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
                           style={{ width: 30, height: 30, borderRadius: 8, border: 'none',
                             background: mStatus === 'blocked' ? D.greenBg : isStopped ? D.blueBg : D.redBg,
@@ -423,6 +577,8 @@ export default function PlanDetail({
                       )}
                     </div>
                   </div>
+
+                  {/* Baton pwogrè */}
                   {due > 0 && !isStopped && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
@@ -490,7 +646,9 @@ export default function PlanDetail({
               <Trophy size={32} style={{ color: D.gold, marginBottom: 8 }} />
               <p style={{ fontSize: 16, fontWeight: 900, color: D.gold, margin: '0 0 4px' }}>{confirmingPayout.name}</p>
               {confirmingPayout.permanentId && (
-                <p style={{ fontSize: 10, color: D.muted, margin: '0 0 4px', fontFamily: 'monospace' }}>ID: {confirmingPayout.permanentId}</p>
+                <p style={{ fontSize: 10, color: D.muted, margin: '0 0 4px', fontFamily: 'monospace' }}>
+                  ID: {confirmingPayout.permanentId}
+                </p>
               )}
               <p style={{ fontSize: 13, color: D.green, fontWeight: 800, margin: 0 }}>{fmt(memberPayout(plan))} HTG</p>
             </div>
