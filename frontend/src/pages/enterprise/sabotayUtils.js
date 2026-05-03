@@ -153,7 +153,21 @@ export function totalActiveSlots(plan) {
 export function getPaymentDates(frequency, startDate, count) {
   if (count <= 0) return []
   const dates = []
-  let cur = new Date(startDate || Date.now())
+
+  // ✅ FIX: Parse kòm dat lokal — evite UTC timezone shift
+  const parseLocal = (ds) => {
+    const s = String(ds).split('T')[0]
+    const [y, m, d] = s.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+  const toKey = (d) => {
+    const y   = d.getFullYear()
+    const m   = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
+  let cur = parseLocal(startDate || new Date().toISOString())
 
   const advanceOnce = () => {
     switch (frequency) {
@@ -168,16 +182,18 @@ export function getPaymentDates(frequency, startDate, count) {
     }
   }
 
-  dates.push(new Date(cur).toISOString().split('T')[0])
+  dates.push(toKey(cur))
   for (let i = 1; i < count; i++) {
     advanceOnce()
-    dates.push(new Date(cur).toISOString().split('T')[0])
+    dates.push(toKey(new Date(cur)))
   }
   return dates
 }
 
+// ✅ FIX: Pran sèlman pati YYYY-MM-DD — pa timestamp konplè
 export function getPlanStartDate(plan) {
-  return plan.startDate || plan.createdAt || new Date().toISOString()
+  const raw = plan.startDate || plan.createdAt || new Date().toISOString()
+  return String(raw).split('T')[0]
 }
 
 export function getPayoutDate(plan, position) {
@@ -204,7 +220,6 @@ export function getPayoutDateMap(plan) {
   members.forEach(m => { map[m.position] = getPayoutDate(plan, m.position) })
   return map
 }
-
 // ─── STATUT MANM ──────────────────────────────────────────────
 export function computeMemberStatus(member, plan, today) {
   if (member.status === 'stopped') return 'stopped'
