@@ -282,16 +282,16 @@ async function addMember(tenantId, planId, userId, data) {
 
         const passwordHash = await bcrypt.hash(rawPassword, 10)
 
-        solAccount = await prisma.solMemberAccount.create({
-          data: {
-            username: finalUsername, passwordHash, plainPassword: rawPassword,
-            tenantId, memberName: name.trim(), memberPhone: cleanPhone,
-            cin: cin || null, nif: nif || null, address: address || null,
-            photoUrl: photoUrl || null, idPhotoUrl: idPhotoUrl || null,
-            referenceName: referenceName || null, referencePhone: referencePhone || null,
-            relationship: relationship || null,
-          }
-        })
+  solAccount = await prisma.solMemberAccount.create({
+  data: {
+    username: finalUsername,
+    passwordHash,
+    plainPassword: rawPassword,
+    tenantId,
+    memberName: name.trim(),
+    memberPhone: cleanPhone,
+  }
+})
       }
     } catch (err) {
       console.error('[sabotay] ❌ Kont Sol erè DETAY:', err)
