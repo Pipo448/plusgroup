@@ -54,14 +54,24 @@ function authMember(req, res, next) {
 function authAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token admin obligatwa' })
+  
+  // ✅ Eseye SUPER_ADMIN_JWT_SECRET dabò, epi JWT_SECRET apre
   try {
     req.admin = jwt.verify(token, process.env.SUPER_ADMIN_JWT_SECRET)
-    next()
+    return next()
+  } catch {}
+  
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    if (payload.role !== 'admin' && payload.role !== 'super_admin') {
+      return res.status(401).json({ message: 'Token admin pa valid' })
+    }
+    req.admin = payload
+    return next()
   } catch {
     return res.status(401).json({ message: 'Token admin pa valid' })
   }
 }
-
 // ══════════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════════
