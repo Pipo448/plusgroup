@@ -514,6 +514,11 @@ router.get('/hospitalizations/:id', async (req, res) => {
 router.post('/hospitalizations', async (req, res) => {
   try {
     const { id, createdAt, updatedAt, patient, ...data } = req.body
+    // ← Map numeroChambre → chambre
+    if (data.numeroChambre !== undefined) {
+      data.chambre = data.numeroChambre
+      delete data.numeroChambre
+    }
     const hosp = await prisma.klinikHospitalization.create({
       data: { ...data, tenantId: tid(req) },
       include: { patient: { select: { nom:true, prenom:true } } },
@@ -521,10 +526,14 @@ router.post('/hospitalizations', async (req, res) => {
     res.status(201).json({ hospitalization: hosp })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
-
 router.put('/hospitalizations/:id', async (req, res) => {
   try {
     const { id, tenantId, createdAt, updatedAt, patient, ...data } = req.body
+    // ← Map numeroChambre → chambre
+    if (data.numeroChambre !== undefined) {
+      data.chambre = data.numeroChambre
+      delete data.numeroChambre
+    }
     const hosp = await prisma.klinikHospitalization.update({
       where: { id: req.params.id }, data,
       include: { patient: { select: { nom:true, prenom:true } } },
