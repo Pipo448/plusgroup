@@ -69,9 +69,7 @@ export default function SolDashboardPage() {
       if (res.status === 401) { localStorage.removeItem('sol_token'); localStorage.removeItem('sol_member'); navigate('/app/sol/login'); return }
       const json = await res.json()
       setData(json)
-      if (json.plans?.length && !selectedPlanId) {
-        setSelectedPlanId(json.plans[0].id)
-      }
+      if (json.plans?.length && !selectedPlanId) setSelectedPlanId(json.plans[0].id)
     } catch { toast.error('Pa ka chaje done yo.') }
     finally { setLoading(false) }
   }, [token, navigate])
@@ -96,7 +94,7 @@ export default function SolDashboardPage() {
   if (!data) return null
 
   // ─── SIPÒ PLIZYÈ PLAN ────────────────────────────────────────
-  // ✅ FIX: Nòmalize strutik — backend retounen { plans: [{id, member, plan, tenant}] }
+  // ✅ FIX: Nòmalize — backend retounen { plans: [{id, member, plan, tenant}] }
   //         oswa ansyen fòma { member, plan, tenant }
   const rawPlans = data.plans
     ? data.plans
@@ -107,7 +105,7 @@ export default function SolDashboardPage() {
   const plans = rawPlans.map(p => ({
     id:     p.id     || p.plan?.id,
     member: p.member || null,
-    plan:   p.plan   || p,       // ansyen fòma = flat, nouvo fòma = { plan: {...} }
+    plan:   p.plan   || p,
     tenant: p.tenant || data.tenant,
   })).filter(p => p.plan && p.member)
 
@@ -116,7 +114,7 @@ export default function SolDashboardPage() {
 
   const currentPlanData = plans.find(p => p.id === selectedPlanId) || plans[0]
 
-  // ✅ FIX: plan = currentPlanData.plan (objè plan reyèl)
+  // ✅ FIX: plan = currentPlanData.plan — pa currentPlanData antye
   const plan   = currentPlanData.plan
   const member = currentPlanData.member
 
@@ -127,28 +125,35 @@ export default function SolDashboardPage() {
 
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
-const totalSlotCount = currentPlanData?.activeMemberCount
-  || Math.max(
-    plan?.maxMembers || 0,
-    allSlots.reduce((max, s) => Math.max(max, 0, s.position), 0)
-  )
+  // ✅ FIX: prefere activeMemberCount (reyèl) olye maxMembers
+  const totalSlotCount = currentPlanData?.activeMemberCount
+    || Math.max(
+      plan?.maxMembers || 0,
+      allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+    )
 
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
 
-  // ✅ FIX: Separe peman pase ak futur
-  const totalPaid     = dates.filter(d => member.payments?.[d]).length
-const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length
-const totalDue      = dates.filter(d => d <= today).length
+  // ✅ FIX: 3 varyab peman separe pou kalkil kòrèk
+  const totalPaid     = dates.filter(d => member.payments?.[d]).length               // tout (+ futur earlyDepo)
+  const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length  // sèlman pase
+  const totalDue      = dates.filter(d => d <= today).length
 
-const amountContributed = totalPaid     * plan.amount * allSlots.length  // tout (+ futur)
-const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length  // sèlman pase
-const amountDue         = totalDue      * plan.amount * allSlots.length
-// ✅ Progress = tout peman / total — 100% si tout peye (+ futur)
-const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+  // ✅ FIX: Kontribisyon Total = tout kòb manm ba (+ futur earlyDepo)
+  const amountContributed = totalPaid     * plan.amount * allSlots.length
+  // ✅ FIX: Rès pou peye = sèlman dèt pase ki pa peye (pa konte futur)
+  const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length
+  const amountDue         = totalDue      * plan.amount * allSlots.length
+
+  const payoutDebaz   = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+  const memberBalance = Number(member.balance || 0)
+  const payoutAjiste  = payoutDebaz + memberBalance
+
+  // ✅ FIX: Progress = tout peman / total — 100% si tout peye (+ futur earlyDepo)
+  const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
 
   const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
 
-  // ✅ FIX: ScoreData konte tout timing (futur earlyDepo = bon pèfomans tou)
   const timings   = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
     const earlyDepo = timings.filter(t => t === 'earlyDepo').length
@@ -164,7 +169,6 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
     }
   })() : null
 
-  // ✅ FIX: nextUnpaidDate — peman pase manke an premye, apre futur
   const lastPaidDatePast = [...dates].filter(d => d <= today).reverse().find(d => member.payments?.[d]) || null
   const lastPaidDate     = [...dates].reverse().find(d => member.payments?.[d]) || null
   const nextUnpaidDate   = lastPaidDatePast
@@ -180,17 +184,8 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
     if (plans.length <= 1) return null
     return (
       <div style={{ position: 'relative', marginBottom: 20 }}>
-        <button
-          onClick={() => setShowPlanPicker(v => !v)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            width: '100%', padding: '12px 16px',
-            borderRadius: 14, border: `1px solid ${D.border}`,
-            background: D.goldDim, color: D.text,
-            cursor: 'pointer', fontFamily: 'inherit',
-            fontWeight: 700, fontSize: 13,
-          }}
-        >
+        <button onClick={() => setShowPlanPicker(v => !v)}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 16px', borderRadius: 14, border: `1px solid ${D.border}`, background: D.goldDim, color: D.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 13 }}>
           <span style={{ flex: 1, textAlign: 'left' }}>
             📋 {plan.name}
             <span style={{ marginLeft: 8, fontSize: 11, color: D.muted, fontWeight: 500 }}>
@@ -200,30 +195,12 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
           <ChevronDown size={14} style={{ color: D.gold, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
         {showPlanPicker && (
-          <div style={{
-            position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
-            background: D.card, border: `1px solid ${D.border}`,
-            borderRadius: 14, overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-          }}>
+          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50, background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>
             {plans.map((p, i) => (
               <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); setTab('history') }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  width: '100%', padding: '13px 16px',
-                  border: 'none', borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none',
-                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
-                  color: p.id === selectedPlanId ? D.gold : D.text,
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13,
-                  textAlign: 'left',
-                }}
-              >
-                <span style={{ flex: 1 }}>
-                  {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
-                </span>
-                <span style={{ fontSize: 11, color: D.muted }}>
-                  {fmt(p.plan?.amount || 0)} HTG
-                </span>
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '13px 16px', border: 'none', borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none', background: p.id === selectedPlanId ? D.goldDim : 'transparent', color: p.id === selectedPlanId ? D.gold : D.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13, textAlign: 'left' }}>
+                <span style={{ flex: 1 }}>{p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}</span>
+                <span style={{ fontSize: 11, color: D.muted }}>{fmt(p.plan?.amount || 0)} HTG</span>
               </button>
             ))}
           </div>
@@ -251,16 +228,7 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             {plans.map(p => (
               <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setTab('history') }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '10px 14px', borderRadius: 11,
-                  border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent',
-                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
-                  color: p.id === selectedPlanId ? D.gold : D.muted,
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12,
-                  textAlign: 'left', width: '100%',
-                }}
-              >
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 11, border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent', background: p.id === selectedPlanId ? D.goldDim : 'transparent', color: p.id === selectedPlanId ? D.gold : D.muted, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12, textAlign: 'left', width: '100%' }}>
                 <span>{p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}</span>
                 <span style={{ fontSize: 10, color: D.muted }}>{fmt(p.plan?.amount || 0)} G</span>
               </button>
@@ -303,7 +271,6 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
     <div className="sol-root">
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
 
-      {/* MOBILE HEADER */}
       <div className="sol-mobile-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {tenant?.logoUrl
@@ -324,7 +291,6 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
         <div className="sol-sidebar"><SidebarContent /></div>
 
         <div className="sol-main" style={{ animation: 'fadeUp 0.4s ease' }}>
-
           <PlanSelector />
 
           {/* ─── ALERTS ─── */}
@@ -375,8 +341,9 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 10, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 8 }}>Kontribisyon Total</div>
-             <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 40, color: D.gold, lineHeight: 1, marginBottom: 6 }}>{fmt(amountContributed)}</div>
-<div style={{ fontSize: 13, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
+                {/* ✅ FIX: amountContributed = tout peman (+ futur earlyDepo) */}
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 40, color: D.gold, lineHeight: 1, marginBottom: 6 }}>{fmt(amountContributed)}</div>
+                <div style={{ fontSize: 13, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
               </div>
             </div>
             <div style={{ marginTop: 28 }}>
@@ -386,8 +353,9 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
               </div>
               <div className="sol-progress-track"><div className="sol-progress-fill" style={{ width: `${progress}%` }} /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 11, color: D.muted }}>
- <span>{totalPaid} peman fèt</span>
-<span>{totalSlotCount - totalPaid} rès</span>
+                {/* ✅ FIX: totalPaid (tout, + futur) */}
+                <span>{totalPaid} peman fèt</span>
+                <span>{totalSlotCount - totalPaid} rès</span>
               </div>
             </div>
           </div>
@@ -399,6 +367,7 @@ const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
                 <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rès pou Peye</span>
               </div>
+              {/* ✅ FIX: amountDue - amountPaidPast (sèlman pase) */}
               <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.red }}>{fmt(Math.max(0, amountDue - amountPaidPast))}</div>
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
             </div>
