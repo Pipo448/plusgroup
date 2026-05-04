@@ -27,14 +27,13 @@ export default function SolDashboardPage() {
   const [loading,        setLoading]        = useState(true)
   const [showChangePw,   setShowChangePw]   = useState(false)
   const [showPayModal,   setShowPayModal]   = useState(false)
-  const [showPlanPicker, setShowPlanPicker] = useState(false)   // ← NOUVO
-  const [selectedPlanId, setSelectedPlanId] = useState(null)    // ← NOUVO
+  const [showPlanPicker, setShowPlanPicker] = useState(false)
+  const [selectedPlanId, setSelectedPlanId] = useState(null)
   const [tab,            setTab]            = useState('history')
   const [unreadCount,    setUnreadCount]    = useState(0)
   const [theme,          setTheme]          = useState(() => localStorage.getItem('sol_theme') || 'dark')
   const D = getD(theme)
 
-  // Enjekte CSS global
   useEffect(() => {
     const el = document.createElement('style')
     el.id = 'sol-dashboard-styles'
@@ -45,7 +44,6 @@ export default function SolDashboardPage() {
 
   const token = localStorage.getItem('sol_token')
 
-  // Push Notifications
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     const VAPID = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
@@ -63,7 +61,6 @@ export default function SolDashboardPage() {
     }).catch(e => console.warn('SW:', e.message))
   }, [token])
 
-  // Chaje done manm
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
     setLoading(true)
@@ -72,13 +69,12 @@ export default function SolDashboardPage() {
       if (res.status === 401) { localStorage.removeItem('sol_token'); localStorage.removeItem('sol_member'); navigate('/app/sol/login'); return }
       const json = await res.json()
       setData(json)
-      // ← Chwazi premye plan otomatikman
       if (json.plans?.length && !selectedPlanId) {
         setSelectedPlanId(json.plans[0].id)
       }
     } catch { toast.error('Pa ka chaje done yo.') }
     finally { setLoading(false) }
-  }, [token, navigate]) // selectedPlanId pa nan dep pou evite re-fetch
+  }, [token, navigate])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -87,7 +83,6 @@ export default function SolDashboardPage() {
     navigate('/app/sol/login'); toast('Ou dekonekte', { icon: '👋' })
   }
 
-  // ─── Loading ────────────────────────────────────────────────
   if (loading) return (
     <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -101,41 +96,51 @@ export default function SolDashboardPage() {
   if (!data) return null
 
   // ─── SIPÒ PLIZYÈ PLAN ────────────────────────────────────────
-  // Backend ka retounen { plans: [...] } oswa ansyen { member, plan, tenant }
-  const plans   = data.plans || (data.plan ? [{ ...data.plan, member: data.member, tenant: data.tenant }] : [])
-  const tenant  = data.tenant || plans[0]?.tenant
+  // ✅ FIX: Nòmalize strutik — backend retounen { plans: [{id, member, plan, tenant}] }
+  //         oswa ansyen fòma { member, plan, tenant }
+  const rawPlans = data.plans
+    ? data.plans
+    : data.plan
+      ? [{ id: data.plan.id, member: data.member, plan: data.plan, tenant: data.tenant }]
+      : []
 
+  const plans = rawPlans.map(p => ({
+    id:     p.id     || p.plan?.id,
+    member: p.member || null,
+    plan:   p.plan   || p,       // ansyen fòma = flat, nouvo fòma = { plan: {...} }
+    tenant: p.tenant || data.tenant,
+  })).filter(p => p.plan && p.member)
+
+  const tenant = data.tenant || plans[0]?.tenant
   if (!plans.length) return null
 
-  // Plan ki chwazi kounye a
   const currentPlanData = plans.find(p => p.id === selectedPlanId) || plans[0]
-  const plan   = currentPlanData
+
+  // ✅ FIX: plan = currentPlanData.plan (objè plan reyèl)
+  const plan   = currentPlanData.plan
   const member = currentPlanData.member
 
   if (!member || !plan) return null
 
- // ─── Kalkilasyon ─────────────────────────────────────────────
+  // ─── Kalkilasyon ─────────────────────────────────────────────
   const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   const totalSlotCount = Math.max(
     currentPlanData?.activeMemberCount || 0,
-    currentPlanData?.plan?.maxMembers  || 0,
-    currentPlanData?.maxMembers        || 0,
+    plan?.maxMembers                   || 0,
     allSlots.reduce((max, s) => Math.max(max, s.position), 0)
   )
 
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
 
   // ✅ FIX: Separe peman pase ak futur
-  // totalPaid     = tout peman (+ futur earlyDepo) — pou hero afichaj
-  // totalPaidPast = sèlman peman pase — pou kalkil rès ak pwogrè reyèl
-  const totalPaid     = dates.filter(d => member.payments?.[d]).length
-  const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length
+  const totalPaid     = dates.filter(d => member.payments?.[d]).length              // tout (+ futur earlyDepo) — pou hero afichaj
+  const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length // sèlman pase — pou kalkil rès
   const totalDue      = dates.filter(d => d <= today).length
 
-  // ✅ FIX: Rès pou peye — pa konte peman futur (earlyDepo)
+  // ✅ FIX: amountPaid pa konte peman futur
   const amountPaid = totalPaidPast * plan.amount * allSlots.length
   const amountDue  = totalDue      * plan.amount * allSlots.length
 
@@ -148,7 +153,7 @@ export default function SolDashboardPage() {
 
   const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
 
-  // ✅ FIX: ScoreData — konte tout timing (futur earlyDepo = bon pèfomans tou)
+  // ✅ FIX: ScoreData konte tout timing (futur earlyDepo = bon pèfomans tou)
   const timings   = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
     const earlyDepo = timings.filter(t => t === 'earlyDepo').length
@@ -174,8 +179,8 @@ export default function SolDashboardPage() {
 
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr     = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
-  
-  // ─── Seletè Plan (dropdown) ───────────────────────────────────
+
+  // ─── Seletè Plan (dropdown mobil) ────────────────────────────
   const PlanSelector = () => {
     if (plans.length <= 1) return null
     return (
@@ -219,10 +224,10 @@ export default function SolDashboardPage() {
                 }}
               >
                 <span style={{ flex: 1 }}>
-                  {p.id === selectedPlanId ? '✓ ' : ''}{p.name}
+                  {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
                 </span>
                 <span style={{ fontSize: 11, color: D.muted }}>
-                  {fmt(p.amount)} HTG
+                  {fmt(p.plan?.amount || 0)} HTG
                 </span>
               </button>
             ))}
@@ -232,7 +237,7 @@ export default function SolDashboardPage() {
     )
   }
 
-  // ─── Sidebar Content ─────────────────────────────────────────
+  // ─── Sidebar Content ──────────────────────────────────────────
   const SidebarContent = () => (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
@@ -245,7 +250,6 @@ export default function SolDashboardPage() {
         </div>
       </div>
 
-      {/* ← SELETÈ PLAN NAN SIDEBAR */}
       {plans.length > 1 && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 4 }}>Plan Ou Yo</div>
@@ -262,8 +266,8 @@ export default function SolDashboardPage() {
                   textAlign: 'left', width: '100%',
                 }}
               >
-                <span>{p.id === selectedPlanId ? '✓ ' : ''}{p.name}</span>
-                <span style={{ fontSize: 10, color: D.muted }}>{fmt(p.amount)} G</span>
+                <span>{p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}</span>
+                <span style={{ fontSize: 10, color: D.muted }}>{fmt(p.plan?.amount || 0)} G</span>
               </button>
             ))}
           </div>
@@ -277,6 +281,7 @@ export default function SolDashboardPage() {
         {allSlots.length > 1 && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>{allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik</div>}
         {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 4 }}>⏰ Peye ant {plan.dueTime} — {plan.dueTimeEnd || '15:00'}</div>}
       </div>
+
       <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 14 }}>Menu</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
         {[
@@ -289,6 +294,7 @@ export default function SolDashboardPage() {
           </button>
         ))}
       </div>
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 24 }}>
         <button onClick={() => setShowPayModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', width: '100%' }}>📱 Moncash / Natcash</button>
         <button onClick={() => setShowChangePw(true)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', borderRadius: 11, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 12, fontFamily: 'inherit', width: '100%' }}><Key size={13} /> Chanje Modpas</button>
@@ -324,7 +330,6 @@ export default function SolDashboardPage() {
 
         <div className="sol-main" style={{ animation: 'fadeUp 0.4s ease' }}>
 
-          {/* ← SELETÈ PLAN MOBIL (dropdown) */}
           <PlanSelector />
 
           {/* ─── ALERTS ─── */}
@@ -386,8 +391,8 @@ export default function SolDashboardPage() {
               </div>
               <div className="sol-progress-track"><div className="sol-progress-fill" style={{ width: `${progress}%` }} /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 11, color: D.muted }}>
-                <span>{totalPaid} peman fèt</span>
-                <span>{totalSlotCount - totalPaid} rès</span>
+                <span>{totalPaidPast} peman fèt</span>
+                <span>{totalSlotCount - totalPaidPast} rès</span>
               </div>
             </div>
           </div>
