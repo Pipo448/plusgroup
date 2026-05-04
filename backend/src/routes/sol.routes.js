@@ -72,6 +72,7 @@ function authAdmin(req, res, next) {
     return res.status(401).json({ message: 'Token admin pa valid' })
   }
 }
+
 // ══════════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════════
@@ -112,89 +113,132 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// MEMBERS/ME
+// MEMBERS/ME — ✅ NOUVO: Sipòte plizyè plan pou yon sèl kont
+// ══════════════════════════════════════════════════════════════
+
+async function buildPlanData(account, memberId) {
+  if (!memberId) return null
+
+  const sabotayMember = await prisma.sabotayMember.findUnique({
+    where: { id: memberId },
+    include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } }
+  })
+  if (!sabotayMember || !sabotayMember.plan) return null
+
+  const allSlots = await prisma.sabotayMember.findMany({
+    where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true },
+    include: { payments: { orderBy: { dueDate: 'asc' } } },
+    orderBy: { position: 'asc' }
+  })
+
+  const plan = sabotayMember.plan
+  const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
+  const activeMemberCount = await prisma.sabotayMember.count({
+    where: { planId: plan.id, isActive: true }
+  }).catch(() => 0)
+
+  return {
+    member: {
+      id: sabotayMember.id,
+      name: sabotayMember.name,
+      phone: sabotayMember.phone || '',
+      position: sabotayMember.position,
+      accountPosition: account.memberPosition,
+      balance: Number(account.balance || 0),
+      payments,
+      paymentTimings,
+      allSlots: allSlots.map(s => {
+        const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
+        return { id: s.id, position: s.position, payments: sp, paymentTimings: st }
+      })
+    },
+    plan: {
+      id: plan.id,
+      name: plan.name,
+      amount: Number(plan.amount),
+      fee: Number(plan.fee),
+      frequency: plan.frequency,
+      maxMembers: plan.maxMembers,
+      activeMemberCount,
+      createdAt: plan.startDate.toISOString().split('T')[0],
+      dueTime: plan.dueTime || account.planDueTime || '08:00',
+      dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00',
+      interval: plan.interval || account.planInterval || 1,
+      feePerMember: Number(plan.feePerMember || account.planFeePerMember || 0),
+      penalty: Number(plan.penalty || account.planPenalty || 0),
+      regleman: plan.regleman || null
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MEMBERS/ME — ✅ KORIJE: Sipòte plizyè plan pou yon sèl kont
 // ══════════════════════════════════════════════════════════════
 
 router.get('/members/me', authMember, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findUnique({ 
-      where: { id: req.solMember.accountId } 
+    const account = await prisma.solMemberAccount.findUnique({
+      where: { id: req.solMember.accountId }
     })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
+    if (!account.memberId) return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
 
-    // ✅ FIX #1: Verifye memberId pa null anvan query
-    if (!account.memberId) {
-      return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
-    }
-
-    const sabotayMember = await prisma.sabotayMember.findUnique({ 
-      where: { id: account.memberId }, 
-      include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } } 
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: account.tenantId },
+      select: { id: true, name: true, phone: true, address: true, logoUrl: true }
     })
 
-    // ✅ FIX #2: Verifye sabotayMember jwenn
-    if (!sabotayMember) {
-      return res.status(404).json({ 
-        message: `Manm pa jwenn (memberId: ${account.memberId}). Kont ou dekonekte ak manm nan.` 
+    // ── Plan prensipal ────────────────────────────────────────
+    const primaryData = await buildPlanData(account, account.memberId)
+    if (!primaryData) return res.status(404).json({ message: 'Manm oswa plan pa jwenn' })
+
+    const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
+
+    // ── Chèche lòt kont Sol ak menm telefòn (lòt plan) ───────
+    const phone = primaryData.member.phone
+    let allPlansData = [{ ...primaryData, id: primaryData.plan.id }]
+
+    if (phone) {
+      const otherAccounts = await prisma.solMemberAccount.findMany({
+        where: {
+          memberPhone: phone,
+          tenantId: account.tenantId,
+          id: { not: account.id },          // ✅ Korije: memberId → id (se kont id)
+          memberId: { not: null }            // ✅ Korije: member_id → memberId
+        }
+      })
+
+      for (const otherAccount of otherAccounts) {
+        const planData = await buildPlanData(otherAccount, otherAccount.memberId)
+        if (planData) allPlansData.push({ ...planData, id: planData.plan.id })
+      }
+    }
+
+    // ── Retrokompatibilite: si yon sèl plan ──────────────────
+    if (allPlansData.length === 1) {
+      return res.json({
+        member: primaryData.member,
+        plan:   primaryData.plan,
+        tenant: tenantFormatted,
       })
     }
 
-    // ✅ FIX #3: Verifye plan egziste
-    if (!sabotayMember.plan) {
-      return res.status(404).json({ message: 'Plan manm nan pa jwenn' })
-    }
-
-    const allSlots = await prisma.sabotayMember.findMany({ 
-      where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true }, 
-      include: { payments: { orderBy: { dueDate: 'asc' } } }, 
-      orderBy: { position: 'asc' } 
-    })
-    
-    const plan = sabotayMember.plan
-    const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
-    
-    const tenant = await prisma.tenant.findUnique({ 
-      where: { id: account.tenantId }, 
-      select: { id: true, name: true, phone: true, address: true, logoUrl: true } 
-    })
-    
-    const activeMemberCount = await prisma.sabotayMember.count({ 
-      where: { planId: plan.id, isActive: true } 
-    }).catch(() => 0)
-    
+    // ── Plizyè plan: retounen plans[] ────────────────────────
+    // Chak plan gen pwòp id pou frontend ka idantifye l
     return res.json({
-      member: { 
-        id: sabotayMember.id, 
-        name: sabotayMember.name, 
-        phone: sabotayMember.phone || '', 
-        position: sabotayMember.position, 
-        accountPosition: account.memberPosition, 
-        balance: Number(account.balance || 0), 
-        payments, 
-        paymentTimings, 
-        allSlots: allSlots.map(s => { 
-          const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
-          return { id: s.id, position: s.position, payments: sp, paymentTimings: st } 
-        }) 
-      },
-      plan: { 
-        id: plan.id, 
-        name: plan.name, 
-        amount: Number(plan.amount), 
-        fee: Number(plan.fee), 
-        frequency: plan.frequency, 
-        maxMembers: plan.maxMembers, 
-        activeMemberCount, 
-        createdAt: plan.startDate.toISOString().split('T')[0], 
-        dueTime: plan.dueTime || account.planDueTime || '08:00', 
-        dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00', 
-        interval: plan.interval || account.planInterval || 1, 
-        feePerMember: Number(plan.feePerMember || account.planFeePerMember || 0), 
-        penalty: Number(plan.penalty || account.planPenalty || 0), 
-        regleman: plan.regleman || null 
-      },
-      tenant: tenant ? { ...tenant, businessName: tenant.name } : null,
+      tenant: tenantFormatted,
+      // Retrokompatibilite — premye plan toujou la
+      member: primaryData.member,
+      plan:   primaryData.plan,
+      // Nouvo: lis tout plan yo
+      plans: allPlansData.map(d => ({
+        id:     d.plan.id,       // ← Frontend itilize sa pou selectedPlanId
+        member: d.member,
+        plan:   d.plan,
+        tenant: tenantFormatted,
+      }))
     })
+
   } catch (err) {
     console.error('[SOL ME]', err)
     return res.status(500).json({ message: 'Erè sèvè', detail: err.message })
@@ -476,37 +520,25 @@ router.get('/superadmin/overview', authAdmin, async (req, res) => {
   }
 })
 
-// ✅ FIX: Pa ka include 'account' dirèkteman sou SabotayMember
-// Relasyon sa pa egziste nan schema — fè 2 query separe
 router.get('/superadmin/plans/:planId/members', authAdmin, async (req, res) => {
   try {
     const members = await prisma.sabotayMember.findMany({
       where:   { planId: req.params.planId },
       orderBy: { position: 'asc' },
     })
-
-    // Jwenn kont Sol pou chak manm pa memberId
     const memberIds = members.map(m => m.id)
     const solAccounts = await prisma.solMemberAccount.findMany({
       where:  { memberId: { in: memberIds } },
       select: { memberId: true, username: true, plainPassword: true },
     })
     const accountMap = Object.fromEntries(solAccounts.map(a => [a.memberId, a]))
-
     const result = members.map(m => ({
-      id:            m.id,
-      name:          m.name,
-      phone:         m.phone || '',
-      position:      m.position,
-      permanentId:   m.permanentId   || null,
-      performanceScore: m.performanceScore ?? 0,
-      isActive:      m.isActive,
-      isOwnerSlot:   m.isOwnerSlot || false,
-      hasWon:        m.hasWon      || false,
-      username:      accountMap[m.id]?.username      || null,
+      id: m.id, name: m.name, phone: m.phone || '', position: m.position,
+      permanentId: m.permanentId || null, performanceScore: m.performanceScore ?? 0,
+      isActive: m.isActive, isOwnerSlot: m.isOwnerSlot || false, hasWon: m.hasWon || false,
+      username: accountMap[m.id]?.username || null,
       plainPassword: accountMap[m.id]?.plainPassword || null,
     }))
-
     return res.json({ members: result })
   } catch (err) {
     console.error('[SOL SUPERADMIN MEMBERS]', err)

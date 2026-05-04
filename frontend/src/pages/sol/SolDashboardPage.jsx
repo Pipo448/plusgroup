@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { LogOut, RefreshCw, Trophy, Key, Wallet, TrendingUp, CreditCard, Star } from 'lucide-react'
+import { LogOut, RefreshCw, Trophy, Key, Wallet, TrendingUp, CreditCard, Star, ChevronDown } from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
 import {
@@ -23,13 +23,15 @@ import { ModalChangePassword, ModalPayMobile } from './SolDashboardModals'
 // ─────────────────────────────────────────────────────────────
 export default function SolDashboardPage() {
   const navigate = useNavigate()
-  const [data,         setData]         = useState(null)
-  const [loading,      setLoading]      = useState(true)
-  const [showChangePw, setShowChangePw] = useState(false)
-  const [showPayModal, setShowPayModal] = useState(false)
-  const [tab,          setTab]          = useState('history')
-  const [unreadCount,  setUnreadCount]  = useState(0)
-  const [theme,        setTheme]        = useState(() => localStorage.getItem('sol_theme') || 'dark')
+  const [data,           setData]           = useState(null)
+  const [loading,        setLoading]        = useState(true)
+  const [showChangePw,   setShowChangePw]   = useState(false)
+  const [showPayModal,   setShowPayModal]   = useState(false)
+  const [showPlanPicker, setShowPlanPicker] = useState(false)   // ← NOUVO
+  const [selectedPlanId, setSelectedPlanId] = useState(null)    // ← NOUVO
+  const [tab,            setTab]            = useState('history')
+  const [unreadCount,    setUnreadCount]    = useState(0)
+  const [theme,          setTheme]          = useState(() => localStorage.getItem('sol_theme') || 'dark')
   const D = getD(theme)
 
   // Enjekte CSS global
@@ -68,10 +70,15 @@ export default function SolDashboardPage() {
     try {
       const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
       if (res.status === 401) { localStorage.removeItem('sol_token'); localStorage.removeItem('sol_member'); navigate('/app/sol/login'); return }
-      setData(await res.json())
+      const json = await res.json()
+      setData(json)
+      // ← Chwazi premye plan otomatikman
+      if (json.plans?.length && !selectedPlanId) {
+        setSelectedPlanId(json.plans[0].id)
+      }
     } catch { toast.error('Pa ka chaje done yo.') }
     finally { setLoading(false) }
-  }, [token, navigate])
+  }, [token, navigate]) // selectedPlanId pa nan dep pou evite re-fetch
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -92,7 +99,19 @@ export default function SolDashboardPage() {
   )
 
   if (!data) return null
-  const { member, plan, tenant } = data
+
+  // ─── SIPÒ PLIZYÈ PLAN ────────────────────────────────────────
+  // Backend ka retounen { plans: [...] } oswa ansyen { member, plan, tenant }
+  const plans   = data.plans || (data.plan ? [{ ...data.plan, member: data.member, tenant: data.tenant }] : [])
+  const tenant  = data.tenant || plans[0]?.tenant
+
+  if (!plans.length) return null
+
+  // Plan ki chwazi kounye a
+  const currentPlanData = plans.find(p => p.id === selectedPlanId) || plans[0]
+  const plan   = currentPlanData
+  const member = currentPlanData.member
+
   if (!member || !plan) return null
 
   // ─── Kalkilasyon ─────────────────────────────────────────────
@@ -101,7 +120,7 @@ export default function SolDashboardPage() {
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   const totalSlotCount = Math.max(
-    data?.plan?.activeMemberCount || 0, data?.plan?.maxMembers || 0,
+    currentPlanData?.activeMemberCount || 0, currentPlanData?.maxMembers || 0,
     allSlots.reduce((max, s) => Math.max(max, s.position), 0)
   )
 
@@ -134,6 +153,63 @@ export default function SolDashboardPage() {
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr     = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
 
+  // ─── Seletè Plan (dropdown) ───────────────────────────────────
+  const PlanSelector = () => {
+    if (plans.length <= 1) return null
+    return (
+      <div style={{ position: 'relative', marginBottom: 20 }}>
+        <button
+          onClick={() => setShowPlanPicker(v => !v)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            width: '100%', padding: '12px 16px',
+            borderRadius: 14, border: `1px solid ${D.border}`,
+            background: D.goldDim, color: D.text,
+            cursor: 'pointer', fontFamily: 'inherit',
+            fontWeight: 700, fontSize: 13,
+          }}
+        >
+          <span style={{ flex: 1, textAlign: 'left' }}>
+            📋 {plan.name}
+            <span style={{ marginLeft: 8, fontSize: 11, color: D.muted, fontWeight: 500 }}>
+              {fmt(plan.amount)} HTG • {FREQ_LABELS[plan.frequency] || plan.frequency}
+            </span>
+          </span>
+          <ChevronDown size={14} style={{ color: D.gold, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </button>
+        {showPlanPicker && (
+          <div style={{
+            position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
+            background: D.card, border: `1px solid ${D.border}`,
+            borderRadius: 14, overflow: 'hidden',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          }}>
+            {plans.map((p, i) => (
+              <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); setTab('history') }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  width: '100%', padding: '13px 16px',
+                  border: 'none', borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none',
+                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
+                  color: p.id === selectedPlanId ? D.gold : D.text,
+                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 13,
+                  textAlign: 'left',
+                }}
+              >
+                <span style={{ flex: 1 }}>
+                  {p.id === selectedPlanId ? '✓ ' : ''}{p.name}
+                </span>
+                <span style={{ fontSize: 11, color: D.muted }}>
+                  {fmt(p.amount)} HTG
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ─── Sidebar Content ─────────────────────────────────────────
   const SidebarContent = () => (
     <>
@@ -146,6 +222,32 @@ export default function SolDashboardPage() {
           <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>Kont Sabotay</div>
         </div>
       </div>
+
+      {/* ← SELETÈ PLAN NAN SIDEBAR */}
+      {plans.length > 1 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 8, paddingLeft: 4 }}>Plan Ou Yo</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {plans.map(p => (
+              <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setTab('history') }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '10px 14px', borderRadius: 11,
+                  border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent',
+                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
+                  color: p.id === selectedPlanId ? D.gold : D.muted,
+                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12,
+                  textAlign: 'left', width: '100%',
+                }}
+              >
+                <span>{p.id === selectedPlanId ? '✓ ' : ''}{p.name}</span>
+                <span style={{ fontSize: 10, color: D.muted }}>{fmt(p.amount)} G</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 16, padding: '18px', marginBottom: 28 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: D.text, fontFamily: 'Syne, sans-serif', marginBottom: 5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
         <div style={{ fontSize: 11, color: D.muted, marginBottom: 10 }}>{member.phone}</div>
@@ -199,6 +301,9 @@ export default function SolDashboardPage() {
         <div className="sol-sidebar"><SidebarContent /></div>
 
         <div className="sol-main" style={{ animation: 'fadeUp 0.4s ease' }}>
+
+          {/* ← SELETÈ PLAN MOBIL (dropdown) */}
+          <PlanSelector />
 
           {/* ─── ALERTS ─── */}
           {isWinner && (
@@ -267,7 +372,6 @@ export default function SolDashboardPage() {
 
           {/* ─── STATS ─── */}
           <div className="sol-stats-grid">
-            {/* Rès pou Peye */}
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
@@ -277,7 +381,6 @@ export default function SolDashboardPage() {
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
             </div>
 
-            {/* Kat Men */}
             {allSlots.map(slot => {
               const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
               const slotPayout = isExchangedSlot ? payoutAjiste : payoutDebaz
@@ -304,7 +407,6 @@ export default function SolDashboardPage() {
               )
             })}
 
-            {/* Total si plizyè men */}
             {allSlots.length > 1 && (
               <div className="sol-stat-card" style={{ borderColor: `${D.green}30`, background: 'rgba(34,197,94,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
@@ -316,7 +418,6 @@ export default function SolDashboardPage() {
               </div>
             )}
 
-            {/* Frekans */}
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.blueBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TrendingUp size={15} style={{ color: D.blue }} /></div>
@@ -327,11 +428,9 @@ export default function SolDashboardPage() {
             </div>
           </div>
 
-          {/* ─── PÈFÒMANS ─── */}
           <PerformanceSection scoreData={scoreData} />
           <PerformanceMessage scoreData={scoreData} />
 
-          {/* ─── REGLEMAN ─── */}
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 20, padding: '22px 26px', marginBottom: 20 }}>
               <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 11, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>📜 Regleman Sòl la</p>
@@ -339,7 +438,6 @@ export default function SolDashboardPage() {
             </div>
           )}
 
-          {/* ─── BOUTON TÈM ─── */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
             {Object.entries(THEMES).map(([key, t]) => (
               <button key={key} onClick={() => { setTheme(key); localStorage.setItem('sol_theme', key) }}
@@ -349,7 +447,6 @@ export default function SolDashboardPage() {
             ))}
           </div>
 
-          {/* ─── TABS ─── */}
           <div className="sol-tabs">
             {[['history','📋 Istwa Peman'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t, l]) => (
               <button key={t} className="sol-tab-btn" onClick={() => { setTab(t); if (t === 'chat') setUnreadCount(0) }}
@@ -364,7 +461,6 @@ export default function SolDashboardPage() {
             ))}
           </div>
 
-          {/* ─── ISTWA PEMAN ─── */}
           {tab === 'history' && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 22, overflow: 'hidden' }}>
               <div style={{ padding: '20px 26px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -402,7 +498,6 @@ export default function SolDashboardPage() {
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
           {tab === 'chat'     && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
 
-          {/* ─── MOBILE ACTIONS ─── */}
           <div className="sol-mobile-actions">
             <button onClick={() => setShowPayModal(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>📱 Peye pa Moncash / Natcash</button>
             <button onClick={() => setShowChangePw(true)} style={{ padding: '15px', borderRadius: 15, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}><Key size={14} /> Chanje Modpas</button>
