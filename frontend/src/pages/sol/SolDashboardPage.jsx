@@ -127,10 +127,10 @@ export default function SolDashboardPage() {
 
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
-  const totalSlotCount = Math.max(
-    currentPlanData?.activeMemberCount || 0,
-    plan?.maxMembers                   || 0,
-    allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+const totalSlotCount = currentPlanData?.activeMemberCount
+  || Math.max(
+    plan?.maxMembers || 0,
+    allSlots.reduce((max, s) => Math.max(max, 0, s.position), 0)
   )
 
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
