@@ -133,8 +133,13 @@ async function buildPlanData(account, memberId) {
   const plan = sabotayMember.plan
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
   const activeMemberCount = await prisma.sabotayMember.count({
-    where: { planId: plan.id, isActive: true }
-  }).catch(() => 0)
+  where: {
+    planId: plan.id,
+    ...(plan.status === 'closed' || plan.status === 'finished'
+      ? {}                      // plan fèmen → konte tout manm
+      : { isActive: true })     // plan aktif → sèlman aktif
+  }
+}).catch(() => 0)
 
   return {
     member: {
