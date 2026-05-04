@@ -246,58 +246,7 @@ async function addMember(tenantId, planId, userId, data) {
     if (posExists) throw new Error(`Pozisyon #${pos} deja pran pa ${posExists.name}.`)
   }
 
-  let solAccount  = null
-  let rawPassword = null
-
-  if (!isOwnerSlot) {
-    try {
-      const bcrypt     = require('bcryptjs')
-      const cleanPhone = phone.trim()
-      solAccount = await prisma.solMemberAccount.findFirst({ where: { tenantId, memberPhone: cleanPhone } })
-
-      if (solAccount) {
-        console.log(`[addMember] Kont Sol egziste pou ${phone}`)
-        const updates = {}
-        if (cin            && !solAccount.cin)            updates.cin            = cin
-        if (nif            && !solAccount.nif)            updates.nif            = nif
-        if (address        && !solAccount.address)        updates.address        = address
-        if (photoUrl       && !solAccount.photoUrl)       updates.photoUrl       = photoUrl
-        if (idPhotoUrl     && !solAccount.idPhotoUrl)     updates.idPhotoUrl     = idPhotoUrl
-        if (referenceName  && !solAccount.referenceName)  updates.referenceName  = referenceName
-        if (referencePhone && !solAccount.referencePhone) updates.referencePhone = referencePhone
-        if (relationship   && !solAccount.relationship)   updates.relationship   = relationship
-        if (Object.keys(updates).length > 0) {
-          solAccount = await prisma.solMemberAccount.update({ where: { id: solAccount.id }, data: updates })
-        }
-      } else {
-        console.log(`[addMember] Nouvo kont Sol pou ${phone}`)
-        const rawUsername = credentials?.username
-          ? credentials.username.toLowerCase().trim()
-          : generateUsername(name, Number(positionsToCreate[0]))
-
-        rawPassword = credentials?.password || generatePassword(8)
-
-        const usernameExists = await prisma.solMemberAccount.findFirst({ where: { username: rawUsername } })
-        const finalUsername  = usernameExists ? `${rawUsername}${Date.now().toString().slice(-4)}` : rawUsername
-
-        const passwordHash = await bcrypt.hash(rawPassword, 10)
-
-  solAccount = await prisma.solMemberAccount.create({
-  data: {
-    username: finalUsername,
-    passwordHash,
-    plainPassword: rawPassword,
-    tenantId,
-    memberName: name.trim(),
-    memberPhone: cleanPhone,
-  }
-})
-      }
-    } catch (err) {
-      console.error('[sabotay] ❌ Kont Sol erè DETAY:', err)
-    }
-  }
-
+  // ── ETAP 1: Kreye manm yo DABÒ ───────────────────────────
   const createdMembers = []
 
   for (const pos of positionsToCreate) {
@@ -315,7 +264,67 @@ async function addMember(tenantId, planId, userId, data) {
       include: { payments: true, creator: { select: { fullName: true } } }
     })
 
-    if (!isOwnerSlot && solAccount) {
+    createdMembers.push({ member, collectDate })
+  }
+
+  const firstMember = createdMembers[0].member
+
+  // ── ETAP 2: Kreye kont Sol APRE — memberId disponib kounye a ──
+  let solAccount  = null
+  let rawPassword = null
+
+  try {
+    const bcrypt     = require('bcryptjs')
+    const cleanPhone = phone.trim()
+
+    // Verifye si kont Sol deja egziste pou nimewo sa
+    solAccount = await prisma.solMemberAccount.findFirst({
+      where: { tenantId, memberPhone: cleanPhone }
+    })
+
+    if (solAccount) {
+      // Kont egziste — ajoute memberId si li pa la
+      console.log(`[addMember] Kont Sol egziste pou ${phone} — username: ${solAccount.username}`)
+      if (!solAccount.memberId) {
+        solAccount = await prisma.solMemberAccount.update({
+          where: { id: solAccount.id },
+          data:  { memberId: firstMember.id }
+        })
+      }
+    } else {
+      // ✅ Kreye nouvo kont Sol ak memberId kòrèk
+      console.log(`[addMember] Nouvo kont Sol pou ${phone}`)
+      const rawUsername = credentials?.username
+        ? credentials.username.toLowerCase().trim()
+        : generateUsername(name, Number(positionsToCreate[0]))
+
+      rawPassword = credentials?.password || generatePassword(8)
+
+      const usernameExists = await prisma.solMemberAccount.findFirst({ where: { username: rawUsername } })
+      const finalUsername  = usernameExists ? `${rawUsername}${Date.now().toString().slice(-4)}` : rawUsername
+
+      const passwordHash = await bcrypt.hash(rawPassword, 10)
+
+      solAccount = await prisma.solMemberAccount.create({
+        data: {
+          username:      finalUsername,
+          passwordHash,
+          plainPassword: rawPassword,
+          tenantId,
+          memberId:      firstMember.id,  // ✅ memberId kounye a disponib
+          memberName:    name.trim(),
+          memberPhone:   cleanPhone,
+        }
+      })
+    }
+  } catch (err) {
+    console.error('[sabotay] ❌ Kont Sol erè DETAY:', err)
+    // Pa throw — manm kreye nèt, kont Sol echwe silansyezman
+  }
+
+  // ── ETAP 3: Kreye SolMemberPosition pou chak slot ──────────
+  for (const { member, collectDate } of createdMembers) {
+    if (solAccount) {
       try {
         await prisma.solMemberPosition.create({
           data: {
@@ -326,22 +335,22 @@ async function addMember(tenantId, planId, userId, data) {
             planStartDate: plan.startDate.toISOString().split('T')[0],
             planDueTime: plan.dueTime || '08:00', planInterval: Number(plan.interval || 1),
             planFeePerMember: Number(plan.feePerMember || 0), planPenalty: Number(plan.penalty || 0),
-            planRegleman: plan.regleman || null, isOwnerSlot: false, hasWon: false,
+            planRegleman: plan.regleman || null,
+            isOwnerSlot: isOwnerSlot || false, hasWon: false,
             preferredDate: collectDate, payments: {}, paymentTimings: {}, fines: {},
           }
         })
       } catch (err) {
-        console.error('[sabotay] ❌ SolMemberPosition erè pos', pos, ':', err.message)
+        console.error('[sabotay] ❌ SolMemberPosition erè pos', member.position, ':', err.message)
       }
     }
-    createdMembers.push(member)
   }
 
-  const firstMember = createdMembers[0]
+  // ── Retounen ────────────────────────────────────────────────
   if (solAccount) {
     firstMember._solAccount = {
       username:      solAccount.username,
-      plainPassword: rawPassword || null,
+      plainPassword: rawPassword || solAccount.plainPassword || null,
       isExisting:    rawPassword === null,
     }
   }
