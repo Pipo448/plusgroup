@@ -37,14 +37,12 @@ function getHaitiToday() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ✅ FIX: Konvèti array peman Prisma → map {date: true}
-// Prisma retounen payments kòm array, calcScore bezwen map
+// HELPER: Konvèti array peman Prisma → map {date: true}
 // ─────────────────────────────────────────────────────────────
 function buildPaymentMap(paymentsArray) {
   const payments = {}, paymentTimings = {}
   for (const p of (paymentsArray || [])) {
     try {
-      // ✅ Pran sèlman YYYY-MM-DD — evite UTC shift
       const dk = String(p.dueDate instanceof Date
         ? p.dueDate.toISOString()
         : p.dueDate
@@ -61,14 +59,11 @@ function buildPaymentMap(paymentsArray) {
 // ─────────────────────────────────────────────────────────────
 function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = '15:00') {
   try {
-    // ✅ Pran YYYY-MM-DD dirèkteman — pa konvèti nan UTC
     const dueDateStr = String(dueDate).split('T')[0]
 
-    // Konvèti paidAt nan Haiti (UTC-5)
     const paidHaiti   = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
     const paidDateStr = paidHaiti.toISOString().split('T')[0]
 
-    // Diferans jou (negatif = bonè, pozitif = reta)
     const due      = new Date(dueDateStr)
     const paid     = new Date(paidDateStr)
     const diffDays = Math.round((paid - due) / (1000 * 60 * 60 * 24))
@@ -77,7 +72,6 @@ function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = 
     if (diffDays === -1) return 'earlyDay'
 
     if (diffDays === 0) {
-      // Menm jou — verifye lè a nan Haiti
       const paidH       = paidHaiti.getUTCHours()
       const paidM       = paidHaiti.getUTCMinutes()
       const paidMinutes = paidH * 60 + paidM
@@ -101,8 +95,7 @@ function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = 
 }
 
 // ─────────────────────────────────────────────────────────────
-// HELPER: Kalkile tout dat peman pou yon plan
-// ✅ FIX: Parse startDate kòm dat lokal — evite UTC shift
+// HELPER: Tout dat peman — parse lokal pou evite UTC shift
 // ─────────────────────────────────────────────────────────────
 function getAllPaymentDates(plan) {
   const dates    = []
@@ -110,13 +103,12 @@ function getAllPaymentDates(plan) {
   const interval = Number(plan.interval || 1)
   const total    = plan.maxMembers || 1
 
-  // ✅ Parse startDate kòm YYYY-MM-DD lokal (pa UTC)
   const raw = plan.startDate instanceof Date
     ? plan.startDate.toISOString().split('T')[0]
     : String(plan.startDate || '').split('T')[0]
 
   const [y, mo, d] = raw.split('-').map(Number)
-  const start = new Date(y, mo - 1, d)  // dat lokal — pa gen UTC offset
+  const start = new Date(y, mo - 1, d)
 
   const toKey = (dt) => {
     const yr  = dt.getFullYear()
@@ -142,7 +134,7 @@ function getAllPaymentDates(plan) {
 
 // ─────────────────────────────────────────────────────────────
 // KALKILE SKOR
-// member.payments dwe se yon map {date: true} — pa array
+// ✅ FIX: Dat kap vini — konte earlyDepo si peye, skip si pa peye
 // ─────────────────────────────────────────────────────────────
 function calcScore(member, allDates, today) {
   const payments       = member.payments       || {}
@@ -150,12 +142,24 @@ function calcScore(member, allDates, today) {
 
   const history = []
   for (const date of allDates) {
-    if (date > today) break
+    const isFuture = date > today
+
+    if (isFuture) {
+      // ✅ Dat kap vini — konte sèlman si manm nan deja peye (earlyDepo/earlyDay)
+      // Si pa peye — pa penalize, jis skip
+      if (payments[date]) {
+        const t = paymentTimings[date] || 'earlyDepo'
+        history.push({ date, timing: t, paid: true, isFuture: true })
+      }
+      continue
+    }
+
+    // Dat pase — lojik nòmal
     if (payments[date]) {
       const t = paymentTimings[date] || 'onTime'
-      history.push({ date, timing: t, paid: true })
+      history.push({ date, timing: t, paid: true, isFuture: false })
     } else {
-      history.push({ date, timing: 'missing', paid: false })
+      history.push({ date, timing: 'missing', paid: false, isFuture: false })
     }
   }
 
@@ -169,11 +173,15 @@ function calcScore(member, allDates, today) {
       continue
     }
 
-    const recentHistory   = history.slice(Math.max(0, i - 3), i)
-    const recentLateCount = recentHistory.filter(
-      h => h.timing === 'late' || h.timing === 'veryLate' || !h.paid
-    ).length
-    const isInRecovery = recentLateCount >= 2
+    // Rekiperasyon — pa aplike pou peman alavans (earlyDepo/earlyDay)
+    const isInRecovery = (() => {
+      if (entry.isFuture) return false
+      const recentHistory   = history.slice(Math.max(0, i - 3), i).filter(h => !h.isFuture)
+      const recentLateCount = recentHistory.filter(
+        h => h.timing === 'late' || h.timing === 'veryLate' || !h.paid
+      ).length
+      return recentLateCount >= 2
+    })()
 
     const basePoints = TIMING_TO_POINTS[entry.timing] ?? POINTS.onTime
 
@@ -189,6 +197,7 @@ function calcScore(member, allDates, today) {
 
 // ─────────────────────────────────────────────────────────────
 // BREAKDOWN SKOR — Detay pou afichaj UI
+// ✅ FIX: Dat kap vini — konte earlyDepo si peye, skip si pa peye
 // ─────────────────────────────────────────────────────────────
 function calcScoreBreakdown(member, allDates, today) {
   const payments       = member.payments       || {}
@@ -202,19 +211,33 @@ function calcScoreBreakdown(member, allDates, today) {
 
   const history = []
   for (const date of allDates) {
-    if (date > today) break
+    const isFuture = date > today
+
+    if (isFuture) {
+      // ✅ Konte sèlman si peye alavans — pa penalize dat kap vini ki pa peye
+      if (payments[date]) {
+        const t = paymentTimings[date] || 'earlyDepo'
+        history.push({ date, timing: t, paid: true, isFuture: true })
+        breakdown[t] = (breakdown[t] || 0) + 1
+      }
+      continue
+    }
+
+    // Dat pase
     if (payments[date]) {
       const t = paymentTimings[date] || 'onTime'
-      history.push({ date, timing: t, paid: true })
+      history.push({ date, timing: t, paid: true, isFuture: false })
       breakdown[t] = (breakdown[t] || 0) + 1
     } else {
-      history.push({ date, timing: 'missing', paid: false })
+      history.push({ date, timing: 'missing', paid: false, isFuture: false })
       breakdown.missing++
     }
   }
 
-  if (history.length >= 3) {
-    const last3 = history.slice(-3)
+  // Verifye rekiperasyon — sèlman peman pase yo
+  const pastHistory = history.filter(h => !h.isFuture)
+  if (pastHistory.length >= 3) {
+    const last3 = pastHistory.slice(-3)
     const lateInLast3 = last3.filter(
       h => h.timing === 'late' || h.timing === 'veryLate' || !h.paid
     ).length
@@ -235,7 +258,6 @@ async function generatePermanentId(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // REKALILE POZISYON
-// ✅ FIX: Konvèti array → map avan pase nan calcScore
 // ─────────────────────────────────────────────────────────────
 async function recalculatePositions(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
@@ -258,7 +280,6 @@ async function recalculatePositions(planId) {
 
   if (competing.length === 0) return { recalculated: 0, message: 'Pa gen manm pou klase' }
 
-  // ✅ FIX: Konvèti array Prisma → map anvan calcScore
   const scored = competing.map(m => {
     const { payments, paymentTimings } = buildPaymentMap(m.payments)
     return {
@@ -302,7 +323,6 @@ async function recalculatePositions(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // SNAPSHOT — Klasman aktyèl ak detay skor
-// ✅ FIX: Konvèti array → map avan pase nan calcScoreBreakdown
 // ─────────────────────────────────────────────────────────────
 async function getRankingSnapshot(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
@@ -316,7 +336,6 @@ async function getRankingSnapshot(planId) {
   const allDates = getAllPaymentDates(plan)
 
   return plan.members.map(m => {
-    // ✅ FIX: Konvèti array → map
     const { payments, paymentTimings } = buildPaymentMap(m.payments)
     const mWithMaps = { ...m, payments, paymentTimings }
     const breakdown = calcScoreBreakdown(mWithMaps, allDates, today)
