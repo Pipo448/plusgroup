@@ -136,20 +136,15 @@ const totalSlotCount = currentPlanData?.activeMemberCount
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
 
   // ✅ FIX: Separe peman pase ak futur
-  const totalPaid     = dates.filter(d => member.payments?.[d]).length              // tout (+ futur earlyDepo) — pou hero afichaj
-  const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length // sèlman pase — pou kalkil rès
-  const totalDue      = dates.filter(d => d <= today).length
+  const totalPaid     = dates.filter(d => member.payments?.[d]).length
+const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length
+const totalDue      = dates.filter(d => d <= today).length
 
-  // ✅ FIX: amountPaid pa konte peman futur
-  const amountPaid = totalPaidPast * plan.amount * allSlots.length
-  const amountDue  = totalDue      * plan.amount * allSlots.length
-
-  const payoutDebaz   = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
-  const memberBalance = Number(member.balance || 0)
-  const payoutAjiste  = payoutDebaz + memberBalance
-
-  // ✅ FIX: Progress baze sou peman pase sèlman
-  const progress = totalSlotCount > 0 ? (totalPaidPast / totalSlotCount) * 100 : 0
+const amountContributed = totalPaid     * plan.amount * allSlots.length  // tout (+ futur)
+const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length  // sèlman pase
+const amountDue         = totalDue      * plan.amount * allSlots.length
+// ✅ Progress = tout peman / total — 100% si tout peye (+ futur)
+const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
 
   const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
 
@@ -380,8 +375,8 @@ const totalSlotCount = currentPlanData?.activeMemberCount
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 10, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 8 }}>Kontribisyon Total</div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 40, color: D.gold, lineHeight: 1, marginBottom: 6 }}>{fmt(amountPaid)}</div>
-                <div style={{ fontSize: 13, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
+             <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 40, color: D.gold, lineHeight: 1, marginBottom: 6 }}>{fmt(amountContributed)}</div>
+<div style={{ fontSize: 13, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
               </div>
             </div>
             <div style={{ marginTop: 28 }}>
@@ -391,8 +386,8 @@ const totalSlotCount = currentPlanData?.activeMemberCount
               </div>
               <div className="sol-progress-track"><div className="sol-progress-fill" style={{ width: `${progress}%` }} /></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 9, fontSize: 11, color: D.muted }}>
-                <span>{totalPaidPast} peman fèt</span>
-                <span>{totalSlotCount - totalPaidPast} rès</span>
+ <span>{totalPaid} peman fèt</span>
+<span>{totalSlotCount - totalPaid} rès</span>
               </div>
             </div>
           </div>
@@ -404,7 +399,7 @@ const totalSlotCount = currentPlanData?.activeMemberCount
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
                 <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rès pou Peye</span>
               </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.red }}>{fmt(Math.max(0, amountDue - amountPaid))}</div>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.red }}>{fmt(Math.max(0, amountDue - amountPaidPast))}</div>
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
             </div>
 
