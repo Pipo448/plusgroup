@@ -72,31 +72,25 @@ function getHaitiNow() {
 // ─────────────────────────────────────────────────────────────
 function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = '15:00') {
   try {
-    // Konvèti tout en dat Haiti (UTC-5)
-    const toHaitiDate = (d) => {
-      const dt = new Date(d)
-      return new Date(dt.getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
-    }
+    // ✅ FIX: Pa konvèti dueDate nan UTC — pran string YYYY-MM-DD dirèkteman
+    const dueDateStr = String(dueDate).split('T')[0]   // '2026-05-04' ← pa touche
 
-    const dueDateStr  = toHaitiDate(dueDate)
-    const paidDateStr = toHaitiDate(paidAt)
+    // Paid date — konvèti nan Haiti (UTC-5)
+    const paidHaiti   = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
+    const paidDateStr = paidHaiti.toISOString().split('T')[0]  // '2026-05-04'
 
-    // Kalkile diferans jou (negatif = peye avan, pozitif = reta)
+    // Kalkile diferans jou
     const due  = new Date(dueDateStr)
     const paid = new Date(paidDateStr)
     const diffDays = Math.round((paid - due) / (1000 * 60 * 60 * 24))
 
-    // Depo rezèv — peye 2+ jou davans
-    if (diffDays <= -2) return 'earlyDepo'
+    if (diffDays <= -2) return 'earlyDepo'  // 2+ jou davans
+    if (diffDays === -1) return 'earlyDay'  // jou avan
 
-    // Jou avan dat la
-    if (diffDays === -1) return 'earlyDay'
-
-    // Menm jou — verifye lè a
     if (diffDays === 0) {
-      const paidHaitiTime = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
-      const paidH = paidHaitiTime.getHours()
-      const paidM = paidHaitiTime.getMinutes()
+      // Menm jou — verifye lè a
+      const paidH       = paidHaiti.getUTCHours()    // ← UTC hours, men se Haiti time (deja soustri 5h)
+      const paidM       = paidHaiti.getUTCMinutes()
       const paidMinutes = paidH * 60 + paidM
 
       const [startH, startM] = dueTime.split(':').map(Number)
@@ -104,20 +98,18 @@ function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = 
       const windowStart = startH * 60 + startM
       const windowEnd   = endH   * 60 + endM
 
-      if (paidMinutes < windowStart) return 'early'       // Avan lè a
-      if (paidMinutes <= windowEnd)  return 'onTime'      // Nan lè a
-      return 'lateWindow'                                  // Apre lè a, menm jou
+      if (paidMinutes < windowStart) return 'early'       // ✅ 12h < 13h → early +3
+      if (paidMinutes <= windowEnd)  return 'onTime'      // 13h-14h → onTime +1
+      return 'lateWindow'                                  // apre 14h → -1
     }
 
-    // Reta
-    if (diffDays === 1) return 'late'
-    return 'veryLate'  // 2+ jou reta
+    if (diffDays === 1) return 'late'      // 1 jou reta
+    return 'veryLate'                      // 2+ jou reta
 
   } catch {
-    return 'onTime'  // Pa ka kalkile — default
+    return 'onTime'
   }
 }
-
 // ─────────────────────────────────────────────────────────────
 // HELPER: Kalkile tout dat peman pou yon plan
 // ─────────────────────────────────────────────────────────────
