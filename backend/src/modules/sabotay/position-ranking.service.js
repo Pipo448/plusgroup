@@ -7,25 +7,6 @@
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-// ─────────────────────────────────────────────────────────────
-// ECHÈL PWEN — Baze sou lè ekzak peman an
-// ─────────────────────────────────────────────────────────────
-//
-//  earlyDepo   = +7  Depo rezèv (2+ jou davans)
-//  earlyDay    = +5  Peye jou avan dat la
-//  early       = +3  Peye menm jou, AVAN lè a
-//  onTime      = +1  Peye nan lè a (ex: 15h-17h)
-//  lateWindow  = -1  Peye menm jou, APRE lè a
-//  late        = -3  1 jou an reta
-//  veryLate    = -5  2+ jou an reta
-//  missing     = -7  Pa peye ditou
-//
-// REKIPERASYON LANT:
-//   Si manm nan te an reta nan 2+ nan dènye 3 peman yo,
-//   pwen maksimòm li ka jwenn pou chak peman se +2
-//   (pa +7, +5, +3 oubyen +1) — li monte men dousman
-// ─────────────────────────────────────────────────────────────
-
 const POINTS = {
   earlyDepo:   7,
   earlyDay:    5,
@@ -37,7 +18,6 @@ const POINTS = {
   missing:    -7,
 }
 
-// Kat: timing string → pwen
 const TIMING_TO_POINTS = {
   earlyDepo:  POINTS.earlyDepo,
   earlyDay:   POINTS.earlyDay,
@@ -56,40 +36,49 @@ function getHaitiToday() {
     .toISOString().split('T')[0]
 }
 
-function getHaitiNow() {
-  return new Date(new Date().getTime() - 5 * 60 * 60 * 1000)
+// ─────────────────────────────────────────────────────────────
+// ✅ FIX: Konvèti array peman Prisma → map {date: true}
+// Prisma retounen payments kòm array, calcScore bezwen map
+// ─────────────────────────────────────────────────────────────
+function buildPaymentMap(paymentsArray) {
+  const payments = {}, paymentTimings = {}
+  for (const p of (paymentsArray || [])) {
+    try {
+      // ✅ Pran sèlman YYYY-MM-DD — evite UTC shift
+      const dk = String(p.dueDate instanceof Date
+        ? p.dueDate.toISOString()
+        : p.dueDate
+      ).split('T')[0]
+      payments[dk]       = true
+      paymentTimings[dk] = p.timing || 'onTime'
+    } catch(_) {}
+  }
+  return { payments, paymentTimings }
 }
 
 // ─────────────────────────────────────────────────────────────
 // KALKILE TIMING GRANULÈ
-// Fòksyon sa ekspoze pou markPaid ka itilize li
-//
-// @param dueDate    {string|Date}  Dat peman an te dwe fèt
-// @param paidAt     {Date}         Lè manm nan peye a
-// @param dueTime    {string}       '15:00'  — kòmansman fenèt peman
-// @param dueTimeEnd {string}       '17:00'  — fèmti fenèt peman
-// @returns {string} timing code
 // ─────────────────────────────────────────────────────────────
 function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = '15:00') {
   try {
-    // ✅ FIX: Pa konvèti dueDate nan UTC — pran string YYYY-MM-DD dirèkteman
-    const dueDateStr = String(dueDate).split('T')[0]   // '2026-05-04' ← pa touche
+    // ✅ Pran YYYY-MM-DD dirèkteman — pa konvèti nan UTC
+    const dueDateStr = String(dueDate).split('T')[0]
 
-    // Paid date — konvèti nan Haiti (UTC-5)
+    // Konvèti paidAt nan Haiti (UTC-5)
     const paidHaiti   = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
-    const paidDateStr = paidHaiti.toISOString().split('T')[0]  // '2026-05-04'
+    const paidDateStr = paidHaiti.toISOString().split('T')[0]
 
-    // Kalkile diferans jou
-    const due  = new Date(dueDateStr)
-    const paid = new Date(paidDateStr)
+    // Diferans jou (negatif = bonè, pozitif = reta)
+    const due      = new Date(dueDateStr)
+    const paid     = new Date(paidDateStr)
     const diffDays = Math.round((paid - due) / (1000 * 60 * 60 * 24))
 
-    if (diffDays <= -2) return 'earlyDepo'  // 2+ jou davans
-    if (diffDays === -1) return 'earlyDay'  // jou avan
+    if (diffDays <= -2) return 'earlyDepo'
+    if (diffDays === -1) return 'earlyDay'
 
     if (diffDays === 0) {
-      // Menm jou — verifye lè a
-      const paidH       = paidHaiti.getUTCHours()    // ← UTC hours, men se Haiti time (deja soustri 5h)
+      // Menm jou — verifye lè a nan Haiti
+      const paidH       = paidHaiti.getUTCHours()
       const paidM       = paidHaiti.getUTCMinutes()
       const paidMinutes = paidH * 60 + paidM
 
@@ -98,50 +87,67 @@ function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = 
       const windowStart = startH * 60 + startM
       const windowEnd   = endH   * 60 + endM
 
-      if (paidMinutes < windowStart) return 'early'       // ✅ 12h < 13h → early +3
-      if (paidMinutes <= windowEnd)  return 'onTime'      // 13h-14h → onTime +1
-      return 'lateWindow'                                  // apre 14h → -1
+      if (paidMinutes < windowStart) return 'early'
+      if (paidMinutes <= windowEnd)  return 'onTime'
+      return 'lateWindow'
     }
 
-    if (diffDays === 1) return 'late'      // 1 jou reta
-    return 'veryLate'                      // 2+ jou reta
+    if (diffDays === 1) return 'late'
+    return 'veryLate'
 
   } catch {
     return 'onTime'
   }
 }
+
 // ─────────────────────────────────────────────────────────────
 // HELPER: Kalkile tout dat peman pou yon plan
+// ✅ FIX: Parse startDate kòm dat lokal — evite UTC shift
 // ─────────────────────────────────────────────────────────────
 function getAllPaymentDates(plan) {
   const dates    = []
-  const start    = new Date(plan.startDate)
   const freq     = plan.frequency || 'weekly'
   const interval = Number(plan.interval || 1)
   const total    = plan.maxMembers || 1
 
+  // ✅ Parse startDate kòm YYYY-MM-DD lokal (pa UTC)
+  const raw = plan.startDate instanceof Date
+    ? plan.startDate.toISOString().split('T')[0]
+    : String(plan.startDate || '').split('T')[0]
+
+  const [y, mo, d] = raw.split('-').map(Number)
+  const start = new Date(y, mo - 1, d)  // dat lokal — pa gen UTC offset
+
+  const toKey = (dt) => {
+    const yr  = dt.getFullYear()
+    const m   = String(dt.getMonth() + 1).padStart(2, '0')
+    const day = String(dt.getDate()).padStart(2, '0')
+    return `${yr}-${m}-${day}`
+  }
+
   for (let i = 0; i < total; i++) {
-    const d = new Date(start)
+    const dt = new Date(start)
     switch (freq) {
-      case 'daily':    d.setDate(d.getDate()    + i * interval); break
-      case 'weekly':   d.setDate(d.getDate()    + i * 7 * interval); break
-      case 'biweekly': d.setDate(d.getDate()    + i * 14); break
-      case 'monthly':  d.setMonth(d.getMonth()  + i * interval); break
-      default:         d.setDate(d.getDate()    + i * 7); break
+      case 'daily':           dt.setDate(dt.getDate()   + i * interval); break
+      case 'weekly_saturday':
+      case 'weekly':          dt.setDate(dt.getDate()   + i * 7 * interval); break
+      case 'biweekly':        dt.setDate(dt.getDate()   + i * 14); break
+      case 'monthly':         dt.setMonth(dt.getMonth() + i * interval); break
+      default:                dt.setDate(dt.getDate()   + i * 7); break
     }
-    dates.push(d.toISOString().split('T')[0])
+    dates.push(toKey(dt))
   }
   return dates.sort()
 }
 
 // ─────────────────────────────────────────────────────────────
-// KALKILE SKOR AVANSE — Echèl tan konplè + Rekiperasyon lant
+// KALKILE SKOR
+// member.payments dwe se yon map {date: true} — pa array
 // ─────────────────────────────────────────────────────────────
 function calcScore(member, allDates, today) {
   const payments       = member.payments       || {}
   const paymentTimings = member.paymentTimings || {}
 
-  // Kolekte istwa peman yo nan lòd kronolojik
   const history = []
   for (const date of allDates) {
     if (date > today) break
@@ -163,19 +169,14 @@ function calcScore(member, allDates, today) {
       continue
     }
 
-    // Verifye si manm nan nan reji rekiperasyon
-    // (te an reta nan 2+ nan dènye 3 peman ki te fèt avan sa a)
-    const recentHistory = history.slice(Math.max(0, i - 3), i)
+    const recentHistory   = history.slice(Math.max(0, i - 3), i)
     const recentLateCount = recentHistory.filter(
       h => h.timing === 'late' || h.timing === 'veryLate' || !h.paid
     ).length
-
     const isInRecovery = recentLateCount >= 2
 
-    // Pwen debaz selon timing
     const basePoints = TIMING_TO_POINTS[entry.timing] ?? POINTS.onTime
 
-    // Si nan reji rekiperasyon, plafon pwen pozitif = +2
     if (isInRecovery && basePoints > 0) {
       score += Math.min(basePoints, 2)
     } else {
@@ -212,7 +213,6 @@ function calcScoreBreakdown(member, allDates, today) {
     }
   }
 
-  // Verifye si aktyèlman nan reji rekiperasyon
   if (history.length >= 3) {
     const last3 = history.slice(-3)
     const lateInLast3 = last3.filter(
@@ -226,7 +226,7 @@ function calcScoreBreakdown(member, allDates, today) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// JENERE permanentId pou yon nouvo manm
+// JENERE permanentId
 // ─────────────────────────────────────────────────────────────
 async function generatePermanentId(planId) {
   const count = await prisma.sabotayMember.count({ where: { planId } })
@@ -234,12 +234,13 @@ async function generatePermanentId(planId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// REKALILE POZISYON — Kè algorit dinamik la
+// REKALILE POZISYON
+// ✅ FIX: Konvèti array → map avan pase nan calcScore
 // ─────────────────────────────────────────────────────────────
 async function recalculatePositions(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
     where:   { id: planId },
-    include: { members: { orderBy: { position: 'asc' } } },
+    include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
   })
 
   if (!plan)                  throw new Error('Plan pa jwenn')
@@ -248,7 +249,6 @@ async function recalculatePositions(planId) {
   const today    = getHaitiToday()
   const allDates = getAllPaymentDates(plan)
 
-  // 1. Manm ki touche deja — plas enchanjab
   const wonMembers   = plan.members.filter(m => m.hasWon)
   const wonPositions = new Set(wonMembers.map(m => m.position))
 
@@ -258,25 +258,25 @@ async function recalculatePositions(planId) {
 
   if (competing.length === 0) return { recalculated: 0, message: 'Pa gen manm pou klase' }
 
-  // 2. Kalkile skor avanse pou chak manm
-  const scored = competing.map(m => ({
-    id:          m.id,
-    permanentId: m.permanentId,
-    score:       calcScore(m, allDates, today),
-    createdAt:   m.createdAt,
-  }))
+  // ✅ FIX: Konvèti array Prisma → map anvan calcScore
+  const scored = competing.map(m => {
+    const { payments, paymentTimings } = buildPaymentMap(m.payments)
+    return {
+      id:          m.id,
+      permanentId: m.permanentId,
+      score:       calcScore({ ...m, payments, paymentTimings }, allDates, today),
+      createdAt:   m.createdAt,
+    }
+  })
 
-  // 3. Trye: pi bon skor ann premye, dat enskripsyon si egal
   scored.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return new Date(a.createdAt) - new Date(b.createdAt)
   })
 
-  // 4. Slot disponib = pozisyon ki PA touche
   const allPositions = plan.members.map(m => m.position).sort((a, b) => a - b)
   const available    = allPositions.filter(p => !wonPositions.has(p))
 
-  // 5. Asiye nouvo pozisyon + sove skor
   const updates = scored.map((m, idx) =>
     prisma.sabotayMember.update({
       where: { id: m.id },
@@ -302,11 +302,12 @@ async function recalculatePositions(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // SNAPSHOT — Klasman aktyèl ak detay skor
+// ✅ FIX: Konvèti array → map avan pase nan calcScoreBreakdown
 // ─────────────────────────────────────────────────────────────
 async function getRankingSnapshot(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
     where:   { id: planId },
-    include: { members: { orderBy: { position: 'asc' } } },
+    include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
   })
 
   if (!plan) throw new Error('Plan pa jwenn')
@@ -315,7 +316,11 @@ async function getRankingSnapshot(planId) {
   const allDates = getAllPaymentDates(plan)
 
   return plan.members.map(m => {
-    const breakdown = calcScoreBreakdown(m, allDates, today)
+    // ✅ FIX: Konvèti array → map
+    const { payments, paymentTimings } = buildPaymentMap(m.payments)
+    const mWithMaps = { ...m, payments, paymentTimings }
+    const breakdown = calcScoreBreakdown(mWithMaps, allDates, today)
+
     return {
       id:             m.id,
       permanentId:    m.permanentId,
@@ -336,8 +341,9 @@ module.exports = {
   getRankingSnapshot,
   calcScore,
   calcScoreBreakdown,
-  computeDetailedTiming,   // ← ekspoze pou markPaid ka itilize
+  computeDetailedTiming,
   getAllPaymentDates,
+  buildPaymentMap,
   POINTS,
   TIMING_TO_POINTS,
 }
