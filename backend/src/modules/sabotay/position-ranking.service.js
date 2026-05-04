@@ -60,8 +60,7 @@ function buildPaymentMap(paymentsArray) {
 function computeDetailedTiming(dueDate, paidAt, dueTime = '08:00', dueTimeEnd = '15:00') {
   try {
     const dueDateStr = String(dueDate).split('T')[0]
-
-    const paidHaiti   = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
+    const paidHaiti  = new Date(new Date(paidAt).getTime() - 5 * 60 * 60 * 1000)
     const paidDateStr = paidHaiti.toISOString().split('T')[0]
 
     const due      = new Date(dueDateStr)
@@ -134,7 +133,9 @@ function getAllPaymentDates(plan) {
 
 // ─────────────────────────────────────────────────────────────
 // KALKILE SKOR
-// ✅ FIX: Dat kap vini — konte earlyDepo si peye, skip si pa peye
+// - Dat pase ki pa peye → -7 (manke)
+// - Dat kap vini ki peye → konte (earlyDepo +7)
+// - Dat kap vini ki pa peye → skip (pa penalize)
 // ─────────────────────────────────────────────────────────────
 function calcScore(member, allDates, today) {
   const payments       = member.payments       || {}
@@ -145,16 +146,14 @@ function calcScore(member, allDates, today) {
     const isFuture = date > today
 
     if (isFuture) {
-      // ✅ Dat kap vini — konte sèlman si manm nan deja peye (earlyDepo/earlyDay)
-      // Si pa peye — pa penalize, jis skip
       if (payments[date]) {
         const t = paymentTimings[date] || 'earlyDepo'
         history.push({ date, timing: t, paid: true, isFuture: true })
       }
+      // Pa peye nan futur = pa penalize
       continue
     }
 
-    // Dat pase — lojik nòmal
     if (payments[date]) {
       const t = paymentTimings[date] || 'onTime'
       history.push({ date, timing: t, paid: true, isFuture: false })
@@ -173,11 +172,10 @@ function calcScore(member, allDates, today) {
       continue
     }
 
-    // Rekiperasyon — pa aplike pou peman alavans (earlyDepo/earlyDay)
     const isInRecovery = (() => {
       if (entry.isFuture) return false
-      const recentHistory   = history.slice(Math.max(0, i - 3), i).filter(h => !h.isFuture)
-      const recentLateCount = recentHistory.filter(
+      const recentPast      = history.slice(Math.max(0, i - 3), i).filter(h => !h.isFuture)
+      const recentLateCount = recentPast.filter(
         h => h.timing === 'late' || h.timing === 'veryLate' || !h.paid
       ).length
       return recentLateCount >= 2
@@ -197,7 +195,6 @@ function calcScore(member, allDates, today) {
 
 // ─────────────────────────────────────────────────────────────
 // BREAKDOWN SKOR — Detay pou afichaj UI
-// ✅ FIX: Dat kap vini — konte earlyDepo si peye, skip si pa peye
 // ─────────────────────────────────────────────────────────────
 function calcScoreBreakdown(member, allDates, today) {
   const payments       = member.payments       || {}
@@ -214,7 +211,6 @@ function calcScoreBreakdown(member, allDates, today) {
     const isFuture = date > today
 
     if (isFuture) {
-      // ✅ Konte sèlman si peye alavans — pa penalize dat kap vini ki pa peye
       if (payments[date]) {
         const t = paymentTimings[date] || 'earlyDepo'
         history.push({ date, timing: t, paid: true, isFuture: true })
@@ -223,7 +219,6 @@ function calcScoreBreakdown(member, allDates, today) {
       continue
     }
 
-    // Dat pase
     if (payments[date]) {
       const t = paymentTimings[date] || 'onTime'
       history.push({ date, timing: t, paid: true, isFuture: false })
@@ -234,7 +229,6 @@ function calcScoreBreakdown(member, allDates, today) {
     }
   }
 
-  // Verifye rekiperasyon — sèlman peman pase yo
   const pastHistory = history.filter(h => !h.isFuture)
   if (pastHistory.length >= 3) {
     const last3 = pastHistory.slice(-3)
@@ -258,6 +252,9 @@ async function generatePermanentId(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // REKALILE POZISYON
+// ✅ FIX P2002: 2-etap pou evite unique constraint [plan_id, position]
+//   Etap 1 → mete pozisyon negatif temp (pa gen konfli)
+//   Etap 2 → mete pozisyon final yo
 // ─────────────────────────────────────────────────────────────
 async function recalculatePositions(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
@@ -298,21 +295,33 @@ async function recalculatePositions(planId) {
   const allPositions = plan.members.map(m => m.position).sort((a, b) => a - b)
   const available    = allPositions.filter(p => !wonPositions.has(p))
 
-  const updates = scored.map((m, idx) =>
-    prisma.sabotayMember.update({
-      where: { id: m.id },
-      data: {
-        position:         available[idx] ?? m.position,
-        performanceScore: m.score,
-      },
-    })
+  // ✅ ETAP 1: Pozisyon temp negatif — evite P2002 unique constraint
+  await prisma.$transaction(
+    scored.map((m, idx) =>
+      prisma.sabotayMember.update({
+        where: { id: m.id },
+        data:  { position: -(idx + 1000) },  // negatif — pa gen konfli posib
+      })
+    )
   )
 
-  await prisma.$transaction(updates)
-  console.log(`[RANKING] Plan ${planId}: ${updates.length} manm reklase`)
+  // ✅ ETAP 2: Pozisyon final ak skor
+  await prisma.$transaction(
+    scored.map((m, idx) =>
+      prisma.sabotayMember.update({
+        where: { id: m.id },
+        data: {
+          position:         available[idx] ?? m.position,
+          performanceScore: m.score,
+        },
+      })
+    )
+  )
+
+  console.log(`[RANKING] Plan ${planId}: ${scored.length} manm reklase`)
 
   return {
-    recalculated: updates.length,
+    recalculated: scored.length,
     ranking: scored.map((m, idx) => ({
       permanentId: m.permanentId,
       newPosition: available[idx],
