@@ -54,13 +54,12 @@ function authMember(req, res, next) {
 function authAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token admin obligatwa' })
-  
-  // ✅ Eseye SUPER_ADMIN_JWT_SECRET dabò, epi JWT_SECRET apre
+
   try {
     req.admin = jwt.verify(token, process.env.SUPER_ADMIN_JWT_SECRET)
     return next()
   } catch {}
-  
+
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET)
     if (payload.role !== 'admin' && payload.role !== 'super_admin') {
@@ -113,7 +112,7 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// MEMBERS/ME — ✅ NOUVO: Sipòte plizyè plan pou yon sèl kont
+// MEMBERS/ME — ✅ Sipòte plizyè plan pou yon sèl kont
 // ══════════════════════════════════════════════════════════════
 
 async function buildPlanData(account, memberId) {
@@ -171,12 +170,9 @@ async function buildPlanData(account, memberId) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-// MEMBERS/ME — ✅ KORIJE: Sipòte plizyè plan pou yon sèl kont
-// ══════════════════════════════════════════════════════════════
-
 router.get('/members/me', authMember, async (req, res) => {
   try {
+    // ── Kont prensipal ────────────────────────────────────────
     const account = await prisma.solMemberAccount.findUnique({
       where: { id: req.solMember.accountId }
     })
@@ -203,8 +199,8 @@ router.get('/members/me', authMember, async (req, res) => {
         where: {
           memberPhone: phone,
           tenantId: account.tenantId,
-          id: { not: account.id },          // ✅ Korije: memberId → id (se kont id)
-          memberId: { not: null }            // ✅ Korije: member_id → memberId
+          id: { not: account.id },       // ✅ Eskli kont prensipal la
+          memberId: { not: null }         // ✅ Korije: memberId (camelCase Prisma)
         }
       })
 
@@ -214,7 +210,7 @@ router.get('/members/me', authMember, async (req, res) => {
       }
     }
 
-    // ── Retrokompatibilite: si yon sèl plan ──────────────────
+    // ── Si yon sèl plan: retrokompatibilite total ─────────────
     if (allPlansData.length === 1) {
       return res.json({
         member: primaryData.member,
@@ -223,14 +219,13 @@ router.get('/members/me', authMember, async (req, res) => {
       })
     }
 
-    // ── Plizyè plan: retounen plans[] ────────────────────────
-    // Chak plan gen pwòp id pou frontend ka idantifye l
+    // ── Plizyè plan: retounen plans[] + retrokompatibilite ────
     return res.json({
       tenant: tenantFormatted,
-      // Retrokompatibilite — premye plan toujou la
+      // Retrokompatibilite — premye plan toujou la pou ansyen kòd
       member: primaryData.member,
       plan:   primaryData.plan,
-      // Nouvo: lis tout plan yo
+      // Nouvo: lis tout plan yo pou frontend seletè a
       plans: allPlansData.map(d => ({
         id:     d.plan.id,       // ← Frontend itilize sa pou selectedPlanId
         member: d.member,
@@ -252,21 +247,78 @@ router.get('/members/me', authMember, async (req, res) => {
 router.post('/accounts', authAdmin, async (req, res) => {
   try {
     const { memberId, tenantId, dueTime, credentials } = req.body
-    if (!memberId || !tenantId || !credentials?.username || !credentials?.password) return res.status(400).json({ message: 'memberId, tenantId, credentials.username, credentials.password obligatwa' })
-    const sabotayMember = await prisma.sabotayMember.findUnique({ where: { id: memberId }, include: { plan: true } })
+    if (!memberId || !tenantId || !credentials?.username || !credentials?.password)
+      return res.status(400).json({ message: 'memberId, tenantId, credentials.username, credentials.password obligatwa' })
+
+    const sabotayMember = await prisma.sabotayMember.findUnique({
+      where: { id: memberId }, include: { plan: true }
+    })
     if (!sabotayMember) return res.status(404).json({ message: 'Manm pa jwenn nan SabotayMember' })
-    if (sabotayMember.plan.tenantId !== tenantId) return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
-    const existing = await prisma.solMemberAccount.findUnique({ where: { username: credentials.username.toLowerCase().trim() } })
-    if (existing) return res.status(409).json({ message: 'Non itilizatè sa deja pran' })
-    const existingByMember = await prisma.solMemberAccount.findFirst({ where: { memberId: sabotayMember.id } })
-    if (existingByMember) return res.status(409).json({ message: `Manm sa gen deja yon kont (${existingByMember.username})` })
+    if (sabotayMember.plan.tenantId !== tenantId)
+      return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
+
+    // ✅ Verifye si username deja pran PA yon lòt moun sèlman
+    const existingUsername = await prisma.solMemberAccount.findUnique({
+      where: { username: credentials.username.toLowerCase().trim() }
+    })
+    if (existingUsername && existingUsername.memberId !== memberId)
+      return res.status(409).json({ message: 'Non itilizatè sa deja pran pa yon lòt moun' })
+
     const rawPassword  = credentials.password
     const passwordHash = await bcrypt.hash(rawPassword, 10)
     const plan         = sabotayMember.plan
-    const account = await prisma.solMemberAccount.create({
-      data: { username: credentials.username.toLowerCase().trim(), passwordHash, plainPassword: rawPassword, tenantId, memberId: sabotayMember.id, memberName: sabotayMember.name, memberPhone: sabotayMember.phone || '', memberPosition: sabotayMember.position, planId: plan.id, planName: plan.name, planAmount: Number(plan.amount), planFee: Number(plan.fee), planFrequency: plan.frequency, planMaxMembers: plan.maxMembers, planCreatedAt: plan.startDate.toISOString().split('T')[0], planDueTime: dueTime || '08:00', planInterval: Number(plan.interval || 1), planFeePerMember: Number(plan.feePerMember || 0), planPenalty: Number(plan.penalty || 0), planRegleman: plan.regleman || null, payments: {}, paymentTimings: {}, fines: {} },
+
+    // ✅ NOUVO: Si kont deja egziste pou memberId sa, kreye DEZYÈM kont pou nouvo plan
+    const existingByMember = await prisma.solMemberAccount.findFirst({
+      where: { memberId: sabotayMember.id }
     })
-    return res.status(201).json({ message: 'Kont kreye!', accountId: account.id, username: account.username, plainPassword: account.plainPassword })
+
+    const accountData = {
+      username:         credentials.username.toLowerCase().trim(),
+      passwordHash,
+      plainPassword:    rawPassword,
+      tenantId,
+      memberId:         sabotayMember.id,
+      memberName:       sabotayMember.name,
+      memberPhone:      sabotayMember.phone || '',
+      memberPosition:   sabotayMember.position,
+      planId:           plan.id,
+      planName:         plan.name,
+      planAmount:       Number(plan.amount),
+      planFee:          Number(plan.fee),
+      planFrequency:    plan.frequency,
+      planMaxMembers:   plan.maxMembers,
+      planCreatedAt:    plan.startDate.toISOString().split('T')[0],
+      planDueTime:      dueTime || '08:00',
+      planInterval:     Number(plan.interval || 1),
+      planFeePerMember: Number(plan.feePerMember || 0),
+      planPenalty:      Number(plan.penalty || 0),
+      planRegleman:     plan.regleman || null,
+      payments:         {},
+      paymentTimings:   {},
+      fines:            {},
+    }
+
+    const account = await prisma.solMemberAccount.create({ data: accountData })
+
+    if (existingByMember) {
+      // Manm nan te deja gen kont — nou kreye yon dezyèm pou nouvo plan an
+      return res.status(201).json({
+        message:       'Dezyèm kont kreye pou nouvo plan an!',
+        accountId:     account.id,
+        username:      account.username,
+        plainPassword: account.plainPassword,
+        note:          `Manm sa gen deja kont "${existingByMember.username}" pou lòt plan. Nouvo kont sa pou plan ${plan.name}.`
+      })
+    }
+
+    return res.status(201).json({
+      message:       'Kont kreye!',
+      accountId:     account.id,
+      username:      account.username,
+      plainPassword: account.plainPassword,
+    })
+
   } catch (err) {
     console.error('[SOL CREATE ACCOUNT]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
