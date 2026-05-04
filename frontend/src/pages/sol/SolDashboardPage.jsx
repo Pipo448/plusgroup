@@ -114,45 +114,67 @@ export default function SolDashboardPage() {
 
   if (!member || !plan) return null
 
-  // ─── Kalkilasyon ─────────────────────────────────────────────
+ // ─── Kalkilasyon ─────────────────────────────────────────────
   const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   const totalSlotCount = Math.max(
-    currentPlanData?.activeMemberCount || 0, currentPlanData?.maxMembers || 0,
+    currentPlanData?.activeMemberCount || 0,
+    currentPlanData?.plan?.maxMembers  || 0,
+    currentPlanData?.maxMembers        || 0,
     allSlots.reduce((max, s) => Math.max(max, s.position), 0)
   )
 
-  const dates      = getPaymentDates(plan.frequency, plan.createdAt, totalSlotCount)
-  const totalPaid  = dates.filter(d => member.payments?.[d]).length
-  const totalDue   = dates.filter(d => d <= today).length
-  const amountPaid = totalPaid * plan.amount * allSlots.length
-  const amountDue  = totalDue  * plan.amount * allSlots.length
+  const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
+
+  // ✅ FIX: Separe peman pase ak futur
+  // totalPaid     = tout peman (+ futur earlyDepo) — pou hero afichaj
+  // totalPaidPast = sèlman peman pase — pou kalkil rès ak pwogrè reyèl
+  const totalPaid     = dates.filter(d => member.payments?.[d]).length
+  const totalPaidPast = dates.filter(d => d <= today && member.payments?.[d]).length
+  const totalDue      = dates.filter(d => d <= today).length
+
+  // ✅ FIX: Rès pou peye — pa konte peman futur (earlyDepo)
+  const amountPaid = totalPaidPast * plan.amount * allSlots.length
+  const amountDue  = totalDue      * plan.amount * allSlots.length
 
   const payoutDebaz   = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
   const memberBalance = Number(member.balance || 0)
   const payoutAjiste  = payoutDebaz + memberBalance
 
-  const progress  = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-  const isWinner  = allSlots.some(slot => dates[slot.position - 1] === today)
+  // ✅ FIX: Progress baze sou peman pase sèlman
+  const progress = totalSlotCount > 0 ? (totalPaidPast / totalSlotCount) * 100 : 0
 
+  const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
+
+  // ✅ FIX: ScoreData — konte tout timing (futur earlyDepo = bon pèfomans tou)
   const timings   = Object.values(member.paymentTimings || {})
   const scoreData = timings.length ? (() => {
-    const early  = timings.filter(t => t === 'early').length
-    const onTime = timings.filter(t => t === 'onTime').length
-    const late   = timings.filter(t => t === 'late').length
-    return { score: Math.round(((early * 2 + onTime) / (timings.length * 2)) * 100), early, onTime, late }
+    const earlyDepo = timings.filter(t => t === 'earlyDepo').length
+    const earlyDay  = timings.filter(t => t === 'earlyDay').length
+    const early     = timings.filter(t => t === 'early').length
+    const onTime    = timings.filter(t => t === 'onTime').length
+    const late      = timings.filter(t => t === 'late' || t === 'lateWindow' || t === 'veryLate').length
+    const total     = timings.length
+    return {
+      score:  Math.round(((earlyDepo * 3 + earlyDay * 2.5 + early * 2 + onTime) / (total * 3)) * 100),
+      early:  earlyDepo + earlyDay + early,
+      onTime, late,
+    }
   })() : null
 
-  const lastPaidDate   = [...dates].reverse().find(d => member.payments?.[d]) || null
-  const nextUnpaidDate = lastPaidDate
-    ? dates.find(d => d > lastPaidDate && !member.payments?.[d])
+  // ✅ FIX: nextUnpaidDate — peman pase manke an premye, apre futur
+  const lastPaidDatePast = [...dates].filter(d => d <= today).reverse().find(d => member.payments?.[d]) || null
+  const lastPaidDate     = [...dates].reverse().find(d => member.payments?.[d]) || null
+  const nextUnpaidDate   = lastPaidDatePast
+    ? dates.find(d => d > lastPaidDatePast && d <= today && !member.payments?.[d])
+      || dates.find(d => d > today && !member.payments?.[d])
     : dates.find(d => !member.payments?.[d])
 
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr     = allSlots.length > 1 ? allSlots.map(s => `#${s.position}`).join(' • ') : `Pozisyon #${member.position}`
-
+  
   // ─── Seletè Plan (dropdown) ───────────────────────────────────
   const PlanSelector = () => {
     if (plans.length <= 1) return null
