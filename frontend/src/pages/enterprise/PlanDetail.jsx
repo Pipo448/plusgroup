@@ -53,7 +53,6 @@ function ScoreDisplay({ score, inRecovery }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 3 }}>
-      {/* Badge prensipal */}
       <div style={{
         display: 'inline-flex', alignItems: 'center', gap: 5,
         background: bg, border: `1.5px solid ${color}40`,
@@ -67,8 +66,6 @@ function ScoreDisplay({ score, inRecovery }) {
           {label}
         </span>
       </div>
-
-      {/* Badge rekiperasyon lant */}
       {inRecovery && (
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -112,27 +109,19 @@ function ScoreTooltip({ breakdown }) {
 
       {show && (
         <>
-          {/* Backdrop */}
-          <div
-            onClick={() => setShow(false)}
-            style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-          />
-          {/* Popòvè */}
+          <div onClick={() => setShow(false)} style={{ position: 'fixed', inset: 0, zIndex: 99 }} />
           <div style={{
             position: 'absolute', right: 0, top: 28, zIndex: 100,
             background: '#0a1520', border: `1px solid ${D.border}`,
             borderRadius: 14, padding: '14px 16px', minWidth: 220,
             boxShadow: '0 12px 40px rgba(0,0,0,0.6)',
           }}>
-            {/* Tèt */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <span style={{ fontSize: 10, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Detay Skor
               </span>
               <button onClick={() => setShow(false)} style={{ background: 'none', border: 'none', color: D.muted, cursor: 'pointer', fontSize: 15, lineHeight: 1 }}>×</button>
             </div>
-
-            {/* Ranje peman yo */}
             {rows.length === 0 ? (
               <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Pako gen peman anrejistre.</p>
             ) : rows.map(r => (
@@ -143,20 +132,12 @@ function ScoreTooltip({ breakdown }) {
                 </span>
               </div>
             ))}
-
-            {/* Total */}
             <div style={{ borderTop: `1px solid ${D.borderSub}`, marginTop: 10, paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: D.text }}>Total</span>
-              <span style={{
-                fontSize: 16, fontWeight: 900,
-                color: breakdown.total >= 0 ? D.green : D.red,
-                fontFamily: 'monospace',
-              }}>
+              <span style={{ fontSize: 16, fontWeight: 900, color: breakdown.total >= 0 ? D.green : D.red, fontFamily: 'monospace' }}>
                 {breakdown.total > 0 ? `+${breakdown.total}` : breakdown.total} pts
               </span>
             </div>
-
-            {/* Plafon rekiperasyon */}
             {breakdown.inRecovery && (
               <div style={{ marginTop: 10, padding: '7px 10px', background: D.orangeBg, border: `1px solid ${D.orange}30`, borderRadius: 9, fontSize: 10, color: D.orange, lineHeight: 1.5 }}>
                 ⚠️ <strong>Plafon aktif</strong> — Ou te an reta resamman. Maksimòm +2 pa peman jiskaske ou rekipere.
@@ -194,8 +175,6 @@ function PosBadge({ member, plan, dynamic }) {
           </span>
         )}
       </div>
-
-      {/* Plas pwovizwa — ti pwen ble */}
       {dynamic && !locked && !isOwn && (
         <span style={{
           position: 'absolute', top: -3, right: -3,
@@ -204,8 +183,6 @@ function PosBadge({ member, plan, dynamic }) {
           animation: 'pulse 2s ease-in-out infinite',
         }} title="Plas pwovizwa" />
       )}
-
-      {/* Plas enchanjab — cadenas vèt */}
       {locked && (
         <span style={{
           position: 'absolute', top: -3, right: -3,
@@ -224,25 +201,16 @@ function PosBadge({ member, plan, dynamic }) {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
-  plan,
-  onBack,
-  onAddMember,
-  onPaymentSaved,
-  onBlindDraw,
-  onEditPlan,
-  onClosePlan,
-  onMemberAction,
-  onToggleDynamic,
-  onRecalculate,
-  printer,
+  plan, onBack, onAddMember, onPaymentSaved, onBlindDraw,
+  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onRecalculate, printer,
 }) {
-  const [viewMember,       setView]           = useState(null)
-  const [viewMemberSlots,  setSlots]          = useState(null)
-  const [payMember,        setPay]            = useState(null)
-  const [actionModal,      setAction]         = useState(null)
+  const [viewMember,       setView]             = useState(null)
+  const [viewMemberSlots,  setSlots]            = useState(null)
+  const [payMember,        setPay]              = useState(null)
+  const [actionModal,      setAction]           = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
-  const [tab,              setTab]            = useState('members')
-  const [memberSearch,     setMemberSearch]   = useState('')
+  const [tab,              setTab]              = useState('members')
+  const [memberSearch,     setMemberSearch]     = useState('')
 
   useEffect(() => { setView(null); setSlots(null) }, [plan.regleman, plan.updatedAt, plan.id])
 
@@ -283,7 +251,6 @@ export default function PlanDetail({
 
   return (
     <div>
-
       {/* ─── HEAD ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -418,10 +385,8 @@ export default function PlanDetail({
       {tab === 'members' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
 
-          {/* Legann dinamik + echèl pwen */}
           {isDynamic && (
             <div style={{ background: 'rgba(59,130,246,0.06)', border: `1px solid ${D.blue}20`, borderRadius: 12, padding: '10px 14px', marginBottom: 4 }}>
-              {/* Lejann vizyèl */}
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', fontSize: 10, color: D.muted, marginBottom: 10 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: D.blue, display: 'inline-block' }} /> Plas pwovizwa
@@ -436,8 +401,6 @@ export default function PlanDetail({
                   <TrendingDown size={9} color={D.red} /> Skor desann
                 </span>
               </div>
-
-              {/* Echèl pwen */}
               <div style={{ borderTop: `1px solid ${D.blue}15`, paddingTop: 9 }}>
                 <p style={{ fontSize: 9, fontWeight: 700, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 7px' }}>Echèl Pwen:</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
@@ -454,7 +417,6 @@ export default function PlanDetail({
             </div>
           )}
 
-          {/* Rechèch */}
           {plan.members?.length > 5 && (
             <div style={{ position: 'relative', marginBottom: 4 }}>
               <Search size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: D.muted, pointerEvents: 'none' }} />
@@ -475,8 +437,13 @@ export default function PlanDetail({
               return m.name?.toLowerCase().includes(q) || m.phone?.includes(q) || m.permanentId?.toLowerCase().includes(q)
             })
             .map(m => {
+              // ✅ FIX: totalDates = total rount plan an (pa sèlman pase)
+              const totalDates = allDates.length
               const due        = allDates.filter(d => d <= today).length
               const paid       = allDates.filter(d => m.payments?.[d]).length
+              // ✅ FIX: Rès HTG = sa ki rete pou peye jis fen sol la
+              const rèsHTG     = Math.max(0, (totalDates - paid) * plan.amount)
+
               const payoutDate = payoutMap[m.position]
               const isWin      = payoutDate === today
               const isOwn      = m.isOwnerSlot
@@ -484,7 +451,6 @@ export default function PlanDetail({
               const mStatus    = computeMemberStatus(m, plan, today)
               const isStopped  = m.status === 'stopped'
               const score      = m.performanceScore ?? null
-              // scoreBreakdown vini depi backend si disponib
               const breakdown  = m.scoreBreakdown || null
 
               return (
@@ -495,10 +461,8 @@ export default function PlanDetail({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
 
-                    {/* Badge pozisyon ak permanentId */}
                     <PosBadge member={m} plan={plan} dynamic={isDynamic} />
 
-                    {/* Non, skor, telefòn */}
                     <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 2 }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: isStopped ? D.orange : isOwn ? D.gold : D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
@@ -509,13 +473,9 @@ export default function PlanDetail({
                         )}
                       </div>
 
-                      {/* ✅ ScoreDisplay + Tooltip — pi gwo, pi lizib */}
                       {isDynamic && !isOwn && score !== null && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <ScoreDisplay
-                            score={score}
-                            inRecovery={breakdown?.inRecovery || false}
-                          />
+                          <ScoreDisplay score={score} inRecovery={breakdown?.inRecovery || false} />
                           <ScoreTooltip breakdown={breakdown} />
                         </div>
                       )}
@@ -528,8 +488,8 @@ export default function PlanDetail({
                       </div>
                     </div>
 
-                    {/* Peman / balans */}
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 60 }}>
+                    {/* ✅ FIX: paid/totalDates + rès HTG */}
+                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 70 }}>
                       {isStopped ? (
                         <div style={{ fontSize: 10, color: D.orange, fontWeight: 700 }}>
                           {fmt(paid * plan.amount)} HTG<br />
@@ -537,14 +497,20 @@ export default function PlanDetail({
                         </div>
                       ) : (
                         <>
-                          <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid >= due ? D.green : due > 0 ? D.orange : D.muted }}>{paid}/{due}</div>
-                          <div style={{ fontSize: 10, color: D.muted }}>{fmt(paid * plan.amount)}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid >= totalDates ? D.green : rèsHTG > 0 ? D.orange : D.muted }}>
+                            {paid}/{totalDates}
+                          </div>
+                          <div style={{ fontSize: 10, color: D.muted }}>{fmt(paid * plan.amount)} HTG</div>
+                          {rèsHTG > 0 && (
+                            <div style={{ fontSize: 9, color: D.red, fontWeight: 700 }}>
+                              Rès: {fmt(rèsHTG)} HTG
+                            </div>
+                          )}
                           {fineTot > 0 && <div style={{ fontSize: 9, color: D.red }}>+{fmt(fineTot)} amand</div>}
                         </>
                       )}
                     </div>
 
-                    {/* Bouton aksyon */}
                     <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                       {!isStopped && plan.status !== 'finished' && (
                         <button onClick={() => setPay(m)} title="Mache Peye" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: D.greenBg, color: D.green, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -578,11 +544,16 @@ export default function PlanDetail({
                     </div>
                   </div>
 
-                  {/* Baton pwogrè */}
-                  {due > 0 && !isStopped && (
+                  {/* ✅ FIX: Baton pwogrè baze sou totalDates (pa due sèlman) */}
+                  {totalDates > 0 && !isStopped && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(100, (paid / due) * 100)}%`, background: paid >= due ? D.green : D.gold, borderRadius: 4 }} />
+                        <div style={{
+                          height: '100%',
+                          width: `${Math.min(100, (paid / totalDates) * 100)}%`,
+                          background: paid >= totalDates ? D.green : D.gold,
+                          borderRadius: 4,
+                        }} />
                       </div>
                     </div>
                   )}
@@ -620,10 +591,7 @@ export default function PlanDetail({
       {payMember && (
         <ModalMarkPayment member={payMember} plan={plan} printer={printer}
           onClose={() => setPay(null)}
-          onSave={(memberId, dates, timings, fines) => {
-            onPaymentSaved(memberId, dates, timings, fines)
-            setPay(null)
-          }} />
+          onSave={(memberId, dates, timings, fines) => { onPaymentSaved(memberId, dates, timings, fines); setPay(null) }} />
       )}
 
       {viewMember && (
