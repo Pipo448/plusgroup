@@ -150,11 +150,16 @@ async function buildPlanData(account, memberId) {
   })
   if (!sabotayMember || !sabotayMember.plan) return null
 
-  const allSlots = await prisma.sabotayMember.findMany({
-    where: { phone: sabotayMember.phone, planId: sabotayMember.planId, isActive: true },
-    include: { payments: { orderBy: { dueDate: 'asc' } } },
-    orderBy: { position: 'asc' }
-  })
+  const isClosed = plan.status === 'closed' || plan.status === 'finished'
+const allSlots = await prisma.sabotayMember.findMany({
+  where: {
+    phone: sabotayMember.phone,
+    planId: sabotayMember.planId,
+    ...(isClosed ? {} : { isActive: true })
+  },
+  include: { payments: { orderBy: { dueDate: 'asc' } } },
+  orderBy: { position: 'asc' }
+})
 
   const plan = sabotayMember.plan
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
@@ -339,7 +344,7 @@ router.post('/accounts', authAdmin, async (req, res) => {
 
 router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findFirst({ where: { memberId: req.params.memberId }, select: { id: true, username: true, createdAt: true } })
+    const account = await prisma.solMemberAccount.findFirst({ where: { memberId: req.params.memberId }, select: { id: true, username: true, plainPassword: true, createdAt: true }})
     return res.json({ hasAccount: !!account, account: account || null })
   } catch (err) {
     console.error('[SOL CHECK]', err)

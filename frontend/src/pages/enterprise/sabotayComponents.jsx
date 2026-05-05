@@ -1233,8 +1233,26 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
   const multiSlots = allMemberSlots && allMemberSlots.length > 1
   const [activeSlotIdx, setActiveSlotIdx] = useState(0)
   const activeMember = multiSlots ? allMemberSlots[activeSlotIdx] : member
+  const [solAccount, setSolAccount] = useState(null)
 
   const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  useEffect(() => {
+  const fetchSolAccount = async () => {
+    try {
+      const { token } = useAuthStore.getState()
+      const slug = localStorage.getItem('plusgroup-slug')
+      const res = await fetch(
+        `${API_URL}/sol/members/${activeMember.id}/check`,
+        { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setSolAccount(data.account || null)
+      }
+    } catch { }
+  }
+  fetchSolAccount()
+}, [activeMember.id])
   const isOwner = activeMember.isOwnerSlot
   const payoutDate = getPayoutDate(plan, activeMember.position)
 
@@ -1423,6 +1441,31 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
             border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
           <Printer size={14} /> Enprime Kont
         </button>
+
+        {solAccount && (
+  <div style={{ background: 'rgba(155,89,182,0.08)', border: `1px solid rgba(155,89,182,0.25)`, borderRadius: 12, padding: '14px 16px' }}>
+    <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <Key size={11} /> Kont Sol — Enfòmasyon Koneksyon
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div>
+        <div style={{ fontSize: 10, color: D.muted, marginBottom: 3 }}>Non Itilizatè</div>
+        <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.text, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8 }}>
+          {solAccount.username}
+        </div>
+      </div>
+      {solAccount.plainPassword && (
+        <div>
+          <div style={{ fontSize: 10, color: D.muted, marginBottom: 3 }}>Modpas</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.gold, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8, letterSpacing: '0.12em', textAlign: 'center' }}>
+            {solAccount.plainPassword}
+          </div>
+        </div>
+      )}
+      <div style={{ fontSize: 10, color: D.muted }}>🔗 app.plusgroupe.com/app/sol/login</div>
+    </div>
+  </div>
+)}
 
         {/* Istwa peman */}
         <div>
