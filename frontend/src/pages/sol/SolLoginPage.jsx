@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Users, Eye, EyeOff, LogIn } from 'lucide-react'
+import { Users, Eye, EyeOff, LogIn, Lock } from 'lucide-react'
 
 const D = {
   bg:      '#060f1e',
@@ -18,6 +18,7 @@ const D = {
   muted:   '#6b7a99',
   input:   '#060f1e',
   red:     '#e74c3c',
+  redBg:   'rgba(231,76,60,0.10)',
   green:   '#27ae60',
 }
 
@@ -25,9 +26,11 @@ const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.o
 
 export default function SolLoginPage() {
   const navigate = useNavigate()
-  const [form,      setForm]      = useState({ username: '', password: '' })
-  const [showPass,  setShowPass]  = useState(false)
-  const [loading,   setLoading]   = useState(false)
+  const [form,     setForm]     = useState({ username: '', password: '' })
+  const [showPass, setShowPass] = useState(false)
+  const [loading,  setLoading]  = useState(false)
+  const [blocked,  setBlocked]  = useState(false)
+  const [blockMsg, setBlockMsg] = useState('')
 
   // ✅ Si manm gen deja yon sesyon aktif, redirijé dirèkteman
   useEffect(() => {
@@ -40,6 +43,8 @@ export default function SolLoginPage() {
       return toast.error('Antre non itilizatè ak modpas ou.')
     }
     setLoading(true)
+    setBlocked(false)
+    setBlockMsg('')
     try {
       const res = await fetch(`${SOL_API}/api/sol/auth/login`, {
         method: 'POST',
@@ -47,12 +52,20 @@ export default function SolLoginPage() {
         body: JSON.stringify({ username: form.username.trim().toLowerCase(), password: form.password }),
       })
       const data = await res.json()
+
+      // ✅ FIX: Detekte blokaj (403) — montre mesaj espesyal, pa kite konekte
+      if (res.status === 403 && data.blocked) {
+        setBlocked(true)
+        setBlockMsg(data.message || '🔒 Kont ou bloke. Kontakte admin pou debloke l.')
+        return
+      }
+
       if (!res.ok) throw new Error(data.message || 'Erè koneksyon')
 
       // Sove token + info manm
       localStorage.setItem('sol_token',  data.token)
       localStorage.setItem('sol_member', JSON.stringify(data.member))
-      toast.success(`Byenvini , ${data.member.name}!`)
+      toast.success(`Byenvini, ${data.member.name}!`)
       navigate('/app/sol/dashboard')
     } catch (err) {
       toast.error(err.message || 'Non itilizatè oswa modpas pa kòrèk.')
@@ -77,22 +90,25 @@ export default function SolLoginPage() {
       <style>{`
         @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spin { to{transform:rotate(360deg)} }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }
         input::placeholder { color: #2a3a54 }
         input:focus { border-color: rgba(201,168,76,0.5) !important; }
       `}</style>
 
-      <div style={{
-        width: '100%', maxWidth: 400,
-        animation: 'fadeUp 0.4s ease',
-      }}>
+      <div style={{ width: '100%', maxWidth: 400, animation: 'fadeUp 0.4s ease' }}>
+
         {/* Logo / Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
-            width: 64, height: 64, borderRadius: 18, background: D.goldBtn,
+            width: 64, height: 64, borderRadius: 18,
+            background: blocked ? 'rgba(231,76,60,0.2)' : D.goldBtn,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 16px', boxShadow: '0 8px 32px rgba(201,168,76,0.3)',
+            margin: '0 auto 16px', boxShadow: blocked ? '0 8px 32px rgba(231,76,60,0.3)' : '0 8px 32px rgba(201,168,76,0.3)',
+            transition: 'all 0.3s',
           }}>
-            <Users size={28} color="#0a1222" />
+            {blocked
+              ? <Lock size={28} color={D.red} />
+              : <Users size={28} color="#0a1222" />}
           </div>
           <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', margin: '0 0 6px' }}>
             Kont Sol Ou
@@ -102,13 +118,36 @@ export default function SolLoginPage() {
           </p>
         </div>
 
+        {/* ✅ Alèt blokaj */}
+        {blocked && (
+          <div style={{
+            background: D.redBg, border: `1px solid rgba(231,76,60,0.35)`,
+            borderRadius: 14, padding: '16px 18px', marginBottom: 18,
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            animation: 'shake 0.4s ease',
+          }}>
+            <Lock size={20} style={{ color: D.red, flexShrink: 0, marginTop: 1 }} />
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 800, color: D.red, margin: '0 0 4px' }}>
+                Kont Bloke
+              </p>
+              <p style={{ fontSize: 12, color: 'rgba(231,76,60,0.8)', margin: 0, lineHeight: 1.6 }}>
+                {blockMsg}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Card */}
         <div style={{
-          background: D.card, border: `1px solid ${D.border}`,
+          background: D.card,
+          border: `1px solid ${blocked ? 'rgba(231,76,60,0.3)' : D.border}`,
           borderRadius: 20, padding: '28px 24px',
           boxShadow: '0 16px 48px rgba(0,0,0,0.4)',
+          transition: 'border-color 0.3s',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
             {/* Username */}
             <div>
               <label style={{
@@ -118,14 +157,15 @@ export default function SolLoginPage() {
               }}>Non Itilizatè</label>
               <input
                 type="text"
-                style={inp}
+                style={{ ...inp, borderColor: blocked ? 'rgba(231,76,60,0.3)' : undefined }}
                 value={form.username}
-                onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                onChange={e => { setForm(p => ({ ...p, username: e.target.value })); setBlocked(false) }}
                 placeholder="ex: marie0001"
                 autoCapitalize="none"
                 autoCorrect="off"
                 autoComplete="username"
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                disabled={loading}
               />
             </div>
 
@@ -139,12 +179,13 @@ export default function SolLoginPage() {
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPass ? 'text' : 'password'}
-                  style={{ ...inp, paddingRight: 44 }}
+                  style={{ ...inp, paddingRight: 44, borderColor: blocked ? 'rgba(231,76,60,0.3)' : undefined }}
                   value={form.password}
-                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                  onChange={e => { setForm(p => ({ ...p, password: e.target.value })); setBlocked(false) }}
                   placeholder="••••••"
                   autoComplete="current-password"
                   onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  disabled={loading}
                 />
                 <button
                   onClick={() => setShowPass(p => !p)}
@@ -161,20 +202,29 @@ export default function SolLoginPage() {
             {/* Bouton login */}
             <button
               onClick={handleLogin}
-              disabled={loading}
+              disabled={loading || blocked}
               style={{
                 marginTop: 4, padding: '14px', borderRadius: 12, border: 'none',
-                background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn,
-                color: '#0a1222', fontWeight: 900, fontSize: 15, cursor: loading ? 'default' : 'pointer',
+                background: blocked
+                  ? 'rgba(231,76,60,0.15)'
+                  : loading
+                    ? 'rgba(201,168,76,0.3)'
+                    : D.goldBtn,
+                color: blocked ? D.red : '#0a1222',
+                fontWeight: 900, fontSize: 15,
+                cursor: (loading || blocked) ? 'not-allowed' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                boxShadow: loading ? 'none' : '0 4px 16px rgba(201,168,76,0.3)',
+                boxShadow: (loading || blocked) ? 'none' : '0 4px 16px rgba(201,168,76,0.3)',
                 transition: 'all 0.2s',
               }}>
               {loading
                 ? <span style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                : <LogIn size={16} />}
-              {loading ? 'Ap verifye...' : 'Konekte'}
+                : blocked
+                  ? <Lock size={16} />
+                  : <LogIn size={16} />}
+              {loading ? 'Ap verifye...' : blocked ? 'Kont Bloke — Kontakte Admin' : 'Konekte'}
             </button>
+
           </div>
         </div>
 

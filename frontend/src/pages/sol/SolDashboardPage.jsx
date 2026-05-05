@@ -423,6 +423,21 @@ export default function SolDashboardPage() {
               <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 16, color: D.text }}>{FREQ_LABELS[plan.frequency] || plan.frequency}</div>
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>{plan.name}</div>
             </div>
+            {plan.dynamicPositioning && (
+              <div className="sol-stat-card">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(155,89,182,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Star size={15} style={{ color: D.purple }} />
+                  </div>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pwen Pèfòmans</span>
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22,
+                  color: (member.performanceScore ?? 0) >= 80 ? D.green : (member.performanceScore ?? 0) >= 50 ? D.orange : D.red }}>
+                  {member.performanceScore ?? 0}
+                </div>
+                <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>pts • Pozisyon dinamik</div>
+              </div>
+            )}
           </div>
 
           <PerformanceSection scoreData={scoreData} />
