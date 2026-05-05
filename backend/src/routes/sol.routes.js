@@ -162,8 +162,18 @@ const allSlots = await prisma.sabotayMember.findMany({
 })
 
   const plan = sabotayMember.plan
-  const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
+const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
+const isClosed = plan.status === 'closed' || plan.status === 'finished'
+const allSlots = await prisma.sabotayMember.findMany({
+  where: {
+    phone: sabotayMember.phone,
+    planId: sabotayMember.planId,
+    ...(isClosed ? {} : { isActive: true })
+  },
+  include: { payments: { orderBy: { dueDate: 'asc' } } },
+  orderBy: { position: 'asc' }
+})
   const activeMemberCount = await prisma.sabotayMember.count({
     where: {
       planId: plan.id,
