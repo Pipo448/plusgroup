@@ -112,7 +112,7 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// MEMBERS/ME — ✅ Sipòte plizyè plan pou yon sèl kont
+// MEMBERS/ME — Sipòte plizyè plan pou yon sèl kont
 // ══════════════════════════════════════════════════════════════
 
 async function buildPlanData(account, memberId) {
@@ -132,14 +132,22 @@ async function buildPlanData(account, memberId) {
 
   const plan = sabotayMember.plan
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
+
+  // ✅ FIX: pou plan fèmen, konte tout manm; pou aktif, sèlman aktif
   const activeMemberCount = await prisma.sabotayMember.count({
-  where: {
-    planId: plan.id,
-    ...(plan.status === 'closed' || plan.status === 'finished'
-      ? {}                      // plan fèmen → konte tout manm
-      : { isActive: true })     // plan aktif → sèlman aktif
-  }
-}).catch(() => 0)
+    where: {
+      planId: plan.id,
+      ...(plan.status === 'closed' || plan.status === 'finished'
+        ? {}
+        : { isActive: true })
+    }
+  }).catch(() => 0)
+
+  // ✅ NOUVO: totalMemberCount = VRÈMAN tout manm nan plan an
+  // Sa rezoud ka kote max_members nan DB pa kòrèspòn ak reyalite
+  const totalMemberCount = await prisma.sabotayMember.count({
+    where: { planId: plan.id }
+  }).catch(() => 0)
 
   return {
     member: {
@@ -164,6 +172,7 @@ async function buildPlanData(account, memberId) {
       frequency: plan.frequency,
       maxMembers: plan.maxMembers,
       activeMemberCount,
+      totalMemberCount,   // ✅ NOUVO — vrè kantite manm (pa depann de max_members)
       createdAt: plan.startDate.toISOString().split('T')[0],
       dueTime: plan.dueTime || account.planDueTime || '08:00',
       dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00',
@@ -177,7 +186,6 @@ async function buildPlanData(account, memberId) {
 
 router.get('/members/me', authMember, async (req, res) => {
   try {
-    // ── Kont prensipal ────────────────────────────────────────
     const account = await prisma.solMemberAccount.findUnique({
       where: { id: req.solMember.accountId }
     })
@@ -189,13 +197,11 @@ router.get('/members/me', authMember, async (req, res) => {
       select: { id: true, name: true, phone: true, address: true, logoUrl: true }
     })
 
-    // ── Plan prensipal ────────────────────────────────────────
     const primaryData = await buildPlanData(account, account.memberId)
     if (!primaryData) return res.status(404).json({ message: 'Manm oswa plan pa jwenn' })
 
     const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
 
-    // ── Chèche lòt kont Sol ak menm telefòn (lòt plan) ───────
     const phone = primaryData.member.phone
     let allPlansData = [{ ...primaryData, id: primaryData.plan.id }]
 
@@ -204,8 +210,8 @@ router.get('/members/me', authMember, async (req, res) => {
         where: {
           memberPhone: phone,
           tenantId: account.tenantId,
-          id: { not: account.id },       // ✅ Eskli kont prensipal la
-          memberId: { not: null }         // ✅ Korije: memberId (camelCase Prisma)
+          id: { not: account.id },
+          memberId: { not: null }
         }
       })
 
@@ -215,7 +221,6 @@ router.get('/members/me', authMember, async (req, res) => {
       }
     }
 
-    // ── Si yon sèl plan: retrokompatibilite total ─────────────
     if (allPlansData.length === 1) {
       return res.json({
         member: primaryData.member,
@@ -224,15 +229,12 @@ router.get('/members/me', authMember, async (req, res) => {
       })
     }
 
-    // ── Plizyè plan: retounen plans[] + retrokompatibilite ────
     return res.json({
       tenant: tenantFormatted,
-      // Retrokompatibilite — premye plan toujou la pou ansyen kòd
       member: primaryData.member,
       plan:   primaryData.plan,
-      // Nouvo: lis tout plan yo pou frontend seletè a
       plans: allPlansData.map(d => ({
-        id:     d.plan.id,       // ← Frontend itilize sa pou selectedPlanId
+        id:     d.plan.id,
         member: d.member,
         plan:   d.plan,
         tenant: tenantFormatted,
@@ -262,7 +264,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
     if (sabotayMember.plan.tenantId !== tenantId)
       return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
 
-    // ✅ Verifye si username deja pran PA yon lòt moun sèlman
     const existingUsername = await prisma.solMemberAccount.findUnique({
       where: { username: credentials.username.toLowerCase().trim() }
     })
@@ -273,7 +274,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
     const passwordHash = await bcrypt.hash(rawPassword, 10)
     const plan         = sabotayMember.plan
 
-    // ✅ NOUVO: Si kont deja egziste pou memberId sa, kreye DEZYÈM kont pou nouvo plan
     const existingByMember = await prisma.solMemberAccount.findFirst({
       where: { memberId: sabotayMember.id }
     })
@@ -307,7 +307,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
     const account = await prisma.solMemberAccount.create({ data: accountData })
 
     if (existingByMember) {
-      // Manm nan te deja gen kont — nou kreye yon dezyèm pou nouvo plan an
       return res.status(201).json({
         message:       'Dezyèm kont kreye pou nouvo plan an!',
         accountId:     account.id,
