@@ -79,13 +79,11 @@ router.post('/auth/login', async (req, res) => {
     const { username, password } = req.body
     if (!username || !password) return res.status(400).json({ message: 'Non itilizatè ak modpas obligatwa' })
 
-    // ✅ FIX: Chèche TOUT kont ak username sa — username unik pa tenant
     const accounts = await prisma.solMemberAccount.findMany({
       where: { username: username.toLowerCase().trim() }
     })
     if (!accounts.length) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
 
-    // Eseye chak kont jiskaske modpas la match
     let matchedAccount = null
     for (const acc of accounts) {
       const valid = await bcrypt.compare(password, acc.passwordHash)
@@ -143,11 +141,9 @@ async function buildPlanData(account, memberId) {
   })
   if (!sabotayMember || !sabotayMember.plan) return null
 
-  // ✅ FIX: plan deklare ANVAN allSlots pou evite ReferenceError
   const plan = sabotayMember.plan
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
-  // ✅ FIX: pou plan fèmen, konte tout manm (isActive ka false)
   const isClosed = plan.status === 'closed' || plan.status === 'finished'
   const allSlots = await prisma.sabotayMember.findMany({
     where: {
@@ -159,15 +155,10 @@ async function buildPlanData(account, memberId) {
     orderBy: { position: 'asc' }
   })
 
-  // ✅ FIX: pou plan fèmen, konte tout manm; pou aktif, sèlman aktif
   const activeMemberCount = await prisma.sabotayMember.count({
-    where: {
-      planId: plan.id,
-      ...(isClosed ? {} : { isActive: true })
-    }
+    where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) }
   }).catch(() => 0)
 
-  // ✅ NOUVO: totalMemberCount = vrèman tout manm nan plan an
   const totalMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id }
   }).catch(() => 0)
@@ -235,7 +226,10 @@ router.get('/members/me', authMember, async (req, res) => {
       })
       for (const otherAccount of otherAccounts) {
         const planData = await buildPlanData(otherAccount, otherAccount.memberId)
-        if (planData) allPlansData.push({ ...planData, id: planData.plan.id })
+        // ✅ FIX: dediplike pa planId — evite menm plan monte 2 fwa
+        if (planData && !allPlansData.find(p => p.plan.id === planData.plan.id)) {
+          allPlansData.push({ ...planData, id: planData.plan.id })
+        }
       }
     }
 
@@ -272,20 +266,34 @@ router.post('/accounts', authAdmin, async (req, res) => {
     if (sabotayMember.plan.tenantId !== tenantId)
       return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
 
-    // ✅ FIX: Verifye unicite username nan MENM TENANT sèlman
+    // ✅ FIX: Si username deja nan yon LOT tenant, ajoute suffix otomatik
+    let finalUsername = credentials.username.toLowerCase().trim()
+    const globalSameUsername = await prisma.solMemberAccount.findMany({
+      where: { username: finalUsername }
+    })
+    if (globalSameUsername.some(a => a.tenantId !== tenantId)) {
+      // Username egziste nan yon lòt tenant — jwenn suffix disponib nan tenant sa
+      let suffix = 2
+      while (await prisma.solMemberAccount.findFirst({
+        where: { username: `${finalUsername}${suffix}`, tenantId }
+      })) { suffix++ }
+      finalUsername = `${finalUsername}${suffix}`
+    }
+
+    // Verifye unicite nan menm tenant sèlman
     const existingUsername = await prisma.solMemberAccount.findFirst({
-      where: { username: credentials.username.toLowerCase().trim(), tenantId }
+      where: { username: finalUsername, tenantId }
     })
     if (existingUsername && existingUsername.memberId !== memberId)
       return res.status(409).json({ message: 'Non itilizatè sa deja pran nan enstitisyon sa a' })
 
-    const rawPassword  = credentials.password
-    const passwordHash = await bcrypt.hash(rawPassword, 10)
-    const plan         = sabotayMember.plan
+    const rawPassword      = credentials.password
+    const passwordHash     = await bcrypt.hash(rawPassword, 10)
+    const plan             = sabotayMember.plan
     const existingByMember = await prisma.solMemberAccount.findFirst({ where: { memberId: sabotayMember.id } })
 
     const accountData = {
-      username: credentials.username.toLowerCase().trim(), passwordHash, plainPassword: rawPassword,
+      username: finalUsername, passwordHash, plainPassword: rawPassword,
       tenantId, memberId: sabotayMember.id, memberName: sabotayMember.name,
       memberPhone: sabotayMember.phone || '', memberPosition: sabotayMember.position,
       planId: plan.id, planName: plan.name, planAmount: Number(plan.amount),
@@ -298,14 +306,23 @@ router.post('/accounts', authAdmin, async (req, res) => {
 
     const account = await prisma.solMemberAccount.create({ data: accountData })
 
+    // ✅ Si username te chanje (suffix ajoute), avize admin
+    const usernameChanged = finalUsername !== credentials.username.toLowerCase().trim()
+
     if (existingByMember) {
       return res.status(201).json({
-        message: 'Dezyèm kont kreye pou nouvo plan an!', accountId: account.id,
-        username: account.username, plainPassword: account.plainPassword,
+        message: 'Dezyèm kont kreye pou nouvo plan an!',
+        accountId: account.id, username: account.username, plainPassword: account.plainPassword,
         note: `Manm sa gen deja kont "${existingByMember.username}" pou lòt plan. Nouvo kont sa pou plan ${plan.name}.`
+          + (usernameChanged ? ` Username modifye otomatikman (${credentials.username} → ${finalUsername}) paske li deja egziste nan yon lòt enstitisyon.` : ''),
       })
     }
-    return res.status(201).json({ message: 'Kont kreye!', accountId: account.id, username: account.username, plainPassword: account.plainPassword })
+
+    return res.status(201).json({
+      message: 'Kont kreye!',
+      accountId: account.id, username: account.username, plainPassword: account.plainPassword,
+      ...(usernameChanged && { note: `Username modifye otomatikman: ${credentials.username} → ${finalUsername} (deja egziste nan yon lòt enstitisyon)` })
+    })
   } catch (err) {
     console.error('[SOL CREATE ACCOUNT]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
@@ -314,7 +331,6 @@ router.post('/accounts', authAdmin, async (req, res) => {
 
 router.get('/members/:memberId/check', authAdmin, async (req, res) => {
   try {
-    // ✅ NOUVO: retounen plainPassword tou pou montre nan modal je a
     const account = await prisma.solMemberAccount.findFirst({
       where: { memberId: req.params.memberId },
       select: { id: true, username: true, plainPassword: true, createdAt: true }
