@@ -126,13 +126,13 @@ export default function SolDashboardPage() {
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   // ✅ FIX: prefere activeMemberCount (reyèl) olye maxMembers
-  // ✅ APRE — pran pi gran valè toujou
-const totalSlotCount = Math.max(
-  currentPlanData?.activeMemberCount || 0,
-  currentPlanData?.totalMemberCount  || 0,
-  plan?.maxMembers                   || 0,
-  allSlots.reduce((max, s) => Math.max(max, s.position), 0)
-)
+  // ✅ FIX: pran pi gran valè — maxMembers = total manm plan an (pa activeMemberCount ki konte sèlman ki poko touche)
+  const totalSlotCount = Math.max(
+    currentPlanData?.activeMemberCount || 0,
+    currentPlanData?.totalMemberCount  || 0,
+    plan?.maxMembers                   || 0,
+    allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+  )
 
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
 
