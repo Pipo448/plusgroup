@@ -424,21 +424,13 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     const exists = await prisma.sabotayPayment.findFirst({ where: { planId, memberId, dueDate: new Date(dueDate) } })
     if (exists) continue
 
-    // ✅ CHANJMAN: Kalkile timing granulè otomatikman
-    // Si timing ba eksplisite (ex: admin mache manyèlman), respekte li
-    // Sinon kalkile selon lè ekzak peman an vs fenèt plan an
-    const timing = (() => {
-      if (timings?.[dueDate]) return timings[dueDate]   // Admin ba eksplisite
-      if (data.timing)        return data.timing         // Dat endividyèl
-      // Kalkile otomatikman: lè kounye a vs dueDate + fenèt plan
-      return rankingSvc.computeDetailedTiming(
-        dueDate,
-        new Date(),                         // lè ekzak peman an (Haiti kalkile anndan)
-        plan.dueTime    || '08:00',
-        plan.dueTimeEnd || '15:00',
-      )
-    })()
-
+   // ✅ FIX: Toujou kalkile sèvè — ignore timing kliyan (lòlòj navigatè pa fyab)
+const timing = rankingSvc.computeDetailedTiming(
+  dueDate,
+  new Date(),
+  plan.dueTime    || '08:00',
+  plan.dueTimeEnd || '15:00',
+)
     const fineAmt = fines?.[dueDate] || (data.fineAmt || 0)
 
     const payment = await prisma.sabotayPayment.create({
