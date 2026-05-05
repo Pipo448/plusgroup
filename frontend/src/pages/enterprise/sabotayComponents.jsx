@@ -891,13 +891,13 @@ export function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) 
       photoUrl: photoB64 || null, idPhotoUrl: idPhotoB64 || null,
       referenceName: form.referenceName || null, referencePhone: form.referencePhone || null,
       relationship: form.relationship || null, preferredDate: payoutDatesMap[firstPos] || null,
-      _cb: (saved) => onShowCreds({
-        member: saved || { ...form, position: firstPos, positions: finalPositions },
-        credentials: existingAccount
-          ? { username: existingAccount.username, password: null, isExisting: true }
-          : credentials,
-        positions: finalPositions, payoutDates: payoutDatesMap,
-      }),
+    _cb: (saved) => onShowCreds({
+  member: saved || { ...form, position: firstPos, positions: finalPositions },
+  credentials: existingAccount
+    ? { username: existingAccount.username, password: null, isExisting: true }
+    : { ...credentials, username: saved?.username || credentials?.username },
+  positions: finalPositions, payoutDates: payoutDatesMap,
+}),
     })
   }
 
