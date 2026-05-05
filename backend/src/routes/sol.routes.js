@@ -95,9 +95,9 @@ router.post('/auth/login', async (req, res) => {
     if (matchedAccount.memberId) {
       const sabotayMember = await prisma.sabotayMember.findUnique({
         where: { id: matchedAccount.memberId },
-        select: { isBlocked: true, status: true }
-      })
-      const isBlocked = sabotayMember?.isBlocked === true || sabotayMember?.status === 'blocked'
+        select: { isBlocked: true }
+      }).catch(() => null)
+      const isBlocked = sabotayMember?.isBlocked === true
       if (isBlocked) {
         return res.status(403).json({
           message: '🔒 Kont ou bloke poutèt reta peman. Kontakte admin pou debloke l.',
