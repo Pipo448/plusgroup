@@ -54,12 +54,10 @@ function authMember(req, res, next) {
 function authAdmin(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token admin obligatwa' })
-
   try {
     req.admin = jwt.verify(token, process.env.SUPER_ADMIN_JWT_SECRET)
     return next()
   } catch {}
-
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET)
     if (payload.role !== 'admin' && payload.role !== 'super_admin') {
@@ -80,13 +78,41 @@ router.post('/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body
     if (!username || !password) return res.status(400).json({ message: 'Non itilizatè ak modpas obligatwa' })
-    const account = await prisma.solMemberAccount.findUnique({ where: { username: username.toLowerCase().trim() } })
-    if (!account) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
-    const valid = await bcrypt.compare(password, account.passwordHash)
-    if (!valid) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
-    const tenant = await prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true, logoUrl: true } })
-    const token = jwt.sign({ role: 'sol_member', accountId: account.id, memberId: account.memberId, planId: account.planId, tenantId: account.tenantId }, SOL_JWT_SECRET, { expiresIn: '7d' })
-    return res.json({ token, member: { id: account.memberId, name: account.memberName, phone: account.memberPhone, position: account.memberPosition }, tenant: tenant ? { ...tenant, businessName: tenant.name } : null })
+
+    // ✅ FIX: Chèche TOUT kont ak username sa (pa depann de tenant)
+    // Username kounye a unik pa tenant — menm non ka egziste nan 2 tenant diferan
+    const accounts = await prisma.solMemberAccount.findMany({
+      where: { username: username.toLowerCase().trim() }
+    })
+
+    if (!accounts.length) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
+
+    // ✅ Eseye chak kont jiskaske modpas la match
+    let matchedAccount = null
+    for (const acc of accounts) {
+      const valid = await bcrypt.compare(password, acc.passwordHash)
+      if (valid) { matchedAccount = acc; break }
+    }
+
+    if (!matchedAccount) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: matchedAccount.tenantId },
+      select: { id: true, name: true, phone: true, address: true, logoUrl: true }
+    })
+
+    const token = jwt.sign(
+      { role: 'sol_member', accountId: matchedAccount.id, memberId: matchedAccount.memberId, planId: matchedAccount.planId, tenantId: matchedAccount.tenantId },
+      SOL_JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+
+    return res.json({
+      token,
+      member: { id: matchedAccount.memberId, name: matchedAccount.memberName, phone: matchedAccount.memberPhone, position: matchedAccount.memberPosition },
+      tenant: tenant ? { ...tenant, businessName: tenant.name } : null
+    })
+
   } catch (err) {
     console.error('[SOL LOGIN]', err)
     return res.status(500).json({ message: 'Erè sèvè' })
@@ -112,7 +138,7 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════
-// MEMBERS/ME — Sipòte plizyè plan pou yon sèl kont
+// MEMBERS/ME
 // ══════════════════════════════════════════════════════════════
 
 async function buildPlanData(account, memberId) {
@@ -133,18 +159,13 @@ async function buildPlanData(account, memberId) {
   const plan = sabotayMember.plan
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
-  // ✅ FIX: pou plan fèmen, konte tout manm; pou aktif, sèlman aktif
   const activeMemberCount = await prisma.sabotayMember.count({
     where: {
       planId: plan.id,
-      ...(plan.status === 'closed' || plan.status === 'finished'
-        ? {}
-        : { isActive: true })
+      ...(plan.status === 'closed' || plan.status === 'finished' ? {} : { isActive: true })
     }
   }).catch(() => 0)
 
-  // ✅ NOUVO: totalMemberCount = VRÈMAN tout manm nan plan an
-  // Sa rezoud ka kote max_members nan DB pa kòrèspòn ak reyalite
   const totalMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id }
   }).catch(() => 0)
@@ -172,7 +193,7 @@ async function buildPlanData(account, memberId) {
       frequency: plan.frequency,
       maxMembers: plan.maxMembers,
       activeMemberCount,
-      totalMemberCount,   // ✅ NOUVO — vrè kantite manm (pa depann de max_members)
+      totalMemberCount,
       createdAt: plan.startDate.toISOString().split('T')[0],
       dueTime: plan.dueTime || account.planDueTime || '08:00',
       dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00',
@@ -186,9 +207,7 @@ async function buildPlanData(account, memberId) {
 
 router.get('/members/me', authMember, async (req, res) => {
   try {
-    const account = await prisma.solMemberAccount.findUnique({
-      where: { id: req.solMember.accountId }
-    })
+    const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
     if (!account.memberId) return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
 
@@ -207,14 +226,8 @@ router.get('/members/me', authMember, async (req, res) => {
 
     if (phone) {
       const otherAccounts = await prisma.solMemberAccount.findMany({
-        where: {
-          memberPhone: phone,
-          tenantId: account.tenantId,
-          id: { not: account.id },
-          memberId: { not: null }
-        }
+        where: { memberPhone: phone, tenantId: account.tenantId, id: { not: account.id }, memberId: { not: null } }
       })
-
       for (const otherAccount of otherAccounts) {
         const planData = await buildPlanData(otherAccount, otherAccount.memberId)
         if (planData) allPlansData.push({ ...planData, id: planData.plan.id })
@@ -222,23 +235,14 @@ router.get('/members/me', authMember, async (req, res) => {
     }
 
     if (allPlansData.length === 1) {
-      return res.json({
-        member: primaryData.member,
-        plan:   primaryData.plan,
-        tenant: tenantFormatted,
-      })
+      return res.json({ member: primaryData.member, plan: primaryData.plan, tenant: tenantFormatted })
     }
 
     return res.json({
       tenant: tenantFormatted,
       member: primaryData.member,
       plan:   primaryData.plan,
-      plans: allPlansData.map(d => ({
-        id:     d.plan.id,
-        member: d.member,
-        plan:   d.plan,
-        tenant: tenantFormatted,
-      }))
+      plans: allPlansData.map(d => ({ id: d.plan.id, member: d.member, plan: d.plan, tenant: tenantFormatted }))
     })
 
   } catch (err) {
@@ -264,11 +268,15 @@ router.post('/accounts', authAdmin, async (req, res) => {
     if (sabotayMember.plan.tenantId !== tenantId)
       return res.status(403).json({ message: 'Manm sa pa nan tenant ou a' })
 
-    const existingUsername = await prisma.solMemberAccount.findUnique({
-      where: { username: credentials.username.toLowerCase().trim() }
+    // ✅ FIX: Verifye unicite username nan MENM TENANT sèlman (pa globalman)
+    const existingUsername = await prisma.solMemberAccount.findFirst({
+      where: {
+        username: credentials.username.toLowerCase().trim(),
+        tenantId: tenantId   // ← sèlman nan menm tenant an
+      }
     })
     if (existingUsername && existingUsername.memberId !== memberId)
-      return res.status(409).json({ message: 'Non itilizatè sa deja pran pa yon lòt moun' })
+      return res.status(409).json({ message: 'Non itilizatè sa deja pran nan enstitisyon sa a' })
 
     const rawPassword  = credentials.password
     const passwordHash = await bcrypt.hash(rawPassword, 10)
@@ -578,15 +586,9 @@ router.get('/superadmin/overview', authAdmin, async (req, res) => {
 
 router.get('/superadmin/plans/:planId/members', authAdmin, async (req, res) => {
   try {
-    const members = await prisma.sabotayMember.findMany({
-      where:   { planId: req.params.planId },
-      orderBy: { position: 'asc' },
-    })
+    const members = await prisma.sabotayMember.findMany({ where: { planId: req.params.planId }, orderBy: { position: 'asc' } })
     const memberIds = members.map(m => m.id)
-    const solAccounts = await prisma.solMemberAccount.findMany({
-      where:  { memberId: { in: memberIds } },
-      select: { memberId: true, username: true, plainPassword: true },
-    })
+    const solAccounts = await prisma.solMemberAccount.findMany({ where: { memberId: { in: memberIds } }, select: { memberId: true, username: true, plainPassword: true } })
     const accountMap = Object.fromEntries(solAccounts.map(a => [a.memberId, a]))
     const result = members.map(m => ({
       id: m.id, name: m.name, phone: m.phone || '', position: m.position,
