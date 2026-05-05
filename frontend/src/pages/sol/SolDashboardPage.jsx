@@ -126,12 +126,11 @@ export default function SolDashboardPage() {
   const allSlots = member.allSlots || [{ id: member.id, position: member.position, payments: member.payments, paymentTimings: member.paymentTimings }]
 
   // ✅ FIX: prefere activeMemberCount (reyèl) olye maxMembers
-const totalSlotCount = currentPlanData?.activeMemberCount
-  || plan?.activeMemberCount
-  || Math.max(
-    plan?.maxMembers || 0,
-    allSlots.reduce((max, s) => Math.max(max, s.position), 0)
-  )
+  const totalSlotCount = currentPlanData?.activeMemberCount
+    || Math.max(
+      plan?.maxMembers || 0,
+      allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+    )
 
   const dates = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
 
@@ -152,6 +151,10 @@ const totalSlotCount = currentPlanData?.activeMemberCount
 
   // ✅ FIX: Progress = tout peman / total — 100% si tout peye (+ futur earlyDepo)
   const progress = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+
+  // ✅ FIX: Rès pou peye = sa ki rete pou peye jis fen sol la (total - tout peman fèt + futur)
+  const totalToPayForSol = totalSlotCount * plan.amount * allSlots.length
+  const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
 
   const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
 
@@ -368,8 +371,8 @@ const totalSlotCount = currentPlanData?.activeMemberCount
                 <div style={{ width: 34, height: 34, borderRadius: 10, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Wallet size={15} style={{ color: D.red }} /></div>
                 <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rès pou Peye</span>
               </div>
-              {/* ✅ FIX: amountDue - amountPaidPast (sèlman pase) */}
-              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: D.red }}>{fmt(Math.max(0, amountDue - amountPaidPast))}</div>
+              {/* ✅ FIX: total sol - tout peman (+ earlyDepo) = sa ki rete vrèman */}
+              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 22, color: restaPouPeye === 0 ? D.green : D.red }}>{fmt(restaPouPeye)}</div>
               <div style={{ fontSize: 11, color: D.muted, marginTop: 4 }}>HTG</div>
             </div>
 
