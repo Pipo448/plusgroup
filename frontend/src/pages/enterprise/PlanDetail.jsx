@@ -443,6 +443,9 @@ export default function PlanDetail({
               const paid       = allDates.filter(d => m.payments?.[d]).length
               // ✅ FIX: Rès HTG = sa ki rete pou peye jis fen sol la
               const rèsHTG     = Math.max(0, (totalDates - paid) * plan.amount)
+              // ✅ FIX: Dat anreta = dat ki STRIKTEMAN pase (avan jodi) san peye
+              //         — jodi pa konsidere anreta menm si poko peye
+              const overdueDates = allDates.filter(d => d < today && !m.payments?.[d]).length
 
               const payoutDate = payoutMap[m.position]
               const isWin      = payoutDate === today
@@ -544,14 +547,17 @@ export default function PlanDetail({
                     </div>
                   </div>
 
-                  {/* ✅ FIX: Baton pwogrè baze sou totalDates (pa due sèlman) */}
+                  {/* ✅ FIX: Bar la jòn SÈLMAN si gen dat anreta (deja pase san peye)
+                       — si moun nan peye pou jodi (oswa rete dat futur sèlman), bar la vèt */}
                   {totalDates > 0 && !isStopped && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                         <div style={{
                           height: '100%',
                           width: `${Math.min(100, (paid / totalDates) * 100)}%`,
-                          background: paid >= totalDates ? D.green : D.gold,
+                          background: paid >= totalDates
+                            ? D.green
+                            : (overdueDates > 0 ? D.gold : D.green),
                           borderRadius: 4,
                         }} />
                       </div>
