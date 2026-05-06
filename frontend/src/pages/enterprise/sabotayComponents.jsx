@@ -24,6 +24,73 @@ import {
 } from './sabotayUtils'
 
 // ─────────────────────────────────────────────────────────────
+// HELPERS — Konvèsyon ant 12h (AM/PM) ak 24h ("HH:MM")
+// ─────────────────────────────────────────────────────────────
+function parse24To12(value) {
+  const [h24, m] = (value || '00:00').split(':').map(Number)
+  const period = h24 >= 12 ? 'PM' : 'AM'
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24
+  return { h12, m: m || 0, period }
+}
+
+function format12To24(h12, m, period) {
+  let h24 = Number(h12)
+  if (period === 'AM' && h24 === 12) h24 = 0
+  else if (period === 'PM' && h24 !== 12) h24 = h24 + 12
+  return `${String(h24).padStart(2, '0')}:${String(Number(m)).padStart(2, '0')}`
+}
+
+function format24ToDisplay12(value) {
+  const { h12, m, period } = parse24To12(value)
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`
+}
+
+// ─────────────────────────────────────────────────────────────
+// TIME PICKER 12h — Òdè / Minit / AM/PM
+// Stoke "HH:MM" 24h, men afiche 12h pou itilizatè a
+// ─────────────────────────────────────────────────────────────
+function TimePicker12h({ value, onChange, color }) {
+  const { h12, m, period } = parse24To12(value)
+
+  const update = (newH12, newM, newPeriod) => {
+    onChange(format12To24(newH12, newM, newPeriod))
+  }
+
+  const selStyle = {
+    ...inp,
+    color,
+    padding: '8px 4px',
+    fontWeight: 700,
+    fontSize: 13,
+    textAlign: 'center',
+    appearance: 'none',
+    cursor: 'pointer',
+    flex: 1,
+    minWidth: 0,
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      <select value={h12} onChange={e => update(Number(e.target.value), m, period)} style={selStyle}>
+        {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(n => (
+          <option key={n} value={n}>{n}</option>
+        ))}
+      </select>
+      <span style={{ color: D.muted, fontWeight: 800, flexShrink: 0 }}>:</span>
+      <select value={m} onChange={e => update(h12, Number(e.target.value), period)} style={selStyle}>
+        {Array.from({ length: 60 }, (_, i) => i).map(n => (
+          <option key={n} value={n}>{String(n).padStart(2, '0')}</option>
+        ))}
+      </select>
+      <select value={period} onChange={e => update(h12, m, e.target.value)} style={{ ...selStyle, color: period === 'AM' ? D.blue : D.gold }}>
+        <option value="AM">AM</option>
+        <option value="PM">PM</option>
+      </select>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 // PRINTER HOOK
 // ─────────────────────────────────────────────────────────────
 export function usePrinterState() {
@@ -200,6 +267,12 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
   const previewMembers = Number(form.maxMembers) || 0
   const payoutM = amt * previewMembers - fee
 
+  // ✅ Validasyon fenèt peman: kòmansman dwe pi piti pase fen
+  const timeWindowValid = form.dueTime < form.dueTimeEnd
+  const windowDisplay = timeWindowValid
+    ? `${format24ToDisplay12(form.dueTime)} → ${format24ToDisplay12(form.dueTimeEnd)}`
+    : '⚠️ Lè kòmansman dwe pi piti pase lè fen'
+
   return (
     <Modal onClose={onClose} title={isEdit ? '✏️ Modifye Plan' : '✚ Kreye Plan Sabotay'} width={560}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -209,28 +282,47 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
               <label style={lbl}>Non Plan *</label>
               <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex: Sol 500 Samdi" />
             </div>
-            <div>
+            <div style={{ gridColumn: '1/-1' }}>
               <label style={lbl}>Montan / Moun (HTG) *</label>
               <input type="number" style={{ ...inp, color: D.gold, fontWeight: 800, fontSize: 16, textAlign: 'center' }}
                 value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="500" />
             </div>
-            <div>
-              <label style={lbl}>Lè Peman *</label>
-              <input type="time" style={{ ...inp, color: D.purple, fontWeight: 700 }}
-                value={form.dueTime} onChange={e => set('dueTime', e.target.value)} />
-            </div>
-            <div>
-              <label style={lbl}>Limit Lè (Reta apre) *</label>
-              <input type="time" style={{ ...inp, color: D.red, fontWeight: 700 }}
-                value={form.dueTimeEnd} onChange={e => set('dueTimeEnd', e.target.value)} />
-              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>Apre lè sa → peman = Reta</p>
-            </div>
-            <div>
+            <div style={{ gridColumn: '1/-1' }}>
               <label style={lbl}>Dat Kòmanse Sol *</label>
               <input type="date" style={{ ...inp, color: D.teal, fontWeight: 700 }}
                 value={form.startDate} onChange={e => set('startDate', e.target.value)} />
             </div>
           </div>
+
+          {/* ✅ NOUVO: Fenèt Peman ak fòma 12h AM/PM */}
+          <div style={{ marginTop: 14, background: 'rgba(155,89,182,0.05)', border: `1px solid rgba(155,89,182,0.15)`, borderRadius: 12, padding: '13px 14px' }}>
+            <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={11} /> Fenèt Peman (Lè Manm Dwe Peye)
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={lbl}>🟢 Kòmansman *</label>
+                <TimePicker12h value={form.dueTime} onChange={v => set('dueTime', v)} color={D.purple} />
+              </div>
+              <div>
+                <label style={lbl}>🔴 Fen (Deadline) *</label>
+                <TimePicker12h value={form.dueTimeEnd} onChange={v => set('dueTimeEnd', v)} color={D.red} />
+              </div>
+            </div>
+
+            {/* Eksplikasyon vizyèl */}
+            <div style={{ marginTop: 10, fontSize: 10, color: D.muted, lineHeight: 1.7, background: 'rgba(0,0,0,0.2)', borderRadius: 9, padding: '9px 12px' }}>
+              <div style={{ marginBottom: 5, fontWeight: 700, color: timeWindowValid ? D.teal : D.red }}>
+                Fenèt aktyèl: <strong>{windowDisplay}</strong>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <span><strong style={{ color: '#00d084' }}>⚡ Avan {format24ToDisplay12(form.dueTime)}</strong> → "Avan lè" (+3 pwen)</span>
+                <span><strong style={{ color: D.green }}>✅ Nan fenèt la ({windowDisplay})</strong> → "Nan lè a" (+1 pwen)</span>
+                <span><strong style={{ color: D.orange }}>⚠️ Apre {format24ToDisplay12(form.dueTimeEnd)}</strong> → "Apre lè" (-1 pwen)</span>
+              </div>
+            </div>
+          </div>
+
           <div style={{ marginTop: 10, background: 'rgba(59,130,246,0.08)', border: `1px solid rgba(59,130,246,0.2)`,
             borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11 }}>
             <Info size={14} style={{ color: D.blue, flexShrink: 0, marginTop: 1 }} />
@@ -333,6 +425,10 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
           </button>
           <button disabled={loading} onClick={() => {
             if (!form.name || !form.amount) return toast.error('Non ak montan obligatwa.')
+            // ✅ Validasyon: kòmansman fenèt peman dwe pi piti pase fen
+            if (form.dueTime >= form.dueTimeEnd) {
+              return toast.error('⚠️ Lè kòmansman fenèt peman dwe pi piti pase lè fen.')
+            }
             onSave({
               ...form, amount: Number(form.amount), feePerMember: Number(form.feePerMember || 0),
               penalty: Number(form.penalty || 0), warningDelayDays: Number(form.warningDelayDays || 0),
