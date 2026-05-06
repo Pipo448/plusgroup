@@ -53,6 +53,15 @@ function generatePassword(length = 8) {
   return pass
 }
 
+// ✅ NOUVO: Netwaye slug tenan pou itilize l kòm prefiks username
+function sanitizeSlug(slug) {
+  return String(slug || 'tn')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 20) || 'tn'
+}
+
 async function getStats(tenantId, branchId) {
   const where = { tenantId, ...(branchId && { branchId }) }
   const [totalPlans, activePlans, totalMembers, paymentsToday] = await Promise.all([
@@ -221,6 +230,9 @@ async function getMembers(tenantId, planId) {
   return members
 }
 
+// ─────────────────────────────────────────────────────────────
+// ADD MEMBER — Auto-detect existing phone (same tenant) + cross-tenant safe
+// ─────────────────────────────────────────────────────────────
 async function addMember(tenantId, planId, userId, data) {
   const {
     name, phone, position, positions, notes, isOwnerSlot, hasWon, fines, credentials,
@@ -269,22 +281,24 @@ async function addMember(tenantId, planId, userId, data) {
 
   const firstMember = createdMembers[0].member
 
-  // ── ETAP 2: Kreye kont Sol APRE — memberId disponib kounye a ──
+  // ── ETAP 2: Kreye/jwenn kont Sol — APRE memberId disponib ──
   let solAccount  = null
   let rawPassword = null
+  let isExistingAccount = false
 
   try {
     const bcrypt     = require('bcryptjs')
     const cleanPhone = phone.trim()
 
-    // Verifye si kont Sol deja egziste pou nimewo sa
+    // ✅ Verifye si kont Sol deja egziste pou nimewo sa NAN TENAN AKTYÈL la
     solAccount = await prisma.solMemberAccount.findFirst({
       where: { tenantId, memberPhone: cleanPhone }
     })
 
     if (solAccount) {
-      // Kont egziste — ajoute memberId si li pa la
-      console.log(`[addMember] Kont Sol egziste pou ${phone} — username: ${solAccount.username}`)
+      // ✅ Kont egziste nan menm tenan an — Reyitilize li (otomatik)
+      console.log(`[addMember] Kont Sol egziste pou ${phone} nan tenan ${tenantId} — username: ${solAccount.username}`)
+      isExistingAccount = true
       if (!solAccount.memberId) {
         solAccount = await prisma.solMemberAccount.update({
           where: { id: solAccount.id },
@@ -292,16 +306,43 @@ async function addMember(tenantId, planId, userId, data) {
         })
       }
     } else {
-      // ✅ Kreye nouvo kont Sol ak memberId kòrèk
-      console.log(`[addMember] Nouvo kont Sol pou ${phone}`)
+      // Pa gen kont nan tenan aktyèl la — Kreye nouvo kont
+      console.log(`[addMember] Nouvo kont Sol pou ${phone} nan tenan ${tenantId}`)
       const rawUsername = credentials?.username
         ? credentials.username.toLowerCase().trim()
         : generateUsername(name, Number(positionsToCreate[0]))
 
       rawPassword = credentials?.password || generatePassword(8)
 
-      const usernameExists = await prisma.solMemberAccount.findFirst({ where: { username: rawUsername } })
-      const finalUsername  = usernameExists ? `${rawUsername}${Date.now().toString().slice(-4)}` : rawUsername
+      // ✅ FIX: Rezolisyon kolizyon username — itilize slug tenan kòm prefiks
+      // (kolizyon ka rive si menm telefòn nan ye nan yon LÒT tenan oswa
+      //  si yon lòt manm gen menm prenon ak menm pozisyon nan yon lòt plan)
+      let finalUsername = rawUsername
+      const usernameExists = await prisma.solMemberAccount.findFirst({
+        where: { username: rawUsername }
+      })
+
+      if (usernameExists) {
+        // Jwenn slug tenan aktyèl la pou prefiks pwòp
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: { slug: true, name: true }
+        })
+        const slug = sanitizeSlug(tenant?.slug || tenant?.name)
+
+        // Eseye `{slug}-{baseUsername}` (egz: `microcredit-marie0001`)
+        const prefixedUsername = `${slug}-${rawUsername}`
+        const prefixedExists = await prisma.solMemberAccount.findFirst({
+          where: { username: prefixedUsername }
+        })
+
+        // Si prefiks la disponib → itilize l. Sinon, ajoute timestamp pou garanti inisite.
+        finalUsername = prefixedExists
+          ? `${prefixedUsername}${Date.now().toString().slice(-3)}`
+          : prefixedUsername
+
+        console.log(`[addMember] Username "${rawUsername}" deja pran — itilize "${finalUsername}"`)
+      }
 
       const passwordHash = await bcrypt.hash(rawPassword, 10)
 
@@ -311,7 +352,7 @@ async function addMember(tenantId, planId, userId, data) {
           passwordHash,
           plainPassword: rawPassword,
           tenantId,
-          memberId:      firstMember.id,  // ✅ memberId kounye a disponib
+          memberId:      firstMember.id,
           memberName:    name.trim(),
           memberPhone:   cleanPhone,
         }
@@ -351,7 +392,7 @@ async function addMember(tenantId, planId, userId, data) {
     firstMember._solAccount = {
       username:      solAccount.username,
       plainPassword: rawPassword || solAccount.plainPassword || null,
-      isExisting:    rawPassword === null,
+      isExisting:    isExistingAccount,
     }
   }
   firstMember.positions = positionsToCreate
@@ -405,7 +446,7 @@ async function getPayments(tenantId, planId, params = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// MARK PAID — ✅ Kalkile timing granulè otomatikman
+// MARK PAID — Kalkile timing granulè otomatikman (server-side)
 // ─────────────────────────────────────────────────────────────
 async function markPaid(tenantId, planId, memberId, userId, data) {
   const { dates, timings, fines, method, notes } = data
@@ -424,13 +465,13 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     const exists = await prisma.sabotayPayment.findFirst({ where: { planId, memberId, dueDate: new Date(dueDate) } })
     if (exists) continue
 
-   // ✅ FIX: Toujou kalkile sèvè — ignore timing kliyan (lòlòj navigatè pa fyab)
-const timing = rankingSvc.computeDetailedTiming(
-  dueDate,
-  new Date(),
-  plan.dueTime    || '08:00',
-  plan.dueTimeEnd || '15:00',
-)
+    // ✅ FIX: Toujou kalkile sèvè — ignore timing kliyan (lòlòj navigatè pa fyab)
+    const timing = rankingSvc.computeDetailedTiming(
+      dueDate,
+      new Date(),
+      plan.dueTime    || '08:00',
+      plan.dueTimeEnd || '15:00',
+    )
     const fineAmt = fines?.[dueDate] || (data.fineAmt || 0)
 
     const payment = await prisma.sabotayPayment.create({
@@ -439,7 +480,7 @@ const timing = rankingSvc.computeDetailedTiming(
         dueDate: new Date(dueDate), paidDate: new Date(),
         method: method || 'cash', notes: notes || null, createdBy: userId,
         fineAmt: Number(fineAmt),
-        timing,  // ✅ timing granulè (earlyDepo/earlyDay/early/onTime/lateWindow/late/veryLate)
+        timing,
       },
       include: { member: { select: { id: true, name: true, phone: true, position: true } }, creator: { select: { fullName: true } } }
     })
@@ -554,14 +595,53 @@ async function getMemberAccount(tenantId, planId, memberId) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// FIND SOL ACCOUNT BY PHONE — ✅ Tounen tou plan/pozisyon yo nan tenan aktyèl la
+// (pou UI ka montre konbyen plan moun nan deja patisipe)
+// ─────────────────────────────────────────────────────────────
 async function findSolAccountByPhone(tenantId, phone) {
   if (!phone) return null
   const clean = phone.replace(/\s/g, '').trim()
+
   const account = await prisma.solMemberAccount.findFirst({
     where: { tenantId, memberPhone: clean },
-    include: { positions: { orderBy: { createdAt: 'desc' }, select: { id: true, planName: true, memberPosition: true, planAmount: true, planFrequency: true, hasWon: true, preferredDate: true, createdAt: true } } }
+    include: {
+      positions: {
+        where: { tenantId },  // ✅ Sèlman pozisyon nan tenan aktyèl la
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          planId: true,
+          planName: true,
+          memberPosition: true,
+          planAmount: true,
+          planFrequency: true,
+          hasWon: true,
+          status: true,
+          preferredDate: true,
+          createdAt: true,
+        }
+      }
+    }
   })
-  return account
+
+  if (!account) return null
+
+  // ✅ Filtre sèlman pozisyon ki aktif (pa kanpe oswa fini)
+  const activePositions = (account.positions || [])
+    .filter(p => p.status !== 'stopped')
+
+  return {
+    ...account,
+    activePlanCount: activePositions.length,
+    activePlans: activePositions.map(p => ({
+      planId: p.planId,
+      planName: p.planName,
+      position: p.memberPosition,
+      hasWon: p.hasWon,
+      preferredDate: p.preferredDate,
+    })),
+  }
 }
 
 async function getSolAccountPositions(tenantId, username) {
