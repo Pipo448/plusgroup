@@ -53,13 +53,10 @@ function generatePassword(length = 8) {
   return pass
 }
 
-// ✅ NOUVO: Netwaye slug tenan pou itilize l kòm prefiks username
-function sanitizeSlug(slug) {
-  return String(slug || 'tn')
-    .toLowerCase()
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]/g, '')
-    .slice(0, 20) || 'tn'
+// ✅ FIX: Itilize shortTenantId (8 premye karaktè tenantId) kòm prefiks username
+// — garanti inik pou tout tan, menm si 2 tenant gen menm slug oswa menm non
+function getTenantPrefix(tenantId) {
+  return String(tenantId || 'tn').slice(0, 8)
 }
 
 async function getStats(tenantId, branchId) {
@@ -314,31 +311,26 @@ async function addMember(tenantId, planId, userId, data) {
 
       rawPassword = credentials?.password || generatePassword(8)
 
-      // ✅ FIX: Rezolisyon kolizyon username — itilize slug tenan kòm prefiks
-      // (kolizyon ka rive si menm telefòn nan ye nan yon LÒT tenan oswa
-      //  si yon lòt manm gen menm prenon ak menm pozisyon nan yon lòt plan)
+      // ✅ FIX: Rezolisyon kolizyon username — itilize 8 premye karaktè tenantId kòm prefiks
+      // Garanti inik pou tout tan, menm si 2 tenant gen menm slug oswa menm non
       let finalUsername = rawUsername
       const usernameExists = await prisma.solMemberAccount.findFirst({
         where: { username: rawUsername }
       })
 
       if (usernameExists) {
-        // Jwenn slug tenan aktyèl la pou prefiks pwòp
-        const tenant = await prisma.tenant.findUnique({
-          where: { id: tenantId },
-          select: { slug: true, name: true }
-        })
-        const slug = sanitizeSlug(tenant?.slug || tenant?.name)
+        // ✅ Itilize shortTenantId olye slug — pa bezwen query DB anplis, toujou inik
+        const shortTenantId  = getTenantPrefix(tenantId)
+        const prefixedUsername = `${shortTenantId}-${rawUsername}`
 
-        // Eseye `{slug}-{baseUsername}` (egz: `microcredit-marie0001`)
-        const prefixedUsername = `${slug}-${rawUsername}`
+        // Verifye si prefiks la disponib tou (trè ra men pwoteksyon anplis)
         const prefixedExists = await prisma.solMemberAccount.findFirst({
           where: { username: prefixedUsername }
         })
 
-        // Si prefiks la disponib → itilize l. Sinon, ajoute timestamp pou garanti inisite.
+        // Si prefiks la disponib → itilize l. Sinon, ajoute 4 dènye karaktè tenantId pou garanti inisite.
         finalUsername = prefixedExists
-          ? `${prefixedUsername}${Date.now().toString().slice(-3)}`
+          ? `${prefixedUsername}-${tenantId.slice(-4)}`
           : prefixedUsername
 
         console.log(`[addMember] Username "${rawUsername}" deja pran — itilize "${finalUsername}"`)
