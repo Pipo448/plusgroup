@@ -58,17 +58,41 @@ function generatePassword(length = 8) {
 function getTenantPrefix(tenantId) {
   return String(tenantId || 'tn').slice(0, 8)
 }
-
 async function getStats(tenantId, branchId) {
   const where = { tenantId, ...(branchId && { branchId }) }
+
+  // ✅ FIX: Minwi Ayiti (UTC-5) = 5 AM UTC
+  // Evite konte peman 7 PM - minwi Ayiti kòm "yè"
+  const nowUtc    = new Date()
+  const haitiNow  = new Date(nowUtc.getTime() - 5 * 60 * 60 * 1000)
+  const haitiMidnight = new Date(Date.UTC(
+    haitiNow.getUTCFullYear(),
+    haitiNow.getUTCMonth(),
+    haitiNow.getUTCDate(),
+    5, 0, 0, 0   // 5h AM UTC = 0h minwi Ayiti
+  ))
+
   const [totalPlans, activePlans, totalMembers, paymentsToday] = await Promise.all([
     prisma.sabotayPlan.count({ where }),
     prisma.sabotayPlan.count({ where: { ...where, status: 'active' } }),
     prisma.sabotayMember.count({ where: { plan: { tenantId, ...(branchId && { branchId }) }, isActive: true } }),
-    prisma.sabotayPayment.count({ where: { plan: { tenantId }, paidDate: { gte: new Date(new Date().setHours(0,0,0,0)) } } }),
+    prisma.sabotayPayment.count({
+      where: {
+        plan: { tenantId },
+        paidDate: { gte: haitiMidnight }  // ✅ Minwi Ayiti vrè
+      }
+    }),
   ])
-  const fundsAgg = await prisma.sabotayPayment.aggregate({ where: { plan: { tenantId } }, _sum: { amount: true } })
-  return { totalPlans, activePlans, totalMembers, paymentsToday, totalFunds: Number(fundsAgg._sum.amount || 0) }
+
+  const fundsAgg = await prisma.sabotayPayment.aggregate({
+    where: { plan: { tenantId } },
+    _sum: { amount: true }
+  })
+
+  return {
+    totalPlans, activePlans, totalMembers, paymentsToday,
+    totalFunds: Number(fundsAgg._sum.amount || 0)
+  }
 }
 
 async function getPlans(tenantId, branchId, params = {}) {
