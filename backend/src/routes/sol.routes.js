@@ -217,7 +217,7 @@ async function buildPlanData(account, memberId) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════
+
 // MEMBERS/ME
 // ══════════════════════════════════════════════════════════════
 
@@ -231,14 +231,29 @@ router.get('/members/me', authMember, async (req, res) => {
       where: { id: account.tenantId },
       select: { id: true, name: true, phone: true, address: true, logoUrl: true }
     })
+    const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
 
     const primaryData = await buildPlanData(account, account.memberId)
     if (!primaryData) return res.status(404).json({ message: 'Manm oswa plan pa jwenn' })
 
-    const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
-    const phone = primaryData.member.phone
     let allPlansData = [{ ...primaryData, id: primaryData.plan.id }]
 
+    // ✅ FIX: Chèche TOUT pozisyon nan sol_member_positions pou kont sa a
+    const allPositions = await prisma.solMemberPosition.findMany({
+      where: { accountId: account.id },
+      orderBy: { createdAt: 'asc' }
+    })
+
+    for (const pos of allPositions) {
+      if (!pos.memberId) continue
+      // Evite doublaj ak plan primè a
+      if (allPlansData.find(p => p.plan.id === pos.planId)) continue
+      const planData = await buildPlanData(account, pos.memberId)
+      if (planData) allPlansData.push({ ...planData, id: planData.plan.id })
+    }
+
+    // ✅ Rete kòd orijinal la pou lòt kont (menm telefòn)
+    const phone = primaryData.member.phone
     if (phone) {
       const otherAccounts = await prisma.solMemberAccount.findMany({
         where: { memberPhone: phone, tenantId: account.tenantId, id: { not: account.id }, memberId: { not: null } }
@@ -266,7 +281,6 @@ router.get('/members/me', authMember, async (req, res) => {
     return res.status(500).json({ message: 'Erè sèvè', detail: err.message })
   }
 })
-
 // ══════════════════════════════════════════════════════════════
 // ACCOUNTS (admin)
 // ══════════════════════════════════════════════════════════════
