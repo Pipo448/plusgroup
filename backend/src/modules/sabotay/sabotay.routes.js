@@ -8,6 +8,7 @@ const prisma = new PrismaClient()
 
 // ✅ FIX: Chemen relatif kòrèk — menm dosye a
 const rankingSvc = require('./position-ranking.service')
+const svc = require('./sabotay.service')
 
 // ── SUPER ADMIN middleware ─────────────────────────────────────
 async function authSuperAdmin(req, res, next) {
@@ -199,13 +200,13 @@ router.patch('/plans/:planId/members/:id',  ctrl.updateMember)
 router.delete('/plans/:planId/members/:id', ctrl.removeMember)
 
 router.post('/plans/:planId/members/:memberId/adjust-position',
-  identifyTenant, authenticate, extractBranch,
   async (req, res) => {
     try {
       const { planId, memberId } = req.params
       const { steps } = req.body
-      const result = await sabotaySvc.adjustMemberPosition(
-        req.tenant.id, planId, memberId, Number(steps)
+      const tenantId = req.tenant?.id || req.user?.tenantId
+      const result = await svc.adjustMemberPosition(
+        tenantId, planId, memberId, Number(steps)
       )
       return res.json({ success: true, ...result })
     } catch (err) {
