@@ -202,7 +202,7 @@ function PosBadge({ member, plan, dynamic }) {
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
   plan, onBack, onAddMember, onPaymentSaved, onBlindDraw,
-  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onRecalculate, printer,
+  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onRecalculate, printer, onAdjustPosition,
 }) {
   const [viewMember,       setView]             = useState(null)
   const [viewMemberSlots,  setSlots]            = useState(null)
@@ -211,6 +211,8 @@ export default function PlanDetail({
   const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [tab,              setTab]              = useState('members')
   const [memberSearch,     setMemberSearch]     = useState('')
+  const [adjustPos, setAdjustPos] = useState(null)  // ✅ NOUVO
+  const [adjustSteps, setAdjustSteps] = useState(1) // ✅ NOUVO
 
   useEffect(() => { setView(null); setSlots(null) }, [plan.regleman, plan.updatedAt, plan.id])
 
@@ -539,12 +541,92 @@ export default function PlanDetail({
                           <Trophy size={13} />
                         </button>
                       )}
+
+                    {!isStopped && !m.hasWon && !isOwn && (
+  <button
+    onClick={() => { setAdjustPos(m); setAdjustSteps(1) }}
+    title="Desann Pozisyon"
+    style={{ width: 30, height: 30, borderRadius: 8, border: 'none',
+      background: 'rgba(59,130,246,0.12)', color: D.blue,
+      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <TrendingDown size={13} />
+  </button>
+)}
                       {m.hasWon && (
                         <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 7px', borderRadius: 10, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
                           🏆 Touche
                         </span>
                       )}
                     </div>
+
+                    {adjustPos && (
+  <Modal onClose={() => setAdjustPos(null)}
+    title={`📉 Ajiste Pozisyon — ${adjustPos.name}`} width={420}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ background: D.blueBg, border: `1px solid ${D.blue}30`,
+        borderRadius: 12, padding: '12px 16px', fontSize: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ color: D.muted }}>Pozisyon aktyèl:</span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 800, color: D.text }}>
+            #{adjustPos.position}
+          </span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ color: D.muted }}>Nouvo pozisyon:</span>
+          <span style={{ fontFamily: 'monospace', fontWeight: 900, color: D.blue }}>
+            #{adjustPos.position + adjustSteps}
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <label style={{ fontSize: 10, fontWeight: 700, color: D.muted,
+          textTransform: 'uppercase', letterSpacing: '0.07em',
+          display: 'block', marginBottom: 8 }}>
+          Konbyen plas pou desann?
+        </label>
+        <div style={{ display: 'flex', gap: 7 }}>
+          {[1, 2, 3, 4, 5].map(n => (
+            <button key={n} onClick={() => setAdjustSteps(n)} style={{
+              flex: 1, padding: '10px 0', borderRadius: 9, cursor: 'pointer',
+              fontFamily: 'monospace', fontWeight: 800, fontSize: 15,
+              border: `1.5px solid ${adjustSteps === n ? D.blue : D.borderSub}`,
+              background: adjustSteps === n ? D.blueBg : 'transparent',
+              color: adjustSteps === n ? D.blue : D.muted }}>
+              -{n}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10,
+        padding: '10px 13px', fontSize: 11, color: D.muted, lineHeight: 1.7 }}>
+        Manm ki ant <strong style={{ color: D.text }}>#{adjustPos.position + 1}</strong> ak{' '}
+        <strong style={{ color: D.text }}>#{adjustPos.position + adjustSteps}</strong> yo
+        ap <strong style={{ color: D.green }}>monte 1 plas</strong> chak.
+        Skor ak kont vityèl <strong style={{ color: D.text }}>pa chanje</strong>.
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={() => setAdjustPos(null)}
+          style={{ flex: 1, padding: '12px', borderRadius: 10,
+            border: `1px solid ${D.borderSub}`, background: 'transparent',
+            color: D.muted, cursor: 'pointer', fontWeight: 700 }}>
+          Anile
+        </button>
+        <button onClick={() => {
+          onAdjustPosition(adjustPos.id, adjustSteps)
+          setAdjustPos(null)
+        }} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none',
+          cursor: 'pointer', background: `linear-gradient(135deg,${D.blue},#1d4ed8)`,
+          color: '#fff', fontWeight: 800, fontSize: 14,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+          <TrendingDown size={15} /> Konfime Ajisteman
+        </button>
+      </div>
+    </div>
+  </Modal>
+)}
                   </div>
 
                   {/* ✅ FIX: Bar la jòn SÈLMAN si gen dat anreta (deja pase san peye)

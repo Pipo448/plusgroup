@@ -309,7 +309,7 @@ async function addMember(tenantId, planId, userId, data) {
 
   try {
     const bcrypt     = require('bcryptjs')
-    const cleanPhone = phone.trim()
+    const cleanPhone = phone.replace(/\s/g, '').trim()
 
     // ✅ Verifye si kont Sol deja egziste pou nimewo sa NAN TENAN AKTYÈL la
     solAccount = await prisma.solMemberAccount.findFirst({
@@ -827,10 +827,42 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   return { member: updated, action, newStatus }
 }
 
+async function adjustMemberPosition(tenantId, planId, memberId, steps) {
+  if (!steps || steps < 1 || steps > 10) throw new Error('Etap dwe ant 1 ak 10.')
+
+  const member = await prisma.sabotayMember.findFirst({
+    where: { id: memberId, planId, plan: { tenantId } }
+  })
+  if (!member) throw new Error('Manm pa jwenn.')
+  if (member.isOwnerSlot) throw new Error('Pa ka ajiste pozisyon pwopriyete a.')
+
+  const newPosition = member.position + steps
+
+  // Manm ki ant pozisyon aktyèl ak nouvo pozisyon an — yo monte 1 plas
+  const membersToShift = await prisma.sabotayMember.findMany({
+    where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true }
+  })
+
+  for (const m of membersToShift) {
+    await prisma.sabotayMember.update({ where: { id: m.id }, data: { position: m.position - 1 } })
+    await prisma.solMemberPosition.updateMany({
+      where: { memberId: m.id, planId }, data: { memberPosition: m.position - 1 }
+    }).catch(() => {})
+  }
+
+  await prisma.sabotayMember.update({ where: { id: memberId }, data: { position: newPosition } })
+  await prisma.solMemberPosition.updateMany({
+    where: { memberId, planId }, data: { memberPosition: newPosition }
+  }).catch(() => {})
+
+  return { oldPosition: member.position, newPosition, shifted: membersToShift.length }
+}
+
 module.exports = {
   getStats, getPlans, getPlanById, createPlan, updatePlan, deletePlan,
   blindDraw, getMembers, addMember, updateMember, removeMember,
   getPayments, markPaid, unmarkPaid, getMemberAccount,
   findSolAccountByPhone, getSolAccountPositions, closePlan,
   memberAction, getAdminCash, addToAdminCash,
+  adjustMemberPosition,
 }

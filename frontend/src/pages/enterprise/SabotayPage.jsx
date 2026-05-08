@@ -143,6 +143,9 @@ export default function SabotayPage() {
           onPaymentSaved={(memberId, dates, timings, fines) =>
             mutations.markPayment.mutate({ memberId, dates, timings, fines })
           }
+           onAdjustPosition={(memberId, steps) =>   // ✅ NOUVO
+    mutations.adjustPosition.mutate({ planId: activePlan.id, memberId, steps })
+  }
         />
       ) : (
         <>

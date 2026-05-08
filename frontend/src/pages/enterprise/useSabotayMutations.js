@@ -189,9 +189,22 @@ export function useSabotayMutations({
     onError: (e) => toast.error(e.message),
   })
 
+  const adjustPosition = useMutation({
+  mutationFn: ({ planId, memberId, steps }) =>
+    apiFetch(`/sabotay/plans/${planId}/members/${memberId}/adjust-position`, {
+      method: 'POST', body: JSON.stringify({ steps })
+    }),
+  onSuccess: (r) => {
+    qc.invalidateQueries(['sabotay-plans'])
+    toast.success(`✅ Pozisyon ajiste: #${r.oldPosition} → #${r.newPosition}`)
+  },
+  onError: (e) => toast.error(e.message),
+})
+
   return {
     createPlan, updatePlan, closePlan,
     addMember, markPayment, memberAction, blindDraw,
     toggleDynamic, recalculate,
+    adjustPosition,
   }
 }

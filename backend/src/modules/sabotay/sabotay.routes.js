@@ -198,6 +198,22 @@ router.get('/plans/:planId/members',        ctrl.getMembers)
 router.patch('/plans/:planId/members/:id',  ctrl.updateMember)
 router.delete('/plans/:planId/members/:id', ctrl.removeMember)
 
+router.post('/plans/:planId/members/:memberId/adjust-position',
+  identifyTenant, authenticate, extractBranch,
+  async (req, res) => {
+    try {
+      const { planId, memberId } = req.params
+      const { steps } = req.body
+      const result = await sabotaySvc.adjustMemberPosition(
+        req.tenant.id, planId, memberId, Number(steps)
+      )
+      return res.json({ success: true, ...result })
+    } catch (err) {
+      return res.status(400).json({ message: err.message })
+    }
+  }
+)
+
 // ─────────────────────────────────────────────────────────────
 // ✅ Ajoute Manm — jenere permanentId ANVAN controller
 // ─────────────────────────────────────────────────────────────
