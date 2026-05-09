@@ -1,10 +1,17 @@
 // src/pages/sol/SolDashboardPage.jsx
 // ─── Paj prensipal tableau de bord Sol ───────────────────────
+// FIX #310: Tout hooks deplase AVAN early returns
+// FIX TIMING: dat jodi pa "anreta" avan dueTimeEnd
+// OPTIM: useMemo / useCallback / tick interval pou tan reyèl
+// MOBIL: clamp(), padding adaptatif, breakpoint sou layout
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { LogOut, RefreshCw, Trophy, Key, Wallet, TrendingUp, CreditCard, Star, ChevronDown } from 'lucide-react'
+import {
+  LogOut, RefreshCw, Trophy, Key, Wallet,
+  TrendingUp, CreditCard, Star, ChevronDown,
+} from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
 import {
@@ -20,9 +27,11 @@ import {
 
 import { ModalChangePassword, ModalPayMobile } from './SolDashboardModals'
 
-// ─────────────────────────────────────────────────────────────
+// ═════════════════════════════════════════════════════════════
 export default function SolDashboardPage() {
   const navigate = useNavigate()
+
+  // ─── STATE ──────────────────────────────────────────────────
   const [data,           setData]           = useState(null)
   const [loading,        setLoading]        = useState(true)
   const [showChangePw,   setShowChangePw]   = useState(false)
@@ -32,8 +41,12 @@ export default function SolDashboardPage() {
   const [tab,            setTab]            = useState('history')
   const [unreadCount,    setUnreadCount]    = useState(0)
   const [theme,          setTheme]          = useState(() => localStorage.getItem('sol_theme') || 'dark')
-  const D = getD(theme)
+  const [, setTick]                         = useState(0) // pou re-render chak 30s — mete tan ajou
 
+  const D     = getD(theme)
+  const token = localStorage.getItem('sol_token')
+
+  // ─── EFFECTS ────────────────────────────────────────────────
   useEffect(() => {
     const el = document.createElement('style')
     el.id = 'sol-dashboard-styles'
@@ -42,35 +55,44 @@ export default function SolDashboardPage() {
     return () => document.getElementById('sol-dashboard-styles')?.remove()
   }, [])
 
-  const token = localStorage.getItem('sol_token')
+  // 🔄 Tick chak 30s — fè `today` ak `currentTime` aktyalize otomatikman
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
 
+  // 🔔 Push notifications
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
     const VAPID = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
     const urlBase64ToUint8Array = (b) => {
       const padding = '='.repeat((4 - b.length % 4) % 4)
-      const base64 = (b + padding).replace(/-/g, '+').replace(/_/g, '/')
+      const base64  = (b + padding).replace(/-/g, '+').replace(/_/g, '/')
       return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)))
     }
     navigator.serviceWorker.register('/sw.js').then(async reg => {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') return
       let sub = await reg.pushManager.getSubscription()
-      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID) })
+      if (!sub) sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID),
+      })
       if (token) await fetch(`${SOL_API}/api/sol/push/subscribe`, {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ subscription: sub })
+        body:    JSON.stringify({ subscription: sub }),
       }).catch(() => {})
     }).catch(e => console.warn('SW:', e.message))
   }, [token])
 
+  // ─── DATA FETCH ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
     setLoading(true)
     try {
       const res = await fetch(`${SOL_API}/api/sol/members/me`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       })
       if (res.status === 401) {
         localStorage.removeItem('sol_token')
@@ -80,105 +102,93 @@ export default function SolDashboardPage() {
       }
       const json = await res.json()
       setData(json)
-      if (json.plans?.length && !selectedPlanId) setSelectedPlanId(json.plans[0].id)
+      // ✅ Functional update — pa gen depandans sou selectedPlanId, evite enfini lòp
+      setSelectedPlanId(prev => prev || json.plans?.[0]?.id || null)
     } catch { toast.error('Pa ka chaje done yo.') }
     finally { setLoading(false) }
   }, [token, navigate])
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  const handleLogout = () => {
-    localStorage.removeItem('sol_token')
-    localStorage.removeItem('sol_member')
-    navigate('/app/sol/login')
-    toast('Ou dekonekte', { icon: '👋' })
-  }
+  // ─── DATA NORMALIZATION (memoized, null-safe) ──────────────
+  const plans = useMemo(() => {
+    if (!data) return []
+    const rawPlans = data.plans
+      ? data.plans
+      : data.plan
+        ? [{ id: data.plan.id, member: data.member, plan: data.plan, tenant: data.tenant }]
+        : []
+    return rawPlans.map(p => ({
+      id:     p.id     || p.plan?.id,
+      member: p.member || null,
+      plan:   p.plan   || p,
+      tenant: p.tenant || data.tenant,
+    })).filter(p => p.plan && p.member)
+  }, [data])
 
-  if (loading) return (
-    <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 44, height: 44, border: `3px solid rgba(201,168,76,0.15)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: D.muted, fontSize: 13, fontWeight: 500 }}>Ap chaje kont ou...</p>
-      </div>
-    </div>
-  )
+  const tenant          = data?.tenant || plans[0]?.tenant || null
+  const currentPlanData = plans.find(p => p.id === selectedPlanId) || plans[0] || null
+  const plan            = currentPlanData?.plan   || null
+  const member          = currentPlanData?.member || null
 
-  if (!data) return null
-
-  // ─── NÒMALIZE PLANS ──────────────────────────────────────────
-  const rawPlans = data.plans
-    ? data.plans
-    : data.plan
-      ? [{ id: data.plan.id, member: data.member, plan: data.plan, tenant: data.tenant }]
-      : []
-
-  const plans = rawPlans.map(p => ({
-    id:     p.id     || p.plan?.id,
-    member: p.member || null,
-    plan:   p.plan   || p,
-    tenant: p.tenant || data.tenant,
-  })).filter(p => p.plan && p.member)
-
-  const tenant = data.tenant || plans[0]?.tenant
-  if (!plans.length) return null
-
-  const currentPlanData = plans.find(p => p.id === selectedPlanId) || plans[0]
-  const plan   = currentPlanData.plan
-  const member = currentPlanData.member
-  if (!member || !plan) return null
-
-  // ─── LÈ AK DAT AYITI ─────────────────────────────────────────
-  const nowHaiti       = new Date(new Date().getTime() - 5 * 60 * 60 * 1000)
+  // ─── LÈ AYITI (rekalkile chak render — tick fòse l chak 30s) ─
+  const nowHaiti       = new Date(Date.now() - 5 * 60 * 60 * 1000)
   const today          = nowHaiti.toISOString().split('T')[0]
   const currentTime    = `${String(nowHaiti.getUTCHours()).padStart(2,'0')}:${String(nowHaiti.getUTCMinutes()).padStart(2,'0')}`
   const planDueTimeEnd = plan?.dueTimeEnd || '17:00'
 
-  // ✅ FIX: Yon dat "anreta" sèlman si:
-  // — li avan jodi, OU
-  // — se jodi epi lè a depase fen fenèt peman an (dueTimeEnd)
+  // ✅ FIX: yon dat anreta sèlman si:
+  //   • li avan jodi, OUBYEN
+  //   • se jodi epi lè a depase fenèt peman (`dueTimeEnd`)
   const isDateOverdue = useCallback((d) => {
     if (d < today) return true
     if (d === today) return currentTime > planDueTimeEnd
     return false
   }, [today, currentTime, planDueTimeEnd])
 
-  // ─── KALKILASYON (memoize pou pèfòmans) ──────────────────────
-  const allSlots = member.allSlots || [{
-    id: member.id, position: member.position,
-    payments: member.payments, paymentTimings: member.paymentTimings
-  }]
+  // ─── KALKILASYON (tout memoized — null-safe) ────────────────
+  const allSlots = useMemo(() => {
+    if (!member) return []
+    return member.allSlots || [{
+      id:             member.id,
+      position:       member.position,
+      payments:       member.payments,
+      paymentTimings: member.paymentTimings,
+    }]
+  }, [member])
 
-  const totalSlotCount = Math.max(
-    currentPlanData?.activeMemberCount || 0,
-    currentPlanData?.totalMemberCount  || 0,
-    plan?.maxMembers                   || 0,
-    allSlots.reduce((max, s) => Math.max(max, s.position), 0)
+  const totalSlotCount = useMemo(() => {
+    if (!plan && !currentPlanData) return 0
+    return Math.max(
+      currentPlanData?.activeMemberCount || 0,
+      currentPlanData?.totalMemberCount  || 0,
+      plan?.maxMembers                   || 0,
+      allSlots.reduce((max, s) => Math.max(max, s.position || 0), 0),
+    )
+  }, [plan, currentPlanData, allSlots])
+
+  const dates = useMemo(() => {
+    if (!plan || !totalSlotCount) return []
+    return getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount)
+  }, [plan, totalSlotCount])
+
+  const totalPaid = useMemo(
+    () => dates.filter(d => member?.payments?.[d]).length,
+    [dates, member],
   )
 
-  const dates = useMemo(() =>
-    getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount),
-    [plan.frequency, plan.createdAt, plan.startDate, totalSlotCount]
+  const totalPaidPast = useMemo(
+    () => dates.filter(d => isDateOverdue(d) && member?.payments?.[d]).length,
+    [dates, isDateOverdue, member],
   )
 
-  const totalPaid     = useMemo(() => dates.filter(d => member.payments?.[d]).length, [dates, member.payments])
-  const totalPaidPast = useMemo(() => dates.filter(d => isDateOverdue(d) && member.payments?.[d]).length, [dates, isDateOverdue, member.payments])
-  const totalDue      = useMemo(() => dates.filter(d => isDateOverdue(d)).length, [dates, isDateOverdue])
-
-  const amountContributed = totalPaid     * plan.amount * allSlots.length
-  const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length
-  const amountDue         = totalDue      * plan.amount * allSlots.length
-
-  const payoutDebaz   = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
-  const memberBalance = Number(member.balance || 0)
-  const payoutAjiste  = payoutDebaz + memberBalance
-  const progress      = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-  const totalToPayForSol = totalSlotCount * plan.amount * allSlots.length
-  const restaPouPeye  = Math.max(0, totalToPayForSol - amountContributed)
-
-  const isWinner = allSlots.some(slot => dates[slot.position - 1] === today)
+  const totalDue = useMemo(
+    () => dates.filter(d => isDateOverdue(d)).length,
+    [dates, isDateOverdue],
+  )
 
   const scoreData = useMemo(() => {
+    if (!member) return null
     const timings = Object.values(member.paymentTimings || {})
     if (!timings.length) return null
     const earlyDepo = timings.filter(t => t === 'earlyDepo').length
@@ -190,64 +200,131 @@ export default function SolDashboardPage() {
     return {
       score:  Math.round(((earlyDepo * 3 + earlyDay * 2.5 + early * 2 + onTime) / (total * 3)) * 100),
       early:  earlyDepo + earlyDay + early,
-      onTime, late,
+      onTime,
+      late,
     }
-  }, [member.paymentTimings])
+  }, [member])
 
-  // ✅ FIX: nextUnpaidDate itilize isDateOverdue
-  const lastPaidDatePast = useMemo(() =>
-    [...dates].filter(d => isDateOverdue(d)).reverse().find(d => member.payments?.[d]) || null,
-    [dates, isDateOverdue, member.payments]
-  )
-  const lastPaidDate = useMemo(() =>
-    [...dates].reverse().find(d => member.payments?.[d]) || null,
-    [dates, member.payments]
-  )
+  const lastPaidDatePast = useMemo(() => {
+    if (!member?.payments) return null
+    return [...dates].filter(d => isDateOverdue(d)).reverse().find(d => member.payments[d]) || null
+  }, [dates, isDateOverdue, member])
+
+  const lastPaidDate = useMemo(() => {
+    if (!member?.payments) return null
+    return [...dates].reverse().find(d => member.payments[d]) || null
+  }, [dates, member])
+
   const nextUnpaidDate = useMemo(() => {
+    if (!member) return null
     if (lastPaidDatePast) {
       return dates.find(d => d > lastPaidDatePast && isDateOverdue(d) && !member.payments?.[d])
         || dates.find(d => !isDateOverdue(d) && !member.payments?.[d])
     }
     return dates.find(d => !member.payments?.[d])
-  }, [dates, lastPaidDatePast, isDateOverdue, member.payments])
+  }, [dates, lastPaidDatePast, isDateOverdue, member])
 
+  // ─── HANDLERS ──────────────────────────────────────────────
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('sol_token')
+    localStorage.removeItem('sol_member')
+    navigate('/app/sol/login')
+    toast('Ou dekonekte', { icon: '👋' })
+  }, [navigate])
+
+  // ═════════════════════════════════════════════════════════════
+  // ✅ TOUT HOOKS FINI — KOUNYE A SEKIRITÈ POU EARLY RETURNS
+  // ═════════════════════════════════════════════════════════════
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+        <div style={{ textAlign: 'center', padding: 16 }}>
+          <div style={{ width: 44, height: 44, border: `3px solid rgba(201,168,76,0.15)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <p style={{ color: D.muted, fontSize: 13, fontWeight: 500 }}>Ap chaje kont ou...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data || !plans.length || !member || !plan) return null
+
+  // ─── KALKIL FINAL (regular const — pa hooks) ────────────────
+  const amountContributed = totalPaid     * plan.amount * allSlots.length
+  const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length
+  const amountDue         = totalDue      * plan.amount * allSlots.length
+
+  const payoutDebaz      = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+  const memberBalance    = Number(member.balance || 0)
+  const payoutAjiste     = payoutDebaz + memberBalance
+  const progress         = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
+  const totalToPayForSol = totalSlotCount * plan.amount * allSlots.length
+  const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
+
+  const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   const posStr     = allSlots.length > 1
     ? allSlots.map(s => `#${s.position}`).join(' • ')
     : `Pozisyon #${member.position}`
 
-  // ─── PLAN SELECTOR ────────────────────────────────────────────
-  const PlanSelector = () => {
-    if (plans.length <= 1) return null
-    return (
-      <div style={{ position: 'relative', marginBottom: 16 }}>
-        <button onClick={() => setShowPlanPicker(v => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', borderRadius: 12, border: `1px solid ${D.border}`, background: D.goldDim, color: D.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 700, fontSize: 12 }}>
-          <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            📋 {plan.name}
-            <span style={{ marginLeft: 8, fontSize: 10, color: D.muted, fontWeight: 500 }}>
-              {fmt(plan.amount)} HTG • {FREQ_LABELS[plan.frequency] || plan.frequency}
-            </span>
+  // ─── PLAN SELECTOR (mobil) ──────────────────────────────────
+  const planSelectorJSX = plans.length > 1 && (
+    <div style={{ position: 'relative', marginBottom: 16 }}>
+      <button
+        onClick={() => setShowPlanPicker(v => !v)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+          padding: '11px 14px', borderRadius: 12,
+          border: `1px solid ${D.border}`, background: D.goldDim,
+          color: D.text, cursor: 'pointer', fontFamily: 'inherit',
+          fontWeight: 700, fontSize: 'clamp(11px, 2.8vw, 13px)',
+        }}
+      >
+        <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+          📋 {plan.name}
+          <span style={{ marginLeft: 8, fontSize: 'clamp(9px, 2.4vw, 11px)', color: D.muted, fontWeight: 500 }}>
+            {fmt(plan.amount)} HTG • {FREQ_LABELS[plan.frequency] || plan.frequency}
           </span>
-          <ChevronDown size={13} style={{ color: D.gold, flexShrink: 0, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-        </button>
-        {showPlanPicker && (
-          <div style={{ position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50, background: D.card, border: `1px solid ${D.border}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-            {plans.map((p, i) => (
-              <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); setTab('history') }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', border: 'none', borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none', background: p.id === selectedPlanId ? D.goldDim : 'transparent', color: p.id === selectedPlanId ? D.gold : D.text, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12, textAlign: 'left' }}>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}</span>
-                <span style={{ fontSize: 10, color: D.muted, flexShrink: 0 }}>{fmt(p.plan?.amount || 0)} HTG</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    )
-  }
+        </span>
+        <ChevronDown size={13} style={{ color: D.gold, flexShrink: 0, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
 
-  // ─── SIDEBAR ─────────────────────────────────────────────────
-  const SidebarContent = () => (
+      {showPlanPicker && (
+        <div style={{
+          position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
+          background: D.card, border: `1px solid ${D.border}`,
+          borderRadius: 12, overflow: 'hidden',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          maxHeight: '60vh', overflowY: 'auto',
+        }}>
+          {plans.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); setTab('history') }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                padding: '12px 14px', border: 'none',
+                borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none',
+                background: p.id === selectedPlanId ? D.goldDim : 'transparent',
+                color: p.id === selectedPlanId ? D.gold : D.text,
+                cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
+                fontSize: 'clamp(11px, 2.8vw, 13px)', textAlign: 'left',
+              }}
+            >
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
+              </span>
+              <span style={{ fontSize: 10, color: D.muted, flexShrink: 0 }}>{fmt(p.plan?.amount || 0)} HTG</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
+  // ─── SIDEBAR ────────────────────────────────────────────────
+  const sidebarJSX = (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 28 }}>
         {tenant?.logoUrl
@@ -264,9 +341,22 @@ export default function SolDashboardPage() {
           <div style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, paddingLeft: 4 }}>Plan Ou Yo</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {plans.map(p => (
-              <button key={p.id} onClick={() => { setSelectedPlanId(p.id); setTab('history') }}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 12px', borderRadius: 10, border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent', background: p.id === selectedPlanId ? D.goldDim : 'transparent', color: p.id === selectedPlanId ? D.gold : D.muted, cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12, textAlign: 'left', width: '100%', minWidth: 0 }}>
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}</span>
+              <button
+                key={p.id}
+                onClick={() => { setSelectedPlanId(p.id); setTab('history') }}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '9px 12px', borderRadius: 10,
+                  border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent',
+                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
+                  color: p.id === selectedPlanId ? D.gold : D.muted,
+                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12,
+                  textAlign: 'left', width: '100%', minWidth: 0,
+                }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                  {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
+                </span>
                 <span style={{ fontSize: 10, color: D.muted, flexShrink: 0, marginLeft: 8 }}>{fmt(p.plan?.amount || 0)} G</span>
               </button>
             ))}
@@ -278,8 +368,16 @@ export default function SolDashboardPage() {
         <div style={{ fontSize: 15, fontWeight: 800, color: D.text, fontFamily: 'Syne, sans-serif', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
         <div style={{ fontSize: 11, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
         <div style={{ fontSize: 11, color: D.gold, fontWeight: 600, lineHeight: 1.5 }}>{posStr}</div>
-        {allSlots.length > 1 && <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>{allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik</div>}
-        {plan.dueTime && <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>⏰ {plan.dueTime} — {plan.dueTimeEnd || '17:00'}</div>}
+        {allSlots.length > 1 && (
+          <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
+            {allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik
+          </div>
+        )}
+        {plan.dueTime && (
+          <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
+            ⏰ {plan.dueTime} — {plan.dueTimeEnd || '17:00'}
+          </div>
+        )}
       </div>
 
       <div style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, paddingLeft: 14 }}>Menu</div>
@@ -296,14 +394,29 @@ export default function SolDashboardPage() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 20 }}>
-        <button onClick={() => setShowPayModal(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}>📱 Moncash / Natcash</button>
-        <button onClick={() => setShowChangePw(true)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}><Key size={12} /> Chanje Modpas</button>
-        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}><LogOut size={12} /> Dekonekte</button>
+        <button
+          onClick={() => setShowPayModal(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
+        >
+          📱 Moncash / Natcash
+        </button>
+        <button
+          onClick={() => setShowChangePw(true)}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
+        >
+          <Key size={12} /> Chanje Modpas
+        </button>
+        <button
+          onClick={handleLogout}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
+        >
+          <LogOut size={12} /> Dekonekte
+        </button>
       </div>
     </>
   )
 
-  // ─── RENDER ──────────────────────────────────────────────────
+  // ─── RENDER ─────────────────────────────────────────────────
   return (
     <div className="sol-root">
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
@@ -320,16 +433,28 @@ export default function SolDashboardPage() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-          <button onClick={fetchData} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RefreshCw size={12} /></button>
-          <button onClick={handleLogout} style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LogOut size={12} /></button>
+          <button
+            onClick={fetchData}
+            aria-label="Rafrechi"
+            style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <RefreshCw size={12} />
+          </button>
+          <button
+            onClick={handleLogout}
+            aria-label="Dekonekte"
+            style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <LogOut size={12} />
+          </button>
         </div>
       </div>
 
       <div className="sol-layout">
-        <div className="sol-sidebar"><SidebarContent /></div>
+        <div className="sol-sidebar">{sidebarJSX}</div>
 
         <div className="sol-main" style={{ animation: 'fadeUp 0.3s ease' }}>
-          <PlanSelector />
+          {planSelectorJSX}
 
           {/* ─── ALERTS ─── */}
           {isWinner && (
@@ -337,29 +462,32 @@ export default function SolDashboardPage() {
               <div style={{ width: 46, height: 46, minWidth: 46, borderRadius: 14, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }}>
                 <Trophy size={22} color="#0a0a00" />
               </div>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 800, color: D.green, margin: '0 0 3px', fontFamily: 'Syne, sans-serif' }}>🎉 Se Jou Ou Jodi a!</p>
-                <p style={{ fontSize: 12, color: D.mutedLt, margin: 0 }}>Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payoutAjiste)} HTG</span></p>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 'clamp(13px, 3.5vw, 15px)', fontWeight: 800, color: D.green, margin: '0 0 3px', fontFamily: 'Syne, sans-serif' }}>🎉 Se Jou Ou Jodi a!</p>
+                <p style={{ fontSize: 12, color: D.mutedLt, margin: 0 }}>
+                  Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payoutAjiste)} HTG</span>
+                </p>
               </div>
             </div>
           )}
 
           {!isWinner && (() => {
             const neverPaid = !lastPaidDate
-            if (neverPaid) return (
-              <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
-                <div style={{ color: D.blue, flexShrink: 0, fontSize: 20 }}>🔔</div>
-                <div>
-                  <p style={{ fontSize: 12, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>Ou poko fè premye peman ou!</p>
-                  <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>
-                    Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '17:00'}
-                  </p>
+            if (neverPaid) {
+              return (
+                <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
+                  <div style={{ color: D.blue, flexShrink: 0, fontSize: 20 }}>🔔</div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 12, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>Ou poko fè premye peman ou!</p>
+                    <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>
+                      Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '17:00'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )
+              )
+            }
             if (!nextUnpaidDate) return null
-            const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
-            // ✅ FIX: itilize isDateOverdue olye nextUnpaidDate < today
+            const daysUntil    = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
             const overdueAlert = isDateOverdue(nextUnpaidDate)
             if (overdueAlert) return <BlockingCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} lastPaidDate={lastPaidDate} />
             if (daysUntil > 3) return null
@@ -369,33 +497,44 @@ export default function SolDashboardPage() {
           {/* ─── HERO ─── */}
           <div className="sol-hero">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10 }}>Kont Sabotay Sòl</div>
+              <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10 }}>
+                  Kont Sabotay Sòl
+                </div>
                 <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 'clamp(20px, 5vw, 30px)', fontWeight: 800, color: D.text, margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {member.name}
                 </h1>
                 <div style={{ fontSize: 12, color: D.muted, marginBottom: 6 }}>{member.phone}</div>
-                <div style={{ fontSize: 11, color: D.mutedLt, marginBottom: plan.dueTime ? 10 : 0 }}>{posStr} • {plan.name}</div>
+                <div style={{ fontSize: 11, color: D.mutedLt, marginBottom: plan.dueTime ? 10 : 0 }}>
+                  {posStr} • {plan.name}
+                </div>
                 {plan.dueTime && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 8, padding: '4px 10px', fontSize: 11, color: D.gold, fontWeight: 600 }}>
                     ⏰ <strong>{plan.dueTime}</strong> — <strong>{plan.dueTimeEnd || '17:00'}</strong>
                   </div>
                 )}
               </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 6 }}>Kontribisyon Total</div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(28px, 7vw, 40px)', color: D.gold, lineHeight: 1, marginBottom: 4 }}>
+              <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 0 }}>
+                <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 6 }}>
+                  Kontribisyon Total
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(24px, 7vw, 40px)', color: D.gold, lineHeight: 1, marginBottom: 4 }}>
                   {fmt(amountContributed)}
                 </div>
                 <div style={{ fontSize: 12, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
               </div>
             </div>
+
             <div style={{ marginTop: 24 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sòl la</span>
-                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 14, color: D.gold }}>{Math.round(progress)}%</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 14, color: D.gold }}>
+                  {Math.round(progress)}%
+                </span>
               </div>
-              <div className="sol-progress-track"><div className="sol-progress-fill" style={{ width: `${progress}%` }} /></div>
+              <div className="sol-progress-track">
+                <div className="sol-progress-fill" style={{ width: `${progress}%` }} />
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: D.muted }}>
                 <span>{totalPaid} peman fèt</span>
                 <span>{totalSlotCount - totalPaid} rès</span>
@@ -410,9 +549,11 @@ export default function SolDashboardPage() {
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Wallet size={14} style={{ color: D.red }} />
                 </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Rès pou Peye</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Rès pou Peye
+                </span>
               </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 20, color: restaPouPeye === 0 ? D.green : D.red }}>
+              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: restaPouPeye === 0 ? D.green : D.red }}>
                 {fmt(restaPouPeye)}
               </div>
               <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>HTG</div>
@@ -420,31 +561,39 @@ export default function SolDashboardPage() {
 
             {allSlots.map(slot => {
               const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
-              const slotPayout = isExchangedSlot ? payoutAjiste : payoutDebaz
+              const slotPayout      = isExchangedSlot ? payoutAjiste : payoutDebaz
               return (
-                <div key={slot.position} className="sol-stat-card" style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}>
+                <div
+                  key={slot.position}
+                  className="sol-stat-card"
+                  style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trophy size={14} style={{ color: D.gold }} />
                     </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Men #{slot.position}</span>
+                    <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Men #{slot.position}
+                    </span>
                   </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 20, color: D.gold }}>
+                  <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.gold }}>
                     {fmt(slotPayout)}
                   </div>
                   <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>
                     HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}
                   </div>
                   {isExchangedSlot && memberBalance !== 0 && (
-                    <div style={{ marginTop: 7, padding: '4px 7px', borderRadius: 7, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
-                        {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
-                      </span>
-                      <span style={{ fontSize: 9, color: D.muted }}>{memberBalance > 0 ? 'frè resevwa' : 'frè peye'}</span>
-                    </div>
-                  )}
-                  {isExchangedSlot && memberBalance !== 0 && (
-                    <div style={{ fontSize: 9, color: D.muted, marginTop: 2 }}>Debaz: {fmt(payoutDebaz)} HTG</div>
+                    <>
+                      <div style={{ marginTop: 7, padding: '4px 7px', borderRadius: 7, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
+                          {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
+                        </span>
+                        <span style={{ fontSize: 9, color: D.muted }}>
+                          {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 9, color: D.muted, marginTop: 2 }}>Debaz: {fmt(payoutDebaz)} HTG</div>
+                    </>
                   )}
                 </div>
               )
@@ -456,9 +605,11 @@ export default function SolDashboardPage() {
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: D.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Star size={14} style={{ color: D.green }} />
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total Ap Touche</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Total Ap Touche
+                  </span>
                 </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 20, color: D.green }}>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.green }}>
                   {fmt(payoutDebaz * allSlots.length + memberBalance)}
                 </div>
                 <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>HTG total — {allSlots.length} men</div>
@@ -470,9 +621,11 @@ export default function SolDashboardPage() {
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: D.blueBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <TrendingUp size={14} style={{ color: D.blue }} />
                 </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Frekans</span>
+                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Frekans
+                </span>
               </div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 14, color: D.text }}>
+              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 'clamp(12px, 3.4vw, 14px)', color: D.text }}>
                 {FREQ_LABELS[plan.frequency] || plan.frequency}
               </div>
               <div style={{ fontSize: 10, color: D.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -486,10 +639,16 @@ export default function SolDashboardPage() {
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(155,89,182,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Star size={14} style={{ color: D.purple }} />
                   </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Pwen Pèfòmans</span>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Pwen Pèfòmans
+                  </span>
                 </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 20,
-                  color: (member.performanceScore ?? 0) >= 80 ? D.green : (member.performanceScore ?? 0) >= 50 ? D.orange : D.red }}>
+                <div style={{
+                  fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)',
+                  color: (member.performanceScore ?? 0) >= 80 ? D.green
+                       : (member.performanceScore ?? 0) >= 50 ? D.orange
+                       : D.red,
+                }}>
                   {member.performanceScore ?? 0}
                 </div>
                 <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>pts • Dinamik</div>
@@ -501,17 +660,30 @@ export default function SolDashboardPage() {
           <PerformanceMessage scoreData={scoreData} />
 
           {plan.regleman && (
-            <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: '18px 20px', marginBottom: 16 }}>
-              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>📜 Regleman Sòl la</p>
-              <p style={{ fontSize: 12, color: D.mutedLt, margin: 0, lineHeight: 1.8, whiteSpace: 'pre-line' }}>{plan.regleman}</p>
+            <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: 'clamp(14px, 4vw, 20px)', marginBottom: 16 }}>
+              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                📜 Regleman Sòl la
+              </p>
+              <p style={{ fontSize: 12, color: D.mutedLt, margin: 0, lineHeight: 1.8, whiteSpace: 'pre-line' }}>
+                {plan.regleman}
+              </p>
             </div>
           )}
 
           {/* ─── THEME SWITCHER ─── */}
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
             {Object.entries(THEMES).map(([key, t]) => (
-              <button key={key} onClick={() => { setTheme(key); localStorage.setItem('sol_theme', key) }}
-                style={{ padding: '4px 9px', borderRadius: 18, cursor: 'pointer', fontSize: 10, fontWeight: 700, border: 'none', background: theme === key ? t.accent : 'rgba(128,128,128,0.15)', color: theme === key ? '#fff' : D.muted, transition: 'all 0.2s' }}>
+              <button
+                key={key}
+                onClick={() => { setTheme(key); localStorage.setItem('sol_theme', key) }}
+                style={{
+                  padding: '4px 9px', borderRadius: 18, cursor: 'pointer',
+                  fontSize: 10, fontWeight: 700, border: 'none',
+                  background: theme === key ? t.accent : 'rgba(128,128,128,0.15)',
+                  color: theme === key ? '#fff' : D.muted,
+                  transition: 'all 0.2s',
+                }}
+              >
                 {t.name}
               </button>
             ))}
@@ -520,8 +692,17 @@ export default function SolDashboardPage() {
           {/* ─── TABS ─── */}
           <div className="sol-tabs">
             {[['history','📋 Istwa'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t, l]) => (
-              <button key={t} className="sol-tab-btn" onClick={() => { setTab(t); if (t === 'chat') setUnreadCount(0) }}
-                style={{ border: 'none', background: tab === t ? D.goldDim : 'transparent', color: tab === t ? D.gold : D.muted, fontFamily: 'inherit', position: 'relative', fontSize: 11 }}>
+              <button
+                key={t}
+                className="sol-tab-btn"
+                onClick={() => { setTab(t); if (t === 'chat') setUnreadCount(0) }}
+                style={{
+                  border: 'none',
+                  background: tab === t ? D.goldDim : 'transparent',
+                  color: tab === t ? D.gold : D.muted,
+                  fontFamily: 'inherit', position: 'relative', fontSize: 11,
+                }}
+              >
                 {l}
                 {t === 'chat' && unreadCount > 0 && (
                   <span style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 16, height: 16, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', boxShadow: '0 2px 6px rgba(239,68,68,0.5)' }}>
@@ -535,23 +716,27 @@ export default function SolDashboardPage() {
           {/* ─── ISTWA PEMAN ─── */}
           {tab === 'history' && (
             <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 20, overflow: 'hidden' }}>
-              <div style={{ padding: '16px 20px', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 13, fontWeight: 700, color: D.text }}>Istwa Peman</span>
+              <div style={{ padding: 'clamp(12px, 3.5vw, 16px) clamp(14px, 4vw, 20px)', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 'clamp(12px, 3.2vw, 13px)', fontWeight: 700, color: D.text }}>
+                  Istwa Peman
+                </span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: D.muted, background: D.goldDim, padding: '2px 9px', borderRadius: 7 }}>
                   {totalPaid}/{dates.length}
                 </span>
               </div>
-              <div className="sol-scroll" style={{ maxHeight: 420, overflowY: 'auto' }}>
+              <div className="sol-scroll" style={{ maxHeight: 420, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
                 {dates.map((d, i) => {
-                  const paid    = !!member.payments?.[d]
-                  const timing  = member.paymentTimings?.[d]
-                  // ✅ FIX: isPast itilize isDateOverdue — pa "anreta" si fenèt peman poko fini
-                  const isPast  = isDateOverdue(d)
-                  const isWin   = allSlots.some(slot => i === slot.position - 1)
+                  const paid     = !!member.payments?.[d]
+                  const timing   = member.paymentTimings?.[d]
+                  const isPast   = isDateOverdue(d) // ✅ FIX: respekte dueTimeEnd
+                  const isWin    = allSlots.some(slot => i === slot.position - 1)
                   const montanDat = plan.amount * allSlots.length
                   return (
-                    <div key={d} className="sol-pay-row"
-                      style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}>
+                    <div
+                      key={d}
+                      className="sol-pay-row"
+                      style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}
+                    >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: isPast ? D.text : D.muted, flexShrink: 0, fontWeight: 500 }}>
                           {d.split('-').reverse().join('/')}
@@ -592,18 +777,24 @@ export default function SolDashboardPage() {
 
           {/* ─── AKSYON MOBIL ─── */}
           <div className="sol-mobile-actions">
-            <button onClick={() => setShowPayModal(true)} style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}>
+            <button
+              onClick={() => setShowPayModal(true)}
+              style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
+            >
               📱 Peye pa Moncash / Natcash
             </button>
-            <button onClick={() => setShowChangePw(true)} style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}>
+            <button
+              onClick={() => setShowChangePw(true)}
+              style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
+            >
               <Key size={13} /> Chanje Modpas
             </button>
           </div>
         </div>
       </div>
 
-      {showPayModal && <ModalPayMobile onClose={() => setShowPayModal(false)} />}
-      {showChangePw && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
+      {showPayModal  && <ModalPayMobile      onClose={() => setShowPayModal(false)} />}
+      {showChangePw  && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
     </div>
   )
 }
