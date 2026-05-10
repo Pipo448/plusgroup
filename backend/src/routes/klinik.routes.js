@@ -850,4 +850,180 @@ router.get('/famasi', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ═══════════════════════════════════════════════════════════════
+// LÒT DEPANS (manje, dlo, kouran, mentnans, eks.)
+// ─── Kole seksyon sa a nan klinik.routes.js ANVAN module.exports ───
+// ═══════════════════════════════════════════════════════════════
+
+const KATEGORI_DEPANS_VALID = [
+  'manje', 'dlo', 'kouran', 'mentnans',
+  'founiti', 'transpo', 'tel_net', 'lwaye', 'lot'
+]
+
+// GET /klinik/lot-depans — lis ak filtre
+router.get('/lot-depans', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { kategori, dat_de, dat_a, page = 1, limit = 200 } = req.query
+    const lim    = Math.min(Number(limit), 500)
+    const offset = (Number(page) - 1) * lim
+
+    let where = `WHERE tenant_id=$1::uuid`
+    const params = [tenantId]
+    let idx = 2
+    if (kategori) { where += ` AND kategori=$${idx++}`;       params.push(kategori) }
+    if (dat_de)   { where += ` AND dat>=$${idx++}::date`;     params.push(dat_de)   }
+    if (dat_a)    { where += ` AND dat<=$${idx++}::date`;     params.push(dat_a)    }
+
+    const [rows, countRow] = await Promise.all([
+      prisma.$queryRawUnsafe(
+        `SELECT * FROM klinik_lot_depans ${where} 
+         ORDER BY dat DESC, created_at DESC 
+         LIMIT ${lim} OFFSET ${offset}`,
+        ...params
+      ),
+      prisma.$queryRawUnsafe(
+        `SELECT COUNT(*) as total FROM klinik_lot_depans ${where}`,
+        ...params
+      ),
+    ])
+
+    res.json({
+      depans: rows,
+      total:  Number(countRow[0]?.total || 0),
+      page:   Number(page),
+      limit:  lim,
+    })
+  } catch (e) {
+    console.error('[GET /lot-depans] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
+
+// GET /klinik/lot-depans/stats — repartisyon pa kategori
+router.get('/lot-depans/stats', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { dat_de, dat_a } = req.query
+
+    let where = `WHERE tenant_id=$1::uuid`
+    const params = [tenantId]
+    let idx = 2
+    if (dat_de) { where += ` AND dat>=$${idx++}::date`; params.push(dat_de) }
+    if (dat_a)  { where += ` AND dat<=$${idx++}::date`; params.push(dat_a)  }
+
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT kategori, COALESCE(SUM(montan),0) AS total, COUNT(*) AS n
+       FROM klinik_lot_depans ${where}
+       GROUP BY kategori ORDER BY total DESC`,
+      ...params
+    )
+
+    const parKategori = {}
+    let total = 0, count = 0
+    rows.forEach(r => {
+      const t = Number(r.total || 0)
+      parKategori[r.kategori] = t
+      total += t
+      count += Number(r.n || 0)
+    })
+
+    res.json({ total, count, parKategori })
+  } catch (e) {
+    console.error('[GET /lot-depans/stats] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
+
+// POST /klinik/lot-depans — kreye nouvo depans
+router.post('/lot-depans', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const userId   = req.user?.id || null
+    const { kategori, description, montan, dat, notes } = req.body
+
+    // Validasyon
+    if (!kategori) return res.status(400).json({ message: 'Kategori obligatwa.' })
+    if (!KATEGORI_DEPANS_VALID.includes(kategori)) {
+      return res.status(400).json({ message: `Kategori "${kategori}" pa valid.` })
+    }
+    if (!description || !description.trim()) {
+      return res.status(400).json({ message: 'Deskripsyon obligatwa.' })
+    }
+    const montanNum = Number(montan)
+    if (!montanNum || montanNum <= 0) {
+      return res.status(400).json({ message: 'Montan dwe pi gwo pase 0.' })
+    }
+
+    const datVal = dat || new Date().toISOString().split('T')[0]
+
+    const rows = await prisma.$queryRaw`
+      INSERT INTO klinik_lot_depans
+        (tenant_id, kategori, description, montan, dat, notes, created_by)
+      VALUES
+        (${tenantId}::uuid, ${kategori}, ${description.trim()}, ${montanNum},
+         ${datVal}::date, ${notes?.trim() || null}, ${userId}::uuid)
+      RETURNING *
+    `
+    res.status(201).json({ depans: rows[0] })
+  } catch (e) {
+    console.error('[POST /lot-depans] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
+
+// PUT /klinik/lot-depans/:id — mizajou
+router.put('/lot-depans/:id', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const { kategori, description, montan, dat, notes } = req.body
+
+    if (kategori !== undefined && !KATEGORI_DEPANS_VALID.includes(kategori)) {
+      return res.status(400).json({ message: `Kategori "${kategori}" pa valid.` })
+    }
+    if (montan !== undefined) {
+      const m = Number(montan)
+      if (!m || m <= 0) return res.status(400).json({ message: 'Montan dwe pi gwo pase 0.' })
+    }
+
+    const rows = await prisma.$queryRaw`
+      UPDATE klinik_lot_depans SET
+        kategori    = COALESCE(${kategori || null}, kategori),
+        description = COALESCE(${description?.trim() || null}, description),
+        montan      = COALESCE(${montan !== undefined ? Number(montan) : null}, montan),
+        dat         = COALESCE(${dat || null}::date, dat),
+        notes       = COALESCE(${notes?.trim() || null}, notes),
+        updated_at  = NOW()
+      WHERE id=${req.params.id}::uuid AND tenant_id=${tenantId}::uuid
+      RETURNING *
+    `
+    if (!rows[0]) return res.status(404).json({ message: 'Depans pa jwenn.' })
+    res.json({ depans: rows[0] })
+  } catch (e) {
+    console.error('[PUT /lot-depans] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
+
+// DELETE /klinik/lot-depans/:id — efase
+router.delete('/lot-depans/:id', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const result = await prisma.$queryRaw`
+      DELETE FROM klinik_lot_depans
+      WHERE id=${req.params.id}::uuid AND tenant_id=${tenantId}::uuid
+      RETURNING id
+    `
+    if (!result[0]) return res.status(404).json({ message: 'Depans pa jwenn.' })
+    res.json({ success: true, id: result[0].id })
+  } catch (e) {
+    console.error('[DELETE /lot-depans] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// FEN SEKSYON LÒT DEPANS
+// ═══════════════════════════════════════════════════════════════
+
 module.exports = router
