@@ -1,8 +1,11 @@
 // backend/src/modules/sabotay/sabotay.service.js
+// ✅ FIX: `isLate` nan getMemberAccount respekte `dueTimeEnd`
+//        konsistan ak fix nan position-ranking.service.js
+
 const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 
-// ✅ Import rankingSvc pou timing granulè
+// ✅ Import rankingSvc pou timing granulè + helpers
 const rankingSvc = require('./position-ranking.service')
 
 function computePaymentDate(startDate, frequency, position, interval = 1) {
@@ -53,23 +56,21 @@ function generatePassword(length = 8) {
   return pass
 }
 
-// ✅ FIX: Itilize shortTenantId (8 premye karaktè tenantId) kòm prefiks username
-// — garanti inik pou tout tan, menm si 2 tenant gen menm slug oswa menm non
 function getTenantPrefix(tenantId) {
   return String(tenantId || 'tn').slice(0, 8)
 }
+
 async function getStats(tenantId, branchId) {
   const where = { tenantId, ...(branchId && { branchId }) }
 
-  // ✅ FIX: Minwi Ayiti (UTC-5) = 5 AM UTC
-  // Evite konte peman 7 PM - minwi Ayiti kòm "yè"
+  // Minwi Ayiti (UTC-5) = 5 AM UTC
   const nowUtc    = new Date()
   const haitiNow  = new Date(nowUtc.getTime() - 5 * 60 * 60 * 1000)
   const haitiMidnight = new Date(Date.UTC(
     haitiNow.getUTCFullYear(),
     haitiNow.getUTCMonth(),
     haitiNow.getUTCDate(),
-    5, 0, 0, 0   // 5h AM UTC = 0h minwi Ayiti
+    5, 0, 0, 0,
   ))
 
   const [totalPlans, activePlans, totalMembers, paymentsToday] = await Promise.all([
@@ -79,7 +80,7 @@ async function getStats(tenantId, branchId) {
     prisma.sabotayPayment.count({
       where: {
         plan: { tenantId },
-        paidDate: { gte: haitiMidnight }  // ✅ Minwi Ayiti vrè
+        paidDate: { gte: haitiMidnight }
       }
     }),
   ])
@@ -279,7 +280,6 @@ async function addMember(tenantId, planId, userId, data) {
     if (posExists) throw new Error(`Pozisyon #${pos} deja pran pa ${posExists.name}.`)
   }
 
-  // ── ETAP 1: Kreye manm yo DABÒ ───────────────────────────
   const createdMembers = []
 
   for (const pos of positionsToCreate) {
@@ -302,7 +302,6 @@ async function addMember(tenantId, planId, userId, data) {
 
   const firstMember = createdMembers[0].member
 
-  // ── ETAP 2: Kreye/jwenn kont Sol — APRE memberId disponib ──
   let solAccount  = null
   let rawPassword = null
   let isExistingAccount = false
@@ -311,13 +310,11 @@ async function addMember(tenantId, planId, userId, data) {
     const bcrypt     = require('bcryptjs')
     const cleanPhone = phone.replace(/\s/g, '').trim()
 
-    // ✅ Verifye si kont Sol deja egziste pou nimewo sa NAN TENAN AKTYÈL la
     solAccount = await prisma.solMemberAccount.findFirst({
       where: { tenantId, memberPhone: cleanPhone }
     })
 
     if (solAccount) {
-      // ✅ Kont egziste nan menm tenan an — Reyitilize li (otomatik)
       console.log(`[addMember] Kont Sol egziste pou ${phone} nan tenan ${tenantId} — username: ${solAccount.username}`)
       isExistingAccount = true
       if (!solAccount.memberId) {
@@ -327,7 +324,6 @@ async function addMember(tenantId, planId, userId, data) {
         })
       }
     } else {
-      // Pa gen kont nan tenan aktyèl la — Kreye nouvo kont
       console.log(`[addMember] Nouvo kont Sol pou ${phone} nan tenan ${tenantId}`)
       const rawUsername = credentials?.username
         ? credentials.username.toLowerCase().trim()
@@ -335,24 +331,19 @@ async function addMember(tenantId, planId, userId, data) {
 
       rawPassword = credentials?.password || generatePassword(8)
 
-      // ✅ FIX: Rezolisyon kolizyon username — itilize 8 premye karaktè tenantId kòm prefiks
-      // Garanti inik pou tout tan, menm si 2 tenant gen menm slug oswa menm non
       let finalUsername = rawUsername
       const usernameExists = await prisma.solMemberAccount.findFirst({
         where: { username: rawUsername }
       })
 
       if (usernameExists) {
-        // ✅ Itilize shortTenantId olye slug — pa bezwen query DB anplis, toujou inik
         const shortTenantId  = getTenantPrefix(tenantId)
         const prefixedUsername = `${shortTenantId}-${rawUsername}`
 
-        // Verifye si prefiks la disponib tou (trè ra men pwoteksyon anplis)
         const prefixedExists = await prisma.solMemberAccount.findFirst({
           where: { username: prefixedUsername }
         })
 
-        // Si prefiks la disponib → itilize l. Sinon, ajoute 4 dènye karaktè tenantId pou garanti inisite.
         finalUsername = prefixedExists
           ? `${prefixedUsername}-${tenantId.slice(-4)}`
           : prefixedUsername
@@ -376,10 +367,8 @@ async function addMember(tenantId, planId, userId, data) {
     }
   } catch (err) {
     console.error('[sabotay] ❌ Kont Sol erè DETAY:', err)
-    // Pa throw — manm kreye nèt, kont Sol echwe silansyezman
   }
 
-  // ── ETAP 3: Kreye SolMemberPosition pou chak slot ──────────
   for (const { member, collectDate } of createdMembers) {
     if (solAccount) {
       try {
@@ -403,7 +392,6 @@ async function addMember(tenantId, planId, userId, data) {
     }
   }
 
-  // ── Retounen ────────────────────────────────────────────────
   if (solAccount) {
     firstMember._solAccount = {
       username:      solAccount.username,
@@ -481,7 +469,6 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     const exists = await prisma.sabotayPayment.findFirst({ where: { planId, memberId, dueDate: new Date(dueDate) } })
     if (exists) continue
 
-    // ✅ FIX: Toujou kalkile sèvè — ignore timing kliyan (lòlòj navigatè pa fyab)
     const timing = rankingSvc.computeDetailedTiming(
       dueDate,
       new Date(),
@@ -516,7 +503,6 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     await prisma.sabotayMember.update({ where: { id: memberId }, data: { fines: updatedFines } })
   }
 
-  // Sinkwonize SolMemberPosition
   if (createdPayments.length > 0) {
     try {
       const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId } })
@@ -583,7 +569,10 @@ async function getMemberAccount(tenantId, planId, memberId) {
 
   const progressPct = totalMembers > 0 ? Math.round((member.payments.length / totalMembers) * 100) : 0
   const totalFines  = Object.values(member.fines || {}).reduce((s, v) => s + Number(v), 0)
-  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+
+  // ✅ FIX: Pran ni today ni currentTime, e itilize isDateOverdue ki konsidere dueTimeEnd
+  const { today, currentTime } = rankingSvc.getHaitiNow()
+  const dueTimeEnd = plan.dueTimeEnd || '17:00'
 
   const allDueDates = Array.from({ length: totalMembers }, (_, i) => {
     const d = new Date(plan.startDate)
@@ -592,11 +581,13 @@ async function getMemberAccount(tenantId, planId, memberId) {
   })
 
   const paymentHistory = allDueDates.map((dueDate, i) => {
-    const paid   = member.payments.find(p => p.dueDate.toISOString().split('T')[0] === dueDate)
-    const isPast = dueDate <= today
+    const paid = member.payments.find(p => p.dueDate.toISOString().split('T')[0] === dueDate)
+    // ✅ FIX: An reta sèlman si VRÈMAN pase oswa jodi APRE dueTimeEnd
+    const isOverdue = rankingSvc.isDateOverdue(dueDate, today, currentTime, dueTimeEnd)
     return {
       index: i + 1, dueDate, amount,
-      isPaid: !!paid, isLate: isPast && !paid,
+      isPaid: !!paid,
+      isLate: isOverdue && !paid, // ✅ pa enklud jodi avan dueTimeEnd
       paidDate: paid?.paidDate || null, method: paid?.method || null,
       paymentId: paid?.id || null, fineAmt: paid?.fineAmt || (member.fines?.[dueDate] || 0),
       timing: paid?.timing || null,
@@ -604,7 +595,7 @@ async function getMemberAccount(tenantId, planId, memberId) {
   })
 
   return {
-    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', regleman: plan.regleman || null },
+    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || '15:00', regleman: plan.regleman || null },
     member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {} },
     summary: { totalExpected, totalPaid, remaining: Math.max(0, totalExpected - totalPaid), toCollect, progressPct, paidCount: member.payments.length, totalRounds: totalMembers, totalFines },
     paymentHistory,
@@ -612,8 +603,7 @@ async function getMemberAccount(tenantId, planId, memberId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// FIND SOL ACCOUNT BY PHONE — ✅ Tounen tou plan/pozisyon yo nan tenan aktyèl la
-// (pou UI ka montre konbyen plan moun nan deja patisipe)
+// FIND SOL ACCOUNT BY PHONE
 // ─────────────────────────────────────────────────────────────
 async function findSolAccountByPhone(tenantId, phone) {
   if (!phone) return null
@@ -623,7 +613,7 @@ async function findSolAccountByPhone(tenantId, phone) {
     where: { tenantId, memberPhone: clean },
     include: {
       positions: {
-        where: { tenantId },  // ✅ Sèlman pozisyon nan tenan aktyèl la
+        where: { tenantId },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -643,7 +633,6 @@ async function findSolAccountByPhone(tenantId, phone) {
 
   if (!account) return null
 
-  // ✅ Filtre sèlman pozisyon ki aktif (pa kanpe oswa fini)
   const activePositions = (account.positions || [])
     .filter(p => p.status !== 'stopped')
 
@@ -838,7 +827,6 @@ async function adjustMemberPosition(tenantId, planId, memberId, steps) {
 
   const newPosition = member.position + steps
 
-  // Manm ki ant pozisyon aktyèl ak nouvo pozisyon an — yo monte 1 plas
   const membersToShift = await prisma.sabotayMember.findMany({
     where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true }
   })

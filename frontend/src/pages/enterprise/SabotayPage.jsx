@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // SabotayPage.jsx — Paj prensipal Sabotay Sol
 // (VERSION AK POZISYON DINAMIK)
+// ✅ FIX: pase currentTime nan computeMemberStatus pou respekte dueTimeEnd
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -16,6 +17,7 @@ import {
   getAllPaymentDates, getPayoutDateMap,
   computeMemberStatus, memberPayout, ownerPayout,
   calcDepoRezev, apiFetch,
+  getHaitiNow, // ✅ NOUVO
 } from './sabotayUtils'
 
 import {
@@ -43,17 +45,24 @@ export default function SabotayPage() {
     return () => document.head.removeChild(el)
   }, [])
 
+  // ✅ Tick chak 30s pou aktyalize `currentTime` san itilizatè rafrechi
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
+
   const { tenant }  = useAuthStore()
   const printer     = usePrinterState()
 
-  const [selectedPlan,  setSelected]   = useState(null)
+  const [selectedPlan,  setSelected]    = useState(null)
   const [showCreate,    setShowCreate]  = useState(false)
-  const [editingPlan,   setEditing]    = useState(null)
-  const [showAddMember, setAddMember]  = useState(false)
-  const [showDraw,      setDraw]       = useState(false)
-  const [showClosePlan, setClosePlan]  = useState(false)
+  const [editingPlan,   setEditing]     = useState(null)
+  const [showAddMember, setAddMember]   = useState(false)
+  const [showDraw,      setDraw]        = useState(false)
+  const [showClosePlan, setClosePlan]   = useState(false)
   const [memberCreds,   setMemberCreds] = useState(null)
-  const [search,        setSearch]     = useState('')
+  const [search,        setSearch]      = useState('')
 
   // ─── Chaje Plans ─────────────────────────────────────────
   const { data: plans = [], isLoading, error, refetch } = useQuery({
@@ -81,7 +90,8 @@ export default function SabotayPage() {
     onCloseDone: () => setClosePlan(false),
   })
 
-  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // ✅ FIX: itilize getHaitiNow ki bay ni today ni currentTime
+  const { today, currentTime } = getHaitiNow()
 
   // ─── Stats Global ─────────────────────────────────────────
   const totalMembers    = plans.reduce((a, p) => a + (p.members?.length || 0), 0)
@@ -95,9 +105,11 @@ export default function SabotayPage() {
       .reduce((b, m) => b + (m.payments?.[today] ? Number(p.amount) : 0), 0), 0)
   const depoRezevGlobal = plans.reduce((a, p) => a + calcDepoRezev(p, today), 0)
   const activePlans     = plans.filter(p => p.status !== 'closed' && p.status !== 'finished').length
+
+  // ✅ FIX: pase currentTime nan computeMemberStatus
   const globalWarnings  = plans.reduce((a, p) =>
     a + (p.members || []).filter(m => {
-      const s = computeMemberStatus(m, p, today)
+      const s = computeMemberStatus(m, p, today, currentTime)
       return s === 'blocked' || s === 'late'
     }).length, 0)
 
@@ -143,27 +155,27 @@ export default function SabotayPage() {
           onPaymentSaved={(memberId, dates, timings, fines) =>
             mutations.markPayment.mutate({ memberId, dates, timings, fines })
           }
-           onAdjustPosition={(memberId, steps) =>   // ✅ NOUVO
-    mutations.adjustPosition.mutate({ planId: activePlan.id, memberId, steps })
-  }
+          onAdjustPosition={(memberId, steps) =>
+            mutations.adjustPosition.mutate({ planId: activePlan.id, memberId, steps })
+          }
         />
       ) : (
         <>
           {/* PAGE HEAD */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
+          <div className="page-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12 }}>
             <div>
               <h1 style={{ color: D.gold, margin: 0, fontSize: 20, fontWeight: 900, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Wallet size={20} /> Sabotay Sol
               </h1>
               <p style={{ color: D.muted, margin: '3px 0 0', fontSize: 12 }}>Jesyon Sol — PlusGroup</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="page-head-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', borderRadius: 10, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12, background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: printer.connected ? D.green : D.muted }}>
-                🖨️ <span>{printer.connected ? 'Printer OK' : 'Printer'}</span>
+                🖨️ <span className="printer-label">{printer.connected ? 'Printer OK' : 'Printer'}</span>
               </button>
               <ReceiptSizeBtn />
-              <button onClick={() => setShowCreate(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 11, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 13, background: D.goldBtn, color: '#0a1222', boxShadow: '0 4px 16px rgba(201,168,76,0.30)' }}>
+              <button onClick={() => setShowCreate(true)} className="btn-new-plan" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 11, border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 13, background: D.goldBtn, color: '#0a1222', boxShadow: '0 4px 16px rgba(201,168,76,0.30)' }}>
                 <Plus size={15} /> Nouvo Plan
               </button>
             </div>
@@ -177,7 +189,7 @@ export default function SabotayPage() {
           )}
 
           {/* STATS GLOBAL */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 20 }}>
+          <div className="top-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10, marginBottom: 20 }}>
             {[
               { label: 'Plan Aktif',    val: activePlans,          color: D.gold,    bg: D.goldDim,              icon: <Wallet size={16} />      },
               { label: 'Total Manm',    val: totalMembers,         color: D.blue,    bg: D.blueBg,               icon: <Users size={16} />       },
@@ -185,10 +197,10 @@ export default function SabotayPage() {
               { label: 'Jodi a ✨',      val: fmt(todayCollected),  color: '#00d084', bg: 'rgba(0,208,132,0.10)', icon: <CheckCircle size={16} /> },
               { label: 'Depo Rezèv 💰', val: fmt(depoRezevGlobal), color: D.teal,    bg: 'rgba(20,184,166,0.10)',icon: <TrendingUp size={16} />  },
             ].map(({ label, val, color, bg, icon }) => (
-              <div key={label} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 13, padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>{icon}</div>
+              <div key={label} className="stat-card" style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 13, padding: '13px 15px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="stat-icon" style={{ width: 38, height: 38, borderRadius: 10, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>{icon}</div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14, color, wordBreak: 'break-word' }}>{val}</div>
+                  <div className="stat-val" style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 14, color, wordBreak: 'break-word' }}>{val}</div>
                   <div style={{ fontSize: 10, color: D.muted, fontWeight: 600 }}>{label}</div>
                 </div>
               </div>
@@ -196,7 +208,7 @@ export default function SabotayPage() {
           </div>
 
           {/* RECHÈCH */}
-          <div style={{ position: 'relative', marginBottom: 16, maxWidth: 360 }}>
+          <div className="search-wrap" style={{ position: 'relative', marginBottom: 16, maxWidth: 360 }}>
             <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: D.muted, pointerEvents: 'none' }} />
             <input style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: 10, fontSize: 13, border: '1.5px solid rgba(255,255,255,0.09)', outline: 'none', fontFamily: 'inherit', color: D.text, background: D.input, boxSizing: 'border-box' }}
               value={search} onChange={e => setSearch(e.target.value)} placeholder="Chèche plan..." />
@@ -222,13 +234,14 @@ export default function SabotayPage() {
                 const winner     = todayWinE ? plan.members?.find(m => m.position === Number(todayWinE[0])) : null
                 const payout     = memberPayout(plan)
                 const planDepo   = calcDepoRezev(plan, today)
+                // ✅ FIX: pase currentTime nan computeMemberStatus
                 const warnings   = (plan.members || []).filter(m => {
-                  const s = computeMemberStatus(m, plan, today)
+                  const s = computeMemberStatus(m, plan, today, currentTime)
                   return s === 'blocked' || s === 'late'
                 }).length
 
                 return (
-                  <div key={plan.id} onClick={() => setSelected(plan)} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer' }}>
+                  <div key={plan.id} className="plan-card" onClick={() => setSelected(plan)} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 14, padding: '14px 16px', cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10, gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 3, flexWrap: 'wrap' }}>

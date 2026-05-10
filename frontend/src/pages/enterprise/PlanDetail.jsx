@@ -14,6 +14,8 @@ import {
   getAllPaymentDates, getPayoutDateMap,
   computeMemberStatus, memberPayout, ownerPayout,
   hasOwnerSlot, getMemberSlots, calcDepoRezev,
+  // ✅ NOUVO: helpers ki respekte dueTimeEnd
+  getHaitiNow, isDateOverdue, computeLocalBreakdown,
 } from './sabotayUtils'
 
 import {
@@ -216,7 +218,10 @@ export default function PlanDetail({
 
   useEffect(() => { setView(null); setSlots(null) }, [plan.regleman, plan.updatedAt, plan.id])
 
-  const today     = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  // ✅ FIX: itilize getHaitiNow ki bay ni `today` ni `currentTime` (HH:MM)
+  const { today, currentTime } = getHaitiNow()
+  const dueTimeEnd = plan.dueTimeEnd || '17:00'
+
   const allDates  = useMemo(() => getAllPaymentDates(plan), [plan])
   const payoutMap = useMemo(() => getPayoutDateMap(plan), [plan])
   const isDynamic = !!plan.dynamicPositions
@@ -226,12 +231,17 @@ export default function PlanDetail({
 
   const activeMembers  = (plan.members || []).filter(m => m.status !== 'stopped')
   const totColl        = activeMembers.reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d]).length * plan.amount, 0) || 0
-  const totExp         = activeMembers.reduce((acc, m) => acc + allDates.filter(d => d <= today).length * plan.amount, 0) || 0
+  // ✅ FIX: dat "espere" sèlman si VRÈMAN an reta (pa konte jodi avan dueTimeEnd)
+  const totExp         = activeMembers.reduce(
+    (acc, m) => acc + allDates.filter(d => d < today || (d === today && currentTime > dueTimeEnd)).length * plan.amount,
+    0,
+  ) || 0
   const payout         = memberPayout(plan)
   const depoRezevTotal = useMemo(() => calcDepoRezev(plan, today), [plan, today])
 
-  const blockedCount = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'blocked').length
-  const lateCount    = (plan.members || []).filter(m => computeMemberStatus(m, plan, today) === 'late').length
+  // ✅ FIX: pase currentTime nan computeMemberStatus pou respekte dueTimeEnd
+  const blockedCount = (plan.members || []).filter(m => computeMemberStatus(m, plan, today, currentTime) === 'blocked').length
+  const lateCount    = (plan.members || []).filter(m => computeMemberStatus(m, plan, today, currentTime) === 'late').length
   const stoppedCount = (plan.members || []).filter(m => m.status === 'stopped').length
 
   const displayMembers = useMemo(() => {
@@ -445,18 +455,29 @@ export default function PlanDetail({
               const paid       = allDates.filter(d => m.payments?.[d]).length
               // ✅ FIX: Rès HTG = sa ki rete pou peye jis fen sol la
               const rèsHTG     = Math.max(0, (totalDates - paid) * plan.amount)
-              // ✅ FIX: Dat anreta = dat ki STRIKTEMAN pase (avan jodi) san peye
-              //         — jodi pa konsidere anreta menm si poko peye
-              const overdueDates = allDates.filter(d => d < today && !m.payments?.[d]).length
+              // ✅ FIX: Dat anreta = dat ki VRÈMAN an reta (respekte dueTimeEnd)
+              //         — jodi avan dueTimeEnd pa konsidere anreta
+              const overdueDates = allDates.filter(d =>
+                isDateOverdue(d, today, currentTime, dueTimeEnd) && !m.payments?.[d]
+              ).length
 
               const payoutDate = payoutMap[m.position]
               const isWin      = payoutDate === today
               const isOwn      = m.isOwnerSlot
               const fineTot    = Object.values(m.fines || {}).reduce((a, b) => a + Number(b), 0)
-              const mStatus    = computeMemberStatus(m, plan, today)
+              const mStatus    = computeMemberStatus(m, plan, today, currentTime) // ✅ pase currentTime
               const isStopped  = m.status === 'stopped'
-              const score      = m.performanceScore ?? null
-              const breakdown  = m.scoreBreakdown || null
+
+              // ✅ FIX KRITIK: rekalkile breakdown LOKALMAN pou respekte dueTimeEnd.
+              // Backend an ka ap voye `missing: -7` pou jodi a anvan fenèt peman fini —
+              // sa kòrèk sa.
+              const backendBreakdown = m.scoreBreakdown || null
+              const localBreakdown   = computeLocalBreakdown(m, plan, today, currentTime, backendBreakdown)
+              // Si pa gen okenn aktivite (pa peye anyen ANKÒ pa gen dat an reta),
+              // pa montre badge skò — manm la poko gen istwa.
+              const hasActivity = localBreakdown.count > 0
+              const score       = hasActivity ? localBreakdown.total : null
+              const breakdown   = hasActivity ? localBreakdown      : null
 
               return (
                 <div key={m._virtualKey || m.id} style={{

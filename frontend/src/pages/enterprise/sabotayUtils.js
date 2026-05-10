@@ -220,25 +220,121 @@ export function getPayoutDateMap(plan) {
   members.forEach(m => { map[m.position] = getPayoutDate(plan, m.position) })
   return map
 }
+// ─── LÈ AYITI HELPERS ─────────────────────────────────────────
+/**
+ * Retounen dat ak lè aktyèl Ayiti (UTC-5)
+ */
+export function getHaitiNow() {
+  const nowHaiti = new Date(Date.now() - 5 * 60 * 60 * 1000)
+  return {
+    today: nowHaiti.toISOString().split('T')[0],
+    currentTime: `${String(nowHaiti.getUTCHours()).padStart(2, '0')}:${String(nowHaiti.getUTCMinutes()).padStart(2, '0')}`,
+  }
+}
+
+/**
+ * Verifye si yon dat depase fenèt peman an (vrèman an reta).
+ *
+ * Yon dat se "an reta" SÈLMAN si:
+ *   • li avan jodi a, OUBYEN
+ *   • li jodi a epi lè a depase fen fenèt peman (`dueTimeEnd`)
+ *
+ * @param {string} date          — fòma 'YYYY-MM-DD'
+ * @param {string} today         — jodi a Ayiti (YYYY-MM-DD)
+ * @param {string} currentTime   — lè aktyèl Ayiti ('HH:MM')
+ * @param {string} dueTimeEnd    — fen fenèt peman ('HH:MM', default '17:00')
+ */
+export function isDateOverdue(date, today, currentTime, dueTimeEnd = '17:00') {
+  if (!date) return false
+  if (date < today) return true
+  if (date === today) return Boolean(currentTime) && currentTime > dueTimeEnd
+  return false
+}
+
 // ─── STATUT MANM ──────────────────────────────────────────────
-export function computeMemberStatus(member, plan, today) {
+/**
+ * Kalkile estati yon manm.
+ * ✅ FIX: aksepte `currentTime` opsyonèl pou respekte `dueTimeEnd` jodi a.
+ */
+export function computeMemberStatus(member, plan, today, currentTime = null) {
   if (member.status === 'stopped') return 'stopped'
   if (member.status === 'blocked') return 'blocked'
   if (member.hasWon)               return 'finished'
 
-  const allDates = getAllPaymentDates(plan)
-  const pastDates = allDates.filter(d => d <= today)
-  if (!pastDates.length) return 'active'
+  const allDates   = getAllPaymentDates(plan)
+  const dueTimeEnd = plan.dueTimeEnd || '17:00'
 
-  const unpaidPast = pastDates.filter(d => !member.payments?.[d])
+  // ✅ Si `currentTime` bay, sèvi ak `isDateOverdue` (ki konsidere fenèt peman).
+  // Si li pa bay, sèvi ak ansyen lojik la pou backward compatibility — men
+  // sèlman dat ki STRIKTEMAN avan jodi konte (jodi pa konsidere "pase").
+  const overduePast = currentTime
+    ? allDates.filter(d => isDateOverdue(d, today, currentTime, dueTimeEnd))
+    : allDates.filter(d => d < today)
+
+  if (!overduePast.length) return 'active'
+
+  const unpaidPast = overduePast.filter(d => !member.payments?.[d])
   if (!unpaidPast.length) return 'active'
 
-  const lateDays = plan.warningDelayDays || 0
+  const lateDays     = plan.warningDelayDays || 0
   const latestUnpaid = unpaidPast[0]
-  const daysDiff = Math.floor((new Date(today) - new Date(latestUnpaid)) / 86400000)
+  const daysDiff     = Math.floor((new Date(today) - new Date(latestUnpaid)) / 86400000)
 
   if (lateDays > 0 && daysDiff >= lateDays) return 'blocked'
   return 'late'
+}
+
+// ─── BREAKDOWN LOKAL (overrides backend pou respekte dueTimeEnd) ─
+/**
+ * Rekonstwi breakdown skò yon manm sou frontend pou respekte
+ * `dueTimeEnd`. Sa anile pwoblèm kote backend an kalkile `missing: -7`
+ * pou jodi a anvan fenèt peman an fini.
+ *
+ * Retounen yon objè ak menm fòma ak `m.scoreBreakdown`:
+ * { earlyDepo, earlyDay, early, onTime, lateWindow, late, veryLate, missing, total, count, inRecovery }
+ */
+const SCORE_POINTS = {
+  earlyDepo: +7, earlyDay: +5, early: +3, onTime: +1,
+  lateWindow: -1, late: -3, veryLate: -5, missing: -7,
+}
+
+export function computeLocalBreakdown(member, plan, today, currentTime, fallback = null) {
+  const allDates   = getAllPaymentDates(plan)
+  const dueTimeEnd = plan.dueTimeEnd || '17:00'
+
+  const breakdown = {
+    earlyDepo: 0, earlyDay: 0, early: 0, onTime: 0,
+    lateWindow: 0, late: 0, veryLate: 0, missing: 0,
+    total: 0, count: 0,
+    inRecovery: fallback?.inRecovery || false,
+  }
+
+  for (const d of allDates) {
+    if (member.payments?.[d]) {
+      // ✅ Peye — itilize timing ki sove a
+      const t = member.paymentTimings?.[d]
+      if (t && Object.prototype.hasOwnProperty.call(SCORE_POINTS, t)) {
+        breakdown[t]++
+        breakdown.count++
+      } else if (t === undefined) {
+        // Pa gen timing nan database — konsidere kòm `onTime` pa default
+        breakdown.onTime++
+        breakdown.count++
+      }
+    } else if (isDateOverdue(d, today, currentTime, dueTimeEnd)) {
+      // ✅ Pa peye epi VRÈMAN an reta (respekte dueTimeEnd)
+      breakdown.missing++
+      breakdown.count++
+    }
+    // Si pa peye epi pa an reta (jodi avan dueTimeEnd, oubyen fiti) → pa konte
+  }
+
+  // Kalkile total
+  breakdown.total = Object.entries(breakdown).reduce((sum, [k, v]) => {
+    return SCORE_POINTS[k] !== undefined ? sum + (v * SCORE_POINTS[k]) : sum
+  }, 0)
+
+  return breakdown
 }
 
 // ─── DEPO REZÈV ───────────────────────────────────────────────
