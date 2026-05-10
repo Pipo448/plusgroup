@@ -827,21 +827,72 @@ async function adjustMemberPosition(tenantId, planId, memberId, steps) {
 
   const newPosition = member.position + steps
 
+  // Verifye nouvo pozisyon an valid (egziste nan plan an)
+  const maxMember = await prisma.sabotayMember.findFirst({
+    where: { planId, isActive: true },
+    orderBy: { position: 'desc' },
+    select: { position: true },
+  })
+  const maxPosition = maxMember?.position || member.position
+  if (newPosition > maxPosition) {
+    throw new Error(`Pa ka desann pi ba pase pozisyon #${maxPosition}.`)
+  }
+
+  // Manm ki ant pozisyon aktyèl ak nouvo pozisyon an — yo monte 1 plas
   const membersToShift = await prisma.sabotayMember.findMany({
-    where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true }
+    where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true },
+    orderBy: { position: 'asc' },
   })
 
-  for (const m of membersToShift) {
-    await prisma.sabotayMember.update({ where: { id: m.id }, data: { position: m.position - 1 } })
+  if (membersToShift.length === 0) {
+    // Pa gen konfli — bouje dirèkteman
+    await prisma.sabotayMember.update({ where: { id: memberId }, data: { position: newPosition } })
     await prisma.solMemberPosition.updateMany({
-      where: { memberId: m.id, planId }, data: { memberPosition: m.position - 1 }
+      where: { memberId, planId }, data: { memberPosition: newPosition }
+    }).catch(() => {})
+    return { oldPosition: member.position, newPosition, shifted: 0 }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ✅ FIX P2002: 2-etap nan transaction pou evite unique constraint
+  //   [plan_id, position]. Sa se menm patèn ak recalculatePositions.
+  // ─────────────────────────────────────────────────────────────
+
+  // Konstwi lis tout manm yo ki dwe deplase + pozisyon final yo
+  const updates = [
+    { id: memberId, finalPos: newPosition },
+    ...membersToShift.map(m => ({ id: m.id, finalPos: m.position - 1 })),
+  ]
+
+  // ETAP 1: Tout manm yo sou pozisyon negatif tanporè (san konfli)
+  await prisma.$transaction(
+    updates.map((u, idx) =>
+      prisma.sabotayMember.update({
+        where: { id: u.id },
+        data:  { position: -(idx + 1000) }, // negatif inik — pa ka gen konfli
+      })
+    )
+  )
+
+  // ETAP 2: Pozisyon final yo
+  await prisma.$transaction(
+    updates.map(u =>
+      prisma.sabotayMember.update({
+        where: { id: u.id },
+        data:  { position: u.finalPos },
+      })
+    )
+  )
+
+  // Sinkwonize SolMemberPosition (pa gen unique constraint la)
+  for (const u of updates) {
+    await prisma.solMemberPosition.updateMany({
+      where: { memberId: u.id, planId },
+      data:  { memberPosition: u.finalPos },
     }).catch(() => {})
   }
 
-  await prisma.sabotayMember.update({ where: { id: memberId }, data: { position: newPosition } })
-  await prisma.solMemberPosition.updateMany({
-    where: { memberId, planId }, data: { memberPosition: newPosition }
-  }).catch(() => {})
+  console.log(`[ADJUST POS] Plan ${planId}: manm ${memberId} soti #${member.position} ale #${newPosition} (${membersToShift.length} manm deplase)`)
 
   return { oldPosition: member.position, newPosition, shifted: membersToShift.length }
 }
