@@ -391,10 +391,22 @@ export default function ProductsPage() {
     retry: 2
   })
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => productAPI.remove(id),
-    onSuccess: () => { toast.success(t('products.productDeleted')); qc.invalidateQueries(['products']) }
-  })
+const deleteMutation = useMutation({
+  mutationFn: (id) => productAPI.remove(id),
+  onSuccess: (response) => { 
+    const msg = response?.data?.message || t('products.productDeleted');
+    const isSoft = response?.data?.soft;
+    if (isSoft) {
+      toast(msg, { icon: 'ℹ️', duration: 5000 });
+    } else {
+      toast.success(msg);
+    }
+    qc.invalidateQueries(['products']);
+  },
+  onError: (e) => {
+    toast.error(e.response?.data?.message || 'Erè pandan siprime pwodwi a.');
+  }
+})
 
   const handleDelete = (p) => {
     if (confirm(t('products.deleteConfirm'))) deleteMutation.mutate(p.id)

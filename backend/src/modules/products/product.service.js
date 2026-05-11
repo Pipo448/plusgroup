@@ -1,11 +1,14 @@
 // src/modules/products/product.service.js
 const prisma = require('../../config/prisma');
 
-// ── GET ALL
+// ── GET ALL — ✅ KORIJE: default isActive=true san parameter
 const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId }) => {
   const where = {
     tenantId,
     ...(branchId && { branchId }),
+    // ✅ KORIJE: si frontend pa pase isActive, montre SÈLMAN aktif yo pa default
+    // Si ou vle wè inaktif yo, pase ?isActive=false eksplisitman
+    isActive: isActive === undefined ? true : isActive === 'true',
     ...(search && {
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
@@ -14,7 +17,6 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
       ]
     }),
     ...(categoryId && { categoryId }),
-    ...(isActive !== undefined && { isActive: isActive === 'true' })
   };
 
   const [products, total] = await Promise.all([
@@ -167,11 +169,31 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes,
   return updatedProduct;
 };
 
-// ── DELETE (soft)
+// ── DELETE — ✅ KORIJE: HARD DELETE si pa gen istorik, SOFT DELETE si gen
 const remove = async (tenantId, id) => {
   const product = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
-  await prisma.product.update({ where: { id }, data: { isActive: false } });
+
+  // Verifye si pwodwi a gen referans nan lòt tab yo
+  const [salesCount, movementsCount] = await Promise.all([
+    prisma.saleItem.count({ where: { productId: id } }).catch(() => 0),
+    prisma.stockMovement.count({ where: { productId: id } }).catch(() => 0),
+  ]);
+
+  const hasHistory = salesCount > 0 || movementsCount > 0;
+
+  if (hasHistory) {
+    // Gen istorik → SOFT DELETE (pou pwoteje entegrite done yo)
+    await prisma.product.update({ where: { id }, data: { isActive: false } });
+    return {
+      soft: true,
+      message: `Pwodwi a gen ${salesCount} vant ak ${movementsCount} mouvman stòk — li mete inaktif pou pa kraze istorik la.`
+    };
+  }
+
+  // Pa gen istorik → HARD DELETE (siprime nèt)
+  await prisma.product.delete({ where: { id } });
+  return { soft: false, message: 'Pwodwi siprime nèt.' };
 };
 
 // ── LOW STOCK
@@ -179,7 +201,6 @@ const getLowStock = async (tenantId, branchId) => {
   return prisma.product.findMany({
     where: {
       tenantId,
-      // ✅ KORIJE — filtre pa branch si branchId prezan
       ...(branchId && { branchId }),
       isActive:  true,
       isService: false,
@@ -190,14 +211,12 @@ const getLowStock = async (tenantId, branchId) => {
   });
 };
 
-// ── CATEGORIES ✅ KORIJE — filtre + kreye pa branchId
+// ── CATEGORIES
 const getCategories = async (tenantId, branchId) => {
   return prisma.productCategory.findMany({
     where: {
       tenantId,
       isActive: true,
-      // ✅ Si branchId prezan → montre sèlman kategori branch sa
-      // Si branchId null (admin san filtre) → montre tout
       ...(branchId && { branchId }),
     },
     include: { _count: { select: { products: true } } },
@@ -209,7 +228,6 @@ const createCategory = async (tenantId, branchId, data) => {
   return prisma.productCategory.create({
     data: {
       tenantId,
-      // ✅ KORIJE — lye kategori ak branch li kreye nan
       branchId: branchId || null,
       name:        data.name,
       nameFr:      data.nameFr,

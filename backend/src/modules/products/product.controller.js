@@ -35,8 +35,12 @@ const update = asyncHandler(async (req, res) => {
 });
 
 const remove = asyncHandler(async (req, res) => {
-  await svc.remove(req.tenant.id, req.params.id);
-  res.json({ success: true, message: 'Pwodui siprime avèk siksè.' });
+  const result = await svc.remove(req.tenant.id, req.params.id);
+  res.json({ 
+    success: true, 
+    message: result?.message || 'Pwodui siprime avèk siksè.',
+    soft: result?.soft || false
+  });
 });
 
 // ✅ KORIJE — pase branchId nan getCategories
