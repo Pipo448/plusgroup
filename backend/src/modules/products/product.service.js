@@ -1,12 +1,12 @@
 // src/modules/products/product.service.js
 const prisma = require('../../config/prisma');
 
-// ── GET ALL — ✅ KORIJE: default isActive=true san parameter
+// ── GET ALL — default isActive=true si frontend pa pase parameter
 const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId }) => {
   const where = {
     tenantId,
     ...(branchId && { branchId }),
-    // ✅ KORIJE: si frontend pa pase isActive, montre SÈLMAN aktif yo pa default
+    // ✅ Si frontend pa pase isActive, montre SÈLMAN aktif yo pa default
     // Si ou vle wè inaktif yo, pase ?isActive=false eksplisitman
     isActive: isActive === undefined ? true : isActive === 'true',
     ...(search && {
@@ -169,45 +169,32 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes,
   return updatedProduct;
 };
 
-// ── DELETE — eseye hard delete, tonbe sou soft delete si gen FK constraint
+// ── DELETE — eseye hard delete; nenpòt erè → tonbe sou soft delete otomatikman
 const remove = async (tenantId, id) => {
   const product = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
 
   try {
+    // Eseye siprime nèt
     await prisma.product.delete({ where: { id } });
     return { soft: false, message: 'Pwodwi siprime nèt.' };
   } catch (err) {
-    if (err.code === 'P2003' || err.code === 'P2014') {
-      await prisma.product.update({ where: { id }, data: { isActive: false } });
-      return {
-        soft: true,
-        message: 'Pwodwi a gen istorik (vant oswa mouvman stòk) — li mete inaktif olye siprime nèt.'
-      };
-    }
-    throw err;
-};
+    // Log erè a pou debug (w ap wè l nan Render Logs)
+    console.error('[Product DELETE] Hard delete failed, fallback to soft:', {
+      productId: id,
+      code: err.code,
+      message: err.message,
+      meta: err.meta
+    });
 
-  // Verifye si pwodwi a gen referans nan lòt tab yo
-  const [salesCount, movementsCount] = await Promise.all([
-    prisma.saleItem.count({ where: { productId: id } }).catch(() => 0),
-    prisma.stockMovement.count({ where: { productId: id } }).catch(() => 0),
-  ]);
-
-  const hasHistory = salesCount > 0 || movementsCount > 0;
-
-  if (hasHistory) {
-    // Gen istorik → SOFT DELETE (pou pwoteje entegrite done yo)
+    // Nenpòt erè (FK, constraint, oswa lòt) → fè soft delete
+    // Sa pwoteje entegrite done yo: fakti, quote, mouvman stòk yo rete valid
     await prisma.product.update({ where: { id }, data: { isActive: false } });
     return {
       soft: true,
-      message: `Pwodwi a gen ${salesCount} vant ak ${movementsCount} mouvman stòk — li mete inaktif pou pa kraze istorik la.`
+      message: 'Pwodwi a gen istorik nan sistèm nan (fakti, quote, elatriye) — li mete inaktif.'
     };
   }
-
-  // Pa gen istorik → HARD DELETE (siprime nèt)
-  await prisma.product.delete({ where: { id } });
-  return { soft: false, message: 'Pwodwi siprime nèt.' };
 };
 
 // ── LOW STOCK
