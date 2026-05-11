@@ -392,7 +392,7 @@ export default function ProductsPage() {
   })
 
 const deleteMutation = useMutation({
-  mutationFn: (id) => productAPI.remove(id),
+  mutationFn: (id) => productAPI.delete(id),
   onSuccess: (response) => { 
     const msg = response?.data?.message || t('products.productDeleted');
     const isSoft = response?.data?.soft;
