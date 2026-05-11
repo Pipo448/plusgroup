@@ -4,6 +4,10 @@
 // Path: src/modules/sabotay/position-ranking.service.js
 // ✅ FIX: Respekte dueTimeEnd — jodi a pa konte kòm "missing"
 //         anvan fenèt peman fini.
+// ✅ FIX P2002: 3-etap pou evite unique constraint [plan_id, position]
+//              Etap 1: TOU manm → negatif
+//              Etap 2a: hasWon → pozisyon orijinal yo
+//              Etap 2b: scored → pozisyon final yo
 // ══════════════════════════════════════════════════════════════
 
 const { PrismaClient } = require('@prisma/client')
@@ -38,9 +42,6 @@ function getHaitiToday() {
     .toISOString().split('T')[0]
 }
 
-/**
- * ✅ NOUVO: Retounen ni dat ni lè aktyèl Ayiti
- */
 function getHaitiNow() {
   const nowHaiti = new Date(Date.now() - 5 * 60 * 60 * 1000)
   return {
@@ -49,15 +50,6 @@ function getHaitiNow() {
   }
 }
 
-/**
- * ✅ NOUVO: Yon dat se "an reta" SÈLMAN si:
- *   • li avan jodi a, OUBYEN
- *   • li jodi a epi lè a depase fen fenèt peman (`dueTimeEnd`)
- *
- * Si parametr opsyonèl `currentTime` oswa `dueTimeEnd` manke,
- * fonksyon an konsidere SÈLMAN dat ki STRIKTEMAN avan jodi kòm "an reta".
- * Sa vle di: jodi a PA konte kòm "missing" pa default. Sa pi sekirite.
- */
 function isDateOverdue(date, today, currentTime = null, dueTimeEnd = null) {
   if (!date) return false
   if (date < today) return true
@@ -165,13 +157,6 @@ function getAllPaymentDates(plan) {
 
 // ─────────────────────────────────────────────────────────────
 // KALKILE SKOR
-// ✅ FIX KRITIK: aksepte `currentTime` ak `dueTimeEnd` opsyonèl
-//
-// Lojik:
-//   • Dat fiti OSWA jodi avan dueTimeEnd      → pa peye = pa penalize
-//   • Dat ki VRÈMAN an reta (pase, oswa jodi
-//     apre dueTimeEnd) ki pa peye             → -7 (missing)
-//   • Tout peman fèt                          → konte selon timing yo
 // ─────────────────────────────────────────────────────────────
 function calcScore(member, allDates, today, currentTime = null, dueTimeEnd = null) {
   const payments       = member.payments       || {}
@@ -179,20 +164,16 @@ function calcScore(member, allDates, today, currentTime = null, dueTimeEnd = nul
 
   const history = []
   for (const date of allDates) {
-    // ✅ FIX KRITIK: itilize isDateOverdue olye `date > today`
     const overdue = isDateOverdue(date, today, currentTime, dueTimeEnd)
 
     if (!overdue) {
-      // Dat fiti OSWA jodi avan dueTimeEnd
       if (payments[date]) {
         const t = paymentTimings[date] || 'earlyDepo'
         history.push({ date, timing: t, paid: true, isFuture: true })
       }
-      // Pa peye = pa penalize (poko an reta)
       continue
     }
 
-    // Dat VRÈMAN an reta
     if (payments[date]) {
       const t = paymentTimings[date] || 'onTime'
       history.push({ date, timing: t, paid: true, isFuture: false })
@@ -234,7 +215,6 @@ function calcScore(member, allDates, today, currentTime = null, dueTimeEnd = nul
 
 // ─────────────────────────────────────────────────────────────
 // BREAKDOWN SKOR — Detay pou afichaj UI
-// ✅ FIX: aksepte `currentTime` ak `dueTimeEnd` opsyonèl
 // ─────────────────────────────────────────────────────────────
 function calcScoreBreakdown(member, allDates, today, currentTime = null, dueTimeEnd = null) {
   const payments       = member.payments       || {}
@@ -248,7 +228,6 @@ function calcScoreBreakdown(member, allDates, today, currentTime = null, dueTime
 
   const history = []
   for (const date of allDates) {
-    // ✅ FIX KRITIK
     const overdue = isDateOverdue(date, today, currentTime, dueTimeEnd)
 
     if (!overdue) {
@@ -257,7 +236,6 @@ function calcScoreBreakdown(member, allDates, today, currentTime = null, dueTime
         history.push({ date, timing: t, paid: true, isFuture: true })
         breakdown[t] = (breakdown[t] || 0) + 1
       }
-      // Pa peye = pa konte
       continue
     }
 
@@ -294,8 +272,10 @@ async function generatePermanentId(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // REKALILE POZISYON
-// ✅ FIX P2002: 2-etap pou evite unique constraint [plan_id, position]
-// ✅ FIX TIMING: pase currentTime ak dueTimeEnd nan calcScore
+// ✅ FIX P2002 DEFINITIF: 3 etap pou evite unique constraint
+//   Etap 1  : TOU manm nan plan an → pozisyon temp negatif
+//   Etap 2a : hasWon members → retounen nan pozisyon orijinal yo
+//   Etap 2b : scored members → asiye pozisyon final yo
 // ─────────────────────────────────────────────────────────────
 async function recalculatePositions(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
@@ -306,7 +286,6 @@ async function recalculatePositions(planId) {
   if (!plan)                  throw new Error('Plan pa jwenn')
   if (!plan.dynamicPositions) return { skipped: true, reason: 'dynamicPositions dezaktive' }
 
-  // ✅ Pran ni today ni currentTime
   const { today, currentTime } = getHaitiNow()
   const dueTimeEnd = plan.dueTimeEnd || '17:00'
   const allDates   = getAllPaymentDates(plan)
@@ -323,11 +302,11 @@ async function recalculatePositions(planId) {
   const scored = competing.map(m => {
     const { payments, paymentTimings } = buildPaymentMap(m.payments)
     return {
-      id:          m.id,
-      permanentId: m.permanentId,
-      // ✅ FIX: pase currentTime ak dueTimeEnd
-      score:       calcScore({ ...m, payments, paymentTimings }, allDates, today, currentTime, dueTimeEnd),
-      createdAt:   m.createdAt,
+      id:             m.id,
+      permanentId:    m.permanentId,
+      originalPosition: m.position,
+      score:          calcScore({ ...m, payments, paymentTimings }, allDates, today, currentTime, dueTimeEnd),
+      createdAt:      m.createdAt,
     }
   })
 
@@ -339,23 +318,36 @@ async function recalculatePositions(planId) {
   const allPositions = plan.members.map(m => m.position).sort((a, b) => a - b)
   const available    = allPositions.filter(p => !wonPositions.has(p))
 
-  // ETAP 1: Pozisyon temp negatif
+  // ✅ ETAP 1: TOU manm nan plan an → pozisyon temp negatif
+  // Sa elimine tout risk constraint violation
   await prisma.$transaction(
-    scored.map((m, idx) =>
+    plan.members.map((m) =>
       prisma.sabotayMember.update({
         where: { id: m.id },
-        data:  { position: -(idx + 1000) },
+        data:  { position: -(Math.abs(m.position) + 9000) },
       })
     )
   )
 
-  // ETAP 2: Pozisyon final ak skor
+  // ✅ ETAP 2a: Remete manm hasWon yo nan pozisyon orijinal yo
+  if (wonMembers.length > 0) {
+    await prisma.$transaction(
+      wonMembers.map((m) =>
+        prisma.sabotayMember.update({
+          where: { id: m.id },
+          data:  { position: m.position },
+        })
+      )
+    )
+  }
+
+  // ✅ ETAP 2b: Asiye pozisyon final pou manm k ap konpete yo
   await prisma.$transaction(
     scored.map((m, idx) =>
       prisma.sabotayMember.update({
         where: { id: m.id },
         data: {
-          position:         available[idx] ?? m.position,
+          position:         available[idx] !== undefined ? available[idx] : -(idx + 1000),
           performanceScore: m.score,
         },
       })
@@ -376,7 +368,6 @@ async function recalculatePositions(planId) {
 
 // ─────────────────────────────────────────────────────────────
 // SNAPSHOT — Klasman aktyèl ak detay skor
-// ✅ FIX TIMING: pase currentTime ak dueTimeEnd
 // ─────────────────────────────────────────────────────────────
 async function getRankingSnapshot(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
@@ -386,7 +377,6 @@ async function getRankingSnapshot(planId) {
 
   if (!plan) throw new Error('Plan pa jwenn')
 
-  // ✅ Pran ni today ni currentTime
   const { today, currentTime } = getHaitiNow()
   const dueTimeEnd = plan.dueTimeEnd || '17:00'
   const allDates   = getAllPaymentDates(plan)
@@ -394,7 +384,6 @@ async function getRankingSnapshot(planId) {
   return plan.members.map(m => {
     const { payments, paymentTimings } = buildPaymentMap(m.payments)
     const mWithMaps = { ...m, payments, paymentTimings }
-    // ✅ FIX
     const breakdown = calcScoreBreakdown(mWithMaps, allDates, today, currentTime, dueTimeEnd)
 
     return {
@@ -420,7 +409,6 @@ module.exports = {
   computeDetailedTiming,
   getAllPaymentDates,
   buildPaymentMap,
-  // ✅ NOUVO: ekspoze helpers pou itilize lòt kote
   getHaitiToday,
   getHaitiNow,
   isDateOverdue,
