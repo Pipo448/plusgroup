@@ -169,10 +169,24 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes,
   return updatedProduct;
 };
 
-// ── DELETE — ✅ KORIJE: HARD DELETE si pa gen istorik, SOFT DELETE si gen
+// ── DELETE — eseye hard delete, tonbe sou soft delete si gen FK constraint
 const remove = async (tenantId, id) => {
   const product = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
+
+  try {
+    await prisma.product.delete({ where: { id } });
+    return { soft: false, message: 'Pwodwi siprime nèt.' };
+  } catch (err) {
+    if (err.code === 'P2003' || err.code === 'P2014') {
+      await prisma.product.update({ where: { id }, data: { isActive: false } });
+      return {
+        soft: true,
+        message: 'Pwodwi a gen istorik (vant oswa mouvman stòk) — li mete inaktif olye siprime nèt.'
+      };
+    }
+    throw err;
+};
 
   // Verifye si pwodwi a gen referans nan lòt tab yo
   const [salesCount, movementsCount] = await Promise.all([
