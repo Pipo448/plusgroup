@@ -27,6 +27,217 @@ import {
 } from './sabotayComponents'
 
 // ─────────────────────────────────────────────────────────────
+// ✅ CSS RESPONSIVE — Mobile-first, optimize pou workflow peman
+// ─────────────────────────────────────────────────────────────
+const PD_RESPONSIVE_STYLES = `
+  /* ─── HEAD ─── */
+  .pd-head {
+    display: flex;
+    align-items: center;
+    gap: clamp(7px, 1.8vw, 10px);
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+  .pd-head-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .pd-head-title h2 {
+    color: ${D.gold};
+    margin: 0;
+    font-size: clamp(15px, 4vw, 17px);
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pd-head-title p {
+    color: ${D.muted};
+    margin: 0;
+    font-size: clamp(10px, 2.6vw, 11px);
+  }
+  .pd-head-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    border: 1px solid ${D.border};
+    background: transparent;
+    color: ${D.muted};
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .pd-head-btn-primary {
+    padding: clamp(8px, 2vw, 10px) clamp(11px, 2.5vw, 13px);
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: ${D.goldBtn};
+    color: #0a1222;
+    font-weight: 800;
+    font-size: clamp(11px, 2.6vw, 12px);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+    min-height: 38px;
+  }
+
+  /* ─── STATS GRID ─── */
+  .pd-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: clamp(7px, 1.8vw, 9px);
+    margin-bottom: 16px;
+  }
+  .pd-stats-card {
+    background: ${D.card};
+    border: 1px solid ${D.border};
+    border-radius: 10px;
+    padding: clamp(9px, 2.2vw, 11px) clamp(10px, 2.5vw, 13px);
+    text-align: center;
+    min-width: 0;
+  }
+  .pd-stats-label {
+    font-size: clamp(8px, 2.2vw, 9px);
+    color: ${D.muted};
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+  .pd-stats-val {
+    font-family: monospace;
+    font-weight: 800;
+    font-size: clamp(11px, 2.8vw, 12px);
+    word-break: break-word;
+    line-height: 1.2;
+  }
+
+  /* ─── TABS — scroll orizontal sou mobil ─── */
+  .pd-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    align-items: center;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .pd-tabs::-webkit-scrollbar { display: none; }
+  .pd-tab-btn {
+    padding: clamp(7px, 2vw, 8px) clamp(11px, 2.8vw, 14px);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: clamp(11px, 2.7vw, 12px);
+    font-weight: 700;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 36px;
+  }
+  .pd-tab-shuffle {
+    padding: clamp(7px, 2vw, 8px) clamp(11px, 2.5vw, 13px);
+    border-radius: 9px;
+    border: 1px solid ${D.blue}40;
+    background: ${D.blueBg};
+    color: ${D.blue};
+    font-weight: 700;
+    font-size: clamp(11px, 2.7vw, 12px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: auto;
+    min-height: 36px;
+  }
+
+  /* ─── MEMBER ROW ─── */
+  .pd-member-row {
+    border-radius: 12px;
+    padding: clamp(10px, 2.6vw, 12px) clamp(11px, 2.8vw, 13px);
+  }
+  .pd-member-row-inner {
+    display: flex;
+    align-items: flex-start;
+    gap: clamp(8px, 2vw, 10px);
+  }
+  .pd-member-info {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .pd-member-name {
+    font-size: clamp(12px, 3.2vw, 13px);
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+  .pd-member-stats {
+    text-align: right;
+    flex-shrink: 0;
+    min-width: 65px;
+  }
+  .pd-member-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .pd-action-btn {
+    width: clamp(30px, 8vw, 32px);
+    height: clamp(30px, 8vw, 32px);
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.1s ease;
+  }
+  .pd-action-btn:active { transform: scale(0.9); }
+
+  /* ─── MOBIL — Stack member row pou bouton peman an ALWAYS aksesib ─── */
+  @media (max-width: 560px) {
+    .pd-member-row-inner {
+      flex-wrap: wrap;
+    }
+    .pd-member-actions {
+      width: 100%;
+      justify-content: flex-start;
+      gap: 6px;
+      padding-top: 10px;
+      margin-top: 8px;
+      border-top: 1px solid ${D.borderSub};
+    }
+    .pd-action-btn {
+      width: 38px;
+      height: 38px; /* pi gwo sou mobil pou touch */
+    }
+  }
+
+  /* ─── TI EKRAN (≤ 380px) ─── */
+  @media (max-width: 380px) {
+    .pd-head { gap: 6px; }
+    .pd-head-btn { width: 34px; height: 34px; }
+    .pd-stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ─── HOVER sèlman sou desktop ─── */
+  @media (hover: hover) {
+    .pd-action-btn:hover { transform: translateY(-1px); }
+  }
+`
+
+
+// ─────────────────────────────────────────────────────────────
 // ECHÈL PWEN — pou tooltip
 // ─────────────────────────────────────────────────────────────
 const SCORE_SCALE = [
@@ -218,6 +429,24 @@ export default function PlanDetail({
 
   useEffect(() => { setView(null); setSlots(null) }, [plan.regleman, plan.updatedAt, plan.id])
 
+  // ✅ Injekte CSS responsive yon sèl fwa
+  useEffect(() => {
+    if (document.getElementById('pd-responsive-styles')) return
+    const el = document.createElement('style')
+    el.id = 'pd-responsive-styles'
+    el.textContent = PD_RESPONSIVE_STYLES
+    document.head.appendChild(el)
+    return () => document.getElementById('pd-responsive-styles')?.remove()
+  }, [])
+
+  // ✅ Tick 30s pou aktyalize currentTime
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30000)
+    return () => clearInterval(id)
+  }, [])
+
+
   // ✅ FIX: itilize getHaitiNow ki bay ni `today` ni `currentTime` (HH:MM)
   const { today, currentTime } = getHaitiNow()
   const dueTimeEnd = plan.dueTimeEnd || '17:00'
@@ -264,13 +493,13 @@ export default function PlanDetail({
   return (
     <div>
       {/* ─── HEAD ─── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <button onClick={onBack} style={{ width: 36, height: 36, borderRadius: 10, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+      <div className="pd-head">
+        <button onClick={onBack} className="pd-head-btn" aria-label="Retounen">
           <ArrowLeft size={16} />
         </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="pd-head-title">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <h2 style={{ color: D.gold, margin: 0, fontSize: 17, fontWeight: 900, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{plan.name}</h2>
+            <h2>{plan.name}</h2>
             <PlanStatusBadge status={plan.status || 'open'} />
             {isDynamic && (
               <span style={{ fontSize: 9, background: 'rgba(59,130,246,0.15)', color: D.blue, padding: '2px 7px', borderRadius: 10, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
@@ -278,20 +507,20 @@ export default function PlanDetail({
               </span>
             )}
           </div>
-          <p style={{ color: D.muted, margin: 0, fontSize: 11 }}>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
+          <p>{freqFullLabel(plan)} • {fmt(plan.amount)} HTG / moun</p>
         </div>
         <PrinterBtn printer={printer} />
         <ReceiptSizeBtn />
-        <button onClick={onEditPlan} title="Modifye Plan" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <button onClick={onEditPlan} title="Modifye Plan" className="pd-head-btn">
           <Edit3 size={14} />
         </button>
         {!isPlanClosed && (
-          <button onClick={onClosePlan} title="Fèmen Plan" style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${D.red}40`, background: D.redBg, color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <button onClick={onClosePlan} title="Fèmen Plan" className="pd-head-btn" style={{ borderColor: `${D.red}40`, background: D.redBg, color: D.red }}>
             <StopCircle size={14} />
           </button>
         )}
         {!isPlanClosed && (
-          <button onClick={onAddMember} style={{ padding: '9px 12px', borderRadius: 10, border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 12, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+          <button onClick={onAddMember} className="pd-head-btn-primary" style={{ boxShadow: '0 4px 14px rgba(201,168,76,0.25)' }}>
             <Plus size={13} /><span>Enskri</span>
           </button>
         )}
@@ -361,7 +590,7 @@ export default function PlanDetail({
       )}
 
       {/* ─── STATS ─── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(120px,1fr))', gap: 9, marginBottom: 16 }}>
+      <div className="pd-stats">
         {[
           { label: 'Manm Aktif',    val: `${activeMembers.length}`,                                                                           color: D.blue   },
           { label: 'Kolekte Total', val: `${fmt(totColl)} HTG`,                                                                               color: D.green  },
@@ -370,25 +599,23 @@ export default function PlanDetail({
           { label: 'Depo Rezèv 💰', val: `${fmt(depoRezevTotal)} HTG`,                                                                        color: D.teal   },
           { label: 'Manm Touche',   val: `${fmt(payout)} HTG`,                                                                                color: D.gold   },
         ].map(({ label, val, color }) => (
-          <div key={label} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 10, padding: '11px 13px', textAlign: 'center' }}>
-            <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', fontWeight: 700, marginBottom: 3 }}>{label}</div>
-            <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color, wordBreak: 'break-word' }}>{val}</div>
+          <div key={label} className="pd-stats-card">
+            <div className="pd-stats-label">{label}</div>
+            <div className="pd-stats-val" style={{ color }}>{val}</div>
           </div>
         ))}
       </div>
 
-      {/* ─── TABS ─── */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* ─── TABS — Scroll orizontal otomatik sou mobil ─── */}
+      <div className="pd-tabs">
         {[['members', '👥 Manm'], ['calendar', '📅 Kalandriye'], ['exchange', '🔄 Echanj'], ['regleman', '📜 Regleman'], ['cash', '💰 Kès']].map(([t, l]) => (
-          <button key={t} onClick={() => setTab(t)} style={{
-            padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+          <button key={t} onClick={() => setTab(t)} className="pd-tab-btn" style={{
             border: `1px solid ${tab === t ? D.gold : D.borderSub}`,
             background: tab === t ? D.goldDim : 'transparent',
-            color: tab === t ? D.gold : D.muted, transition: 'all 0.15s',
+            color: tab === t ? D.gold : D.muted,
           }}>{l}</button>
         ))}
-        <div style={{ flex: 1 }} />
-        <button onClick={onBlindDraw} disabled={isPlanClosed} style={{ padding: '8px 13px', borderRadius: 9, border: `1px solid ${D.blue}40`, background: D.blueBg, color: D.blue, fontWeight: 700, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: isPlanClosed ? 0.4 : 1 }}>
+        <button onClick={onBlindDraw} disabled={isPlanClosed} className="pd-tab-shuffle" style={{ opacity: isPlanClosed ? 0.4 : 1 }}>
           <Shuffle size={13} /> Tiraj Avèg
         </button>
       </div>
@@ -480,18 +707,18 @@ export default function PlanDetail({
               const breakdown   = hasActivity ? localBreakdown      : null
 
               return (
-                <div key={m._virtualKey || m.id} style={{
+                <div key={m._virtualKey || m.id} className="pd-member-row" style={{
                   background: isStopped ? 'rgba(243,156,18,0.05)' : isOwn ? 'linear-gradient(135deg,rgba(201,168,76,0.12),rgba(201,168,76,0.04))' : isWin ? 'linear-gradient(135deg,rgba(39,174,96,0.10),rgba(201,168,76,0.06))' : D.card,
                   border: `1px solid ${isStopped ? `${D.orange}30` : isOwn ? `${D.gold}50` : isWin ? `${D.green}40` : D.border}`,
-                  borderRadius: 12, padding: '11px 13px', opacity: isStopped ? 0.75 : 1,
+                  opacity: isStopped ? 0.75 : 1,
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+                  <div className="pd-member-row-inner">
 
                     <PosBadge member={m} plan={plan} dynamic={isDynamic} />
 
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                    <div className="pd-member-info">
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginBottom: 2 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: isStopped ? D.orange : isOwn ? D.gold : D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 130 }}>
+                        <span className="pd-member-name" style={{ color: isStopped ? D.orange : isOwn ? D.gold : D.text }}>
                           {isOwn ? 'Pwopriyete Sol' : m.name}
                         </span>
                         {isWin && !isOwn && (
@@ -507,7 +734,7 @@ export default function PlanDetail({
                       )}
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: D.muted }}>{m.phone}</span>
+                        <span style={{ fontSize: 'clamp(10px, 2.7vw, 11px)', color: D.muted }}>{m.phone}</span>
                         {payoutDate && !isStopped && (
                           <span style={{ fontSize: 9, color: D.blue }}>🏆 {payoutDate.split('-').reverse().join('/')}</span>
                         )}
@@ -515,7 +742,7 @@ export default function PlanDetail({
                     </div>
 
                     {/* ✅ FIX: paid/totalDates + rès HTG */}
-                    <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 70 }}>
+                    <div className="pd-member-stats">
                       {isStopped ? (
                         <div style={{ fontSize: 10, color: D.orange, fontWeight: 700 }}>
                           {fmt(paid * plan.amount)} HTG<br />
@@ -523,12 +750,12 @@ export default function PlanDetail({
                         </div>
                       ) : (
                         <>
-                          <div style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid >= totalDates ? D.green : rèsHTG > 0 ? D.orange : D.muted }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: 'clamp(10px, 2.8vw, 11px)', fontWeight: 700, color: paid >= totalDates ? D.green : rèsHTG > 0 ? D.orange : D.muted }}>
                             {paid}/{totalDates}
                           </div>
-                          <div style={{ fontSize: 10, color: D.muted }}>{fmt(paid * plan.amount)} HTG</div>
+                          <div style={{ fontSize: 'clamp(9px, 2.5vw, 10px)', color: D.muted }}>{fmt(paid * plan.amount)} HTG</div>
                           {rèsHTG > 0 && (
-                            <div style={{ fontSize: 9, color: D.red, fontWeight: 700 }}>
+                            <div style={{ fontSize: 'clamp(8px, 2.3vw, 9px)', color: D.red, fontWeight: 700 }}>
                               Rès: {fmt(rèsHTG)} HTG
                             </div>
                           )}
@@ -537,44 +764,46 @@ export default function PlanDetail({
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <div className="pd-member-actions">
                       {!isStopped && plan.status !== 'finished' && (
-                        <button onClick={() => setPay(m)} title="Mache Peye" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: D.greenBg, color: D.green, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={() => setPay(m)} title="Make Peye" aria-label="Make Peye" className="pd-action-btn" style={{ background: D.greenBg, color: D.green }}>
                           <CheckCircle size={14} />
                         </button>
                       )}
-                      <button onClick={() => handleViewMember(m)} title="Kont Vityèl" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: D.goldDim, color: D.gold, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <button onClick={() => handleViewMember(m)} title="Kont Vityèl" aria-label="Kont Vityèl" className="pd-action-btn" style={{ background: D.goldDim, color: D.gold }}>
                         <Eye size={14} />
                       </button>
                       {!m.hasWon && (
                         <button
                           onClick={() => setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
                           title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
-                          style={{ width: 30, height: 30, borderRadius: 8, border: 'none',
+                          aria-label={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke'}
+                          className="pd-action-btn"
+                          style={{
                             background: mStatus === 'blocked' ? D.greenBg : isStopped ? D.blueBg : D.redBg,
                             color: mStatus === 'blocked' ? D.green : isStopped ? D.blue : D.red,
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          }}>
                           {mStatus === 'blocked' ? <Unlock size={13} /> : isStopped ? <UserCheck size={13} /> : <Lock size={13} />}
                         </button>
                       )}
                       {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
-                        <button onClick={() => setConfirmingPayout(m)} title="Konfime Touche" style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'rgba(201,168,76,0.2)', color: D.gold, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <button onClick={() => setConfirmingPayout(m)} title="Konfime Touche" aria-label="Konfime Touche" className="pd-action-btn" style={{ background: 'rgba(201,168,76,0.2)', color: D.gold }}>
                           <Trophy size={13} />
                         </button>
                       )}
 
-                    {!isStopped && !m.hasWon && !isOwn && (
-  <button
-    onClick={() => { setAdjustPos(m); setAdjustSteps(1) }}
-    title="Desann Pozisyon"
-    style={{ width: 30, height: 30, borderRadius: 8, border: 'none',
-      background: 'rgba(59,130,246,0.12)', color: D.blue,
-      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-    <TrendingDown size={13} />
-  </button>
-)}
+                      {!isStopped && !m.hasWon && !isOwn && (
+                        <button
+                          onClick={() => { setAdjustPos(m); setAdjustSteps(1) }}
+                          title="Desann Pozisyon"
+                          aria-label="Desann Pozisyon"
+                          className="pd-action-btn"
+                          style={{ background: 'rgba(59,130,246,0.12)', color: D.blue }}>
+                          <TrendingDown size={13} />
+                        </button>
+                      )}
                       {m.hasWon && (
-                        <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '2px 7px', borderRadius: 10, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
+                        <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '4px 8px', borderRadius: 10, fontWeight: 800, display: 'flex', alignItems: 'center' }}>
                           🏆 Touche
                         </span>
                       )}
