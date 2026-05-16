@@ -1,483 +1,293 @@
 // src/pages/auth/LoginPage.jsx
-// ─── Design pwòp & lejè — 100% CSS/SVG, ZERO foto lou ────────
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import api from '../../services/api'
+import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { Mail, Lock, Building2, Eye, EyeOff, Calendar, Users, FolderOpen, BarChart3, ShieldCheck, Heart } from 'lucide-react'
+import api from '../../services/api'
 
-// ── Palèt klè (medikal / pwofesyonèl) ───────────────────────
-const C = {
-  navy:     '#0F2A6B',
-  navyDeep: '#0A1A4A',
-  blue:     '#2563EB',
-  blueSoft: '#3B82F6',
-  orange:   '#F97316',
-  text:     '#1E293B',
-  muted:    '#64748B',
-  line:     '#E2E8F0',
-  white:    '#FFFFFF',
-}
+// ✅ KOREKSYON: fichye yo nan /public/assets/ — pa itilize import
+// Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
+const bannerImg = '/assets/banner.webp'
+const logoImg   = '/assets/logo.webp'
 
-// ── Logo SVG (kwa medikal ak ring — san fichye imaj) ────────
-function KlinikLogo({ size = 64 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M50 8 A42 42 0 1 1 16 30" stroke="#2563EB" strokeWidth="6" strokeLinecap="round" fill="none"/>
-      <path d="M50 8 A42 42 0 0 1 84 30" stroke="#F97316" strokeWidth="6" strokeLinecap="round" fill="none"/>
-      <rect x="40" y="24" width="20" height="52" rx="3" fill="#0F2A6B"/>
-      <rect x="24" y="40" width="52" height="20" rx="3" fill="#0F2A6B"/>
-    </svg>
-  )
-}
-
-const FEATURES = [
-  { icon: Calendar,   label: 'RANDEVOU',  desc: 'Planifye konsiltasyon yo fasil.',   color: '#F97316', bg: 'rgba(249,115,22,0.1)'  },
-  { icon: Users,      label: 'PASYAN',    desc: 'Santralize done pasyan ou yo.',     color: '#14B8A6', bg: 'rgba(20,184,166,0.1)'  },
-  { icon: FolderOpen, label: 'DOSYE',     desc: 'Aksè dosye medikal an sekirite.',   color: '#6366F1', bg: 'rgba(99,102,241,0.1)'  },
-  { icon: BarChart3,  label: 'RAPÒ',      desc: 'Swiv pèfòmans, pran bon desizyon.', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)'  },
+const LANGS = [
+  { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
+  { code:'fr', name:'Français', flag:'🇫🇷' },
+  { code:'en', name:'English',  flag:'🇺🇸' },
 ]
 
+const TEXTS = {
+  ht: { title:'Konekte nan kont ou', slug:'Non Entreprise (slug)', email:'Email', password:'Modpas', submit:'Konekte', loading:'Koneksyon...', forgot:'Ou bliye modpas ou?', reset:'Reyinisyalize', example:'Egzanp', demo:'Demo', slugRequired:'Slug obligatwa', emailRequired:'Email obligatwa', emailInvalid:'Email pa valid', passRequired:'Modpas obligatwa' },
+  fr: { title:'Connectez-vous', slug:'Nom Entreprise (slug)', email:'Email', password:'Mot de passe', submit:'Connexion', loading:'Connexion...', forgot:'Mot de passe oublié?', reset:'Réinitialiser', example:'Exemple', demo:'Démo', slugRequired:'Slug obligatoire', emailRequired:'Email obligatoire', emailInvalid:'Email invalide', passRequired:'Mot de passe obligatoire' },
+  en: { title:'Sign in', slug:'Company Name (slug)', email:'Email', password:'Password', submit:'Sign In', loading:'Signing in...', forgot:'Forgot password?', reset:'Reset', example:'Example', demo:'Demo', slugRequired:'Slug required', emailRequired:'Email required', emailInvalid:'Invalid email', passRequired:'Password required' },
+}
+
 export default function LoginPage() {
-  const navigate = useNavigate()
-  const setAuth  = useAuthStore(s => s.setAuth)
+  const navigate       = useNavigate()
+  const [searchParams] = useSearchParams()
+  const { setAuth, autoSetBranch } = useAuthStore()
 
-  const [slug,     setSlug]     = useState('')
-  const [email,    setEmail]    = useState('')
-  const [password, setPassword] = useState('')
-  const [showPwd,  setShowPwd]  = useState(false)
-  const [remember, setRemember] = useState(false)
+  const [show, setShow]         = useState(false)
+  const [loading, setLoading]   = useState(false)
+  const [showLang, setShowLang] = useState(false)
+  const { i18n } = useTranslation()
 
-  const mutation = useMutation({
-    mutationFn: async (data) => {
-      api.defaults.headers.common['X-Tenant-Slug'] = data.slug
-      const res = await api.post('/auth/login', {
-        email:    data.email,
-        password: data.password,
-      })
-      return res.data
-    },
-    onSuccess: (data) => {
-      setAuth({ token: data.token, user: data.user, tenant: data.tenant })
-      toast.success(`Byenveni, ${data.user?.fullName || 'Doktè'}!`)
-      navigate('/dashboard', { replace: true })
-    },
-    onError: (e) => {
-      toast.error(e.response?.data?.message || 'Email oswa modpas mal.')
-    },
-  })
+  const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
+  const tx = TEXTS[i18n.language] || TEXTS.ht
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!slug.trim())     { toast.error('Kòd klinik obligatwa.');  return }
-    if (!email.trim())    { toast.error('Email obligatwa.');        return }
-    if (!password.trim()) { toast.error('Modpas obligatwa.');       return }
-    mutation.mutate({ slug: slug.trim(), email: email.trim(), password })
+  const { register, handleSubmit, formState:{ errors }, setValue } = useForm()
+
+  const changeLanguage = (code) => {
+    i18n.changeLanguage(code)
+    localStorage.setItem('plusgroup-lang', code)
+    setShowLang(false)
+  }
+
+  useEffect(() => {
+    const onDoc = (e) => { if (!e.target.closest('#login-lang')) setShowLang(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  useEffect(() => {
+    const slugParam  = searchParams.get('slug')
+    const emailParam = searchParams.get('email')
+    if (slugParam)  setValue('slug', slugParam)
+    if (emailParam) setValue('email', emailParam)
+  }, [searchParams, setValue])
+
+  const onSubmit = async (data) => {
+    setLoading(true)
+    try {
+      const slug = data.slug.trim().toLowerCase()
+
+      localStorage.removeItem('pg-auth')
+      localStorage.removeItem('plusgroup-slug')
+      localStorage.removeItem('plusgroup-token')
+      localStorage.removeItem('plusgroup-user')
+      localStorage.removeItem('plusgroup-tenant')
+      localStorage.removeItem('plusgroup-branch-id')
+      localStorage.removeItem('plusgroup-branch-name')
+      delete api.defaults.headers.common['X-Branch-Id']
+      api.defaults.headers.common['X-Tenant-Slug'] = slug
+      api.defaults.headers.common['Authorization'] = ''
+
+      localStorage.setItem('plusgroup-slug', slug)
+
+      const res = await authAPI.login({ slug, email: data.email, password: data.password })
+      const { token } = res.data
+
+      localStorage.setItem('plusgroup-token', token)
+      api.defaults.headers.common['Authorization'] = 'Bearer ' + token
+
+      const meRes  = await authAPI.me()
+      const tenant = meRes.data.tenant
+      const user   = meRes.data.user
+
+      setAuth(token, user, tenant)
+
+      const branches = res.data.branches || []
+      autoSetBranch(branches)
+
+      toast.success('Byenvini , ' + user.fullName + '! 🎉')
+      navigate('/dashboard')
+    } catch (e) {
+      localStorage.removeItem('plusgroup-slug')
+      localStorage.removeItem('plusgroup-token')
+      localStorage.removeItem('plusgroup-branch-id')
+      delete api.defaults.headers.common['X-Branch-Id']
+      api.defaults.headers.common['X-Tenant-Slug'] = ''
+      api.defaults.headers.common['Authorization'] = ''
+
+      const status = e.response?.status
+      const msg    = e.response?.data?.message
+      if (status === 402)      toast.error('Abònman ou ekspire. Kontakte administrasyon.', { duration:6000 })
+      else if (status === 403) toast.error(msg || 'Kont sa suspann oswa pa aktif.')
+      else if (status === 404) toast.error('Slug entreprise pa jwenn.')
+      else                     toast.error(msg || 'Idantifyan pa kòrèkt.')
+    } finally { setLoading(false) }
+  }
+
+  const inp = {
+    width:'100%', padding:'11px 14px', borderRadius:10,
+    border:'1.5px solid rgba(255,255,255,0.25)', outline:'none',
+    background:'rgba(20,15,60,0.55)', color:'#FFFFFF',
+    WebkitTextFillColor:'#FFFFFF',
+    fontSize:14, fontFamily:'DM Sans, sans-serif', boxSizing:'border-box',
+    transition:'border-color 0.2s', caretColor:'#FF6600',
   }
 
   return (
-    <>
+    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:16, position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif' }}>
+
+      <div style={{
+        position:'absolute', inset:0, zIndex:0,
+        backgroundImage:`url(${bannerImg})`,
+        backgroundSize:'cover', backgroundPosition:'center',
+        filter:'brightness(0.45)',
+      }}/>
+
+      <div style={{
+        position:'absolute', inset:0, zIndex:0,
+        background:'linear-gradient(135deg, rgba(26,20,100,0.75) 0%, rgba(180,60,0,0.55) 100%)',
+      }}/>
+
+      <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#FF6600,#FFD700,#FF6600,transparent)' }}/>
+
+      <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
+        <button onClick={() => setShowLang(!showLang)} style={{
+          display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:12,
+          border:'1px solid rgba(255,255,255,0.3)', background:'rgba(255,255,255,0.1)',
+          color:'rgba(255,255,255,0.9)', cursor:'pointer', fontSize:12, fontWeight:700,
+        }}>
+          <Globe size={14}/>
+          <span style={{ fontSize:15 }}>{currentLang.flag}</span>
+          <span style={{ fontSize:11 }}>{currentLang.code.toUpperCase()}</span>
+          <ChevronDown size={12} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+        </button>
+        {showLang && (
+          <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, background:'rgba(10,10,40,0.97)', borderRadius:12, minWidth:170, boxShadow:'0 16px 48px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.15)', overflow:'hidden' }}>
+            {LANGS.map(lang => (
+              <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
+                width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 16px', border:'none', cursor:'pointer',
+                background: i18n.language === lang.code ? 'rgba(255,102,0,0.2)' : 'transparent',
+                color: i18n.language === lang.code ? '#FF6600' : 'rgba(255,255,255,0.75)',
+                fontWeight: i18n.language === lang.code ? 700 : 400, fontSize:13,
+                borderBottom:'1px solid rgba(255,255,255,0.06)',
+              }}>
+                <span style={{ fontSize:18 }}>{lang.flag}</span>
+                <span style={{ flex:1 }}>{lang.name}</span>
+                {i18n.language === lang.code && <span style={{ color:'#FF6600' }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ width:'100%', maxWidth:420, position:'relative', zIndex:5 }}>
+
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <img src={logoImg} alt="PLUS GROUP Logo"
+            style={{ height:90, width:'auto', marginBottom:12, filter:'drop-shadow(0 4px 20px rgba(255,102,0,0.5))' }}
+          />
+          <h1 style={{ color:'#fff', fontSize:32, fontWeight:900, margin:'0 0 4px', textShadow:'0 2px 12px rgba(0,0,0,0.5)' }}>PLUS GROUP</h1>
+          <p style={{ color:'#FF6600', fontSize:11, fontWeight:700, letterSpacing:'0.14em', textTransform:'uppercase', margin:0 }}>
+            Innov@tion & Tech — SaaS
+          </p>
+        </div>
+
+        <div style={{
+          borderRadius:24, padding:32,
+          background:'rgba(255,255,255,0.1)',
+          backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+          border:'1px solid rgba(255,255,255,0.2)',
+          boxShadow:'0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)',
+        }}>
+          <h2 style={{ color:'#fff', fontSize:20, fontWeight:900, margin:'0 0 22px', textAlign:'center' }}>
+            {tx.title}
+          </h2>
+
+          <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7, letterSpacing:'0.03em' }}>{tx.slug}</label>
+              <div style={{ position:'relative' }}>
+                <Building2 size={16} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'#FF6600', pointerEvents:'none' }}/>
+                <input type="text" placeholder="plus-store"
+                  {...register('slug', { required: tx.slugRequired })}
+                  style={{ ...inp, paddingLeft:40 }}
+                  onFocus={e => e.target.style.borderColor='#FF6600'}
+                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
+                />
+              </div>
+              {errors.slug && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.slug.message}</p>}
+              <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>
+                {tx.example}: <span style={{ color:'#FF6600', fontFamily:'monospace' }}>plus-store</span>
+              </p>
+            </div>
+
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.email}</label>
+              <input type="email" placeholder="ou@entreprise.ht"
+                {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
+                style={inp}
+                onFocus={e => e.target.style.borderColor='#FF6600'}
+                onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
+              />
+              {errors.email && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.email.message}</p>}
+            </div>
+
+            <div>
+              <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.password}</label>
+              <div style={{ position:'relative' }}>
+                <input type={show ? 'text' : 'password'} placeholder="••••••••"
+                  {...register('password', { required: tx.passRequired })}
+                  style={{ ...inp, paddingRight:44 }}
+                  onFocus={e => e.target.style.borderColor='#FF6600'}
+                  onBlur={e => e.target.style.borderColor='rgba(255,255,255,0.25)'}
+                />
+                <button type="button" onClick={() => setShow(!show)} style={{
+                  position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
+                  background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0,
+                }}>
+                  {show ? <EyeOff size={16}/> : <Eye size={16}/>}
+                </button>
+              </div>
+              {errors.password && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.password.message}</p>}
+            </div>
+
+            <button type="submit" disabled={loading} style={{
+              width:'100%', padding:'13px', borderRadius:12, marginTop:6,
+              background: loading ? 'rgba(255,255,255,0.2)' : 'linear-gradient(135deg,#FF6600,#FF8C33)',
+              color:'#fff', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight:900, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+              boxShadow: loading ? 'none' : '0 6px 24px rgba(255,102,0,0.5)',
+            }}>
+              {loading
+                ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>{tx.loading}</>
+                : <><LogIn size={18}/>{tx.submit}</>
+              }
+            </button>
+          </form>
+
+          <div style={{ marginTop:18, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.07)', border:'1px solid rgba(255,255,255,0.12)' }}>
+            <p style={{ color:'rgba(255,255,255,0.5)', fontSize:11, textAlign:'center', margin:0, fontFamily:'monospace', lineHeight:1.7 }}>
+              {tx.demo} → slug: <span style={{ color:'#FF6600' }}>plus-store</span>{' · '}
+              email: <span style={{ color:'#FF6600' }}>admin@plusstore.ht</span>{' · '}
+              mdp: <span style={{ color:'#FF6600' }}>PlusStore2024!</span>
+            </p>
+          </div>
+
+          <p style={{ textAlign:'center', fontSize:12, color:'rgba(255,255,255,0.4)', margin:'14px 0 0' }}>
+            {tx.forgot}{' '}
+            <button style={{ background:'none', border:'none', cursor:'pointer', color:'#FF6600', textDecoration:'underline', fontSize:12, padding:0 }}>
+              {tx.reset}
+            </button>
+          </p>
+        </div>
+
+        <p style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.3)', margin:'18px 0 0' }}>
+          © 2026 PLUS GROUP — Innov@tion & Tech. Tout dwa rezève.
+        </p>
+      </div>
+
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes floatUp {
-          from { opacity: 0; transform: translateY(16px); }
-          to   { opacity: 1; transform: translateY(0); }
+        * { box-sizing: border-box }
+        ::placeholder { color: rgba(255,255,255,0.35) !important }
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 30px rgba(20,15,60,0.8) inset !important;
+          -webkit-text-fill-color: #FFFFFF !important;
+          caret-color: #FF6600 !important;
         }
-        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
-
-        .lg-wrap {
-          min-height: 100vh;
-          min-height: 100dvh;
-          display: flex;
-          font-family: 'DM Sans', system-ui, sans-serif;
-          background: #FFFFFF;
-        }
-
-        .lg-left { display: none; }
-
-        .lg-right {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 28px 20px;
-          position: relative;
-          background: #FFFFFF;
-        }
-
-        .lg-mobile-head {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          margin-bottom: 26px;
-          text-align: center;
-        }
-
-        .lg-card {
-          width: 100%;
-          max-width: 400px;
-          animation: floatUp 0.5s ease both;
-        }
-
-        .lg-field { margin-bottom: 16px; }
-
-        .lg-label {
-          display: block;
-          font-size: 12px;
-          font-weight: 700;
-          color: ${C.navy};
-          margin-bottom: 7px;
-        }
-
-        .lg-inwrap { position: relative; }
-
-        .lg-inwrap > svg.lg-icn {
-          position: absolute;
-          left: 15px; top: 50%;
-          transform: translateY(-50%);
-          color: ${C.muted};
-          pointer-events: none;
-        }
-
-        .lg-input {
-          width: 100%;
-          padding: 14px 16px 14px 44px;
-          border-radius: 12px;
-          border: 1.5px solid ${C.line};
-          outline: none;
-          background: #F8FAFC;
-          color: ${C.text};
-          font-size: 14px;
-          font-family: inherit;
-          transition: all 0.18s;
-        }
-        .lg-input::placeholder { color: #94A3B8; }
-        .lg-input:focus {
-          border-color: ${C.blue};
-          background: #FFFFFF;
-          box-shadow: 0 0 0 4px rgba(37,99,235,0.1);
-        }
-
-        .lg-eye {
-          position: absolute;
-          right: 12px; top: 50%;
-          transform: translateY(-50%);
-          background: none; border: none;
-          cursor: pointer;
-          color: ${C.muted};
-          display: flex; align-items: center;
-          padding: 4px;
-        }
-
-        .lg-btn {
-          width: 100%;
-          padding: 15px;
-          border-radius: 12px;
-          border: none;
-          cursor: pointer;
-          background: linear-gradient(135deg, #2563EB, #1D4ED8);
-          color: #fff;
-          font-weight: 800;
-          font-size: 15px;
-          font-family: inherit;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-          box-shadow: 0 8px 20px rgba(37,99,235,0.3);
-          transition: all 0.2s;
-          margin-top: 6px;
-        }
-        .lg-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(37,99,235,0.4); }
-        .lg-btn:disabled { opacity: 0.7; cursor: not-allowed; background: #93C5FD; box-shadow: none; }
-
-        .lg-foot {
-          text-align: center;
-          font-size: 12px;
-          color: ${C.muted};
-          margin-top: 26px;
-          line-height: 1.7;
-        }
-
-        /* ════════ DESKTOP (≥ 900px) ════════ */
-        @media (min-width: 900px) {
-          .lg-left {
-            display: flex;
-            flex-direction: column;
-            width: 52%;
-            position: relative;
-            overflow: hidden;
-            background: linear-gradient(160deg, #EAF2FD 0%, #D6E7FB 55%, #C2DBF7 100%);
-            padding: 56px 56px 0;
-          }
-
-          .lg-left::before {
-            content: '';
-            position: absolute;
-            top: -120px; right: -120px;
-            width: 420px; height: 420px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.35);
-          }
-          .lg-left::after {
-            content: '';
-            position: absolute;
-            bottom: 90px; left: -160px;
-            width: 360px; height: 360px;
-            border-radius: 50%;
-            background: rgba(37,99,235,0.06);
-          }
-
-          .lg-mobile-head { display: none; }
-
-          .lg-right { width: 48%; flex: none; }
-
-          .lg-brand-row {
-            display: flex; align-items: center; gap: 16px;
-            position: relative; z-index: 2;
-            animation: floatUp 0.5s ease both;
-          }
-          .lg-brand-row h1 { font-size: 26px; font-weight: 900; margin: 0; line-height: 1.1; }
-          .lg-brand-row .lg-plus { color: ${C.orange}; }
-          .lg-brand-row .lg-grp  { color: ${C.navy}; }
-          .lg-brand-row .lg-tag  {
-            font-size: 13px; font-weight: 700; color: ${C.blue};
-            margin: 4px 0 0; letter-spacing: 0.02em;
-          }
-
-          .lg-hero {
-            position: relative; z-index: 2;
-            margin-top: 44px;
-            animation: floatUp 0.6s ease 0.1s both;
-          }
-          .lg-hero h2 {
-            font-size: 30px; font-weight: 900;
-            color: ${C.navy}; margin: 0;
-            line-height: 1.2; letter-spacing: -0.01em;
-          }
-          .lg-hero p {
-            font-size: 15px; color: #475569;
-            margin: 16px 0 0; line-height: 1.6;
-            max-width: 440px;
-          }
-
-          .lg-feats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-top: 36px;
-            position: relative; z-index: 2;
-            animation: floatUp 0.6s ease 0.2s both;
-          }
-          .lg-feat {
-            background: rgba(255,255,255,0.75);
-            backdrop-filter: blur(4px);
-            border: 1px solid rgba(255,255,255,0.9);
-            border-radius: 16px;
-            padding: 18px 16px;
-            box-shadow: 0 4px 16px rgba(15,42,107,0.06);
-          }
-          .lg-feat-ic {
-            width: 44px; height: 44px; border-radius: 12px;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 12px;
-          }
-          .lg-feat h3 {
-            font-size: 13px; font-weight: 900; color: ${C.navy};
-            margin: 0 0 5px; letter-spacing: 0.04em;
-          }
-          .lg-feat p { font-size: 12px; color: ${C.muted}; margin: 0; line-height: 1.45; }
-
-          .lg-secure {
-            display: flex; align-items: center; gap: 13px;
-            margin-top: 30px; padding-bottom: 30px;
-            position: relative; z-index: 2;
-            animation: floatUp 0.6s ease 0.3s both;
-          }
-          .lg-secure-ic {
-            width: 46px; height: 46px; border-radius: 13px;
-            background: ${C.navy};
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-          }
-          .lg-secure h4 { font-size: 15px; font-weight: 800; color: ${C.navy}; margin: 0; }
-          .lg-secure p  { font-size: 12px; color: ${C.muted}; margin: 2px 0 0; }
-
-          .lg-bottom {
-            margin: auto -56px 0;
-            background: ${C.navyDeep};
-            padding: 16px 56px;
-            display: flex; align-items: center; gap: 10px;
-            position: relative; z-index: 2;
-          }
-          .lg-bottom span { font-size: 12px; font-weight: 800; color: #fff; letter-spacing: 0.04em; }
-          .lg-bottom .lg-hl { color: ${C.orange}; }
-        }
-
-        @media (min-width: 1200px) {
-          .lg-left  { width: 56%; padding: 64px 72px 0; }
-          .lg-right { width: 44%; }
-          .lg-left .lg-bottom { margin-left: -72px; margin-right: -72px; padding-left: 72px; padding-right: 72px; }
-          .lg-hero h2 { font-size: 34px; }
-        }
+        input { color: #FFFFFF !important; }
       `}</style>
-
-      <div className="lg-wrap">
-
-        {/* ══ BÒ GÒCH — Branding (Desktop) ══ */}
-        <div className="lg-left">
-          <div className="lg-brand-row">
-            <KlinikLogo size={62}/>
-            <div>
-              <h1><span className="lg-plus">Plus</span> <span className="lg-grp">Groupe Klinik</span></h1>
-              <p className="lg-tag">Jere. Swaye. Pi byen.</p>
-            </div>
-          </div>
-
-          <div className="lg-hero">
-            <h2>Solisyon konplè pou<br/>etablisman sante ou</h2>
-            <p>
-              Plus Groupe Klinik se zouti tout-an-yon pou jere pasyan,
-              randevou, dosye medikal ak rapò an tout senplisite ak sekirite.
-            </p>
-          </div>
-
-          <div className="lg-feats">
-            {FEATURES.map(f => {
-              const Ic = f.icon
-              return (
-                <div className="lg-feat" key={f.label}>
-                  <div className="lg-feat-ic" style={{ background: f.bg }}>
-                    <Ic size={22} style={{ color: f.color }}/>
-                  </div>
-                  <h3>{f.label}</h3>
-                  <p>{f.desc}</p>
-                </div>
-              )
-            })}
-          </div>
-
-          <div className="lg-secure">
-            <div className="lg-secure-ic">
-              <ShieldCheck size={24} color="#fff"/>
-            </div>
-            <div>
-              <h4>Sekirize & Konfidansyèl</h4>
-              <p>Sekirite done yo se priyorite nou.</p>
-            </div>
-          </div>
-
-          <div className="lg-bottom">
-            <Heart size={16} color="#fff" fill="#fff"/>
-            <span>PLIS PASE YON SOLISYON, <span className="lg-hl">YON PATNÈ KONFYANS.</span></span>
-          </div>
-        </div>
-
-        {/* ══ BÒ DWAT — Fòm ══ */}
-        <div className="lg-right">
-          <div className="lg-card">
-
-            {/* Header branding pou mobile */}
-            <div className="lg-mobile-head">
-              <KlinikLogo size={58}/>
-              <h1 style={{ fontSize: 22, fontWeight: 900, margin: '14px 0 2px', color: C.navy }}>
-                <span style={{ color: C.orange }}>Plus</span> Groupe Klinik
-              </h1>
-              <p style={{ fontSize: 12, fontWeight: 700, color: C.blue, margin: 0 }}>
-                Jere. Swaye. Pi byen.
-              </p>
-            </div>
-
-            <div style={{ marginBottom: 26 }}>
-              <h2 style={{ fontSize: 26, fontWeight: 900, color: C.navy, margin: '0 0 6px' }}>
-                Koneksyon
-              </h2>
-              <p style={{ fontSize: 14, color: C.muted, margin: 0 }}>
-                Byenveni nan Plus Groupe Klinik
-              </p>
-            </div>
-
-            <form onSubmit={handleSubmit}>
-              <div className="lg-field">
-                <label className="lg-label">Kòd Klinik (Slug)</label>
-                <div className="lg-inwrap">
-                  <Building2 size={17} className="lg-icn"/>
-                  <input
-                    className="lg-input"
-                    placeholder="ex: klinik-bon-sante"
-                    value={slug}
-                    onChange={e => setSlug(e.target.value)}
-                    autoComplete="organization"
-                  />
-                </div>
-                <p style={{ fontSize: 11, color: C.muted, margin: '6px 0 0' }}>
-                  Kòd antite medikal ou a — administratè a ba ou l
-                </p>
-              </div>
-
-              <div className="lg-field">
-                <label className="lg-label">Adrès Email</label>
-                <div className="lg-inwrap">
-                  <Mail size={17} className="lg-icn"/>
-                  <input
-                    type="email"
-                    className="lg-input"
-                    placeholder="Antre adrès email ou"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                </div>
-              </div>
-
-              <div className="lg-field">
-                <label className="lg-label">Modpas</label>
-                <div className="lg-inwrap">
-                  <Lock size={17} className="lg-icn"/>
-                  <input
-                    type={showPwd ? 'text' : 'password'}
-                    className="lg-input"
-                    style={{ paddingRight: 46 }}
-                    placeholder="Antre modpas ou"
-                    value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    autoComplete="current-password"
-                  />
-                  <button type="button" className="lg-eye" onClick={() => setShowPwd(p => !p)} aria-label="Montre modpas">
-                    {showPwd ? <EyeOff size={18}/> : <Eye size={18}/>}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '6px 0 22px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.text }}>
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={e => setRemember(e.target.checked)}
-                    style={{ width: 16, height: 16, cursor: 'pointer', accentColor: C.blue }}
-                  />
-                  Sonje m
-                </label>
-              </div>
-
-              <button type="submit" className="lg-btn" disabled={mutation.isPending}>
-                {mutation.isPending ? (
-                  <>
-                    <div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}/>
-                    Ap konekte...
-                  </>
-                ) : 'Se konekte'}
-              </button>
-            </form>
-
-            <p className="lg-foot">
-              © {new Date().getFullYear()} Plus Groupe Klinik. Tout dwa rezève.<br/>
-              <span style={{ color: C.blue, fontWeight: 700 }}>Pwodwi pa Plus Group</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
