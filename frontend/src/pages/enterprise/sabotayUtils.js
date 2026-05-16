@@ -251,6 +251,44 @@ export function isDateOverdue(date, today, currentTime, dueTimeEnd = '17:00') {
   return false
 }
 
+// ─── POZISYON LOCK (ENCHANJAB) ────────────────────────────────
+/**
+ * ✅ NOUVO: Konvèti collectDate (Date/string) → 'YYYY-MM-DD'
+ */
+export function getCollectKey(member) {
+  const cd = member?.collectDate || member?.collectDate
+  if (!cd) return null
+  try {
+    return cd instanceof Date
+      ? cd.toISOString().split('T')[0]
+      : String(cd).split('T')[0]
+  } catch { return null }
+}
+
+/**
+ * ✅ NOUVO: Èske pozisyon yon manm ENCHANJAB (locked)?
+ *
+ * LOCK si YOUN nan kondisyon sa yo vre:
+ *   1. Manm nan deja touche (`hasWon`)
+ *   2. Dat touche (collectDate) se jodi a oubyen pase
+ *   3. Rete ≤ lockWindowDays jou pou touche (default 2)
+ *
+ * NÒT: Skò TOUJOU kalkile separeman menm si pozisyon lock.
+ */
+export function isPositionLocked(member, today, lockWindowDays = 2) {
+  if (!member) return false
+  if (member.hasWon) return true
+
+  const collectKey = getCollectKey(member)
+  if (!collectKey) return false
+
+  const a = new Date(`${today}T00:00:00Z`)
+  const b = new Date(`${collectKey}T00:00:00Z`)
+  const daysUntilCollect = Math.round((b - a) / 86400000)
+
+  return daysUntilCollect <= lockWindowDays
+}
+
 // ─── STATUT MANM ──────────────────────────────────────────────
 /**
  * Kalkile estati yon manm.

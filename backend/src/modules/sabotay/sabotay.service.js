@@ -824,6 +824,18 @@ async function adjustMemberPosition(tenantId, planId, memberId, steps) {
   })
   if (!member) throw new Error('Manm pa jwenn.')
   if (member.isOwnerSlot) throw new Error('Pa ka ajiste pozisyon pwopriyete a.')
+  if (member.hasWon)      throw new Error('Pa ka ajiste pozisyon yon manm ki touche deja.')
+
+  // ✅ NOUVO: anpeche ajiste pozisyon manm ki LOCK (touche/pre touche)
+  const planForLock = await prisma.sabotayPlan.findFirst({
+    where: { id: planId, tenantId },
+    select: { lockWindowDays: true },
+  })
+  const { today } = rankingSvc.getHaitiNow()
+  const lockWindowDays = Number(planForLock?.lockWindowDays ?? 2)
+  if (rankingSvc.isPositionLocked(member, today, lockWindowDays)) {
+    throw new Error('Pozisyon sa a enchanjab — manm nan ap touche byento.')
+  }
 
   const newPosition = member.position + steps
 
