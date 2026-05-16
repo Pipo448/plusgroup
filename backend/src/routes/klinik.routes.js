@@ -1026,4 +1026,78 @@ router.delete('/lot-depans/:id', async (req, res) => {
 // FEN SEKSYON LÒT DEPANS
 // ═══════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════
+// KLINIK SETTINGS ROUTES
+// Kole BLÒK SA A nan src/routes/klinik.routes.js
+// JIS ANVAN liy `module.exports = router`
+// ════════════════════════════════════════════════════════════
+
+// ── GET /klinik/settings ── Chèche tout paramèt tenant la ────
+router.get('/settings', async (req, res) => {
+  try {
+    const tid = req.tenant.id
+
+    const rows = await prisma.$queryRaw`
+      SELECT profil, tarifs, modil, enpresyon, updated_at
+      FROM klinik_settings
+      WHERE tenant_id = ${tid}::uuid
+      LIMIT 1
+    `
+
+    if (!rows || rows.length === 0) {
+      // Pa gen anyen sove ankò — retounen vid
+      return res.json({
+        profil: {}, tarifs: {}, modil: {}, enpresyon: {},
+        updatedAt: null,
+      })
+    }
+
+    const r = rows[0]
+    return res.json({
+      profil:    r.profil    || {},
+      tarifs:    r.tarifs    || {},
+      modil:     r.modil     || {},
+      enpresyon: r.enpresyon || {},
+      updatedAt: r.updated_at,
+    })
+  } catch (err) {
+    console.error('GET /klinik/settings error:', err)
+    return res.status(500).json({ message: 'Erè chaje paramèt yo.' })
+  }
+})
+
+// ── PUT /klinik/settings ── Sove (upsert) yon gwoup paramèt ──
+// Body: { section: 'profil'|'tarifs'|'modil'|'enpresyon', data: {...} }
+router.put('/settings', async (req, res) => {
+  try {
+    const tid = req.tenant.id
+    const { section, data } = req.body || {}
+
+    const VALID = ['profil', 'tarifs', 'modil', 'enpresyon']
+    if (!VALID.includes(section)) {
+      return res.status(400).json({ message: 'Seksyon paramèt pa valid.' })
+    }
+    if (typeof data !== 'object' || data === null) {
+      return res.status(400).json({ message: 'Done paramèt pa valid.' })
+    }
+
+    const jsonData = JSON.stringify(data)
+
+    // Upsert — kreye row si pa egziste, mete ajou kolòn nan sèlman
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO klinik_settings (tenant_id, ${section})
+       VALUES ($1::uuid, $2::jsonb)
+       ON CONFLICT (tenant_id)
+       DO UPDATE SET ${section} = $2::jsonb, updated_at = NOW()`,
+      tid,
+      jsonData
+    )
+
+    return res.json({ success: true, section })
+  } catch (err) {
+    console.error('PUT /klinik/settings error:', err)
+    return res.status(500).json({ message: 'Erè sove paramèt yo.' })
+  }
+})
+
 module.exports = router
