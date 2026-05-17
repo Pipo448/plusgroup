@@ -829,11 +829,11 @@ async function adjustMemberPosition(tenantId, planId, memberId, steps) {
   // ✅ NOUVO: anpeche ajiste pozisyon manm ki LOCK (touche/pre touche)
   const planForLock = await prisma.sabotayPlan.findFirst({
     where: { id: planId, tenantId },
-    select: { lockWindowDays: true },
+    include: { members: { where: { isActive: true }, select: { position: true, status: true } } },
   })
   const { today } = rankingSvc.getHaitiNow()
   const lockWindowDays = Number(planForLock?.lockWindowDays ?? 2)
-  if (rankingSvc.isPositionLocked(member, today, lockWindowDays)) {
+  if (rankingSvc.isPositionLocked(member, planForLock, today, lockWindowDays)) {
     throw new Error('Pozisyon sa a enchanjab — manm nan ap touche byento.')
   }
 

@@ -254,9 +254,10 @@ export function isDateOverdue(date, today, currentTime, dueTimeEnd = '17:00') {
 // ─── POZISYON LOCK (ENCHANJAB) ────────────────────────────────
 /**
  * ✅ NOUVO: Konvèti collectDate (Date/string) → 'YYYY-MM-DD'
+ * (kenbe pou backward compat — men isPositionLocked PA itilize l ankò)
  */
 export function getCollectKey(member) {
-  const cd = member?.collectDate || member?.collectDate
+  const cd = member?.collectDate
   if (!cd) return null
   try {
     return cd instanceof Date
@@ -266,27 +267,42 @@ export function getCollectKey(member) {
 }
 
 /**
- * ✅ NOUVO: Èske pozisyon yon manm ENCHANJAB (locked)?
+ * ✅ FIX: Èske pozisyon yon manm ENCHANJAB (locked)?
  *
  * LOCK si YOUN nan kondisyon sa yo vre:
  *   1. Manm nan deja touche (`hasWon`)
- *   2. Dat touche (collectDate) se jodi a oubyen pase
- *   3. Rete ≤ lockWindowDays jou pou touche (default 2)
+ *   2. Dat touche a (kalkile soti nan POZISYON AKTYÈL la, pa
+ *      collectDate ki ka vin vye apre reklasman) tonbe nan
+ *      fenèt: jodi a JISKA jodi + lockWindowDays jou.
+ *
+ * IMPÒTAN: nou itilize `getPayoutDate(plan, position)` — menm
+ * fonksyon ki bay dat ki afiche nan UI a — pou evite stale data.
+ * Nou lock SÈLMAN `0 ≤ jou ≤ lockWindowDays` (pa dat ki pase deja).
  *
  * NÒT: Skò TOUJOU kalkile separeman menm si pozisyon lock.
+ *
+ * @param {object} member
+ * @param {object} plan              - bezwen pou kalkile dat soti nan pozisyon
+ * @param {string} today             - 'YYYY-MM-DD' Ayiti
+ * @param {number} lockWindowDays    - default 2 (jodi + 2 = 3 manm total)
  */
-export function isPositionLocked(member, today, lockWindowDays = 2) {
+export function isPositionLocked(member, plan, today, lockWindowDays = 2) {
   if (!member) return false
   if (member.hasWon) return true
+  if (!plan) return false
 
-  const collectKey = getCollectKey(member)
-  if (!collectKey) return false
+  // ✅ Dat touche soti nan POZISYON AKTYÈL la (pa stale collectDate)
+  const payoutDate = getPayoutDate(plan, member.position)
+  if (!payoutDate) return false
 
   const a = new Date(`${today}T00:00:00Z`)
-  const b = new Date(`${collectKey}T00:00:00Z`)
+  const b = new Date(`${payoutDate}T00:00:00Z`)
   const daysUntilCollect = Math.round((b - a) / 86400000)
 
-  return daysUntilCollect <= lockWindowDays
+  // SÈLMAN jodi a (0) jiska +lockWindowDays jou.
+  // Pa lock dat ki pase deja (daysUntil < 0) — sa se anomali,
+  // pa fè pati fenèt woule a. Manm sa yo nòmalman hasWon deja.
+  return daysUntilCollect >= 0 && daysUntilCollect <= lockWindowDays
 }
 
 // ─── STATUT MANM ──────────────────────────────────────────────

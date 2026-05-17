@@ -697,7 +697,7 @@ export default function PlanDetail({
               const isStopped  = m.status === 'stopped'
               // ✅ NOUVO: pozisyon enchanjab si touche/pre touche/hasWon
               const lockWindowDays = Number(plan.lockWindowDays ?? 2)
-              const posLocked  = isDynamic && isPositionLocked(m, today, lockWindowDays)
+              const posLocked  = isDynamic && isPositionLocked(m, plan, today, lockWindowDays)
 
               // ✅ FIX KRITIK: rekalkile breakdown LOKALMAN pou respekte dueTimeEnd.
               // Backend an ka ap voye `missing: -7` pou jodi a anvan fenèt peman fini —
