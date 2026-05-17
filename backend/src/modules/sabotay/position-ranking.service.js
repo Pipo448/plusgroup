@@ -409,7 +409,10 @@ async function recalculatePositions(planId) {
     })
 
   // ─── Pozisyon disponib (sa ki PA lock) ───────────────────
-  const allPositions = plan.members.map(m => m.position).sort((a, b) => a - b)
+ const allPositions = plan.members
+  .map(m => m.position)
+  .filter(p => p > 0)
+  .sort((a, b) => a - b)
   const available    = allPositions.filter(p => !lockedPositions.has(p))
 
   // ═══════════════════════════════════════════════════════════
