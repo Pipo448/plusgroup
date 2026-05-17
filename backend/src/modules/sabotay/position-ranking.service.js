@@ -416,19 +416,17 @@ async function recalculatePositions(planId) {
   const available    = allPositions.filter(p => !lockedPositions.has(p))
 
   // ═══════════════════════════════════════════════════════════
-  // ETAP 1: Pozisyon temp negatif — SÈLMAN manm k ap konpetisyone
-  //         (manm lock yo PA touche pozisyon yo ditou)
-  // ═══════════════════════════════════════════════════════════
-  if (competing.length > 0) {
-    await prisma.$transaction(
-      competing.map((m, idx) =>
-        prisma.sabotayMember.update({
-          where: { id: m.id },
-          data:  { position: -(idx + 1000) },
-        })
-      )
+ // ETAP 1: Pozisyon temp negatif — SÈLMAN manm k ap konpetisyone
+if (competing.length > 0) {
+  await prisma.$transaction(
+    competing.map((m, idx) =>
+      prisma.sabotayMember.update({
+        where: { id: m.id },
+        data:  { position: -(idx + 100000) }, // ✅ 100000 olye 1000
+      })
     )
-  }
+  )
+}
 
   // ═══════════════════════════════════════════════════════════
   // ETAP 2: Pozisyon final pou manm k ap konpetisyone YO SÈLMAN
