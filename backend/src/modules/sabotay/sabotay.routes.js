@@ -175,7 +175,7 @@ router.post('/plans/:planId/recalculate', async (req, res) => {
     const result = await rankingSvc.recalculatePositions(planId)
     return res.json({ message: '✅ Pozisyon rekalile!', ...result })
   } catch (err) {
-    console.error('[RECALCULATE]', err)
+    console.error('[RECALCULATE DETAIL]', err.message, err.meta) // ✅ AJOUTE err.meta
     return res.status(500).json({ message: 'Erè sèvè' })
   }
 })
