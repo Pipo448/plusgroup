@@ -404,140 +404,173 @@ async function generatePermanentId(planId) {
 // REKALILE POZISYON
 // ✅ FIX P2002: 2-etap pou evite unique constraint [plan_id, position]
 // ✅ FIX TIMING: pase currentTime ak dueTimeEnd nan calcScore
-// ✅ NOUVO: Pozisyon LOCK (enchanjab) si:
-//      • hasWon (touche deja), OUBYEN
-//      • collectDate jodi a / pase, OUBYEN
-//      • rete ≤ 2 jou pou touche
-//    MEN skò TOUJOU kalkile pou TOUT moun (menm sa ki lock)
-//    — konsa move pèfòmans afekte pwochen sòl la.
+// ✅ NOUVO: Pozisyon LOCK (enchanjab) — skò TOUJOU kalkile
+// ✅ FIX RACE: yon sèl transaction + Postgres advisory lock
+//      → menm si w make 10 peman vit pandan entènèt lan,
+//        rekalkil yo fèt YOUN APRE LÒT, chak ak done fre.
+//        Pa gen chif negatif ki ka rete bloke ankò.
 // ─────────────────────────────────────────────────────────────
-async function recalculatePositions(planId) {
-  const plan = await prisma.sabotayPlan.findUnique({
-    where:   { id: planId },
-    include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
-  })
 
-  if (!plan)                  throw new Error('Plan pa jwenn')
-  if (!plan.dynamicPositions) return { skipped: true, reason: 'dynamicPositions dezaktive' }
-
-  // ✅ Pran ni today ni currentTime
-  const { today, currentTime } = getHaitiNow()
-  const dueTimeEnd     = plan.dueTimeEnd || '17:00'
-  const lockWindowDays = Number(plan.lockWindowDays ?? 2)  // konfigirab si bezwen
-  const allDates       = getAllPaymentDates(plan)
-
-  // ─── Manm aktif (eskli stopped) ───────────────────────────
-  const activeMembers = plan.members.filter(
-    m => m.isActive && m.status !== 'stopped'
-  )
-
-  if (activeMembers.length === 0) {
-    return { recalculated: 0, message: 'Pa gen manm aktif' }
+/**
+ * Hash yon string ID → 31-bit int pou pg advisory lock
+ */
+function _lockKeyFromId(id) {
+  let h = 0
+  const s = String(id || '')
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h + s.charCodeAt(i)) | 0
   }
+  // kenbe pozitif epi nan ranje 32-bit signed int
+  return Math.abs(h) % 2147483647
+}
 
-  // ─── Kalkile skò pou TOUT manm aktif (lock OSWA pa lock) ──
-  // Sa enpòtan: menm manm ki lock dwe gen skò ajou pou pwochen sòl
-  const allScored = activeMembers.map(m => {
-    const { payments, paymentTimings } = buildPaymentMap(m.payments)
-    const score = calcScore(
-      { ...m, payments, paymentTimings },
-      allDates, today, currentTime, dueTimeEnd,
-    )
-    return {
-      id:              m.id,
-      permanentId:     m.permanentId,
-      score,
-      createdAt:       m.createdAt,
-      currentPosition: m.position,
-      locked:          isPositionLocked(m, plan, today, lockWindowDays),
-    }
-  })
+async function recalculatePositions(planId) {
+  // ═══════════════════════════════════════════════════════════════
+  // TOUT NAN YON SÈL TRANSACTION + ADVISORY LOCK
+  //   → serialize apèl konkiran pou MENM plan an.
+  //   → si nenpòt bagay echwe, TOUT bagay woule fè bak (rollback)
+  //     donk pa gen pozisyon negatif ki ka rete bloke.
+  // ═══════════════════════════════════════════════════════════════
+  return await prisma.$transaction(async (tx) => {
 
-  // ─── Pozisyon LOCK yo — pa ka reasiyen ───────────────────
-  const lockedPositions = new Set(
-    allScored.filter(s => s.locked).map(s => s.currentPosition)
-  )
+    // 🔒 Advisory lock — lòt apèl pou menm plan an ap TANN isit la.
+    //    Lock la lage otomatikman lè transaction nan fini.
+    const lockKey = _lockKeyFromId(planId)
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`
 
-  // ─── Manm k ap konpetisyone (pozisyon yo ka chanje) ──────
-  const competing = allScored
-    .filter(s => !s.locked)
-    .sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return new Date(a.createdAt) - new Date(b.createdAt)
+    // ─── Li done FRE anndan lock la ─────────────────────────────
+    const plan = await tx.sabotayPlan.findUnique({
+      where:   { id: planId },
+      include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
     })
 
-  // ─── Pozisyon disponib (sa ki PA lock) ───────────────────
-  const allPositions = plan.members.map(m => m.position).sort((a, b) => a - b)
-  const available    = allPositions.filter(p => !lockedPositions.has(p))
+    if (!plan)                  throw new Error('Plan pa jwenn')
+    if (!plan.dynamicPositions) return { skipped: true, reason: 'dynamicPositions dezaktive' }
 
-  // ═══════════════════════════════════════════════════════════
-  // ETAP 1: Pozisyon temp negatif — SÈLMAN manm k ap konpetisyone
-  //         (manm lock yo PA touche pozisyon yo ditou)
-  // ═══════════════════════════════════════════════════════════
-  if (competing.length > 0) {
-    await prisma.$transaction(
-      competing.map((m, idx) =>
-        prisma.sabotayMember.update({
-          where: { id: m.id },
-          data:  { position: -(idx + 1000) },
-        })
-      )
+    const { today, currentTime } = getHaitiNow()
+    const dueTimeEnd     = plan.dueTimeEnd || '17:00'
+    const lockWindowDays = Number(plan.lockWindowDays ?? 2)
+    const allDates       = getAllPaymentDates(plan)
+
+    const activeMembers = plan.members.filter(
+      m => m.isActive && m.status !== 'stopped'
     )
-  }
+    if (activeMembers.length === 0) {
+      return { recalculated: 0, message: 'Pa gen manm aktif' }
+    }
 
-  // ═══════════════════════════════════════════════════════════
-  // ETAP 2: Pozisyon final pou manm k ap konpetisyone YO SÈLMAN
-  // ═══════════════════════════════════════════════════════════
-  if (competing.length > 0) {
-    await prisma.$transaction(
-      competing.map((m, idx) =>
-        prisma.sabotayMember.update({
-          where: { id: m.id },
-          data: {
-            position:         available[idx] ?? m.currentPosition,
-            performanceScore: m.score,
-          },
-        })
+    // ─── Kalkile skò pou TOUT manm aktif ─────────────────────────
+    const allScored = activeMembers.map(m => {
+      const { payments, paymentTimings } = buildPaymentMap(m.payments)
+      const score = calcScore(
+        { ...m, payments, paymentTimings },
+        allDates, today, currentTime, dueTimeEnd,
       )
+      return {
+        id:              m.id,
+        permanentId:     m.permanentId,
+        score,
+        createdAt:       m.createdAt,
+        currentPosition: m.position,
+        locked:          isPositionLocked(m, plan, today, lockWindowDays),
+      }
+    })
+
+    // ─── Pozisyon LOCK yo (sèlman pozisyon POZITIF valid) ────────
+    const lockedScored = allScored.filter(s => s.locked)
+    const lockedPositions = new Set(
+      lockedScored
+        .map(s => s.currentPosition)
+        .filter(p => Number.isInteger(p) && p > 0)  // ✅ filtre negatif korije
     )
-  }
 
-  // ═══════════════════════════════════════════════════════════
-  // ETAP 3: Mete skò AJOU pou manm LOCK yo (pozisyon PA chanje)
-  //         — kritik: move pèfòmans dwe afekte pwochen sòl la
-  // ═══════════════════════════════════════════════════════════
-  const lockedScored = allScored.filter(s => s.locked)
-  if (lockedScored.length > 0) {
-    await prisma.$transaction(
-      lockedScored.map(m =>
-        prisma.sabotayMember.update({
-          where: { id: m.id },
-          data:  { performanceScore: m.score }, // SÈLMAN skò, PA pozisyon
-        })
-      )
+    // ─── Manm k ap konpetisyone (klase pa skò) ──────────────────
+    const competing = allScored
+      .filter(s => !s.locked)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score
+        return new Date(a.createdAt) - new Date(b.createdAt)
+      })
+
+    // ─── Pozisyon disponib — SOTI NAN SOUS STAB ─────────────────
+    // ✅ FIX: Itilize SÈLMAN pozisyon pozitif valid. Si gen done
+    //   korije (negatif soti nan ansyen bug), rekonstwi seri a
+    //   1..N pou tout pozisyon ki PA lock.
+    const positiveLocked = [...lockedPositions].sort((a, b) => a - b)
+    const totalSlots     = activeMembers.length
+    // Tout pozisyon posib 1..totalSlots, mwens sa ki lock
+    const available = []
+    for (let p = 1; p <= totalSlots; p++) {
+      if (!lockedPositions.has(p)) available.push(p)
+    }
+    // Si gen plis manm konpetisyone pase plas (ka rive si lock
+    // okipe pozisyon > totalSlots), ajoute plas anplis apre limit lan
+    let extra = totalSlots + 1
+    while (available.length < competing.length) {
+      if (!lockedPositions.has(extra)) available.push(extra)
+      extra++
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ETAP 1: Pozisyon temp negatif — SÈLMAN konpetisyone
+    //   (anndan menm tx — pa gen interleave gras a advisory lock)
+    // ═════════════════════════════════════════════════════════════
+    for (let idx = 0; idx < competing.length; idx++) {
+      await tx.sabotayMember.update({
+        where: { id: competing[idx].id },
+        data:  { position: -(idx + 1000) },
+      })
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ETAP 2: Pozisyon final + skò pou konpetisyone yo
+    // ═════════════════════════════════════════════════════════════
+    for (let idx = 0; idx < competing.length; idx++) {
+      await tx.sabotayMember.update({
+        where: { id: competing[idx].id },
+        data: {
+          position:         available[idx] ?? competing[idx].currentPosition,
+          performanceScore: competing[idx].score,
+        },
+      })
+    }
+
+    // ═════════════════════════════════════════════════════════════
+    // ETAP 3: Skò pou manm LOCK yo (pozisyon PA chanje)
+    // ═════════════════════════════════════════════════════════════
+    for (const m of lockedScored) {
+      await tx.sabotayMember.update({
+        where: { id: m.id },
+        data:  { performanceScore: m.score },
+      })
+    }
+
+    console.log(
+      `[RANKING] Plan ${planId}: ${competing.length} reklase, ` +
+      `${lockedScored.length} lock (skò ajou), today=${today}, ` +
+      `time=${currentTime}, dueTimeEnd=${dueTimeEnd}, lockWindow=${lockWindowDays}j`
     )
-  }
 
-  console.log(
-    `[RANKING] Plan ${planId}: ${competing.length} reklase, ` +
-    `${lockedScored.length} lock (skò ajou), today=${today}, ` +
-    `time=${currentTime}, dueTimeEnd=${dueTimeEnd}, lockWindow=${lockWindowDays}j`
-  )
+    return {
+      recalculated: competing.length,
+      lockedCount:  lockedScored.length,
+      ranking: competing.map((m, idx) => ({
+        permanentId: m.permanentId,
+        newPosition: available[idx],
+        score:       m.score,
+      })),
+      locked: lockedScored.map(m => ({
+        permanentId: m.permanentId,
+        position:    m.currentPosition,
+        score:       m.score,
+      })),
+    }
 
-  return {
-    recalculated: competing.length,
-    lockedCount:  lockedScored.length,
-    ranking: competing.map((m, idx) => ({
-      permanentId: m.permanentId,
-      newPosition: available[idx],
-      score:       m.score,
-    })),
-    locked: lockedScored.map(m => ({
-      permanentId: m.permanentId,
-      position:    m.currentPosition,
-      score:       m.score,
-    })),
-  }
+  }, {
+    // Bay ase tan: lock + kalkil + ekriti. Lòt apèl ap tann la a.
+    timeout: 30000,  // 30s pou tranzaksyon an fini
+    maxWait: 20000,  // 20s pou tann koumanse (si yon lòt ap kouri)
+  })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -593,6 +626,7 @@ module.exports = {
   isPositionLocked,
   getCollectKey,
   daysBetween,
+  _lockKeyFromId,
   POINTS,
   TIMING_TO_POINTS,
 }

@@ -819,94 +819,157 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
 async function adjustMemberPosition(tenantId, planId, memberId, steps) {
   if (!steps || steps < 1 || steps > 10) throw new Error('Etap dwe ant 1 ak 10.')
 
-  const member = await prisma.sabotayMember.findFirst({
-    where: { id: memberId, planId, plan: { tenantId } }
-  })
-  if (!member) throw new Error('Manm pa jwenn.')
-  if (member.isOwnerSlot) throw new Error('Pa ka ajiste pozisyon pwopriyete a.')
-  if (member.hasWon)      throw new Error('Pa ka ajiste pozisyon yon manm ki touche deja.')
+  // ═══════════════════════════════════════════════════════════════
+  // TOUT NAN YON SÈL TRANSACTION + MENM ADVISORY LOCK AK RECALC
+  //   → ajisteman manyèl ak rekalkil otomatik PA KA antre an konfli.
+  //   → pa gen pozisyon negatif ki ka rete bloke (rollback total).
+  // ═══════════════════════════════════════════════════════════════
+  return await prisma.$transaction(async (tx) => {
 
-  // ✅ NOUVO: anpeche ajiste pozisyon manm ki LOCK (touche/pre touche)
-  const planForLock = await prisma.sabotayPlan.findFirst({
-    where: { id: planId, tenantId },
-    include: { members: { where: { isActive: true }, select: { position: true, status: true } } },
-  })
-  const { today } = rankingSvc.getHaitiNow()
-  const lockWindowDays = Number(planForLock?.lockWindowDays ?? 2)
-  if (rankingSvc.isPositionLocked(member, planForLock, today, lockWindowDays)) {
-    throw new Error('Pozisyon sa a enchanjab — manm nan ap touche byento.')
-  }
+    // 🔒 Menm lock key ak recalculatePositions → yo serialize ansanm
+    const lockKey = rankingSvc._lockKeyFromId(planId)
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`
 
-  const newPosition = member.position + steps
+    const member = await tx.sabotayMember.findFirst({
+      where: { id: memberId, planId, plan: { tenantId } }
+    })
+    if (!member) throw new Error('Manm pa jwenn.')
+    if (member.isOwnerSlot) throw new Error('Pa ka ajiste pozisyon pwopriyete a.')
+    if (member.hasWon)      throw new Error('Pa ka ajiste pozisyon yon manm ki touche deja.')
 
-  // Verifye nouvo pozisyon an valid (egziste nan plan an)
-  const maxMember = await prisma.sabotayMember.findFirst({
-    where: { planId, isActive: true },
-    orderBy: { position: 'desc' },
-    select: { position: true },
-  })
-  const maxPosition = maxMember?.position || member.position
-  if (newPosition > maxPosition) {
-    throw new Error(`Pa ka desann pi ba pase pozisyon #${maxPosition}.`)
-  }
+    // Anpeche ajiste pozisyon manm ki LOCK (touche/pre touche)
+    const planForLock = await tx.sabotayPlan.findFirst({
+      where: { id: planId, tenantId },
+      include: { members: { where: { isActive: true }, select: { position: true, status: true } } },
+    })
+    const { today } = rankingSvc.getHaitiNow()
+    const lockWindowDays = Number(planForLock?.lockWindowDays ?? 2)
+    if (rankingSvc.isPositionLocked(member, planForLock, today, lockWindowDays)) {
+      throw new Error('Pozisyon sa a enchanjab — manm nan ap touche byento.')
+    }
 
-  // Manm ki ant pozisyon aktyèl ak nouvo pozisyon an — yo monte 1 plas
-  const membersToShift = await prisma.sabotayMember.findMany({
-    where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true },
-    orderBy: { position: 'asc' },
-  })
+    const newPosition = member.position + steps
 
-  if (membersToShift.length === 0) {
-    // Pa gen konfli — bouje dirèkteman
-    await prisma.sabotayMember.update({ where: { id: memberId }, data: { position: newPosition } })
-    await prisma.solMemberPosition.updateMany({
-      where: { memberId, planId }, data: { memberPosition: newPosition }
-    }).catch(() => {})
-    return { oldPosition: member.position, newPosition, shifted: 0 }
-  }
+    // Verifye nouvo pozisyon an valid
+    const maxMember = await tx.sabotayMember.findFirst({
+      where: { planId, isActive: true },
+      orderBy: { position: 'desc' },
+      select: { position: true },
+    })
+    const maxPosition = maxMember?.position || member.position
+    if (newPosition > maxPosition) {
+      throw new Error(`Pa ka desann pi ba pase pozisyon #${maxPosition}.`)
+    }
 
-  // ─────────────────────────────────────────────────────────────
-  // ✅ FIX P2002: 2-etap nan transaction pou evite unique constraint
-  //   [plan_id, position]. Sa se menm patèn ak recalculatePositions.
-  // ─────────────────────────────────────────────────────────────
+    // Manm ki ant pozisyon aktyèl ak nouvo pozisyon an
+    const membersToShift = await tx.sabotayMember.findMany({
+      where: { planId, position: { gt: member.position, lte: newPosition }, isActive: true },
+      orderBy: { position: 'asc' },
+    })
 
-  // Konstwi lis tout manm yo ki dwe deplase + pozisyon final yo
-  const updates = [
-    { id: memberId, finalPos: newPosition },
-    ...membersToShift.map(m => ({ id: m.id, finalPos: m.position - 1 })),
-  ]
+    if (membersToShift.length === 0) {
+      await tx.sabotayMember.update({ where: { id: memberId }, data: { position: newPosition } })
+      await tx.solMemberPosition.updateMany({
+        where: { memberId, planId }, data: { memberPosition: newPosition }
+      }).catch(() => {})
+      console.log(`[ADJUST POS] Plan ${planId}: manm ${memberId} soti #${member.position} ale #${newPosition} (0 deplase)`)
+      return { oldPosition: member.position, newPosition, shifted: 0 }
+    }
 
-  // ETAP 1: Tout manm yo sou pozisyon negatif tanporè (san konfli)
-  await prisma.$transaction(
-    updates.map((u, idx) =>
-      prisma.sabotayMember.update({
-        where: { id: u.id },
-        data:  { position: -(idx + 1000) }, // negatif inik — pa ka gen konfli
+    // ─────────────────────────────────────────────────────────────
+    // ✅ FIX P2002: 2-etap NAN MENM TX (atomik — rollback si echwe)
+    // ─────────────────────────────────────────────────────────────
+    const updates = [
+      { id: memberId, finalPos: newPosition },
+      ...membersToShift.map(m => ({ id: m.id, finalPos: m.position - 1 })),
+    ]
+
+    // ETAP 1: Pozisyon negatif tanporè
+    for (let idx = 0; idx < updates.length; idx++) {
+      await tx.sabotayMember.update({
+        where: { id: updates[idx].id },
+        data:  { position: -(idx + 1000) },
       })
-    )
-  )
+    }
 
-  // ETAP 2: Pozisyon final yo
-  await prisma.$transaction(
-    updates.map(u =>
-      prisma.sabotayMember.update({
+    // ETAP 2: Pozisyon final yo
+    for (const u of updates) {
+      await tx.sabotayMember.update({
         where: { id: u.id },
         data:  { position: u.finalPos },
       })
-    )
-  )
+    }
 
-  // Sinkwonize SolMemberPosition (pa gen unique constraint la)
-  for (const u of updates) {
-    await prisma.solMemberPosition.updateMany({
-      where: { memberId: u.id, planId },
-      data:  { memberPosition: u.finalPos },
-    }).catch(() => {})
-  }
+    // Sinkwonize SolMemberPosition
+    for (const u of updates) {
+      await tx.solMemberPosition.updateMany({
+        where: { memberId: u.id, planId },
+        data:  { memberPosition: u.finalPos },
+      }).catch(() => {})
+    }
 
-  console.log(`[ADJUST POS] Plan ${planId}: manm ${memberId} soti #${member.position} ale #${newPosition} (${membersToShift.length} manm deplase)`)
+    console.log(`[ADJUST POS] Plan ${planId}: manm ${memberId} soti #${member.position} ale #${newPosition} (${membersToShift.length} manm deplase)`)
 
-  return { oldPosition: member.position, newPosition, shifted: membersToShift.length }
+    return { oldPosition: member.position, newPosition, shifted: membersToShift.length }
+
+  }, {
+    timeout: 30000,
+    maxWait: 20000,
+  })
+}
+
+/**
+ * ✅ NOUVO: Repare pozisyon negatif ki te rete bloke (ansyen bug race).
+ * Rele yon fwa pou netwaye done ki deja korije.
+ * Renumewote tout manm aktif yo 1..N selon lòd pozisyon yo ye kounye a
+ * (pozitif anvan, negatif aprè) — answit recalc ap reklase yo pa skò.
+ */
+async function repairCorruptedPositions(tenantId, planId) {
+  return await prisma.$transaction(async (tx) => {
+    const lockKey = rankingSvc._lockKeyFromId(planId)
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${lockKey})`
+
+    const plan = await tx.sabotayPlan.findFirst({
+      where: { id: planId, tenantId },
+      include: { members: { where: { isActive: true } } },
+    })
+    if (!plan) throw new Error('Plan pa jwenn.')
+
+    const members = plan.members
+    const hasCorruption = members.some(m => !Number.isInteger(m.position) || m.position <= 0)
+    if (!hasCorruption) {
+      return { repaired: false, message: 'Pa gen pozisyon korije' }
+    }
+
+    // Lòd: pozitif yo (nan lòd) anvan, answit negatif yo (nan lòd)
+    const ordered = [...members].sort((a, b) => {
+      const pa = a.position > 0 ? a.position : 1e9 + Math.abs(a.position)
+      const pb = b.position > 0 ? b.position : 1e9 + Math.abs(b.position)
+      return pa - pb
+    })
+
+    // ETAP 1: tout sou negatif tanporè
+    for (let i = 0; i < ordered.length; i++) {
+      await tx.sabotayMember.update({
+        where: { id: ordered[i].id },
+        data:  { position: -(i + 5000) },
+      })
+    }
+    // ETAP 2: renumewote 1..N
+    for (let i = 0; i < ordered.length; i++) {
+      await tx.sabotayMember.update({
+        where: { id: ordered[i].id },
+        data:  { position: i + 1 },
+      })
+      await tx.solMemberPosition.updateMany({
+        where: { memberId: ordered[i].id, planId },
+        data:  { memberPosition: i + 1 },
+      }).catch(() => {})
+    }
+
+    console.log(`[REPAIR] Plan ${planId}: ${ordered.length} pozisyon renumewote 1..${ordered.length}`)
+    return { repaired: true, count: ordered.length }
+  }, { timeout: 30000, maxWait: 20000 })
 }
 
 module.exports = {
@@ -916,4 +979,5 @@ module.exports = {
   findSolAccountByPhone, getSolAccountPositions, closePlan,
   memberAction, getAdminCash, addToAdminCash,
   adjustMemberPosition,
+  repairCorruptedPositions,
 }
