@@ -408,12 +408,14 @@ async function recalculatePositions(planId) {
       return new Date(a.createdAt) - new Date(b.createdAt)
     })
 
-  // ─── Pozisyon disponib (sa ki PA lock) ───────────────────
- const allPositions = plan.members
+ // ─── Pozisyon disponib (sa ki PA lock) ───────────────────
+const allPositions = plan.members
+  .filter(m => m.isActive && m.status !== 'stopped')
   .map(m => m.position)
-  .filter(p => p > 0)
+  .filter(p => p > 0)  // ✅ pa negatif
   .sort((a, b) => a - b)
-  const available    = allPositions.filter(p => !lockedPositions.has(p))
+
+const available = allPositions.filter(p => !lockedPositions.has(p))
 
   // ═══════════════════════════════════════════════════════════
  // ETAP 1: Pozisyon temp negatif — SÈLMAN manm k ap konpetisyone
