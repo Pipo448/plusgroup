@@ -417,6 +417,8 @@ const allPositions = plan.members
 
 const available = allPositions.filter(p => !lockedPositions.has(p))
 
+console.log(`[RANKING DEBUG] competing=${competing.length}, available=${available.length}, locked=${lockedScored.length}`, available)
+
   // ═══════════════════════════════════════════════════════════
  // ETAP 1: Pozisyon temp negatif — SÈLMAN manm k ap konpetisyone
 if (competing.length > 0) {
