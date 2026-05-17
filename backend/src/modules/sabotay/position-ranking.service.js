@@ -459,6 +459,45 @@ async function recalculatePositions(planId) {
       return { recalculated: 0, message: 'Pa gen manm aktif' }
     }
 
+    // ═════════════════════════════════════════════════════════════
+    // ✅ SELF-HEAL: detekte epi repare pozisyon korije (negatif/dwòl)
+    //   ki te ka rete bloke avan fix race condition an. Renumewote
+    //   tout manm aktif 1..N (pozitif anvan, korije aprè) NAN MENM TX.
+    //   Aprè sa, lojik nòmal la ap reklase yo pa skò.
+    // ═════════════════════════════════════════════════════════════
+    const hasCorruption = activeMembers.some(
+      m => !Number.isInteger(m.position) || m.position <= 0
+    )
+    if (hasCorruption) {
+      const ordered = [...activeMembers].sort((a, b) => {
+        const pa = a.position > 0 ? a.position : 1e9 + Math.abs(a.position || 0)
+        const pb = b.position > 0 ? b.position : 1e9 + Math.abs(b.position || 0)
+        return pa - pb
+      })
+      // ETAP 1: tout sou negatif tanporè (san konfli)
+      for (let i = 0; i < ordered.length; i++) {
+        await tx.sabotayMember.update({
+          where: { id: ordered[i].id },
+          data:  { position: -(i + 5000) },
+        })
+      }
+      // ETAP 2: renumewote 1..N
+      for (let i = 0; i < ordered.length; i++) {
+        await tx.sabotayMember.update({
+          where: { id: ordered[i].id },
+          data:  { position: i + 1 },
+        })
+        await tx.solMemberPosition.updateMany({
+          where: { memberId: ordered[i].id, planId },
+          data:  { memberPosition: i + 1 },
+        }).catch(() => {})
+        // Mete ajou objè lokal la tou pou rès kalkil la
+        const am = activeMembers.find(x => x.id === ordered[i].id)
+        if (am) am.position = i + 1
+      }
+      console.log(`[SELF-HEAL] Plan ${planId}: ${ordered.length} pozisyon korije renumewote 1..${ordered.length}`)
+    }
+
     // ─── Kalkile skò pou TOUT manm aktif ─────────────────────────
     const allScored = activeMembers.map(m => {
       const { payments, paymentTimings } = buildPaymentMap(m.payments)
