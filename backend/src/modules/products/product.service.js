@@ -96,6 +96,10 @@ const create = async (tenantId, userId, data) => {
       alertThreshold: data.alertThreshold || 5,
       imageUrl:       data.imageUrl,
       isService:      data.isService || false,
+      // ── Vant an gwo (bwat) ──
+      packLabel:      data.packLabel || null,
+      packSize:       (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null,
+      packPriceHtg:   (data.packPriceHtg != null && data.packPriceHtg !== '') ? Number(data.packPriceHtg) : null,
     },
     include: { category: { select: { id: true, name: true } } }
   });
@@ -137,7 +141,11 @@ const update = async (tenantId, id, userId, data) => {
       categoryId: data.categoryId, unit: data.unit,
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
-      imageUrl: data.imageUrl, isService: data.isService, isActive: data.isActive
+      imageUrl: data.imageUrl, isService: data.isService, isActive: data.isActive,
+      // ── Vant an gwo (bwat) — sèlman si frontend voye yo (pa kraze lòt apèl PUT) ──
+      ...(('packLabel' in data)    && { packLabel: data.packLabel || null }),
+      ...(('packSize' in data)     && { packSize: (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null }),
+      ...(('packPriceHtg' in data) && { packPriceHtg: (data.packPriceHtg != null && data.packPriceHtg !== '') ? Number(data.packPriceHtg) : null }),
     },
     include: { category: { select: { id: true, name: true } } }
   });

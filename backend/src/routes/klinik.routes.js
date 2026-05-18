@@ -767,26 +767,42 @@ router.post('/famasi/vente', async (req, res) => {
   try {
     const tenantId = tid(req)
     const userId   = req.user?.id || null
-    const { productId, quantite, kliyan, note } = req.body
+    const { productId, quantite, kliyan, note, prixUnitaire, montant, mode, packSize } = req.body
     if (!productId) return res.status(400).json({ message: 'productId obligatwa.' })
     if (!quantite || Number(quantite) <= 0) return res.status(400).json({ message: 'Kantite obligatwa.' })
 
     const cur = await prisma.$queryRawUnsafe(`SELECT * FROM products WHERE id=$1 AND tenant_id=$2`, productId, tenantId)
     const p = cur[0]
     if (!p) return res.status(404).json({ message: 'Pwodui pa jwenn.' })
+    // quantite = inite baz (frontend deja konvèti bwat → grenn pou vant an gwo)
     if (Number(p.quantity) < Number(quantite)) return res.status(400).json({ message: `Pa gen ase estòk. Disponib: ${p.quantity}` })
 
-    const priceHtg=Number(p.price_htg||0), costHtg=Number(p.cost_price_htg||0)
-    const totalVant=priceHtg*Number(quantite), totalCout=costHtg*Number(quantite), totalBenefi=totalVant-totalCout
+    const qte = Number(quantite)
+    const costHtg = Number(p.cost_price_htg || 0)
+    // Si frontend voye yon pri (vant an gwo oswa pri ajiste alamen) → onore l.
+    // Sinon → pri detay default la (konpòtman ansyen an rete menm jan).
+    const priceHtg = (prixUnitaire != null && Number(prixUnitaire) > 0)
+      ? Number(prixUnitaire)
+      : Number(p.price_htg || 0)
+    const totalVant = (montant != null && Number(montant) > 0)
+      ? Number(montant)
+      : priceHtg * qte
+    const totalCout = costHtg * qte
+    const totalBenefi = totalVant - totalCout
 
-    await prisma.$queryRawUnsafe(`UPDATE products SET quantity=quantity-$1,updated_at=NOW() WHERE id=$2 AND tenant_id=$3`, Number(quantite), productId, tenantId)
+    // Make nan nòt la lè se yon vant an gwo (pou rapò klè)
+    const noteFinal = (mode === 'gwo' && Number(packSize) > 0)
+      ? `${note ? note + ' ' : ''}[GWO: ${qte / Number(packSize)} pak × ${packSize}]`
+      : (note || null)
+
+    await prisma.$queryRawUnsafe(`UPDATE products SET quantity=quantity-$1,updated_at=NOW() WHERE id=$2 AND tenant_id=$3`, qte, productId, tenantId)
 
     const vente = await prisma.$queryRawUnsafe(`
       INSERT INTO klinik_ventes (tenant_id,product_id,product_name,quantite,price_htg,cost_price_htg,total_vant,total_cout,total_benefi,kliyan,note,created_by)
       VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::uuid) RETURNING *
-    `, tenantId, productId, p.name, Number(quantite), priceHtg, costHtg, totalVant, totalCout, totalBenefi, kliyan||null, note||null, userId)
+    `, tenantId, productId, p.name, qte, priceHtg, costHtg, totalVant, totalCout, totalBenefi, kliyan||null, noteFinal, userId)
 
-    res.status(201).json({ vente: vente[0], newQuantity: Number(p.quantity) - Number(quantite) })
+    res.status(201).json({ vente: vente[0], newQuantity: Number(p.quantity) - qte })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
