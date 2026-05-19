@@ -14,7 +14,8 @@ router.get('/', authorize('admin'), asyncHandler(async (req, res) => {
     where: { tenantId: req.tenant.id },
     select: {
       id: true, fullName: true, email: true, role: true,
-      isActive: true, lastLoginAt: true, preferredLang: true, createdAt: true
+      isActive: true, lastLoginAt: true, preferredLang: true, createdAt: true,
+      permissions: true
     },
     orderBy: { fullName: 'asc' }
   });
@@ -70,7 +71,7 @@ router.put('/:id', authorize('admin'), asyncHandler(async (req, res) => {
   const updated = await prisma.user.update({
     where: { id: req.params.id },
     data: { fullName, role, phone, isActive, permissions, preferredLang },
-    select: { id: true, fullName: true, email: true, role: true, isActive: true }
+    select: { id: true, fullName: true, email: true, role: true, isActive: true, permissions: true }
   });
   res.json({ success: true, user: updated });
 }));
