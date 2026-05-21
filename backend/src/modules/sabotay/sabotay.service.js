@@ -310,8 +310,18 @@ async function addMember(tenantId, planId, userId, data) {
     const bcrypt     = require('bcryptjs')
     const cleanPhone = phone.replace(/\s/g, '').trim()
 
+    // ✅ FIX: chèche kont egzistan ak PLIZYÈ fòma telefòn an menm tan
+    //    Sa pèmèt jwenn ansyen done ki te estoke ak espas/tirè/elatriye.
+    //    Yo tout fè referans menm moun nan.
+    const phoneVariants = Array.from(new Set([
+      phone.trim(),                            // egzakteman jan li tape
+      cleanPhone,                              // san espas
+      phone.replace(/[^\d+]/g, ''),            // sèlman chif + plis sign
+      phone.replace(/[\s\-()]/g, '').trim(),   // san espas/tirè/parantèz
+    ].filter(Boolean)))
+
     solAccount = await prisma.solMemberAccount.findFirst({
-      where: { tenantId, memberPhone: cleanPhone }
+      where: { tenantId, memberPhone: { in: phoneVariants } }
     })
 
     if (solAccount) {
