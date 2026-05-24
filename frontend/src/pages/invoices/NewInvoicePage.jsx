@@ -58,6 +58,13 @@ function useIsMobile() {
   return isMobile
 }
 
+// ✅ Helper — kalkile line total ak rabè kòm montan HTG (pa pousantaj)
+const calcLineTotal = (qty, unitPrice, discountAmt) => {
+  const gross = Number(qty) * Number(unitPrice)
+  const disc  = Math.min(Number(discountAmt || 0), gross) // pa kite total vin negatif
+  return Math.max(0, gross - disc)
+}
+
 // ✅ memo — evite re-render si props pa chanje
 const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRemove, t }) {
   const [search, setSearch] = useState(item.description || '')
@@ -69,14 +76,15 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
   const { data } = useQuery({
     queryKey: ['products-search', debouncedSearch],
     queryFn:  () => productAPI.getAll({ search: debouncedSearch, limit: 8 }).then(r => r.data.products || []),
-    enabled:  debouncedSearch.length >= 2, // ✅ omwen 2 lèt anvan chèche
-    staleTime: 30_000, // ✅ cache 30 sèk — pa re-fetch si menm search
+    enabled:  debouncedSearch.length >= 2,
+    staleTime: 30_000,
     cacheTime: 60_000,
   })
   const products = data || []
 
+  // ✅ KORIJE — rabè se yon montan HTG kounye a, pa pousantaj
   const lineTotal = useMemo(
-    () => (Number(item.unitPrice) * Number(item.qty)) * (1 - Number(item.discount || 0) / 100),
+    () => calcLineTotal(item.qty, item.unitPrice, item.discount),
     [item.unitPrice, item.qty, item.discount]
   )
 
@@ -87,7 +95,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
   }, [idx, onUpdate])
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'2.5fr 70px 120px 80px 100px 36px', gap:8, alignItems:'start', padding:'12px 0', borderBottom:`1px solid ${D.border}` }}>
+    <div style={{ display:'grid', gridTemplateColumns:'2.2fr 60px 110px 110px 110px 36px', gap:8, alignItems:'start', padding:'12px 0', borderBottom:`1px solid ${D.border}` }}>
       <div style={{ position:'relative' }}>
         <input
           value={search}
@@ -97,7 +105,6 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
             onUpdate(idx, { description: e.target.value, productId: null })
           }}
           onFocus={() => setOpen(true)}
-          // ✅ onBlur + setTimeout — remplace mousedown listener
           onBlur={() => setTimeout(() => setOpen(false), 200)}
           placeholder={t('invoice.searchProduct') || 'Chèche pwodui...'}
           style={{ ...inp, fontSize:12 }}
@@ -130,9 +137,11 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         onFocus={e => e.target.style.borderColor = D.blue}
         onBlur={e => e.target.style.borderColor = D.border}
       />
-      <input type="number" min="0" max="100" value={item.discount}
+      {/* ✅ KORIJE — Rabè HTG (montan), pa pousantaj */}
+      <input type="number" min="0" step="0.01" value={item.discount}
         onChange={e => onUpdate(idx, { discount: e.target.value })}
-        style={{ ...inp, fontSize:12, textAlign:'center' }}
+        placeholder="0.00"
+        style={{ ...inp, fontSize:12, fontFamily:'monospace', textAlign:'right' }}
         onFocus={e => e.target.style.borderColor = D.blue}
         onBlur={e => e.target.style.borderColor = D.border}
       />
@@ -152,7 +161,6 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
   const [search, setSearch] = useState(item.description || '')
   const [open, setOpen]     = useState(false)
 
-  // ✅ DEBOUNCE sou mobile tou
   const debouncedSearch = useDebounce(search, 400)
 
   const { data } = useQuery({
@@ -164,8 +172,9 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
   })
   const products = data || []
 
+  // ✅ KORIJE — rabè kòm montan HTG
   const lineTotal = useMemo(
-    () => (Number(item.unitPrice) * Number(item.qty)) * (1 - Number(item.discount || 0) / 100),
+    () => calcLineTotal(item.qty, item.unitPrice, item.discount),
     [item.unitPrice, item.qty, item.discount]
   )
 
@@ -202,7 +211,6 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
               onUpdate(idx, { description: e.target.value, productId: null })
             }}
             onFocus={() => setOpen(true)}
-            // ✅ onBlur + setTimeout olye mousedown listener
             onBlur={() => setTimeout(() => setOpen(false), 200)}
             placeholder="Ekri non pwodui a..."
             style={{ ...inp, paddingLeft:34, fontSize:14 }}
@@ -245,10 +253,12 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           />
         </div>
         <div>
-          {label('Remiz %')}
-          <input type="number" min="0" max="100" value={item.discount}
+          {/* ✅ KORIJE — Rabè HTG */}
+          {label('Rabè HTG')}
+          <input type="number" min="0" step="0.01" value={item.discount}
             onChange={e => onUpdate(idx, { discount: e.target.value })}
-            style={{ ...inp, textAlign:'center', fontSize:14 }}
+            placeholder="0.00"
+            style={{ ...inp, textAlign:'right', fontSize:13, fontFamily:'monospace' }}
             onFocus={e => e.target.style.borderColor = D.blue}
             onBlur={e => e.target.style.borderColor = D.border}
           />
@@ -280,13 +290,13 @@ export default function NewInvoicePage() {
   const [notes, setNotes]                   = useState('')
   const [terms, setTerms]                   = useState('')
   const [taxRate, setTaxRate]               = useState(tenant?.taxRate || 0)
+  // ✅ KORIJE — discountGlobal kounye a se yon MONTAN HTG, pa pousantaj
   const [discountGlobal, setDiscountGlobal] = useState(0)
 
   const [items, setItems] = useState(() => [
     { id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }
   ])
 
-  // ✅ Debounce sou client search tou
   const debouncedClientSearch = useDebounce(clientSearch, 400)
 
   const { data: clientData } = useQuery({
@@ -303,16 +313,15 @@ export default function NewInvoicePage() {
     return () => document.removeEventListener('mousedown', h)
   }, [])
 
-  // ✅ useMemo — pa recalcule chak keystroke
+  // ✅ KORIJE — rabè kòm montan HTG nan tout kalkil yo
   const { subtotal, discountAmount, afterDiscount, taxAmount, grandTotal } = useMemo(() => {
-    const sub     = items.reduce((acc, it) => acc + (Number(it.unitPrice) * Number(it.qty)) * (1 - Number(it.discount || 0) / 100), 0)
-    const discAmt = sub * (Number(discountGlobal) / 100)
-    const afterD  = sub - discAmt
+    const sub     = items.reduce((acc, it) => acc + calcLineTotal(it.qty, it.unitPrice, it.discount), 0)
+    const discAmt = Math.min(Number(discountGlobal || 0), sub) // pa kapab plis pase sou-total la
+    const afterD  = Math.max(0, sub - discAmt)
     const taxAmt  = afterD * (Number(taxRate) / 100)
     return { subtotal: sub, discountAmount: discAmt, afterDiscount: afterD, taxAmount: taxAmt, grandTotal: afterD + taxAmt }
   }, [items, discountGlobal, taxRate])
 
-  // ✅ useCallback — evite rekrye fonksyon chak render
   const updateItem = useCallback((idx, changes) => {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...changes } : it))
   }, [])
@@ -321,7 +330,6 @@ export default function NewInvoicePage() {
     setItems(prev => { if (prev.length === 1) return prev; return prev.filter((_, i) => i !== idx) })
   }, [])
 
-  // ✅ id inik pou key — evite React remont mal
   const addItem = useCallback(() => {
     setItems(prev => [...prev, { id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }])
   }, [])
@@ -342,26 +350,35 @@ export default function NewInvoicePage() {
       toast.error(t('invoice.addAtLeastOneItem') || 'Ajoute omwen yon atik.')
       return
     }
+
+    // ✅ KORIJE — pou chak liy, konvèti montan rabè a an pousantaj
+    // (paske schema InvoiceItem nan backend la sèlman gen `discountPct`)
     const mappedItems = validItems.map(it => {
       const qty       = Number(it.qty)
       const unitPrice = Number(it.unitPrice)
-      const discPct   = Number(it.discount || 0)
-      const lineTotal = qty * unitPrice * (1 - discPct / 100)
+      const discAmt   = Number(it.discount || 0)
+      const gross     = qty * unitPrice
+      const lineTotal = Math.max(0, gross - Math.min(discAmt, gross))
+      // Konvèti montan rabè → pousantaj pou backend
+      const discPct   = gross > 0 ? Math.min(100, (discAmt / gross) * 100) : 0
+
       return {
         description:     it.description,
         productId:       it.productId || null,
         quantity:        qty,
         unitPriceHtg:    unitPrice,
         unitPriceUsd:    0,
-        discountPct:     discPct,
+        discountPct:     Number(discPct.toFixed(4)),
         totalHtg:        lineTotal,
         totalUsd:        0,
         productSnapshot: {},
       }
     })
+
     const sub      = mappedItems.reduce((a, it) => a + it.totalHtg, 0)
-    const discAmt  = sub * (Number(discountGlobal) / 100)
-    const afterDis = sub - discAmt
+    // ✅ KORIJE — rabè global se yon MONTAN dirèk
+    const discAmt  = Math.min(Number(discountGlobal || 0), sub)
+    const afterDis = Math.max(0, sub - discAmt)
     const taxAmt   = afterDis * (Number(taxRate) / 100)
     const total    = afterDis + taxAmt
 
@@ -373,8 +390,9 @@ export default function NewInvoicePage() {
       exchangeRate:  0,
       subtotalHtg:   sub,
       subtotalUsd:   0,
-      discountType:  'percent',
-      discountValue: Number(discountGlobal),
+      // ✅ KORIJE — di backend la se yon MONTAN
+      discountType:  'amount',
+      discountValue: Number(discountGlobal || 0),
       discountHtg:   discAmt,
       discountUsd:   0,
       taxRate:       Number(taxRate),
@@ -483,18 +501,17 @@ export default function NewInvoicePage() {
 
           {isMobile ? (
             items.map((item, idx) => (
-              // ✅ key={item.id} olye key={idx} — pi stab
               <ItemRowMobile key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} count={items.length}/>
             ))
           ) : (
             <>
-              <div style={{ display:'grid', gridTemplateColumns:'2.5fr 70px 120px 80px 100px 36px', gap:8, padding:'8px 0', borderBottom:`2px solid ${D.border}` }}>
-                {[t('invoice.productDesc')||'Pwodui', t('invoice.qty')||'Qte', 'Pri U. (HTG)', 'Remiz %', 'Total', ''].map((h, i) => (
-                  <span key={i} style={{ fontSize:10, fontWeight:800, color:D.blue, textTransform:'uppercase', letterSpacing:'0.05em', textAlign: i >= 1 ? 'center' : 'left' }}>{h}</span>
+              {/* ✅ KORIJE — header "Rabè HTG" olye "Remiz %" */}
+              <div style={{ display:'grid', gridTemplateColumns:'2.2fr 60px 110px 110px 110px 36px', gap:8, padding:'8px 0', borderBottom:`2px solid ${D.border}` }}>
+                {[t('invoice.productDesc')||'Pwodui', t('invoice.qty')||'Qte', 'Pri U. (HTG)', 'Rabè (HTG)', 'Total', ''].map((h, i) => (
+                  <span key={i} style={{ fontSize:10, fontWeight:800, color:D.blue, textTransform:'uppercase', letterSpacing:'0.05em', textAlign: i >= 1 ? (i === 3 || i === 4 ? 'right' : 'center') : 'left' }}>{h}</span>
                 ))}
               </div>
               {items.map((item, idx) => (
-                // ✅ key={item.id}
                 <ItemRowDesktop key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t}/>
               ))}
             </>
@@ -536,16 +553,18 @@ export default function NewInvoicePage() {
                 <span>{t('quotes.subtotal') || 'Sou-total'}</span>
                 <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{fmt(subtotal)} HTG</span>
               </div>
+              {/* ✅ KORIJE — Rabè HTG (montan dirèk) */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:13, color:D.muted }}>
-                <span>{t('quotes.discount') || 'Remiz'} (%)</span>
-                <input type="number" min="0" max="100" value={discountGlobal}
+                <span>Rabè (HTG)</span>
+                <input type="number" min="0" step="0.01" value={discountGlobal}
                   onChange={e => setDiscountGlobal(e.target.value)}
-                  style={{ ...inp, width:80, textAlign:'center', fontSize:12, padding:'6px 10px' }}
+                  placeholder="0.00"
+                  style={{ ...inp, width:120, textAlign:'right', fontSize:12, padding:'6px 10px', fontFamily:'monospace' }}
                   onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
               {discountAmount > 0 && (
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:D.red }}>
-                  <span>- {t('quotes.discount') || 'Remiz'}</span>
+                  <span>- Rabè aplike</span>
                   <span style={{ fontFamily:'monospace' }}>- {fmt(discountAmount)} HTG</span>
                 </div>
               )}

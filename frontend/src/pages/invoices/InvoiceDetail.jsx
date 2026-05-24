@@ -774,7 +774,7 @@ export default function InvoiceDetail() {
             </div>
             <table className="table">
               <thead>
-                <tr><th>Pwodui</th><th className="text-center">Qte</th><th className="text-right">Pri U.</th><th className="text-center">Rem.</th><th className="text-right">Total</th></tr>
+                <tr><th>Pwodui</th><th className="text-center">Qte</th><th className="text-right">Pri U.</th><th className="text-right">Rabè</th><th className="text-right">Total</th></tr>
               </thead>
               <tbody>
                 {invoice.items?.map((item, i) => (
@@ -785,7 +785,11 @@ export default function InvoiceDetail() {
                     </td>
                     <td className="text-center font-mono">{Number(item.quantity)}</td>
                     <td className="text-right font-mono">{fmt(item.unitPriceHtg)}</td>
-                    <td className="text-center text-slate-500">{Number(item.discountPct) > 0 ? `${item.discountPct}%` : '-'}</td>
+                  <td className="text-right text-slate-500 font-mono">
+  {Number(item.discountPct) > 0
+    ? fmt((Number(item.unitPriceHtg) * Number(item.quantity)) * (Number(item.discountPct) / 100))
+    : '-'}
+</td>
                     <td className="text-right font-mono font-semibold">{fmt(item.totalHtg)}</td>
                   </tr>
                 ))}
