@@ -1,14 +1,16 @@
 // src/pages/reports/ReportsPage.jsx
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { reportAPI } from '../../services/api'
+import { Link } from 'react-router-dom'
+import { reportAPI, invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
-import { TrendingUp, Package, Award } from 'lucide-react'
+import { TrendingUp, Package, Award, AlertCircle } from 'lucide-react'
 import { format, subDays } from 'date-fns'
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from 'recharts'
 
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmt    = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmtUSD = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const PERIOD_PRESETS = [
   { labelKey: 'reports.days7',  days: 7  },
@@ -18,13 +20,44 @@ const PERIOD_PRESETS = [
 
 const COLORS = ['#1E40AF', '#6366f1', '#10b981', '#f59e0b', '#ef4444']
 
-const fmtUSD = (n) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })
+const STATUS_LABELS = {
+  unpaid:    'Pa peye',
+  partial:   'Depo (Pasyèl)',
+  paid:      'Peye',
+  cancelled: 'Anile',
+  overdue:   'An reta',
+}
+
+const STATUS_COLORS = {
+  unpaid:    '#dc2626',
+  partial:   '#d97706',
+  paid:      '#16a34a',
+  cancelled: '#6b7280',
+  overdue:   '#7c2d12',
+}
+
+// ✅ Hook responsive — detekte gwosè ekran
+function useScreenSize() {
+  const [size, setSize] = useState(() => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+    return { isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 }
+  })
+  useEffect(() => {
+    const handler = () => {
+      const w = window.innerWidth
+      setSize({ isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 })
+    }
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+  return size
+}
 
 export default function ReportsPage() {
   const { t } = useTranslation()
   const { hasRole, tenant } = useAuthStore()
+  const { isMobile, isTablet } = useScreenSize()
 
-  // ✅ To chanj — soti nan tenant (menm to ki nan navbar la)
   const exchangeRate = Number(tenant?.exchangeRate || 132)
   const htgToUsd     = (htg) => (Number(htg || 0) / exchangeRate)
 
@@ -37,16 +70,8 @@ export default function ReportsPage() {
   const [dateTo,    setDateTo]    = useState(todayStr)
   const [activeTab, setActiveTab] = useState('sales')
 
-  const handleDateFrom = (val) => {
-    if (isCashier && val < minCashierDate) return
-    setDateFrom(val)
-  }
-
-  const handleDateTo = (val) => {
-    if (isCashier && val > todayStr) return
-    setDateTo(val)
-  }
-
+  const handleDateFrom = (val) => { if (isCashier && val < minCashierDate) return; setDateFrom(val) }
+  const handleDateTo   = (val) => { if (isCashier && val > todayStr) return;       setDateTo(val) }
   const setPreset = (days) => {
     if (isCashier) return
     setDateFrom(format(subDays(new Date(), days), 'yyyy-MM-dd'))
@@ -56,41 +81,76 @@ export default function ReportsPage() {
   const { data: salesReport } = useQuery({
     queryKey: ['sales-report', dateFrom, dateTo],
     queryFn:  () => reportAPI.getSales({ dateFrom, dateTo }).then(r => r.data.report),
-    enabled:  activeTab === 'sales'
+    enabled:  activeTab === 'sales',
+  })
+
+  // ✅ NOUVO — chèche fakti ki gen dèt pou kalkile top debtors
+  const { data: unpaidInvoices } = useQuery({
+    queryKey: ['unpaid-invoices', dateFrom, dateTo],
+    queryFn:  () => invoiceAPI.getAll({ dateFrom, dateTo, limit: 500 }).then(r => r.data.invoices || []),
+    enabled:  activeTab === 'sales',
+    staleTime: 30_000,
   })
 
   const { data: stockReport } = useQuery({
     queryKey: ['stock-report'],
     queryFn:  () => reportAPI.getStock().then(r => r.data.report),
-    enabled:  activeTab === 'stock'
+    enabled:  activeTab === 'stock',
   })
 
   const { data: topReport } = useQuery({
     queryKey: ['top-products', dateFrom, dateTo],
     queryFn:  () => reportAPI.getTopProducts({ dateFrom, dateTo, limit: 10 }).then(r => r.data.topProducts),
-    enabled:  activeTab === 'top'
+    enabled:  activeTab === 'top',
   })
 
-  const handleTabChange = (key) => {
-    if (key === 'stock' && isCashier) return
-    setActiveTab(key)
-  }
+  const handleTabChange = (key) => { if (key === 'stock' && isCashier) return; setActiveTab(key) }
 
   const TABS = [
-    { key: 'sales', labelKey: 'reports.sales',      icon: <TrendingUp size={15} />, adminOnly: false },
-    { key: 'stock', labelKey: 'reports.stock',       icon: <Package    size={15} />, adminOnly: true  },
-    { key: 'top',   labelKey: 'reports.topProducts', icon: <Award      size={15} />, adminOnly: false },
+    { key: 'sales', labelKey: 'reports.sales',       icon: <TrendingUp size={isMobile ? 14 : 15}/>, adminOnly: false },
+    { key: 'stock', labelKey: 'reports.stock',       icon: <Package    size={isMobile ? 14 : 15}/>, adminOnly: true  },
+    { key: 'top',   labelKey: 'reports.topProducts', icon: <Award      size={isMobile ? 14 : 15}/>, adminOnly: false },
   ].filter(tab => !tab.adminOnly || !isCashier)
 
+  // Kalkil global
+  const totalHtg   = Number(salesReport?.totals?._sum?.totalHtg || 0)
+  const paidHtg    = Number(salesReport?.totals?._sum?.amountPaidHtg || 0)
+  const balanceDue = Math.max(0, totalHtg - paidHtg)
+
+  const byStatusTranslated = salesReport?.byStatus?.map(s => ({
+    ...s,
+    statusLabel: STATUS_LABELS[s.status] || s.status,
+    color:       STATUS_COLORS[s.status] || '#94a3b8',
+  })) || []
+
+  // ✅ NOUVO — gwoupe pa kliyan, jwenn top 5 ki dwe plis
+  const topDebtors = useMemo(() => {
+    if (!unpaidInvoices?.length) return []
+    const byClient = {}
+    unpaidInvoices.forEach(inv => {
+      const bal = Number(inv.balanceDueHtg || 0)
+      if (bal <= 0) return
+      const clientName = inv.client?.name || inv.clientSnapshot?.name || 'San Kliyan'
+      const clientId   = inv.client?.id || `_${clientName}`
+      if (!byClient[clientId]) {
+        byClient[clientId] = { id: clientId, name: clientName, balance: 0, invoiceCount: 0, phone: inv.client?.phone }
+      }
+      byClient[clientId].balance      += bal
+      byClient[clientId].invoiceCount += 1
+    })
+    return Object.values(byClient).sort((a, b) => b.balance - a.balance).slice(0, 5)
+  }, [unpaidInvoices])
+
   return (
-    <div className="animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">{t('reports.title')}</h1>
+    <div className="animate-fade-in" style={{ paddingBottom: isMobile ? 80 : 24 }}>
+
+      <div className="page-header" style={{ marginBottom: isMobile ? 14 : 20 }}>
+        <h1 className="page-title" style={{ fontSize: isMobile ? 22 : undefined }}>{t('reports.title')}</h1>
       </div>
 
-      {/* ── Tabs — scroll horizontal sou mobil */}
+      {/* ── Tabs */}
       <div style={{
-        display: 'flex', gap: 4, marginBottom: 24,
+        display: 'flex', gap: 4, marginBottom: isMobile ? 16 : 24,
         background: '#f1f5f9', padding: 4, borderRadius: 12,
         overflowX: 'auto', WebkitOverflowScrolling: 'touch',
         width: 'fit-content', maxWidth: '100%',
@@ -98,8 +158,10 @@ export default function ReportsPage() {
         {TABS.map(tab => (
           <button key={tab.key} onClick={() => handleTabChange(tab.key)} style={{
             display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', flexShrink: 0,
+            padding: isMobile ? '10px 12px' : '8px 14px',
+            minHeight: 40,
+            borderRadius: 8, border: 'none', cursor: 'pointer',
+            fontSize: isMobile ? 12 : 13, fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
             background: activeTab === tab.key ? '#fff'    : 'transparent',
             color:      activeTab === tab.key ? '#1B2A8F' : '#64748b',
             boxShadow:  activeTab === tab.key ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
@@ -112,9 +174,8 @@ export default function ReportsPage() {
 
       {/* ── Filtè dat */}
       {activeTab !== 'stock' && (
-        <div style={{ marginBottom: 20 }}>
+        <div style={{ marginBottom: isMobile ? 16 : 20 }}>
 
-          {/* Mesaj limit kesye */}
           {isCashier && (
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -127,33 +188,46 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {/* Presè — admin sèlman */}
           {!isCashier && (
             <div style={{ display: 'flex', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
               {PERIOD_PRESETS.map(p => (
-                <button key={p.days} onClick={() => setPreset(p.days)} className="btn-secondary btn-sm">
+                <button key={p.days} onClick={() => setPreset(p.days)} className="btn-secondary btn-sm"
+                  style={{ minHeight: 36 }}>
                   {t(p.labelKey)}
                 </button>
               ))}
             </div>
           )}
 
-          {/* Inputs dat — stack sou mobil, liy sou desktop */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            flexWrap: 'wrap',
+            flexDirection: isMobile ? 'column' : 'row',
+          }}>
             <input
               type="date"
               className="input"
-              style={{ flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13 }}
+              style={{
+                flex: isMobile ? '1 1 100%' : '1 1 130px',
+                width: isMobile ? '100%' : undefined,
+                minWidth: 120, maxWidth: isMobile ? '100%' : 180,
+                fontSize: 14, minHeight: 42,
+              }}
               value={dateFrom}
               min={isCashier ? minCashierDate : undefined}
               max={dateTo}
               onChange={e => handleDateFrom(e.target.value)}
             />
-            <span style={{ color: '#94a3b8', fontSize: 16, flexShrink: 0 }}>→</span>
+            {!isMobile && <span style={{ color: '#94a3b8', fontSize: 16, flexShrink: 0 }}>→</span>}
             <input
               type="date"
               className="input"
-              style={{ flex: '1 1 130px', minWidth: 120, maxWidth: 180, fontSize: 13 }}
+              style={{
+                flex: isMobile ? '1 1 100%' : '1 1 130px',
+                width: isMobile ? '100%' : undefined,
+                minWidth: 120, maxWidth: isMobile ? '100%' : 180,
+                fontSize: 14, minHeight: 42,
+              }}
               value={dateTo}
               min={dateFrom}
               max={todayStr}
@@ -167,64 +241,189 @@ export default function ReportsPage() {
       {activeTab === 'sales' && (
         <div className="space-y-5">
 
-          {/* Stat cards — auto-fit: 1 kolòn sou ti mobil, 2 sou tablet, 4 sou desktop */}
+          {/* ✅ 5 kat estatistik — 2 kolòn sou mobil, auto sou desktop */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
-            gap: 12,
+            gridTemplateColumns: isMobile
+              ? 'repeat(2, 1fr)'
+              : 'repeat(auto-fit, minmax(160px, 1fr))',
+            gap: isMobile ? 8 : 12,
           }}>
             {[
-              { label: t('reports.totalSales'),   val: `${fmt(salesReport?.totals?._sum?.totalHtg)} HTG`,                                           color: '#1B2A8F', bg: '#eff2ff' },
-              { label: t('reports.totalUsd'),     val: `$${fmtUSD(htgToUsd(salesReport?.totals?._sum?.totalHtg))} USD`,                             color: '#7c3aed', bg: '#f5f3ff' },
-              { label: t('reports.invoiceCount'), val: salesReport?.totals?._count || 0,                                                             color: '#059669', bg: '#ecfdf5' },
-              { label: t('reports.paid'),         val: `${fmt(salesReport?.totals?._sum?.amountPaidHtg)} HTG`, color: '#059669', bg: '#ecfdf5' },
+              { label: 'Total Vant',         val: `${fmt(totalHtg)} HTG`,           color: '#1B2A8F', bg: '#eff2ff' },
+              { label: 'Total USD',          val: `$${fmtUSD(htgToUsd(totalHtg))}`, color: '#7c3aed', bg: '#f5f3ff' },
+              { label: 'Nbr Fakti',          val: salesReport?.totals?._count || 0, color: '#0369a1', bg: '#e0f2fe' },
+              { label: 'Peye',               val: `${fmt(paidHtg)} HTG`,            color: '#059669', bg: '#ecfdf5' },
+              { label: 'Balans Kredi (Dèt)', val: `${fmt(balanceDue)} HTG`,         color: '#dc2626', bg: '#fef2f2', warn: balanceDue > 0 },
             ].map((s, i) => (
-              <div key={i} className="card" style={{ padding: '14px 16px' }}>
-                <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{s.label}</p>
+              <div key={i} className="card" style={{
+                padding: isMobile ? '12px 14px' : '14px 16px',
+                borderColor: s.warn ? '#fecaca' : undefined,
+              }}>
                 <p style={{
-                  fontSize: 14, fontWeight: 700, color: s.color,
+                  fontSize: isMobile ? 10 : 11,
+                  color: '#94a3b8', marginBottom: 4,
+                  textTransform: 'uppercase', letterSpacing: '0.03em', fontWeight: 700,
+                }}>{s.label}</p>
+                <p style={{
+                  fontSize: isMobile ? 13 : 14,
+                  fontWeight: 700, color: s.color,
                   background: s.bg, borderRadius: 6,
-                  padding: '2px 8px', display: 'inline-block',
+                  padding: '3px 8px', display: 'inline-block',
                   wordBreak: 'break-all', lineHeight: 1.5,
                 }}>{s.val}</p>
               </div>
             ))}
           </div>
-          {/* ✅ Afiche to chanj ki itilize */}
+
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: -4 }}>
             1 USD = {fmt(exchangeRate)} HTG (to aktyèl)
           </p>
 
-          {salesReport?.byStatus && (
+          {/* ✅ NOUVO — Top 5 Kliyan ki Dwe */}
+          {topDebtors.length > 0 && (
+            <div className="card" style={{ padding: isMobile ? 14 : 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isMobile ? 12 : 16 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 10,
+                  background: 'rgba(220,38,38,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  <AlertCircle size={16} color="#dc2626"/>
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: '#1e293b', margin: 0 }}>
+                    Top Kliyan ki Dwe
+                  </h3>
+                  <p style={{ fontSize: 11, color: '#94a3b8', margin: '2px 0 0' }}>
+                    5 pi gwo dèt nan peryòd la
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 8 : 10 }}>
+                {topDebtors.map((c, i) => (
+                  <Link
+                    key={c.id}
+                    to={`/app/invoices?search=${encodeURIComponent(c.name)}`}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14,
+                      padding: isMobile ? '10px 12px' : '12px 14px',
+                      borderRadius: 12,
+                      background: i === 0 ? 'rgba(220,38,38,0.04)' : '#fafaf9',
+                      border:     i === 0 ? '1px solid rgba(220,38,38,0.15)' : '1px solid #f0e8d8',
+                      textDecoration: 'none',
+                      minHeight: 56,
+                      transition: 'background 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = i === 0 ? 'rgba(220,38,38,0.07)' : '#f5f5f4'}
+                    onMouseLeave={e => e.currentTarget.style.background = i === 0 ? 'rgba(220,38,38,0.04)' : '#fafaf9'}
+                  >
+                    <div style={{
+                      width: isMobile ? 28 : 32, height: isMobile ? 28 : 32,
+                      borderRadius: 10,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: isMobile ? 13 : 14, fontWeight: 800,
+                      background: i === 0 ? '#dc2626' : i < 3 ? '#fef3c7' : '#f1f5f9',
+                      color:      i === 0 ? '#fff'    : i < 3 ? '#d97706' : '#64748b',
+                      flexShrink: 0,
+                    }}>
+                      {i + 1}
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{
+                        fontSize: isMobile ? 13 : 14, fontWeight: 700, color: '#1e293b',
+                        margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {c.name}
+                      </p>
+                      <p style={{ fontSize: 11, color: '#94a3b8', margin: '2px 0 0' }}>
+                        {c.invoiceCount} fakti{c.phone ? ` · ${c.phone}` : ''}
+                      </p>
+                    </div>
+
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{
+                        fontSize: isMobile ? 13 : 15, fontWeight: 900, color: '#dc2626',
+                        fontFamily: 'monospace', margin: 0,
+                      }}>
+                        {fmt(c.balance)}
+                      </p>
+                      <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0', fontWeight: 600 }}>
+                        HTG
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <div style={{
+                marginTop: 14, paddingTop: 12,
+                borderTop: '1px dashed #e2e8f0',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                flexWrap: 'wrap', gap: 8,
+              }}>
+                <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>
+                  Total dèt top 5
+                </span>
+                <span style={{ fontSize: isMobile ? 14 : 16, fontWeight: 900, color: '#dc2626', fontFamily: 'monospace' }}>
+                  {fmt(topDebtors.reduce((a, c) => a + c.balance, 0))} HTG
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Stati + grafik */}
+          {byStatusTranslated.length > 0 && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: 16,
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: isMobile ? 12 : 16,
             }}>
-              <div className="card p-5">
-                <h3 className="section-title">{t('reports.salesByStatus')}</h3>
-                <div className="space-y-3">
-                  {salesReport.byStatus.map((s, i) => (
+              <div className="card" style={{ padding: isMobile ? 16 : 20 }}>
+                <h3 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: '#1e293b', margin: '0 0 14px' }}>
+                  Vant pa Stati
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {byStatusTranslated.map((s, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: '#475569', textTransform: 'capitalize' }}>{s.status}</span>
-                      <div style={{ textAlign: 'right' }}>
-                        <p style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 13 }}>{fmt(s._sum?.totalHtg)} HTG</p>
-                        <p style={{ fontSize: 11, color: '#94a3b8' }}>{s._count} {t('reports.invoices')}</p>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: isMobile ? 12 : 13, color: '#475569', fontWeight: 600, minWidth: 0 }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }}/>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {s.statusLabel}
+                        </span>
+                      </span>
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: isMobile ? 12 : 13, color: '#1e293b', margin: 0 }}>
+                          {fmt(s._sum?.totalHtg)} HTG
+                        </p>
+                        <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0' }}>{s._count} fakti</p>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="card p-5">
-                <h3 className="section-title">{t('reports.distribution')}</h3>
-                <ResponsiveContainer width="100%" height={200}>
+              <div className="card" style={{ padding: isMobile ? 16 : 20 }}>
+                <h3 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: '#1e293b', margin: '0 0 14px' }}>
+                  Repatisyon
+                </h3>
+                <ResponsiveContainer width="100%" height={isMobile ? 180 : 220}>
                   <PieChart>
-                    <Pie data={salesReport.byStatus} dataKey="_count" nameKey="status" cx="50%" cy="50%" outerRadius={80}>
-                      {salesReport.byStatus.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                    <Pie
+                      data={byStatusTranslated}
+                      dataKey="_count" nameKey="statusLabel"
+                      cx="50%" cy="50%"
+                      outerRadius={isMobile ? 60 : 80}
+                    >
+                      {byStatusTranslated.map((entry, i) => (
+                        <Cell key={i} fill={entry.color || COLORS[i % COLORS.length]}/>
+                      ))}
                     </Pie>
-                    <Tooltip formatter={(v) => [`${v} ${t('reports.invoices')}`]} />
-                    <Legend />
+                    <Tooltip formatter={(v, name) => [`${v} fakti`, name]}/>
+                    <Legend wrapperStyle={{ fontSize: isMobile ? 11 : 12 }}/>
                   </PieChart>
                 </ResponsiveContainer>
               </div>
@@ -236,102 +435,215 @@ export default function ReportsPage() {
       {/* ════ STÒK ════ */}
       {activeTab === 'stock' && stockReport && (
         <div className="space-y-5">
+
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-            gap: 12,
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: isMobile ? 8 : 12,
           }}>
             {[
-              { label: t('reports.totalProducts'), val: stockReport.totalProducts,                  warn: false },
-              { label: t('reports.lowStock'),      val: stockReport.lowStock,                       warn: stockReport.lowStock > 0 },
-              { label: t('reports.outOfStock'),    val: stockReport.outOfStock,                     warn: stockReport.outOfStock > 0 },
-              { label: t('reports.stockValue'),    val: `${fmt(stockReport.stockValue?.priceHtg)}`, warn: false },
+              { label: 'Total Pwodwi', val: stockReport.totalProducts,                  warn: false },
+              { label: 'Stòk Ba',      val: stockReport.lowStock,                       warn: stockReport.lowStock > 0 },
+              { label: 'Pa gen Stòk',  val: stockReport.outOfStock,                     warn: stockReport.outOfStock > 0 },
+              { label: 'Valè Stòk',    val: `${fmt(stockReport.stockValue?.priceHtg)}`, warn: false },
             ].map((s, i) => (
-              <div key={i} className="card" style={{ padding: '14px 16px', borderColor: s.warn ? '#fed7aa' : undefined }}>
-                <p style={{ fontSize: 11, color: '#94a3b8', marginBottom: 4 }}>{s.label}</p>
-                <p style={{ fontSize: 20, fontWeight: 700, color: s.warn ? '#ea580c' : '#1e293b', wordBreak: 'break-all' }}>{s.val}</p>
+              <div key={i} className="card" style={{
+                padding: isMobile ? '12px 14px' : '14px 16px',
+                borderColor: s.warn ? '#fed7aa' : undefined,
+              }}>
+                <p style={{ fontSize: isMobile ? 10 : 11, color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.03em' }}>
+                  {s.label}
+                </p>
+                <p style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: s.warn ? '#ea580c' : '#1e293b', wordBreak: 'break-all' }}>
+                  {s.val}
+                </p>
               </div>
             ))}
           </div>
 
-          {/* Tablo — scroll horizontal sou mobil */}
-          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <table className="table" style={{ minWidth: 500 }}>
-              <thead>
-                <tr>
-                  <th>{t('reports.product')}</th>
-                  <th>{t('reports.category')}</th>
-                  <th style={{ textAlign: 'right' }}>{t('reports.qty')}</th>
-                  <th style={{ textAlign: 'right' }}>{t('reports.alertThreshold')}</th>
-                  <th style={{ textAlign: 'right' }}>{t('reports.stockValueHtg')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stockReport.products?.map(p => (
-                  <tr key={p.id} style={{ background: Number(p.quantity) <= Number(p.alertThreshold) ? 'rgba(251,146,60,0.06)' : undefined }}>
-                    <td>
-                      <p style={{ fontWeight: 500 }}>{p.name}</p>
-                      <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{p.code}</p>
-                    </td>
-                    <td>{p.category?.name || '—'}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: Number(p.quantity) <= Number(p.alertThreshold) ? '#ea580c' : '#334155' }}>
-                      {Number(p.quantity)} {p.unit}
-                    </td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8' }}>{Number(p.alertThreshold)}</td>
-                    <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(Number(p.quantity) * Number(p.priceHtg))}</td>
+          {/* Lis pwodwi — kat sou mobil, tablo sou desktop/tablet */}
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {stockReport.products?.map(p => {
+                const low = Number(p.quantity) <= Number(p.alertThreshold)
+                return (
+                  <div key={p.id} className="card" style={{
+                    padding: '12px 14px',
+                    borderColor: low ? '#fed7aa' : undefined,
+                    background:  low ? 'rgba(251,146,60,0.04)' : '#fff',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {p.name}
+                        </p>
+                        {p.code && (
+                          <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', margin: '2px 0 0' }}>{p.code}</p>
+                        )}
+                      </div>
+                      {p.category && (
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#eff2ff', color: '#1B2A8F', fontWeight: 700, flexShrink: 0 }}>
+                          {p.category.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, fontSize: 11 }}>
+                      <div>
+                        <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>QTE</p>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 800, margin: '2px 0 0', color: low ? '#ea580c' : '#1e293b' }}>
+                          {Number(p.quantity)} {p.unit}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>ALÈT</p>
+                        <p style={{ fontFamily: 'monospace', color: '#64748b', margin: '2px 0 0' }}>
+                          {Number(p.alertThreshold)}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>VALÈ</p>
+                        <p style={{ fontFamily: 'monospace', fontWeight: 700, margin: '2px 0 0', color: '#1e293b' }}>
+                          {fmt(Number(p.quantity) * Number(p.priceHtg))}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+              <table className="table" style={{ minWidth: 500 }}>
+                <thead>
+                  <tr>
+                    <th>Pwodwi</th>
+                    <th>Kategori</th>
+                    <th style={{ textAlign: 'right' }}>QTE</th>
+                    <th style={{ textAlign: 'right' }}>Alèt</th>
+                    <th style={{ textAlign: 'right' }}>Valè HTG</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {stockReport.products?.map(p => {
+                    const low = Number(p.quantity) <= Number(p.alertThreshold)
+                    return (
+                      <tr key={p.id} style={{ background: low ? 'rgba(251,146,60,0.06)' : undefined }}>
+                        <td>
+                          <p style={{ fontWeight: 600 }}>{p.name}</p>
+                          <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{p.code}</p>
+                        </td>
+                        <td>{p.category?.name || '—'}</td>
+                        <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: low ? '#ea580c' : '#334155' }}>
+                          {Number(p.quantity)} {p.unit}
+                        </td>
+                        <td style={{ textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8' }}>{Number(p.alertThreshold)}</td>
+                        <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(Number(p.quantity) * Number(p.priceHtg))}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
       {/* ════ TOP PWODWI ════ */}
       {activeTab === 'top' && (
-        <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table className="table" style={{ minWidth: 440 }}>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>{t('reports.product')}</th>
-                <th style={{ textAlign: 'center' }}>{t('reports.qtySold')}</th>
-                <th style={{ textAlign: 'right' }}>{t('reports.totalHtg')}</th>
-                <th style={{ textAlign: 'center' }}>{t('reports.orderCount')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {topReport?.map((item, i) => (
-                <tr key={i}>
-                  <td style={{ width: 40 }}>
-                    <span style={{
-                      width: 28, height: 28, borderRadius: 8,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 13, fontWeight: 700,
-                      background: i < 3 ? '#fef3c7' : '#f1f5f9',
-                      color:      i < 3 ? '#d97706' : '#64748b',
-                    }}>{i + 1}</span>
-                  </td>
-                  <td>
-                    <p style={{ fontWeight: 500 }}>{item.product?.name}</p>
-                    <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{item.product?.code}</p>
-                  </td>
-                  <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{Number(item._sum?.quantity || 0).toFixed(2)}</td>
-                  <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(item._sum?.totalHtg)} HTG</td>
-                  <td style={{ textAlign: 'center', color: '#64748b' }}>{item._count}</td>
-                </tr>
-              )) || (
+        isMobile ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {topReport?.length ? topReport.map((item, i) => (
+              <div key={i} className="card" style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                  <span style={{
+                    width: 32, height: 32, borderRadius: 10,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 800,
+                    background: i < 3 ? '#fef3c7' : '#f1f5f9',
+                    color:      i < 3 ? '#d97706' : '#64748b',
+                    flexShrink: 0,
+                  }}>{i + 1}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1e293b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {item.product?.name}
+                    </p>
+                    {item.product?.code && (
+                      <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace', margin: '2px 0 0' }}>{item.product.code}</p>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, fontSize: 11 }}>
+                  <div>
+                    <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>VANN</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 800, margin: '2px 0 0' }}>
+                      {Number(item._sum?.quantity || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>KÒMAND</p>
+                    <p style={{ fontFamily: 'monospace', color: '#64748b', margin: '2px 0 0' }}>
+                      {item._count}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ color: '#94a3b8', fontWeight: 600, margin: 0 }}>TOTAL</p>
+                    <p style={{ fontFamily: 'monospace', fontWeight: 700, margin: '2px 0 0', color: '#1B2A8F' }}>
+                      {fmt(item._sum?.totalHtg)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8' }}>
+                Pa gen done
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <table className="table" style={{ minWidth: 440 }}>
+              <thead>
                 <tr>
-                  <td colSpan={5}>
-                    <div style={{ padding: '32px 0', textAlign: 'center' }}>
-                      <p style={{ color: '#94a3b8' }}>{t('reports.noData')}</p>
-                    </div>
-                  </td>
+                  <th>#</th>
+                  <th>Pwodwi</th>
+                  <th style={{ textAlign: 'center' }}>Qte Vann</th>
+                  <th style={{ textAlign: 'right' }}>Total HTG</th>
+                  <th style={{ textAlign: 'center' }}>Kòmand</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {topReport?.length ? topReport.map((item, i) => (
+                  <tr key={i}>
+                    <td style={{ width: 40 }}>
+                      <span style={{
+                        width: 28, height: 28, borderRadius: 8,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 13, fontWeight: 700,
+                        background: i < 3 ? '#fef3c7' : '#f1f5f9',
+                        color:      i < 3 ? '#d97706' : '#64748b',
+                      }}>{i + 1}</span>
+                    </td>
+                    <td>
+                      <p style={{ fontWeight: 600 }}>{item.product?.name}</p>
+                      <p style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'monospace' }}>{item.product?.code}</p>
+                    </td>
+                    <td style={{ textAlign: 'center', fontFamily: 'monospace' }}>{Number(item._sum?.quantity || 0).toFixed(2)}</td>
+                    <td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(item._sum?.totalHtg)} HTG</td>
+                    <td style={{ textAlign: 'center', color: '#64748b' }}>{item._count}</td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5}>
+                      <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8' }}>
+                        Pa gen done
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
     </div>
   )
