@@ -291,7 +291,13 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           <Row2 label="Monnen remèt:" value={`${fmtR(change)} G`} bold />
         )}
         {paidHtg > 0 && (
-          <Row2 label="Kòb peye:" value={`${fmtR(paidHtg)} G`} bold />
+          // ✅ KORIJE — "Depo peye" si pasyèl, "Kòb peye" si konplè
+          <Row2
+            label={balHtg > 0 ? "Depo peye:" : "Kòb peye:"}
+            value={`${fmtR(paidHtg)} G`}
+            bold
+            color={balHtg > 0 ? "#16a34a" : undefined}
+          />
         )}
         {lastPay?.method && (
           <Row2
@@ -306,7 +312,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           <>
             <DASH/>
             <Row2
-              label="Balans ki rete:"
+              label="Balans pou peye:"
               value={`-${fmtR(balHtg)} G${toUSD(balHtg) ? ` / -$${toUSD(balHtg)}` : ''}`}
               bold color="#dc2626"
             />
@@ -324,6 +330,19 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
               value={toHaitiDate(dueDate, 'dd/MM/yyyy')}
               bold color="#c47a00"
             />
+          </div>
+        )}
+        {/* ✅ NOUVO — mesaj klè lè kliyan peye TOUT balans la */}
+        {isPaid && paidHtg > 0 && (
+          <div style={{
+            background:'rgba(22,163,74,0.08)',
+            border:'1px dashed #16a34a',
+            borderRadius:3, padding:'3px 5px', marginTop:3,
+            textAlign:'center',
+            fontSize: is57 ? '10px' : '11px',
+            fontWeight: 900, color:'#15803d',
+          }}>
+            ✓ KLIYAN AN PA DWE ANKÒ
           </div>
         )}
       </div>
@@ -803,16 +822,34 @@ export default function InvoiceDetail() {
                 <h3 className="font-display font-bold text-slate-800">Istwa Peman ({invoice.payments.length})</h3>
               </div>
               <table className="table">
-                <thead><tr><th>Dat</th><th>Metod</th><th>Referans</th><th className="text-right">Montan HTG</th></tr></thead>
+                <thead><tr><th>Tip</th><th>Dat</th><th>Metod</th><th>Referans</th><th className="text-right">Montan HTG</th></tr></thead>
                 <tbody>
-                  {invoice.payments.map(p => (
-                    <tr key={p.id}>
-                      <td className="text-xs text-slate-500">{toHaitiDate(p.paymentDate, 'dd/MM/yyyy')}</td>
-                      <td><span className="badge-blue">{PAYMENT_METHODS.find(m=>m.value===p.method)?.label || p.method}</span></td>
-                      <td className="text-xs text-slate-400 font-mono">{p.reference || '-'}</td>
-                      <td className="text-right font-mono font-semibold text-emerald-600">{fmt(p.amountHtg)}</td>
-                    </tr>
-                  ))}
+                  {invoice.payments.map((p, idx) => {
+                    // ✅ NOUVO — kalkile si peman sa se yon depo oswa peman final
+                    const sortedPayments = [...invoice.payments].sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate))
+                    const myIndex        = sortedPayments.findIndex(x => x.id === p.id)
+                    const totalBeforeMe  = sortedPayments.slice(0, myIndex + 1).reduce((acc, x) => acc + Number(x.amountHtg || 0), 0)
+                    const isFinalPay     = totalBeforeMe >= Number(invoice.totalHtg) - 0.01
+                    const isOnlyPayment  = sortedPayments.length === 1
+                    const tipLabel       = isFinalPay && !isOnlyPayment ? 'Peman final'
+                                         : isFinalPay && isOnlyPayment  ? 'Peman konplè'
+                                         : `Depo #${myIndex + 1}`
+                    const tipColor       = isFinalPay ? '#16a34a' : '#d97706'
+                    const tipBg          = isFinalPay ? 'rgba(22,163,74,0.10)' : 'rgba(217,119,6,0.10)'
+                    return (
+                      <tr key={p.id}>
+                        <td>
+                          <span style={{ fontSize:11, fontWeight:800, padding:'3px 9px', borderRadius:99, background:tipBg, color:tipColor }}>
+                            {tipLabel}
+                          </span>
+                        </td>
+                        <td className="text-xs text-slate-500">{toHaitiDate(p.paymentDate, 'dd/MM/yyyy')}</td>
+                        <td><span className="badge-blue">{PAYMENT_METHODS.find(m=>m.value===p.method)?.label || p.method}</span></td>
+                        <td className="text-xs text-slate-400 font-mono">{p.reference || '-'}</td>
+                        <td className="text-right font-mono font-semibold text-emerald-600">{fmt(p.amountHtg)}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -844,14 +881,25 @@ export default function InvoiceDetail() {
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 text-sm">
+              {/* ✅ KORIJE — "Depo peye" si gen balans, "Peye" si konplè */}
               <div className="flex justify-between text-emerald-600">
-                <span className="flex items-center gap-1.5"><CheckCircle2 size={14} /> Peye</span>
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 size={14} /> {balance > 0 ? 'Depo peye' : 'Peye'}
+                </span>
                 <span className="font-mono font-semibold">{fmt(invoice.amountPaidHtg)} HTG</span>
               </div>
               {balance > 0 && (
                 <div className="flex justify-between text-red-600">
-                  <span className="flex items-center gap-1.5"><Clock size={14} /> Balans</span>
+                  <span className="flex items-center gap-1.5"><Clock size={14} /> Balans pou peye</span>
                   <span className="font-mono font-bold">-{fmt(balance)} HTG</span>
+                </div>
+              )}
+              {/* ✅ NOUVO — Mesaj klè lè kliyan an peye tout balans la */}
+              {isPaid && Number(invoice.amountPaidHtg) > 0 && (
+                <div style={{ marginTop:8, padding:'8px 12px', background:'rgba(22,163,74,0.08)', border:'1px solid rgba(22,163,74,0.3)', borderRadius:10, textAlign:'center' }}>
+                  <span style={{ fontSize:12, fontWeight:800, color:'#15803d' }}>
+                    ✓ Kliyan an pa dwe ankò
+                  </span>
                 </div>
               )}
             </div>
@@ -933,7 +981,14 @@ export default function InvoiceDetail() {
           <div className="modal max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-display font-bold">Anrejistre Peman</h2>
+                {/* ✅ KORIJE — tit dinamik: Depo si pasyèl ap rete, Peman Final si li ranpli */}
+                <h2 className="text-lg font-display font-bold">
+                  {Number(invoice.amountPaidHtg) > 0
+                    ? 'Ajoute lòt depo / Peye balans'
+                    : (amtNum > 0 && amtNum < balance)
+                      ? 'Anrejistre Depo (Avans)'
+                      : 'Anrejistre Peman'}
+                </h2>
                 <p className="text-xs text-slate-400 mt-0.5">{invoice.invoiceNumber}</p>
               </div>
               <button onClick={() => setShowPayment(false)} className="text-slate-400 hover:text-slate-600 p-1 text-xl leading-none">x</button>
@@ -947,12 +1002,13 @@ export default function InvoiceDetail() {
                 </div>
                 {Number(invoice.amountPaidHtg) > 0 && (
                   <div className="flex justify-between items-center mt-1">
-                    <span style={{ fontSize:12, color:'#6b7280' }}>Deja peye:</span>
+                    {/* ✅ KORIJE — "Depo deja peye" olye "Deja peye" */}
+                    <span style={{ fontSize:12, color:'#6b7280' }}>💰 Depo deja peye:</span>
                     <span style={{ fontFamily:'monospace', color:'#16a34a', fontWeight:600 }}>-{fmt(invoice.amountPaidHtg)} HTG</span>
                   </div>
                 )}
                 <div style={{ borderTop:'1px solid #fecaca', marginTop:8, paddingTop:8 }} className="flex justify-between items-center">
-                  <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans ki rete:</span>
+                  <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans pou peye:</span>
                   <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>-{fmt(balance)} HTG</span>
                 </div>
               </div>
@@ -975,15 +1031,26 @@ export default function InvoiceDetail() {
                   style={{ fontSize:22, fontWeight:800, textAlign:'center' }}
                 />
                 {amtNum > 0 && amtNum < balance && (
-                  <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>Pèman pasyèl</span>
-                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG ap rete</span>
+                  <div style={{ marginTop:8, padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                      <span style={{ fontSize:12, color:'#d97706', fontWeight:800 }}>💰 Depo (avans)</span>
+                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>+ {fmt(amtNum)} HTG</span>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontSize:11, color:'#92400e', fontWeight:600 }}>Balans ap rete pou peye:</span>
+                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG</span>
+                    </div>
                   </div>
                 )}
                 {amtNum === balance && amtNum > 0 && (
-                  <div style={{ marginTop:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:'#16a34a', fontWeight:700 }}>Peman egzak</span>
-                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
+                  <div style={{ marginTop:8, padding:'10px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                      <span style={{ fontSize:12, color:'#16a34a', fontWeight:800 }}>✓ Peman final — Balans peye nèt</span>
+                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
+                    </div>
+                    <div style={{ fontSize:11, color:'#15803d', fontWeight:600 }}>
+                      Kliyan an pa pral dwe anyen apre peman sa.
+                    </div>
                   </div>
                 )}
                 {monnen > 0 && (
