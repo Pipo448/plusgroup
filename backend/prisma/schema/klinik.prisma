@@ -8,7 +8,7 @@ model KlinikPatient {
   nom              String
   prenom           String
   dateNaissance    DateTime?     @map("date_naissance")
-  sexe             Sexe          @default(AUTRE)
+  sexe             Sexe?         @default(AUTRE)  // ⭐ Opsyonèl pou Kes walk-in
   adresse          String?
   telephone        String?
   email            String?
@@ -20,6 +20,9 @@ model KlinikPatient {
   photoUrl         String?       @map("photo_url")
   assurance        String?
   numAssurance     String?       @map("num_assurance")
+  // ⭐ Chan Kes — soti nan migration 001_kes_walk_in.sql
+  source           String?       // 'kes_walk_in' | 'appointment' | 'standard' | NULL
+  prisEnChargePar  String?       @map("pris_en_charge_par")  // non enfimyè/cashier
   isActive         Boolean       @default(true) @map("is_active")
   notes            String?
   createdAt        DateTime      @default(now()) @map("created_at")
@@ -34,6 +37,7 @@ model KlinikPatient {
 
   @@index([tenantId])
   @@index([numeroDossier])
+  @@index([tenantId, source])  // ⭐ Pou rapò Kes pi rapid
   @@map("klinik_patients")
 }
 
