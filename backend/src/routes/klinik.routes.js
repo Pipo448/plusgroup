@@ -102,7 +102,6 @@ router.post('/patients', async (req, res) => {
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
     if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
     // ⭐ Pou Kes walk-in (enskripsyon rapid), sèks PA obligatwa
-    // — enfimyè ap konplete enfòmasyon yo pi devan nan paj pasyan an.
     const isKesWalkIn = source === 'kes_walk_in'
     if (!isKesWalkIn && !sexe) {
       return res.status(400).json({ message: 'Seks obligatwa.' })
@@ -110,29 +109,27 @@ router.post('/patients', async (req, res) => {
 
     console.log('[POST /patients] data:', { prenom, nom, sexe, source, telephone, groupeSangin })
 
-    // ⭐ Itilize raw SQL pou aksepte nouvo kolòn 'source' ak 'pris_en_charge_par'
-    // (yo PA nan schema Prisma — ajoute via SQL migration).
-    // NÒT: kast esplisit pou enum yo (sexe, groupe_sanguin) — Postgres egzije sa.
-    const rows = await prisma.$queryRaw`
-      INSERT INTO klinik_patients (
-        tenant_id, numero_dossier, prenom, nom, date_naissance, sexe,
-        telephone, adresse, groupe_sanguin, email, notes,
-        source, pris_en_charge_par, is_active, created_at, updated_at
-      )
-      VALUES (
-        ${tenantId}::uuid, ${numeroDossier}, ${prenom.trim()}, ${nom.trim()},
-        ${dateNesans ? new Date(dateNesans) : null},
-        ${sexe || null}::"Sexe",
-        ${telephone || null}, ${adresse || null},
-        ${groupeSangin || 'INCONNU'}::"GroupeSanguin",
-        ${email || null}, ${notes || null},
-        ${source || null}, ${prisEnChargePar || null},
-        true, NOW(), NOW()
-      )
-      RETURNING *
-    `
+    // ⭐ Apre `npx prisma generate` ak schema mete jou, sa a mache pwòp
+    const patient = await prisma.klinikPatient.create({
+      data: {
+        tenantId,
+        numeroDossier,
+        prenom:        prenom.trim(),
+        nom:           nom.trim(),
+        dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        sexe:          sexe || null,
+        telephone:     telephone || null,
+        adresse:       adresse || null,
+        groupeSanguin: groupeSangin || 'INCONNU',
+        email:         email || null,
+        notes:         notes || null,
+        source:        source || null,
+        prisEnChargePar: prisEnChargePar || null,
+        isActive:      true,
+      },
+    })
 
-    res.status(201).json({ patient: rows[0] })
+    res.status(201).json({ patient })
   } catch (e) {
     console.error('[POST /patients] erè:', e)
     res.status(500).json({ message: e.message })
@@ -151,28 +148,30 @@ router.put('/patients/:id', async (req, res) => {
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
     if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
 
-    // ⭐ Itilize raw SQL pou ajou kolòn 'pris_en_charge_par'
-    // Si prisEnChargePar pa bay (undefined), kenbe valè ki egziste a (COALESCE).
-    // NÒT: kast esplisit pou enum yo (sexe, groupe_sanguin)
-    const rows = await prisma.$queryRaw`
-      UPDATE klinik_patients SET
-        prenom         = ${prenom.trim()},
-        nom            = ${nom.trim()},
-        date_naissance = ${dateNesans ? new Date(dateNesans) : null},
-        sexe           = ${sexe || null}::"Sexe",
-        telephone      = ${telephone || null},
-        adresse        = ${adresse || null},
-        groupe_sanguin = ${groupeSangin || 'INCONNU'}::"GroupeSanguin",
-        email          = ${email || null},
-        notes          = ${notes || null},
-        pris_en_charge_par = COALESCE(${prisEnChargePar ?? null}, pris_en_charge_par),
-        updated_at     = NOW()
-      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}::uuid
-      RETURNING *
-    `
+    // ⭐ Verifye pasyan an apatni a tenant la anvan modifye
+    const existing = await prisma.klinikPatient.findFirst({
+      where: { id: req.params.id, tenantId },
+    })
+    if (!existing) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
 
-    if (!rows[0]) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
-    res.json({ patient: rows[0] })
+    const patient = await prisma.klinikPatient.update({
+      where: { id: req.params.id },
+      data: {
+        prenom:        prenom.trim(),
+        nom:           nom.trim(),
+        dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        sexe:          sexe || null,
+        telephone:     telephone || null,
+        adresse:       adresse || null,
+        groupeSanguin: groupeSangin || 'INCONNU',
+        email:         email || null,
+        notes:         notes || null,
+        // Si prisEnChargePar pa bay (undefined), kenbe valè ki la a
+        ...(prisEnChargePar !== undefined && { prisEnChargePar: prisEnChargePar || null }),
+      },
+    })
+
+    res.json({ patient })
   } catch (e) {
     console.error('[PUT /patients] erè:', e)
     res.status(500).json({ message: e.message })
