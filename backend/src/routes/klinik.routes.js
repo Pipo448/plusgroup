@@ -111,7 +111,8 @@ router.post('/patients', async (req, res) => {
     console.log('[POST /patients] data:', { prenom, nom, sexe, source, telephone, groupeSangin })
 
     // ⭐ Itilize raw SQL pou aksepte nouvo kolòn 'source' ak 'pris_en_charge_par'
-    // (yo PA nan schema Prisma — ajoute via SQL migration)
+    // (yo PA nan schema Prisma — ajoute via SQL migration).
+    // NÒT: kast esplisit pou enum yo (sexe, groupe_sanguin) — Postgres egzije sa.
     const rows = await prisma.$queryRaw`
       INSERT INTO klinik_patients (
         tenant_id, numero_dossier, prenom, nom, date_naissance, sexe,
@@ -121,9 +122,9 @@ router.post('/patients', async (req, res) => {
       VALUES (
         ${tenantId}::uuid, ${numeroDossier}, ${prenom.trim()}, ${nom.trim()},
         ${dateNesans ? new Date(dateNesans) : null},
-        ${sexe || null},
+        ${sexe || null}::"Sexe",
         ${telephone || null}, ${adresse || null},
-        ${groupeSangin || 'INCONNU'},
+        ${groupeSangin || 'INCONNU'}::"GroupeSanguin",
         ${email || null}, ${notes || null},
         ${source || null}, ${prisEnChargePar || null},
         true, NOW(), NOW()
@@ -152,15 +153,16 @@ router.put('/patients/:id', async (req, res) => {
 
     // ⭐ Itilize raw SQL pou ajou kolòn 'pris_en_charge_par'
     // Si prisEnChargePar pa bay (undefined), kenbe valè ki egziste a (COALESCE).
+    // NÒT: kast esplisit pou enum yo (sexe, groupe_sanguin)
     const rows = await prisma.$queryRaw`
       UPDATE klinik_patients SET
         prenom         = ${prenom.trim()},
         nom            = ${nom.trim()},
         date_naissance = ${dateNesans ? new Date(dateNesans) : null},
-        sexe           = ${sexe || null},
+        sexe           = ${sexe || null}::"Sexe",
         telephone      = ${telephone || null},
         adresse        = ${adresse || null},
-        groupe_sanguin = ${groupeSangin || 'INCONNU'},
+        groupe_sanguin = ${groupeSangin || 'INCONNU'}::"GroupeSanguin",
         email          = ${email || null},
         notes          = ${notes || null},
         pris_en_charge_par = COALESCE(${prisEnChargePar ?? null}, pris_en_charge_par),
