@@ -91,33 +91,47 @@ router.post('/patients', async (req, res) => {
   try {
     const tenantId      = tid(req)
     const numeroDossier = await genNumeroDossier(tenantId)
-    const { prenom, nom, dateNesans, sexe, telephone, adresse, groupeSangin, email, notes } = req.body
- 
+    const {
+      prenom, nom, dateNesans, sexe, telephone, adresse,
+      groupeSangin, email, notes,
+      source,             // ⭐ 'kes_walk_in' lè enskripsyon soti nan Kes
+      prisEnChargePar,    // ⭐ Non enfimyè/cashier k ap pran pasyan an
+    } = req.body
+
     // Validasyon
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
     if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
-    if (!sexe)                      return res.status(400).json({ message: 'Seks obligatwa.' })
- 
-    console.log('[POST /patients] data:', { prenom, nom, sexe, telephone, groupeSangin })
- 
-    const patient = await prisma.klinikPatient.create({
-      data: {
-        tenantId,
-        numeroDossier,
-        prenom:        prenom.trim(),
-        nom:           nom.trim(),
-        dateNaissance: dateNesans ? new Date(dateNesans) : null,
-        sexe,
-        telephone:     telephone || null,
-        adresse:       adresse || null,
-        groupeSanguin: groupeSangin || 'INCONNU',  // ← CHANJE SA
-        email:         email || null,
-        notes:         notes || null,
-        isActive:      true,
-      },
-    })
- 
-    res.status(201).json({ patient })
+    // ⭐ Pou Kes walk-in (enskripsyon rapid), sèks PA obligatwa
+    // — enfimyè ap konplete enfòmasyon yo pi devan nan paj pasyan an.
+    const isKesWalkIn = source === 'kes_walk_in'
+    if (!isKesWalkIn && !sexe) {
+      return res.status(400).json({ message: 'Seks obligatwa.' })
+    }
+
+    console.log('[POST /patients] data:', { prenom, nom, sexe, source, telephone, groupeSangin })
+
+    // ⭐ Itilize raw SQL pou aksepte nouvo kolòn 'source' ak 'pris_en_charge_par'
+    // (yo PA nan schema Prisma — ajoute via SQL migration)
+    const rows = await prisma.$queryRaw`
+      INSERT INTO klinik_patients (
+        tenant_id, numero_dossier, prenom, nom, date_naissance, sexe,
+        telephone, adresse, groupe_sanguin, email, notes,
+        source, pris_en_charge_par, is_active, created_at, updated_at
+      )
+      VALUES (
+        ${tenantId}::uuid, ${numeroDossier}, ${prenom.trim()}, ${nom.trim()},
+        ${dateNesans ? new Date(dateNesans) : null},
+        ${sexe || null},
+        ${telephone || null}, ${adresse || null},
+        ${groupeSangin || 'INCONNU'},
+        ${email || null}, ${notes || null},
+        ${source || null}, ${prisEnChargePar || null},
+        true, NOW(), NOW()
+      )
+      RETURNING *
+    `
+
+    res.status(201).json({ patient: rows[0] })
   } catch (e) {
     console.error('[POST /patients] erè:', e)
     res.status(500).json({ message: e.message })
@@ -126,27 +140,37 @@ router.post('/patients', async (req, res) => {
 
 router.put('/patients/:id', async (req, res) => {
   try {
-    const { prenom, nom, dateNesans, sexe, telephone, adresse, groupeSangin, email, notes } = req.body
- 
+    const tenantId = tid(req)
+    const {
+      prenom, nom, dateNesans, sexe, telephone, adresse,
+      groupeSangin, email, notes,
+      prisEnChargePar,    // ⭐ Non enfimyè k ap pran pasyan an
+    } = req.body
+
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
     if (!nom || !nom.trim())       return res.status(400).json({ message: 'Nom obligatwa.' })
- 
-    const patient = await prisma.klinikPatient.update({
-      where: { id: req.params.id },
-      data: {
-        prenom:        prenom.trim(),
-        nom:           nom.trim(),
-        dateNaissance: dateNesans ? new Date(dateNesans) : null,
-        sexe,
-        telephone:     telephone || null,
-        adresse:       adresse || null,
-        groupeSanguin: groupeSangin || 'INCONNU',  // ← CHANJE SA TOUN
-        email:         email || null,
-        notes:         notes || null,
-      },
-    })
- 
-    res.json({ patient })
+
+    // ⭐ Itilize raw SQL pou ajou kolòn 'pris_en_charge_par'
+    // Si prisEnChargePar pa bay (undefined), kenbe valè ki egziste a (COALESCE).
+    const rows = await prisma.$queryRaw`
+      UPDATE klinik_patients SET
+        prenom         = ${prenom.trim()},
+        nom            = ${nom.trim()},
+        date_naissance = ${dateNesans ? new Date(dateNesans) : null},
+        sexe           = ${sexe || null},
+        telephone      = ${telephone || null},
+        adresse        = ${adresse || null},
+        groupe_sanguin = ${groupeSangin || 'INCONNU'},
+        email          = ${email || null},
+        notes          = ${notes || null},
+        pris_en_charge_par = COALESCE(${prisEnChargePar ?? null}, pris_en_charge_par),
+        updated_at     = NOW()
+      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}::uuid
+      RETURNING *
+    `
+
+    if (!rows[0]) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
+    res.json({ patient: rows[0] })
   } catch (e) {
     console.error('[PUT /patients] erè:', e)
     res.status(500).json({ message: e.message })
@@ -566,13 +590,25 @@ router.patch('/hospitalizations/:id/decharge', async (req, res) => {
 router.get('/services', async (req, res) => {
   try {
     const tenantId = tid(req)
-    const { serviceType, search, page = 1, limit = 20 } = req.query
+    const { serviceType, search, patientId, date, status, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
     let where = `WHERE ks.tenant_id = $1`
     const params = [tenantId]
     let idx = 2
     if (serviceType) { where += ` AND ks.service_type = $${idx++}`; params.push(serviceType) }
+    if (patientId)   { where += ` AND ks.patient_id = $${idx++}`;   params.push(patientId) }
+    if (status)      { where += ` AND ks.status = $${idx++}`;       params.push(status) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
+
+    // ⭐ Filtre dat (today / week / month) — itil pou paj Kes (Istorik + Stats)
+    if (date === 'today') {
+      where += ` AND ks.created_at >= CURRENT_DATE AND ks.created_at < CURRENT_DATE + INTERVAL '1 day'`
+    } else if (date === 'week') {
+      where += ` AND ks.created_at >= CURRENT_DATE - INTERVAL '7 days'`
+    } else if (date === 'month') {
+      where += ` AND ks.created_at >= DATE_TRUNC('month', CURRENT_DATE)`
+    }
+
     const [rows, countRow] = await Promise.all([
       prisma.$queryRawUnsafe(`
         SELECT ks.*, json_build_object('id',kp.id,'prenom',kp.prenom,'nom',kp.nom,'numeroDossier',kp.numero_dossier) AS patient
