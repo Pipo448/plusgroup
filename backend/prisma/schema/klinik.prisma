@@ -23,6 +23,8 @@ model KlinikPatient {
   // ⭐ Chan Kes — soti nan migration 001_kes_walk_in.sql
   source           String?       // 'kes_walk_in' | 'appointment' | 'standard' | NULL
   prisEnChargePar  String?       @map("pris_en_charge_par")  // non enfimyè/cashier
+  // ⭐ Chan responsab — soti nan migration 002
+  personneResponsable String?    @map("personne_responsable")  // paran/gadyen/akonpayan
   isActive         Boolean       @default(true) @map("is_active")
   notes            String?
   createdAt        DateTime      @default(now()) @map("created_at")
@@ -83,14 +85,23 @@ model KlinikConsultation {
   pouls          Int?
   spo2           Int?
   glycemie       Float?
+  // ⭐ Nouvo siy vital (Enfimyè)
+  fc             Int?
+  fr             Int?
+  saO2           Int?    @map("sa_o2")
 
   // Klinik
-  motif          String?
-  anamnese       String?
-  examenClinique String? @map("examen_clinique")
-  diagnostic     String?
-  traitement     String?
-  notesInternes  String? @map("notes_internes")
+  motif              String?
+  anamnese           String?
+  examenClinique     String? @map("examen_clinique")
+  diagnostic         String?
+  traitement         String?
+  notesInternes      String? @map("notes_internes")
+  // ⭐ Nouvo chan klinik (Doktè)
+  antecedents        String?
+  rfa                String?
+  impressionClinique String? @map("impression_clinique")
+  paraclinique       String?
 
   createdBy      String? @map("created_by")
   createdAt      DateTime @default(now()) @map("created_at")

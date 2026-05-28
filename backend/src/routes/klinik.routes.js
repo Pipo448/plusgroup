@@ -94,8 +94,9 @@ router.post('/patients', async (req, res) => {
     const {
       prenom, nom, dateNesans, sexe, telephone, adresse,
       groupeSangin, email, notes,
-      source,             // ⭐ 'kes_walk_in' lè enskripsyon soti nan Kes
-      prisEnChargePar,    // ⭐ Non enfimyè/cashier k ap pran pasyan an
+      source,                 // ⭐ 'kes_walk_in' lè enskripsyon soti nan Kes
+      prisEnChargePar,        // ⭐ Non enfimyè/cashier k ap pran pasyan an
+      personneResponsable,    // ⭐ Paran/gadyen/akonpayan
     } = req.body
 
     // Validasyon
@@ -107,7 +108,7 @@ router.post('/patients', async (req, res) => {
       return res.status(400).json({ message: 'Seks obligatwa.' })
     }
 
-    console.log('[POST /patients] data:', { prenom, nom, sexe, source, telephone, groupeSangin })
+    console.log('[POST /patients] data:', { prenom, nom, sexe, source, personneResponsable })
 
     // ⭐ Apre `npx prisma generate` ak schema mete jou, sa a mache pwòp
     const patient = await prisma.klinikPatient.create({
@@ -124,7 +125,8 @@ router.post('/patients', async (req, res) => {
         email:         email || null,
         notes:         notes || null,
         source:        source || null,
-        prisEnChargePar: prisEnChargePar || null,
+        prisEnChargePar:     prisEnChargePar     || null,
+        personneResponsable: personneResponsable || null,
         isActive:      true,
       },
     })
@@ -142,7 +144,8 @@ router.put('/patients/:id', async (req, res) => {
     const {
       prenom, nom, dateNesans, sexe, telephone, adresse,
       groupeSangin, email, notes,
-      prisEnChargePar,    // ⭐ Non enfimyè k ap pran pasyan an
+      prisEnChargePar,        // ⭐ Non enfimyè k ap pran pasyan an
+      personneResponsable,    // ⭐ Paran/gadyen/akonpayan
     } = req.body
 
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
@@ -166,8 +169,9 @@ router.put('/patients/:id', async (req, res) => {
         groupeSanguin: groupeSangin || 'INCONNU',
         email:         email || null,
         notes:         notes || null,
-        // Si prisEnChargePar pa bay (undefined), kenbe valè ki la a
-        ...(prisEnChargePar !== undefined && { prisEnChargePar: prisEnChargePar || null }),
+        // Si chan an pa bay (undefined), kenbe valè ki la a
+        ...(prisEnChargePar     !== undefined && { prisEnChargePar:     prisEnChargePar     || null }),
+        ...(personneResponsable !== undefined && { personneResponsable: personneResponsable || null }),
       },
     })
 
@@ -284,6 +288,9 @@ router.post('/consultations', async (req, res) => {
             traitement, notesInternes,
             tensionSys, tensionDia, temperature,
             poidsKg, tailleCm, pouls, spo2, glycemie,
+            // ⭐ Nouvo chan
+            fc, fr, saO2,
+            antecedents, rfa, impressionClinique, paraclinique,
           } = req.body
 
     if (!patientId)   return res.status(400).json({ message: 'patientId obligatwa.' })
@@ -317,6 +324,14 @@ router.post('/consultations', async (req, res) => {
         pouls:          pouls         ? parseInt(pouls)         : null,
         spo2:           spo2          ? parseInt(spo2)          : null,
         glycemie:       glycemie      ? parseFloat(glycemie)    : null,
+        // ⭐ Nouvo chan
+        fc:                 fc   ? parseInt(fc)   : null,
+        fr:                 fr   ? parseInt(fr)   : null,
+        saO2:               saO2 ? parseInt(saO2) : null,
+        antecedents:        antecedents        || null,
+        rfa:                rfa                || null,
+        impressionClinique: impressionClinique || null,
+        paraclinique:       paraclinique       || null,
       },
       include: { patient: { select: { nom: true, prenom: true } } },
     })
@@ -334,6 +349,9 @@ router.put('/consultations/:id', async (req, res) => {
             diagnostic, traitement, notesInternes,
             tensionSys, tensionDia, temperature,
             poidsKg, tailleCm, pouls, spo2, glycemie,
+            // ⭐ Nouvo chan
+            fc, fr, saO2,
+            antecedents, rfa, impressionClinique, paraclinique,
           } = req.body
 
     const consultation = await prisma.klinikConsultation.update({
@@ -355,6 +373,14 @@ router.put('/consultations/:id', async (req, res) => {
         pouls:          pouls          ? parseInt(pouls)         : null,
         spo2:           spo2           ? parseInt(spo2)          : null,
         glycemie:       glycemie       ? parseFloat(glycemie)    : null,
+        // ⭐ Nouvo chan
+        fc:                 fc   ? parseInt(fc)   : null,
+        fr:                 fr   ? parseInt(fr)   : null,
+        saO2:               saO2 ? parseInt(saO2) : null,
+        antecedents:        antecedents        || null,
+        rfa:                rfa                || null,
+        impressionClinique: impressionClinique || null,
+        paraclinique:       paraclinique       || null,
       },
       include: {
         patient: { select: { nom: true, prenom: true } },
