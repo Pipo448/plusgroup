@@ -641,23 +641,38 @@ router.patch('/services/:id', async (req, res) => {
   try {
     const tenantId = tid(req)
     const { status, notes, priceHtg, performedBy } = req.body
+    console.log('[PATCH /services]', req.params.id, 'status:', status)
+
     const rows = await prisma.$queryRaw`
       UPDATE klinik_services SET
-        status=COALESCE(${status||null},status), notes=COALESCE(${notes||null},notes),
-        price_htg=COALESCE(${priceHtg!==undefined?Number(priceHtg):null},price_htg),
-        performed_by=COALESCE(${performedBy||null},performed_by)
-      WHERE id=${req.params.id}::uuid AND tenant_id=${tenantId} RETURNING *
+        status       = COALESCE(${status||null}, status),
+        notes        = COALESCE(${notes||null}, notes),
+        price_htg    = COALESCE(${priceHtg!==undefined?Number(priceHtg):null}, price_htg),
+        performed_by = COALESCE(${performedBy||null}, performed_by),
+        updated_at   = NOW()
+      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}::uuid
+      RETURNING *
     `
-    if (!rows[0]) return res.status(404).json({ message: 'Sèvis pa jwenn.' })
+    if (!rows[0]) {
+      console.warn('[PATCH /services] 404 - pa jwenn:', req.params.id, 'tenant:', tenantId)
+      return res.status(404).json({ message: 'Sèvis pa jwenn.' })
+    }
     res.json({ service: rows[0] })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[PATCH /services] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.delete('/services/:id', async (req, res) => {
   try {
-    await prisma.$queryRaw`DELETE FROM klinik_services WHERE id=${req.params.id}::uuid AND tenant_id=${tid(req)}`
+    const tenantId = tid(req)
+    await prisma.$queryRaw`DELETE FROM klinik_services WHERE id=${req.params.id}::uuid AND tenant_id=${tenantId}::uuid`
     res.json({ success: true })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[DELETE /services] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 // ═══════════════════════════════════════════════════════════════
