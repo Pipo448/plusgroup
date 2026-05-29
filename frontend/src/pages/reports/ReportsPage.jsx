@@ -117,11 +117,52 @@ export default function ReportsPage() {
   const paidHtg    = Number(salesReport?.totals?._sum?.amountPaidHtg || 0)
   const balanceDue = Math.max(0, totalHtg - paidHtg)
 
-  const byStatusTranslated = salesReport?.byStatus?.map(s => ({
-    ...s,
-    statusLabel: STATUS_LABELS[s.status] || s.status,
-    color:       STATUS_COLORS[s.status] || '#94a3b8',
-  })) || []
+  // ✅ KORIJE — kalkile pou chak stati: Vant total, Deja peye, Toujou dwe
+  // (sòti nan tout fakti yo paske backend byStatus sèlman bay totalHtg)
+  const byStatusDetailed = useMemo(() => {
+    const base = (salesReport?.byStatus || []).map(s => ({
+      status:      s.status,
+      statusLabel: STATUS_LABELS[s.status] || s.status,
+      color:       STATUS_COLORS[s.status] || '#94a3b8',
+      count:       s._count || 0,
+      total:       Number(s._sum?.totalHtg || 0),
+      paid:        0,
+      owed:        0,
+    }))
+    // Si nou gen detay fakti yo, mete `paid` ak `owed` reyèl yo pou chak stati
+    if (unpaidInvoices?.length) {
+      const stats = {}
+      unpaidInvoices.forEach(inv => {
+        const st = inv.status || 'unpaid'
+        if (!stats[st]) stats[st] = { paid: 0, owed: 0 }
+        stats[st].paid += Number(inv.amountPaidHtg || 0)
+        stats[st].owed += Number(inv.balanceDueHtg || 0)
+      })
+      base.forEach(b => {
+        if (stats[b.status]) {
+          b.paid = stats[b.status].paid
+          b.owed = stats[b.status].owed
+        } else if (b.status === 'paid') {
+          // Pou fakti peye yo, peye = total, dwe = 0
+          b.paid = b.total
+          b.owed = 0
+        } else if (b.status === 'unpaid') {
+          // Pou fakti pa peye yo, peye = 0, dwe = total
+          b.paid = 0
+          b.owed = b.total
+        }
+      })
+    }
+    return base
+  }, [salesReport?.byStatus, unpaidInvoices])
+
+  // Pou grafik la (li sèlman bezwen label + count + color)
+  const byStatusTranslated = byStatusDetailed.map(s => ({
+    statusLabel: s.statusLabel,
+    color:       s.color,
+    _count:      s.count,
+    _sum:        { totalHtg: s.total },
+  }))
 
   // ✅ NOUVO — gwoupe pa kliyan, jwenn top 5 ki dwe plis
   const topDebtors = useMemo(() => {
@@ -376,33 +417,102 @@ export default function ReportsPage() {
           )}
 
           {/* Stati + grafik */}
-          {byStatusTranslated.length > 0 && (
+          {byStatusDetailed.length > 0 && (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(280px, 1fr))',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(300px, 1fr))',
               gap: isMobile ? 12 : 16,
             }}>
               <div className="card" style={{ padding: isMobile ? 16 : 20 }}>
                 <h3 style={{ fontSize: isMobile ? 14 : 16, fontWeight: 800, color: '#1e293b', margin: '0 0 14px' }}>
                   Vant pa Stati
                 </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {byStatusTranslated.map((s, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: isMobile ? 12 : 13, color: '#475569', fontWeight: 600, minWidth: 0 }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }}/>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {s.statusLabel}
-                        </span>
-                      </span>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <p style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: isMobile ? 12 : 13, color: '#1e293b', margin: 0 }}>
-                          {fmt(s._sum?.totalHtg)} HTG
-                        </p>
-                        <p style={{ fontSize: 10, color: '#94a3b8', margin: '2px 0 0' }}>{s._count} fakti</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 12 : 14 }}>
+                  {byStatusDetailed.map((s, i) => {
+                    const isPartial = s.status === 'partial'
+                    const isPaid    = s.status === 'paid'
+                    const isUnpaid  = s.status === 'unpaid'
+                    return (
+                      <div key={i} style={{
+                        padding: isMobile ? '10px 12px' : '12px 14px',
+                        background: '#fafaf9',
+                        borderRadius: 12,
+                        border: `1px solid ${s.color}25`,
+                        borderLeft: `4px solid ${s.color}`,
+                      }}>
+                        {/* Tit + kantite */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 10, height: 10, borderRadius: '50%', background: s.color, flexShrink: 0 }}/>
+                            <span style={{ fontSize: isMobile ? 13 : 14, fontWeight: 800, color: '#1e293b' }}>
+                              {s.statusLabel}
+                            </span>
+                          </span>
+                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 700, background: '#fff', padding: '2px 8px', borderRadius: 99 }}>
+                            {s.count} fakti
+                          </span>
+                        </div>
+
+                        {/* Detay nimewo yo */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: isMobile ? 11 : 12 }}>
+
+                          {/* Pou Pa peye → sèlman montre "Total dwe" */}
+                          {isUnpaid && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: '#94a3b8', fontWeight: 600 }}>Total dwe:</span>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#dc2626' }}>
+                                {fmt(s.total)} HTG
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Pou Pasyèl → montre tout 3 (Total, Depo peye, Dwe) */}
+                          {isPartial && (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Vant total:</span>
+                                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#1e293b' }}>
+                                  {fmt(s.total)} HTG
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ color: '#94a3b8', fontWeight: 600 }}>Depo peye:</span>
+                                <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#16a34a' }}>
+                                  +{fmt(s.paid)} HTG
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #e2e8f0', paddingTop: 4, marginTop: 2 }}>
+                                <span style={{ color: '#dc2626', fontWeight: 700 }}>Toujou dwe:</span>
+                                <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#dc2626' }}>
+                                  {fmt(s.owed)} HTG
+                                </span>
+                              </div>
+                            </>
+                          )}
+
+                          {/* Pou Peye → sèlman montre "Total peye" */}
+                          {isPaid && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: '#94a3b8', fontWeight: 600 }}>Total peye:</span>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: '#16a34a' }}>
+                                ✓ {fmt(s.total)} HTG
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Lòt stati (Anile, Remèt) → senp */}
+                          {!isUnpaid && !isPartial && !isPaid && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ color: '#94a3b8', fontWeight: 600 }}>Total:</span>
+                              <span style={{ fontFamily: 'monospace', fontWeight: 700, color: s.color }}>
+                                {fmt(s.total)} HTG
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 

@@ -50,10 +50,10 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
 }
 
 const LABELS = {
-  salesToday: { ht:'Vant Jodi a',   fr:'Ventes du Jour',    en:"Today's Sales" },
-  paid:       { ht:'Peye Jodi a',   fr:'Payé Aujourd\'hui', en:'Paid Today' },
-  balance:    { ht:'Balans Jodi a', fr:'Solde du Jour',     en:'Balance Today' },
-  partial:    { ht:'Kredi Jodi a',  fr:'Crédit du Jour',    en:'Partial Today' },
+  salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales" },
+  paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today' },
+  balance:    { ht:'Pa Peye Jodi a', fr:'Impayé du Jour',    en:'Unpaid Today' },
+  partial:    { ht:'Depo Jodi a',    fr:'Acompte du Jour',   en:'Deposit Today' },
 }
 
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
