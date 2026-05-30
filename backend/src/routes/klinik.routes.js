@@ -678,13 +678,13 @@ router.patch('/services/:id', async (req, res) => {
     console.log('[PATCH /services]', req.params.id, 'status:', status)
 
     // ⭐ Kast 2 bò an TEKS pou mache kèlkeswa tip kolòn (uuid oswa text)
+    // ⭐ Pa gen updated_at — kolòn an pa egziste nan klinik_services
     const rows = await prisma.$queryRaw`
       UPDATE klinik_services SET
         status       = COALESCE(${status||null}, status),
         notes        = COALESCE(${notes||null}, notes),
         price_htg    = COALESCE(${priceHtg!==undefined?Number(priceHtg):null}, price_htg),
-        performed_by = COALESCE(${performedBy||null}, performed_by),
-        updated_at   = NOW()
+        performed_by = COALESCE(${performedBy||null}, performed_by)
       WHERE id::text = ${req.params.id}::text AND tenant_id::text = ${tenantId}::text
       RETURNING *
     `
@@ -724,7 +724,8 @@ router.get('/employees', async (req, res) => {
     const tenantId = tid(req)
     const { search, poste, statut, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE tenant_id = $1::uuid`
+    // ⭐ Kast defansif an TEKS — mache kèlkeswa tip kolòn
+    let where = `WHERE tenant_id::text = $1::text`
     const params = [tenantId]
     let idx = 2
     if (poste)  { where += ` AND poste=$${idx++}`;  params.push(poste)  }
@@ -775,7 +776,8 @@ router.get('/payroll', async (req, res) => {
     const tenantId = tid(req)
     const { mois, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE p.tenant_id = $1::uuid`
+    // ⭐ Kast defansif an TEKS
+    let where = `WHERE p.tenant_id::text = $1::text`
     const params = [tenantId]
     let idx = 2
     if (mois) { where += ` AND p.mois=$${idx++}`; params.push(mois) }
