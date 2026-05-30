@@ -619,11 +619,13 @@ router.get('/services', async (req, res) => {
     const tenantId = tid(req)
     const { serviceType, search, patientId, date, status, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE ks.tenant_id = $1::uuid`
+    // ⭐ Defansif — kast tou de bò an TEKS pou evite konfli tip
+    // (Sa mache si tenant_id se text OU uuid, ak si patient_id se text OU uuid)
+    let where = `WHERE ks.tenant_id::text = $1::text`
     const params = [tenantId]
     let idx = 2
     if (serviceType) { where += ` AND ks.service_type = $${idx++}`; params.push(serviceType) }
-    if (patientId)   { where += ` AND ks.patient_id = $${idx++}::uuid`; params.push(patientId) }
+    if (patientId)   { where += ` AND ks.patient_id::text = $${idx++}::text`; params.push(patientId) }
     if (status)      { where += ` AND ks.status = $${idx++}`;          params.push(status) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
 
@@ -639,13 +641,16 @@ router.get('/services', async (req, res) => {
     const [rows, countRow] = await Promise.all([
       prisma.$queryRawUnsafe(`
         SELECT ks.*, json_build_object('id',kp.id,'prenom',kp.prenom,'nom',kp.nom,'numeroDossier',kp.numero_dossier) AS patient
-        FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id=ks.patient_id
+        FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id::text = ks.patient_id::text
         ${where} ORDER BY ks.created_at DESC LIMIT ${Number(limit)} OFFSET ${offset}
       `, ...params),
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id=ks.patient_id ${where}`, ...params),
+      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id::text = ks.patient_id::text ${where}`, ...params),
     ])
     res.json({ services: rows, total: Number(countRow[0]?.total || 0), page: Number(page) })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[GET /services] erè:', e.message, '| SQL params:', params)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.post('/services', async (req, res) => {
