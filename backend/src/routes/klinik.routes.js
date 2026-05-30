@@ -619,12 +619,12 @@ router.get('/services', async (req, res) => {
     const tenantId = tid(req)
     const { serviceType, search, patientId, date, status, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE ks.tenant_id = $1`
+    let where = `WHERE ks.tenant_id = $1::uuid`
     const params = [tenantId]
     let idx = 2
     if (serviceType) { where += ` AND ks.service_type = $${idx++}`; params.push(serviceType) }
-    if (patientId)   { where += ` AND ks.patient_id = $${idx++}`;   params.push(patientId) }
-    if (status)      { where += ` AND ks.status = $${idx++}`;       params.push(status) }
+    if (patientId)   { where += ` AND ks.patient_id = $${idx++}::uuid`; params.push(patientId) }
+    if (status)      { where += ` AND ks.status = $${idx++}`;          params.push(status) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
 
     // ⭐ Filtre dat (today / week / month) — itil pou paj Kes (Istorik + Stats)
@@ -657,10 +657,13 @@ router.post('/services', async (req, res) => {
     if (!serviceType) return res.status(400).json({ message: 'serviceType obligatwa.' })
     const rows = await prisma.$queryRaw`
       INSERT INTO klinik_services (tenant_id,patient_id,service_type,price_htg,status,notes,performed_by,created_by)
-      VALUES (${tenantId},${patientId},${serviceType},${Number(priceHtg)},${status},${notes||null},${performedBy||null},${userId}) RETURNING *
+      VALUES (${tenantId}::uuid,${patientId}::uuid,${serviceType},${Number(priceHtg)},${status},${notes||null},${performedBy||null},${userId}::uuid) RETURNING *
     `
     res.status(201).json({ service: rows[0] })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[POST /services] erè:', e)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.patch('/services/:id', async (req, res) => {
