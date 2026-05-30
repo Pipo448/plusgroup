@@ -64,12 +64,11 @@ router.get('/', async (req, res) => {
 
       // Frè Kanè
       prisma.$queryRawUnsafe(`
-        SELECT COUNT(*) as total_kont,
-       COALESCE(SUM("kaneFee"), 0) as total_fre
-        FROM kane_epay_accounts
-        WHERE tenant_id = '${tenantId}'
-          AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
-      `),
+  SELECT COUNT(*) as total_kont
+  FROM kane_epay_accounts
+  WHERE tenant_id = '${tenantId}'
+    AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
+`),
 
       // Depans
       prisma.$queryRawUnsafe(`
@@ -165,12 +164,11 @@ router.get('/', async (req, res) => {
 
     const totalEnteret   = Number(enteretData[0]?.total      || 0)
     const totalPenalite  = Number(penaliteData[0]?.total     || 0)
-    const totalFreKane   = Number(freKane[0]?.total_fre      || 0)
     const totalDepans    = Number(depans[0]?.total           || 0)
     const totalEnjekte   = Number(kapitalEnjekte[0]?.total   || 0)
     const totalRetouKap  = Number(kapitalRetouData[0]?.total || 0)
     const nbrKont        = Number(freKane[0]?.total_kont     || 0)
-
+    const totalFreKane   = nbrKont * 250
     // ✅ Vrè Revni = Enterè + Penalite + Frè Kanè
     const vrèRevni = totalEnteret + totalPenalite + totalFreKane
     const vrèPwofi = vrèRevni - totalDepans
