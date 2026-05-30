@@ -677,6 +677,7 @@ router.patch('/services/:id', async (req, res) => {
     const { status, notes, priceHtg, performedBy } = req.body
     console.log('[PATCH /services]', req.params.id, 'status:', status)
 
+    // ⭐ Kast 2 bò an TEKS pou mache kèlkeswa tip kolòn (uuid oswa text)
     const rows = await prisma.$queryRaw`
       UPDATE klinik_services SET
         status       = COALESCE(${status||null}, status),
@@ -684,7 +685,7 @@ router.patch('/services/:id', async (req, res) => {
         price_htg    = COALESCE(${priceHtg!==undefined?Number(priceHtg):null}, price_htg),
         performed_by = COALESCE(${performedBy||null}, performed_by),
         updated_at   = NOW()
-      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}::uuid
+      WHERE id::text = ${req.params.id}::text AND tenant_id::text = ${tenantId}::text
       RETURNING *
     `
     if (!rows[0]) {
@@ -693,7 +694,7 @@ router.patch('/services/:id', async (req, res) => {
     }
     res.json({ service: rows[0] })
   } catch (e) {
-    console.error('[PATCH /services] erè:', e)
+    console.error('[PATCH /services] erè:', e.message)
     res.status(500).json({ message: e.message })
   }
 })
@@ -701,10 +702,16 @@ router.patch('/services/:id', async (req, res) => {
 router.delete('/services/:id', async (req, res) => {
   try {
     const tenantId = tid(req)
-    await prisma.$queryRaw`DELETE FROM klinik_services WHERE id=${req.params.id}::uuid AND tenant_id=${tenantId}::uuid`
+    console.log('[DELETE /services]', req.params.id)
+    // ⭐ Kast 2 bò an TEKS — menm bagay
+    await prisma.$queryRaw`
+      DELETE FROM klinik_services
+      WHERE id::text = ${req.params.id}::text
+        AND tenant_id::text = ${tenantId}::text
+    `
     res.json({ success: true })
   } catch (e) {
-    console.error('[DELETE /services] erè:', e)
+    console.error('[DELETE /services] erè:', e.message)
     res.status(500).json({ message: e.message })
   }
 })
