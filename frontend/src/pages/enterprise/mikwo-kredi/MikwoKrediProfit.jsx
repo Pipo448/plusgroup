@@ -176,6 +176,7 @@ export default function MikwoKrediProfit() {
   const totalPenalite = Number(revni.penalite || 0)
   const totalFreKane  = Number(revni.freKane  || 0)
   const totalRevni    = Number(revni.total    || 0)
+  const prev          = p.previzyon || {}
 
   return (
     <div style={{ padding:'14px 14px 80px', maxWidth:900, margin:'0 auto', fontFamily:'DM Sans, sans-serif', color:D.text }}>
@@ -272,6 +273,70 @@ export default function MikwoKrediProfit() {
           </div>
 
           {/* ── Kat Depans ── */}
+          {/* ✅ PREVIZYON — Benefis ki gen pou antre + Balans Deyo */}
+          <div style={{ background:D.card, borderRadius:12, padding:'12px 16px', border:`1px solid ${D.blue}30`, marginBottom:20 }}>
+            <p style={{ fontSize:11, fontWeight:800, color:D.blue, textTransform:'uppercase', margin:'0 0 12px', letterSpacing:'0.07em', display:'flex', alignItems:'center', gap:6 }}>
+              🔮 Previzyon — Benefis ki gen pou Antre
+            </p>
+
+            {/* Bòks prensipal — Enterè ki rete pou antre */}
+            <div style={{ background:`${D.green}12`, border:`1.5px solid ${D.green}35`, borderRadius:14, padding:'16px 18px', marginBottom:14, display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+              <div>
+                <p style={{ fontSize:10, color:D.muted, margin:'0 0 3px', textTransform:'uppercase', fontWeight:700 }}>Enterè ki Rete pou Antre</p>
+                <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:26, color:D.green, margin:0 }}>
+                  {fmt(prev.entereRete || 0)} <span style={{ fontSize:14, fontWeight:400 }}>HTG</span>
+                </p>
+                <p style={{ fontSize:10, color:D.muted, margin:'3px 0 0' }}>
+                  Sou {prev.nbrPreDeyo || 0} prè aktif
+                </p>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end' }}>
+                <div>
+                  <span style={{ fontSize:10, color:D.muted }}>Total Enterè Prevwa: </span>
+                  <span style={{ fontSize:13, fontWeight:800, color:D.blue, fontFamily:'monospace' }}>{fmt(prev.enterePrevwa || 0)}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize:10, color:D.muted }}>Deja Kolekte: </span>
+                  <span style={{ fontSize:13, fontWeight:800, color:D.green, fontFamily:'monospace' }}>{fmt(prev.entereKolekte || 0)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Griy detay */}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+              {[
+                { label:'Kapital Prete',        val: prev.totalPrete || 0,      color: D.purple, desc:'Total lajan prete' },
+                { label:'Kapital ki Rete Deyo',  val: prev.kapitalRete || 0,     color: D.orange, desc:'Kapital poko retounen' },
+                { label:'Balans Total Deyo',     val: prev.balansDeyo || 0,      color: D.red,    desc:'Kapital + enterè ki rete' },
+              ].map((item, i) => (
+                <div key={i} style={{ background:`${item.color}10`, borderRadius:10, padding:'10px 12px', border:`1px solid ${item.color}20` }}>
+                  <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
+                  <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:14, color:item.color, margin:0 }}>
+                    {fmt(item.val)} G
+                  </p>
+                  <p style={{ fontSize:9, color:D.muted, margin:'2px 0 0' }}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Bàr pwogrè koleksyon enterè */}
+            {(prev.enterePrevwa || 0) > 0 && (() => {
+              const pct = Math.min(100, Math.round(((prev.entereKolekte || 0) / (prev.enterePrevwa || 1)) * 100))
+              return (
+                <div style={{ marginTop:12 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:D.muted, marginBottom:4 }}>
+                    <span>Pwogrè koleksyon enterè</span>
+                    <span style={{ fontWeight:800, color: pct >= 50 ? D.green : D.orange }}>{pct}%</span>
+                  </div>
+                  <div style={{ height:6, borderRadius:4, background:'rgba(255,255,255,0.06)', overflow:'hidden' }}>
+                    <div style={{ width:`${pct}%`, height:'100%', borderRadius:4, background:`linear-gradient(90deg,${D.green},${D.blue})`, transition:'width 0.5s' }}/>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
+          {/* ── depans operasyonèl ── */}
           <div style={{ background:D.card, borderRadius:12, padding:'12px 14px', border:`1px solid ${D.red}30`, display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
             <div style={{ width:38, height:38, borderRadius:10, background:`${D.red}20`, display:'flex', alignItems:'center', justifyContent:'center', color:D.red, flexShrink:0 }}>
               <TrendingDown size={16}/>

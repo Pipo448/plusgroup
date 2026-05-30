@@ -29,6 +29,9 @@ router.get('/', async (req, res) => {
       totalPortfeuye,
       paimanResan,
       depansResan,
+      previzyonTotal,
+      previzyonKolekte,
+      previzyonDeyo,
     ] = await Promise.all([
 
       // ✅ Enterè sèlman — statut='paye' + dat_paye nan peryòd
@@ -126,6 +129,38 @@ router.get('/', async (req, res) => {
         GROUP BY date_depans
         ORDER BY dat ASC
       `),
+
+      // ✅ PREVIZYON — Total enterè prevwa sou tout prè aktif
+      prisma.$queryRawUnsafe(`
+        SELECT COALESCE(SUM(e.montant_interet), 0) as total_interet,
+               COALESCE(SUM(e.montant_capital), 0) as total_kapital,
+               COALESCE(SUM(e.montant_total), 0)   as total_global
+        FROM pre_echeances e
+        JOIN prets p ON p.id = e.pre_id
+        WHERE e.tenant_id = '${tenantId}'
+          AND p.statut IN ('actif','reta','attente')
+      `),
+
+      // ✅ PREVIZYON — Enterè deja kolekte sou prè aktif (tout tan)
+      prisma.$queryRawUnsafe(`
+        SELECT COALESCE(SUM(e.montant_interet), 0) as total_interet,
+               COALESCE(SUM(e.montant_capital), 0) as total_kapital
+        FROM pre_echeances e
+        JOIN prets p ON p.id = e.pre_id
+        WHERE e.tenant_id = '${tenantId}'
+          AND p.statut IN ('actif','reta','attente')
+          AND e.statut = 'paye'
+      `),
+
+      // ✅ PREVIZYON — Balans deyo (kapital + enterè ki rete pou kolekte)
+      prisma.$queryRawUnsafe(`
+        SELECT COALESCE(SUM(GREATEST(0, p.total_du - p.total_paye)), 0) as balans_deyo,
+               COALESCE(SUM(p.montant), 0) as total_prete,
+               COUNT(*) as nbr_pre
+        FROM prets p
+        WHERE p.tenant_id = '${tenantId}'
+          AND p.statut IN ('actif','reta','attente')
+      `),
     ])
 
     const totalEnteret   = Number(enteretData[0]?.total      || 0)
@@ -139,6 +174,18 @@ router.get('/', async (req, res) => {
     // ✅ Vrè Revni = Enterè + Penalite + Frè Kanè
     const vrèRevni = totalEnteret + totalPenalite + totalFreKane
     const vrèPwofi = vrèRevni - totalDepans
+
+    // ✅ PREVIZYON — Kalkil
+    const prevEnterePrevwa  = Number(previzyonTotal[0]?.total_interet  || 0)
+    const prevKapitalPrevwa = Number(previzyonTotal[0]?.total_kapital  || 0)
+    const prevTotalPrevwa   = Number(previzyonTotal[0]?.total_global   || 0)
+    const prevEntereKolekte = Number(previzyonKolekte[0]?.total_interet || 0)
+    const prevKapitalKolekte= Number(previzyonKolekte[0]?.total_kapital || 0)
+    const prevEntereRete    = Math.max(0, prevEnterePrevwa - prevEntereKolekte)
+    const prevKapitalRete   = Math.max(0, prevKapitalPrevwa - prevKapitalKolekte)
+    const balansDeyo        = Number(previzyonDeyo[0]?.balans_deyo  || 0)
+    const totalPrete        = Number(previzyonDeyo[0]?.total_prete  || 0)
+    const nbrPreDeyo        = Number(previzyonDeyo[0]?.nbr_pre      || 0)
 
     res.json({
       periode: { debutDate, finDate },
@@ -160,6 +207,18 @@ router.get('/', async (req, res) => {
       },
       pwofiNèt: vrèPwofi,
       isFans:   vrèPwofi >= 0,
+      previzyon: {
+        enterePrevwa:   prevEnterePrevwa,
+        entereKolekte:  prevEntereKolekte,
+        entereRete:     prevEntereRete,
+        kapitalPrevwa:  prevKapitalPrevwa,
+        kapitalKolekte: prevKapitalKolekte,
+        kapitalRete:    prevKapitalRete,
+        totalPrevwa:    prevTotalPrevwa,
+        balansDeyo,
+        totalPrete,
+        nbrPreDeyo,
+      },
       stats: {
         nbrPreActif:    Number(nbrPreActif[0]?.total    || 0),
         nbrKaneActif:   Number(nbrKaneActif[0]?.total   || 0),
