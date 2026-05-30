@@ -712,7 +712,7 @@ router.get('/employees', async (req, res) => {
     const tenantId = tid(req)
     const { search, poste, statut, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE tenant_id = $1`
+    let where = `WHERE tenant_id = $1::uuid`
     const params = [tenantId]
     let idx = 2
     if (poste)  { where += ` AND poste=$${idx++}`;  params.push(poste)  }
@@ -763,7 +763,7 @@ router.get('/payroll', async (req, res) => {
     const tenantId = tid(req)
     const { mois, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
-    let where = `WHERE p.tenant_id = $1`
+    let where = `WHERE p.tenant_id = $1::uuid`
     const params = [tenantId]
     let idx = 2
     if (mois) { where += ` AND p.mois=$${idx++}`; params.push(mois) }
