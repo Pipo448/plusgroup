@@ -1135,7 +1135,7 @@ router.get('/settings', async (req, res) => {
     const tid = req.tenant.id
 
     const rows = await prisma.$queryRaw`
-      SELECT profil, tarifs, modil, enpresyon, updated_at
+      SELECT profil, tarifs, modil, enpresyon, custom_services, updated_at
       FROM klinik_settings
       WHERE tenant_id = ${tid}::uuid
       LIMIT 1
@@ -1145,17 +1145,19 @@ router.get('/settings', async (req, res) => {
       // Pa gen anyen sove ankò — retounen vid
       return res.json({
         profil: {}, tarifs: {}, modil: {}, enpresyon: {},
+        customServices: [],
         updatedAt: null,
       })
     }
 
     const r = rows[0]
     return res.json({
-      profil:    r.profil    || {},
-      tarifs:    r.tarifs    || {},
-      modil:     r.modil     || {},
-      enpresyon: r.enpresyon || {},
-      updatedAt: r.updated_at,
+      profil:         r.profil          || {},
+      tarifs:         r.tarifs          || {},
+      modil:          r.modil           || {},
+      enpresyon:      r.enpresyon       || {},
+      customServices: r.custom_services || [],
+      updatedAt:      r.updated_at,
     })
   } catch (err) {
     console.error('GET /klinik/settings error:', err)
@@ -1164,17 +1166,30 @@ router.get('/settings', async (req, res) => {
 })
 
 // ── PUT /klinik/settings ── Sove (upsert) yon gwoup paramèt ──
-// Body: { section: 'profil'|'tarifs'|'modil'|'enpresyon', data: {...} }
+// Body: { section: 'profil'|'tarifs'|'modil'|'enpresyon'|'customServices', data: {...} }
 router.put('/settings', async (req, res) => {
   try {
     const tid = req.tenant.id
     const { section, data } = req.body || {}
 
-    const VALID = ['profil', 'tarifs', 'modil', 'enpresyon']
-    if (!VALID.includes(section)) {
+    // Map jwèl camelCase → kolòn snake_case
+    const SECTION_MAP = {
+      profil:         'profil',
+      tarifs:         'tarifs',
+      modil:          'modil',
+      enpresyon:      'enpresyon',
+      customServices: 'custom_services',
+    }
+    const colName = SECTION_MAP[section]
+    if (!colName) {
       return res.status(400).json({ message: 'Seksyon paramèt pa valid.' })
     }
-    if (typeof data !== 'object' || data === null) {
+    // customServices se yon ARRAY, lòt yo se OBJET
+    if (section === 'customServices') {
+      if (!Array.isArray(data)) {
+        return res.status(400).json({ message: 'customServices dwe yon lis.' })
+      }
+    } else if (typeof data !== 'object' || data === null) {
       return res.status(400).json({ message: 'Done paramèt pa valid.' })
     }
 
@@ -1182,10 +1197,10 @@ router.put('/settings', async (req, res) => {
 
     // Upsert — kreye row si pa egziste, mete ajou kolòn nan sèlman
     await prisma.$executeRawUnsafe(
-      `INSERT INTO klinik_settings (tenant_id, ${section})
+      `INSERT INTO klinik_settings (tenant_id, ${colName})
        VALUES ($1::uuid, $2::jsonb)
        ON CONFLICT (tenant_id)
-       DO UPDATE SET ${section} = $2::jsonb, updated_at = NOW()`,
+       DO UPDATE SET ${colName} = $2::jsonb, updated_at = NOW()`,
       tid,
       jsonData
     )
