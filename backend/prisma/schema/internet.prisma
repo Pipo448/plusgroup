@@ -1,14 +1,17 @@
 // prisma/schema/internet.prisma
 
 model internet_tenants {
-  id         Int      @id @default(autoincrement())
-  name       String
-  owner_name String?
-  phone      String?
-  email      String?
-  slug       String   @unique
-  active     Boolean  @default(true)
-  created_at DateTime @default(now())
+  id               Int      @id @default(autoincrement())
+  name             String
+  owner_name       String?
+  phone            String?
+  email            String?
+  slug             String   @unique
+  active           Boolean  @default(true)
+  created_at       DateTime @default(now())
+  manager_name     String?
+  manager_email    String?  @unique
+  manager_password String?
 
   clients  internet_clients[]
   configs  mikrotik_config[]
