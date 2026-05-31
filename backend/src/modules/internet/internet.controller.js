@@ -547,6 +547,109 @@ async function deleteManagerClient(req, res) {
   }
 }
 
+// ── Ajoute nan internet.controller.js anvan module.exports ──
+
+// ══════════════════════════════════════════════════════════
+// HOTSPOT LOGIN — Kliyan antre ID pou konekte WiFi
+// ══════════════════════════════════════════════════════════
+async function hotspotLogin(req, res) {
+  const { username, password, mac, ip, isp_slug } = req.body
+  try {
+    // 1. Jwenn kliyan an
+    const client = await prisma.internet_clients.findFirst({
+      where: { mikrotik_username: username },
+      include: { tenant: true }
+    })
+
+    if (!client) {
+      return res.status(401).json({ error: 'ID pa rekonèt. Kontakte sipò.' })
+    }
+
+    // 2. Verifye modpas (si yo itilize modpas)
+    if (password && client.mikrotik_password !== password) {
+      return res.status(401).json({ error: 'ID oswa modpas enkòrèk.' })
+    }
+
+    // 3. Jwenn config Mikrotik ISP la
+    const config = await prisma.mikrotik_config.findFirst({
+      where: { internet_tenant_id: client.internet_tenant_id }
+    })
+
+    if (!config) {
+      return res.status(500).json({ error: 'Sistèm pa konfigire. Kontakte PLUS INTERNET.' })
+    }
+
+    // 4. Di Mikrotik bay kliyan an aksè
+    const { RouterOSAPI } = require('node-routeros')
+    const conn = new RouterOSAPI({
+      host: config.host, user: config.username,
+      password: config.password, port: config.port || 8728,
+    })
+    await conn.connect()
+
+    // Login kliyan an sou Mikrotik Hotspot
+    await conn.write('/ip/hotspot/active/login', [
+      `=user=${username}`,
+      `=password=${client.mikrotik_password}`,
+      mac ? `=mac-address=${mac}` : '',
+      ip  ? `=ip=${ip}` : '',
+    ].filter(Boolean))
+
+    await conn.close()
+
+    res.json({
+      success: true,
+      message: 'Koneksyon reyisi!',
+      client: {
+        full_name: client.full_name,
+        plan_name: client.plan_name,
+        isp_name:  client.tenant?.name || 'PLUS INTERNET'
+      }
+    })
+  } catch (err) {
+    // Si Mikrotik pa disponib, retounen yon erè klè
+    console.error('Hotspot login error:', err.message)
+    res.status(500).json({ error: 'Pwoblèm koneksyon. Eseye ankò.' })
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// HOTSPOT LOGOUT
+// ══════════════════════════════════════════════════════════
+async function hotspotLogout(req, res) {
+  const { username } = req.body
+  try {
+    const client = await prisma.internet_clients.findFirst({
+      where: { mikrotik_username: username },
+      include: { tenant: true }
+    })
+    if (!client) return res.status(404).json({ error: 'Kliyan pa jwenn' })
+
+    const config = await prisma.mikrotik_config.findFirst({
+      where: { internet_tenant_id: client.internet_tenant_id }
+    })
+    if (!config) return res.json({ success: true })
+
+    const { RouterOSAPI } = require('node-routeros')
+    const conn = new RouterOSAPI({
+      host: config.host, user: config.username,
+      password: config.password, port: config.port || 8728,
+    })
+    await conn.connect()
+
+    // Jwenn sesyon aktif la
+    const sessions = await conn.write('/ip/hotspot/active/print', [`?user=${username}`])
+    if (sessions.length > 0) {
+      await conn.write('/ip/hotspot/active/remove', [`=.id=${sessions[0]['.id']}`])
+    }
+    await conn.close()
+
+    res.json({ success: true, message: 'Dekonekte ak siksè' })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+}
+
 module.exports = {
   clientAuth,
   loginClient,
@@ -559,4 +662,5 @@ module.exports = {
   setISPManager, managerLogin, managerAuth,
   getManagerStats, getManagerClients,
   createManagerClient, updateManagerClient, deleteManagerClient,
+  hotspotLogin, hotspotLogout,
 };

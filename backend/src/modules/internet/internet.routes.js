@@ -11,7 +11,18 @@ const {
   setISPManager, managerLogin, managerAuth,
   getManagerStats, getManagerClients,
   createManagerClient, updateManagerClient, deleteManagerClient,
+  hotspotLogin, hotspotLogout,
 } = require('./internet.controller');
+
+// ══════════════════════════════════════════════════════════
+// HOTSPOT — Captive Portal (Mikrotik redirijè kliyan isit)
+// ══════════════════════════════════════════════════════════
+router.get('/hotspot', (req, res) => {
+  const { mac, ip, username } = req.query
+  res.json({ status: 'hotspot', mac, ip, username })
+})
+router.post('/hotspot/login',  hotspotLogin);
+router.post('/hotspot/logout', hotspotLogout);
 
 // ══════════════════════════════════════════════════════════
 // APP KLIYAN — Public
@@ -27,11 +38,11 @@ router.get('/payments',  clientAuth, getClientPayments);
 // ══════════════════════════════════════════════════════════
 // SUPER ADMIN — ISP CRUD
 // ══════════════════════════════════════════════════════════
-router.get('/isps',            getISPs);
-router.post('/isps',           createISP);
-router.put('/isps/:id',        updateISP);
-router.delete('/isps/:id',     deleteISP);
-router.patch('/isps/:id/manager', setISPManager);  // ✅ Set manager credentials
+router.get('/isps',               getISPs);
+router.post('/isps',              createISP);
+router.put('/isps/:id',           updateISP);
+router.delete('/isps/:id',        deleteISP);
+router.patch('/isps/:id/manager', setISPManager);
 
 // ══════════════════════════════════════════════════════════
 // SUPER ADMIN — Kliyan CRUD
@@ -55,20 +66,20 @@ router.post('/mikrotik-config/test',  testMikrotikConfig);
 router.post('/manager/login', managerLogin);
 
 // ══════════════════════════════════════════════════════════
-// MANAGER — Dashboard (token manadjè)
+// MANAGER — Dashboard
 // ══════════════════════════════════════════════════════════
-router.get('/manager/stats',           managerAuth, getManagerStats);
+router.get('/manager/stats', managerAuth, getManagerStats);
 
 // ══════════════════════════════════════════════════════════
 // MANAGER — Kliyan zòn li sèlman
 // ══════════════════════════════════════════════════════════
-router.get('/manager/clients',         managerAuth, getManagerClients);
-router.post('/manager/clients',        managerAuth, createManagerClient);
-router.put('/manager/clients/:id',     managerAuth, updateManagerClient);
-router.delete('/manager/clients/:id',  managerAuth, deleteManagerClient);
+router.get('/manager/clients',        managerAuth, getManagerClients);
+router.post('/manager/clients',       managerAuth, createManagerClient);
+router.put('/manager/clients/:id',    managerAuth, updateManagerClient);
+router.delete('/manager/clients/:id', managerAuth, deleteManagerClient);
 
 // ══════════════════════════════════════════════════════════
-// MANAGER — Mikrotik estati (li sèlman, pa edite)
+// MANAGER — Mikrotik estati (li sèlman)
 // ══════════════════════════════════════════════════════════
 router.get('/manager/mikrotik-config', managerAuth, async (req, res) => {
   const { PrismaClient } = require('@prisma/client')
