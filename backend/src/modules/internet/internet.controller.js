@@ -176,14 +176,40 @@ async function getClients(req, res) {
   }
 }
 
+// ── Helper: jenere username otomatikman depi non kliyan ──
+function generateUsername(fullName) {
+  const base = fullName
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .substring(0, 10)
+  return base + Math.floor(10 + Math.random() * 90)
+}
+
+async function getUniqueUsername(fullName) {
+  let username = generateUsername(fullName)
+  let existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username: username } })
+  while (existing) {
+    username = generateUsername(fullName)
+    existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username: username } })
+  }
+  return username
+}
+
 async function createClient(req, res) {
   try {
-    const { internet_tenant_id, full_name, phone, email, mikrotik_username, mikrotik_password, plan_name } = req.body;
-    if (!full_name || !mikrotik_username || !mikrotik_password) {
-      return res.status(400).json({ error: 'Non, username ak modpas obligatwa' });
+    let { internet_tenant_id, full_name, phone, email, mikrotik_username, mikrotik_password, plan_name } = req.body;
+    if (!full_name) return res.status(400).json({ error: 'Non kliyan obligatwa' });
+    if (!mikrotik_password) return res.status(400).json({ error: 'Modpas obligatwa' });
+
+    if (!mikrotik_username || !mikrotik_username.trim()) {
+      mikrotik_username = await getUniqueUsername(full_name)
+    } else {
+      const existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username } });
+      if (existing) return res.status(400).json({ error: 'ID sa a deja egziste' });
     }
-    const existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username } });
-    if (existing) return res.status(400).json({ error: 'Username sa a deja egziste' });
+
     const client = await prisma.internet_clients.create({
       data: {
         internet_tenant_id: internet_tenant_id ? parseInt(internet_tenant_id) : null,
@@ -493,12 +519,16 @@ async function getManagerClients(req, res) {
 
 async function createManagerClient(req, res) {
   try {
-    const { full_name, phone, email, mikrotik_username, mikrotik_password, plan_name } = req.body
-    if (!full_name || !mikrotik_username || !mikrotik_password) {
-      return res.status(400).json({ error: 'Non, username ak modpas obligatwa' })
+    let { full_name, phone, email, mikrotik_username, mikrotik_password, plan_name } = req.body
+    if (!full_name) return res.status(400).json({ error: 'Non kliyan obligatwa' })
+    if (!mikrotik_password) return res.status(400).json({ error: 'Modpas obligatwa' })
+
+    if (!mikrotik_username || !mikrotik_username.trim()) {
+      mikrotik_username = await getUniqueUsername(full_name)
+    } else {
+      const existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username } })
+      if (existing) return res.status(400).json({ error: 'ID sa a deja egziste' })
     }
-    const existing = await prisma.internet_clients.findFirst({ where: { mikrotik_username } })
-    if (existing) return res.status(400).json({ error: 'Username sa a deja egziste' })
 
     const client = await prisma.internet_clients.create({
       data: {
