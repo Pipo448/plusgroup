@@ -18,6 +18,7 @@ export default function InternetTab({ adminApi, isMobile }) {
   const [showISPForm,    setShowISPForm]    = useState(false)
   const [showClientForm, setShowClientForm] = useState(false)
   const [showMikForm,    setShowMikForm]    = useState(false)
+  const [showManagerForm, setShowManagerForm] = useState(false)
   const [editingISP,     setEditingISP]     = useState(null)
   const [editingClient,  setEditingClient]  = useState(null)
   const [saving,         setSaving]         = useState(false)
@@ -25,6 +26,7 @@ export default function InternetTab({ adminApi, isMobile }) {
   const [ispForm, setIspForm] = useState({ name:'', owner_name:'', phone:'', email:'', slug:'' })
   const [clientForm, setClientForm] = useState({ full_name:'', phone:'', mikrotik_username:'', mikrotik_password:'', plan_name:'' })
   const [mikForm, setMikForm] = useState({ host:'', port:'8728', username:'admin', password:'', use_ssl:false })
+  const [managerForm, setManagerForm] = useState({ manager_name:'', manager_email:'', manager_password:'' })
   const [testResult, setTestResult] = useState(null)
 
   // ── Load ISPs ──────────────────────────────────────────
@@ -135,8 +137,22 @@ export default function InternetTab({ adminApi, isMobile }) {
     finally { setSaving(false) }
   }
 
-  const handleTestMik = async () => {
-    setTestResult(null)
+  const handleSaveManager = async () => {
+    if (!managerForm.manager_email || !managerForm.manager_password) {
+      toast.error('Email ak modpas obligatwa'); return
+    }
+    setSaving(true)
+    try {
+      await adminApi.patch(`/internet/isps/${selectedISP.id}/manager`, managerForm)
+      toast.success('Kont manadjè kreye!')
+      setShowManagerForm(false)
+      setManagerForm({ manager_name:'', manager_email:'', manager_password:'' })
+      loadISPs()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erè') }
+    finally { setSaving(false) }
+  }
+
+  const handleTestMik = async () => {    setTestResult(null)
     try {
       await adminApi.post('/internet/mikrotik-config/test', { isp_id: selectedISP.id })
       setTestResult('ok'); toast.success('Mikrotik konekte!')
@@ -233,12 +249,40 @@ export default function InternetTab({ adminApi, isMobile }) {
           <div style={{ padding:'12px 16px', borderBottom:'1px solid rgba(99,102,241,0.1)', background:'rgba(99,102,241,0.05)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
             <p style={{ color:'#a5b4fc', fontSize:13, fontWeight:700, margin:0 }}>📡 {selectedISP.name}</p>
             <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => { setShowManagerForm(!showManagerForm); setShowMikForm(false) }}
+                style={btn('rgba(16,185,129,0.1)','#10b981')}>👤 Manager</button>
               <button onClick={() => setShowMikForm(!showMikForm)}
                 style={btn('rgba(245,158,11,0.1)','#f59e0b')}>⚙ Mikrotik</button>
               <button onClick={() => { setEditingClient(null); setClientForm({ full_name:'', phone:'', mikrotik_username:'', mikrotik_password:'', plan_name:'' }); setShowClientForm(true) }}
                 style={btn('linear-gradient(135deg,#6366f1,#8b5cf6)','#fff')}>+ Nouvo kliyan</button>
             </div>
           </div>
+
+          {/* Manager form */}
+          {showManagerForm && (
+            <div style={{ padding:16, borderBottom:'1px solid rgba(16,185,129,0.1)', background:'rgba(16,185,129,0.03)' }}>
+              <p style={{ color:'rgba(16,185,129,0.8)', fontSize:11, fontWeight:700, textTransform:'uppercase', margin:'0 0 4px' }}>Kont Manadjè Zòn</p>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:11, margin:'0 0 12px' }}>
+                Manadjè a ap ka login sou <span style={{ color:'#10b981', fontFamily:'monospace' }}>internet.plusgroupe.com/manager</span>
+              </p>
+              {selectedISP.manager_email && (
+                <div style={{ background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.2)', borderRadius:8, padding:'8px 12px', marginBottom:12, fontSize:12, color:'#10b981' }}>
+                  ✅ Manadjè aktyèl: <strong>{selectedISP.manager_email}</strong>
+                </div>
+              )}
+              <div style={{ display:'grid', gridTemplateColumns: isMobile?'1fr':'repeat(3,1fr)', gap:10, marginBottom:10 }}>
+                <div><label style={{...lS, color:'rgba(16,185,129,0.8)'}}>Non manadjè</label><input style={iS} value={managerForm.manager_name} onChange={e=>setManagerForm(p=>({...p,manager_name:e.target.value}))} placeholder="James Pierre"/></div>
+                <div><label style={{...lS, color:'rgba(16,185,129,0.8)'}}>Email *</label><input style={iS} type="email" value={managerForm.manager_email} onChange={e=>setManagerForm(p=>({...p,manager_email:e.target.value}))} placeholder="james@plusinternet.ht"/></div>
+                <div><label style={{...lS, color:'rgba(16,185,129,0.8)'}}>Modpas *</label><input style={iS} type="password" value={managerForm.manager_password} onChange={e=>setManagerForm(p=>({...p,manager_password:e.target.value}))} placeholder="••••••••"/></div>
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={()=>setShowManagerForm(false)} style={btn('rgba(255,255,255,0.06)','rgba(255,255,255,0.5)')}>Anile</button>
+                <button onClick={handleSaveManager} disabled={saving} style={btn('rgba(16,185,129,0.2)','#10b981')}>
+                  {saving ? 'Ap sove...' : '👤 Bay aksè manadjè'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Mikrotik config form */}
           {showMikForm && (
