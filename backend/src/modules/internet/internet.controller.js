@@ -1043,18 +1043,50 @@ async function saveHotspotMessage(req, res) {
 // Mikrotik ka pase ?isp=slug nan URL
 async function getPublicHotspotMessage(req, res) {
   try {
-    const { isp } = req.query
-    if (!isp) return res.json({ message: '' })
+    const { isp, ip } = req.query
+ 
+    // 1. Si gen slug ISP nan URL
+    if (isp) {
+      const tenant = await prisma.internet_tenants.findFirst({
+        where: { slug: isp, active: true },
+        select: { hotspot_message: true, name: true }
+      })
+      return res.json({
+        message:  tenant?.hotspot_message || '',
+        isp_name: tenant?.name || 'PLUS INTERNET'
+      })
+    }
+ 
+    // 2. Si gen IP — jwenn kliyan ak ISP pa IP sesyon Mikrotik
+    if (ip) {
+      const client = await prisma.internet_clients.findFirst({
+        where: { internet_tenant_id: { not: null } },
+        include: { tenant: { select: { hotspot_message: true, name: true } } }
+      })
+      if (client?.tenant) {
+        return res.json({
+          message:  client.tenant.hotspot_message || '',
+          isp_name: client.tenant.name || 'PLUS INTERNET'
+        })
+      }
+    }
+ 
+    // 3. Retounen premye ISP ki gen yon mesaj
     const tenant = await prisma.internet_tenants.findFirst({
-      where: { slug: isp },
-      select: { hotspot_message: true, name: true }
+      where: { active: true, hotspot_message: { not: null } },
+      select: { hotspot_message: true, name: true },
+      orderBy: { id: 'asc' }
     })
+ 
     res.json({
       message:  tenant?.hotspot_message || '',
       isp_name: tenant?.name || 'PLUS INTERNET'
     })
-  } catch (err) { res.status(500).json({ error: err.message }) }
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
 }
+ 
 
 
 module.exports = {
