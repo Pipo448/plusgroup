@@ -199,4 +199,23 @@ export const mobilPayAPI = {
   getNatcashTransactions: ()     => api.get('/natcash/transactions'),
 }
 
+export const internetAPI = {
+  // ── Kliyan ───────────────────────────────────────────
+  getClients:    (p)        => api.get('/internet/clients', { params: p }),
+  getOneClient:  (id)       => api.get(`/internet/clients/${id}`),
+  createClient:  (data)     => api.post('/internet/clients', data),
+  updateClient:  (id, data) => api.put(`/internet/clients/${id}`, data),
+  deleteClient:  (id)       => api.delete(`/internet/clients/${id}`),
+  renewClient:   (data)     => api.post('/internet/renew', data),
+ 
+  // ── Mikrotik config ───────────────────────────────────
+  getMikrotikConfig:    ()     => api.get('/internet/mikrotik-config'),
+  saveMikrotikConfig:   (data) => api.post('/internet/mikrotik-config', data),
+  testMikrotikConfig:   ()     => api.post('/internet/mikrotik-config/test'),
+ 
+  // ── Peman ─────────────────────────────────────────────
+  getPayments: (p) => api.get('/internet/admin/payments', { params: p }),
+}
+ 
+
 export default api

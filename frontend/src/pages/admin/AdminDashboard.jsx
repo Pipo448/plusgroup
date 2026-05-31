@@ -13,7 +13,7 @@ import {
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
   TrendingUp, Settings, Smartphone, Phone, Wallet,
    History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
-  Scissors, Stethoscope,
+  Scissors, Stethoscope, Wifi, Router, RefreshCw,
 } from 'lucide-react'
 
 const PDG_PHOTO = "/FB_IMG_1771787479362.jpg"
@@ -1156,6 +1156,178 @@ const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onRese
 }
 
 // ══════════════════════════════════════════════
+// INTERNET MODAL — Jere kliyan internet pa tenant
+// ══════════════════════════════════════════════
+const InternetModal = ({ tenant, onClose }) => {
+  const isMobile = useIsMobile()
+  const [clients, setClients]   = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [editing, setEditing]   = useState(null)
+  const [form, setForm] = useState({ full_name:'', phone:'', mikrotik_username:'', mikrotik_password:'', plan_name:'' })
+  const [saving, setSaving]     = useState(false)
+
+  const loadClients = async () => {
+    setLoading(true)
+    try {
+      const res = await adminApi.get('/internet/clients', { headers: { 'X-Tenant-Slug': tenant.slug } })
+      setClients(res.data?.clients || res.data || [])
+    } catch { setClients([]) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { loadClients() }, [])
+
+  const handleSave = async () => {
+    if (!form.full_name || !form.mikrotik_username || !form.mikrotik_password) {
+      toast.error('Ranpli tout chan obligatwa yo'); return
+    }
+    setSaving(true)
+    try {
+      if (editing) {
+        await adminApi.put(`/internet/clients/${editing.id}`, form, { headers: { 'X-Tenant-Slug': tenant.slug } })
+        toast.success('Kliyan mete ajou!')
+      } else {
+        await adminApi.post('/internet/clients', form, { headers: { 'X-Tenant-Slug': tenant.slug } })
+        toast.success('Kliyan kreye!')
+      }
+      setShowForm(false); setEditing(null)
+      setForm({ full_name:'', phone:'', mikrotik_username:'', mikrotik_password:'', plan_name:'' })
+      loadClients()
+    } catch(e) { toast.error(e.response?.data?.error || 'Erè sevè')
+    } finally { setSaving(false) }
+  }
+
+  const handleDelete = async (client) => {
+    if (!window.confirm(`Efase "${client.full_name}"?`)) return
+    try {
+      await adminApi.delete(`/internet/clients/${client.id}`, { headers: { 'X-Tenant-Slug': tenant.slug } })
+      toast.success('Kliyan efase!'); loadClients()
+    } catch { toast.error('Erè efasaj') }
+  }
+
+  const iStyle = { width:'100%', padding:'10px 12px', borderRadius:9, boxSizing:'border-box', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#fff', fontSize:13, fontFamily:'DM Sans', outline:'none' }
+  const lStyle = { display:'block', color:'rgba(99,102,241,0.8)', fontSize:10, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.08em' }
+
+  const PLANS = ['Plan Baz 2Mbps', 'Plan Standad 5Mbps', 'Plan Avanse 10Mbps', 'Plan Biznis 20Mbps']
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', backdropFilter:'blur(10px)', zIndex:2500, display:'flex', alignItems: isMobile?'flex-end':'center', justifyContent:'center', padding: isMobile?0:16 }}
+      onClick={e => e.target===e.currentTarget && onClose()}>
+      <div style={{ background:'linear-gradient(160deg,#0f0f28,#0a0a1a)', border:'1px solid rgba(99,102,241,0.3)', borderRadius: isMobile?'20px 20px 0 0':20, width:'100%', maxWidth:720, maxHeight: isMobile?'93vh':'88vh', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        <div style={{ height:3, background:'linear-gradient(90deg,transparent,#6366f1 30%,#8b5cf6 70%,transparent)', flexShrink:0 }}/>
+
+        {/* Header */}
+        <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid rgba(99,102,241,0.15)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+            <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <Wifi size={18} color="#fff"/>
+            </div>
+            <div>
+              <h3 style={{ color:'#fff', margin:0, fontSize:15, fontFamily:"'Playfair Display'" }}>PLUS INTERNET</h3>
+              <p style={{ color:'rgba(99,102,241,0.6)', margin:'2px 0 0', fontSize:11 }}>{tenant.name} — {clients.length} kliyan</p>
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <button onClick={() => { setEditing(null); setForm({ full_name:'', phone:'', mikrotik_username:'', mikrotik_password:'', plan_name:'' }); setShowForm(true) }}
+              style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:9, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700 }}>
+              <Plus size={13}/> Nouvo
+            </button>
+            <button onClick={onClose} style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'rgba(255,255,255,0.5)' }}><X size={14}/></button>
+          </div>
+        </div>
+
+        {/* Fòm kreye/edite */}
+        {showForm && (
+          <div style={{ padding:'16px 22px', borderBottom:'1px solid rgba(99,102,241,0.1)', background:'rgba(99,102,241,0.05)', flexShrink:0 }}>
+            <p style={{ color:'rgba(99,102,241,0.8)', fontSize:11, fontWeight:700, textTransform:'uppercase', margin:'0 0 12px' }}>{editing ? 'Edite kliyan' : 'Nouvo kliyan'}</p>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile?'1fr':'repeat(3,1fr)', gap:10, marginBottom:10 }}>
+              <div><label style={lStyle}>Non konplè *</label><input style={iStyle} value={form.full_name} onChange={e=>setForm(p=>({...p,full_name:e.target.value}))} placeholder="Jean Dasner"/></div>
+              <div><label style={lStyle}>Telefòn</label><input style={iStyle} value={form.phone} onChange={e=>setForm(p=>({...p,phone:e.target.value}))} placeholder="50937000000"/></div>
+              <div>
+                <label style={lStyle}>Plan</label>
+                <select style={iStyle} value={form.plan_name} onChange={e=>setForm(p=>({...p,plan_name:e.target.value}))}>
+                  <option value="">Chwazi plan</option>
+                  {PLANS.map(pl => <option key={pl} value={pl}>{pl}</option>)}
+                </select>
+              </div>
+              <div><label style={lStyle}>Username Mikrotik *</label><input style={{ ...iStyle, fontFamily:'monospace' }} value={form.mikrotik_username} onChange={e=>setForm(p=>({...p,mikrotik_username:e.target.value}))} placeholder="client001" disabled={!!editing}/></div>
+              <div><label style={lStyle}>Modpas *</label><input style={iStyle} value={form.mikrotik_password} onChange={e=>setForm(p=>({...p,mikrotik_password:e.target.value}))} placeholder="••••••••"/></div>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => { setShowForm(false); setEditing(null) }} style={{ padding:'8px 16px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'rgba(255,255,255,0.5)', cursor:'pointer', fontSize:12 }}>Anile</button>
+              <button onClick={handleSave} disabled={saving} style={{ padding:'8px 20px', borderRadius:8, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', border:'none', color:'#fff', cursor:'pointer', fontSize:12, fontWeight:700, display:'flex', alignItems:'center', gap:6 }}>
+                {saving ? <><div style={{ width:12, height:12, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Ap sove...</> : <><Save size={12}/> {editing ? 'Mete ajou' : 'Kreye'}</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Liste kliyan */}
+        <div style={{ overflowY:'auto', flex:1 }}>
+          {loading ? (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', padding:40, gap:8, color:'rgba(255,255,255,0.3)' }}>
+              <div style={{ width:20, height:20, border:'2px solid rgba(99,102,241,0.2)', borderTopColor:'#6366f1', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
+              Ap chaje…
+            </div>
+          ) : clients.length === 0 ? (
+            <div style={{ padding:40, textAlign:'center' }}>
+              <Wifi size={36} color="rgba(99,102,241,0.3)" style={{ margin:'0 auto 12px', display:'block' }}/>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:13, margin:0 }}>Pa gen kliyan encore</p>
+            </div>
+          ) : (
+            <table style={{ width:'100%', borderCollapse:'collapse' }}>
+              <thead>
+                <tr style={{ background:'rgba(0,0,0,0.2)' }}>
+                  {['Kliyan','Username','Plan','Aksyon'].map((h,i) => (
+                    <th key={i} style={{ padding:'10px 16px', textAlign:'left', fontSize:9, fontWeight:700, color:'rgba(99,102,241,0.6)', textTransform:'uppercase', letterSpacing:'0.1em', borderBottom:'1px solid rgba(99,102,241,0.1)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clients.map((c, idx) => (
+                  <tr key={c.id} style={{ borderBottom: idx<clients.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}>
+                    <td style={{ padding:'12px 16px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <div style={{ width:32, height:32, borderRadius:'50%', background:'linear-gradient(135deg,rgba(99,102,241,0.3),rgba(139,92,246,0.3))', display:'flex', alignItems:'center', justifyContent:'center', color:'#a5b4fc', fontWeight:700, fontSize:13, flexShrink:0 }}>
+                          {c.full_name?.[0]?.toUpperCase()}
+                        </div>
+                        <div>
+                          <p style={{ color:'#fff', fontSize:13, fontWeight:600, margin:0 }}>{c.full_name}</p>
+                          <p style={{ color:'rgba(255,255,255,0.3)', fontSize:11, margin:0 }}>{c.phone || '—'}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <span style={{ fontFamily:'monospace', fontSize:11, color:'rgba(99,102,241,0.8)', background:'rgba(99,102,241,0.08)', padding:'2px 8px', borderRadius:6, border:'1px solid rgba(99,102,241,0.15)' }}>{c.mikrotik_username}</span>
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <span style={{ fontSize:11, color:'#a5b4fc', background:'rgba(99,102,241,0.08)', padding:'2px 10px', borderRadius:20, border:'1px solid rgba(99,102,241,0.15)' }}>{c.plan_name || '—'}</span>
+                    </td>
+                    <td style={{ padding:'12px 16px' }}>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button onClick={() => { setEditing(c); setForm({ full_name:c.full_name, phone:c.phone||'', mikrotik_username:c.mikrotik_username, mikrotik_password:c.mikrotik_password, plan_name:c.plan_name||'' }); setShowForm(true) }}
+                          style={{ display:'flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.25)', color:'#818cf8', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                          <Edit2 size={10}/> Edite
+                        </button>
+                        <button onClick={() => handleDelete(c)}
+                          style={{ display:'flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(139,0,0,0.25)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                          <Trash2 size={10}/> Efase
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════
 // MAIN DASHBOARD
 // ══════════════════════════════════════════════
 export default function AdminDashboard() {
@@ -1176,6 +1348,7 @@ export default function AdminDashboard() {
   const [auditViewT,    setAuditViewT]   = useState(null)
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
+  const [internetViewT, setInternetViewT] = useState(null)
 
   const { admin } = getAdmin()
 
@@ -1436,6 +1609,7 @@ export default function AdminDashboard() {
                       onPages={(t) => loadPages(t)}
                       onAudit={(t) => setAuditViewT(t)}
                       onSol={(t) => setSolViewT(t)}
+                      onInternet={(t) => setInternetViewT(t)}
                       onSavePrice={saveMonthlyPrice}/>
                   ))
               }
@@ -1517,6 +1691,9 @@ export default function AdminDashboard() {
                               <button onClick={() => setSolViewT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(192,57,43,0.3)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <Smartphone size={11}/> Sol</button>
+                              <button onClick={() => setInternetViewT(t)}
+                                style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.3)', color:'#818cf8', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+                                <Wifi size={11}/> Internet</button>
                               {t.status==='active'
                                 ? <button onClick={() => { if(window.confirm(`Sipann "${t.name}"?`)) statusMutation.mutate({id:t.id,status:'suspended'}) }}
                                     style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(139,0,0,0.1)', border:'1px solid rgba(139,0,0,0.25)', color:'#E8836A', cursor:'pointer', fontSize:11, fontWeight:700 }}>
@@ -1553,6 +1730,7 @@ export default function AdminDashboard() {
       {pageViewT    && <PageAccessPanel tenant={pageViewT} pages={pagesData[pageViewT.id]} onSave={savePages} saving={pageSaving} onClose={() => setPageViewT(null)}/>}
       {auditViewT   && <AuditLogModal tenant={auditViewT} onClose={() => setAuditViewT(null)}/>}
       {solViewT     && <SolManagerModal tenant={solViewT} onClose={() => setSolViewT(null)}/>}
+      {internetViewT && <InternetModal tenant={internetViewT} onClose={() => setInternetViewT(null)}/>}
 
       <TickerBanner/>
       <style>{`
