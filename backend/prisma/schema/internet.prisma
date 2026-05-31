@@ -12,24 +12,47 @@ model internet_tenants {
   manager_name     String?
   manager_email    String?  @unique
   manager_password String?
+  hotspot_message String?
 
   clients  internet_clients[]
   configs  mikrotik_config[]
   payments internet_payments[]
+  plans    internet_plans[]
+}
+
+model internet_plans {
+  id                 Int      @id @default(autoincrement())
+  internet_tenant_id Int?
+  name               String
+  mikrotik_profile   String
+  speed_mbps         Int
+  duration_days      Int
+  price_htg          Decimal? @db.Decimal(10, 2)
+  data_limit_gb      Int?
+  max_devices        Int      @default(1)
+  active             Boolean  @default(true)
+  created_at         DateTime @default(now())
+
+  tenant  internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
+  clients internet_clients[]
 }
 
 model internet_clients {
-  id                 Int      @id @default(autoincrement())
+  id                 Int       @id @default(autoincrement())
   internet_tenant_id Int?
+  plan_id            Int?
   full_name          String
   phone              String?
   email              String?
-  mikrotik_username  String   @unique
+  mikrotik_username  String    @unique
   mikrotik_password  String
   plan_name          String?
-  created_at         DateTime @default(now())
+  expires_at         DateTime?
+  activated_at       DateTime? @default(now())
+  created_at         DateTime  @default(now())
 
-  tenant   internet_tenants?  @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
+  tenant   internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
+  plan     internet_plans?   @relation(fields: [plan_id], references: [id])
   payments internet_payments[]
 }
 

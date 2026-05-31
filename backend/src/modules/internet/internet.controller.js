@@ -680,6 +680,383 @@ async function hotspotLogout(req, res) {
   }
 }
 
+// ══════════════════════════════════════════════════════════
+// AJOUTE NAN internet.controller.js — anvan module.exports
+// ══════════════════════════════════════════════════════════
+
+// ── Helper: koneksyon Mikrotik ─────────────────────────────
+async function getMikConn(isp_id) {
+  const { RouterOSAPI } = require('node-routeros')
+  const config = await prisma.mikrotik_config.findFirst({
+    where: { internet_tenant_id: isp_id }
+  })
+  if (!config) return null
+  const conn = new RouterOSAPI({
+    host: config.host, user: config.username,
+    password: config.password, port: config.port || 8728,
+  })
+  await conn.connect()
+  return conn
+}
+
+// ── Helper: kalkile expires_at ─────────────────────────────
+function calcExpires(durationDays) {
+  const d = new Date()
+  d.setDate(d.getDate() + parseInt(durationDays))
+  return d
+}
+
+// ══════════════════════════════════════════════════════════
+// PLANS — CRUD (admin + manager)
+// ══════════════════════════════════════════════════════════
+async function getPlans(req, res) {
+  try {
+    const isp_id = req.manager?.isp_id || parseInt(req.query.isp_id)
+    const plans  = await prisma.internet_plans.findMany({
+      where:   { internet_tenant_id: isp_id, active: true },
+      orderBy: { speed_mbps: 'asc' }
+    })
+    res.json({ plans })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+async function createPlan(req, res) {
+  try {
+    const isp_id = req.manager?.isp_id || parseInt(req.body.isp_id)
+    const { name, mikrotik_profile, speed_mbps, duration_days, price_htg, data_limit_gb, max_devices } = req.body
+
+    if (!name || !mikrotik_profile || !speed_mbps || !duration_days) {
+      return res.status(400).json({ error: 'Non, profil, vitès ak dire obligatwa' })
+    }
+
+    // Kreye profil nan Mikrotik
+    const conn = await getMikConn(isp_id)
+    if (conn) {
+      try {
+        await conn.write('/ip/hotspot/user/profile/add', [
+          `=name=${mikrotik_profile}`,
+          `=rate-limit=${speed_mbps}M/${speed_mbps}M`,
+          `=shared-users=${max_devices || 1}`,
+        ])
+      } catch(e) { /* profil ka deja egziste */ }
+      await conn.close()
+    }
+
+    const plan = await prisma.internet_plans.create({
+      data: {
+        internet_tenant_id: isp_id,
+        name, mikrotik_profile,
+        speed_mbps:   parseInt(speed_mbps),
+        duration_days: parseInt(duration_days),
+        price_htg,
+        data_limit_gb: data_limit_gb ? parseInt(data_limit_gb) : null,
+        max_devices:   parseInt(max_devices) || 1,
+      }
+    })
+    res.status(201).json({ plan })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+async function updatePlan(req, res) {
+  try {
+    const { id } = req.params
+    const { name, speed_mbps, duration_days, price_htg, data_limit_gb, max_devices, active } = req.body
+
+    const plan = await prisma.internet_plans.findUnique({ where: { id: parseInt(id) } })
+    if (!plan) return res.status(404).json({ error: 'Plan pa jwenn' })
+
+    // Mete ajou profil Mikrotik
+    const conn = await getMikConn(plan.internet_tenant_id)
+    if (conn) {
+      try {
+        const profiles = await conn.write('/ip/hotspot/user/profile/print', [`?name=${plan.mikrotik_profile}`])
+        if (profiles.length > 0) {
+          await conn.write('/ip/hotspot/user/profile/set', [
+            `=.id=${profiles[0]['.id']}`,
+            `=rate-limit=${speed_mbps}M/${speed_mbps}M`,
+            `=shared-users=${max_devices || 1}`,
+          ])
+        }
+      } catch(e) {}
+      await conn.close()
+    }
+
+    const updated = await prisma.internet_plans.update({
+      where: { id: parseInt(id) },
+      data: {
+        name,
+        speed_mbps:    speed_mbps    ? parseInt(speed_mbps)    : undefined,
+        duration_days: duration_days ? parseInt(duration_days) : undefined,
+        price_htg,
+        data_limit_gb: data_limit_gb ? parseInt(data_limit_gb) : null,
+        max_devices:   max_devices   ? parseInt(max_devices)   : undefined,
+        active,
+      }
+    })
+    res.json({ plan: updated })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+async function deletePlan(req, res) {
+  try {
+    const { id } = req.params
+    await prisma.internet_plans.update({
+      where: { id: parseInt(id) },
+      data:  { active: false }
+    })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+// ══════════════════════════════════════════════════════════
+// RANPLASE createManagerClient ak createClient
+// (avèk Mikrotik sync + expires_at)
+// ══════════════════════════════════════════════════════════
+async function createManagerClient(req, res) {
+  try {
+    let { full_name, phone, email, mikrotik_username, mikrotik_password, plan_id, plan_name } = req.body
+    const isp_id = req.manager.isp_id
+
+    if (!full_name)        return res.status(400).json({ error: 'Non kliyan obligatwa' })
+    if (!mikrotik_password) return res.status(400).json({ error: 'Modpas obligatwa' })
+
+    // Auto-jenere username si vid
+    if (!mikrotik_username?.trim()) {
+      mikrotik_username = await getUniqueUsername(full_name)
+    } else {
+      const ex = await prisma.internet_clients.findFirst({ where: { mikrotik_username } })
+      if (ex) return res.status(400).json({ error: 'ID sa a deja egziste' })
+    }
+
+    // Jwenn plan si bay plan_id
+    let plan = null
+    let expires_at = null
+    if (plan_id) {
+      plan = await prisma.internet_plans.findUnique({ where: { id: parseInt(plan_id) } })
+      if (plan) {
+        plan_name  = plan.name
+        expires_at = calcExpires(plan.duration_days)
+      }
+    }
+
+    // Kreye nan Supabase
+    const client = await prisma.internet_clients.create({
+      data: {
+        internet_tenant_id: isp_id,
+        plan_id:   plan ? plan.id : null,
+        full_name, phone, email,
+        mikrotik_username, mikrotik_password,
+        plan_name,
+        expires_at,
+        activated_at: new Date(),
+      }
+    })
+
+    // Kreye nan Mikrotik
+    const conn = await getMikConn(isp_id)
+    if (conn) {
+      try {
+        const limitUptime = plan ? `${plan.duration_days * 24}h` : '0s'
+        await conn.write('/ip/hotspot/user/add', [
+          `=name=${mikrotik_username}`,
+          `=password=${mikrotik_password}`,
+          `=profile=${plan?.mikrotik_profile || 'default'}`,
+          plan ? `=limit-uptime=${limitUptime}` : '=limit-uptime=0s',
+        ])
+      } catch(e) { console.error('Mikrotik createClient error:', e.message) }
+      await conn.close()
+    }
+
+    res.status(201).json({ client })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+async function createClient(req, res) {
+  try {
+    let { internet_tenant_id, full_name, phone, email, mikrotik_username, mikrotik_password, plan_id, plan_name } = req.body
+
+    if (!full_name)        return res.status(400).json({ error: 'Non kliyan obligatwa' })
+    if (!mikrotik_password) return res.status(400).json({ error: 'Modpas obligatwa' })
+
+    if (!mikrotik_username?.trim()) {
+      mikrotik_username = await getUniqueUsername(full_name)
+    } else {
+      const ex = await prisma.internet_clients.findFirst({ where: { mikrotik_username } })
+      if (ex) return res.status(400).json({ error: 'ID sa a deja egziste' })
+    }
+
+    let plan = null
+    let expires_at = null
+    if (plan_id) {
+      plan = await prisma.internet_plans.findUnique({ where: { id: parseInt(plan_id) } })
+      if (plan) {
+        plan_name  = plan.name
+        expires_at = calcExpires(plan.duration_days)
+      }
+    }
+
+    const isp_id = internet_tenant_id ? parseInt(internet_tenant_id) : null
+
+    const client = await prisma.internet_clients.create({
+      data: {
+        internet_tenant_id: isp_id,
+        plan_id:   plan ? plan.id : null,
+        full_name, phone, email,
+        mikrotik_username, mikrotik_password,
+        plan_name,
+        expires_at,
+        activated_at: new Date(),
+      }
+    })
+
+    // Kreye nan Mikrotik
+    if (isp_id) {
+      const conn = await getMikConn(isp_id)
+      if (conn) {
+        try {
+          const limitUptime = plan ? `${plan.duration_days * 24}h` : '0s'
+          await conn.write('/ip/hotspot/user/add', [
+            `=name=${mikrotik_username}`,
+            `=password=${mikrotik_password}`,
+            `=profile=${plan?.mikrotik_profile || 'default'}`,
+            `=limit-uptime=${limitUptime}`,
+          ])
+        } catch(e) { console.error('Mikrotik createClient error:', e.message) }
+        await conn.close()
+      }
+    }
+
+    res.status(201).json({ client })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+// ══════════════════════════════════════════════════════════
+// RANPLASE renewSubscription — Renouvle ak Mikrotik sync
+// ══════════════════════════════════════════════════════════
+async function renewSubscription(req, res) {
+  const { client_id, plan_id, amount } = req.body
+  try {
+    const client = await prisma.internet_clients.findUnique({ where: { id: client_id } })
+    if (!client) return res.status(404).json({ error: 'Kliyan pa jwenn' })
+
+    let plan = null
+    let new_expires_at = new Date()
+
+    if (plan_id) {
+      plan = await prisma.internet_plans.findUnique({ where: { id: parseInt(plan_id) } })
+    }
+
+    // Si kliyan an pa ekspire encore, ajoute sou ekspirasyon aktyèl la
+    const baseDate = client.expires_at && client.expires_at > new Date()
+      ? client.expires_at
+      : new Date()
+
+    if (plan) {
+      new_expires_at = new Date(baseDate)
+      new_expires_at.setDate(new_expires_at.getDate() + plan.duration_days)
+    }
+
+    // Mete ajou Supabase
+    await prisma.internet_clients.update({
+      where: { id: client_id },
+      data: {
+        plan_id:    plan ? plan.id   : client.plan_id,
+        plan_name:  plan ? plan.name : client.plan_name,
+        expires_at: new_expires_at,
+        activated_at: new Date(),
+      }
+    })
+
+    // Anrejistre peman
+    await prisma.internet_payments.create({
+      data: {
+        internet_tenant_id: client.internet_tenant_id,
+        client_id:    client.id,
+        amount:       amount || plan?.price_htg || 0,
+        plan_name:    plan?.name || client.plan_name,
+        duration_days: plan?.duration_days,
+        renewed_by:   'manager'
+      }
+    })
+
+    // Renouvle nan Mikrotik
+    const conn = await getMikConn(client.internet_tenant_id)
+    if (conn) {
+      try {
+        const users = await conn.write('/ip/hotspot/user/print', [`?name=${client.mikrotik_username}`])
+        if (users.length > 0) {
+          const limitUptime = plan ? `${plan.duration_days * 24}h` : '720h'
+          await conn.write('/ip/hotspot/user/set', [
+            `=.id=${users[0]['.id']}`,
+            `=profile=${plan?.mikrotik_profile || users[0].profile}`,
+            `=limit-uptime=${limitUptime}`,
+            `=uptime=0s`,
+            `=disabled=no`,
+          ])
+          // Dekonekte sesyon aktif pou limit reset
+          const sessions = await conn.write('/ip/hotspot/active/print', [`?user=${client.mikrotik_username}`])
+          for (const s of sessions) {
+            await conn.write('/ip/hotspot/active/remove', [`=.id=${s['.id']}`])
+          }
+        }
+      } catch(e) { console.error('Mikrotik renew error:', e.message) }
+      await conn.close()
+    }
+
+    res.json({ success: true, message: 'Abònman renouvle ak siksè', new_expires_at })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+// ══════════════════════════════════════════════════════════
+// AJOUTE NAN internet.controller.js — anvan module.exports
+// ══════════════════════════════════════════════════════════
+
+// ── Helper: jwenn/sove mesaj hotspot ─────────────────────
+// Sove nan internet_tenants.hotspot_message
+// (Ou bezwen ajoute kolòn sa a: ALTER TABLE internet_tenants ADD COLUMN IF NOT EXISTS hotspot_message TEXT;)
+
+async function getHotspotMessage(req, res) {
+  try {
+    const isp = await prisma.internet_tenants.findUnique({
+      where: { id: req.manager.isp_id },
+      select: { hotspot_message: true }
+    })
+    res.json({ message: isp?.hotspot_message || '' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+async function saveHotspotMessage(req, res) {
+  try {
+    const { message } = req.body
+    await prisma.internet_tenants.update({
+      where: { id: req.manager.isp_id },
+      data:  { hotspot_message: message }
+    })
+    res.json({ success: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+// ── Ajoute nan module.exports: ────────────────────────────
+// getHotspotMessage, saveHotspotMessage,
+
+// ── Route piblik — Hotspot page chaje mesaj ISP ───────────
+// Mikrotik ka pase ?isp=slug nan URL
+async function getPublicHotspotMessage(req, res) {
+  try {
+    const { isp } = req.query
+    if (!isp) return res.json({ message: '' })
+    const tenant = await prisma.internet_tenants.findFirst({
+      where: { slug: isp },
+      select: { hotspot_message: true, name: true }
+    })
+    res.json({
+      message:  tenant?.hotspot_message || '',
+      isp_name: tenant?.name || 'PLUS INTERNET'
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+}
+
+
 module.exports = {
   clientAuth,
   loginClient,
@@ -693,4 +1070,7 @@ module.exports = {
   getManagerStats, getManagerClients,
   createManagerClient, updateManagerClient, deleteManagerClient,
   hotspotLogin, hotspotLogout,
+  getMikConn, calcExpires,
+  getPlans, createPlan, updatePlan, deletePlan,
+  getHotspotMessage, saveHotspotMessage, getPublicHotspotMessage,
 };

@@ -12,28 +12,31 @@ const {
   getManagerStats, getManagerClients,
   createManagerClient, updateManagerClient, deleteManagerClient,
   hotspotLogin, hotspotLogout,
+  getPlans, createPlan, updatePlan, deletePlan,
+  getHotspotMessage, saveHotspotMessage, getPublicHotspotMessage,
 } = require('./internet.controller');
 
 // ══════════════════════════════════════════════════════════
-// HOTSPOT — Captive Portal (Mikrotik redirijè kliyan isit)
+// HOTSPOT — Captive Portal
 // ══════════════════════════════════════════════════════════
 router.get('/hotspot', (req, res) => {
   const { mac, ip, username } = req.query
   res.json({ status: 'hotspot', mac, ip, username })
 })
-router.post('/hotspot/login',  hotspotLogin);
-router.post('/hotspot/logout', hotspotLogout);
+router.post('/hotspot/login',   hotspotLogin);
+router.post('/hotspot/logout',  hotspotLogout);
+router.get('/hotspot/message',  getPublicHotspotMessage);  // ✅ Public — paj hotspot chaje mesaj
 
 // ══════════════════════════════════════════════════════════
 // APP KLIYAN — Public
 // ══════════════════════════════════════════════════════════
-router.post('/login',    loginClient);
+router.post('/login', loginClient);
 
 // ══════════════════════════════════════════════════════════
 // APP KLIYAN — Prive (token kliyan)
 // ══════════════════════════════════════════════════════════
-router.get('/status',    clientAuth, getStatus);
-router.get('/payments',  clientAuth, getClientPayments);
+router.get('/status',   clientAuth, getStatus);
+router.get('/payments', clientAuth, getClientPayments);
 
 // ══════════════════════════════════════════════════════════
 // SUPER ADMIN — ISP CRUD
@@ -61,7 +64,7 @@ router.post('/mikrotik-config',       saveMikrotikConfig);
 router.post('/mikrotik-config/test',  testMikrotikConfig);
 
 // ══════════════════════════════════════════════════════════
-// MANAGER — Auth (James login)
+// MANAGER — Auth
 // ══════════════════════════════════════════════════════════
 router.post('/manager/login', managerLogin);
 
@@ -96,5 +99,19 @@ router.get('/manager/mikrotik-config', managerAuth, async (req, res) => {
     res.status(500).json({ error: err.message })
   }
 });
+
+// ══════════════════════════════════════════════════════════
+// MANAGER — Mesaj Hotspot ✅
+// ══════════════════════════════════════════════════════════
+router.get('/manager/hotspot-message',  managerAuth, getHotspotMessage);
+router.post('/manager/hotspot-message', managerAuth, saveHotspotMessage);
+
+// ══════════════════════════════════════════════════════════
+// PLANS — Admin ak Manager
+// ══════════════════════════════════════════════════════════
+router.get('/plans',        managerAuth, getPlans);
+router.post('/plans',       managerAuth, createPlan);
+router.put('/plans/:id',    managerAuth, updatePlan);
+router.delete('/plans/:id', managerAuth, deletePlan);
 
 module.exports = router;
