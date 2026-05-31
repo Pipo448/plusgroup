@@ -3,73 +3,36 @@ const express = require('express');
 const router  = express.Router();
 const {
   clientAuth,
-  loginClient,
-  getStatus,
-  getClientPayments,
-  getClients,
-  createClient,
-  updateClient,
-  deleteClient,
+  loginClient, getStatus, getClientPayments,
+  getISPs, createISP, updateISP, deleteISP,
+  getClients, createClient, updateClient, deleteClient,
   renewSubscription,
-  getMikrotikConfig,
-  saveMikrotikConfig,
-  testMikrotikConfig,
+  getMikrotikConfig, saveMikrotikConfig, testMikrotikConfig,
 } = require('./internet.controller');
 
-// ── Middleware: jwenn tenant_id depi token admin oswa slug ──
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
+// ── App kliyan (public) ──────────────────────────────────
+router.post('/login',    loginClient);
 
-async function adminTenantMiddleware(req, res, next) {
-  try {
-    const slug = req.headers['x-tenant-slug']
-    if (slug) {
-      const tenant = await prisma.tenants.findFirst({ where: { slug } })
-      if (tenant) { req.tenantId = tenant.id; return next() }
-    }
-    // Si pa gen slug, eseye jwenn depi token normal la
-    const token = req.headers.authorization?.split(' ')[1]
-    if (token) {
-      const jwt = require('jsonwebtoken')
-      try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET)
-        req.tenantId = decoded.tenantId || decoded.tenant_id
-        return next()
-      } catch {}
-    }
-    return res.status(400).json({ error: 'Tenant pa idantifye' })
-  } catch (err) {
-    res.status(500).json({ error: err.message })
-  }
-}
+// ── App kliyan (prive) ──────────────────────────────────
+router.get('/status',    clientAuth, getStatus);
+router.get('/payments',  clientAuth, getClientPayments);
 
-// ══════════════════════════════════════════════════════════
-// ROUTES PIBLIK — App kliyan (internet.plusgroupe.com)
-// ══════════════════════════════════════════════════════════
-router.post('/login', loginClient);
+// ── Admin — ISP ──────────────────────────────────────────
+router.get('/isps',         getISPs);
+router.post('/isps',        createISP);
+router.put('/isps/:id',     updateISP);
+router.delete('/isps/:id',  deleteISP);
 
-// ══════════════════════════════════════════════════════════
-// ROUTES PRIVE — App kliyan otantifye
-// ══════════════════════════════════════════════════════════
-router.get('/status',   clientAuth, getStatus);
-router.get('/payments', clientAuth, getClientPayments);
+// ── Admin — Kliyan ───────────────────────────────────────
+router.get('/clients',          getClients);
+router.post('/clients',         createClient);
+router.put('/clients/:id',      updateClient);
+router.delete('/clients/:id',   deleteClient);
+router.post('/renew',           renewSubscription);
 
-// ══════════════════════════════════════════════════════════
-// ROUTES ADMIN — Jere kliyan (Super Admin Panel)
-// ══════════════════════════════════════════════════════════
-router.get('/clients',        adminTenantMiddleware, getClients);
-router.post('/clients',       adminTenantMiddleware, createClient);
-router.put('/clients/:id',    adminTenantMiddleware, updateClient);
-router.delete('/clients/:id', adminTenantMiddleware, deleteClient);
-
-// Renouvèlman abònman
-router.post('/renew', adminTenantMiddleware, renewSubscription);
-
-// ══════════════════════════════════════════════════════════
-// ROUTES MIKROTIK CONFIG
-// ══════════════════════════════════════════════════════════
-router.get('/mikrotik-config',        adminTenantMiddleware, getMikrotikConfig);
-router.post('/mikrotik-config',       adminTenantMiddleware, saveMikrotikConfig);
-router.post('/mikrotik-config/test',  adminTenantMiddleware, testMikrotikConfig);
+// ── Admin — Mikrotik config ──────────────────────────────
+router.get('/mikrotik-config',        getMikrotikConfig);
+router.post('/mikrotik-config',       saveMikrotikConfig);
+router.post('/mikrotik-config/test',  testMikrotikConfig);
 
 module.exports = router;
