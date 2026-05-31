@@ -59,7 +59,15 @@ async function getStatus(req, res) {
     const config = await prisma.mikrotik_config.findFirst({
       where: { tenant_id: req.client.tenant_id }
     });
-    if (!config) return res.status(404).json({ error: 'Konfigirasyon Mikrotik pa jwenn' });
+
+    // Si pa gen konfigirasyon Mikrotik encore, retounen done vid
+    if (!config) {
+      return res.json({
+        userInfo: null,
+        session: null,
+        message: 'Mikrotik pa konfigire encore'
+      });
+    }
 
     const [userInfo, session] = await Promise.all([
       getHotspotUser(config, req.client.username),
@@ -68,10 +76,14 @@ async function getStatus(req, res) {
 
     res.json({ userInfo, session });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    // Retounen done vid olye erè 500
+    res.json({
+      userInfo: null,
+      session: null,
+      error: err.message
+    });
   }
 }
-
 // ── Istorik peman ─────────────────────────────────────────
 async function getPayments(req, res) {
   try {
