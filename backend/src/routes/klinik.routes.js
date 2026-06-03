@@ -657,9 +657,29 @@ router.post('/services', async (req, res) => {
   try {
     const tenantId = tid(req)
     const userId   = req.user?.id || null
-    const { patientId, serviceType, priceHtg = 0, status = 'peye', notes, performedBy } = req.body
-    if (!patientId)   return res.status(400).json({ message: 'patientId obligatwa.' })
+    const { patientId, serviceType, priceHtg = 0, status = 'peye', notes, performedBy,
+            externalClientName, _isExternal } = req.body
+
     if (!serviceType) return res.status(400).json({ message: 'serviceType obligatwa.' })
+
+    // ⭐ Pou kliyan eksten — pa kreye pasyan, mete non nan notes ak yon prefiks
+    const isExt = _isExternal || (externalClientName && !patientId)
+    if (isExt) {
+      if (!externalClientName || !externalClientName.trim()) {
+        return res.status(400).json({ message: 'Non kliyan eksten obligatwa.' })
+      }
+      // Stoke non kliyan eksten nan notes ak yon prefiks rekonèsab
+      const extNote = `[CLIENT EXTERNE: ${externalClientName.trim()}]`
+      const finalNotes = notes ? `${extNote}\n${notes}` : extNote
+      const rows = await prisma.$queryRaw`
+        INSERT INTO klinik_services (tenant_id,patient_id,service_type,price_htg,status,notes,performed_by,created_by)
+        VALUES (${tenantId}::uuid, NULL, ${serviceType}, ${Number(priceHtg)}, ${status}, ${finalNotes}, ${performedBy||null}, ${userId}::uuid) RETURNING *
+      `
+      return res.status(201).json({ service: rows[0] })
+    }
+
+    // Pasyan rejistre
+    if (!patientId) return res.status(400).json({ message: 'patientId obligatwa.' })
     const rows = await prisma.$queryRaw`
       INSERT INTO klinik_services (tenant_id,patient_id,service_type,price_htg,status,notes,performed_by,created_by)
       VALUES (${tenantId}::uuid,${patientId}::uuid,${serviceType},${Number(priceHtg)},${status},${notes||null},${performedBy||null},${userId}::uuid) RETURNING *
