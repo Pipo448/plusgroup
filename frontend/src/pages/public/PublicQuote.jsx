@@ -249,7 +249,7 @@ function ExpiryBanner({ countdown, expiresAt, isMobile }) {
 
 function CompanyHeader({ tenant, isMobile }) {
   const tenantName = tenant?.name || 'PLUS GROUP'
-  const tagline    = tenant?.tagline || 'LA QUALITÉ, NOTRE ENGAGEMENT'
+  const tagline    = tenant?.tagline || 'PLUS GROUP – Qualité, Confiance & Satisfaction Garantie ✅'
   const logoUrl    = tenant?.logoUrl || tenant?.logo
 
   return (
@@ -380,7 +380,7 @@ function DocumentTitle({ quote, isMobile }) {
         margin: 0, lineHeight: 1.1, letterSpacing: '-0.02em',
       }}>
         <span style={{ color: D.blue }}>PROFORMA</span>{' '}
-        <span style={{ color: D.orange }}>INVOICE</span>
+        <span style={{ color: D.orange }}></span>
       </h2>
       <div style={{
         display: 'inline-block',
