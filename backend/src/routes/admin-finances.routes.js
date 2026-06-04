@@ -229,31 +229,21 @@ router.post('/', async (req, res) => {
       profit = (Number(sellPrice || amount) - Number(costPrice)) * Number(quantity || 1)
     }
 
-    const txDate = date || new Date().toISOString().split('T')[0]
+    const txDate  = date || new Date().toISOString().split('T')[0]
+    const esc     = (s) => s ? `'${String(s).replace(/'/g, "''")}'` : 'NULL'
+    const numOrN  = (n) => n != null && n !== '' ? Number(n) : 'NULL'
 
-    // ✅ FIX: Itilize $executeRawUnsafe + retounen done manyèlman
     await prisma.$executeRawUnsafe(`
       INSERT INTO admin_finances
         (tenant_id, type, category, description, amount, cost_price, sell_price, profit,
          quantity, person_name, person_phone, date, due_date, notes, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13, $14, $15)
-    `,
-      tenantId,
-      type,
-      category || null,
-      description.trim(),
-      Number(amount),
-      costPrice ? Number(costPrice) : null,
-      sellPrice ? Number(sellPrice) : null,
-      profit,
-      Number(quantity || 1),
-      personName || null,
-      personPhone || null,
-      txDate,
-      dueDate || null,
-      notes || null,
-      userId
-    )
+      VALUES
+        (${esc(tenantId)}, ${esc(type)}, ${esc(category || null)}, ${esc(description.trim())},
+         ${Number(amount)}, ${numOrN(costPrice)}, ${numOrN(sellPrice)}, ${numOrN(profit)},
+         ${Number(quantity || 1)}, ${esc(personName || null)}, ${esc(personPhone || null)},
+         ${esc(txDate)}::date, ${dueDate ? `${esc(dueDate)}::date` : 'NULL'}, ${esc(notes || null)},
+         ${esc(userId)})
+    `)
 
     return res.status(201).json({
       message: 'Anrejistre!',
