@@ -12,20 +12,29 @@ import {
   Briefcase, CreditCard, Eye,
 } from 'lucide-react'
 
+// ✅ Lis tout done yo kòrèkteman
 const API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
+
 const api = (path, opts = {}) => {
-  const token  = localStorage.getItem('token')
-  const tenant = JSON.parse(localStorage.getItem('tenant') || '{}')
-  const slug   = tenant?.slug || ''
+  // Token soti nan Zustand persist 'pg-auth'
+  const pgAuth = JSON.parse(localStorage.getItem('pg-auth') || '{}')
+  const token  = pgAuth?.state?.token || ''
+  // Slug soti nan 'plusgroup-slug' (setAuth + onRehydrateStorage)
+  const slug   = localStorage.getItem('plusgroup-slug') || pgAuth?.state?.tenant?.slug || ''
+
   return fetch(`${API}/api/v1/admin-finances${path}`, {
     ...opts,
     headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'X-Tenant-Slug': slug,       // ✅ sa ki manke a
-      ...opts.headers
+      'Content-Type':   'application/json',
+      'Authorization':  `Bearer ${token}`,
+      'X-Tenant-Slug':  slug,
+      ...opts.headers,
     },
-  }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message); return d })
+  }).then(async r => {
+    const d = await r.json()
+    if (!r.ok) throw new Error(d.message)
+    return d
+  })
 }
 
 const fmtN = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits: 2 }).replace(/\u00A0/g,' ').replace(/\u202F/g,' ')
