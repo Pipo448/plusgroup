@@ -12,7 +12,7 @@ import {
   Briefcase, CreditCard, Eye,
 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API || ''
+const API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const api = (path, opts = {}) => {
   const token = localStorage.getItem('token')
   return fetch(`${API}/api/v1/admin-finances${path}`, {
