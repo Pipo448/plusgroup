@@ -20,7 +20,7 @@ router.get('/summary', async (req, res) => {
     const debut = req.query.debutDate || `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-01`
     const fin   = req.query.finDate   || today.toISOString().split('T')[0]
 
-    const [depansR, depansPrevwaR, revniR, achaR, vantR, depoSolR, pemanSolR, depansJodiR, revniJodiR, depansParKatR, dernye10R] = await Promise.all([
+    const [depansR, depansPrevwaR, revniR, achaR, vantR, depoSolR, pemanSolR, depansJodiR, revniJodiR, depansParKatR, dernye10R, kapitalR] = await Promise.all([
       prisma.$queryRawUnsafe(`SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as count FROM admin_finances WHERE tenant_id='${tenantId}' AND type='depans' AND status='active' AND date BETWEEN '${debut}' AND '${fin}'`),
       prisma.$queryRawUnsafe(`SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as count, COALESCE(SUM(CASE WHEN is_paid=true THEN amount ELSE 0 END),0) as paid FROM admin_finances WHERE tenant_id='${tenantId}' AND type='depans_prevwa' AND status='active' AND due_date BETWEEN '${debut}' AND '${fin}'`),
       prisma.$queryRawUnsafe(`SELECT COALESCE(SUM(amount),0) as total, COUNT(*) as count FROM admin_finances WHERE tenant_id='${tenantId}' AND type='revni' AND status='active' AND date BETWEEN '${debut}' AND '${fin}'`),
@@ -32,6 +32,7 @@ router.get('/summary', async (req, res) => {
       prisma.$queryRawUnsafe(`SELECT COALESCE(SUM(amount),0) as total FROM admin_finances WHERE tenant_id='${tenantId}' AND type='revni' AND status='active' AND date = CURRENT_DATE`),
       prisma.$queryRawUnsafe(`SELECT category, COALESCE(SUM(amount),0) as total, COUNT(*) as count FROM admin_finances WHERE tenant_id='${tenantId}' AND type='depans' AND status='active' AND date BETWEEN '${debut}' AND '${fin}' GROUP BY category ORDER BY total DESC`),
       prisma.$queryRawUnsafe(`SELECT id, type, category, description, amount, profit, person_name, date, created_at FROM admin_finances WHERE tenant_id='${tenantId}' AND status='active' ORDER BY created_at DESC LIMIT 10`),
+      prisma.$queryRawUnsafe(`SELECT COALESCE(SUM(amount),0) as total FROM admin_finances WHERE tenant_id='${tenantId}' AND type='kapital' AND status='active'`),
     ])
 
     const totalDepans     = Number(depansR[0]?.total || 0)
@@ -41,6 +42,7 @@ router.get('/summary', async (req, res) => {
     const totalProfitVant = Number(vantR[0]?.profit || 0)
     const totalDepoSol    = Number(depoSolR[0]?.total || 0)
     const totalPemanSol   = Number(pemanSolR[0]?.total || 0)
+    const totalKapital    = Number(kapitalR[0]?.total || 0)
     const vreBenefis      = totalRevni + totalProfitVant - totalDepans
 
     res.json({
@@ -52,6 +54,7 @@ router.get('/summary', async (req, res) => {
       vant:        { total: totalVant,    profit: totalProfitVant, count: Number(vantR[0]?.count || 0) },
       depoSol:     { total: totalDepoSol, count: Number(depoSolR[0]?.count || 0) },
       pemanSol:    { total: totalPemanSol, count: Number(pemanSolR[0]?.count || 0) },
+      kapital:     { total: totalKapital },
       solBalans:   totalDepoSol - totalPemanSol,
       depansJodi:  Number(depansJodiR[0]?.total || 0),
       revniJodi:   Number(revniJodiR[0]?.total || 0),
