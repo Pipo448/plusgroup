@@ -664,8 +664,8 @@ function BottomGrid({ quote, symbol, subtotal, discount, tax, total, isMobile })
         <div style={blockStyle(D.blue)}>
           <BlockHeader icon={CreditCard} title="MODE DE PAIEMENT" color={D.blue}/>
           <div style={{ padding: '10px 14px', fontSize: 11, color: D.textLt, lineHeight: 1.5 }}>
-            Espèces, MonCash, NatCash, oswa Virman Bankè.<br/>
-            Kontakte konpayi a pou plis enfòmasyon.
+           Paiements acceptés : Espèces, MonCash, NatCash, Sogebank, BUH<br/>
+            Contactez l’entreprise pour plus d’informations..
           </div>
         </div>
       )}
