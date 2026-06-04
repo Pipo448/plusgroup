@@ -3,15 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { quoteAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { useMemo, memo } from 'react'
+import { useMemo, memo, useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Edit2, FileCheck } from 'lucide-react'
+import {
+  ArrowLeft, Edit2, FileCheck, Share2, Copy, Check, MessageCircle,
+  Clock, Eye, RefreshCw, Trash2, X, ExternalLink, Link2
+} from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
-// ✅ Deyò component — pa rekrye
 const parseCurrencies = (raw) => {
   if (Array.isArray(raw)) return raw
   if (typeof raw === 'string') {
@@ -39,7 +41,6 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
 const STATUS_BADGES = { draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', converted:'badge-purple', cancelled:'badge-red' }
 const STATUS_LABELS = { draft:'Bouyon', sent:'Voye', accepted:'Aksepte', converted:'Konvèti', cancelled:'Anile' }
 
-// ✅ WithConv — deyò component prensipal, memo
 const WithConv = memo(function WithConv({ htg, showRate, exchangeRates, visibleCurrs, large }) {
   const lines = useMemo(
     () => showRate ? fmtConv(Number(htg), exchangeRates, visibleCurrs) : null,
@@ -61,9 +62,10 @@ export default function QuoteDetail() {
   const { tenant } = useAuthStore()
   const qc         = useQueryClient()
 
+  const [shareOpen, setShareOpen] = useState(false)
+
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates || {}
-  // ✅ parseCurrencies — jere string ak array
   const visibleCurrs  = useMemo(
     () => parseCurrencies(tenant?.visibleCurrencies),
     [tenant?.visibleCurrencies]
@@ -72,14 +74,13 @@ export default function QuoteDetail() {
   const { data: quote, isLoading } = useQuery({
     queryKey: ['quote', id],
     queryFn:  () => quoteAPI.getOne(id).then(r => r.data.quote),
-    staleTime: 30_000, // ✅ cache 30 sèk
+    staleTime: 30_000,
   })
 
   const convertMutation = useMutation({
     mutationFn: () => quoteAPI.convert(id),
     onSuccess:  (res) => {
       toast.success('Devis konvèti an facture!')
-      // ✅ Kòrèk path
       navigate(`/app/invoices/${res.data.invoice.id}`)
     }
   })
@@ -89,16 +90,37 @@ export default function QuoteDetail() {
     onSuccess:  () => { toast.success('Devis anile.'); qc.invalidateQueries(['quote', id]) }
   })
 
+  // ✅ NOUVO — Mutation pou jenere lyen pataj
+  const shareMutation = useMutation({
+    mutationFn: () => quoteAPI.share(id),
+    onSuccess:  () => {
+      toast.success('Lyen kreye! Valab pou 24è.')
+      qc.invalidateQueries({ queryKey: ['quote', id] })
+    },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan kreye lyen.')
+  })
+
+  // ✅ NOUVO — Mutation pou revoke lyen
+  const revokeMutation = useMutation({
+    mutationFn: () => quoteAPI.revokeShare(id),
+    onSuccess:  () => {
+      toast.success('Lyen revoke.')
+      qc.invalidateQueries({ queryKey: ['quote', id] })
+    },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan revoke lyen.')
+  })
+
   if (isLoading) return <div className="flex justify-center py-20"><div className="spinner"/></div>
   if (!quote)    return null
 
   const snap = quote.clientSnapshot || {}
+  const canShare = !['cancelled'].includes(quote.status)
 
   return (
     <div className="animate-fade-in max-w-4xl">
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6" style={{ flexWrap:'wrap', gap:12 }}>
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/app/quotes')} className="btn-ghost p-2">
             <ArrowLeft size={18}/>
@@ -113,7 +135,34 @@ export default function QuoteDetail() {
             <p className="text-slate-500 text-sm">{format(new Date(quote.issueDate), 'dd MMMM yyyy')}</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" style={{ flexWrap:'wrap' }}>
+
+          {/* ✅ NOUVO — Bouton Pataje */}
+          {canShare && (
+            <button
+              onClick={() => setShareOpen(true)}
+              className="btn-secondary btn-sm"
+              style={{
+                background: quote.publicToken ? 'linear-gradient(135deg,#25D366,#1da851)' : undefined,
+                color: quote.publicToken ? '#fff' : undefined,
+                border: quote.publicToken ? 'none' : undefined,
+                position: 'relative',
+              }}>
+              <Share2 size={14}/>
+              {quote.publicToken ? 'Lyen Aktif' : 'Pataje'}
+              {quote.publicViewCount > 0 && (
+                <span style={{
+                  position:'absolute', top:-6, right:-6,
+                  background:'#dc2626', color:'#fff',
+                  borderRadius:99, padding:'1px 6px',
+                  fontSize:10, fontWeight:800,
+                }}>
+                  👁 {quote.publicViewCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {['draft','sent'].includes(quote.status) && (
             <Link to={`/app/quotes/${id}/edit`} className="btn-secondary btn-sm">
               <Edit2 size={14}/> Modifye
@@ -170,7 +219,6 @@ export default function QuoteDetail() {
               </thead>
               <tbody>
                 {quote.items?.map((item, i) => (
-                  // ✅ QuoteItemRow — memo pou evite re-render
                   <QuoteItemRow
                     key={item.id || i}
                     item={item}
@@ -229,7 +277,6 @@ export default function QuoteDetail() {
               </div>
             </div>
 
-            {/* Taux reference */}
             <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
               <div className="flex justify-between">
                 <span>Devise:</span><span>{quote.currency}</span>
@@ -260,11 +307,359 @@ export default function QuoteDetail() {
           </div>
         </div>
       </div>
+
+      {/* ✅ Modal Pataje */}
+      {shareOpen && (
+        <ShareModal
+          quote={quote}
+          tenant={tenant}
+          onClose={() => setShareOpen(false)}
+          shareMutation={shareMutation}
+          revokeMutation={revokeMutation}
+        />
+      )}
     </div>
   )
 }
 
-// ✅ Separe row — memo pou evite re-render tout tablo
+// ════════════════════════════════════════════════════════════
+// ✅ NOUVO — MODAL PATAJE
+// ════════════════════════════════════════════════════════════
+
+function ShareModal({ quote, tenant, onClose, shareMutation, revokeMutation }) {
+  const [copied, setCopied] = useState(false)
+  const [tick, setTick] = useState(0) // pou refrechi countdown
+
+  const hasActiveToken = !!quote.publicToken && quote.publicExpiresAt
+  const expiresAt = hasActiveToken ? new Date(quote.publicExpiresAt) : null
+  const remainingMs = expiresAt ? Math.max(0, expiresAt - new Date()) : 0
+  const isExpired = hasActiveToken && remainingMs <= 0
+
+  // Countdown live
+  useEffect(() => {
+    if (!hasActiveToken || isExpired) return
+    const timer = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(timer)
+  }, [hasActiveToken, isExpired])
+
+  const hours   = Math.floor(remainingMs / 3_600_000)
+  const minutes = Math.floor((remainingMs % 3_600_000) / 60_000)
+  const seconds = Math.floor((remainingMs % 60_000) / 1_000)
+
+  const publicUrl = quote.publicToken
+    ? `${window.location.origin}/proforma/${quote.publicToken}`
+    : ''
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      setCopied(true)
+      toast.success('Lyen kopye!')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Pa ka kopye otomatikman — chwazi lyen an manyèlman')
+    }
+  }
+
+  const phone      = quote.clientSnapshot?.phone || quote.client?.phone || ''
+  const cleanPhone = phone.replace(/\D/g, '')
+  const clientName = quote.clientSnapshot?.name || quote.client?.name || ''
+
+  const waMessage = encodeURIComponent(
+    `Bonjou${clientName ? ' ' + clientName : ''},\n\n` +
+    `Mwen voye pwoforma N° ${quote.quoteNumber} ba ou.\n` +
+    `Total: ${fmt(quote.totalHtg)} HTG\n\n` +
+    `Klike sou lyen sa pou wè detay yo:\n${publicUrl}\n\n` +
+    `⏰ Lyen sa valab pou 24 èdtan sèlman.\n\n` +
+    `Mèsi!\n${tenant?.name || ''}`
+  )
+  const waUrl = cleanPhone
+    ? `https://wa.me/${cleanPhone}?text=${waMessage}`
+    : `https://wa.me/?text=${waMessage}`
+
+  const isPending = shareMutation.isPending || revokeMutation.isPending
+
+  return (
+    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div style={modal}>
+
+        {/* Header */}
+        <div style={modalHeader}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
+            <div style={iconBox(hasActiveToken && !isExpired ? '#25D366' : '#1B2A8F')}>
+              <Share2 size={18} color="#fff"/>
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <h2 style={{ fontSize:17, fontWeight:900, color:'#0F1A5C', margin:0 }}>Pataje pwoforma</h2>
+              <p style={{ fontSize:12, color:'#6B7AAB', margin:'2px 0 0' }}>
+                {quote.quoteNumber} · {fmt(quote.totalHtg)} HTG
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} style={closeBtn}>
+            <X size={18}/>
+          </button>
+        </div>
+
+        {/* Kontni */}
+        <div style={{ padding:'20px 22px' }}>
+
+          {/* ─── KAY GEN LYEN AKTIF ─── */}
+          {hasActiveToken && !isExpired && (
+            <>
+              {/* Stati banyè */}
+              <div style={statusBanner('#25D366', 'rgba(37,211,102,0.08)')}>
+                <Check size={16} color="#16a34a"/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:800, color:'#15803d', margin:0 }}>
+                    Lyen aktif — valab {hours}h {String(minutes).padStart(2,'0')}m {String(seconds).padStart(2,'0')}s
+                  </p>
+                  <p style={{ fontSize:11, color:'#16a34a', margin:'2px 0 0' }}>
+                    Ekspire {format(expiresAt, "dd/MM/yyyy 'a' HH:mm")}
+                  </p>
+                </div>
+              </div>
+
+              {/* Stati vizit */}
+              {quote.publicViewCount > 0 ? (
+                <div style={viewStats}>
+                  <Eye size={14} color="#1B2A8F"/>
+                  <span style={{ fontSize:12, color:'#0F1A5C', fontWeight:600 }}>
+                    Kliyan an wè pwoforma a <strong>{quote.publicViewCount}</strong> fwa
+                    {quote.publicViewedAt && (
+                      <> · premye fwa nan {format(new Date(quote.publicViewedAt), 'dd/MM/yyyy HH:mm')}</>
+                    )}
+                  </span>
+                </div>
+              ) : (
+                <div style={{ ...viewStats, background:'rgba(217,119,6,0.06)' }}>
+                  <Eye size={14} color="#D97706"/>
+                  <span style={{ fontSize:12, color:'#92400e', fontWeight:600 }}>
+                    Kliyan an poko klike sou lyen an
+                  </span>
+                </div>
+              )}
+
+              {/* URL field */}
+              <div style={{ marginTop:14 }}>
+                <p style={inputLabel}>Lyen pataj</p>
+                <div style={{ display:'flex', gap:8 }}>
+                  <input
+                    type="text"
+                    value={publicUrl}
+                    readOnly
+                    onFocus={(e) => e.target.select()}
+                    style={urlInput}
+                  />
+                  <button onClick={handleCopy} style={iconBtn('#1B2A8F')}>
+                    {copied ? <Check size={16}/> : <Copy size={16}/>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Aksyon prensipal yo */}
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:14 }}>
+                <a href={waUrl} target="_blank" rel="noreferrer" style={waBtn}>
+                  <MessageCircle size={16}/> WhatsApp
+                </a>
+                <a href={publicUrl} target="_blank" rel="noreferrer" style={previewBtn}>
+                  <ExternalLink size={16}/> Wè kòm Kliyan
+                </a>
+              </div>
+
+              {/* Aksyon segondè */}
+              <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                <button
+                  onClick={() => shareMutation.mutate()}
+                  disabled={isPending}
+                  style={secondaryBtn('#D97706')}>
+                  <RefreshCw size={13}/> Re-jenere (24è ankò)
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('Revoke lyen sa? Kliyan an pap ka wè pwoforma a ankò.')) {
+                      revokeMutation.mutate()
+                    }
+                  }}
+                  disabled={isPending}
+                  style={secondaryBtn('#DC2626')}>
+                  <Trash2 size={13}/> Revoke
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* ─── KAY LYEN EKSPIRE ─── */}
+          {hasActiveToken && isExpired && (
+            <div style={statusBanner('#dc2626', 'rgba(220,38,38,0.08)')}>
+              <Clock size={16} color="#dc2626"/>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:13, fontWeight:800, color:'#991b1b', margin:0 }}>
+                  Lyen sa ekspire
+                </p>
+                <p style={{ fontSize:11, color:'#dc2626', margin:'2px 0 0' }}>
+                  Klike "Jenere nouvo lyen" pou kreye yon nouvo.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ─── KAY POKO GEN LYEN OSWA EKSPIRE ─── */}
+          {(!hasActiveToken || isExpired) && (
+            <>
+              <p style={{ fontSize:13, color:'#475569', margin:'0 0 14px', lineHeight:1.5 }}>
+                Kreye yon <strong>lyen sekrè</strong> pou pataje pwoforma sa ak kliyan an. Lyen an valab pou <strong>24 èdtan</strong> sèlman.
+              </p>
+
+              <div style={infoBox('#1B2A8F')}>
+                <Link2 size={14} color="#1B2A8F"/>
+                <div style={{ flex:1 }}>
+                  <p style={{ fontSize:12, fontWeight:700, color:'#0F1A5C', margin:0 }}>
+                    Sa lyen an ap fè
+                  </p>
+                  <ul style={{ fontSize:11, color:'#475569', margin:'4px 0 0', paddingLeft:18 }}>
+                    <li>Kliyan ka klike epi wè pwoforma a san pou l konekte</li>
+                    <li>Lyen ekspire otomatikman apre 24 èdtan</li>
+                    <li>Ou ka revoke l nenpòt ki lè</li>
+                    <li>Ou ap wè konbyen fwa kliyan an wè l</li>
+                  </ul>
+                </div>
+              </div>
+
+              <button
+                onClick={() => shareMutation.mutate()}
+                disabled={isPending}
+                style={primaryBtn}>
+                {shareMutation.isPending ? (
+                  <>⏳ Ap kreye lyen...</>
+                ) : (
+                  <><Share2 size={16}/> Jenere Lyen Pataj</>
+                )}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// STIL MODAL
+// ════════════════════════════════════════════════════════════
+
+const overlay = {
+  position:'fixed', inset:0, zIndex:1000,
+  background:'rgba(15,26,92,0.5)', backdropFilter:'blur(4px)',
+  display:'flex', alignItems:'center', justifyContent:'center',
+  padding:16,
+}
+
+const modal = {
+  background:'#fff', borderRadius:18, width:'100%', maxWidth:520,
+  maxHeight:'90vh', overflowY:'auto',
+  boxShadow:'0 20px 60px rgba(0,0,0,0.3)',
+  fontFamily:'DM Sans,sans-serif',
+}
+
+const modalHeader = {
+  padding:'18px 22px',
+  borderBottom:'1px solid #eef0ff',
+  display:'flex', alignItems:'center', justifyContent:'space-between',
+  gap:12,
+}
+
+const closeBtn = {
+  width:34, height:34, borderRadius:9,
+  background:'#f1f5f9', border:'none', cursor:'pointer',
+  display:'flex', alignItems:'center', justifyContent:'center',
+  color:'#64748b', flexShrink:0,
+}
+
+const iconBox = (color) => ({
+  width:40, height:40, borderRadius:11,
+  background:`linear-gradient(135deg,${color},${color}CC)`,
+  display:'flex', alignItems:'center', justifyContent:'center',
+  flexShrink:0,
+})
+
+const statusBanner = (border, bg) => ({
+  display:'flex', alignItems:'center', gap:10,
+  padding:'10px 14px',
+  background:bg, border:`1px solid ${border}40`,
+  borderRadius:10, marginBottom:12,
+})
+
+const viewStats = {
+  display:'flex', alignItems:'center', gap:8,
+  padding:'8px 12px',
+  background:'rgba(27,42,143,0.06)',
+  borderRadius:9,
+}
+
+const inputLabel = {
+  fontSize:11, fontWeight:800, color:'#6B7AAB',
+  textTransform:'uppercase', letterSpacing:'0.05em',
+  margin:'0 0 6px',
+}
+
+const urlInput = {
+  flex:1, padding:'10px 12px',
+  border:'1.5px solid #eef0ff', borderRadius:10,
+  fontFamily:'monospace', fontSize:12, color:'#0F1A5C',
+  background:'#F8F9FF', outline:'none', minWidth:0,
+}
+
+const iconBtn = (color) => ({
+  width:42, height:42, borderRadius:10,
+  background:color, color:'#fff', border:'none', cursor:'pointer',
+  display:'flex', alignItems:'center', justifyContent:'center',
+  flexShrink:0,
+})
+
+const waBtn = {
+  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+  padding:'12px', borderRadius:10, textDecoration:'none',
+  background:'linear-gradient(135deg,#25D366,#1da851)',
+  color:'#fff', fontWeight:800, fontSize:13,
+  boxShadow:'0 4px 14px rgba(37,211,102,0.3)',
+}
+
+const previewBtn = {
+  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
+  padding:'12px', borderRadius:10, textDecoration:'none',
+  background:'linear-gradient(135deg,#1B2A8F,#2D3FBF)',
+  color:'#fff', fontWeight:800, fontSize:13,
+}
+
+const secondaryBtn = (color) => ({
+  flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5,
+  padding:'9px', borderRadius:9,
+  background:'transparent', border:`1.5px solid ${color}40`,
+  color, fontWeight:700, fontSize:11.5, cursor:'pointer',
+})
+
+const infoBox = (color) => ({
+  display:'flex', gap:10, alignItems:'flex-start',
+  padding:'12px 14px', borderRadius:10,
+  background:`${color}08`, border:`1px solid ${color}25`,
+  marginBottom:14,
+})
+
+const primaryBtn = {
+  width:'100%',
+  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+  padding:'14px', borderRadius:11,
+  background:'linear-gradient(135deg,#FF6B00,#FF8C33)',
+  color:'#fff', border:'none', cursor:'pointer',
+  fontWeight:800, fontSize:14,
+  boxShadow:'0 4px 16px rgba(255,107,0,0.35)',
+}
+
+// ════════════════════════════════════════════════════════════
+// QUOTE ITEM ROW (deja egzistan)
+// ════════════════════════════════════════════════════════════
+
 const QuoteItemRow = memo(function QuoteItemRow({ item, showRate, exchangeRates, visibleCurrs }) {
   const lines = useMemo(
     () => showRate ? fmtConv(Number(item.totalHtg), exchangeRates, visibleCurrs) : null,

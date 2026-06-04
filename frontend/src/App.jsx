@@ -45,6 +45,9 @@ const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
 const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
 const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
 
+// ✅ NOUVO — Paj piblik pwoforma (san otorizasyon, lyen pataje 24è)
+const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
+
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
     <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
@@ -88,6 +91,9 @@ export default function App() {
           <Route path="/" element={<RootRedirect />} />
           <Route path="/welcome" element={<WelcomePage />} />
           <Route path="/login" element={<LoginPage />} />
+
+          {/* ✅ NOUVO — Wout PIBLIK (san otorizasyon) pou kliyan wè pwoforma a */}
+          <Route path="/proforma/:token" element={<PublicQuote />} />
 
           <Route path="/admin/login"     element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

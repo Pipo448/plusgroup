@@ -112,6 +112,8 @@ export const quoteAPI = {
   accept:  (id)       => api.patch(`/quotes/${id}/accept`),
   convert: (id)       => api.post(`/quotes/${id}/convert`),
   cancel:  (id)       => api.patch(`/quotes/${id}/cancel`),
+  share:        (id)       => api.post(`/quotes/${id}/share`),           // ✅ NOUVO
+  revokeShare:  (id)       => api.delete(`/quotes/${id}/share`),         // ✅ NOUVO
 }
 
 export const invoiceAPI = {
