@@ -123,6 +123,11 @@ model Quote {
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
   branchId             String?         @map("branch_id")
+  // ✅ NOUVO — pataje pwoforma piblik (lyen pou kliyan, ekspire 24è)
+  publicToken          String?         @unique @map("public_token") @db.VarChar(64)
+  publicExpiresAt      DateTime?       @map("public_expires_at") @db.Timestamptz(6)
+  publicViewedAt       DateTime?       @map("public_viewed_at") @db.Timestamptz(6)
+  publicViewCount      Int             @default(0) @map("public_view_count")
   invoice              Invoice?
   items                QuoteItem[]
   branch               Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
@@ -132,6 +137,7 @@ model Quote {
 
   @@unique([tenantId, quoteNumber])
   @@index([branchId])
+  @@index([publicToken])
   @@map("quotes")
 }
 

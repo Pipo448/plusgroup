@@ -1,5 +1,6 @@
 // src/modules/quotes/quote.service.js
 const prisma = require('../../config/prisma');
+const crypto = require('crypto'); // ✅ NOUVO — pou jenere token sekrè
 
 const generateQuoteNumber = async (tenantId) => {
   const year = new Date().getFullYear();
@@ -393,4 +394,141 @@ const decrementStock = async (invoiceId, tenantId, userId) => {
   await prisma.invoice.update({ where: { id: invoiceId }, data: { stockDecremented: true } });
 };
 
-module.exports = { getAll, getOne, create, update, send, cancel, convertToInvoice };
+// ════════════════════════════════════════════════════════════
+// ✅ NOUVO — Pataje pwoforma piblik
+// ════════════════════════════════════════════════════════════
+
+const PUBLIC_LINK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 èdtan
+
+// ── Jenere yon lyen piblik (token + ekspirasyon 24è)
+const generatePublicLink = async (tenantId, id) => {
+  const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
+  if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
+  if (quote.status === 'cancelled') throw Object.assign(new Error('Pa ka pataje yon devi anile.'), { statusCode: 400 });
+
+  // Token sekrè 64 karaktè (32 bytes hex) — preske enposib pou devine
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + PUBLIC_LINK_DURATION_MS);
+
+  const updated = await prisma.quote.update({
+    where: { id },
+    data: {
+      publicToken: token,
+      publicExpiresAt: expiresAt,
+      publicViewedAt: null,   // reset si re-jenere
+      publicViewCount: 0,
+    }
+  });
+
+  return {
+    token,
+    expiresAt: updated.publicExpiresAt,
+    quoteNumber: quote.quoteNumber,
+  };
+};
+
+// ── Revoke (efase) lyen piblik la
+const revokePublicLink = async (tenantId, id) => {
+  const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
+  if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
+
+  return prisma.quote.update({
+    where: { id },
+    data: {
+      publicToken: null,
+      publicExpiresAt: null,
+      publicViewedAt: null,
+      publicViewCount: 0,
+    }
+  });
+};
+
+// ── Wout PIBLIK: jwenn devi pa token (kliyan an itilize l)
+const getByPublicToken = async (token) => {
+  if (!token || token.length < 32) {
+    throw Object.assign(new Error('Lyen envalid.'), { statusCode: 404 });
+  }
+
+  const quote = await prisma.quote.findFirst({
+    where: { publicToken: token },
+    include: {
+      client: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      items: {
+        include: { product: { select: { id: true, name: true, code: true, unit: true } } },
+        orderBy: { sortOrder: 'asc' }
+      },
+      tenant: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          // ⚠️ Si pwojè ou gen lòt chan nan Tenant (logo, telefòn, adrès, imel), ajoute yo isit la
+          // egzanp: logoUrl: true, phone: true, email: true, address: true,
+        }
+      }
+    }
+  });
+
+  if (!quote) {
+    throw Object.assign(new Error('Devi sa pa egziste oswa lyen an pa valid.'), { statusCode: 404 });
+  }
+
+  const expired = !quote.publicExpiresAt || new Date(quote.publicExpiresAt) < new Date();
+
+  if (expired) {
+    // Retounen sèlman enfòmasyon minimal + flag "expired"
+    // Frontend la ap afiche yon paj "ekspire" elegan
+    return {
+      expired: true,
+      expiresAt: quote.publicExpiresAt,
+      tenant: {
+        name: quote.tenant?.name || 'Konpayi',
+        slug: quote.tenant?.slug,
+      }
+    };
+  }
+
+  // ✅ Mete ajou view count + premye fwa vizite (silent — pa block repons lan)
+  // Itilize "fire-and-forget" pou pa ralanti repons lan
+  prisma.quote.update({
+    where: { id: quote.id },
+    data: {
+      publicViewCount: { increment: 1 },
+      publicViewedAt: quote.publicViewedAt || new Date(),
+    }
+  }).catch(err => console.error('[PublicQuote] Failed to update view count:', err.message));
+
+  return {
+    expired: false,
+    expiresAt: quote.publicExpiresAt,
+    viewCount: quote.publicViewCount + 1,
+    quote: {
+      id: quote.id,
+      quoteNumber: quote.quoteNumber,
+      issueDate: quote.issueDate,
+      expiryDate: quote.expiryDate,
+      currency: quote.currency,
+      exchangeRate: quote.exchangeRate,
+      subtotalHtg: quote.subtotalHtg,
+      subtotalUsd: quote.subtotalUsd,
+      discountType: quote.discountType,
+      discountValue: quote.discountValue,
+      discountHtg: quote.discountHtg,
+      discountUsd: quote.discountUsd,
+      taxRate: quote.taxRate,
+      taxHtg: quote.taxHtg,
+      taxUsd: quote.taxUsd,
+      totalHtg: quote.totalHtg,
+      totalUsd: quote.totalUsd,
+      status: quote.status,
+      notes: quote.notes,
+      terms: quote.terms,
+      clientSnapshot: quote.clientSnapshot,
+      client: quote.client,
+      items: quote.items,
+      tenant: quote.tenant,
+    }
+  };
+};
+
+module.exports = { getAll, getOne, create, update, send, cancel, convertToInvoice, generatePublicLink, revokePublicLink, getByPublicToken };
