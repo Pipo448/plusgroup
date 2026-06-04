@@ -14,10 +14,17 @@ import {
 
 const API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const api = (path, opts = {}) => {
-  const token = localStorage.getItem('token')
+  const token  = localStorage.getItem('token')
+  const tenant = JSON.parse(localStorage.getItem('tenant') || '{}')
+  const slug   = tenant?.slug || ''
   return fetch(`${API}/api/v1/admin-finances${path}`, {
     ...opts,
-    headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...opts.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'X-Tenant-Slug': slug,       // ✅ sa ki manke a
+      ...opts.headers
+    },
   }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message); return d })
 }
 
