@@ -44,6 +44,7 @@ const pgExpensesRoutes  = require('./routes/pg-expenses.routes')
 const mikwoExpensesRoutes = require('./routes/mikwo-expenses.routes')
 const mikwoProfitRoutes   = require('./routes/mikwo-profit.routes')
 const internetRoutes      = require('./modules/internet/internet.routes')
+const adminFinRoutes      = require('./routes/admin-finances.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -166,6 +167,7 @@ app.use(`${API}/pg-expenses`,  pgExpensesRoutes)
 app.use(`${API}/mikwo-expenses`, mikwoExpensesRoutes)
 app.use(`${API}/mikwo-profit`,   mikwoProfitRoutes)
 app.use(`${API}/internet`,   internetRoutes);
+app.use(`${API}/admin-finances`, adminFinRoutes);
 
 // ✅ SABOTAY
 app.use(`${API}/sabotay`,       sabotayRoutes);

@@ -43,6 +43,7 @@ const DryOrderDetail     = lazy(() => import('./pages/dry/DryOrderDetail'))
 const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
 const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
 const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
+const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -135,6 +136,7 @@ export default function App() {
             {/* ✅ RH & Finans — ANDEDAN /app */}
             <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />
             <Route path="expenses"  element={<ProtectedPage pageKey="expenses"><ExpensesPage /></ProtectedPage>} />
+            <Route path="finances"  element={<AdminFinancesPage />} />
           </Route>
 
           {/* Legacy redirects */}
