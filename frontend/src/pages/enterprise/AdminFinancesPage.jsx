@@ -12,29 +12,13 @@ import {
   Briefcase, CreditCard, Eye,
 } from 'lucide-react'
 
-// ✅ Lis tout done yo kòrèkteman
-const API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
-
+const API = import.meta.env.VITE_API || ''
 const api = (path, opts = {}) => {
-  // Token soti nan Zustand persist 'pg-auth'
-  const pgAuth = JSON.parse(localStorage.getItem('pg-auth') || '{}')
-  const token  = pgAuth?.state?.token || ''
-  // Slug soti nan 'plusgroup-slug' (setAuth + onRehydrateStorage)
-  const slug   = localStorage.getItem('plusgroup-slug') || pgAuth?.state?.tenant?.slug || ''
-
+  const token = localStorage.getItem('token')
   return fetch(`${API}/api/v1/admin-finances${path}`, {
     ...opts,
-    headers: {
-      'Content-Type':   'application/json',
-      'Authorization':  `Bearer ${token}`,
-      'X-Tenant-Slug':  slug,
-      ...opts.headers,
-    },
-  }).then(async r => {
-    const d = await r.json()
-    if (!r.ok) throw new Error(d.message)
-    return d
-  })
+    headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...opts.headers },
+  }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message); return d })
 }
 
 const fmtN = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits: 2 }).replace(/\u00A0/g,' ').replace(/\u202F/g,' ')
@@ -212,7 +196,7 @@ function StatCard({ label, value, icon, color, sub }) {
 function ModalAjoute({ type, onClose, onSuccess }) {
   const [form, setForm] = useState({
     description:'', amount:'', category:'', costPrice:'', sellPrice:'', quantity:'1',
-    personName:'', personPhone:'', date: new Date().toISOString().split('T')[0],
+    personName:'', personPhone:'', date: new Date(Date.now() - 5*60*60*1000).toISOString().split('T')[0],
     dueDate:'', notes:'',
   })
   const [loading, setLoading] = useState(false)
@@ -430,6 +414,7 @@ export default function AdminFinancesPage() {
 
   // Kapital disponib = kapital + revni + vant - depans - envesti + depo_sol - peman_sol
   const kapitalDisponib = (s.kapital?.total||0) + (s.revni?.total||0) + (s.vant?.total||0) + (s.depoSol?.total||0) - (s.depans?.total||0) - (s.acha?.total||0) - (s.pemanSol?.total||0)
+
   useEffect(() => {
     const el = document.createElement('style'); el.id = 'af-styles'; el.textContent = STYLES
     document.head.appendChild(el)
@@ -626,9 +611,9 @@ export default function AdminFinancesPage() {
             </button>
           </div>
           <p style={{ fontSize:10, fontWeight:700, color:C.purple, margin:'4px 0' }}>Depo Sol (kob ki antre):</p>
-          <TxList type="depo_sol" debutDate={debutDate} finDate={finDate} refresh={refreshKey}/>
+          <TxList type="depo_sol" debutDate="2000-01-01" finDate="2099-12-31" refresh={refreshKey}/>
           <p style={{ fontSize:10, fontWeight:700, color:C.yellow, margin:'10px 0 4px' }}>Peman Sol (kob ki soti):</p>
-          <TxList type="peman_sol" debutDate={debutDate} finDate={finDate} refresh={refreshKey}/>
+          <TxList type="peman_sol" debutDate="2000-01-01" finDate="2099-12-31" refresh={refreshKey}/>
         </>
       )}
 
