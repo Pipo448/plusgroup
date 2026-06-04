@@ -224,7 +224,6 @@ router.post('/', async (req, res) => {
     const validTypes = ['depans', 'depans_prevwa', 'revni', 'acha', 'vant', 'depo_sol', 'peman_sol', 'kapital']
     if (!validTypes.includes(type)) return res.status(400).json({ message: 'Tip pa valid.' })
 
-    // Kalkile benefis pou vant
     let profit = null
     if (type === 'vant' && costPrice) {
       profit = (Number(sellPrice || amount) - Number(costPrice)) * Number(quantity || 1)
@@ -232,33 +231,39 @@ router.post('/', async (req, res) => {
 
     const txDate = date || new Date().toISOString().split('T')[0]
 
-    const result = await prisma.$queryRawUnsafe(`
+    // ✅ FIX: Itilize $executeRawUnsafe + retounen done manyèlman
+    await prisma.$executeRawUnsafe(`
       INSERT INTO admin_finances
         (tenant_id, type, category, description, amount, cost_price, sell_price, profit,
          quantity, person_name, person_phone, date, due_date, notes, created_by)
-      VALUES
-        ('${tenantId}', '${type}', ${category ? `'${category.replace(/'/g,"''")}'` : 'NULL'},
-         '${description.replace(/'/g,"''")}', ${Number(amount)},
-         ${costPrice ? Number(costPrice) : 'NULL'},
-         ${sellPrice ? Number(sellPrice) : 'NULL'},
-         ${profit !== null ? profit : 'NULL'},
-         ${Number(quantity || 1)},
-         ${personName ? `'${personName.replace(/'/g,"''")}'` : 'NULL'},
-         ${personPhone ? `'${personPhone.replace(/'/g,"''")}'` : 'NULL'},
-         '${txDate}',
-         ${dueDate ? `'${dueDate}'` : 'NULL'},
-         ${notes ? `'${notes.replace(/'/g,"''")}'` : 'NULL'},
-         ${userId ? `'${userId}'` : 'NULL'})
-      RETURNING *
-    `)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::date, $13, $14, $15)
+    `,
+      tenantId,
+      type,
+      category || null,
+      description.trim(),
+      Number(amount),
+      costPrice ? Number(costPrice) : null,
+      sellPrice ? Number(sellPrice) : null,
+      profit,
+      Number(quantity || 1),
+      personName || null,
+      personPhone || null,
+      txDate,
+      dueDate || null,
+      notes || null,
+      userId
+    )
 
-    return res.status(201).json({ transaction: result[0], message: 'Anrejistre!' })
+    return res.status(201).json({
+      message: 'Anrejistre!',
+      transaction: { type, description, amount: Number(amount), date: txDate }
+    })
   } catch (err) {
     console.error('[ADMIN-FIN POST]', err)
     return res.status(500).json({ message: err.message })
   }
 })
-
 // ═══════════════════════════════════════════════════════════════
 // PATCH /admin-finances/:id — Modifye (mak depans_prevwa peye)
 // ═══════════════════════════════════════════════════════════════
