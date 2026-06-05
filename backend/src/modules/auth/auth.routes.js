@@ -24,4 +24,8 @@ router.get('/me', identifyTenant, authenticate, ctrl.getMe);
 // PATCH /api/v1/auth/change-password
 router.patch('/change-password', identifyTenant, authenticate, ctrl.changePassword);
 
+// ⭐ PUT /api/v1/auth/change-password — Alias pou kompatibilite frontend
+// (frontend Klinik voye PUT, men PATCH te metòd orijinal la)
+router.put('/change-password', identifyTenant, authenticate, ctrl.changePassword);
+
 module.exports = router;
