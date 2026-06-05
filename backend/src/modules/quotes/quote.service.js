@@ -395,34 +395,34 @@ const decrementStock = async (invoiceId, tenantId, userId) => {
 };
 
 // ════════════════════════════════════════════════════════════
-// ✅ NOUVO — Pataje pwoforma piblik
+// ✅ NOUVO — Pataje pwoforma piblik (lyen + kòd akse 4 chif)
 // ════════════════════════════════════════════════════════════
 
-const PUBLIC_LINK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 èdtan
-
-// ── Jenere yon lyen piblik (token + ekspirasyon 24è)
+// ── Jenere yon lyen piblik ak kòd akse 4 chif
 const generatePublicLink = async (tenantId, id) => {
   const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
   if (quote.status === 'cancelled') throw Object.assign(new Error('Pa ka pataje yon devi anile.'), { statusCode: 400 });
 
-  // Token sekrè 64 karaktè (32 bytes hex) — preske enposib pou devine
+  // Token sekrè 64 karaktè (32 bytes hex)
   const token = crypto.randomBytes(32).toString('hex');
-  const expiresAt = new Date(Date.now() + PUBLIC_LINK_DURATION_MS);
+
+  // Kòd akse 4 chif (0000-9999) — kliyan an dwe antre l pou wè pwoforma a
+  const accessCode = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
 
   const updated = await prisma.quote.update({
     where: { id },
     data: {
       publicToken: token,
-      publicExpiresAt: expiresAt,
-      publicViewedAt: null,   // reset si re-jenere
+      accessCode,
+      publicViewedAt: null,
       publicViewCount: 0,
     }
   });
 
   return {
     token,
-    expiresAt: updated.publicExpiresAt,
+    accessCode: updated.accessCode,
     quoteNumber: quote.quoteNumber,
   };
 };
@@ -436,15 +436,17 @@ const revokePublicLink = async (tenantId, id) => {
     where: { id },
     data: {
       publicToken: null,
-      publicExpiresAt: null,
+      accessCode: null,
       publicViewedAt: null,
       publicViewCount: 0,
     }
   });
 };
 
-// ── Wout PIBLIK: jwenn devi pa token (kliyan an itilize l)
-const getByPublicToken = async (token) => {
+// ── Wout PIBLIK: jwenn devi pa token + kòd akse
+// Si pa gen kòd: retounen sèlman non konpayi a + flag "needsCode"
+// Si kòd la valid: retounen tout detay devi a
+const getByPublicToken = async (token, providedCode) => {
   if (!token || token.length < 32) {
     throw Object.assign(new Error('Lyen envalid.'), { statusCode: 404 });
   }
@@ -454,7 +456,12 @@ const getByPublicToken = async (token) => {
     include: {
       client: { select: { id: true, name: true, email: true, phone: true, address: true } },
       items: {
-        include: { product: { select: { id: true, name: true, code: true, unit: true } } },
+        include: {
+          product: {
+            // ✅ NOUVO — ajoute description nan select la
+            select: { id: true, name: true, code: true, unit: true, description: true }
+          }
+        },
         orderBy: { sortOrder: 'asc' }
       },
       tenant: {
@@ -462,34 +469,42 @@ const getByPublicToken = async (token) => {
           id: true,
           name: true,
           slug: true,
-          // ⚠️ Si pwojè ou gen lòt chan nan Tenant (logo, telefòn, adrès, imel), ajoute yo isit la
-          // egzanp: logoUrl: true, phone: true, email: true, address: true,
+          // ⚠️ Chan opsyonèl — si yo PA egziste nan Tenant model ou, retire liy yo:
+          logoUrl: true,         // Logo konpayi (dejà egziste paske ou gen uploadLogo)
+          // bannerUrl: true,    // ❌ DEKOMANTE LIY SA LÈ OU AJOUTE bannerUrl NAN SCHEMA TENANT
+          // tagline: true,      // ❌ DEKOMANTE SI OU AJOUTE TAGLINE
+          // phone: true,        // ❌ DEKOMANTE SI OU AJOUTE PHONE
+          // email: true,        // ❌ DEKOMANTE SI OU AJOUTE EMAIL
+          // address: true,      // ❌ DEKOMANTE SI OU AJOUTE ADDRESS
+          // website: true,      // ❌ DEKOMANTE SI OU AJOUTE WEBSITE
         }
       }
     }
   });
 
-  if (!quote) {
+  if (!quote || !quote.publicToken) {
     throw Object.assign(new Error('Devi sa pa egziste oswa lyen an pa valid.'), { statusCode: 404 });
   }
 
-  const expired = !quote.publicExpiresAt || new Date(quote.publicExpiresAt) < new Date();
-
-  if (expired) {
-    // Retounen sèlman enfòmasyon minimal + flag "expired"
-    // Frontend la ap afiche yon paj "ekspire" elegan
+  // ─── Premye etap: si pa gen kòd, retounen sèlman enfo minimal
+  if (!providedCode) {
     return {
-      expired: true,
-      expiresAt: quote.publicExpiresAt,
+      needsCode: true,
       tenant: {
         name: quote.tenant?.name || 'Konpayi',
         slug: quote.tenant?.slug,
-      }
+        logoUrl: quote.tenant?.logoUrl || null,
+      },
+      quoteNumber: quote.quoteNumber,
     };
   }
 
-  // ✅ Mete ajou view count + premye fwa vizite (silent — pa block repons lan)
-  // Itilize "fire-and-forget" pou pa ralanti repons lan
+  // ─── Dezyèm etap: verifye kòd la
+  if (String(providedCode).trim() !== quote.accessCode) {
+    throw Object.assign(new Error('Kòd akse a pa kòrèk.'), { statusCode: 401 });
+  }
+
+  // ✅ Kòd la kòrèk — enkremante view count (silent)
   prisma.quote.update({
     where: { id: quote.id },
     data: {
@@ -499,8 +514,7 @@ const getByPublicToken = async (token) => {
   }).catch(err => console.error('[PublicQuote] Failed to update view count:', err.message));
 
   return {
-    expired: false,
-    expiresAt: quote.publicExpiresAt,
+    needsCode: false,
     viewCount: quote.publicViewCount + 1,
     quote: {
       id: quote.id,

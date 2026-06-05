@@ -103,17 +103,18 @@ export const clientAPI = {
 }
 
 export const quoteAPI = {
-  getAll:  (p)        => api.get('/quotes', { params: p }),
-  getOne:  (id)       => api.get(`/quotes/${id}`),
-  create:  (data)     => api.post('/quotes', data),
-  update:  (id, data) => api.put(`/quotes/${id}`, data),
-  delete:  (id)       => api.delete(`/quotes/${id}`),
-  send:    (id)       => api.patch(`/quotes/${id}/send`),
-  accept:  (id)       => api.patch(`/quotes/${id}/accept`),
-  convert: (id)       => api.post(`/quotes/${id}/convert`),
-  cancel:  (id)       => api.patch(`/quotes/${id}/cancel`),
-  share:        (id)       => api.post(`/quotes/${id}/share`),           // ✅ NOUVO
-  revokeShare:  (id)       => api.delete(`/quotes/${id}/share`),         // ✅ NOUVO
+  getAll:       (p)        => api.get('/quotes', { params: p }),
+  getOne:       (id)       => api.get(`/quotes/${id}`),
+  create:       (data)     => api.post('/quotes', data),
+  update:       (id, data) => api.put(`/quotes/${id}`, data),
+  delete:       (id)       => api.delete(`/quotes/${id}`),
+  send:         (id)       => api.patch(`/quotes/${id}/send`),
+  accept:       (id)       => api.patch(`/quotes/${id}/accept`),
+  convert:      (id)       => api.post(`/quotes/${id}/convert`),
+  cancel:       (id)       => api.patch(`/quotes/${id}/cancel`),
+  // ✅ NOUVO — pataje pwoforma piblik (lyen + kòd akse 4 chif)
+  share:        (id)       => api.post(`/quotes/${id}/share`),
+  revokeShare:  (id)       => api.delete(`/quotes/${id}/share`),
 }
 
 export const invoiceAPI = {

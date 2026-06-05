@@ -190,9 +190,12 @@ const ProductDropdown = memo(function ProductDropdown({ value, onSelect, onClear
 const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
   const { t } = useTranslation()
 
+  // ✅ KORIJE — kalkile total ak discountAmt (HTG), pa discountPct
+  const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+  const discAmt = Number(item.discountAmt||0)
   const totalHtg = useMemo(
-    () => Number(item.unitPriceHtg||0) * Number(item.quantity||0) * (1 - Number(item.discountPct||0)/100),
-    [item.unitPriceHtg, item.quantity, item.discountPct]
+    () => Math.max(0, gross - discAmt),
+    [gross, discAmt]
   )
 
   const update = useCallback((field, val) => {
@@ -246,9 +249,10 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, alignItems:'center' }}>
         <div>
-          <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Remiz %</label>
-          <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-            value={item.discountPct || 0} onFocus={e => e.target.select()} onChange={e => update('discountPct', e.target.value)}/>
+          {/* ✅ KORIJE — Rabè HTG (kantite kòb), pa pousantaj */}
+          <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Rabè (HTG)</label>
+          <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
+            value={item.discountAmt || 0} onFocus={e => e.target.select()} onChange={e => update('discountAmt', e.target.value)}/>
         </div>
         <div style={{ textAlign:'right' }}>
           <p style={{ fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 5px' }}>Total</p>
@@ -265,9 +269,12 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
 const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
   const { t } = useTranslation()
 
+  // ✅ KORIJE — kalkile total ak discountAmt (HTG)
+  const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+  const discAmt = Number(item.discountAmt||0)
   const totalHtg = useMemo(
-    () => Number(item.unitPriceHtg||0) * Number(item.quantity||0) * (1 - Number(item.discountPct||0)/100),
-    [item.unitPriceHtg, item.quantity, item.discountPct]
+    () => Math.max(0, gross - discAmt),
+    [gross, discAmt]
   )
 
   const update = useCallback((field, val) => {
@@ -306,9 +313,10 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
         <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
           value={item.unitPriceHtg} onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
       </td>
-      <td className="p-2 w-20">
-        <input type="number" step="0.5" min="0" max="100" className="input text-center text-sm py-2"
-          value={item.discountPct || 0} onFocus={e => e.target.select()} onChange={e => update('discountPct', e.target.value)}/>
+      <td className="p-2 w-28">
+        {/* ✅ KORIJE — Rabè HTG (kantite), pa pousantaj */}
+        <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
+          value={item.discountAmt || 0} onFocus={e => e.target.select()} onChange={e => update('discountAmt', e.target.value)}/>
       </td>
       <td className="p-2 w-36 text-right">
         <span className="font-mono font-semibold text-slate-800">
@@ -360,18 +368,14 @@ const TotauxBlock = memo(function TotauxBlock({
         </div>
 
         <div className="border-t border-slate-100 pt-3">
-          <label className="label">{t('quotes.discount')}</label>
-          <div className="flex gap-2 mb-2">
-            <select className="input py-1.5 text-sm" value={discountType} onChange={e => setDiscountType(e.target.value)}>
-              <option value="amount">{t('quotes.valueAmount')} ({currency})</option>
-              <option value="percent">{t('quotes.percentage')} (%)</option>
-            </select>
-            <input type="number" min="0" step="0.01" className="input py-1.5 text-sm w-24 text-right font-mono"
-              value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)}/>
-          </div>
+          {/* ✅ KORIJE — sèlman kantite kòb (HTG), pa pousantaj */}
+          <label className="label">Rabè ({currency})</label>
+          <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono w-full"
+            value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)}
+            placeholder="0.00"/>
           {discountAmt * factor > 0 && (
-            <div className="flex justify-between text-sm text-red-600">
-              <span>{t('quotes.discount')}</span>
+            <div className="flex justify-between text-sm text-red-600 mt-2">
+              <span>Rabè aplike</span>
               <span className="font-mono">-{fmt2(discountAmt * factor)} {currency}</span>
             </div>
           )}
@@ -429,15 +433,15 @@ export default function QuoteForm() {
   const [discountType, setDiscountType]   = useState('amount')
   const [discountValue, setDiscountValue] = useState(0)
   const [taxRate, setTaxRate]             = useState(Number(tenant?.taxRate || 0))
-  // ✅ Pa init state ak t() — itilize '' e mete default nan useEffect
   const [notes, setNotes]                 = useState('')
   const [terms, setTerms]                 = useState('')
   const [expiryDate, setExpiryDate]       = useState('')
-  const [currency, setCurrency]           = useState(tenant?.defaultCurrency || 'HTG')
+  // ✅ KORIJE — defo USD (olye HTG)
+  const [currency, setCurrency]           = useState(tenant?.defaultCurrency || 'USD')
 
-  // ✅ id inik pou chak item — evite key={idx}
+  // ✅ KORIJE — itilize discountAmt (HTG) olye discountPct
   const [items, setItems] = useState(() => [
-    { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountPct:0, unit:'unité' }
+    { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountAmt:0, unit:'unité' }
   ])
 
   const { data: existingQuote } = useQuery({
@@ -458,35 +462,46 @@ export default function QuoteForm() {
     setClient(existingQuote.client || existingQuote.clientSnapshot)
     const rawItems = Array.isArray(existingQuote.items) ? existingQuote.items : []
     setItems(rawItems.length > 0
-      ? rawItems.map((i, idx) => ({
-          _id:          i.id || idx,
-          productId:    i.productId,
-          productName:  i.product?.name    || i.productSnapshot?.name  || '',
-          productCode:  i.product?.code    || i.productSnapshot?.code  || '',
-          quantity:     Number(i.quantity),
-          unitPriceHtg: Number(i.unitPriceHtg),
-          unitPriceUsd: Number(i.unitPriceUsd),
-          discountPct:  Number(i.discountPct),
-          unit:         i.product?.unit    || i.productSnapshot?.unit  || 'unité'
-        }))
-      : [{ _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountPct:0, unit:'unité' }]
+      ? rawItems.map((i, idx) => {
+          // ✅ KORIJE — konvèti discountPct (ki sove nan DB) → discountAmt (HTG) pou afichaj
+          const gross    = Number(i.unitPriceHtg||0) * Number(i.quantity||0)
+          const discPct  = Number(i.discountPct||0)
+          const discAmt  = gross * discPct / 100
+          return {
+            _id:          i.id || idx,
+            productId:    i.productId,
+            productName:  i.product?.name    || i.productSnapshot?.name  || '',
+            productCode:  i.product?.code    || i.productSnapshot?.code  || '',
+            quantity:     Number(i.quantity),
+            unitPriceHtg: Number(i.unitPriceHtg),
+            unitPriceUsd: Number(i.unitPriceUsd),
+            discountAmt:  Math.round(discAmt * 100) / 100,  // HTG amount
+            unit:         i.product?.unit    || i.productSnapshot?.unit  || 'unité'
+          }
+        })
+      : [{ _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountAmt:0, unit:'unité' }]
     )
-    setDiscountType(existingQuote.discountType)
-    setDiscountValue(Number(existingQuote.discountValue))
+    setDiscountType('amount')  // ✅ Toujou amount kounye a
+    setDiscountValue(Number(existingQuote.discountHtg || existingQuote.discountValue || 0))
     setTaxRate(Number(existingQuote.taxRate))
     setNotes(existingQuote.notes || '')
     setTerms(existingQuote.terms || '')
     setCurrency(existingQuote.currency)
   }, [existingQuote])
 
-  // ✅ useMemo — pa recalcule chak keystroke
+  // ✅ useMemo — pa recalcule chak keystroke (kounye a ak discountAmt HTG pa liy)
   const { subtotal, discountAmt, taxAmt, total } = useMemo(() => {
-    const sub      = items.reduce((acc, item) => acc + Number(item.unitPriceHtg||0) * Number(item.quantity||0) * (1 - Number(item.discountPct||0)/100), 0)
-    const discAmt  = discountType === 'percent' ? sub * Number(discountValue) / 100 : Number(discountValue)
-    const afterD   = sub - discAmt
+    const sub      = items.reduce((acc, item) => {
+      const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+      const lineDisc = Number(item.discountAmt||0)
+      return acc + Math.max(0, gross - lineDisc)
+    }, 0)
+    // ✅ Rabè global toujou kantite (HTG) kounye a
+    const discAmt  = Number(discountValue)
+    const afterD   = Math.max(0, sub - discAmt)
     const tax      = afterD * Number(taxRate) / 100
     return { subtotal: sub, discountAmt: discAmt, taxAmt: tax, total: afterD + tax }
-  }, [items, discountType, discountValue, taxRate])
+  }, [items, discountValue, taxRate])
 
   // ✅ useCallback — pa rekrye fonksyon
   const updateItem = useCallback((index, newItem) => {
@@ -498,7 +513,7 @@ export default function QuoteForm() {
   }, [])
 
   const addItem = useCallback(() => {
-    setItems(prev => [...prev, { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountPct:0, unit:'unité' }])
+    setItems(prev => [...prev, { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountAmt:0, unit:'unité' }])
   }, [])
 
   const mutation = useMutation({
@@ -516,20 +531,28 @@ export default function QuoteForm() {
       clientId: client?.id,
       clientSnapshot: client ? { id:client.id, name:client.name, phone:client.phone, email:client.email } : {},
       currency, exchangeRate: tenant?.exchangeRate || 132,
-      discountType, discountValue: Number(discountValue),
+      // ✅ KORIJE — Rabè global toujou 'amount' kounye a
+      discountType: 'amount',
+      discountValue: Number(discountValue),
       taxRate: Number(taxRate), notes, terms,
       expiryDate: expiryDate || null,
-      items: items.map(i => ({
-        productId:       i.productId || null,
-        productSnapshot: { name: i.productName || i.description, code: i.productCode, unit: i.unit },
-        quantity:        Number(i.quantity),
-        unitPriceHtg:    Number(i.unitPriceHtg),
-        unitPriceUsd:    Number(i.unitPriceUsd || 0),
-        discountPct:     Number(i.discountPct || 0),
-        sortOrder:       0
-      }))
+      items: items.map(i => {
+        // ✅ KORIJE — konvèti discountAmt (HTG) → discountPct (%) pou backend
+        const gross    = Number(i.unitPriceHtg||0) * Number(i.quantity||0)
+        const discAmt  = Number(i.discountAmt||0)
+        const discPct  = gross > 0 ? (discAmt / gross) * 100 : 0
+        return {
+          productId:       i.productId || null,
+          productSnapshot: { name: i.productName || i.description, code: i.productCode, unit: i.unit },
+          quantity:        Number(i.quantity),
+          unitPriceHtg:    Number(i.unitPriceHtg),
+          unitPriceUsd:    Number(i.unitPriceUsd || 0),
+          discountPct:     Math.round(discPct * 100) / 100,  // sove kòm pousantaj nan DB
+          sortOrder:       0
+        }
+      })
     })
-  }, [items, client, currency, discountType, discountValue, taxRate, notes, terms, expiryDate, mutation, tenant, t])
+  }, [items, client, currency, discountValue, taxRate, notes, terms, expiryDate, mutation, tenant, t])
 
   return (
     <form onSubmit={handleSubmit} className="animate-fade-in max-w-5xl">
@@ -599,7 +622,7 @@ export default function QuoteForm() {
                       <th className="p-2 text-left pl-4">{t('quotes.productDescription')}</th>
                       <th className="p-2 text-center">{t('quotes.qty')}</th>
                       <th className="p-2 text-right">{t('quotes.unitPrice')}</th>
-                      <th className="p-2 text-center">{t('quotes.discountPct')}</th>
+                      <th className="p-2 text-right">Rabè (HTG)</th>
                       <th className="p-2 text-right">{t('common.total')}</th>
                       <th className="p-2"></th>
                     </tr>

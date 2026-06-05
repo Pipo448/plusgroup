@@ -26,23 +26,23 @@ const send             = asyncHandler(async (req, res) => { const data = await s
 const cancel           = asyncHandler(async (req, res) => { const data = await svc.cancel(req.tenant.id, req.params.id);     res.json({ success: true, quote: data, message: 'Devis anile.' }); });
 const convertToInvoice = asyncHandler(async (req, res) => { const data = await svc.convertToInvoice(req.tenant.id, req.params.id, req.user.id); res.status(201).json({ success: true, invoice: data, message: 'Devis konvèti an facture avèk siksè.' }); });
 
-// ✅ NOUVO — Jenere yon lyen piblik (token + 24è ekspirasyon)
+// ✅ NOUVO — Jenere lyen pataj + kòd akse 4 chif
 const share = asyncHandler(async (req, res) => {
   const data = await svc.generatePublicLink(req.tenant.id, req.params.id);
-  res.json({ success: true, ...data, message: 'Lyen pataj kreye. Li valab pou 24è.' });
+  res.json({ success: true, ...data, message: 'Lyen ak kòd akse kreye.' });
 });
 
-// ✅ NOUVO — Revoke (efase) lyen piblik la
+// ✅ NOUVO — Revoke lyen
 const revokeShare = asyncHandler(async (req, res) => {
   await svc.revokePublicLink(req.tenant.id, req.params.id);
   res.json({ success: true, message: 'Lyen pataj revoke.' });
 });
 
-// ✅ NOUVO — Wout PIBLIK pou kliyan an wè pwoforma a san pou l konekte
+// ✅ NOUVO — Wout PIBLIK
+// Si pa gen ?code= → retounen sèlman non konpayi a (paj PIN ap parèt)
+// Si gen ?code=XXXX → verifye e retounen detay devi a
 const getPublic = asyncHandler(async (req, res) => {
-  const data = await svc.getByPublicToken(req.params.token);
-  // Si lyen ekspire, retounen done a ak `expired: true` (PA voye 410)
-  // Sa pèmèt frontend la montre yon paj "ekspire" elegan
+  const data = await svc.getByPublicToken(req.params.token, req.query.code);
   res.json({ success: true, ...data });
 });
 
