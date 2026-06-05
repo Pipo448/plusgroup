@@ -342,11 +342,13 @@ function ProformaView({ quote, isMobile, isTablet }) {
           <ItemsTable items={items} symbol={symbol} useUsd={useUsd} isMobile={isMobile}/>
           <BottomGrid
             quote={quote}
+            items={items}
             symbol={symbol}
             subtotal={subtotal}
             discount={discount}
             tax={tax}
             total={total}
+            useUsd={useUsd}
             isMobile={isMobile}
           />
           <ServicesBanner isMobile={isMobile}/>
@@ -729,7 +731,19 @@ function thStyle(width, align = 'center') {
   }
 }
 
-function BottomGrid({ quote, symbol, subtotal, discount, tax, total, isMobile }) {
+function BottomGrid({ quote, items, symbol, subtotal, discount, tax, total, useUsd, isMobile }) {
+
+  // ✅ Kalkile sou-total BRUT (anvan nenpòt rabè liy)
+  const grossSubtotal = (items || []).reduce((acc, item) => {
+    const unitPrice = useUsd ? Number(item.unitPriceUsd || 0) : Number(item.unitPriceHtg || 0)
+    return acc + (unitPrice * Number(item.quantity || 0))
+  }, 0)
+
+  // Rabè nan nivo liy = brut - net subtotal (subtotal apre rabè liy)
+  const lineDiscount  = Math.max(0, grossSubtotal - Number(subtotal))
+  // Rabè total = rabè liy + rabè global
+  const totalDiscount = lineDiscount + Number(discount || 0)
+
   return (
     <div style={{
       display: 'grid',
@@ -759,14 +773,18 @@ function BottomGrid({ quote, symbol, subtotal, discount, tax, total, isMobile })
       {/* TOTAL */}
       <div style={{ ...blockStyle(D.blueDk), background: D.white }}>
         <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <TotalRow label="SOUS-TOTAL" value={`${fmt(subtotal)} ${symbol}`}/>
-          {Number(discount) > 0 && (
+          {/* ✅ SOUS-TOTAL = brut (anvan rabè) */}
+          <TotalRow label="SOUS-TOTAL" value={`${fmt(grossSubtotal)} ${symbol}`}/>
+
+          {/* ✅ RABAIS — total tout rabè (liy + global) */}
+          {totalDiscount > 0 && (
             <TotalRow
-              label={`REMISE${quote.discountType === 'percent' ? ` (${quote.discountValue}%)` : ''}`}
-              value={`-${fmt(discount)} ${symbol}`}
+              label="RABAIS"
+              value={`-${fmt(totalDiscount)} ${symbol}`}
               color={D.red}
             />
           )}
+
           {Number(tax) > 0 && <TotalRow label={`TAXE (${quote.taxRate}%)`} value={`+${fmt(tax)} ${symbol}`}/>}
 
           <div style={{
