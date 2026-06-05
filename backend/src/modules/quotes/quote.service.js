@@ -469,14 +469,14 @@ const getByPublicToken = async (token, providedCode) => {
           id: true,
           name: true,
           slug: true,
-          // ⚠️ Chan opsyonèl — si yo PA egziste nan Tenant model ou, retire liy yo:
-          logoUrl: true,         // Logo konpayi (dejà egziste paske ou gen uploadLogo)
-          // bannerUrl: true,    // ❌ DEKOMANTE LIY SA LÈ OU AJOUTE bannerUrl NAN SCHEMA TENANT
-          // tagline: true,      // ❌ DEKOMANTE SI OU AJOUTE TAGLINE
-          // phone: true,        // ❌ DEKOMANTE SI OU AJOUTE PHONE
-          // email: true,        // ❌ DEKOMANTE SI OU AJOUTE EMAIL
-          // address: true,      // ❌ DEKOMANTE SI OU AJOUTE ADDRESS
-          // website: true,      // ❌ DEKOMANTE SI OU AJOUTE WEBSITE
+          // ✅ Tout chan sa yo egziste nan Tenant model ou
+          logoUrl: true,         // Logo konpayi
+          bannerUrl: true,       // Imaj banyè pou tèt pwoforma a
+          address: true,
+          phone: true,
+          email: true,
+          website: true,
+          primaryColor: true,    // Pou pèsonalize koulè
         }
       }
     }
@@ -491,9 +491,11 @@ const getByPublicToken = async (token, providedCode) => {
     return {
       needsCode: true,
       tenant: {
-        name: quote.tenant?.name || 'Konpayi',
-        slug: quote.tenant?.slug,
-        logoUrl: quote.tenant?.logoUrl || null,
+        name:        quote.tenant?.name || 'Konpayi',
+        slug:        quote.tenant?.slug,
+        logoUrl:     quote.tenant?.logoUrl || null,
+        bannerUrl:   quote.tenant?.bannerUrl || null,
+        primaryColor: quote.tenant?.primaryColor || null,
       },
       quoteNumber: quote.quoteNumber,
     };

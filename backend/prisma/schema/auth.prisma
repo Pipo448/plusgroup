@@ -39,6 +39,7 @@ model Tenant {
   name                 String                @db.VarChar(200)
   slug                 String                @unique @db.VarChar(100)
   logoUrl              String?               @map("logo_url")
+  bannerUrl            String?               @map("banner_url")
   primaryColor         String?               @default("#1E40AF") @map("primary_color") @db.VarChar(7)
   address              String?
   phone                String?               @db.VarChar(50)
