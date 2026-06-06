@@ -270,23 +270,54 @@ function ModalAjoute({ type, onClose, onSuccess }) {
         )}
 
         {(isAcha || isVant) && (
-          <div className="af-row2">
-            <div className="af-field">
-              <label className="af-field-label">Pri Achte</label>
-              <input type="number" inputMode="decimal" className="af-input" value={form.costPrice} onChange={e => set('costPrice', e.target.value)} placeholder="0" />
-            </div>
-            {isVant && (
-              <div className="af-field">
-                <label className="af-field-label">Pri Vann</label>
-                <input type="number" inputMode="decimal" className="af-input" value={form.sellPrice} onChange={e => set('sellPrice', e.target.value)} placeholder="0" />
-              </div>
-            )}
-            <div className="af-field">
-              <label className="af-field-label">Kantite</label>
-              <input type="number" inputMode="numeric" className="af-input" value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="1" />
-            </div>
-          </div>
-        )}
+  <div className="af-row2">
+    <div className="af-field">
+      <label className="af-field-label">Pri Inite (HTG)</label>
+      <input type="number" inputMode="decimal" className="af-input"
+        value={form.costPrice}
+        onChange={e => {
+          const pri = e.target.value
+          set('costPrice', pri)
+          // ✅ Kalkile total otomatik
+          if (pri && form.quantity) set('amount', (Number(pri) * Number(form.quantity)).toFixed(2))
+        }}
+        placeholder="0" />
+    </div>
+    <div className="af-field">
+      <label className="af-field-label">Kantite</label>
+      <input type="number" inputMode="numeric" className="af-input"
+        value={form.quantity}
+        onChange={e => {
+          const qty = e.target.value
+          set('quantity', qty)
+          // ✅ Kalkile total otomatik
+          if (form.costPrice && qty) set('amount', (Number(form.costPrice) * Number(qty)).toFixed(2))
+        }}
+        placeholder="1" />
+    </div>
+    {isVant && (
+      <div className="af-field">
+        <label className="af-field-label">Pri Vann (HTG)</label>
+        <input type="number" inputMode="decimal" className="af-input"
+          value={form.sellPrice} onChange={e => set('sellPrice', e.target.value)} placeholder="0" />
+      </div>
+    )}
+  </div>
+)}
+
+{/* ✅ Montan total — kalkile otomatik oswa mete manyèl */}
+<div className="af-field">
+  <label className="af-field-label">
+    Montan Total (HTG)
+    {isAcha && form.costPrice && form.quantity && (
+      <span style={{ color:C.blue, marginLeft:6, fontWeight:400 }}>
+        = {form.costPrice} × {form.quantity}
+      </span>
+    )}
+  </label>
+  <input type="number" inputMode="decimal" className="af-input"
+    value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0" />
+</div>
 
         {isSol && (
           <div className="af-row2">
