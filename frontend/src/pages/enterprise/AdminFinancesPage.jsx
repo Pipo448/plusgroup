@@ -420,7 +420,7 @@ export default function AdminFinancesPage() {
   const s = summary || {}
 
   // Kapital disponib = kapital + revni + vant - depans - envesti + depo_sol - peman_sol
-  const kapitalDisponib = (s.kapital?.total||0) + (s.revni?.total||0) + (s.vant?.total||0) + (s.depoSol?.total||0) - (s.depans?.total||0) - (s.acha?.total||0) - (s.pemanSol?.total||0)
+  const kapitalDisponib = (s.kapital?.total||0) + (s.revni?.total||0) + (s.vant?.total||0) - (s.depans?.total||0) - (s.acha?.total||0)
 
   useEffect(() => {
     const el = document.createElement('style'); el.id = 'af-styles'; el.textContent = STYLES
