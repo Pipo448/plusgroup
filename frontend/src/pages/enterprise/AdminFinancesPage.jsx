@@ -12,12 +12,19 @@ import {
   Briefcase, CreditCard, Eye,
 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API || ''
+const API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const api = (path, opts = {}) => {
-  const token = localStorage.getItem('token')
+  const pgAuth = JSON.parse(localStorage.getItem('pg-auth') || '{}')
+  const token  = pgAuth?.state?.token || ''
+  const slug   = localStorage.getItem('plusgroup-slug') || pgAuth?.state?.tenant?.slug || ''
   return fetch(`${API}/api/v1/admin-finances${path}`, {
     ...opts,
-    headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}`, ...opts.headers },
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+      'X-Tenant-Slug': slug,
+      ...opts.headers,
+    },
   }).then(async r => { const d = await r.json(); if (!r.ok) throw new Error(d.message); return d })
 }
 
