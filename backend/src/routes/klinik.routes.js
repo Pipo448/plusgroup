@@ -93,11 +93,11 @@ router.post('/patients', async (req, res) => {
     const tenantId      = tid(req)
     const numeroDossier = await genNumeroDossier(tenantId)
     const {
-      prenom, nom, dateNesans, sexe, telephone, adresse,
+      prenom, nom, dateNesans, age, sexe, telephone, adresse,
       groupeSangin, email, notes,
-      source,                 // ⭐ 'kes_walk_in' lè enskripsyon soti nan Kes
-      prisEnChargePar,        // ⭐ Non enfimyè/cashier k ap pran pasyan an
-      personneResponsable,    // ⭐ Paran/gadyen/akonpayan
+      source,
+      prisEnChargePar,
+      personneResponsable,
     } = req.body
 
     // Validasyon
@@ -119,6 +119,7 @@ router.post('/patients', async (req, res) => {
         prenom:        prenom.trim(),
         nom:           nom.trim(),
         dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        age:           age ? parseInt(age) : null,
         sexe:          sexe || null,
         telephone:     telephone || null,
         adresse:       adresse || null,
@@ -143,10 +144,10 @@ router.put('/patients/:id', async (req, res) => {
   try {
     const tenantId = tid(req)
     const {
-      prenom, nom, dateNesans, sexe, telephone, adresse,
+      prenom, nom, dateNesans, age, sexe, telephone, adresse,
       groupeSangin, email, notes,
-      prisEnChargePar,        // ⭐ Non enfimyè k ap pran pasyan an
-      personneResponsable,    // ⭐ Paran/gadyen/akonpayan
+      prisEnChargePar,
+      personneResponsable,
     } = req.body
 
     if (!prenom || !prenom.trim()) return res.status(400).json({ message: 'Prenom obligatwa.' })
@@ -164,6 +165,7 @@ router.put('/patients/:id', async (req, res) => {
         prenom:        prenom.trim(),
         nom:           nom.trim(),
         dateNaissance: dateNesans ? new Date(dateNesans) : null,
+        age:           age !== undefined ? (age ? parseInt(age) : null) : existing.age,
         sexe:          sexe || null,
         telephone:     telephone || null,
         adresse:       adresse || null,
