@@ -8,6 +8,7 @@ model KlinikPatient {
   nom              String
   prenom           String
   dateNaissance    DateTime?     @map("date_naissance")
+  age              Int?          // ⭐ Laj dirèk — soti nan migration add_age.sql
   sexe             Sexe?         @default(AUTRE)  // ⭐ Opsyonèl pou Kes walk-in
   adresse          String?
   telephone        String?
