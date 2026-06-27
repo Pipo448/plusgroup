@@ -8,7 +8,6 @@ model KlinikPatient {
   nom              String
   prenom           String
   dateNaissance    DateTime?     @map("date_naissance")
-  age              Int?          // ⭐ Laj dirèk — soti nan migration add_age.sql
   sexe             Sexe?         @default(AUTRE)  // ⭐ Opsyonèl pou Kes walk-in
   adresse          String?
   telephone        String?
@@ -202,12 +201,16 @@ model KlinikHospitalization {
   doctorName      String                @map("doctor_name")
   dateAdmission   DateTime              @default(now()) @map("date_admission")
   dateDecharge    DateTime?             @map("date_decharge")
+  numeroChambre   String?               @map("numero_chambre")
   chambre         String?
   lit             String?
   motifAdmission  String                @map("motif_admission")
+  diagnostic      String?
   diagnosticFinal String?               @map("diagnostic_final")
+  traitement      String?
   statut          HospitalizationStatut @default(admis)
   notes           String?
+  signeVitaux     Json?                 @map("signe_vitaux") // ⭐ Array mesirman Siy Vito
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
 

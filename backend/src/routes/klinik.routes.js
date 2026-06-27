@@ -614,6 +614,25 @@ router.patch('/hospitalizations/:id/decharge', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ── PATCH /klinik/hospitalizations/:id/sign-vito ─────────────
+// Sove tout lis Siy Vito (JSONB array) pou yon ospitalizasyon
+router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
+  try {
+    const { signVito } = req.body
+    if (!Array.isArray(signVito)) {
+      return res.status(400).json({ message: 'signVito dwe yon array' })
+    }
+    const hosp = await prisma.$executeRawUnsafe(
+      `UPDATE "klinik_hospitalizations"
+       SET "signe_vitaux" = $1::jsonb, "updated_at" = NOW()
+       WHERE id = $2`,
+      JSON.stringify(signVito),
+      req.params.id
+    )
+    res.json({ ok: true, count: signVito.length })
+  } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
 // ═══════════════════════════════════════════════════════════════
 // SÈVIS KLINIK
 // ═══════════════════════════════════════════════════════════════
@@ -1175,7 +1194,7 @@ router.get('/settings', async (req, res) => {
     try {
       // Eseye ak kolòn custom_services (apre migration 003)
       rows = await prisma.$queryRaw`
-        SELECT profil, tarifs, modil, enpresyon, custom_services, custom_lab_tests, updated_at
+        SELECT profil, tarifs, modil, enpresyon, custom_services, updated_at
         FROM klinik_settings
         WHERE tenant_id = ${tid}::uuid
         LIMIT 1
@@ -1183,8 +1202,8 @@ router.get('/settings', async (req, res) => {
     } catch (err) {
       // Fallback: kolòn custom_services pa egziste ankò (migration 003 pa ankò
       // egzekite). Pa kraze — itilize kerèl la san custom_services.
-      if (err.message?.includes('custom_services') || err.message?.includes('custom_lab_tests')) {
-        console.warn('[GET /settings] kolòn custom manke — egzekite migration 003/004')
+      if (err.message?.includes('custom_services')) {
+        console.warn('[GET /settings] custom_services kolòn pa egziste — egzekite migration 003')
         rows = await prisma.$queryRaw`
           SELECT profil, tarifs, modil, enpresyon, updated_at
           FROM klinik_settings
@@ -1201,7 +1220,6 @@ router.get('/settings', async (req, res) => {
       return res.json({
         profil: {}, tarifs: {}, modil: {}, enpresyon: {},
         customServices: [],
-        customLabTests: [],
         updatedAt: null,
       })
     }
@@ -1213,7 +1231,6 @@ router.get('/settings', async (req, res) => {
       modil:          r.modil           || {},
       enpresyon:      r.enpresyon       || {},
       customServices: r.custom_services || [],
-      customLabTests: r.custom_lab_tests || [],
       updatedAt:      r.updated_at,
     })
   } catch (err) {
@@ -1236,16 +1253,15 @@ router.put('/settings', async (req, res) => {
       modil:          'modil',
       enpresyon:      'enpresyon',
       customServices: 'custom_services',
-      customLabTests: 'custom_lab_tests',
     }
     const colName = SECTION_MAP[section]
     if (!colName) {
       return res.status(400).json({ message: 'Seksyon paramèt pa valid.' })
     }
     // customServices se yon ARRAY, lòt yo se OBJET
-    if (section === 'customServices' || section === 'customLabTests') {
+    if (section === 'customServices') {
       if (!Array.isArray(data)) {
-        return res.status(400).json({ message: `${section} dwe yon lis.` })
+        return res.status(400).json({ message: 'customServices dwe yon lis.' })
       }
     } else if (typeof data !== 'object' || data === null) {
       return res.status(400).json({ message: 'Done paramèt pa valid.' })
@@ -1265,11 +1281,10 @@ router.put('/settings', async (req, res) => {
       )
     } catch (err) {
       // Si seksyon se customServices ak kolòn pa egziste, bay yon mesaj klè
-      if ((section === 'customServices' && err.message?.includes('custom_services')) ||
-          (section === 'customLabTests' && err.message?.includes('custom_lab_tests'))) {
-        console.error(`[PUT /settings] kolòn ${section} pa egziste — egzekite migration`)
+      if (section === 'customServices' && err.message?.includes('custom_services')) {
+        console.error('[PUT /settings] custom_services kolòn pa egziste — egzekite migration 003 sou Supabase')
         return res.status(503).json({
-          message: 'Kolòn pa disponib ankò. Egzekite dènye migration SQL sou Supabase.'
+          message: 'Sèvis pèsonalize pa disponib ankò. Egzekite migration 003 sou baz done a.'
         })
       }
       throw err
