@@ -568,15 +568,15 @@ router.get('/hospitalizations/:id', async (req, res) => {
 router.post('/hospitalizations', async (req, res) => {
   try {
     const { id, createdAt, updatedAt, patient,
-            numeroChambre, diagnostic, traitement, ...rest } = req.body
+            numeroChambre, diagnostic, traitement, protokol, ...rest } = req.body
     const hosp = await prisma.klinikHospitalization.create({
       data: {
         ...rest,
-        tenantId:       tid(req),
-        chambre:        numeroChambre || rest.chambre || null,
-        diagnosticFinal: diagnostic   || null,
-        // traitement pa nan schema — mete nan notes si disponib
-        notes: rest.notes || traitement || null,
+        tenantId:        tid(req),
+        chambre:         numeroChambre || rest.chambre || null,
+        diagnosticFinal: diagnostic    || null,
+        notes:           rest.notes    || traitement   || null,
+        protokol:        protokol ? (typeof protokol === 'string' ? JSON.parse(protokol) : protokol) : null,
       },
       include: { patient: { select: { nom:true, prenom:true } } },
     })
@@ -587,14 +587,15 @@ router.post('/hospitalizations', async (req, res) => {
 router.put('/hospitalizations/:id', async (req, res) => {
   try {
     const { id, tenantId, createdAt, updatedAt, patient,
-            numeroChambre, diagnostic, traitement, ...rest } = req.body
+            numeroChambre, diagnostic, traitement, protokol, ...rest } = req.body
     const hosp = await prisma.klinikHospitalization.update({
       where: { id: req.params.id },
       data: {
         ...rest,
-        chambre:         numeroChambre || rest.chambre || null,
+        chambre:         numeroChambre || rest.chambre  || null,
         diagnosticFinal: diagnostic    || null,
-        notes:           rest.notes    || traitement   || null,
+        notes:           rest.notes    || traitement    || null,
+        protokol:        protokol ? (typeof protokol === 'string' ? JSON.parse(protokol) : protokol) : null,
       },
       include: { patient: { select: { nom:true, prenom:true } } },
     })

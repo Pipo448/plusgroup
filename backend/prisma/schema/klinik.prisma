@@ -211,6 +211,7 @@ model KlinikHospitalization {
   statut          HospitalizationStatut @default(admis)
   notes           String?
   signeVitaux     Json?                 @map("signe_vitaux") // ⭐ Array mesirman Siy Vito
+  protokol        Json?                 // ⭐ Protocole thérapeutique (I-VI)
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
 
