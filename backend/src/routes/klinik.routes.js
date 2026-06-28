@@ -639,16 +639,16 @@ router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
 router.get('/services', async (req, res) => {
   try {
     const tenantId = tid(req)
-    const { serviceType, search, patientId, date, status, page = 1, limit = 20 } = req.query
+    const { serviceType, search, patientId, hospId, date, status, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
     // ⭐ Defansif — kast tou de bò an TEKS pou evite konfli tip
-    // (Sa mache si tenant_id se text OU uuid, ak si patient_id se text OU uuid)
     let where = `WHERE ks.tenant_id::text = $1::text`
     const params = [tenantId]
     let idx = 2
     if (serviceType) { where += ` AND ks.service_type = $${idx++}`; params.push(serviceType) }
     if (patientId)   { where += ` AND ks.patient_id::text = $${idx++}::text`; params.push(patientId) }
     if (status)      { where += ` AND ks.status = $${idx++}`;          params.push(status) }
+    if (hospId)      { where += ` AND ks.notes LIKE $${idx++}`;         params.push(`%[HOSP:${hospId}]%`) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
 
     // ⭐ Filtre dat (today / week / month) — itil pou paj Kes (Istorik + Stats)
