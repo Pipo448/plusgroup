@@ -184,6 +184,41 @@ router.put('/patients/:id', async (req, res) => {
     res.status(500).json({ message: e.message })
   }
 })
+
+// ── DELETE /klinik/patients/:id ── Efase pasyan + tout dosye li ──
+router.delete('/patients/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const tenantId = tid(req)
+
+    // Verifye pasyan an ekziste ak menm tenant an
+    const existing = await prisma.$queryRaw`
+      SELECT id FROM klinik_patients
+      WHERE id::text = ${id} AND tenant_id::text = ${tenantId}
+      LIMIT 1
+    `
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Pasyan pa jwenn' })
+    }
+
+    // Efase tout dosye lye — lòd enpòtan (fk constraints)
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM klinik_services         WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_lab_orders       WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_prescriptions    WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_hospitalizations WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_consultations    WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_appointments     WHERE patient_id::text = ${id}`,
+      prisma.$executeRaw`DELETE FROM klinik_patients         WHERE id::text = ${id}`,
+    ])
+
+    console.log(`[DELETE /patients] Pasyan ${id} + tout dosye efase`)
+    res.json({ ok: true, message: 'Pasyan ak tout dosye li efase' })
+  } catch(e) {
+    console.error('[DELETE /patients] erè:', e.message)
+    res.status(500).json({ message: e.message })
+  }
+})
  
 // ═══════════════════════════════════════════════════════════════
 // RANDEVOU
