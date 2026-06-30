@@ -567,40 +567,86 @@ router.get('/hospitalizations/:id', async (req, res) => {
 
 router.post('/hospitalizations', async (req, res) => {
   try {
-    const { id, createdAt, updatedAt, patient,
-            numeroChambre, diagnostic, traitement, protokol, ...rest } = req.body
+    const {
+      patientId, doctorName, motifAdmission, dateAdmission,
+      numeroChambre, chambre, lit, statut,
+      diagnostic, traitement, notes, protokol,
+    } = req.body
+
+    const parseProto = (p) => {
+      if (!p) return undefined
+      try { return typeof p === 'string' ? JSON.parse(p) : p } catch { return undefined }
+    }
+
+    const data = {
+      tenantId:        tid(req),
+      patientId,
+      doctorName:      doctorName || '',
+      motifAdmission:  motifAdmission || '',
+      dateAdmission:   dateAdmission ? new Date(dateAdmission) : new Date(),
+      numeroChambre:   numeroChambre || chambre || null,
+      chambre:         numeroChambre || chambre || null,
+      lit:             lit || null,
+      statut:          statut || 'admis',
+      diagnosticFinal: diagnostic || null,
+      notes:           notes || traitement || null,
+    }
+
+    // Ajoute protokol sèlman si kolòn nan disponib nan schema
+    const proto = parseProto(protokol)
+    if (proto !== undefined) data.protokol = proto
+
     const hosp = await prisma.klinikHospitalization.create({
-      data: {
-        ...rest,
-        tenantId:        tid(req),
-        chambre:         numeroChambre || rest.chambre || null,
-        diagnosticFinal: diagnostic    || null,
-        notes:           rest.notes    || traitement   || null,
-        protokol:        protokol ? (typeof protokol === 'string' ? JSON.parse(protokol) : protokol) : null,
-      },
+      data,
       include: { patient: { select: { nom:true, prenom:true } } },
     })
     res.status(201).json({ hospitalization: hosp })
-  } catch(e) { res.status(500).json({ message: e.message }) }
+  } catch(e) {
+    console.error('POST /hospitalizations error:', e.message)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.put('/hospitalizations/:id', async (req, res) => {
   try {
-    const { id, tenantId, createdAt, updatedAt, patient,
-            numeroChambre, diagnostic, traitement, protokol, ...rest } = req.body
+    const {
+      patientId, doctorName, motifAdmission, dateAdmission,
+      numeroChambre, chambre, lit, statut,
+      diagnostic, traitement, notes, protokol,
+    } = req.body
+
+    const parseProto = (p) => {
+      if (!p) return undefined
+      try { return typeof p === 'string' ? JSON.parse(p) : p } catch { return undefined }
+    }
+
+    const data = {
+      patientId,
+      doctorName:      doctorName || '',
+      motifAdmission:  motifAdmission || '',
+      dateAdmission:   dateAdmission ? new Date(dateAdmission) : undefined,
+      numeroChambre:   numeroChambre || chambre || null,
+      chambre:         numeroChambre || chambre || null,
+      lit:             lit || null,
+      statut:          statut || 'admis',
+      diagnosticFinal: diagnostic || null,
+      notes:           notes || traitement || null,
+    }
+
+    // Ajoute protokol sèlman si kolòn nan disponib nan schema
+    const proto = parseProto(protokol)
+    if (proto !== undefined) data.protokol = proto
+
     const hosp = await prisma.klinikHospitalization.update({
       where: { id: req.params.id },
-      data: {
-        ...rest,
-        chambre:         numeroChambre || rest.chambre  || null,
-        diagnosticFinal: diagnostic    || null,
-        notes:           rest.notes    || traitement    || null,
-        protokol:        protokol ? (typeof protokol === 'string' ? JSON.parse(protokol) : protokol) : null,
-      },
+      data,
       include: { patient: { select: { nom:true, prenom:true } } },
     })
     res.json({ hospitalization: hosp })
-  } catch(e) { res.status(500).json({ message: e.message }) }
+  } catch(e) {
+    console.error('PUT /hospitalizations error:', e.message)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.patch('/hospitalizations/:id/decharge', async (req, res) => {
