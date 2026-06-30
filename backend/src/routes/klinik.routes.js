@@ -595,6 +595,8 @@ router.delete('/hospitalizations/:id', async (req, res) => {
     res.json({ ok: true })
   } catch(e) { console.error('[DELETE /hospitalizations]', e.message); res.status(500).json({ message: e.message }) }
 })
+
+router.patch('/lab-orders/:orderId/items/:itemId/resultat', async (req, res) => {
   try {
     const { valeur, unite, estAnormal, notesResultat } = req.body
     const item = await prisma.klinikLabItem.update({
