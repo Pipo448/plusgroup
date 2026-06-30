@@ -439,9 +439,21 @@ router.put('/consultations/:id', async (req, res) => {
     res.status(500).json({ message: e.message })
   }
 })
-// ═══════════════════════════════════════════════════════════════
-// PRESKRIPSYON
-// ═══════════════════════════════════════════════════════════════
+
+// ── DELETE /klinik/consultations/:id ─────────────────────────
+router.delete('/consultations/:id', async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM klinik_services WHERE notes LIKE ${'%[KONSULT:' + req.params.id + ']%'}`,
+      prisma.$executeRaw`DELETE FROM klinik_prescription_items pi USING klinik_prescriptions p WHERE pi.prescription_id = p.id AND p.consultation_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_prescriptions WHERE consultation_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_lab_order_items li USING klinik_lab_orders lo WHERE li.lab_order_id = lo.id AND lo.consultation_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_lab_orders WHERE consultation_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_consultations WHERE id = ${req.params.id}::uuid`,
+    ])
+    res.json({ ok: true })
+  } catch(e) { console.error('[DELETE /consultations]', e.message); res.status(500).json({ message: e.message }) }
+})
 router.get('/prescriptions', async (req, res) => {
   try {
     const { patientId, statut, page = 1, limit = 20 } = req.query
@@ -494,9 +506,16 @@ router.put('/prescriptions/:id', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
-// ═══════════════════════════════════════════════════════════════
-// LABORATWA
-// ═══════════════════════════════════════════════════════════════
+// ── DELETE /klinik/prescriptions/:id ─────────────────────────
+router.delete('/prescriptions/:id', async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM klinik_prescription_items WHERE prescription_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_prescriptions WHERE id = ${req.params.id}::uuid`,
+    ])
+    res.json({ ok: true })
+  } catch(e) { console.error('[DELETE /prescriptions]', e.message); res.status(500).json({ message: e.message }) }
+})
 router.get('/lab-orders', async (req, res) => {
   try {
     const { patientId, statut, page = 1, limit = 20 } = req.query
@@ -554,7 +573,28 @@ router.put('/lab-orders/:id', async (req, res) => {
     res.json({ labOrder })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
-router.patch('/lab-orders/:orderId/items/:itemId/resultat', async (req, res) => {
+
+// ── DELETE /klinik/lab-orders/:id ────────────────────────────
+router.delete('/lab-orders/:id', async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM klinik_lab_order_items WHERE lab_order_id = ${req.params.id}::uuid`,
+      prisma.$executeRaw`DELETE FROM klinik_lab_orders WHERE id = ${req.params.id}::uuid`,
+    ])
+    res.json({ ok: true })
+  } catch(e) { console.error('[DELETE /lab-orders]', e.message); res.status(500).json({ message: e.message }) }
+})
+
+// ── DELETE /klinik/hospitalizations/:id ──────────────────────
+router.delete('/hospitalizations/:id', async (req, res) => {
+  try {
+    await prisma.$transaction([
+      prisma.$executeRaw`DELETE FROM klinik_services WHERE notes LIKE ${'%[HOSP:' + req.params.id + ']%'}`,
+      prisma.$executeRaw`DELETE FROM klinik_hospitalizations WHERE id = ${req.params.id}::uuid`,
+    ])
+    res.json({ ok: true })
+  } catch(e) { console.error('[DELETE /hospitalizations]', e.message); res.status(500).json({ message: e.message }) }
+})
   try {
     const { valeur, unite, estAnormal, notesResultat } = req.body
     const item = await prisma.klinikLabItem.update({
