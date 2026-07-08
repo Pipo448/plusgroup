@@ -72,7 +72,12 @@ app.use(cors({
     'https://plusgroupe.com',
     /\.plusgroupe\.com$/,
     /\.plusinnovation\.ht$/,
-    /\.onrender\.com$/
+    /\.onrender\.com$/,
+    // ✅ NOUVO — Capacitor Android / iOS (APK)
+    'https://localhost',
+    'capacitor://localhost',
+    'ionic://localhost',
+    /^http:\/\/localhost(:\d+)?$/
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -194,7 +199,7 @@ server.listen(PORT, () => {
   logger.info(`🚀 PLUS GROUP SaaS API démarré sur le port ${PORT}`);
   logger.info(`📦 Environnement: ${process.env.NODE_ENV}`);
   logger.info(`🌐 URL: ${process.env.API_URL}`);
-  logger.info(`✅ CORS aktivé pou: localhost, plusgroup-frontend.onrender.com, app.plusgroupe.com`);
+  logger.info(`✅ CORS aktivé pou: localhost, plusgroup-frontend.onrender.com, app.plusgroupe.com, Capacitor APK`);
 
   startScheduler();
 });
