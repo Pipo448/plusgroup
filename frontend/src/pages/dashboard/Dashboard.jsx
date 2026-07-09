@@ -204,6 +204,7 @@ export default function Dashboard() {
     { icon:'💳', name:'Kanè Epay',         badge:'Pèman',                                       gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay'  },
     { icon:'📱', name:'Sabotay',           badge:'Sol',                                         gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'    },
     { icon:'📲', name:'MonCash / NatCash', badge:'Pèman',                                       gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay'   },
+    { icon:'🖨️', name:'Tès Enprimant',     badge:'POS',                                         gradient:'linear-gradient(135deg,#0EA5E9,#0369A1)', path:'/app/printer-test' },
   ], [dashboard?.totalUnpaid?._count, lowStock.length])
 
   return (

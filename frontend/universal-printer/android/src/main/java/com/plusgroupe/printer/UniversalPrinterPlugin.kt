@@ -10,6 +10,7 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import android.Manifest
 import org.json.JSONArray
 
@@ -65,10 +66,8 @@ class UniversalPrinterPlugin : Plugin() {
         val cutAtEnd = call.getBoolean("cutAtEnd", true) ?: true
         val beepAtEnd = call.getBoolean("beepAtEnd", false) ?: false
 
-        // Konvèti JSArray → JSONArray
         val lines = JSONArray(linesArg.toString())
 
-        // Ajoute cut ak beep si mande
         if (cutAtEnd) {
             lines.put(JSObject().apply { put("type", "feed"); put("lines", 3) })
             lines.put(JSObject().apply { put("type", "cut") })
@@ -77,7 +76,6 @@ class UniversalPrinterPlugin : Plugin() {
             lines.put(JSObject().apply { put("type", "beep") })
         }
 
-        // Enprime nan yon thread separe pou pa bloke UI
         Thread {
             val result = printerManager.print(lines, copies)
             val response = JSObject().apply {
@@ -138,11 +136,34 @@ class UniversalPrinterPlugin : Plugin() {
     }
 
     // ═══════════════════════════════════════════════════
-    // BLUETOOTH
+    // BLUETOOTH — ✅ KORIJE: mande pèmisyon runtime anvan
     // ═══════════════════════════════════════════════════
 
     @PluginMethod
     fun scanBluetoothPrinters(call: PluginCall) {
+        // ✅ Verifye pèmisyon anvan — si manke, mande yo epi tann repons
+        if (getPermissionState("bluetooth") != com.getcapacitor.PermissionState.GRANTED) {
+            requestPermissionForAlias("bluetooth", call, "bluetoothPermsCallback")
+            return
+        }
+        doScanBluetoothPrinters(call)
+    }
+
+    @PermissionCallback
+    private fun bluetoothPermsCallback(call: PluginCall) {
+        if (getPermissionState("bluetooth") == com.getcapacitor.PermissionState.GRANTED) {
+            // Detèmine ki metòd ki te rele orijinèlman selon sa nou sove nan call la
+            val methodName = call.getString("__pendingMethod")
+            when (methodName) {
+                "connect" -> doConnectBluetoothPrinter(call)
+                else -> doScanBluetoothPrinters(call)
+            }
+        } else {
+            call.reject("Pèmisyon Bluetooth refize. Ale nan Paramèt aparèy la pou aktive l manyèlman.")
+        }
+    }
+
+    private fun doScanBluetoothPrinters(call: PluginCall) {
         try {
             val btManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
             val adapter: BluetoothAdapter? = btManager.adapter
@@ -152,7 +173,7 @@ class UniversalPrinterPlugin : Plugin() {
                 return
             }
             if (!adapter.isEnabled) {
-                call.reject("Bluetooth pa aktive")
+                call.reject("Bluetooth pa aktive. Tanpri aktive Bluetooth nan Paramèt.")
                 return
             }
 
@@ -191,10 +212,25 @@ class UniversalPrinterPlugin : Plugin() {
             return
         }
 
+        // ✅ Verifye pèmisyon anvan konekte tou
+        if (getPermissionState("bluetooth") != com.getcapacitor.PermissionState.GRANTED) {
+            call.data.put("__pendingMethod", "connect")
+            requestPermissionForAlias("bluetooth", call, "bluetoothPermsCallback")
+            return
+        }
+        doConnectBluetoothPrinter(call)
+    }
+
+    private fun doConnectBluetoothPrinter(call: PluginCall) {
+        val address = call.getString("address")
+        if (address.isNullOrEmpty()) {
+            call.reject("Paramèt 'address' obligatwa")
+            return
+        }
+
         val btDriver = printerManager.getBluetoothDriver()
         btDriver.saveAddress(address)
 
-        // Fè re-deteksyon paske Bluetooth kounye a disponib
         printerManager.refresh()
 
         val result = JSObject().apply {
@@ -213,7 +249,6 @@ class UniversalPrinterPlugin : Plugin() {
 
     @PluginMethod
     fun openCashDrawer(call: PluginCall) {
-        // TODO: Implémente nan pwochen sesyon (pou POS ki gen kes drawer)
         val result = JSObject().apply {
             put("success", false)
             put("message", "Kes drawer poko sipòte")

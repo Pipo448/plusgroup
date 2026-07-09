@@ -9,6 +9,8 @@ import { usePrinterStore } from '../../stores/printerStore'
 import { isAndroid, isSunmi } from '../../services/printerService'
 // ✅ NOUVO — HTML/Windows driver printing pou RP327 USB
 import { printInvoiceHTML } from '../../services/printReceiptHTML'
+// ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) pou APK Android
+import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
@@ -413,6 +415,8 @@ export default function InvoiceDetail() {
   const [qrDataUrl, setQrDataUrl]     = useState(null)
   const [logoBase64, setLogoBase64]   = useState(null)
   const [printing, setPrinting]       = useState(false)
+  // ✅ NOUVO — eta pou enprime native (Bluetooth/Sunmi/etc via plugin)
+  const [printingNative, setPrintingNative] = useState(false)
 
   const [payData, setPayData] = useState({ amountHtg: '', method: 'cash', reference: '', dueDate: '' })
 
@@ -532,6 +536,21 @@ export default function InvoiceDetail() {
 
   const handleSunmiPrint = () => {
     print(invoice, tenant, user)
+  }
+
+  // ✅ NOUVO — Enprime dirèkteman via plugin native (Bluetooth/Sunmi/iMin/Telpo)
+  // Sa a mache SÈLMAN nan APK Capacitor — pa nan navigatè web
+  const handlePrintNative = async () => {
+    setPrintingNative(true)
+    const toastId = toast.loading('Ap voye resi bay enprimant...')
+    try {
+      await printInvoiceNative(invoice, tenant, user)
+      toast.success('Resi enprime!', { id: toastId })
+    } catch (err) {
+      toast.error('Erè enprime: ' + err.message, { id: toastId })
+    } finally {
+      setPrintingNative(false)
+    }
   }
 
   const downloadPdf = async (size) => {
@@ -668,6 +687,19 @@ export default function InvoiceDetail() {
             <Printer size={14} />
             {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
           </button>
+
+          {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman parèt nan APK */}
+          {isNativePrinterAvailable() && (
+            <button
+              onClick={handlePrintNative}
+              disabled={printingNative}
+              className="btn-secondary btn-sm"
+              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)' }}
+            >
+              <Bluetooth size={14} />
+              {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
+            </button>
+          )}
 
           {onSunmi && (
             <button

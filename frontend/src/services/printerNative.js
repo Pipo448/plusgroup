@@ -1,0 +1,191 @@
+// src/services/printerNative.js
+// ══════════════════════════════════════════════════════════════
+// PLUS GROUP — Enpresyon NATIVE via UniversalPrinter plugin
+// Itilize nan APK Capacitor sèlman (Bluetooth/Sunmi/iMin/Telpo)
+// ══════════════════════════════════════════════════════════════
+
+import { Capacitor } from '@capacitor/core'
+
+const fmtN = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+
+const fmtDate = (d) => {
+  if (!d) return ''
+  const date = new Date(d)
+  if (isNaN(date.getTime())) return ''
+  return date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+const STATUS_LABELS = {
+  unpaid:    'PA PEYE',
+  partial:   'DEPO (PASYÈL)',
+  paid:      'PEYE',
+  cancelled: 'ANILE',
+  refunded:  'REMÈT',
+}
+
+/**
+ * Èske plugin native a disponib sou aparèy sa a?
+ * (Sèlman nan APK Capacitor — pa nan navigatè web)
+ */
+export function isNativePrinterAvailable() {
+  return Capacitor.isNativePlatform()
+}
+
+/**
+ * Konstwi liy yo pou enprime yon fakti, epi voye yo bay
+ * plugin UniversalPrinter la (Sunmi/iMin/Telpo/Bluetooth otomatik).
+ */
+export async function printInvoiceNative(invoice, tenant, cashier = null) {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
+  }
+
+  // ✅ Import dinamik — pa kraze build web la si plugin pa disponib
+  const { UniversalPrinter } = await import('@capacitor-plus/universal-printer')
+
+  const snap        = invoice.clientSnapshot || {}
+  const totalHtg     = Number(invoice.totalHtg      || 0)
+  const paidHtg       = Number(invoice.amountPaidHtg  || 0)
+  const balanceHtg    = Number(invoice.balanceDueHtg  || 0)
+  const isPaid        = invoice.status === 'paid'
+  const isPartial     = invoice.status === 'partial'
+  const isCancelled   = invoice.status === 'cancelled'
+
+  const lines = []
+
+  // ─── HEADER: Non konpayi ───
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
+  if (tenant?.address) {
+    lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
+  }
+  if (tenant?.phone) {
+    lines.push({ type: 'text', content: `Tel: ${tenant.phone}`, align: 'center', size: 'small', bold: true })
+  }
+
+  // ─── Logo (si genyen) ───
+  if (tenant?.logoUrl) {
+    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+
+  // ─── Enfo fakti ───
+  lines.push({ type: 'text', content: `Dat: ${fmtDate(invoice.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Fakti: ${invoice.invoiceNumber || ''}`, bold: true })
+  if (cashier?.fullName || cashier?.email) {
+    lines.push({ type: 'text', content: `Kasyè: ${cashier.fullName || cashier.email}`, size: 'small' })
+  }
+  if (snap.name) {
+    lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+  }
+  if (snap.phone) {
+    lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
+  }
+
+  lines.push({ type: 'divider' })
+
+  // ─── Atik yo ───
+  const items = invoice.items || []
+  for (const item of items) {
+    const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+    const qty = Number(item.quantity)
+    const pri = fmtN(item.unitPriceHtg)
+    const tot = fmtN(item.totalHtg)
+
+    lines.push({ type: 'text', content: nom, bold: true })
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: `${qty} x ${pri}`, width: 60, align: 'left' },
+        { text: `${tot} HTG`,      width: 40, align: 'right' },
+      ]
+    })
+
+    if (Number(item.discountPct) > 0) {
+      lines.push({ type: 'text', content: `  ↳ Remiz: -${item.discountPct}%`, size: 'small' })
+    }
+  }
+
+  lines.push({ type: 'divider' })
+
+  // ─── Totaux ───
+  lines.push({
+    type: 'table',
+    columns: [
+      { text: 'SOUS-TOTAL', width: 60, align: 'left' },
+      { text: `${fmtN(invoice.subtotalHtg || totalHtg)} HTG`, width: 40, align: 'right' },
+    ]
+  })
+
+  if (Number(invoice.discountHtg) > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Rabè', width: 60, align: 'left' },
+        { text: `-${fmtN(invoice.discountHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  if (Number(invoice.taxHtg) > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: `Taks (${Number(invoice.taxRate || 0)}%)`, width: 60, align: 'left' },
+        { text: `${fmtN(invoice.taxHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+
+  // ─── TOTAL an gwo ───
+  lines.push({ type: 'text', content: `TOTAL: ${fmtN(totalHtg)} HTG`, bold: true, size: 'large', align: 'right' })
+
+  // ─── Estati peman ───
+  if (isCancelled) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: '✗ FAKTI ANILE', align: 'center', bold: true, size: 'large' })
+  } else if (isPaid) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: '✓ PEYE KONPLÈ', align: 'center', bold: true })
+  } else if (isPartial) {
+    lines.push({ type: 'divider' })
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Depo peye', width: 60, align: 'left' },
+        { text: `${fmtN(paidHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Rete pou peye', width: 60, align: 'left' },
+        { text: `${fmtN(balanceHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  } else {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: `POU PEYE: ${fmtN(balanceHtg)} HTG`, align: 'center', bold: true })
+  }
+
+  lines.push({ type: 'space' })
+
+  // ─── Footer ───
+  lines.push({ type: 'text', content: 'Mèsi pou konfyans ou!', align: 'center', bold: true, size: 'small' })
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
+
+  // ─── Voye nan plugin la ───
+  const result = await UniversalPrinter.print({
+    lines,
+    copies: 1,
+    cutAtEnd: true,
+  })
+
+  if (!result.success) {
+    throw new Error(result.message || 'Erè pandan enprime')
+  }
+
+  return result
+}

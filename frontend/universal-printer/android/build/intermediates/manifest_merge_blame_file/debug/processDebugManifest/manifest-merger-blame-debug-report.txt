@@ -1,0 +1,53 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.plusgroupe.printer" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <!-- Pou Bluetooth ESC/POS enprimant -->
+8    <uses-permission android:name="android.permission.BLUETOOTH" />
+8-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:5-68
+8-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:22-65
+9    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+9-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:6:5-74
+9-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:6:22-71
+10
+11    <!-- Android 12+ (API 31+) -->
+12    <uses-permission
+12-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:5-10:58
+13        android:name="android.permission.BLUETOOTH_SCAN"
+13-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:22-70
+14        android:usesPermissionFlags="neverForLocation" />
+14-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:10:9-55
+15    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+15-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:11:5-76
+15-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:11:22-73
+16
+17    <!-- Pou skanere aparèy Bluetooth sou vye vèsyon Android -->
+18    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+18-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:5-81
+18-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:22-78
+19    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+19-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:15:5-79
+19-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:15:22-76
+20
+21    <!-- Sunmi enprimant service (pou detekte automate) -->
+22    <queries>
+22-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:18:5-25:15
+23        <package android:name="woyou.aidlservice.jiuiv5" />
+23-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:19:9-60
+23-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:19:18-57
+24        <package android:name="woyou.aidlservice.jiuv5" />
+24-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:20:9-59
+24-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:20:18-56
+25        <!-- iMin -->
+26        <package android:name="com.imin.printerservice" />
+26-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:9-59
+26-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:18-56
+27        <!-- Telpo -->
+28        <package android:name="com.telpo.tps550.api" />
+28-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:24:9-56
+28-->C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:24:18-53
+29    </queries>
+30
+31</manifest>
