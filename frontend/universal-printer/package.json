@@ -2,36 +2,17 @@
   "name": "@capacitor-plus/universal-printer",
   "version": "1.0.0",
   "description": "Universal thermal printer plugin for POS devices (Sunmi, iMin, Telpo, Bluetooth ESC/POS)",
-  "main": "dist/plugin.cjs.js",
-  "module": "dist/esm/index.js",
-  "types": "dist/esm/index.d.ts",
+  "main": "src/index.js",
+  "module": "src/index.js",
   "files": [
     "android/src/main/",
     "android/build.gradle",
-    "dist/",
+    "src/",
     "ios/Plugin/",
     "CapacitorPlusUniversalPrinter.podspec"
   ],
   "author": "Plus Group",
   "license": "MIT",
-  "scripts": {
-    "verify": "npm run verify:android && npm run verify:web",
-    "verify:android": "cd android && ./gradlew clean build test && cd ..",
-    "verify:web": "npm run build",
-    "build": "npm run clean && tsc && rollup -c rollup.config.js",
-    "clean": "rimraf ./dist"
-  },
-  "devDependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/docgen": "^0.2.2",
-    "@ionic/prettier-config": "^4.0.0",
-    "@ionic/swiftlint-config": "^2.0.0",
-    "prettier": "~3.5.0",
-    "rimraf": "^5.0.0",
-    "rollup": "^4.0.0",
-    "typescript": "~5.7.0"
-  },
   "peerDependencies": {
     "@capacitor/core": ">=7.0.0"
   },

@@ -1,20 +1,12 @@
 import { WebPlugin } from '@capacitor/core'
 
-import type {
-  UniversalPrinterPlugin,
-  PrinterInfo,
-  PrintOptions,
-  PrintResult,
-  ScanBluetoothResult,
-} from './definitions'
-
 /**
  * Fallback pou navigatè web (Chrome, Firefox, etc.)
  * Itilize window.print() ki jenere yon HTML resi ka enprime.
  */
-export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPlugin {
+export class UniversalPrinterWeb extends WebPlugin {
 
-  async getInfo(): Promise<PrinterInfo> {
+  async getInfo() {
     return {
       printerType: 'none',
       paperWidth: 80,
@@ -23,7 +15,7 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
     }
   }
 
-  async print(options: PrintOptions): Promise<PrintResult> {
+  async print(options) {
     // Bati HTML resi soti nan liy yo
     const html = this.buildHtml(options)
 
@@ -54,19 +46,19 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
     }
   }
 
-  async scanBluetoothPrinters(): Promise<ScanBluetoothResult> {
+  async scanBluetoothPrinters() {
     return { devices: [] }
   }
 
-  async connectBluetoothPrinter(): Promise<{ success: boolean }> {
+  async connectBluetoothPrinter() {
     return { success: false }
   }
 
-  async disconnectBluetoothPrinter(): Promise<void> {
+  async disconnectBluetoothPrinter() {
     // No-op sou web
   }
 
-  async printTestPage(): Promise<PrintResult> {
+  async printTestPage() {
     return this.print({
       lines: [
         { type: 'text', content: 'PAJ TÈS', align: 'center', size: 'xlarge', bold: true },
@@ -83,7 +75,7 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
   // HELPER PRIVATE
   // ═══════════════════════════════════════════════════
 
-  private buildHtml(options: PrintOptions): string {
+  buildHtml(options) {
     const bodyHtml = options.lines.map(line => this.lineToHtml(line)).join('')
 
     return `
@@ -122,7 +114,7 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
     `
   }
 
-  private lineToHtml(line: any): string {
+  lineToHtml(line) {
     switch (line.type) {
       case 'text': {
         const classes = [
@@ -141,10 +133,9 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
         return `<div class="${line.align || 'center'}"><img src="${line.url}" alt=""/></div>`
       case 'qrcode':
       case 'barcode':
-        // Pou sipò senp: jis afiche kòd la kòm tèks
         return `<div class="${line.align || 'center'} small">[${line.type.toUpperCase()}] ${this.escapeHtml(line.content)}</div>`
       case 'table': {
-        const cells = line.columns.map((c: any) =>
+        const cells = line.columns.map((c) =>
           `<td style="width:${c.width}%; text-align:${c.align || 'left'}">${this.escapeHtml(c.text)}</td>`
         ).join('')
         return `<table><tr>${cells}</tr></table>`
@@ -153,13 +144,13 @@ export class UniversalPrinterWeb extends WebPlugin implements UniversalPrinterPl
         return `<div style="height:${(line.lines || 3) * 12}px"></div>`
       case 'cut':
       case 'beep':
-        return '' // Ignore sou web
+        return ''
       default:
         return ''
     }
   }
 
-  private escapeHtml(text: string): string {
+  escapeHtml(text) {
     const div = document.createElement('div')
     div.textContent = text
     return div.innerHTML
