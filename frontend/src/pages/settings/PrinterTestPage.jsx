@@ -1,7 +1,14 @@
 // src/pages/settings/PrinterTestPage.jsx
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { UniversalPrinter } from '@capacitor-plus/universal-printer'
+import { Capacitor } from '@capacitor/core'
+
+let UniversalPrinter = null
+if (Capacitor.isNativePlatform()) {
+  import('@capacitor-plus/universal-printer').then(m => {
+    UniversalPrinter = m.UniversalPrinter
+  })
+}
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Bluetooth, Printer, Search, CheckCircle2, XCircle,

@@ -3,4 +3,4 @@ include ':capacitor-android'
 project(':capacitor-android').projectDir = new File('../node_modules/@capacitor/android/capacitor')
 
 include ':capacitor-plus-universal-printer'
-project(':capacitor-plus-universal-printer').projectDir = new File('../../plugin/android')
+project(':capacitor-plus-universal-printer').projectDir = new File('../universal-printer/android')
