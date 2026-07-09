@@ -7,6 +7,23 @@ import './i18n/config'  // ← AJOUTE SA LA A!
 import App from './App'
 import './index.css'
 
+// ✅ NOUVO — Jere bouton back fizik nan APK Android
+// Sa anpeche app la disparèt/fèmen otomatikman lè itilizatè peze
+// back apre yon aksyon tankou window.print() oswa nenpòt lòt aktivite Android
+import { Capacitor } from '@capacitor/core'
+import { App as CapacitorApp } from '@capacitor/app'
+
+if (Capacitor.isNativePlatform()) {
+  CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+    if (canGoBack) {
+      window.history.back()
+    } else {
+      // Nou sou premye paj la (pa gen istwa navigasyon) — kite app la fèmen nòmalman
+      CapacitorApp.exitApp()
+    }
+  })
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

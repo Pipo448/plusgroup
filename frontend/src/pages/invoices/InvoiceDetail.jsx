@@ -678,15 +678,19 @@ export default function InvoiceDetail() {
 
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
 
-          <button
-            onClick={handlePrint}
-            disabled={printing}
-            className="btn-secondary btn-sm"
-            style={{ display:'flex', alignItems:'center', gap:6 }}
-          >
-            <Printer size={14} />
-            {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
-          </button>
+          {/* ✅ KORIJE — bouton USB (window.print) sèlman sou web, PA sou APK
+              (window.print() lanse yon aktivite separe ki ka fè app la disparèt lè peze back) */}
+          {!isNativePrinterAvailable() && (
+            <button
+              onClick={handlePrint}
+              disabled={printing}
+              className="btn-secondary btn-sm"
+              style={{ display:'flex', alignItems:'center', gap:6 }}
+            >
+              <Printer size={14} />
+              {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
+            </button>
+          )}
 
           {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman parèt nan APK */}
           {isNativePrinterAvailable() && (
@@ -962,15 +966,31 @@ export default function InvoiceDetail() {
               </div>
             </div>
 
-            <button
-              onClick={handlePrint}
-              disabled={printing}
-              className="btn-primary w-full mt-4"
-              style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}
-            >
-              <Printer size={15} />
-              {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
-            </button>
+            {/* ✅ KORIJE — bouton USB sèlman sou web, PA sou APK */}
+            {!isNativePrinterAvailable() && (
+              <button
+                onClick={handlePrint}
+                disabled={printing}
+                className="btn-primary w-full mt-4"
+                style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}
+              >
+                <Printer size={15} />
+                {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
+              </button>
+            )}
+
+            {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman nan APK */}
+            {isNativePrinterAvailable() && (
+              <button
+                onClick={handlePrintNative}
+                disabled={printingNative}
+                className="w-full mt-4"
+                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
+              >
+                <Bluetooth size={15} />
+                {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
+              </button>
+            )}
 
             {onSunmi && (
               <button
