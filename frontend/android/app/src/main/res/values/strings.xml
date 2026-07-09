@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Plus Group</string>
+    <string name="title_activity_main">Plus Group</string>
+    <string name="package_name">com.plusgroupe.app</string>
+    <string name="custom_url_scheme">com.plusgroupe.app</string>
+</resources>

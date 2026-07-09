@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Capacitor Android
+android/app/build/
+android/.gradle/
+android/build/
+android/local.properties
+android/app/release/
+android/captures/
+android/.idea/
+
+# Env
+.env
+.env.local
+.env.production
+
+# Editor
+.vscode/

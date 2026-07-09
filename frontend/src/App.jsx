@@ -22,6 +22,8 @@ const StockPage          = lazy(() => import('./pages/stock/StockPage'))
 const ReportsPage        = lazy(() => import('./pages/reports/ReportsPage'))
 const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage'))
 const UsersPage          = lazy(() => import('./pages/settings/UsersPage'))
+// ✅ NOUVO — Paj tès enprimant (Bluetooth / Sunmi / iMin / Telpo)
+const PrinterTestPage    = lazy(() => import('./pages/settings/PrinterTestPage'))
 const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'))
 const PlansPage          = lazy(() => import('./pages/plans/PlansPage'))
 const BranchAdminPage    = lazy(() => import('./pages/branches/BranchAdminPage'))
@@ -118,6 +120,8 @@ export default function App() {
             <Route path="reports"         element={<ProtectedPage pageKey="reports"><ReportsPage /></ProtectedPage>} />
             <Route path="settings"        element={<ProtectedPage pageKey="settings"><SettingsPage /></ProtectedPage>} />
             <Route path="settings/users"  element={<ProtectedPage pageKey="users"><UsersPage /></ProtectedPage>} />
+            {/* ✅ NOUVO — Paj tès enprimant (aksesib sèlman nan APK) */}
+            <Route path="printer-test"    element={<PrinterTestPage />} />
             <Route path="plans"           element={<PlansPage />} />
             <Route path="branches"        element={<ProtectedPage pageKey="branches"><BranchAdminPage /></ProtectedPage>} />
 
