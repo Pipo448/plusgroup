@@ -1,5 +1,9 @@
 {
   "appId": "com.plusgroupe.app",
   "appName": "Plus Group",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "url": "https://app.plusgroupe.com",
+    "cleartext": true
+  }
 }
