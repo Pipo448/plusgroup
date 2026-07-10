@@ -6,7 +6,11 @@
 
 import { Capacitor } from '@capacitor/core'
 
-const fmtN = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmtN = (n) => Number(n || 0)
+  .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  // ✅ KORIJE — retire "espas san koupe" (U+00A0) ke toLocaleString ajoute pou milye yo.
+  // Karaktè sa a se 2 bytes an UTF-8, li fè enprimant Bluetooth "korompi" l an fo-karaktè chinwa.
+  .replace(/\u00A0/g, ' ')
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -59,7 +63,11 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
   }
   if (tenant?.phone) {
-    lines.push({ type: 'text', content: `Tel: ${tenant.phone}`, align: 'center', size: 'small', bold: true })
+    // ✅ NOUVO — si gen 2+ nimewo separe pa vigil (,) oswa (/), enprime chak sou pwòp liy pa l
+    const phones = String(tenant.phone).split(/[,\/]/).map(p => p.trim()).filter(Boolean)
+    phones.forEach(phone => {
+      lines.push({ type: 'text', content: `Tel: ${phone}`, align: 'center', size: 'small', bold: true })
+    })
   }
 
   // ─── Logo (si genyen) ───
@@ -102,7 +110,8 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     })
 
     if (Number(item.discountPct) > 0) {
-      lines.push({ type: 'text', content: `  ↳ Remiz: -${item.discountPct}%`, size: 'small' })
+      // ✅ KORIJE — '↳' pa nan codepage Windows-1252, ranplase l ak ekivalan ASCII
+      lines.push({ type: 'text', content: `  -> Remiz: -${item.discountPct}%`, size: 'small' })
     }
   }
 
@@ -145,10 +154,10 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   // ─── Estati peman ───
   if (isCancelled) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: '✗ FAKTI ANILE', align: 'center', bold: true, size: 'large' })
+    lines.push({ type: 'text', content: 'X FAKTI ANILE', align: 'center', bold: true, size: 'large' })
   } else if (isPaid) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: '✓ PEYE KONPLÈ', align: 'center', bold: true })
+    lines.push({ type: 'text', content: '* PEYE KONPLÈ *', align: 'center', bold: true })
   } else if (isPartial) {
     lines.push({ type: 'divider' })
     lines.push({

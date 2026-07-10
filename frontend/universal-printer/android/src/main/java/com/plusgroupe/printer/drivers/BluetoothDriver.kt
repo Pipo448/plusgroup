@@ -4,12 +4,14 @@ import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.Context
-import android.util.Base64
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.OutputStream
 import java.net.URL
+import java.nio.charset.Charset
 import java.util.UUID
 
 /**
@@ -49,6 +51,9 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
         // Cut
         val CUT_FULL       = byteArrayOf(GS, 0x56, 0x00)
         val CUT_PARTIAL    = byteArrayOf(GS, 0x56, 0x01)
+        // ✅ NOUVO — Seleksyon codepage (Windows-1252) pou aksan Kreyòl/Franse yo (è, ò, à, é)
+        // Sa korije karaktè "chinwa" etranj ki parèt lè ou enprime tèks ak aksan
+        val SELECT_CODEPAGE_1252 = byteArrayOf(ESC, 0x74, 16)
         // Feed
         fun feedLines(n: Int) = byteArrayOf(ESC, 0x64, n.toByte())
         // Beep
@@ -89,6 +94,8 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
             // Enprime kopi yo
             for (copy in 0 until copies) {
                 writeBytes(INIT)
+                // ✅ NOUVO — Chwazi codepage Windows-1252 pou aksan Kreyòl/Franse yo byen enprime
+                writeBytes(SELECT_CODEPAGE_1252)
 
                 for (i in 0 until lines.length()) {
                     val line = lines.getJSONObject(i)
@@ -211,9 +218,85 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
     }
 
     private fun printImage(line: JSONObject) {
-        // TODO: Enprime imaj real — mande konvèsyon bitmap → ESC/POS raster
-        // Pou kounye a, mete yon placeholder
-        writeString("[IMAGE]\n")
+        val urlStr = line.optString("url", "")
+        if (urlStr.isEmpty()) return
+
+        try {
+            // Aline
+            when (line.optString("align", "center")) {
+                "left"  -> writeBytes(ALIGN_LEFT)
+                "right" -> writeBytes(ALIGN_RIGHT)
+                else    -> writeBytes(ALIGN_CENTER)
+            }
+
+            // ✅ NOUVO — Telechaje/dekode vrè imaj la (URL oswa base64 data URI)
+            val bitmap: Bitmap? = if (urlStr.startsWith("data:")) {
+                val base64Data = urlStr.substringAfter(",")
+                val bytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            } else {
+                val connection = URL(urlStr).openConnection()
+                connection.connectTimeout = 6000
+                connection.readTimeout = 6000
+                connection.getInputStream().use { BitmapFactory.decodeStream(it) }
+            }
+
+            if (bitmap == null) {
+                Log.e(TAG, "Pa ka chaje imaj la: $urlStr")
+                writeBytes(ALIGN_LEFT)
+                return
+            }
+
+            printBitmap(bitmap)
+            writeBytes(ALIGN_LEFT)
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Erè enprime imaj: ${e.message}", e)
+            writeBytes(ALIGN_LEFT)
+        }
+    }
+
+    /**
+     * Konvèti yon Bitmap an fòma raster ESC/POS (GS v 0) epi voye l bay enprimant lan.
+     * Sèy nwa/blan senp (threshold) — pa gen dithering pou kounye a.
+     */
+    private fun printBitmap(original: Bitmap) {
+        // 58mm papye ≈ 384 dots nan 203dpi (estanda pou pifò enprimant tèmik 58mm)
+        val targetWidth = 384
+        val scale = targetWidth.toFloat() / original.width
+        val targetHeight = (original.height * scale).toInt().coerceAtLeast(1)
+        val bitmap = Bitmap.createScaledBitmap(original, targetWidth, targetHeight, true)
+
+        val widthBytes = (targetWidth + 7) / 8
+
+        // GS v 0 m xL xH yL yH d1...dk
+        val header = byteArrayOf(
+            GS, 0x76, 0x30, 0x00,
+            (widthBytes and 0xFF).toByte(), ((widthBytes shr 8) and 0xFF).toByte(),
+            (targetHeight and 0xFF).toByte(), ((targetHeight shr 8) and 0xFF).toByte()
+        )
+        writeBytes(header)
+
+        val rowBytes = ByteArray(widthBytes)
+        for (y in 0 until targetHeight) {
+            rowBytes.fill(0)
+            for (x in 0 until targetWidth) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = (pixel shr 16) and 0xFF
+                val g = (pixel shr 8) and 0xFF
+                val b = pixel and 0xFF
+                val gray = (r * 0.299 + g * 0.587 + b * 0.114).toInt()
+                val isBlack = gray < 128
+                if (isBlack) {
+                    val byteIndex = x / 8
+                    val bitIndex = 7 - (x % 8)
+                    rowBytes[byteIndex] = (rowBytes[byteIndex].toInt() or (1 shl bitIndex)).toByte()
+                }
+            }
+            writeBytes(rowBytes)
+        }
+
+        if (!bitmap.isRecycled) bitmap.recycle()
     }
 
     private fun printQrCode(line: JSONObject) {
@@ -289,7 +372,16 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
     }
 
     private fun writeString(text: String) {
-        writeBytes(text.toByteArray(Charsets.UTF_8))
+        // ✅ KORIJE — itilize Windows-1252 olye UTF-8
+        // UTF-8 voye 2 bytes pou chak karaktè aksan (è, ò, à, é) ki fè enprimant lan
+        // "korompi" yo an fo-karaktè chinwa. Windows-1252 kouvri byen aksan Kreyòl/Franse
+        // yo ak yon sèl byte pou chak karaktè, ki matche codepage enprimant lan (WPC1252).
+        val bytes = try {
+            text.toByteArray(Charset.forName("windows-1252"))
+        } catch (e: Exception) {
+            text.toByteArray(Charsets.ISO_8859_1)
+        }
+        writeBytes(bytes)
     }
 
     // ═══════════════════════════════════════════════════
