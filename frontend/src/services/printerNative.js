@@ -27,6 +27,36 @@ const STATUS_LABELS = {
   refunded:  'REMÈT',
 }
 
+// ✅ NOUVO — Retire aksan (é, è, à, ò, ù, ç, ñ...) pou GARANTI konpatibilite
+// ak TOUT enprimant tèmik, menm sa ki pa sipòte codepage Windows-1252 byen.
+// San sa, kèk enprimant montre "?" olye lèt aksan yo.
+const ACCENT_MAP = {
+  'á':'a','à':'a','â':'a','ã':'a','ä':'a','Á':'A','À':'A','Â':'A','Ã':'A','Ä':'A',
+  'é':'e','è':'e','ê':'e','ë':'e','É':'E','È':'E','Ê':'E','Ë':'E',
+  'í':'i','ì':'i','î':'i','ï':'i','Í':'I','Ì':'I','Î':'I','Ï':'I',
+  'ó':'o','ò':'o','ô':'o','õ':'o','ö':'o','Ó':'O','Ò':'O','Ô':'O','Õ':'O','Ö':'O',
+  'ú':'u','ù':'u','û':'u','ü':'u','Ú':'U','Ù':'U','Û':'U','Ü':'U',
+  'ç':'c','Ç':'C','ñ':'n','Ñ':'N',
+}
+const ACCENT_REGEX = /[áàâãäÁÀÂÃÄéèêëÉÈÊËíìîïÍÌÎÏóòôõöÓÒÔÕÖúùûüÚÙÛÜçÇñÑ]/g
+
+function stripAccents(str) {
+  if (!str) return str
+  return String(str).replace(ACCENT_REGEX, ch => ACCENT_MAP[ch] || ch)
+}
+
+// ✅ NOUVO — Netwaye tout liy yo (tèks + tablo) anvan voye bay enprimant lan
+function sanitizeLines(lines) {
+  return lines.map(line => {
+    const l = { ...line }
+    if (l.type === 'text' && l.content) l.content = stripAccents(l.content)
+    if (l.type === 'table' && Array.isArray(l.columns)) {
+      l.columns = l.columns.map(c => ({ ...c, text: stripAccents(c.text) }))
+    }
+    return l
+  })
+}
+
 /**
  * Èske plugin native a disponib sou aparèy sa a?
  * (Sèlman nan APK Capacitor — pa nan navigatè web)
@@ -82,7 +112,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   lines.push({ type: 'text', content: `Dat: ${fmtDate(invoice.issueDate)}`, size: 'small' })
   lines.push({ type: 'text', content: `Fakti: ${invoice.invoiceNumber || ''}`, bold: true })
   if (cashier?.fullName || cashier?.email) {
-    lines.push({ type: 'text', content: `Kasyè: ${cashier.fullName || cashier.email}`, size: 'small' })
+    lines.push({ type: 'text', content: `Kesye: ${cashier.fullName || cashier.email}`, size: 'small' })
   }
   if (snap.name) {
     lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
@@ -195,9 +225,19 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   lines.push({ type: 'text', content: 'Mèsi pou konfyans ou!', align: 'center', bold: true, size: 'small' })
   lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
 
+  // ✅ NOUVO — Nòt/Avètisman konfigirab (paramèt Tenant) ki parèt nan pye paj la
+  if (tenant?.receiptFooterNote) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'divider' })
+    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small' })
+  }
+
+  // ✅ NOUVO — Netwaye aksan yo (é, è, à, ò...) pou evite "?" sou enprimant Bluetooth
+  const cleanLines = sanitizeLines(lines)
+
   // ─── Voye nan plugin la ───
   const result = await UniversalPrinter.print({
-    lines,
+    lines: cleanLines,
     copies: 1,
     cutAtEnd: true,
   })
