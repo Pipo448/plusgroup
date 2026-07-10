@@ -103,6 +103,11 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
                 }
             }
 
+            // ✅ NOUVO — Ti poz final anvan fèmen koneksyon an, pou asire enprimant lan
+            // fin trete/enprime TOUT done yo (sitou imaj) anvan Bluetooth sokèt la fèmen.
+            // San sa, koneksyon fèmen ka koupe done ki poko fin voye/trete.
+            try { Thread.sleep(400) } catch (e: InterruptedException) {}
+
             // Netwaye
             disconnect()
 
@@ -294,7 +299,19 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
                 }
             }
             writeBytes(rowBytes)
+
+            // ✅ NOUVO — Ti poz chak 8 liy pou pa debòde tanpon (buffer) enprimant lan.
+            // San sa, enprimant lan "kanpe" apre imaj la paske li poko fin trete tout done yo
+            // lè koneksyon an fèmen twò vit.
+            if (y % 8 == 0) {
+                try { Thread.sleep(15) } catch (e: InterruptedException) {}
+            }
         }
+
+        // ✅ NOUVO — Bay enprimant lan tan pou l fini enprime tèt tèmik la
+        // (enprime imaj pran plis tan pase tèks — pwopòsyonèl ak wotè imaj la)
+        val estimatedPrintTimeMs = (targetHeight * 4L).coerceAtMost(4000L)
+        try { Thread.sleep(estimatedPrintTimeMs) } catch (e: InterruptedException) {}
 
         if (!bitmap.isRecycled) bitmap.recycle()
     }
