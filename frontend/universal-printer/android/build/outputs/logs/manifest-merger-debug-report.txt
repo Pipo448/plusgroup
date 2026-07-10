@@ -1,55 +1,59 @@
 -- Merging decision tree log ---
 manifest
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:2:1-27:12
-INJECTED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:2:1-27:12
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:2:1-30:12
+INJECTED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:2:1-30:12
 	package
 		INJECTED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml
 	xmlns:android
 		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:5-67
+	android:name
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:22-64
 uses-permission#android.permission.BLUETOOTH
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:5-68
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:8:5-68
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:5:22-65
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:8:22-65
 uses-permission#android.permission.BLUETOOTH_ADMIN
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:6:5-74
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:5-74
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:6:22-71
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:22-71
 uses-permission#android.permission.BLUETOOTH_SCAN
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:5-10:58
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:12:5-13:58
 	android:usesPermissionFlags
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:10:9-55
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:13:9-55
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:9:22-70
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:12:22-70
 uses-permission#android.permission.BLUETOOTH_CONNECT
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:11:5-76
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:5-76
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:11:22-73
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:22-73
 uses-permission#android.permission.ACCESS_COARSE_LOCATION
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:5-81
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:17:5-81
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:14:22-78
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:17:22-78
 uses-permission#android.permission.ACCESS_FINE_LOCATION
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:15:5-79
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:18:5-79
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:15:22-76
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:18:22-76
 queries
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:18:5-25:15
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:21:5-28:15
 package#woyou.aidlservice.jiuiv5
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:19:9-60
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:9-60
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:19:18-57
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:18-57
 package#woyou.aidlservice.jiuv5
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:20:9-59
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:23:9-59
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:20:18-56
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:23:18-56
 package#com.imin.printerservice
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:9-59
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:25:9-59
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:22:18-56
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:25:18-56
 package#com.telpo.tps550.api
-ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:24:9-56
+ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:27:9-56
 	android:name
-		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:24:18-53
+		ADDED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml:27:18-53
 uses-sdk
 INJECTED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from C:\Users\dasne\Documents\plusgroup\frontend\universal-printer\android\src\main\AndroidManifest.xml

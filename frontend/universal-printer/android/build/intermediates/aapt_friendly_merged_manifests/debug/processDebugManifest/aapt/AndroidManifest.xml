@@ -4,6 +4,9 @@
 
     <uses-sdk android:minSdkVersion="24" />
 
+    <!-- ✅ NOUVO — Pou telechaje logo/imaj pou enprime -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Pou Bluetooth ESC/POS enprimant -->
     <uses-permission android:name="android.permission.BLUETOOTH" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />

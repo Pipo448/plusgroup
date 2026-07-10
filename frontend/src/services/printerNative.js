@@ -57,22 +57,23 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
 
   const lines = []
 
-  // ─── HEADER: Non konpayi ───
+  // ─── Logo (si genyen) — DWE PREMYE, anlè tèt tout bagay ───
+  if (tenant?.logoUrl) {
+    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
+    lines.push({ type: 'space' })
+  }
+
+  // ─── HEADER: Non konpayi (apre logo a) ───
   lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
   if (tenant?.address) {
     lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
   }
   if (tenant?.phone) {
-    // ✅ NOUVO — si gen 2+ nimewo separe pa vigil (,) oswa (/), enprime chak sou pwòp liy pa l
+    // ✅ si gen 2+ nimewo separe pa vigil (,) oswa (/), enprime chak sou pwòp liy pa l
     const phones = String(tenant.phone).split(/[,\/]/).map(p => p.trim()).filter(Boolean)
     phones.forEach(phone => {
       lines.push({ type: 'text', content: `Tel: ${phone}`, align: 'center', size: 'small', bold: true })
     })
-  }
-
-  // ─── Logo (si genyen) ───
-  if (tenant?.logoUrl) {
-    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
   }
 
   lines.push({ type: 'divider', char: '=' })
@@ -146,10 +147,19 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     })
   }
 
+  // ─── TOTAL — estrikti tablo (label + montan) an gra, pou l pa "wrap" mal sou papye a ───
+  // (font 'large' konsome 2x plas — sou 58mm sa fè tèks long antre nan yon lòt liy;
+  // yon tablo an gra rete nan yon sèl liy, byen aliye, tankou lòt liy total yo)
   lines.push({ type: 'divider', char: '=' })
-
-  // ─── TOTAL an gwo ───
-  lines.push({ type: 'text', content: `TOTAL: ${fmtN(totalHtg)} HTG`, bold: true, size: 'large', align: 'right' })
+  lines.push({
+    type: 'table',
+    bold: true,
+    columns: [
+      { text: 'TOTAL', width: 40, align: 'left' },
+      { text: `${fmtN(totalHtg)} HTG`, width: 60, align: 'right' },
+    ]
+  })
+  lines.push({ type: 'divider', char: '=' })
 
   // ─── Estati peman ───
   if (isCancelled) {

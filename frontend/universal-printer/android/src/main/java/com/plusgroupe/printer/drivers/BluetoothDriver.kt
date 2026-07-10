@@ -346,6 +346,9 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
     }
 
     private fun printTable(line: JSONObject) {
+        val bold = line.optBoolean("bold", false)
+        if (bold) writeBytes(BOLD_ON)
+
         val columns = line.optJSONArray("columns") ?: return
         val sb = StringBuilder()
         for (i in 0 until columns.length()) {
@@ -356,6 +359,8 @@ class BluetoothDriver(private val context: Context) : PrinterDriver {
             sb.append(text.padEnd(chars).take(chars))
         }
         writeString(sb.toString() + "\n")
+
+        if (bold) writeBytes(BOLD_OFF)
     }
 
     // ═══════════════════════════════════════════════════
