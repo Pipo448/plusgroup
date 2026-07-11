@@ -1,14 +1,7 @@
 // src/pages/settings/PrinterTestPage.jsx
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Capacitor } from '@capacitor/core'
-
-let UniversalPrinter = null
-if (Capacitor.isNativePlatform()) {
-  import('@capacitor-plus/universal-printer').then(m => {
-    UniversalPrinter = m.UniversalPrinter
-  })
-}
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Bluetooth, Printer, Search, CheckCircle2, XCircle,
@@ -24,14 +17,51 @@ export default function PrinterTestPage() {
   const [connecting, setConnecting] = useState(null) // adrès aparèy k ap konekte
   const [printing,   setPrinting]   = useState(false)
 
-  // ─── Chaje enfo enprimant lè paj la louvri
+  // ✅ NOUVO — Chajman DINAMIK ak SEKIRIZE plugin la. Sou kèk aparèy POS (WebView pi vye,
+  // pon Capacitor ki poko fin inisyalize), yon import estatik ka lakòz plugin lan rete
+  // 'null' san avètisman. Chajman dinamik + eta 'ready' anpeche kraze si sa rive.
+  const printerRef = useRef(null)
+  const [pluginReady, setPluginReady] = useState(false)
+  const [pluginError, setPluginError] = useState(null)
+
   useEffect(() => {
-    refreshInfo()
+    let cancelled = false
+
+    async function loadPlugin() {
+      if (!Capacitor.isNativePlatform()) {
+        setPluginError('Paj sa a sèlman mache nan APK Android — pa nan navigatè web.')
+        return
+      }
+      try {
+        const mod = await import('@capacitor-plus/universal-printer')
+        if (cancelled) return
+        if (!mod?.UniversalPrinter) {
+          setPluginError('Plugin enprimant lan pa jwenn sou aparèy sa a. Verifye APK a byen enstale.')
+          return
+        }
+        printerRef.current = mod.UniversalPrinter
+        setPluginReady(true)
+      } catch (e) {
+        if (!cancelled) {
+          setPluginError('Erè chajman plugin: ' + (e?.message || e))
+        }
+      }
+    }
+
+    loadPlugin()
+    return () => { cancelled = true }
   }, [])
 
+  // ─── Chaje enfo enprimant lè plugin la prè
+  useEffect(() => {
+    if (pluginReady) refreshInfo()
+    // eslint-disable-next-line
+  }, [pluginReady])
+
   const refreshInfo = async () => {
+    if (!printerRef.current) return
     try {
-      const data = await UniversalPrinter.getInfo()
+      const data = await printerRef.current.getInfo()
       setInfo(data)
     } catch (e) {
       toast.error('Erè: ' + (e.message || 'pa kapab jwenn enfo'))
@@ -39,9 +69,10 @@ export default function PrinterTestPage() {
   }
 
   const scanBluetooth = async () => {
+    if (!printerRef.current) return toast.error('Plugin enprimant lan poko prè.')
     setScanning(true)
     try {
-      const result = await UniversalPrinter.scanBluetoothPrinters()
+      const result = await printerRef.current.scanBluetoothPrinters()
       setDevices(result.devices || [])
       if (result.devices.length === 0) {
         toast('Pa gen aparèy Bluetooth kouple. Kouple enprimant nan Settings Android premye.', { icon: '⚠️' })
@@ -56,9 +87,10 @@ export default function PrinterTestPage() {
   }
 
   const connectDevice = async (device) => {
+    if (!printerRef.current) return toast.error('Plugin enprimant lan poko prè.')
     setConnecting(device.address)
     try {
-      await UniversalPrinter.connectBluetoothPrinter({ address: device.address })
+      await printerRef.current.connectBluetoothPrinter({ address: device.address })
       toast.success(`Konekte ak ${device.name}!`)
       await refreshInfo() // rafrechi enfo — kounye a enprimant Bluetooth aktif
     } catch (e) {
@@ -69,8 +101,9 @@ export default function PrinterTestPage() {
   }
 
   const disconnectPrinter = async () => {
+    if (!printerRef.current) return
     try {
-      await UniversalPrinter.disconnectBluetoothPrinter()
+      await printerRef.current.disconnectBluetoothPrinter()
       toast.success('Dekonekte')
       await refreshInfo()
     } catch (e) {
@@ -79,9 +112,10 @@ export default function PrinterTestPage() {
   }
 
   const printTest = async () => {
+    if (!printerRef.current) return toast.error('Plugin enprimant lan poko prè.')
     setPrinting(true)
     try {
-      const result = await UniversalPrinter.printTestPage()
+      const result = await printerRef.current.printTestPage()
       if (result.success) {
         toast.success('Voye nan enprimant!')
       } else {
@@ -95,9 +129,10 @@ export default function PrinterTestPage() {
   }
 
   const printCustom = async () => {
+    if (!printerRef.current) return toast.error('Plugin enprimant lan poko prè.')
     setPrinting(true)
     try {
-      const result = await UniversalPrinter.print({
+      const result = await printerRef.current.print({
         lines: [
           { type: 'text', content: 'PLUS GROUP', align: 'center', size: 'xlarge', bold: true },
           { type: 'text', content: 'Ouanaminthe, Ayiti', align: 'center', size: 'small' },
@@ -148,6 +183,27 @@ export default function PrinterTestPage() {
           </p>
         </div>
       </div>
+
+      {/* ✅ NOUVO — Eta chajman/erè plugin la */}
+      {pluginError && (
+        <div style={{
+          padding: '14px 16px', marginBottom: 16,
+          background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)',
+          borderRadius: 12, color: '#DC2626', fontSize: 13, fontWeight: 700,
+        }}>
+          ⚠️ {pluginError}
+        </div>
+      )}
+      {!pluginReady && !pluginError && (
+        <div style={{
+          padding: '14px 16px', marginBottom: 16,
+          background: '#F1F5F9', borderRadius: 12,
+          color: '#64748B', fontSize: 13, fontWeight: 600,
+          display: 'flex', alignItems: 'center', gap: 8,
+        }}>
+          <Loader size={16} className="spin"/> Chajman plugin enprimant...
+        </div>
+      )}
 
       {/* Kat Enfo Aparèy */}
       <div style={{

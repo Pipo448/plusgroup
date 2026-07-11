@@ -14,6 +14,11 @@ import api from '../../services/api'
 const bannerImg = '/assets/banner.webp'
 const logoImg   = '/assets/logo.webp'
 
+// ✅ NOUVO — Sonje slug/email (PA modpas, pou rezon sekirite) pou fasilite relogin
+// sou POS ki gen tandans efase sesyon apre yo fèmen (batri/memwa optimizasyon)
+const REMEMBER_SLUG_KEY  = 'plusgroup-remember-slug'
+const REMEMBER_EMAIL_KEY = 'plusgroup-remember-email'
+
 const LANGS = [
   { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
   { code:'fr', name:'Français', flag:'🇫🇷' },
@@ -56,8 +61,15 @@ export default function LoginPage() {
   useEffect(() => {
     const slugParam  = searchParams.get('slug')
     const emailParam = searchParams.get('email')
-    if (slugParam)  setValue('slug', slugParam)
-    if (emailParam) setValue('email', emailParam)
+    // ✅ NOUVO — Si pa gen paramèt nan URL la, itilize valè sonje yo (localStorage)
+    const rememberedSlug  = localStorage.getItem(REMEMBER_SLUG_KEY)
+    const rememberedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY)
+
+    if (slugParam)            setValue('slug', slugParam)
+    else if (rememberedSlug)  setValue('slug', rememberedSlug)
+
+    if (emailParam)            setValue('email', emailParam)
+    else if (rememberedEmail)  setValue('email', rememberedEmail)
   }, [searchParams, setValue])
 
   const onSubmit = async (data) => {
@@ -89,6 +101,11 @@ export default function LoginPage() {
       const user   = meRes.data.user
 
       setAuth(token, user, tenant)
+
+      // ✅ NOUVO — Sonje slug/email pou fasilite relogin pwochen fwa
+      // (PA modpas — nou pa janm sove sa pou rezon sekirite)
+      localStorage.setItem(REMEMBER_SLUG_KEY, slug)
+      localStorage.setItem(REMEMBER_EMAIL_KEY, data.email.trim().toLowerCase())
 
       const branches = res.data.branches || []
       autoSetBranch(branches)
