@@ -453,13 +453,29 @@ const deleteMutation = useMutation({
       </div>
 
       {/* ── Filtre ── */}
-      <div className="flex gap-3 mb-5 prod-filters" style={{ alignItems: 'center' }}>
-        <div className="relative flex-1 max-w-sm search-box">
+      {/* ✅ KORIJE — flexWrap natirèl: eleman yo "anbake" otomatikman sou ti ekran/POS,
+          menm si media query (max-width:768px) pa deklanche akoz DPI/rapòte lajè CSS bizè */}
+      <div
+        className="flex gap-3 mb-5 prod-filters"
+        style={{ alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <div
+          className="relative search-box"
+          style={{ position: 'relative', flex: '1 1 220px', minWidth: 180 }}
+        >
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-          <input className="input pl-9" placeholder={t('products.searchProducts')}
-            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/>
+          <input
+            className="input pl-9"
+            style={{ width: '100%' }}
+            placeholder={t('products.searchProducts')}
+            value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
+          />
         </div>
-        <select className="input w-48" value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}>
+        <select
+          className="input"
+          style={{ flex: '1 1 180px', minWidth: 160, maxWidth: 260 }}
+          value={catFilter} onChange={e => { setCatFilter(e.target.value); setPage(1) }}
+        >
           <option value="">{t('products.allCategories')}</option>
           {categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
