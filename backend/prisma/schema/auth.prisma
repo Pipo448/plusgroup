@@ -63,6 +63,8 @@ model Tenant {
   visibleCurrencies    String?               @default("[\"USD\"]")
   showQrCode           Boolean               @default(true) @map("show_qr_code")
   requireQuote         Boolean               @default(false) @map("require_quote")
+  // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
+  receiptFooterNote    String?               @map("receipt_footer_note")
   allowedPages         Json?                 @default("{}") @map("allowed_pages")
   monthlyPrice         Int                   @default(0) @map("monthly_price")
 
