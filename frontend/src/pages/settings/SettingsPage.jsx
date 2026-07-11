@@ -303,6 +303,8 @@ export default function SettingsPage() {
         showQrCode:        settings.showQrCode        !== false,
         // ✅ NOUVO
         requireQuote:      settings.requireQuote      === true,
+        // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
+        receiptFooterNote: settings.receiptFooterNote  || '',
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -493,6 +495,22 @@ export default function SettingsPage() {
                   <option value="80mm">{t('settings.receipt80mm')}</option>
                   <option value="57mm">{t('settings.receipt57mm')}</option>
                 </select>
+              </div>
+
+              {/* ✅ NOUVO — Nòt/Avètisman ki parèt nan pye paj resi a (web ak APK) */}
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                  Nòt / Avètisman sou Resi
+                </label>
+                <textarea
+                  style={{ ...inp, minHeight:70, resize:'vertical', fontFamily:'inherit' }}
+                  placeholder="Egzanp: Pwodwi vann pa gen ranbousman apre 24è. Mèsi pou konfyans ou!"
+                  maxLength={200}
+                  {...register('receiptFooterNote')}
+                />
+                <p style={{ fontSize:11, color:D.muted, margin:'6px 0 0' }}>
+                  Tèks sa a ap parèt nan pye paj TOUT resi yo (sou web ak sou APK Android).
+                </p>
               </div>
 
               {/* Toggle: Montre Taux sou Resi */}
