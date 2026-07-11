@@ -42,6 +42,8 @@ router.get('/settings', asyncHandler(async (req, res) => {
       printerConnection: true,
       // ✅ NOUVO
       requireQuote: true,
+      // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
+      receiptFooterNote: true,
       status: true, subscriptionEndsAt: true,
       plan: { select: { name: true, maxUsers: true, maxProducts: true, features: true } }
     }
@@ -78,6 +80,8 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     showQrCode,
     // ✅ NOUVO
     requireQuote,
+    // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a
+    receiptFooterNote,
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -95,6 +99,8 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       showQrCode:        showQrCode        != null ? Boolean(showQrCode)               : undefined,
       // ✅ NOUVO
       requireQuote:      requireQuote      != null ? Boolean(requireQuote)             : undefined,
+      // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (max 200 karaktè)
+      receiptFooterNote: receiptFooterNote != null ? String(receiptFooterNote).slice(0, 200) : undefined,
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
@@ -105,6 +111,8 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       showQrCode:       true,
       // ✅ NOUVO
       requireQuote:     true,
+      // ✅ NOUVO
+      receiptFooterNote: true,
     }
   });
 
