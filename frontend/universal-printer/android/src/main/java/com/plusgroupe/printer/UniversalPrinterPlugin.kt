@@ -3,6 +3,7 @@ package com.plusgroupe.printer
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
+import android.os.Build
 import com.getcapacitor.JSObject
 import com.getcapacitor.JSArray
 import com.getcapacitor.Plugin
@@ -17,14 +18,21 @@ import org.json.JSONArray
 @CapacitorPlugin(
     name = "UniversalPrinter",
     permissions = [
+        // ✅ KORIJE — Android 12+ (API 31+) egzije BLUETOOTH_SCAN/CONNECT
         Permission(
-            alias = "bluetooth",
+            alias = "bluetoothModern",
             strings = [
-                Manifest.permission.BLUETOOTH,
-                Manifest.permission.BLUETOOTH_ADMIN,
                 Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT,
-                Manifest.permission.ACCESS_FINE_LOCATION
+                Manifest.permission.BLUETOOTH_CONNECT
+            ]
+        ),
+        // ✅ KORIJE — Android <12 itilize sèlman Location pou Bluetooth scan
+        // (BLUETOOTH/BLUETOOTH_ADMIN se pèmisyon "normal" ki otomatikman akòde)
+        Permission(
+            alias = "bluetoothLegacy",
+            strings = [
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
             ]
         )
     ]
@@ -36,6 +44,15 @@ class UniversalPrinterPlugin : Plugin() {
     override fun load() {
         super.load()
         printerManager = PrinterManager(context)
+    }
+
+    // ✅ NOUVO — Chwazi bon alyas pèmisyon selon vèsyon Android aparèy la
+    private fun bluetoothPermissionAlias(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            "bluetoothModern"  // Android 12+ (API 31+)
+        } else {
+            "bluetoothLegacy"  // Android <12
+        }
     }
 
     // ═══════════════════════════════════════════════════
@@ -142,8 +159,8 @@ class UniversalPrinterPlugin : Plugin() {
     @PluginMethod
     fun scanBluetoothPrinters(call: PluginCall) {
         // ✅ Verifye pèmisyon anvan — si manke, mande yo epi tann repons
-        if (getPermissionState("bluetooth") != com.getcapacitor.PermissionState.GRANTED) {
-            requestPermissionForAlias("bluetooth", call, "bluetoothPermsCallback")
+        if (getPermissionState(bluetoothPermissionAlias()) != com.getcapacitor.PermissionState.GRANTED) {
+            requestPermissionForAlias(bluetoothPermissionAlias(), call, "bluetoothPermsCallback")
             return
         }
         doScanBluetoothPrinters(call)
@@ -151,7 +168,7 @@ class UniversalPrinterPlugin : Plugin() {
 
     @PermissionCallback
     private fun bluetoothPermsCallback(call: PluginCall) {
-        if (getPermissionState("bluetooth") == com.getcapacitor.PermissionState.GRANTED) {
+        if (getPermissionState(bluetoothPermissionAlias()) == com.getcapacitor.PermissionState.GRANTED) {
             // Detèmine ki metòd ki te rele orijinèlman selon sa nou sove nan call la
             val methodName = call.getString("__pendingMethod")
             when (methodName) {
@@ -213,9 +230,9 @@ class UniversalPrinterPlugin : Plugin() {
         }
 
         // ✅ Verifye pèmisyon anvan konekte tou
-        if (getPermissionState("bluetooth") != com.getcapacitor.PermissionState.GRANTED) {
+        if (getPermissionState(bluetoothPermissionAlias()) != com.getcapacitor.PermissionState.GRANTED) {
             call.data.put("__pendingMethod", "connect")
-            requestPermissionForAlias("bluetooth", call, "bluetoothPermsCallback")
+            requestPermissionForAlias(bluetoothPermissionAlias(), call, "bluetoothPermsCallback")
             return
         }
         doConnectBluetoothPrinter(call)
