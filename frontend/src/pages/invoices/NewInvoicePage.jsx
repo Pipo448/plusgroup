@@ -74,7 +74,7 @@ const calcLineTotal = (qty, unitPrice, discountAmt) => {
 }
 
 // ✅ memo — evite re-render si props pa chanje
-const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRemove, t }) {
+const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRemove, t, isOnline }) {
   const [search, setSearch] = useState(item.description || '')
   const [open, setOpen]     = useState(false)
 
@@ -82,14 +82,17 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
   const debouncedSearch = useDebounce(search, 400)
 
   const { data } = useQuery({
-    queryKey: ['products-search', debouncedSearch],
-    // ✅ KORIJE — eseye rechèch anliy premye; si l echwe (pa gen entènèt),
-    // repli sou pwodwi ki deja cache lokalman (IndexedDB)
+    queryKey: ['products-search', debouncedSearch, isOnline],
+    // ✅ KORIJE — si nou DEJA konnen nou offline, sote apèl API a
+    // dirèkteman (pa gaspiye tan tann timeout) e chèche nan cache a tousuit
     queryFn: async () => {
+      if (!isOnline) {
+        return await searchCachedProducts(debouncedSearch, 8)
+      }
       try {
         const res = await productAPI.getAll({ search: debouncedSearch, limit: 8 })
         const products = res.data.products || []
-        cacheProducts(products).catch(() => {}) // mete ajou cache a an background
+        cacheProducts(products).catch(() => {})
         return products
       } catch (err) {
         return await searchCachedProducts(debouncedSearch, 8)
@@ -177,15 +180,18 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
 })
 
 // ✅ memo sou mobile row tou
-const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemove, t, count }) {
+const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemove, t, count, isOnline }) {
   const [search, setSearch] = useState(item.description || '')
   const [open, setOpen]     = useState(false)
 
   const debouncedSearch = useDebounce(search, 400)
 
   const { data } = useQuery({
-    queryKey: ['products-search-m', debouncedSearch],
+    queryKey: ['products-search-m', debouncedSearch, isOnline],
     queryFn: async () => {
+      if (!isOnline) {
+        return await searchCachedProducts(debouncedSearch, 8)
+      }
       try {
         const res = await productAPI.getAll({ search: debouncedSearch, limit: 8 })
         const products = res.data.products || []
@@ -354,14 +360,17 @@ export default function NewInvoicePage() {
 
   // ✅ NOUVO — Cache inisyal pwodwi/kliyan lè paj la louvri (si an liy)
   // Sa asire gen yon katalòg lokal disponib si entènèt tonbe pandan sesyon an
+  const [cacheReady, setCacheReady] = useState(false)
   useEffect(() => {
     if (!isOnline) return
-    productAPI.getAll({ limit: 500 }).then(r => {
-      cacheProducts(r.data.products || []).catch(() => {})
+    let cancelled = false
+    Promise.all([
+      productAPI.getAll({ limit: 500 }).then(r => cacheProducts(r.data.products || [])),
+      clientAPI.getAll({ limit: 500 }).then(r => cacheClients(r.data.clients || r.data || [])),
+    ]).then(() => {
+      if (!cancelled) setCacheReady(true)
     }).catch(() => {})
-    clientAPI.getAll({ limit: 500 }).then(r => {
-      cacheClients(r.data.clients || r.data || []).catch(() => {})
-    }).catch(() => {})
+    return () => { cancelled = true }
   }, [isOnline])
 
   // ✅ NOUVO — Konte vant an atant + tande evènman senkwonizasyon
@@ -524,6 +533,17 @@ export default function NewInvoicePage() {
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth: isMobile ? '100%' : 860, padding: isMobile ? '0 0 80px' : 0 }}>
 
       {/* ✅ NOUVO — Banyè Offline / Senkwonizasyon */}
+      {isOnline && !cacheReady && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:8,
+          padding:'8px 14px', marginBottom:16, borderRadius:10,
+          background:'#F1F5F9', fontSize:11, color:D.muted, fontWeight:600,
+        }}>
+          <RefreshCw size={12} className="spin-icon"/> Ap prepare katalòg offline...
+          <style>{`@keyframes spin-icon { to { transform: rotate(360deg) } } .spin-icon { animation: spin-icon 1s linear infinite; }`}</style>
+        </div>
+      )}
+
       {!isOnline && (
         <div style={{
           display:'flex', alignItems:'center', gap:10,
@@ -666,7 +686,7 @@ export default function NewInvoicePage() {
 
           {isMobile ? (
             items.map((item, idx) => (
-              <ItemRowMobile key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} count={items.length}/>
+              <ItemRowMobile key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} count={items.length} isOnline={isOnline}/>
             ))
           ) : (
             <>
@@ -677,7 +697,7 @@ export default function NewInvoicePage() {
                 ))}
               </div>
               {items.map((item, idx) => (
-                <ItemRowDesktop key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t}/>
+                <ItemRowDesktop key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} isOnline={isOnline}/>
               ))}
             </>
           )}
