@@ -98,7 +98,12 @@ const createDirect = async (tenantId, userId, data) => {
     taxRate, taxHtg, taxUsd,
     totalHtg, totalUsd,
     dueDate, notes, terms, branchId,
-    items = []
+    items = [],
+    // ✅ NOUVO — pou vant offline: dat egzat vant lan (pa dat senkwonizasyon an)
+    issueDate,
+    // ✅ NOUVO — pèmèt estòk vin negatif (itilize pandan senkwonizasyon vant offline yo,
+    // paske machandiz la deja soti fizikman menm si backend pa t konnen sa lè sa a)
+    allowNegativeStock,
   } = data;
 
   if (!items.length) throw Object.assign(new Error('Fakti dwe gen omwen yon pwodui.'), { statusCode: 400 });
@@ -126,6 +131,9 @@ const createDirect = async (tenantId, userId, data) => {
         taxHtg: Number(taxHtg || 0), taxUsd: Number(taxUsd || 0),
         totalHtg: Number(totalHtg || 0), totalUsd: Number(totalUsd || 0),
         balanceDueHtg: Number(totalHtg || 0), balanceDueUsd: Number(totalUsd || 0),
+        // ✅ NOUVO — itilize dat egzat vant lan si li bay (enpòtan pou vant offline
+        // ki senkwonize an reta — konsa fakti a gen dat REYÈL vant lan, pa dat sync)
+        issueDate: issueDate ? new Date(issueDate) : undefined,
         dueDate: dueDate ? new Date(dueDate) : null,
         notes, terms, createdBy: userId
       }
@@ -137,23 +145,39 @@ const createDirect = async (tenantId, userId, data) => {
         const product = await tx.product.findFirst({ where: { id: item.productId, tenantId } });
         if (product && !product.isService) {
           stockBefore = Number(product.quantity);
-          stockAfter  = stockBefore - Number(item.quantity);
-          await tx.product.update({ where: { id: item.productId }, data: { quantity: Math.max(0, stockAfter) } });
+          const rawStockAfter = stockBefore - Number(item.quantity);
+          // ✅ KORIJE — si allowNegativeStock (vant offline ki senkwonize), kite valè
+          // reyèl la (ka negatif) pou n ka detekte "oversell". Sinon, kenbe defo a
+          // (pa desann anba 0) pou vant nòmal an dirèk.
+          stockAfter = allowNegativeStock ? rawStockAfter : Math.max(0, rawStockAfter);
+
+          await tx.product.update({ where: { id: item.productId }, data: { quantity: stockAfter } });
           await tx.stockMovement.create({
             data: {
               tenantId, branchId: branchId || null, productId: item.productId,
               movementType: 'sale', referenceId: inv.id, referenceType: 'invoice_direct',
               quantityBefore: stockBefore, quantityChange: -Number(item.quantity),
-              quantityAfter: Math.max(0, stockAfter),
-              notes: `Fakti dirèk ${invoiceNumber}`, createdBy: userId
+              quantityAfter: stockAfter,
+              notes: allowNegativeStock && stockAfter < 0
+                ? `Fakti dirèk ${invoiceNumber} (⚠️ SENKWONIZE OFFLINE — ESTÒK NEGATIF)`
+                : `Fakti dirèk ${invoiceNumber}`,
+              createdBy: userId
             }
           });
 
-          if (product.alertThreshold && Math.max(0, stockAfter) <= Number(product.alertThreshold)) {
+          // ✅ NOUVO — Avèti si estòk vin negatif (oversell pandan offline)
+          if (stockAfter < 0) {
+            notifyLowStock({
+              tenantId,
+              productName: `⚠️ ${product.name} (ESTÒK NEGATIF)`,
+              currentQty: stockAfter,
+              threshold: 0
+            }).catch(() => {});
+          } else if (product.alertThreshold && stockAfter <= Number(product.alertThreshold)) {
             notifyLowStock({
               tenantId,
               productName: product.name,
-              currentQty: Math.max(0, stockAfter),
+              currentQty: stockAfter,
               threshold: Number(product.alertThreshold)
             }).catch(() => {});
           }
