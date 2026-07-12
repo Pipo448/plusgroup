@@ -141,7 +141,15 @@ const createDirect = async (tenantId, userId, data) => {
         // ki se 11 Jiyè 7è diswa Ayiti — sa fè dat la "sote" yon jou an aryè
         // lè n afiche l ak fizo orè Ayiti. Solisyon: itilize T05:00:00Z ki
         // reprezante EGZAKTEMAN minwit Ayiti (menm konvansyon ak `haitiRange`).
-        issueDate: issueDate ? new Date(`${issueDate}T05:00:00.000Z`) : undefined,
+        // ✅ KORIJE — detekte si issueDate se yon dat+lè KONPLÈ (gen 'T' ladan l,
+        // egzanp soti nan vant ki kaptire lè egzat la) oswa yon SENP dat
+        // (egzanp "2026-07-12", pou konpatibilite ak ansyen apèl yo). Si se dat
+        // sèl, itilize konvansyon "minwit Ayiti" (menm jan ak `haitiRange`).
+        issueDate: issueDate
+          ? (String(issueDate).includes('T')
+              ? new Date(issueDate)
+              : new Date(`${issueDate}T05:00:00.000Z`))
+          : undefined,
         // ✅ KORIJE — menm konvansyon minwit Ayiti pou dueDate
         dueDate: dueDate ? new Date(`${dueDate}T05:00:00.000Z`) : null,
         notes, terms, createdBy: userId
