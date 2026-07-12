@@ -5,6 +5,11 @@
 // ══════════════════════════════════════════════════════════════
 
 import { Capacitor } from '@capacitor/core'
+// ✅ KORIJE — STATIC import (pa dynamic) pou plugin lan deja "an memwa" depi
+// paj la chaje (pandan w te an liy). Dynamic import ("await import(...)") te
+// bezwen re-telechaje yon ti moso kòd sou ENTÈNÈT chak fwa — sa ki fè enprime
+// echwe lè pa gen entènèt. Static import rezoud sa nèt.
+import { UniversalPrinter } from '@capacitor-plus/universal-printer'
 
 const fmtN = (n) => Number(n || 0)
   .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -74,8 +79,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
   }
 
-  // ✅ Import dinamik — pa kraze build web la si plugin pa disponib
-  const { UniversalPrinter } = await import('@capacitor-plus/universal-printer')
+  // ✅ Plugin la deja chaje (static import anlè a) — pa gen bezwen entènèt isit la
 
   const snap        = invoice.clientSnapshot || {}
   const totalHtg     = Number(invoice.totalHtg      || 0)

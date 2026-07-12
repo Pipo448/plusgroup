@@ -348,8 +348,13 @@ export default function NewInvoicePage() {
   const debouncedClientSearch = useDebounce(clientSearch, 400)
 
   const { data: clientData } = useQuery({
-    queryKey: ['clients-search', debouncedClientSearch],
+    queryKey: ['clients-search', debouncedClientSearch, isOnline],
     queryFn: async () => {
+      // ✅ KORIJE — si nou DEJA konnen nou offline, sote apèl API a
+      // dirèkteman (evite toast "Erè koneksyon" repetitif)
+      if (!isOnline) {
+        return await searchCachedClients(debouncedClientSearch, 8)
+      }
       try {
         const res = await clientAPI.getAll({ search: debouncedClientSearch, limit: 8 })
         const clients = res.data.clients || res.data || []

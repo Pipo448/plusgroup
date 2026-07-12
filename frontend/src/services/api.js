@@ -53,6 +53,14 @@ api.interceptors.response.use(
     }
 
     if (status !== 404) {
+      // ✅ NOUVO — Pa montre "Erè koneksyon" si nou DEJA konnen nou offline
+      // (banyè "Mòd Offline" deja enfòme itilizatè a — pa bezwen spam ak toast anplis).
+      // "isNetworkError" = pa gen okenn repons ditou (koneksyon echwe, timeout, elatriye)
+      const isNetworkError = !err.response
+      if (isNetworkError && !navigator.onLine) {
+        return Promise.reject(err)
+      }
+
       const msg = err.response?.data?.message || 'Erè koneksyon. Verifye entènèt ou.'
       toast.error(msg)
     }
