@@ -8,7 +8,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import {
   Plus, Search, Edit2, Trash2, Package,
-  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock
+  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock, Camera
 } from 'lucide-react'
 import HelpModal from '../../components/HelpModal'
 
@@ -159,6 +159,37 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   const rate = Number(exchangeRate || 132)
   const hasServiceFeature = planHasFeature(tenant, 'sevis')
 
+  // ✅ NOUVO — Foto pwodwi (base64, prè pou anrejistre)
+  const [imagePreview, setImagePreview] = useState(product?.imageUrl || null)
+  const [imageChanged, setImageChanged] = useState(false)
+
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Sèlman fichye imaj aksepte (JPEG, PNG, WebP).')
+      return
+    }
+    // Limit 2MB — evite imaj twò lou ki ka ranpli baz done a
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Foto a twò gwo — maksimòm 2MB.')
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      setImagePreview(reader.result)
+      setImageChanged(true)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleRemoveImage = () => {
+    setImagePreview(null)
+    setImageChanged(true)
+  }
+
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: product
       ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg) }
@@ -178,7 +209,11 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   }
 
   const mutation = useMutation({
-    mutationFn: (data) => isEdit ? productAPI.update(product.id, data) : productAPI.create(data),
+    mutationFn: (data) => {
+      // ✅ NOUVO — Enkli foto a SÈLMAN si l chanje (evite re-voye menm imaj la chak fwa)
+      const payload = imageChanged ? { ...data, imageUrl: imagePreview } : data
+      return isEdit ? productAPI.update(product.id, payload) : productAPI.create(payload)
+    },
     onSuccess: () => { toast.success(isEdit ? t('products.productUpdated') : t('products.productCreated')); qc.invalidateQueries(['products']); onSaved?.() },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
   })
@@ -191,6 +226,53 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"><X size={20}/></button>
         </div>
         <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="p-5 space-y-4">
+          {/* ✅ NOUVO — Upload Foto Pwodwi */}
+          <div>
+            <label className="label">Foto Pwodwi</label>
+            <div style={{ display:'flex', alignItems:'center', gap:14 }}>
+              <div style={{
+                width:84, height:84, borderRadius:14,
+                border:`2px dashed ${imagePreview ? 'transparent' : '#CBD5E1'}`,
+                background: imagePreview ? `url(${imagePreview}) center/cover no-repeat` : '#F8FAFC',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0, position:'relative', overflow:'hidden',
+              }}>
+                {!imagePreview && <Package size={28} color="#CBD5E1"/>}
+                {imagePreview && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    style={{
+                      position:'absolute', top:4, right:4,
+                      width:22, height:22, borderRadius:99,
+                      background:'rgba(220,38,38,0.9)', color:'#fff', border:'none',
+                      cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>
+                    <X size={13}/>
+                  </button>
+                )}
+              </div>
+              <div>
+                <label
+                  htmlFor="product-image-input"
+                  className="btn-secondary btn-sm"
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+                  <Camera size={14}/> {imagePreview ? 'Chanje Foto' : 'Ajoute Foto'}
+                </label>
+                <input
+                  id="product-image-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleImageChange}
+                  style={{ display:'none' }}
+                />
+                <p style={{ fontSize:11, color:'#94a3b8', margin:'6px 0 0' }}>
+                  JPEG, PNG oswa WebP — maksimòm 2MB
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">{t('products.productName')} *</label>
@@ -302,20 +384,30 @@ const ProductCard = ({ p, t, onEdit, onDelete }) => {
       border: `1px solid ${lowStock ? 'rgba(255,107,0,0.25)' : D.border}`,
       boxShadow: D.shadow, display: 'flex', flexDirection: 'column', gap: 10,
     }}>
-      {/* Liy 1: Non + Aksyon */}
+      {/* Liy 1: Foto + Non + Aksyon */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: D.text, lineHeight: 1.3 }}>{p.name}</span>
-            {p.isService && (
-              <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: D.blueDim, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {t('products.service')}
-              </span>
+        <div style={{ display:'flex', gap:10, flex: 1, minWidth: 0 }}>
+          {/* ✅ NOUVO — Vinyèt foto pwodwi */}
+          <div style={{
+            width:44, height:44, borderRadius:10, flexShrink:0,
+            background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            {!p.imageUrl && <Package size={18} color={D.blue}/>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: D.text, lineHeight: 1.3 }}>{p.name}</span>
+              {p.isService && (
+                <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: D.blueDim, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {t('products.service')}
+                </span>
+              )}
+            </div>
+            {p.code && (
+              <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.muted }}>{p.code}</span>
             )}
           </div>
-          {p.code && (
-            <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.muted }}>{p.code}</span>
-          )}
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           <button onClick={() => onEdit(p)} style={{ width: 34, height: 34, borderRadius: 10, background: D.blueDim, border: `1px solid ${D.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.blue }}>
@@ -486,6 +578,7 @@ const deleteMutation = useMutation({
         <table className="table">
           <thead>
             <tr>
+              <th></th>
               <th>{t('products.code')}</th>
               <th>{t('products.name')}</th>
               <th>{t('products.category')}</th>
@@ -499,10 +592,10 @@ const deleteMutation = useMutation({
           <tbody>
             {isLoading
               ? Array(5).fill(0).map((_, i) => (
-                  <tr key={i}><td colSpan={8}><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
+                  <tr key={i}><td colSpan={9}><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
                 ))
               : !products.length
-              ? <tr><td colSpan={8}>
+              ? <tr><td colSpan={9}>
                   <div className="empty-state py-12">
                     <Package size={40} className="text-slate-300 mb-2"/>
                     <p className="text-slate-500">{t('products.noProducts')}</p>
@@ -510,6 +603,16 @@ const deleteMutation = useMutation({
                 </td></tr>
               : products.map(p => (
                   <tr key={p.id}>
+                    <td style={{ width: 48 }}>
+                      {/* ✅ NOUVO — Vinyèt foto pwodwi */}
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 8,
+                        background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {!p.imageUrl && <Package size={15} color={D.blue}/>}
+                      </div>
+                    </td>
                     <td className="font-mono text-xs text-slate-500">{p.code || '—'}</td>
                     <td>
                       <div>
