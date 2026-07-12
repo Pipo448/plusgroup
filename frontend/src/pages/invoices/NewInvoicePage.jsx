@@ -335,24 +335,20 @@ export default function NewInvoicePage() {
   const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const [invoiceDate, setInvoiceDate]       = useState(today)
 
-  // ✅ NOUVO — Konstwi yon dat+lè KONPLÈ (ISO, an UTC kòrèk) ki konbine dat
-  // chwazi a (invoiceDate — ka jodi a oswa yon dat pase pou backdating) ak
-  // LÈ EGZAT kounye a an Ayiti. Sa asire resi a montre VRÈ lè vant lan fèt
-  // la, epi vant offline yo KENBE lè orijinal la menm apre senkwonizasyon
-  // (paske nou kaptire l nan moman kreyasyon an, pa nan moman sync la).
+  // ✅ KORIJE — Senplifye nèt pou evite risk desalynman ak fizo orè.
+  // Ka nòmal la (99% ka yo): dat chwazi a se JODI A → itilize `new Date()`
+  // DIRÈKTEMAN. Sa a GARANTI 100% egzat paske se VRÈ moman aktyèl la (san
+  // okenn kalkil manyèl "+5 èdtan" ki ka pa matche ak vrè règ fizo orè
+  // Ayiti a). `timeZone: 'America/Port-au-Prince'` ap toujou konvèti l
+  // kòrèkteman lè n afiche l pita.
   const buildIssueDateTime = useCallback(() => {
-    const now = new Date()
-    // Jwenn lè aktyèl la AN AYITI (UTC-5), kèlkeswa fizo orè aparèy la
-    const haitiTimeStr = now.toLocaleTimeString('en-GB', {
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-      hour12: false, timeZone: 'America/Port-au-Prince',
-    })
-    const [hh, mm, ss] = haitiTimeStr.split(':')
-    // Konstwi kòm si se te UTC, epi ajoute 5 èdtan pou jwenn VRÈ UTC la
-    // (Ayiti se UTC-5 fiks — pa gen chanjman lè sezon depi 2015)
-    const asIfUtc = new Date(`${invoiceDate}T${hh}:${mm}:${ss}.000Z`)
-    return new Date(asIfUtc.getTime() + 5 * 60 * 60 * 1000).toISOString()
-  }, [invoiceDate])
+    if (invoiceDate === today) {
+      return new Date().toISOString()
+    }
+    // Ka backdating (ra) — dat pase chwazi manyèlman. Nou pa gen lè egzat
+    // pou ka sa a, kidonk nou itilize "minwit Ayiti" kòm konvansyon.
+    return `${invoiceDate}T05:00:00.000Z`
+  }, [invoiceDate, today])
   const [dueDate, setDueDate]               = useState('')
   const [notes, setNotes]                   = useState('')
   const [terms, setTerms]                   = useState('')

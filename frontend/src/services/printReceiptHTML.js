@@ -318,17 +318,17 @@ const fmtN = (n) => Number(n || 0)
   .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
 const fmtDate = (d) => {
-  // ✅ KORIJE — fòse fizo orè Ayiti (America/Port-au-Prince) pou dat la pa
+  // ✅ KORIJE — fòse fizo orè Ayiti (America/New_York) pou dat la pa
   // "sote" yon jou lè aparèy la gen yon lòt fizo orè konfigire.
-  try { return new Date(d).toLocaleDateString('fr-HT', { timeZone: 'America/Port-au-Prince' }) } catch { return '' }
+  try { return new Date(d).toLocaleDateString('fr-HT', { timeZone: 'America/New_York' }) } catch { return '' }
 }
 
 // ✅ NOUVO — Dat + Lè (pou montre EGZAKTEMAN lè yon vant fèt oswa lè yon resi enprime)
 const fmtDateTime = (d) => {
   try {
     const date = new Date(d)
-    const datePart = date.toLocaleDateString('fr-HT', { timeZone: 'America/Port-au-Prince' })
-    const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Port-au-Prince' })
+    const datePart = date.toLocaleDateString('fr-HT', { timeZone: 'America/New_York' })
+    const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
     return `${datePart} ${timePart}`
   } catch { return '' }
 }

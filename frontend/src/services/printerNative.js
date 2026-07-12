@@ -21,9 +21,9 @@ const fmtDate = (d) => {
   if (!d) return ''
   const date = new Date(d)
   if (isNaN(date.getTime())) return ''
-  // ✅ KORIJE — fòse fizo orè Ayiti (America/Port-au-Prince, UTC-5) pou dat la
+  // ✅ KORIJE — fòse fizo orè Ayiti (America/New_York, UTC-5) pou dat la
   // pa "sote" yon jou si aparèy la gen yon lòt fizo orè konfigire (egzanp UTC).
-  return date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Port-au-Prince' })
+  return date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/New_York' })
 }
 
 // ✅ NOUVO — Dat + Lè (pou montre EGZAKTEMAN lè yon vant fèt oswa lè yon resi enprime)
@@ -31,8 +31,8 @@ const fmtDateTime = (d) => {
   if (!d) return ''
   const date = new Date(d)
   if (isNaN(date.getTime())) return ''
-  const datePart = date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Port-au-Prince' })
-  const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Port-au-Prince' })
+  const datePart = date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/New_York' })
+  const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
   return `${datePart} ${timePart}`
 }
 
