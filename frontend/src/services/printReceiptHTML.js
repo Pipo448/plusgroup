@@ -323,6 +323,16 @@ const fmtDate = (d) => {
   try { return new Date(d).toLocaleDateString('fr-HT', { timeZone: 'America/Port-au-Prince' }) } catch { return '' }
 }
 
+// ✅ NOUVO — Dat + Lè (pou montre EGZAKTEMAN lè yon vant fèt oswa lè yon resi enprime)
+const fmtDateTime = (d) => {
+  try {
+    const date = new Date(d)
+    const datePart = date.toLocaleDateString('fr-HT', { timeZone: 'America/Port-au-Prince' })
+    const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Port-au-Prince' })
+    return `${datePart} ${timePart}`
+  } catch { return '' }
+}
+
 // ─── Jenere QR code URL ───────────────────────────────────────
 const qrUrl = (text) =>
   `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(text)}&size=100x100&margin=2`
@@ -416,7 +426,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     <colgroup><col><col></colgroup>
     <tr>
       <td>Dat&nbsp;&nbsp;&nbsp;:</td>
-      <td>${fmtDate(invoice.issueDate)}</td>
+      <td>${fmtDateTime(invoice.issueDate)}</td>
     </tr>
     <tr>
       <td>Resi N&nbsp;:</td>
@@ -534,13 +544,13 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <!-- FOOTER -->
   <div class="sep-dsh mt2"></div>
   <div class="footer">
-    <div class="main-msg">Mesi paske ou achte lakay nou!</div>
-    <div class="sub-msg">Machandiz pa reprann ni chanje.</div>
     ${tenant?.receiptFooterNote ? `
+    <div class="sub-msg">${tenant.receiptFooterNote}</div>
+    <div class="sep-dsh mt1"></div>` : ''}
+    <div class="main-msg">Powered by plusgroupe.com</div>
+    <div class="sub-msg">Tél: +50942449024</div>
     <div class="sep-dsh mt1"></div>
-    <div class="sub-msg">${tenant.receiptFooterNote}</div>` : ''}
-    <div class="sep-dsh mt1"></div>
-    <div class="brand">Mete sistèm nan biznis ou ak PLUS GROUP | +509 4244-9024</div>
+    <div class="brand">Enprime: ${fmtDateTime(new Date())}</div>
   </div>
 
 </body>

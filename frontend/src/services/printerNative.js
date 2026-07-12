@@ -26,6 +26,16 @@ const fmtDate = (d) => {
   return date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Port-au-Prince' })
 }
 
+// ✅ NOUVO — Dat + Lè (pou montre EGZAKTEMAN lè yon vant fèt oswa lè yon resi enprime)
+const fmtDateTime = (d) => {
+  if (!d) return ''
+  const date = new Date(d)
+  if (isNaN(date.getTime())) return ''
+  const datePart = date.toLocaleDateString('fr-HT', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'America/Port-au-Prince' })
+  const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Port-au-Prince' })
+  return `${datePart} ${timePart}`
+}
+
 const STATUS_LABELS = {
   unpaid:    'PA PEYE',
   partial:   'DEPO (PASYÈL)',
@@ -115,7 +125,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   lines.push({ type: 'divider', char: '=' })
 
   // ─── Enfo fakti ───
-  lines.push({ type: 'text', content: `Dat: ${fmtDate(invoice.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Dat: ${fmtDateTime(invoice.issueDate)}`, size: 'small' })
   lines.push({ type: 'text', content: `Fakti: ${invoice.invoiceNumber || ''}`, bold: true })
   if (cashier?.fullName || cashier?.email) {
     lines.push({ type: 'text', content: `Kesye: ${cashier.fullName || cashier.email}`, size: 'small' })
@@ -228,15 +238,21 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   lines.push({ type: 'space' })
 
   // ─── Footer ───
-  lines.push({ type: 'text', content: 'Mèsi pou konfyans ou!', align: 'center', bold: true, size: 'small' })
-  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
-
-  // ✅ NOUVO — Nòt/Avètisman konfigirab (paramèt Tenant) ki parèt nan pye paj la
+  // ✅ KORIJE — Nòt/Avètisman konfigirab (paramèt Tenant) parèt PREMYE kounye a
   if (tenant?.receiptFooterNote) {
-    lines.push({ type: 'space' })
     lines.push({ type: 'divider' })
     lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small' })
+    lines.push({ type: 'space' })
   }
+
+  // ✅ KORIJE — "Powered by" olye "Mèsi pou konfyans ou!" (piblisite Plus Group)
+  lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
+  lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
+
+  // ✅ NOUVO — Dat/Lè REYÈL enprimasyon an (pa lè vant lan fèt) — nan pye paj tout anba
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
   // ✅ NOUVO — Netwaye aksan yo (é, è, à, ò...) pou evite "?" sou enprimant Bluetooth
   const cleanLines = sanitizeLines(lines)
