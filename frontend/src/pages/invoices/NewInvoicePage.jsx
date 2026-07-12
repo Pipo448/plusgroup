@@ -15,6 +15,7 @@ import {
   queueSale, adjustCachedProductStock,
 } from '../../services/offlineDb'
 import { syncPendingSales, countPendingSales, onSyncEvent } from '../../services/offlineSync'
+import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -320,6 +321,12 @@ export default function NewInvoicePage() {
   const [pendingCount, setPendingCount] = useState(0)
   const [syncingNow, setSyncingNow] = useState(false)
 
+  // ✅ NOUVO — Peman (fèt AN MENM TAN ak kreyasyon fakti a — mache online ak offline)
+  const [paymentMethod, setPaymentMethod]     = useState('cash')  // cash | moncash | natcash | credit
+  const [amountReceived, setAmountReceived]   = useState('')
+  const [offlineReceipt, setOfflineReceipt]   = useState(null)  // pseudo-fakti pou enprime apre vant offline
+  const [printingOffline, setPrintingOffline] = useState(false)
+
   const [clientSearch, setClientSearch]     = useState('')
   const [clientOpen, setClientOpen]         = useState(false)
   const [selectedClient, setSelectedClient] = useState(null)
@@ -480,6 +487,15 @@ export default function NewInvoicePage() {
     const taxAmt   = afterDis * (Number(taxRate) / 100)
     const total    = afterDis + taxAmt
 
+    // ✅ NOUVO — Konstwi peman an (si pa Kredi) — mache online ak offline
+    const payment = paymentMethod === 'credit' ? null : {
+      method:      paymentMethod,
+      amountHtg:   paymentMethod === 'cash' ? Math.min(Number(amountReceived || total), total) : total,
+      amountUsd:   0,
+      amountGiven: paymentMethod === 'cash' ? Number(amountReceived || 0) : total,
+      change:      paymentMethod === 'cash' ? Math.max(0, Number(amountReceived || 0) - total) : 0,
+    }
+
     const payload = {
       clientId:      selectedClient?.id || null,
       clientSnapshot: selectedClient ? { id: selectedClient.id, name: selectedClient.name, phone: selectedClient.phone } : {},
@@ -501,6 +517,8 @@ export default function NewInvoicePage() {
       notes,
       terms,
       items: mappedItems,
+      // ✅ NOUVO
+      payment,
     }
 
     // ✅ NOUVO — Si PA gen entènèt, sove vant lan lokalman (file datant)
@@ -517,8 +535,32 @@ export default function NewInvoicePage() {
         }
 
         setPendingCount(c => c + 1)
+
+        // ✅ NOUVO — Konstwi yon pseudo-fakti pou pèmèt enprime imedyatman,
+        // menm si nou poko gen yon vrè ID fakti (l ap kreye lè senkwonizasyon)
+        const shortId = Date.now().toString().slice(-6)
+        setOfflineReceipt({
+          invoiceNumber: `OFFLINE-${shortId}`,
+          issueDate: invoiceDate,
+          clientSnapshot: payload.clientSnapshot,
+          items: mappedItems.map(it => ({
+            productSnapshot: { name: it.description },
+            quantity: it.quantity,
+            unitPriceHtg: it.unitPriceHtg,
+            totalHtg: it.totalHtg,
+            discountPct: it.discountPct,
+          })),
+          subtotalHtg: sub,
+          discountHtg: discAmt,
+          taxHtg: taxAmt,
+          taxRate: Number(taxRate),
+          totalHtg: total,
+          amountPaidHtg: payment ? payment.amountHtg : 0,
+          balanceDueHtg: payment ? Math.max(0, total - payment.amountHtg) : total,
+          status: !payment ? 'unpaid' : (payment.amountHtg >= total ? 'paid' : 'partial'),
+        })
+
         toast.success('📴 Pa gen entènèt — vant sove lokalman. L ap senkwonize otomatikman.', { duration: 5000 })
-        navigate('/app/invoices')
       } catch (e) {
         toast.error('Erè pandan sove vant offline: ' + e.message)
       }
@@ -527,7 +569,26 @@ export default function NewInvoicePage() {
 
     // ─── Online — kontinye jan sa te ye a ───
     mutation.mutate(payload)
-  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate])
+  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate, paymentMethod, amountReceived])
+
+  // ✅ NOUVO — Enprime resi offline (itilize plugin native Bluetooth/Sunmi/etc)
+  const handlePrintOfflineReceipt = useCallback(async () => {
+    if (!offlineReceipt) return
+    setPrintingOffline(true)
+    try {
+      await printInvoiceNative(offlineReceipt, tenant, user)
+      toast.success('Resi enprime!')
+    } catch (e) {
+      toast.error('Erè enprime: ' + e.message)
+    } finally {
+      setPrintingOffline(false)
+    }
+  }, [offlineReceipt, tenant, user])
+
+  const handleContinueAfterOffline = useCallback(() => {
+    setOfflineReceipt(null)
+    navigate('/app/invoices')
+  }, [navigate])
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth: isMobile ? '100%' : 860, padding: isMobile ? '0 0 80px' : 0 }}>
@@ -766,6 +827,56 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
+            {/* ✅ NOUVO — Seksyon Peman (fèt AN MENM TAN ak kreyasyon fakti a) */}
+            <div style={{ marginTop:18 }}>
+              <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 8px' }}>
+                Metòd Peman
+              </p>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:8 }}>
+                {[
+                  { key:'cash',    label:'Espès'   },
+                  { key:'moncash', label:'MonCash'  },
+                  { key:'natcash', label:'NatCash'  },
+                  { key:'credit',  label:'Kredi'    },
+                ].map(m => (
+                  <button key={m.key} type="button" onClick={() => setPaymentMethod(m.key)}
+                    style={{
+                      padding:'10px 8px', borderRadius:10,
+                      background: paymentMethod === m.key ? D.blue : '#F8F9FF',
+                      color: paymentMethod === m.key ? '#fff' : D.text,
+                      border: `1.5px solid ${paymentMethod === m.key ? D.blue : D.border}`,
+                      fontSize:12, fontWeight:700, cursor:'pointer',
+                    }}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {paymentMethod === 'cash' && (
+                <div style={{ marginTop:10 }}>
+                  {label('Kòb Resevwa (HTG)')}
+                  <input type="number" min="0" step="0.01" value={amountReceived}
+                    onChange={e => setAmountReceived(e.target.value)}
+                    placeholder={fmt(grandTotal)}
+                    style={{ ...inp, textAlign:'right', fontFamily:'monospace', fontSize:15 }}/>
+                  {Number(amountReceived) > grandTotal && (
+                    <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, padding:'8px 12px', background:D.successBg, borderRadius:8 }}>
+                      <span style={{ fontSize:12, color:D.success, fontWeight:700 }}>Monnen pou remèt</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:800, color:D.success }}>
+                        {fmt(Number(amountReceived) - grandTotal)} HTG
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentMethod === 'credit' && (
+                <p style={{ fontSize:11, color:D.muted, margin:'8px 0 0', fontStyle:'italic' }}>
+                  ℹ️ Fakti a ap rete "Pa peye" — kliyan an ap dwe {fmt(grandTotal)} HTG.
+                </p>
+              )}
+            </div>
+
             <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
               style={{ width:'100%', marginTop:22, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'13px 0', borderRadius:12, background: mutation.isPending ? '#ccc' : `linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', border:'none', fontWeight:800, fontSize:14, cursor: mutation.isPending ? 'not-allowed' : 'pointer', fontFamily:'DM Sans,sans-serif' }}>
               <Save size={16}/>
@@ -775,6 +886,69 @@ export default function NewInvoicePage() {
         </div>
 
       </div>
+
+      {/* ✅ NOUVO — Modal Resi Offline (parèt apre yon vant offline reyisi) */}
+      {offlineReceipt && (
+        <div style={{
+          position:'fixed', inset:0, zIndex:1000,
+          background:'rgba(15,26,92,0.6)', backdropFilter:'blur(4px)',
+          display:'flex', alignItems:'center', justifyContent:'center', padding:16,
+        }}>
+          <div style={{
+            background:'#fff', borderRadius:18, width:'100%', maxWidth:420,
+            padding:'28px 24px', textAlign:'center',
+            boxShadow:'0 20px 60px rgba(0,0,0,0.3)',
+          }}>
+            <div style={{
+              width:64, height:64, borderRadius:18,
+              background:'rgba(217,119,6,0.1)', color:'#D97706',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              margin:'0 auto 16px',
+            }}>
+              <WifiOff size={28}/>
+            </div>
+            <h3 style={{ fontSize:18, fontWeight:900, color:D.text, margin:'0 0 6px' }}>
+              Vant Sove Offline
+            </h3>
+            <p style={{ fontSize:13, color:D.muted, margin:'0 0 4px' }}>
+              {offlineReceipt.invoiceNumber}
+            </p>
+            <p style={{ fontSize:24, fontWeight:900, color:D.blue, fontFamily:'monospace', margin:'8px 0 20px' }}>
+              {fmt(offlineReceipt.totalHtg)} HTG
+            </p>
+
+            {isNativePrinterAvailable() && (
+              <button
+                onClick={handlePrintOfflineReceipt}
+                disabled={printingOffline}
+                style={{
+                  width:'100%', padding:'13px', marginBottom:10, borderRadius:12,
+                  background:'rgba(14,165,233,0.1)', color:'#0EA5E9',
+                  border:'1.5px solid rgba(14,165,233,0.3)',
+                  fontWeight:800, fontSize:14, cursor: printingOffline ? 'wait' : 'pointer',
+                  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                }}>
+                {printingOffline ? 'Ap enprime...' : '🖨 Enprime Resi'}
+              </button>
+            )}
+
+            <button
+              onClick={handleContinueAfterOffline}
+              style={{
+                width:'100%', padding:'13px', borderRadius:12,
+                background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`,
+                color:'#fff', border:'none',
+                fontWeight:800, fontSize:14, cursor:'pointer',
+              }}>
+              Kontinye
+            </button>
+
+            <p style={{ fontSize:11, color:D.muted, margin:'14px 0 0' }}>
+              Vant lan ap senkwonize otomatikman lè entènèt tounen.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
