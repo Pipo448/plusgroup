@@ -1,6 +1,7 @@
 // src/services/api.js
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { getConnectionState } from './connectionState'
 
 const api = axios.create({
   baseURL: 'https://plusgroup-backend.onrender.com/api/v1',
@@ -56,8 +57,10 @@ api.interceptors.response.use(
       // ✅ NOUVO — Pa montre "Erè koneksyon" si nou DEJA konnen nou offline
       // (banyè "Mòd Offline" deja enfòme itilizatè a — pa bezwen spam ak toast anplis).
       // "isNetworkError" = pa gen okenn repons ditou (koneksyon echwe, timeout, elatriye)
+      // ✅ KORIJE — itilize eta pataje (verifikasyon REYÈL /health) olye navigator.onLine
+      // sèl, ki pa fyab (li ka di "online" menm san vrè aksè entènèt).
       const isNetworkError = !err.response
-      if (isNetworkError && !navigator.onLine) {
+      if (isNetworkError && !getConnectionState()) {
         return Promise.reject(err)
       }
 
