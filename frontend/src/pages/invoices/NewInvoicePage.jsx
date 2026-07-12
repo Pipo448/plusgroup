@@ -370,18 +370,70 @@ export default function NewInvoicePage() {
   })
   const clients = clientData || []
 
-  // ✅ NOUVO — Cache inisyal pwodwi/kliyan lè paj la louvri (si an liy)
-  // Sa asire gen yon katalòg lokal disponib si entènèt tonbe pandan sesyon an
-  const [cacheReady, setCacheReady] = useState(false)
+  // ✅ NOUVO — Cache TOUT pwodwi/kliyan (san limit) lè paj la louvri (si an liy).
+  // Sa asire gen yon katalòg lokal KONPLÈ disponib si entènèt tonbe pandan sesyon an,
+  // kèlkeswa konbyen pwodwi/kliyan tenant an genyen (paginasyon otomatik).
+  const [cacheReady, setCacheReady]     = useState(false)
+  const [cachePhase, setCachePhase]     = useState('')    // 'pwodwi' | 'kliyan' | ''
+  const [cacheProgress, setCacheProgress] = useState({ done: 0, total: 0 })
+
   useEffect(() => {
     if (!isOnline) return
     let cancelled = false
-    Promise.all([
-      productAPI.getAll({ limit: 500 }).then(r => cacheProducts(r.data.products || [])),
-      clientAPI.getAll({ limit: 500 }).then(r => cacheClients(r.data.clients || r.data || [])),
-    ]).then(() => {
-      if (!cancelled) setCacheReady(true)
-    }).catch(() => {})
+    const PAGE_SIZE = 200
+    const MAX_PAGES = 200 // sekirite — 200 × 200 = 40 000 rejis maksimòm
+
+    async function cacheAll(phaseLabel, fetchPage, saveFn, extractItems, extractTotal) {
+      let page = 1
+      let totalCached = 0
+      let totalCount  = null
+
+      setCachePhase(phaseLabel)
+      setCacheProgress({ done: 0, total: 0 })
+
+      while (page <= MAX_PAGES) {
+        if (cancelled) return
+        const res   = await fetchPage(page)
+        const items = extractItems(res)
+        if (totalCount === null) totalCount = extractTotal(res, items)
+
+        if (items.length === 0) break
+        await saveFn(items)
+        totalCached += items.length
+
+        setCacheProgress({ done: totalCached, total: totalCount || totalCached })
+
+        // Rive nan dènye paj la? Sispann.
+        if (items.length < PAGE_SIZE || totalCached >= (totalCount || Infinity)) break
+        page++
+      }
+      return totalCached
+    }
+
+    async function run() {
+      await cacheAll(
+        'pwodwi',
+        (page) => productAPI.getAll({ page, limit: PAGE_SIZE }),
+        cacheProducts,
+        (res) => res.data.products || [],
+        (res, items) => res.data.total ?? items.length
+      )
+
+      await cacheAll(
+        'kliyan',
+        (page) => clientAPI.getAll({ page, limit: PAGE_SIZE }),
+        cacheClients,
+        (res) => res.data.clients || res.data || [],
+        (res, items) => res.data.total ?? items.length
+      )
+
+      if (!cancelled) {
+        setCachePhase('')
+        setCacheReady(true)
+      }
+    }
+
+    run().catch(() => {})
     return () => { cancelled = true }
   }, [isOnline])
 
@@ -605,7 +657,10 @@ export default function NewInvoicePage() {
           padding:'8px 14px', marginBottom:16, borderRadius:10,
           background:'#F1F5F9', fontSize:11, color:D.muted, fontWeight:600,
         }}>
-          <RefreshCw size={12} className="spin-icon"/> Ap prepare katalòg offline...
+          <RefreshCw size={12} className="spin-icon"/>
+          {cachePhase === 'pwodwi' && `Ap cache pwodwi... (${cacheProgress.done}/${cacheProgress.total || '?'})`}
+          {cachePhase === 'kliyan' && `Ap cache kliyan... (${cacheProgress.done}/${cacheProgress.total || '?'})`}
+          {!cachePhase && 'Ap prepare katalòg offline...'}
           <style>{`@keyframes spin-icon { to { transform: rotate(360deg) } } .spin-icon { animation: spin-icon 1s linear infinite; }`}</style>
         </div>
       )}
