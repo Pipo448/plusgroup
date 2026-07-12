@@ -3,11 +3,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { authAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
+// ✅ NOUVO — Login offline
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'
+import { saveOfflineCredentials, tryOfflineLogin } from '../../services/offlineAuth'
 
 // ✅ KOREKSYON: fichye yo nan /public/assets/ — pa itilize import
 // Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
@@ -40,6 +43,8 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false)
   const [showLang, setShowLang] = useState(false)
   const { i18n } = useTranslation()
+  // ✅ NOUVO — Login offline
+  const { isOnline } = useNetworkStatus()
 
   const currentLang = LANGS.find(l => l.code === i18n.language) || LANGS[0]
   const tx = TEXTS[i18n.language] || TEXTS.ht
@@ -77,6 +82,33 @@ export default function LoginPage() {
     try {
       const slug = data.slug.trim().toLowerCase()
 
+      // ✅ NOUVO — Si PA gen entènèt, eseye login OFFLINE ak anprint sove a
+      // (sesyon dènye fwa moun sa a te konekte AN LIY sou aparèy sa a)
+      if (!isOnline) {
+        const result = await tryOfflineLogin({ slug, email: data.email, password: data.password })
+
+        if (result.success) {
+          localStorage.setItem('plusgroup-slug', slug)
+          api.defaults.headers.common['X-Tenant-Slug'] = slug
+          api.defaults.headers.common['Authorization'] = 'Bearer ' + result.token
+
+          setAuth(result.token, result.user, result.tenant)
+
+          localStorage.setItem(REMEMBER_SLUG_KEY, slug)
+          localStorage.setItem(REMEMBER_EMAIL_KEY, data.email.trim().toLowerCase())
+
+          toast.success(`📴 Konekte offline — Byenvini ${result.user.fullName || result.user.email}!`, { duration: 5000 })
+          navigate('/dashboard')
+        } else if (result.reason === 'no-cache') {
+          toast.error('Pa gen sesyon lokal pou kont sa a sou aparèy sa a. Konekte omwen yon fwa pandan w an liy anvan.', { duration: 6000 })
+        } else {
+          toast.error('Modpas pa kòrèk.')
+        }
+        setLoading(false)
+        return
+      }
+
+      // ─── Online — kontinye jan sa te ye a ───
       localStorage.removeItem('pg-auth')
       localStorage.removeItem('plusgroup-slug')
       localStorage.removeItem('plusgroup-token')
@@ -102,7 +134,10 @@ export default function LoginPage() {
 
       setAuth(token, user, tenant)
 
-      // ✅ NOUVO — Sonje slug/email pou fasilite relogin pwochen fwa
+      // ✅ NOUVO — Sove anprint pou pèmèt login offline pita (JANM modpas an klè)
+      saveOfflineCredentials({ slug, email: data.email, password: data.password, token, user, tenant }).catch(() => {})
+
+      // ✅ Sonje slug/email pou fasilite relogin pwochen fwa
       // (PA modpas — nou pa janm sove sa pou rezon sekirite)
       localStorage.setItem(REMEMBER_SLUG_KEY, slug)
       localStorage.setItem(REMEMBER_EMAIL_KEY, data.email.trim().toLowerCase())
@@ -207,6 +242,20 @@ export default function LoginPage() {
           <h2 style={{ color:'#fff', fontSize:20, fontWeight:900, margin:'0 0 22px', textAlign:'center' }}>
             {tx.title}
           </h2>
+
+          {/* ✅ NOUVO — Endikatè Mòd Offline (login lokal disponib) */}
+          {!isOnline && (
+            <div style={{
+              display:'flex', alignItems:'center', gap:8, justifyContent:'center',
+              padding:'8px 14px', marginBottom:16, borderRadius:10,
+              background:'rgba(217,119,6,0.15)', border:'1px solid rgba(217,119,6,0.4)',
+            }}>
+              <WifiOff size={14} color="#FBBF24"/>
+              <span style={{ fontSize:11, color:'#FBBF24', fontWeight:700 }}>
+                Mòd Offline — Login lokal (dènye sesyon konekte)
+              </span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
 
