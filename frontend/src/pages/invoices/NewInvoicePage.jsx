@@ -334,6 +334,25 @@ export default function NewInvoicePage() {
 
   const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const [invoiceDate, setInvoiceDate]       = useState(today)
+
+  // ✅ NOUVO — Konstwi yon dat+lè KONPLÈ (ISO, an UTC kòrèk) ki konbine dat
+  // chwazi a (invoiceDate — ka jodi a oswa yon dat pase pou backdating) ak
+  // LÈ EGZAT kounye a an Ayiti. Sa asire resi a montre VRÈ lè vant lan fèt
+  // la, epi vant offline yo KENBE lè orijinal la menm apre senkwonizasyon
+  // (paske nou kaptire l nan moman kreyasyon an, pa nan moman sync la).
+  const buildIssueDateTime = useCallback(() => {
+    const now = new Date()
+    // Jwenn lè aktyèl la AN AYITI (UTC-5), kèlkeswa fizo orè aparèy la
+    const haitiTimeStr = now.toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour12: false, timeZone: 'America/Port-au-Prince',
+    })
+    const [hh, mm, ss] = haitiTimeStr.split(':')
+    // Konstwi kòm si se te UTC, epi ajoute 5 èdtan pou jwenn VRÈ UTC la
+    // (Ayiti se UTC-5 fiks — pa gen chanjman lè sezon depi 2015)
+    const asIfUtc = new Date(`${invoiceDate}T${hh}:${mm}:${ss}.000Z`)
+    return new Date(asIfUtc.getTime() + 5 * 60 * 60 * 1000).toISOString()
+  }, [invoiceDate])
   const [dueDate, setDueDate]               = useState('')
   const [notes, setNotes]                   = useState('')
   const [terms, setTerms]                   = useState('')
@@ -556,7 +575,8 @@ export default function NewInvoicePage() {
     const payload = {
       clientId:      selectedClient?.id || null,
       clientSnapshot: selectedClient ? { id: selectedClient.id, name: selectedClient.name, phone: selectedClient.phone } : {},
-      issueDate:     invoiceDate,
+      // ✅ KORIJE — dat+lè EGZAT (pa sèlman dat), kaptire nan MOMAN vant lan fèt
+      issueDate:     buildIssueDateTime(),
       dueDate:       dueDate || null,
       currency:      'HTG',
       exchangeRate:  0,
@@ -598,7 +618,8 @@ export default function NewInvoicePage() {
         const shortId = Date.now().toString().slice(-6)
         setOfflineReceipt({
           invoiceNumber: `OFFLINE-${shortId}`,
-          issueDate: invoiceDate,
+          // ✅ KORIJE — itilize menm dat+lè EGZAT ki nan payload la (konsistan)
+          issueDate: payload.issueDate,
           clientSnapshot: payload.clientSnapshot,
           items: mappedItems.map(it => ({
             productSnapshot: { name: it.description },
