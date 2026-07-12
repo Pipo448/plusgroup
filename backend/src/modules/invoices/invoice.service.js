@@ -104,6 +104,8 @@ const createDirect = async (tenantId, userId, data) => {
     // ✅ NOUVO — pèmèt estòk vin negatif (itilize pandan senkwonizasyon vant offline yo,
     // paske machandiz la deja soti fizikman menm si backend pa t konnen sa lè sa a)
     allowNegativeStock,
+    // ✅ NOUVO — peman ki fèt AN MENM TAN ak kreyasyon fakti a (mache offline tou)
+    payment,
   } = data;
 
   if (!items.length) throw Object.assign(new Error('Fakti dwe gen omwen yon pwodui.'), { statusCode: 400 });
@@ -195,6 +197,44 @@ const createDirect = async (tenantId, userId, data) => {
         }
       });
     }
+    // ✅ NOUVO — Si peman bay AN MENM TAN ak kreyasyon fakti a (vant dirèk ki peye,
+    // ni online ni offline), kreye Payment la epi mete estati fakti a ajou nan MENM
+    // transaksyon an (atomik — tou de reyisi ansanm oswa echwe ansanm)
+    if (payment && (Number(payment.amountHtg) > 0 || Number(payment.amountUsd) > 0)) {
+      const VALID_METHODS = ['cash', 'card', 'transfer', 'moncash', 'natcash', 'check', 'credit', 'other'];
+      const method = VALID_METHODS.includes(payment.method) ? payment.method : 'cash';
+      const paidHtg = Number(payment.amountHtg || 0);
+      const paidUsd = Number(payment.amountUsd || 0);
+
+      await tx.payment.create({
+        data: {
+          tenantId, invoiceId: inv.id,
+          amountHtg: paidHtg, amountUsd: paidUsd,
+          currency: currency || 'HTG', exchangeRate: rate,
+          method,
+          amountGiven: Number(payment.amountGiven || 0),
+          change: Number(payment.change || 0),
+          paymentDate: payment.paymentDate ? new Date(payment.paymentDate) : new Date(),
+          createdBy: userId,
+        }
+      });
+
+      const balanceHtg = Math.max(0, Number(totalHtg || 0) - paidHtg);
+      const balanceUsd = Math.max(0, Number(totalUsd || 0) - paidUsd);
+      let newStatus = 'partial';
+      if (balanceHtg <= 0) newStatus = 'paid';
+      if (paidHtg === 0) newStatus = 'unpaid';
+
+      await tx.invoice.update({
+        where: { id: inv.id },
+        data: {
+          amountPaidHtg: paidHtg, amountPaidUsd: paidUsd,
+          balanceDueHtg: balanceHtg, balanceDueUsd: balanceUsd,
+          status: newStatus,
+        }
+      });
+    }
+
     await tx.invoice.update({ where: { id: inv.id }, data: { stockDecremented: true } });
     return inv;
   });
@@ -205,6 +245,24 @@ const createDirect = async (tenantId, userId, data) => {
     clientName: clientSnapshot?.name || 'Kliyan enkoni',
     totalHtg: Number(totalHtg || 0)
   }).catch(() => {});
+
+  // ✅ NOUVO — Notifikasyon peman si te gen yon peman atache ak kreyasyon an
+  if (payment && (Number(payment.amountHtg) > 0 || Number(payment.amountUsd) > 0)) {
+    notifyPaymentReceived({
+      tenantId,
+      invoiceNumber,
+      amountHtg: Number(payment.amountHtg || 0),
+      method: payment.method || 'cash'
+    }).catch(() => {});
+
+    if (Number(payment.amountHtg || 0) >= Number(totalHtg || 0)) {
+      notifyInvoicePaid({
+        tenantId,
+        invoiceNumber,
+        clientName: clientSnapshot?.name || 'Kliyan enkoni'
+      }).catch(() => {});
+    }
+  }
 
   return getOne(tenantId, invoice.id);
 };
