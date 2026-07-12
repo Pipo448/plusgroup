@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, CloudUpload } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, UploadCloud } from 'lucide-react'
 // ✅ NOUVO — Offline mode
 import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import {
@@ -548,7 +548,7 @@ export default function NewInvoicePage() {
           padding:'12px 16px', marginBottom:16, borderRadius:12,
           background:'rgba(27,42,143,0.06)', border:'1.5px solid rgba(27,42,143,0.2)',
         }}>
-          <CloudUpload size={18} color={D.blue} style={{ flexShrink:0 }}/>
+          <UploadCloud size={18} color={D.blue} style={{ flexShrink:0 }}/>
           <div style={{ flex:1, minWidth:0 }}>
             <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:0 }}>
               {pendingCount} vant an atant pou senkwonize
