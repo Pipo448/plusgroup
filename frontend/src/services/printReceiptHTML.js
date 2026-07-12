@@ -318,7 +318,9 @@ const fmtN = (n) => Number(n || 0)
   .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
 const fmtDate = (d) => {
-  try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' }
+  // ✅ KORIJE — fòse fizo orè Ayiti (America/Port-au-Prince) pou dat la pa
+  // "sote" yon jou lè aparèy la gen yon lòt fizo orè konfigire.
+  try { return new Date(d).toLocaleDateString('fr-HT', { timeZone: 'America/Port-au-Prince' }) } catch { return '' }
 }
 
 // ─── Jenere QR code URL ───────────────────────────────────────
