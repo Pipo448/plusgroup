@@ -113,6 +113,12 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
   )
 
   const selectProduct = useCallback((p) => {
+    // ✅ NOUVO — Anpeche vann yon pwodwi ki gen 0 stòk (sof si se yon sèvis)
+    const stock = Number(p.quantity ?? p.stock ?? 0)
+    if (!p.isService && stock <= 0) {
+      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete). Kontakte admin pou reapwovizyone l.`, { duration: 4500 })
+      return
+    }
     setSearch(p.name)
     setOpen(false)
     onUpdate(idx, { description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 })
@@ -135,16 +141,31 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         />
         {open && products.length > 0 && (
           <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:50, background:D.white, borderRadius:10, border:`1px solid ${D.border}`, boxShadow:D.shadow, maxHeight:200, overflowY:'auto', marginTop:4 }}>
-            {products.map(p => (
-              <div key={p.id}
-                onMouseDown={() => selectProduct(p)}
-                style={{ padding:'10px 12px', cursor:'pointer', fontSize:13, color:D.text, display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${D.border}` }}
-                onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <span style={{ fontWeight:600 }}>{p.name}</span>
-                <span style={{ fontFamily:'monospace', color:D.blue, fontWeight:700, fontSize:12 }}>{fmt(p.priceHtg)} HTG</span>
-              </div>
-            ))}
+            {products.map(p => {
+              const stock = Number(p.quantity ?? p.stock ?? 0)
+              const outOfStock = !p.isService && stock <= 0
+              return (
+                <div key={p.id}
+                  onMouseDown={() => selectProduct(p)}
+                  style={{
+                    padding:'10px 12px', cursor: outOfStock ? 'not-allowed' : 'pointer', fontSize:13,
+                    color: outOfStock ? D.muted : D.text, display:'flex', justifyContent:'space-between', alignItems:'center',
+                    borderBottom:`1px solid ${D.border}`, opacity: outOfStock ? 0.55 : 1,
+                  }}
+                  onMouseEnter={e => { if (!outOfStock) e.currentTarget.style.background = D.blueDim }}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <span style={{ fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+                    {p.name}
+                    {outOfStock && (
+                      <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em' }}>
+                        STÒK FINI
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontFamily:'monospace', color: outOfStock ? D.muted : D.blue, fontWeight:700, fontSize:12 }}>{fmt(p.priceHtg)} HTG</span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -216,6 +237,12 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
   )
 
   const selectProduct = useCallback((p) => {
+    // ✅ NOUVO — Anpeche vann yon pwodwi ki gen 0 stòk (sof si se yon sèvis)
+    const stock = Number(p.quantity ?? p.stock ?? 0)
+    if (!p.isService && stock <= 0) {
+      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete). Kontakte admin pou reapwovizyone l.`, { duration: 4500 })
+      return
+    }
     setSearch(p.name)
     setOpen(false)
     onUpdate(idx, { description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 })
@@ -255,17 +282,31 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         </div>
         {open && products.length > 0 && (
           <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:100, background:D.white, borderRadius:12, border:`1.5px solid ${D.blue}40`, boxShadow:'0 8px 32px rgba(27,42,143,0.15)', maxHeight:220, overflowY:'auto', marginTop:4 }}>
-            {products.map(p => (
-              <div key={p.id}
-                onMouseDown={() => selectProduct(p)}
-                style={{ padding:'12px 14px', cursor:'pointer', borderBottom:`1px solid ${D.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <div>
-                  <div style={{ fontWeight:700, fontSize:14, color:D.text }}>{p.name}</div>
-                  {p.code && <div style={{ fontSize:11, color:D.muted }}>{p.code}</div>}
+            {products.map(p => {
+              const stock = Number(p.quantity ?? p.stock ?? 0)
+              const outOfStock = !p.isService && stock <= 0
+              return (
+                <div key={p.id}
+                  onMouseDown={() => selectProduct(p)}
+                  style={{
+                    padding:'12px 14px', cursor: outOfStock ? 'not-allowed' : 'pointer', borderBottom:`1px solid ${D.border}`,
+                    display:'flex', justifyContent:'space-between', alignItems:'center', opacity: outOfStock ? 0.55 : 1,
+                  }}>
+                  <div>
+                    <div style={{ fontWeight:700, fontSize:14, color: outOfStock ? D.muted : D.text, display:'flex', alignItems:'center', gap:6 }}>
+                      {p.name}
+                      {outOfStock && (
+                        <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em' }}>
+                          STÒK FINI
+                        </span>
+                      )}
+                    </div>
+                    {p.code && <div style={{ fontSize:11, color:D.muted }}>{p.code}</div>}
+                  </div>
+                  <div style={{ fontFamily:'monospace', fontWeight:800, color: outOfStock ? D.muted : D.blue, fontSize:13 }}>{fmt(p.priceHtg)}</div>
                 </div>
-                <div style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:13 }}>{fmt(p.priceHtg)}</div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
