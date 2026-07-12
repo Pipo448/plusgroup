@@ -135,8 +135,15 @@ const createDirect = async (tenantId, userId, data) => {
         balanceDueHtg: Number(totalHtg || 0), balanceDueUsd: Number(totalUsd || 0),
         // ✅ NOUVO — itilize dat egzat vant lan si li bay (enpòtan pou vant offline
         // ki senkwonize an reta — konsa fakti a gen dat REYÈL vant lan, pa dat sync)
-        issueDate: issueDate ? new Date(issueDate) : undefined,
-        dueDate: dueDate ? new Date(dueDate) : null,
+        // ✅ KORIJE — Konvèti dat la kòm "minwit Ayiti" (UTC-5), PA "minwit UTC".
+        // Frontend voye yon senp tèks "YYYY-MM-DD" (san lè). Si nou fè
+        // `new Date("2026-07-12")` dirèkteman, JS entèprete l kòm minwit UTC,
+        // ki se 11 Jiyè 7è diswa Ayiti — sa fè dat la "sote" yon jou an aryè
+        // lè n afiche l ak fizo orè Ayiti. Solisyon: itilize T05:00:00Z ki
+        // reprezante EGZAKTEMAN minwit Ayiti (menm konvansyon ak `haitiRange`).
+        issueDate: issueDate ? new Date(`${issueDate}T05:00:00.000Z`) : undefined,
+        // ✅ KORIJE — menm konvansyon minwit Ayiti pou dueDate
+        dueDate: dueDate ? new Date(`${dueDate}T05:00:00.000Z`) : null,
         notes, terms, createdBy: userId
       }
     });
