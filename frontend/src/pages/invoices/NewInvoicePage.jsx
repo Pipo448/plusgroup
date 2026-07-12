@@ -6,7 +6,15 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, CloudUpload } from 'lucide-react'
+// ✅ NOUVO — Offline mode
+import { useNetworkStatus } from '../../hooks/useNetworkStatus'
+import {
+  cacheProducts, searchCachedProducts,
+  cacheClients, searchCachedClients,
+  queueSale, adjustCachedProductStock,
+} from '../../services/offlineDb'
+import { syncPendingSales, countPendingSales, onSyncEvent } from '../../services/offlineSync'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -75,10 +83,22 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
 
   const { data } = useQuery({
     queryKey: ['products-search', debouncedSearch],
-    queryFn:  () => productAPI.getAll({ search: debouncedSearch, limit: 8 }).then(r => r.data.products || []),
+    // ✅ KORIJE — eseye rechèch anliy premye; si l echwe (pa gen entènèt),
+    // repli sou pwodwi ki deja cache lokalman (IndexedDB)
+    queryFn: async () => {
+      try {
+        const res = await productAPI.getAll({ search: debouncedSearch, limit: 8 })
+        const products = res.data.products || []
+        cacheProducts(products).catch(() => {}) // mete ajou cache a an background
+        return products
+      } catch (err) {
+        return await searchCachedProducts(debouncedSearch, 8)
+      }
+    },
     enabled:  debouncedSearch.length >= 2,
     staleTime: 30_000,
     cacheTime: 60_000,
+    retry: false,
   })
   const products = data || []
 
@@ -165,10 +185,20 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
 
   const { data } = useQuery({
     queryKey: ['products-search-m', debouncedSearch],
-    queryFn:  () => productAPI.getAll({ search: debouncedSearch, limit: 8 }).then(r => r.data.products || []),
+    queryFn: async () => {
+      try {
+        const res = await productAPI.getAll({ search: debouncedSearch, limit: 8 })
+        const products = res.data.products || []
+        cacheProducts(products).catch(() => {})
+        return products
+      } catch (err) {
+        return await searchCachedProducts(debouncedSearch, 8)
+      }
+    },
     enabled:  debouncedSearch.length >= 2,
     staleTime: 30_000,
     cacheTime: 60_000,
+    retry: false,
   })
   const products = data || []
 
@@ -276,8 +306,13 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
 export default function NewInvoicePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { tenant } = useAuthStore()
+  const { tenant, user } = useAuthStore()
   const isMobile = useIsMobile()
+
+  // ✅ NOUVO — Offline mode
+  const { isOnline } = useNetworkStatus()
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncingNow, setSyncingNow] = useState(false)
 
   const [clientSearch, setClientSearch]     = useState('')
   const [clientOpen, setClientOpen]         = useState(false)
@@ -301,11 +336,65 @@ export default function NewInvoicePage() {
 
   const { data: clientData } = useQuery({
     queryKey: ['clients-search', debouncedClientSearch],
-    queryFn:  () => clientAPI.getAll({ search: debouncedClientSearch, limit: 8 }).then(r => r.data.clients || r.data),
+    queryFn: async () => {
+      try {
+        const res = await clientAPI.getAll({ search: debouncedClientSearch, limit: 8 })
+        const clients = res.data.clients || res.data || []
+        cacheClients(clients).catch(() => {})
+        return clients
+      } catch (err) {
+        return await searchCachedClients(debouncedClientSearch, 8)
+      }
+    },
     enabled:  debouncedClientSearch.length >= 1,
     staleTime: 30_000,
+    retry: false,
   })
   const clients = clientData || []
+
+  // ✅ NOUVO — Cache inisyal pwodwi/kliyan lè paj la louvri (si an liy)
+  // Sa asire gen yon katalòg lokal disponib si entènèt tonbe pandan sesyon an
+  useEffect(() => {
+    if (!isOnline) return
+    productAPI.getAll({ limit: 500 }).then(r => {
+      cacheProducts(r.data.products || []).catch(() => {})
+    }).catch(() => {})
+    clientAPI.getAll({ limit: 500 }).then(r => {
+      cacheClients(r.data.clients || r.data || []).catch(() => {})
+    }).catch(() => {})
+  }, [isOnline])
+
+  // ✅ NOUVO — Konte vant an atant + tande evènman senkwonizasyon
+  useEffect(() => {
+    countPendingSales().then(setPendingCount)
+    const unsub = onSyncEvent((evt) => {
+      if (evt.type === 'sync-start') setSyncingNow(true)
+      if (evt.type === 'sync-end') {
+        setSyncingNow(false)
+        countPendingSales().then(setPendingCount)
+        if (evt.synced > 0) {
+          toast.success(`${evt.synced} vant senkwonize avèk siksè!`)
+        }
+        if (evt.failed > 0) {
+          toast.error(`${evt.failed} vant pa t ka senkwonize. Y ap eseye ankò.`)
+        }
+      }
+    })
+    return unsub
+  }, [])
+
+  // ✅ NOUVO — Senkwonize otomatikman lè entènèt tounen
+  useEffect(() => {
+    if (isOnline) {
+      syncPendingSales()
+    }
+  }, [isOnline])
+
+  const handleManualSync = useCallback(async () => {
+    if (!isOnline) return toast.error('Pa gen entènèt kounye a.')
+    setSyncingNow(true)
+    await syncPendingSales()
+  }, [isOnline])
 
   useEffect(() => {
     const h = (e) => { if (clientRef.current && !clientRef.current.contains(e.target)) setClientOpen(false) }
@@ -344,7 +433,7 @@ export default function NewInvoicePage() {
     onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     const validItems = items.filter(it => it.description?.trim() && Number(it.unitPrice) > 0)
     if (!validItems.length) {
       toast.error(t('invoice.addAtLeastOneItem') || 'Ajoute omwen yon atik.')
@@ -382,15 +471,15 @@ export default function NewInvoicePage() {
     const taxAmt   = afterDis * (Number(taxRate) / 100)
     const total    = afterDis + taxAmt
 
-    mutation.mutate({
+    const payload = {
       clientId:      selectedClient?.id || null,
+      clientSnapshot: selectedClient ? { id: selectedClient.id, name: selectedClient.name, phone: selectedClient.phone } : {},
       issueDate:     invoiceDate,
       dueDate:       dueDate || null,
       currency:      'HTG',
       exchangeRate:  0,
       subtotalHtg:   sub,
       subtotalUsd:   0,
-      // ✅ KORIJE — di backend la se yon MONTAN
       discountType:  'amount',
       discountValue: Number(discountGlobal || 0),
       discountHtg:   discAmt,
@@ -403,11 +492,87 @@ export default function NewInvoicePage() {
       notes,
       terms,
       items: mappedItems,
-    })
-  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation])
+    }
+
+    // ✅ NOUVO — Si PA gen entènèt, sove vant lan lokalman (file datant)
+    // olye eseye kontakte backend (ki t ap echwe de tout fason)
+    if (!isOnline) {
+      try {
+        await queueSale(payload)
+
+        // Ajiste estòk lokal (pou pwochen rechèch/vant offline wè bon kantite)
+        for (const item of mappedItems) {
+          if (item.productId) {
+            await adjustCachedProductStock(item.productId, -item.quantity)
+          }
+        }
+
+        setPendingCount(c => c + 1)
+        toast.success('📴 Pa gen entènèt — vant sove lokalman. L ap senkwonize otomatikman.', { duration: 5000 })
+        navigate('/app/invoices')
+      } catch (e) {
+        toast.error('Erè pandan sove vant offline: ' + e.message)
+      }
+      return
+    }
+
+    // ─── Online — kontinye jan sa te ye a ───
+    mutation.mutate(payload)
+  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate])
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth: isMobile ? '100%' : 860, padding: isMobile ? '0 0 80px' : 0 }}>
+
+      {/* ✅ NOUVO — Banyè Offline / Senkwonizasyon */}
+      {!isOnline && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:10,
+          padding:'12px 16px', marginBottom:16, borderRadius:12,
+          background:'rgba(217,119,6,0.1)', border:'1.5px solid rgba(217,119,6,0.3)',
+        }}>
+          <WifiOff size={18} color="#D97706" style={{ flexShrink:0 }}/>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:13, fontWeight:800, color:'#92400E', margin:0 }}>
+              Mòd Offline — Pa gen entènèt kounye a
+            </p>
+            <p style={{ fontSize:11, color:'#92400E', margin:'2px 0 0' }}>
+              Vant yo ap sove lokalman e senkwonize otomatikman lè entènèt tounen.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isOnline && pendingCount > 0 && (
+        <div style={{
+          display:'flex', alignItems:'center', gap:10,
+          padding:'12px 16px', marginBottom:16, borderRadius:12,
+          background:'rgba(27,42,143,0.06)', border:'1.5px solid rgba(27,42,143,0.2)',
+        }}>
+          <CloudUpload size={18} color={D.blue} style={{ flexShrink:0 }}/>
+          <div style={{ flex:1, minWidth:0 }}>
+            <p style={{ fontSize:13, fontWeight:800, color:D.text, margin:0 }}>
+              {pendingCount} vant an atant pou senkwonize
+            </p>
+          </div>
+          <button
+            onClick={handleManualSync}
+            disabled={syncingNow}
+            style={{
+              display:'flex', alignItems:'center', gap:6,
+              padding:'7px 14px', borderRadius:9,
+              background: D.blue, color:'#fff', border:'none',
+              fontSize:12, fontWeight:700, cursor: syncingNow ? 'wait' : 'pointer',
+              opacity: syncingNow ? 0.6 : 1,
+            }}>
+            <RefreshCw size={13} className={syncingNow ? 'spin-icon' : ''}/>
+            {syncingNow ? 'Ap senkwonize...' : 'Senkwonize Kounye a'}
+          </button>
+          <style>{`
+            @keyframes spin-icon { to { transform: rotate(360deg) } }
+            .spin-icon { animation: spin-icon 1s linear infinite; }
+          `}</style>
+        </div>
+      )}
 
       <div style={{ display:'flex', alignItems:'center', gap:isMobile ? 10 : 14, marginBottom: isMobile ? 18 : 28 }}>
         <button onClick={() => navigate('/app/invoices')}
