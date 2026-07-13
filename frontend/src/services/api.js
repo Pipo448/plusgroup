@@ -87,6 +87,9 @@ export const tenantAPI = {
   updateRate:        (rate) => api.patch('/tenant/exchange-rate', { exchangeRate: rate }),
   uploadLogo:        (fd)   => api.post('/tenant/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } }),
   getSequences:      ()     => api.get('/tenant/sequences'),
+  // ✅ KORIJE — te manke nèt; ChangeUserPassword.jsx rele l pou ranpli lis
+  // itilizatè yo, sa te fè konpozan an kraze paske fonksyon an te undefined.
+  getUsers:          ()     => api.get('/users'),
   changeMyPassword:  (data) => api.post('/users/change-password', data),
   resetUserPassword: (data) => api.post('/users/reset-password', data),
 }
