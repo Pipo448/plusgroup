@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, UploadCloud } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, UploadCloud, Package } from 'lucide-react'
 // ✅ NOUVO — Offline mode
 import { useNetworkStatus } from '../../hooks/useNetworkStatus'
 import {
@@ -154,15 +154,23 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
                   }}
                   onMouseEnter={e => { if (!outOfStock) e.currentTarget.style.background = D.blueDim }}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <span style={{ fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
-                    {p.name}
+                  <span style={{ fontWeight:600, display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
+                    {/* ✅ NOUVO — Vinyèt foto pwodwi nan rezilta rechèch */}
+                    <span style={{
+                      width:28, height:28, borderRadius:7, flexShrink:0,
+                      background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>
+                      {!p.imageUrl && <Package size={13} color={D.blue}/>}
+                    </span>
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
                     {outOfStock && (
-                      <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em' }}>
+                      <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em', flexShrink:0 }}>
                         STÒK FINI
                       </span>
                     )}
                   </span>
-                  <span style={{ fontFamily:'monospace', color: outOfStock ? D.muted : D.blue, fontWeight:700, fontSize:12 }}>{fmt(p.priceHtg)} HTG</span>
+                  <span style={{ fontFamily:'monospace', color: outOfStock ? D.muted : D.blue, fontWeight:700, fontSize:12, flexShrink:0 }}>{fmt(p.priceHtg)} HTG</span>
                 </div>
               )
             })}
@@ -290,20 +298,30 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
                   onMouseDown={() => selectProduct(p)}
                   style={{
                     padding:'12px 14px', cursor: outOfStock ? 'not-allowed' : 'pointer', borderBottom:`1px solid ${D.border}`,
-                    display:'flex', justifyContent:'space-between', alignItems:'center', opacity: outOfStock ? 0.55 : 1,
+                    display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, opacity: outOfStock ? 0.55 : 1,
                   }}>
-                  <div>
-                    <div style={{ fontWeight:700, fontSize:14, color: outOfStock ? D.muted : D.text, display:'flex', alignItems:'center', gap:6 }}>
-                      {p.name}
-                      {outOfStock && (
-                        <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em' }}>
-                          STÒK FINI
-                        </span>
-                      )}
+                  <div style={{ display:'flex', gap:10, alignItems:'center', minWidth:0, flex:1 }}>
+                    {/* ✅ NOUVO — Vinyèt foto pwodwi */}
+                    <div style={{
+                      width:38, height:38, borderRadius:9, flexShrink:0,
+                      background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+                      display:'flex', alignItems:'center', justifyContent:'center',
+                    }}>
+                      {!p.imageUrl && <Package size={16} color={D.blue}/>}
                     </div>
-                    {p.code && <div style={{ fontSize:11, color:D.muted }}>{p.code}</div>}
+                    <div style={{ minWidth:0 }}>
+                      <div style={{ fontWeight:700, fontSize:14, color: outOfStock ? D.muted : D.text, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                        <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
+                        {outOfStock && (
+                          <span style={{ fontSize:9, fontWeight:800, color:'#DC2626', background:'rgba(220,38,38,0.1)', padding:'2px 6px', borderRadius:99, letterSpacing:'0.03em' }}>
+                            STÒK FINI
+                          </span>
+                        )}
+                      </div>
+                      {p.code && <div style={{ fontSize:11, color:D.muted }}>{p.code}</div>}
+                    </div>
                   </div>
-                  <div style={{ fontFamily:'monospace', fontWeight:800, color: outOfStock ? D.muted : D.blue, fontSize:13 }}>{fmt(p.priceHtg)}</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:800, color: outOfStock ? D.muted : D.blue, fontSize:13, flexShrink:0 }}>{fmt(p.priceHtg)}</div>
                 </div>
               )
             })}
