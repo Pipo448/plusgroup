@@ -59,6 +59,54 @@ router.post('/', authorize('admin'), asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, user });
 }));
 
+// POST /change-password — Itilizatè konekte a chanje PWÒP modpas li
+// (SettingsPage.jsx -> tenantAPI.changeMyPassword). Wout sa a te manke,
+// sa te bay 404 "Route pa jwenn: /api/v1/users/change-password".
+router.post('/change-password', asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return res.status(400).json({ success: false, message: 'Ansyen ak nouvo modpas obligatwa.' });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, message: 'Nouvo modpas dwe gen omwen 6 karaktè.' });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: req.user.id, tenantId: req.tenant.id }
+  });
+  if (!user) return res.status(404).json({ success: false, message: 'Itilizatè pa jwenn.' });
+
+  const match = await bcrypt.compare(oldPassword, user.passwordHash);
+  if (!match) {
+    return res.status(401).json({ success: false, message: 'Ansyen modpas la pa kòrèk.' });
+  }
+
+  const hash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
+  res.json({ success: true, message: 'Modpas ou chanje avèk siksè.' });
+}));
+
+// POST /reset-password — Admin chanje modpas yon LÒT itilizatè, { userId, newPassword } nan body
+// (SettingsPage.jsx -> tenantAPI.resetUserPassword). Sa a te manke tou — frontend voye
+// userId nan body, men ansyen wout la (`PATCH /:id/reset-password` anba a) te tann li nan URL.
+// Nou kite ansyen wout la entak pou konpatibilite, epi ajoute nouvo a pou matche frontend.
+router.post('/reset-password', authorize('admin'), asyncHandler(async (req, res) => {
+  const { userId, newPassword } = req.body;
+  if (!userId || !newPassword || newPassword.length < 6) {
+    return res.status(400).json({ success: false, message: 'Chwazi yon itilizatè epi antre yon modpas omwen 6 karaktè.' });
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id: userId, tenantId: req.tenant.id }
+  });
+  if (!user) return res.status(404).json({ success: false, message: 'Itilizatè pa jwenn.' });
+
+  const hash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash: hash } });
+  res.json({ success: true, message: 'Modpas itilizatè a chanje avèk siksè.' });
+}));
+
 // PUT /:id — Modifye itilizatè (Admin sèlman)
 router.put('/:id', authorize('admin'), asyncHandler(async (req, res) => {
   const { fullName, role, phone, isActive, permissions, preferredLang } = req.body;
