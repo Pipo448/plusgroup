@@ -192,7 +192,14 @@ export default function Dashboard() {
   }), [salesDaily])
 
   const totalVentesJodi = Number(data?.todayTotalVentes||0)
-  const totalPayeJodi   = Number(today?.totalPaid?._sum?.totalHtg||0)
+  // ✅ KORIJE — "Peye Jodi a" dwe konte KACH ki antre jodi a: fakti peye konplè
+  // + depo ki fèt sou fakti pasyèl yo. Anvan sa, li te sèlman konte fakti peye
+  // konplè, li te inyore depo yo (egzanp: achte 400, depoze 200 → 200 sa a
+  // te disparèt nan "Peye Jodi a" byenke se te vrè kòb ki te antre).
+  const totalPayeJodiKonplè = Number(today?.totalPaid?._sum?.totalHtg||0)
+  const totalDepoJodi       = Number(today?.totalPartial?._sum?.amountPaidHtg||0)
+  const totalPayeJodi   = totalPayeJodiKonplè + totalDepoJodi
+  const nbFaktiPayeJodi = Number(today?.totalPaid?._count||0) + Number(today?.totalPartial?._count||0)
   const totalImpayeJodi = Number(today?.totalUnpaid?._sum?.balanceDueHtg||0)
   const totalPasyalJodi = Number(today?.totalPartial?._sum?.balanceDueHtg||0)
   const totalImpaye     = Number(dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
@@ -370,7 +377,7 @@ export default function Dashboard() {
         <div className="hero-stats-scroll" style={{position:'relative', zIndex:1}}>
           <div className="hero-stats-inner">
             <StatCard label={lbl('salesToday')} val={`${fmt(totalVentesJodi)} HTG`} icon={<TrendingUp size={15}/>}  color={D.gold}   sub={showRate&&fmtConv(totalVentesJodi,exchangeRates,visibleCurrs)}/>
-            <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPayeJodi,exchangeRates,visibleCurrs)||`${today?.totalPaid?._count||0} ${t('dashboard.invoices')}`}/>
+            <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPayeJodi,exchangeRates,visibleCurrs)||`${nbFaktiPayeJodi} ${t('dashboard.invoices')}`}/>
             <StatCard label={lbl('balance')}    val={`${fmt(totalImpayeJodi)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpayeJodi,exchangeRates,visibleCurrs)||`${today?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
             <StatCard label={lbl('partial')}    val={`${fmt(totalPasyalJodi)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyalJodi,exchangeRates,visibleCurrs)||`${today?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
           </div>
