@@ -128,7 +128,14 @@ const ProductDropdown = memo(function ProductDropdown({ value, onSelect, onClear
   if (value) {
     return (
       <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'white', borderRadius:10, border:'1.5px solid rgba(27,42,143,0.15)' }}>
-        <Package size={14} color="#1B2A8F"/>
+        {/* ✅ NOUVO — Vinyèt foto pwodwi (si genyen) */}
+        <div style={{
+          width:26, height:26, borderRadius:7, flexShrink:0,
+          background: value.imageUrl ? `url(${value.imageUrl}) center/cover no-repeat` : 'rgba(27,42,143,0.08)',
+          display:'flex', alignItems:'center', justifyContent:'center',
+        }}>
+          {!value.imageUrl && <Package size={13} color="#1B2A8F"/>}
+        </div>
         <div style={{ flex:1 }}>
           <p style={{ fontSize:13, fontWeight:700, color:'#0F1A5C', margin:0 }}>{value.name}</p>
           <p style={{ fontSize:11, color:'#6B7AAB', margin:0, fontFamily:'monospace' }}>{value.code}</p>
@@ -167,8 +174,9 @@ const ProductDropdown = memo(function ProductDropdown({ value, onSelect, onClear
                 borderBottom: i < productResults.length - 1 ? '1px solid rgba(27,42,143,0.06)' : 'none',
               }}>
               <div style={{ display:'flex', alignItems:'center', gap:9 }}>
-                <div style={{ width:30, height:30, borderRadius:8, flexShrink:0, background:'rgba(27,42,143,0.07)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <Package size={13} color="#1B2A8F"/>
+                {/* ✅ NOUVO — Vinyèt foto pwodwi (si genyen) */}
+                <div style={{ width:30, height:30, borderRadius:8, flexShrink:0, background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : 'rgba(27,42,143,0.07)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {!p.imageUrl && <Package size={13} color="#1B2A8F"/>}
                 </div>
                 <div>
                   <p style={{ fontSize:13, fontWeight:700, color:'#0F1A5C', margin:0 }}>{p.name}</p>
