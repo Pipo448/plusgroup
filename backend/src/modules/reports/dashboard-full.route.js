@@ -94,7 +94,7 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     }),
     prisma.invoice.aggregate({
       where: { ...todayWhere, status: 'partial' },
-      _sum: { balanceDueHtg: true }, _count: true,
+      _sum: { balanceDueHtg: true, amountPaidHtg: true }, _count: true,
     }),
     // Tout pwodwi aktif (pa sèvis) — filtraj alertThreshold fèt an JS pi ba
     prisma.product.findMany({
@@ -157,7 +157,7 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
       today: {
         totalPaid:    { _sum: { totalHtg: todayPaid._sum?.totalHtg },       _count: todayPaid._count },
         totalUnpaid:  { _sum: { balanceDueHtg: todayUnpaid._sum?.balanceDueHtg }, _count: todayUnpaid._count },
-        totalPartial: { _sum: { balanceDueHtg: todayPartial._sum?.balanceDueHtg }, _count: todayPartial._count },
+        totalPartial: { _sum: { balanceDueHtg: todayPartial._sum?.balanceDueHtg, amountPaidHtg: todayPartial._sum?.amountPaidHtg }, _count: todayPartial._count },
       },
       todayTotalVentes,
       lowStock,
