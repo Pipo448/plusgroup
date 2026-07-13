@@ -125,7 +125,7 @@ export default function ProfitSection() {
     staleTime: 60000,
   })
 
-  const totaux    = data?.totaux    || { vantHtg: 0, koutHtg: 0, benefisHtg: 0, majPct: '0.0' }
+  const totaux    = data?.totaux    || { vantHtg: 0, koutHtg: 0, benefisHtg: 0, majPct: '0.0', depansHtg: 0, benefisNetHtg: 0, majNetPct: '0.0' }
   const byProduct = data?.byProduct || []
   const top5      = data?.top5      || []
   const daily     = (data?.daily    || []).map(d => ({
@@ -168,10 +168,10 @@ export default function ProfitSection() {
           flex-wrap: wrap;
         }
 
-        /* 4 kolonn sou desktop */
+        /* ✅ KORIJE — 5 kolonn sou desktop (ajoute kat "Benefis Net") */
         .profit-summary-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
+          grid-template-columns: repeat(5, 1fr);
           gap: 12px;
         }
 
@@ -309,11 +309,14 @@ export default function ProfitSection() {
                 icon={<DollarSign size={17} />}
                 color={D.red}
               />
+              {/* ✅ KORIJE — sa a se BENEFIS BRIT (Vant - Kout Machandiz),
+                  PA benefis final la, paske depans jeneral pa ladan l */}
               <SummaryCard
-                label={t('dashboard.netProfit')}
+                label="Benefis Brit"
                 value={`${fmt(totaux.benefisHtg)} HTG`}
                 icon={<TrendingUp size={17} />}
                 color={Number(totaux.benefisHtg) >= 0 ? D.success : D.red}
+                sub="Vant - Kout machandiz"
               />
               <SummaryCard
                 label={t('dashboard.profitMargin')}
@@ -321,6 +324,14 @@ export default function ProfitSection() {
                 icon={<Award size={17} />}
                 color={D.gold}
                 sub={`${byProduct.length} ${t('dashboard.analyzed')}`}
+              />
+              {/* ✅ NOUVO — Vrè Benefis NET la (Benefis Brit - Depans Jeneral) */}
+              <SummaryCard
+                label="Benefis Net"
+                value={`${fmt(totaux.benefisNetHtg)} HTG`}
+                icon={<DollarSign size={17} />}
+                color={Number(totaux.benefisNetHtg) >= 0 ? D.success : D.red}
+                sub={`- ${fmt(totaux.depansHtg)} HTG depans`}
               />
             </div>
 
