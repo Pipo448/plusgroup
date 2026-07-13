@@ -309,14 +309,14 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             <div>
               <label className="label">{t('products.priceHtg')} *</label>
               <div className="relative">
-                <input type="number" step="0.01" min="0" className={`input pr-12 ${errors.priceHtg ? 'input-error' : ''}`} placeholder="0.00" {...register('priceHtg', { required: true, min: 0 })} onChange={handlePriceHtgChange}/>
+                <input type="number" step="0.01" min="0" className={`input pr-12 ${errors.priceHtg ? 'input-error' : ''}`} placeholder="0.00" {...register('priceHtg', { required: true, min: 0 })} onChange={handlePriceHtgChange} onFocus={e => e.target.select()}/>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
               </div>
             </div>
             <div>
               <label className="label">{t('products.priceUsd')} <span className="text-xs text-brand-500 font-normal ml-1">{t('products.automatic')}</span></label>
               <div className="relative">
-                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00" {...register('priceUsd', { min: 0 })} onChange={handlePriceUsdChange}/>
+                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00" {...register('priceUsd', { min: 0 })} onChange={handlePriceUsdChange} onFocus={e => e.target.select()}/>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">USD</span>
               </div>
               <p className="text-xs text-slate-400 mt-1 font-mono">1 USD = {rate.toFixed(2)} HTG</p>
@@ -324,7 +324,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             <div>
               <label className="label">{t('products.costPrice')}</label>
               <div className="relative">
-                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00" {...register('costPriceHtg', { min: 0 })}/>
+                <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00" {...register('costPriceHtg', { min: 0 })} onFocus={e => e.target.select()}/>
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
               </div>
             </div>
@@ -332,12 +332,12 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">{t('products.stockQuantity')}</label>
-              <input type="number" step="0.001" min="0" className="input" placeholder="0" {...register('quantity', { min: 0 })} disabled={isEdit}/>
+              <input type="number" step="0.001" min="0" className="input" placeholder="0" {...register('quantity', { min: 0 })} disabled={isEdit} onFocus={e => e.target.select()}/>
               {isEdit && <p className="text-xs text-slate-400 mt-1">{t('products.adjustInStockPage')}</p>}
             </div>
             <div>
               <label className="label">{t('products.alertThreshold')}</label>
-              <input type="number" step="0.001" min="0" className="input" placeholder="5" {...register('alertThreshold', { min: 0 })}/>
+              <input type="number" step="0.001" min="0" className="input" placeholder="5" {...register('alertThreshold', { min: 0 })} onFocus={e => e.target.select()}/>
             </div>
           </div>
           <div>

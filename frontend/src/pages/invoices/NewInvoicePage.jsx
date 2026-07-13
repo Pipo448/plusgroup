@@ -173,13 +173,13 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
       <input type="number" min="1" value={item.qty}
         onChange={e => onUpdate(idx, { qty: Number(e.target.value) })}
         style={{ ...inp, fontSize:12, textAlign:'center' }}
-        onFocus={e => e.target.style.borderColor = D.blue}
+        onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
         onBlur={e => e.target.style.borderColor = D.border}
       />
       <input type="number" min="0" step="0.01" value={item.unitPrice}
         onChange={e => onUpdate(idx, { unitPrice: e.target.value })}
         style={{ ...inp, fontSize:12, fontFamily:'monospace' }}
-        onFocus={e => e.target.style.borderColor = D.blue}
+        onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
         onBlur={e => e.target.style.borderColor = D.border}
       />
       {/* ✅ KORIJE — Rabè HTG (montan), pa pousantaj */}
@@ -187,7 +187,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         onChange={e => onUpdate(idx, { discount: e.target.value })}
         placeholder="0.00"
         style={{ ...inp, fontSize:12, fontFamily:'monospace', textAlign:'right' }}
-        onFocus={e => e.target.style.borderColor = D.blue}
+        onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
         onBlur={e => e.target.style.borderColor = D.border}
       />
       <div style={{ padding:'10px 6px', fontSize:12, fontFamily:'monospace', fontWeight:700, color:D.text, textAlign:'right' }}>
@@ -317,7 +317,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           <input type="number" min="1" value={item.qty}
             onChange={e => onUpdate(idx, { qty: Number(e.target.value) })}
             style={{ ...inp, textAlign:'center', fontSize:14 }}
-            onFocus={e => e.target.style.borderColor = D.blue}
+            onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
         </div>
@@ -326,7 +326,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           <input type="number" min="0" step="0.01" value={item.unitPrice}
             onChange={e => onUpdate(idx, { unitPrice: e.target.value })}
             style={{ ...inp, fontFamily:'monospace', fontSize:13 }}
-            onFocus={e => e.target.style.borderColor = D.blue}
+            onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
         </div>
@@ -337,7 +337,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
             onChange={e => onUpdate(idx, { discount: e.target.value })}
             placeholder="0.00"
             style={{ ...inp, textAlign:'right', fontSize:13, fontFamily:'monospace' }}
-            onFocus={e => e.target.style.borderColor = D.blue}
+            onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
         </div>
@@ -851,7 +851,7 @@ export default function NewInvoicePage() {
                 {label(`${t('settings.taxRate') || 'Taks TVA'} (%)`)}
                 <input type="number" min="0" max="100" step="0.5" value={taxRate}
                   onChange={e => setTaxRate(e.target.value)} style={inp}
-                  onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
+                  onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
             </div>
           </div>
@@ -924,7 +924,7 @@ export default function NewInvoicePage() {
                   onChange={e => setDiscountGlobal(e.target.value)}
                   placeholder="0.00"
                   style={{ ...inp, width:120, textAlign:'right', fontSize:12, padding:'6px 10px', fontFamily:'monospace' }}
-                  onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
+                  onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
               {discountAmount > 0 && (
                 <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:D.red }}>
@@ -976,6 +976,7 @@ export default function NewInvoicePage() {
                   <input type="number" min="0" step="0.01" value={amountReceived}
                     onChange={e => setAmountReceived(e.target.value)}
                     placeholder={fmt(grandTotal)}
+                    onFocus={e => e.target.select()}
                     style={{ ...inp, textAlign:'right', fontFamily:'monospace', fontSize:15 }}/>
                   {Number(amountReceived) > grandTotal && (
                     <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, padding:'8px 12px', background:D.successBg, borderRadius:8 }}>
