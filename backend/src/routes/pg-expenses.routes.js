@@ -60,7 +60,14 @@ router.get('/stats', async (req, res) => {
     ])
     res.json({
       totalMwa: Number(totalMwa[0]?.total || 0),
-      parCategorie,
+      // ✅ KORIJE — COUNT(*) PostgreSQL retounen BigInt, ki fè
+      // "Do not know how to serialize a BigInt" lè JSON.stringify eseye l.
+      // Konvèti chak `total`/`count` an Number nòmal anvan voye repons lan.
+      parCategorie: parCategorie.map(row => ({
+        ...row,
+        total: Number(row.total || 0),
+        count: Number(row.count || 0),
+      })),
     })
   } catch (e) { res.status(500).json({ message: e.message }) }
 })

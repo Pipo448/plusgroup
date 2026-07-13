@@ -227,6 +227,26 @@ router.get('/profit', asyncHandler(async (req, res) => {
   totaux.majPct = totaux.vantHtg > 0
     ? ((totaux.benefisHtg / totaux.vantHtg) * 100).toFixed(1) : '0.0';
 
+  // ✅ NOUVO — Rele tab depans (pg_expenses) pou MENM peryòd la, epi kalkile
+  // vrè "Benefis NET" la (Benefis Brit - Depans Jeneral). San sa, "benefis"
+  // ki afiche a se sèlman maj sou machandiz (Vant - Kout Pwodwi), li PA
+  // pran an kont lokasyon, salè, elatriye ki soti nan modil Depans lan.
+  const expenseRows = dateFilter
+    ? await prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant),0) as total FROM pg_expenses
+        WHERE tenant_id=${tenantId} AND date_depans >= ${dateFilter.gte} AND date_depans <= ${dateFilter.lte}
+      `
+    : await prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant),0) as total FROM pg_expenses WHERE tenant_id=${tenantId}
+      `;
+
+  const depansHtg = Number(expenseRows[0]?.total || 0);
+
+  totaux.depansHtg     = depansHtg;
+  totaux.benefisNetHtg = totaux.benefisHtg - depansHtg;
+  totaux.majNetPct      = totaux.vantHtg > 0
+    ? ((totaux.benefisNetHtg / totaux.vantHtg) * 100).toFixed(1) : '0.0';
+
   const dailyMap = {};
   for (const item of items) {
     const day  = String(item.invoice.issueDate).substring(0, 10);
