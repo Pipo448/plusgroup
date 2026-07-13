@@ -53,7 +53,10 @@ const LABELS = {
   salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales" },
   paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today' },
   balance:    { ht:'Pa Peye Jodi a', fr:'Impayé du Jour',    en:'Unpaid Today' },
-  partial:    { ht:'Depo Jodi a',    fr:'Acompte du Jour',   en:'Deposit Today' },
+  // ✅ KORIJE — kat sa a montre balanceDueHtg (rès ki rete pou peye) sou fakti
+  // pasyèl yo, se pa yon "depo". Etikèt la te ka bay konfizyon (sanble se kòb
+  // ki antre, alòske se kòb ki toujou dwe). Kounye a li di sa l vrèman ye: Kredi.
+  partial:    { ht:'Kredi Jodi a',  fr:'Crédit du Jour',    en:'Credit Today' },
 }
 
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
@@ -342,15 +345,16 @@ export default function Dashboard() {
             </div>
             <h1 className="hero-title" style={{fontSize:28, fontWeight:900, color:'#fff', margin:'0 0 6px'}}>
               {(()=>{
-                // ✅ KORIJE — America/New_York olye America/Port-au-Prince (done fizo
-                // orè pi fyab, evite bug "1 èdtan an avans" sou kèk aparèy Android ansyen)
-                const h = parseInt(new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false}))
+                // ✅ KORIJE — America/Port-au-Prince (Ayiti PA gen DST, li rete UTC-5
+                // tout ane. America/New_York te bay bug 1èdtan an avans pandan sezon
+                // DST Etazini, mas-novanm, paske New York vin UTC-4 lè sa a)
+                const h = parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince',hour:'numeric',hour12:false}))
                 const greet = h<12 ? t('dashboard.greetingMorning') : h<18 ? t('dashboard.greetingAfternoon') : t('dashboard.greetingEvening')
                 return <>{greet}, {user?.fullName?.split(' ')[0]}! 👋</>
               })()}
             </h1>
             <p style={{fontSize:12, color:'rgba(255,255,255,0.5)', margin:0, textTransform:'capitalize'}}>
-              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})),'EEEE d MMMM yyyy',{locale:fr})}
+              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})),'EEEE d MMMM yyyy',{locale:fr})}
             </p>
           </div>
           <Link to="/app/quotes/new" style={{

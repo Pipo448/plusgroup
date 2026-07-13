@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { reportAPI, invoiceAPI } from '../../services/api'
+import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import { TrendingUp, Package, Award, AlertCircle } from 'lucide-react'
@@ -91,6 +92,19 @@ export default function ReportsPage() {
     enabled:  activeTab === 'sales',
     staleTime: 30_000,
   })
+
+  // ✅ NOUVO — Total Kredi TOUT TAN (endepandan de filtè dat la anwo a).
+  // "Balans Kredi (Dèt)" anba a se sèlman pou peryòd chwazi a (7/30/90 jou);
+  // yon kliyan ki gen yon dèt ki soti pi lwen pase peryòd la p ap parèt ladan.
+  // Sa a montre total reyèl tout kliyan dwe, kèlkeswa lè fakti a te fèt.
+  const { data: allTimeCredit } = useQuery({
+    queryKey: ['alltime-credit'],
+    queryFn:  () => api.get('/dashboard/full').then(r => r.data.data),
+    enabled:  activeTab === 'sales',
+    staleTime: 60_000,
+  })
+  const totalKrediToutTan = Number(allTimeCredit?.dashboard?.totalUnpaid?._sum?.balanceDueHtg||0)
+                          + Number(allTimeCredit?.dashboard?.totalPartial?._sum?.balanceDueHtg||0)
 
   const { data: stockReport } = useQuery({
     queryKey: ['stock-report'],
@@ -296,6 +310,7 @@ export default function ReportsPage() {
               { label: 'Nbr Fakti',          val: salesReport?.totals?._count || 0, color: '#0369a1', bg: '#e0f2fe' },
               { label: 'Peye',               val: `${fmt(paidHtg)} HTG`,            color: '#059669', bg: '#ecfdf5' },
               { label: 'Balans Kredi (Dèt)', val: `${fmt(balanceDue)} HTG`,         color: '#dc2626', bg: '#fef2f2', warn: balanceDue > 0 },
+              { label: 'Total Kredi (Tout Tan)', val: `${fmt(totalKrediToutTan)} HTG`, color: '#b45309', bg: '#fffbeb', warn: totalKrediToutTan > 0 },
             ].map((s, i) => (
               <div key={i} className="card" style={{
                 padding: isMobile ? '12px 14px' : '14px 16px',
@@ -318,7 +333,7 @@ export default function ReportsPage() {
           </div>
 
           <p style={{ fontSize: 11, color: '#94a3b8', marginTop: -4 }}>
-            1 USD = {fmt(exchangeRate)} HTG (to aktyèl)
+            1 USD = {fmt(exchangeRate)} HTG (to aktyèl) · "Balans Kredi (Dèt)" se pou peryòd chwazi a, "Total Kredi (Tout Tan)" se total dèt tout kliyan kèlkeswa dat fakti a
           </p>
 
           {/* ✅ NOUVO — Top 5 Kliyan ki Dwe */}
