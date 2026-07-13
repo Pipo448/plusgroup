@@ -129,20 +129,31 @@ const KpiCard = memo(({ label, value, count, icon, color, link }) => (
   </Link>
 ))
 
-// ✅ ColorTile — retire tous animations hover scale
+// ✅ ColorTile — hover sofistike SÈLMAN sou aparèy ki gen sourit reyèl (desktop),
+// pa gen okenn efè sou touch (POS/telefòn) pou evite lag/repaint
 const ColorTile = memo(({ icon, name, badge, gradient, onClick }) => (
-  <div onClick={onClick} style={{
+  <div onClick={onClick} className="color-tile" style={{
     background:gradient, borderRadius:18, padding:'18px 10px 14px',
     display:'flex', flexDirection:'column', alignItems:'center', gap:8,
     cursor:'pointer', outline:'2px solid rgba(255,255,255,0.10)',
     position:'relative', overflow:'hidden',
     boxShadow:'0 2px 8px rgba(0,0,0,0.12)',
   }}>
-    <div style={{fontSize:28, lineHeight:1}}>{icon}</div>
-    <div style={{fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.92)', textAlign:'center', lineHeight:1.25}}>{name}</div>
-    <div style={{background:'rgba(0,0,0,0.22)', borderRadius:20, padding:'2px 9px', fontSize:10, color:'rgba(255,255,255,0.80)', fontWeight:700}}>{badge}</div>
+    <div style={{position:'absolute', top:0, left:0, right:0, height:'40%', background:'linear-gradient(180deg,rgba(255,255,255,0.14),transparent)', pointerEvents:'none'}}/>
+    <div style={{fontSize:28, lineHeight:1, position:'relative'}}>{icon}</div>
+    <div style={{fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.92)', textAlign:'center', lineHeight:1.25, position:'relative'}}>{name}</div>
+    <div style={{background:'rgba(0,0,0,0.22)', borderRadius:20, padding:'2px 9px', fontSize:10, color:'rgba(255,255,255,0.80)', fontWeight:700, position:'relative'}}>{badge}</div>
   </div>
 ))
+
+// ✅ NOUVO — Menm lojik ak ProtectedPage nan App.jsx: verifye si tenant a
+// gen aksè bay yon paj espesifik anvan n montre tuil la nan Aksè Rapid
+const isPageAllowed = (tenant, pageKey) => {
+  if (!pageKey) return true
+  const ap = tenant?.allowedPages
+  if (ap && typeof ap === 'object' && ap[pageKey] === false) return false
+  return true
+}
 
 export default function Dashboard() {
   const { t, i18n: i18nInst } = useTranslation()
@@ -193,19 +204,72 @@ export default function Dashboard() {
     return { expired: daysLeft < 0, daysLeft }
   }, [tenant?.subscriptionEndsAt])
 
-  const COLOR_TILES = useMemo(() => [
-    { icon:'🧾', name:'Fakti',            badge:`${dashboard?.totalUnpaid?._count||0} aktif`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices'   },
-    { icon:'👤', name:'Kliyan',            badge:'Jere',                                        gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'    },
-    { icon:'📦', name:'Pwodui',            badge:'Katalòg',                                     gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products'   },
-    { icon:'📋', name:'Devi',              badge:'Nouvo +',                                     gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'     },
-    { icon:'🏭', name:'Estòk',             badge:`${lowStock.length||0} alèt`,                  gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock'      },
-    { icon:'📊', name:'Rapò',              badge:'Analytics',                                   gradient:'linear-gradient(135deg,#6366f1,#4338ca)', path:'/app/reports'    },
-    { icon:'💰', name:'Ti Kanè Kès',       badge:'Kès',                                         gradient:'linear-gradient(135deg,#C9A84C,#8B6914)', path:'/app/kane'       },
-    { icon:'💳', name:'Kanè Epay',         badge:'Pèman',                                       gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay'  },
-    { icon:'📱', name:'Sabotay',           badge:'Sol',                                         gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'    },
-    { icon:'📲', name:'MonCash / NatCash', badge:'Pèman',                                       gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay'   },
-    { icon:'🖨️', name:'Tès Enprimant',     badge:'POS',                                         gradient:'linear-gradient(135deg,#0EA5E9,#0369A1)', path:'/app/printer-test' },
-  ], [dashboard?.totalUnpaid?._count, lowStock.length])
+  // ✅ KORIJE — Tuil yo kounye a divize an SEKSYON, epi CHAK tuil filtre selon
+  // pèmisyon reyèl tenant an genyen (menm lojik ak ProtectedPage nan App.jsx).
+  // Sa anpeche moun wè modil yo pa gen aksè, epi ajoute plizyè paj ki te
+  // "kache" (Paramèt, Itilizatè, Anplwaye, Depans, Branch, elatriye).
+  const TILE_SECTIONS = useMemo(() => {
+    const sections = [
+      {
+        title: 'Vant & Jesyon',
+        tiles: [
+          { pageKey:'invoices', icon:'🧾', name:'Fakti',   badge:`${dashboard?.totalUnpaid?._count||0} aktif`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices' },
+          { pageKey:'quotes',   icon:'📋', name:'Devi',    badge:'Nouvo +',   gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'   },
+          { pageKey:'clients',  icon:'👤', name:'Kliyan',  badge:'Jere',      gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'  },
+          { pageKey:'products', icon:'📦', name:'Pwodui',  badge:'Katalòg',   gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products' },
+          { pageKey:'stock',    icon:'🏭', name:'Estòk',   badge:`${lowStock.length||0} alèt`, gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock' },
+          { pageKey:'reports',  icon:'📊', name:'Rapò',    badge:'Analytics', gradient:'linear-gradient(135deg,#6366f1,#4338ca)', path:'/app/reports'  },
+        ],
+      },
+      {
+        title: 'Finans',
+        tiles: [
+          { pageKey:'kane',      icon:'💰', name:'Ti Kanè Kès', badge:'Kès',   gradient:'linear-gradient(135deg,#C9A84C,#8B6914)', path:'/app/kane'      },
+          { pageKey:'kane-epay', icon:'💳', name:'Kanè Epay',   badge:'Pèman', gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay' },
+          { pageKey:'expenses',  icon:'🧮', name:'Depans',      badge:'Jere',  gradient:'linear-gradient(135deg,#0891b2,#155e75)', path:'/app/expenses'  },
+          { pageKey:null, adminOnly:true, icon:'📈', name:'Finans', badge:'Admin', gradient:'linear-gradient(135deg,#16a34a,#166534)', path:'/app/finances' },
+          // ✅ NOUVO — Te kache, kounye a vizib
+          { pageKey:null, icon:'💎', name:'Plan Abònman', badge:'Plan', gradient:'linear-gradient(135deg,#a855f7,#6b21a8)', path:'/app/plans' },
+        ],
+      },
+      {
+        title: 'Sèvis Antrepriz',
+        tiles: [
+          { pageKey:'sabotay',  icon:'📱', name:'Sabotay',           badge:'Sol',   gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'  },
+          { pageKey:'mobilpay', icon:'📲', name:'MonCash / NatCash', badge:'Pèman', gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay' },
+          { pageKey:'hotel',    icon:'🏨', name:'Otèl',              badge:'Rezèvasyon', gradient:'linear-gradient(135deg,#7c3aed,#5b21b6)', path:'/app/hotel' },
+          { pageKey:'dry',      icon:'👔', name:'Blanchisri',        badge:'Kòmand', gradient:'linear-gradient(135deg,#0d9488,#115e59)', path:'/app/dry'   },
+          { pageKey:'pre',      icon:'🏦', name:'Mikwo Kredi',       badge:'Prè',   gradient:'linear-gradient(135deg,#d97706,#92400e)', path:'/app/pre'   },
+          // ✅ NOUVO — Te kache, kounye a vizib
+          { pageKey:'pre',      icon:'📖', name:'Gid Mikwo Kredi',   badge:'Enfo',  gradient:'linear-gradient(135deg,#b45309,#78350f)', path:'/app/mikwo-kredi-gid' },
+          { pageKey:'pre', adminOnly:true, icon:'💹', name:'Pwofi Mikwo Kredi', badge:'Admin', gradient:'linear-gradient(135deg,#065f46,#022c22)', path:'/app/mikwo-profit' },
+        ],
+      },
+      {
+        title: 'Administrasyon',
+        tiles: [
+          { pageKey:'employees', icon:'🧑‍💼', name:'Anplwaye',  badge:'RH',      gradient:'linear-gradient(135deg,#475569,#1e293b)', path:'/app/employees'      },
+          { pageKey:'branches',  icon:'🏬', name:'Branch yo',   badge:'Jere',    gradient:'linear-gradient(135deg,#334155,#0f172a)', path:'/app/branches'       },
+          { pageKey:'users',     icon:'🔑', name:'Itilizatè',   badge:'Kont',    gradient:'linear-gradient(135deg,#57534e,#292524)', path:'/app/settings/users' },
+          { pageKey:'settings',  icon:'⚙️', name:'Paramèt',     badge:'Konfig',  gradient:'linear-gradient(135deg,#64748b,#334155)', path:'/app/settings'       },
+        ],
+      },
+      {
+        title: 'POS & Sistèm',
+        tiles: [
+          { pageKey:null, icon:'🖨️', name:'Tès Enprimant', badge:'POS', gradient:'linear-gradient(135deg,#0EA5E9,#0369A1)', path:'/app/printer-test' },
+        ],
+      },
+    ]
+
+    // ✅ Filtre chak tuil selon pèmisyon (allowedPages) ak wòl (admin)
+    return sections
+      .map(sec => ({
+        ...sec,
+        tiles: sec.tiles.filter(t => isPageAllowed(tenant, t.pageKey) && (!t.adminOnly || isAdmin)),
+      }))
+      .filter(sec => sec.tiles.length > 0)
+  }, [dashboard?.totalUnpaid?._count, lowStock.length, tenant, isAdmin])
 
   return (
     <div style={{display:'flex', flexDirection:'column', gap:20, fontFamily:'DM Sans,sans-serif', paddingBottom:40}}>
@@ -221,6 +285,13 @@ export default function Dashboard() {
         .invoice-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
         .invoice-table-wrap table{min-width:560px}
         .color-grid-wrap{display:grid;grid-template-columns:repeat(5,1fr);gap:14px}
+        .color-tile{transition:transform 0.15s ease, box-shadow 0.15s ease}
+        .kpi-inner a > div{transition:transform 0.15s ease, box-shadow 0.15s ease}
+        /* ✅ Hover sofistike SÈLMAN sou aparèy ak sourit reyèl (pa touch POS/telefòn) */
+        @media (hover:hover) and (pointer:fine) {
+          .color-tile:hover{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,0.22)!important}
+          .kpi-inner a:hover > div{transform:translateY(-2px);box-shadow:0 8px 20px rgba(27,42,143,0.14)!important}
+        }
         .inv-row:hover{background:rgba(201,168,76,0.06)!important}
         @media(max-width:900px){.chart-stock-grid{grid-template-columns:1fr}.color-grid-wrap{grid-template-columns:repeat(4,1fr)}}
         @media(max-width:600px){.hero-stats-scroll{margin:0 -16px;padding:0 16px 4px}.hero-header-row{flex-direction:column;gap:12px;margin-bottom:16px}.hero-title{font-size:22px!important}.hero-banner{padding:20px 16px!important}.color-grid-wrap{grid-template-columns:repeat(3,1fr);gap:9px}.dash-actions-row{flex-wrap:wrap}}
@@ -271,13 +342,15 @@ export default function Dashboard() {
             </div>
             <h1 className="hero-title" style={{fontSize:28, fontWeight:900, color:'#fff', margin:'0 0 6px'}}>
               {(()=>{
-                const h = parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince',hour:'numeric',hour12:false}))
+                // ✅ KORIJE — America/New_York olye America/Port-au-Prince (done fizo
+                // orè pi fyab, evite bug "1 èdtan an avans" sou kèk aparèy Android ansyen)
+                const h = parseInt(new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false}))
                 const greet = h<12 ? t('dashboard.greetingMorning') : h<18 ? t('dashboard.greetingAfternoon') : t('dashboard.greetingEvening')
                 return <>{greet}, {user?.fullName?.split(' ')[0]}! 👋</>
               })()}
             </h1>
             <p style={{fontSize:12, color:'rgba(255,255,255,0.5)', margin:0, textTransform:'capitalize'}}>
-              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})),'EEEE d MMMM yyyy',{locale:fr})}
+              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'})),'EEEE d MMMM yyyy',{locale:fr})}
             </p>
           </div>
           <Link to="/app/quotes/new" style={{
@@ -300,13 +373,26 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Aksè Rapid */}
+      {/* Aksè Rapid — kounye a divize an seksyon */}
       <div>
         <h2 style={{fontSize:13, fontWeight:900, color:D.text, margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'0.09em'}}>🎨 Aksè Rapid</h2>
-        <p style={{fontSize:11, color:D.muted, margin:'0 0 14px'}}>Klike sou yon modil pou louvri l dirèkteman</p>
-        <div className="color-grid-wrap">
-          {COLOR_TILES.map((tile) => (
-            <ColorTile key={tile.path} icon={tile.icon} name={tile.name} badge={tile.badge} gradient={tile.gradient} onClick={() => navigate(tile.path)}/>
+        <p style={{fontSize:11, color:D.muted, margin:'0 0 16px'}}>Klike sou yon modil pou louvri l dirèkteman</p>
+
+        <div style={{display:'flex', flexDirection:'column', gap:18}}>
+          {TILE_SECTIONS.map(section => (
+            <div key={section.title}>
+              <div style={{display:'flex', alignItems:'center', gap:8, marginBottom:10}}>
+                <div style={{width:4, height:14, borderRadius:99, background:`linear-gradient(180deg,${D.gold},${D.blue})`}}/>
+                <h3 style={{fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0}}>
+                  {section.title}
+                </h3>
+              </div>
+              <div className="color-grid-wrap">
+                {section.tiles.map((tile) => (
+                  <ColorTile key={tile.path} icon={tile.icon} name={tile.name} badge={tile.badge} gradient={tile.gradient} onClick={() => navigate(tile.path)}/>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
