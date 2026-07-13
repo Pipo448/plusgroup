@@ -16,18 +16,24 @@ const haitiRange = (dateFrom, dateTo) => {
   return { gte, lte };
 };
 
+// ✅ Jwenn dat la an lè Ayiti (America/Port-au-Prince), pa an UTC.
+// Sa evite bug kote "Vant Jodi a" / "Pa Peye" bay 0 apre ~7è diswa lè Ayiti,
+// paske .toISOString() te ka deja sou pwochen jou a an UTC.
+const getHaitiDateStr = (d = new Date()) =>
+  d.toLocaleDateString('en-CA', { timeZone: 'America/Port-au-Prince' }); // → "YYYY-MM-DD"
+
 // ── GET /api/v1/dashboard/full
 router.get('/full', extractBranch, asyncHandler(async (req, res) => {
   const tenantId = req.tenant.id;
   const branchId = req.branchId || null;
   const isAdmin  = req.user.role === 'admin';
 
-  const today     = new Date().toISOString().split('T')[0];
+  const today      = getHaitiDateStr();
   const todayRange = haitiRange(today, today);
 
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const dateFrom30 = thirtyDaysAgo.toISOString().split('T')[0];
+  const dateFrom30 = getHaitiDateStr(thirtyDaysAgo);
   const salesRange = haitiRange(dateFrom30, today);
 
   const baseWhere = {
@@ -53,8 +59,8 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     todayPaid,
     todayUnpaid,
     todayPartial,
-    // low stock
-    lowStock,
+    // low stock (tout pwodwi aktif — nou filtre pa alertThreshold reyèl la apre)
+    allActiveProducts,
     // sales 30 jou (admin sèlman)
     salesReport,
   ] = await Promise.all([
@@ -90,16 +96,15 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
       where: { ...todayWhere, status: 'partial' },
       _sum: { balanceDueHtg: true }, _count: true,
     }),
-    // Low stock
+    // Tout pwodwi aktif (pa sèvis) — filtraj alertThreshold fèt an JS pi ba
     prisma.product.findMany({
       where: {
         tenantId,
         isActive: true,
         isService: false,
-        quantity: { lte: prisma.product.fields?.alertThreshold || 5 },
+        ...(branchId && { branchId }),
       },
       select: { id: true, name: true, code: true, quantity: true, alertThreshold: true },
-      take: 10,
     }),
     // Sales 30 jou — sèlman si admin
     isAdmin
@@ -112,21 +117,29 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
           },
           select: { issueDate: true, totalHtg: true },
           orderBy: { issueDate: 'desc' },
-          take: 200,
+          take: 1000,
         })
       : Promise.resolve([]),
   ]);
 
-  // Kalkile today totals
+  // ✅ Low stock: konparezon quantity <= alertThreshold fèt an JS
+  // paske Prisma pa ka konpare 2 kolòn dirèkteman nan yon `where` san raw SQL.
+  // (alertThreshold default 5 si li pa defini pou yon pwodwi)
+  const lowStock = allActiveProducts
+    .filter(p => Number(p.quantity) <= Number(p.alertThreshold ?? 5))
+    .slice(0, 10);
+
+  // ✅ Kalkile today totals — konvèti chak issueDate an dat Ayiti anvan konparezon,
+  // olye de String(inv.issueDate).startsWith(today) ki ka fail si issueDate se yon Date obj.
   const todayTotalVentes = isAdmin
     ? salesReport
-        .filter(inv => String(inv.issueDate).startsWith(today))
+        .filter(inv => getHaitiDateStr(new Date(inv.issueDate)) === today)
         .reduce((sum, inv) => sum + Number(inv.totalHtg || 0), 0)
     : 0;
 
-  // Konstrwi chart data 7 jou
+  // Konstrwi chart data 7 jou (grouye pa dat Ayiti, pa dat UTC)
   const daily = salesReport.reduce((acc, inv) => {
-    const day = String(inv.issueDate).substring(0, 10);
+    const day = getHaitiDateStr(new Date(inv.issueDate));
     if (!acc[day]) acc[day] = { date: day, total_htg: 0 };
     acc[day].total_htg += Number(inv.totalHtg || 0);
     return acc;
