@@ -7,7 +7,7 @@ import { useMemo, memo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, Edit2, FileCheck, Share2, Copy, Check, MessageCircle,
-  Lock, Eye, RefreshCw, Trash2, X, ExternalLink, Link2, KeyRound
+  Lock, Eye, RefreshCw, Trash2, X, ExternalLink, Link2, KeyRound, Printer
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -121,13 +121,25 @@ export default function QuoteDetail() {
   const snap = quote.clientSnapshot || {}
   const canShare = !['cancelled'].includes(quote.status)
 
+  // ✅ NOUVO — Enprime devi a (ouvri dyalòg enprime navigatè a)
+  const handlePrint = () => window.print()
+
   return (
     <div className="animate-fade-in max-w-4xl">
+
+      {/* ✅ NOUVO — Estil enprime: kache bouton yo, gade sèlman kontni devi a */}
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { background: #fff !important; }
+          .card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
+        }
+      `}</style>
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6" style={{ flexWrap:'wrap', gap:12 }}>
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/app/quotes')} className="btn-ghost p-2">
+          <button onClick={() => navigate('/app/quotes')} className="btn-ghost p-2 no-print">
             <ArrowLeft size={18}/>
           </button>
           <div>
@@ -140,7 +152,12 @@ export default function QuoteDetail() {
             <p className="text-slate-500 text-sm">{format(new Date(quote.issueDate), 'dd MMMM yyyy')}</p>
           </div>
         </div>
-        <div className="flex gap-2" style={{ flexWrap:'wrap' }}>
+        <div className="flex gap-2 no-print" style={{ flexWrap:'wrap' }}>
+
+          {/* ✅ NOUVO — Bouton Enprime Devi */}
+          <button onClick={handlePrint} className="btn-secondary btn-sm">
+            <Printer size={14}/> Enprime Devi
+          </button>
 
           {/* ✅ NOUVO — Bouton Pataje */}
           {canShare && (

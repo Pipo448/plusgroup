@@ -1,6 +1,6 @@
 // src/pages/invoices/NewInvoicePage.jsx
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
@@ -372,6 +372,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
 export default function NewInvoicePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
   const { tenant, user } = useAuthStore()
   const isMobile = useIsMobile()
 
@@ -418,6 +419,33 @@ export default function NewInvoicePage() {
   const [items, setItems] = useState(() => [
     { id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }
   ])
+
+  // ✅ NOUVO — Si nou rive isit soti nan paj Pwodui a (bouton "Ajoute nan Fakti"),
+  // ranpli otomatikman premye liy lan ak pwodui sa a olye kite l vid.
+  useEffect(() => {
+    const p = location.state?.addProduct
+    if (!p) return
+
+    const stock = Number(p.quantity ?? p.stock ?? 0)
+    if (!p.isService && stock <= 0) {
+      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
+    } else {
+      setItems(prev => {
+        // Si gen deja yon liy vid (premye a, san deskripsyon), ranpli l.
+        // Sinon, ajoute yon nouvo liy.
+        const emptyIdx = prev.findIndex(it => !it.description && !it.productId)
+        const newLine = { id: Date.now(), description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 }
+        if (emptyIdx !== -1) {
+          return prev.map((it, i) => i === emptyIdx ? newLine : it)
+        }
+        return [...prev, newLine]
+      })
+      toast.success(`✅ "${p.name}" ajoute nan fakti a.`)
+    }
+
+    // Netwaye state a pou pwodui a pa re-ajoute si moun nan refrechi paj la
+    navigate(location.pathname, { replace: true, state: {} })
+  }, [location.state])
 
   const debouncedClientSearch = useDebounce(clientSearch, 400)
 

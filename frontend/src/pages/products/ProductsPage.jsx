@@ -1,5 +1,6 @@
 // src/pages/products/ProductsPage.jsx - WITH FULL i18n + Plan Feature Guard + MOBILE RESPONSIVE
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
@@ -8,7 +9,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import {
   Plus, Search, Edit2, Trash2, Package,
-  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock, Camera
+  AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock, Camera, ShoppingCart
 } from 'lucide-react'
 import HelpModal from '../../components/HelpModal'
 
@@ -376,7 +377,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 }
 
 // ── Kart mobil pou yon pwodui
-const ProductCard = ({ p, t, onEdit, onDelete }) => {
+const ProductCard = ({ p, t, onEdit, onDelete, onAddToInvoice }) => {
   const lowStock = !p.isService && Number(p.quantity) <= Number(p.alertThreshold)
   return (
     <div style={{
@@ -387,13 +388,14 @@ const ProductCard = ({ p, t, onEdit, onDelete }) => {
       {/* Liy 1: Foto + Non + Aksyon */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ display:'flex', gap:10, flex: 1, minWidth: 0 }}>
-          {/* ✅ NOUVO — Vinyèt foto pwodwi */}
+          {/* ✅ Vinyèt foto pwodwi — pi gwo (64px) pou wè l klè sou telefòn/tablèt */}
           <div style={{
-            width:44, height:44, borderRadius:10, flexShrink:0,
+            width:64, height:64, borderRadius:12, flexShrink:0,
             background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
             display:'flex', alignItems:'center', justifyContent:'center',
+            border: `1px solid ${D.border}`,
           }}>
-            {!p.imageUrl && <Package size={18} color={D.blue}/>}
+            {!p.imageUrl && <Package size={26} color={D.blue}/>}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -410,6 +412,9 @@ const ProductCard = ({ p, t, onEdit, onDelete }) => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button onClick={() => onAddToInvoice(p)} title={t('products.addToInvoice') || 'Ajoute nan Fakti'} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.orange }}>
+            <ShoppingCart size={14}/>
+          </button>
           <button onClick={() => onEdit(p)} style={{ width: 34, height: 34, borderRadius: 10, background: D.blueDim, border: `1px solid ${D.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.blue }}>
             <Edit2 size={14}/>
           </button>
@@ -458,6 +463,7 @@ const ProductCard = ({ p, t, onEdit, onDelete }) => {
 // ── Main Products Page
 export default function ProductsPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [modal, setModal] = useState(null)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
@@ -502,6 +508,11 @@ const deleteMutation = useMutation({
 
   const handleDelete = (p) => {
     if (confirm(t('products.deleteConfirm'))) deleteMutation.mutate(p.id)
+  }
+
+  // ✅ NOUVO — Voye kliyan dirèkteman nan paj Nouvo Fakti a ak pwodui a deja ajoute
+  const handleAddToInvoice = (p) => {
+    navigate('/app/invoices/new', { state: { addProduct: p } })
   }
 
   const products = data?.products || []
@@ -603,14 +614,15 @@ const deleteMutation = useMutation({
                 </td></tr>
               : products.map(p => (
                   <tr key={p.id}>
-                    <td style={{ width: 48 }}>
-                      {/* ✅ NOUVO — Vinyèt foto pwodwi */}
+                    <td style={{ width: 84 }}>
+                      {/* ✅ Vinyèt foto pwodwi — pi gwo pou kliyan wè l klè */}
                       <div style={{
-                        width: 36, height: 36, borderRadius: 8,
+                        width: 64, height: 64, borderRadius: 12,
                         background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: `1px solid ${D.border}`,
                       }}>
-                        {!p.imageUrl && <Package size={15} color={D.blue}/>}
+                        {!p.imageUrl && <Package size={26} color={D.blue}/>}
                       </div>
                     </td>
                     <td className="font-mono text-xs text-slate-500">{p.code || '—'}</td>
@@ -642,6 +654,12 @@ const deleteMutation = useMutation({
                     </td>
                     <td>
                       <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleAddToInvoice(p)}
+                          title={t('products.addToInvoice') || 'Ajoute nan Fakti'}
+                          className="btn-ghost btn-sm p-2"
+                          style={{ color: D.orange }}
+                        ><ShoppingCart size={14}/></button>
                         <button onClick={() => setModal({ type: 'edit', product: p })} className="btn-ghost btn-sm p-2"><Edit2 size={14}/></button>
                         <button onClick={() => handleDelete(p)} className="btn-ghost btn-sm p-2 hover:text-red-600"><Trash2 size={14}/></button>
                       </div>
@@ -669,6 +687,7 @@ const deleteMutation = useMutation({
                 key={p.id} p={p} t={t}
                 onEdit={(p) => setModal({ type: 'edit', product: p })}
                 onDelete={handleDelete}
+                onAddToInvoice={handleAddToInvoice}
               />
             ))
         }
