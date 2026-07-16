@@ -815,6 +815,7 @@ const deleteMutation = useMutation({
                           <input
                             type="number" min="1" value={it.qty}
                             onChange={e => updateCartQty(it.productId, e.target.value)}
+                            onFocus={e => e.target.select()}
                             style={{ width: 50, padding: '6px 4px', borderRadius: 8, border: `1px solid ${D.border}`, textAlign: 'center', fontSize: 13, fontFamily: 'monospace' }}
                           />
                           <button onClick={() => removeFromCart(it.productId)} style={{ width: 32, height: 32, borderRadius: 8, background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.red, flexShrink: 0 }}>
