@@ -420,30 +420,53 @@ export default function NewInvoicePage() {
     { id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }
   ])
 
-  // ✅ NOUVO — Si nou rive isit soti nan paj Pwodui a (bouton "Ajoute nan Fakti"),
-  // ranpli otomatikman premye liy lan ak pwodui sa a olye kite l vid.
+  // ✅ NOUVO — Si nou rive isit soti nan paj Pwodui a (bouton panye la), ranpli
+  // otomatikman liy yo ak pwodui yo olye kite yo vid. Sipòte ni yon sèl pwodui
+  // (addProduct — ansyen konpòtman) ni plizyè pwodui an menm tan (addProducts).
   useEffect(() => {
-    const p = location.state?.addProduct
-    if (!p) return
+    const single = location.state?.addProduct
+    const multiple = location.state?.addProducts
+    const incoming = multiple?.length ? multiple : (single ? [single] : [])
+    if (!incoming.length) return
 
-    const stock = Number(p.quantity ?? p.stock ?? 0)
-    if (!p.isService && stock <= 0) {
-      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
-    } else {
-      setItems(prev => {
-        // Si gen deja yon liy vid (premye a, san deskripsyon), ranpli l.
-        // Sinon, ajoute yon nouvo liy.
-        const emptyIdx = prev.findIndex(it => !it.description && !it.productId)
-        const newLine = { id: Date.now(), description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 }
-        if (emptyIdx !== -1) {
-          return prev.map((it, i) => i === emptyIdx ? newLine : it)
-        }
-        return [...prev, newLine]
+    const validLines = []
+    let skippedCount = 0
+
+    incoming.forEach(p => {
+      const stock = Number(p.quantity ?? p.stock ?? 0)
+      if (!p.isService && stock <= 0) {
+        toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
+        skippedCount++
+        return
+      }
+      validLines.push({
+        id: Date.now() + Math.random(),
+        description: p.name,
+        productId: p.id,
+        unitPrice: p.priceHtg || 0,
+        qty: p.qty || 1,
+        discount: 0,
       })
-      toast.success(`✅ "${p.name}" ajoute nan fakti a.`)
+    })
+
+    if (validLines.length) {
+      setItems(prev => {
+        // Si gen deja yon liy vid (premye a, san deskripsyon), ranpli l ak premye pwodui a.
+        const emptyIdx = prev.findIndex(it => !it.description && !it.productId)
+        let rest = prev
+        if (emptyIdx !== -1) {
+          rest = prev.map((it, i) => i === emptyIdx ? validLines[0] : it)
+          return [...rest, ...validLines.slice(1)]
+        }
+        return [...prev, ...validLines]
+      })
+      const msg = validLines.length > 1
+        ? `✅ ${validLines.length} pwodui ajoute nan fakti a.`
+        : `✅ "${validLines[0].description}" ajoute nan fakti a.`
+      toast.success(msg)
     }
 
-    // Netwaye state a pou pwodui a pa re-ajoute si moun nan refrechi paj la
+    // Netwaye state a pou pwodui yo pa re-ajoute si moun nan refrechi paj la
     navigate(location.pathname, { replace: true, state: {} })
   }, [location.state])
 

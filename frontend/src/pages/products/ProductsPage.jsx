@@ -377,7 +377,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 }
 
 // ── Kart mobil pou yon pwodui
-const ProductCard = ({ p, t, onEdit, onDelete, onAddToInvoice }) => {
+const ProductCard = ({ p, t, onEdit, onDelete, onAddToCart }) => {
   const lowStock = !p.isService && Number(p.quantity) <= Number(p.alertThreshold)
   return (
     <div style={{
@@ -412,7 +412,7 @@ const ProductCard = ({ p, t, onEdit, onDelete, onAddToInvoice }) => {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button onClick={() => onAddToInvoice(p)} title={t('products.addToInvoice') || 'Ajoute nan Fakti'} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.orange }}>
+          <button onClick={() => onAddToCart(p)} title={t('products.addToCart') || 'Ajoute nan Panye'} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.orange }}>
             <ShoppingCart size={14}/>
           </button>
           <button onClick={() => onEdit(p)} style={{ width: 34, height: 34, borderRadius: 10, background: D.blueDim, border: `1px solid ${D.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.blue }}>
@@ -470,6 +470,10 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const qc = useQueryClient()
 
+  // ✅ NOUVO — Panye tanporè pou ranmase plizyè pwodui anvan kreye yon fakti
+  const [cart, setCart] = useState([]) // [{ product, qty }]
+  const [cartOpen, setCartOpen] = useState(false)
+
   const tenant = useAuthStore(s => s.tenant)
   const exchangeRate = Number(tenant?.exchangeRate || 132)
 
@@ -510,10 +514,41 @@ const deleteMutation = useMutation({
     if (confirm(t('products.deleteConfirm'))) deleteMutation.mutate(p.id)
   }
 
-  // ✅ NOUVO — Voye kliyan dirèkteman nan paj Nouvo Fakti a ak pwodui a deja ajoute
-  const handleAddToInvoice = (p) => {
-    navigate('/app/invoices/new', { state: { addProduct: p } })
+  // ✅ NOUVO — Ajoute yon pwodui nan panye tanporè a (san kite paj Pwodui a)
+  const addToCart = (p) => {
+    setCart(prev => {
+      const existing = prev.find(c => c.product.id === p.id)
+      if (existing) {
+        return prev.map(c => c.product.id === p.id ? { ...c, qty: c.qty + 1 } : c)
+      }
+      return [...prev, { product: p, qty: 1 }]
+    })
+    toast.success(`"${p.name}" ajoute nan panye.`)
+    setCartOpen(true)
   }
+
+  const updateCartQty = (productId, qty) => {
+    const n = Math.max(1, Number(qty) || 1)
+    setCart(prev => prev.map(c => c.product.id === productId ? { ...c, qty: n } : c))
+  }
+
+  const removeFromCart = (productId) => {
+    setCart(prev => prev.filter(c => c.product.id !== productId))
+  }
+
+  // ✅ NOUVO — Voye TOUT pwodui nan panye a nan paj Nouvo Fakti
+  const handleProceedToInvoice = () => {
+    if (!cart.length) return
+    navigate('/app/invoices/new', {
+      state: {
+        addProducts: cart.map(c => ({ ...c.product, qty: c.qty }))
+      }
+    })
+    setCart([])
+    setCartOpen(false)
+  }
+
+  const cartCount = cart.reduce((sum, c) => sum + c.qty, 0)
 
   const products = data?.products || []
 
@@ -655,8 +690,8 @@ const deleteMutation = useMutation({
                     <td>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => handleAddToInvoice(p)}
-                          title={t('products.addToInvoice') || 'Ajoute nan Fakti'}
+                          onClick={() => addToCart(p)}
+                          title={t('products.addToCart') || 'Ajoute nan Panye'}
                           className="btn-ghost btn-sm p-2"
                           style={{ color: D.orange }}
                         ><ShoppingCart size={14}/></button>
@@ -687,7 +722,7 @@ const deleteMutation = useMutation({
                 key={p.id} p={p} t={t}
                 onEdit={(p) => setModal({ type: 'edit', product: p })}
                 onDelete={handleDelete}
-                onAddToInvoice={handleAddToInvoice}
+                onAddToCart={addToCart}
               />
             ))
         }
@@ -721,6 +756,84 @@ const deleteMutation = useMutation({
       {modal?.type === 'edit' && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate}
           onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
+      )}
+
+      {/* ✅ NOUVO — Bouton panye flotan (parèt sèlman si gen atik ladan l) */}
+      {cartCount > 0 && (
+        <button
+          onClick={() => setCartOpen(true)}
+          style={{
+            position: 'fixed', bottom: 24, right: 24, zIndex: 500,
+            width: 60, height: 60, borderRadius: '50%',
+            background: `linear-gradient(135deg, ${D.orange}, #FF8C33)`,
+            border: 'none', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 8px 24px rgba(255,107,0,0.4)',
+          }}
+        >
+          <ShoppingCart size={24} color="#fff"/>
+          <span style={{
+            position: 'absolute', top: -4, right: -4,
+            background: D.blue, color: '#fff',
+            borderRadius: 99, minWidth: 22, height: 22, padding: '0 5px',
+            fontSize: 11, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '2px solid #fff',
+          }}>
+            {cartCount}
+          </span>
+        </button>
+      )}
+
+      {/* ✅ NOUVO — Panèl Panye (lis pwodui ranmase, kantite ajistab) */}
+      {cartOpen && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setCartOpen(false)}>
+          <div className="modal max-w-md w-full">
+            <div className="flex items-center justify-between p-5 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ShoppingCart size={18} className="text-brand-600"/>
+                <h2 className="text-lg font-display font-bold">Panye ({cartCount})</h2>
+              </div>
+              <button onClick={() => setCartOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"><X size={20}/></button>
+            </div>
+            <div className="p-5" style={{ maxHeight: 400, overflowY: 'auto' }}>
+              {!cart.length
+                ? <p style={{ textAlign: 'center', color: D.muted, padding: '24px 0' }}>Panye a vid.</p>
+                : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {cart.map(({ product: p, qty }) => (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: D.bg, border: `1px solid ${D.border}` }}>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                          background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                          {!p.imageUrl && <Package size={18} color={D.blue}/>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: D.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
+                          <p style={{ fontSize: 12, fontFamily: 'monospace', color: D.muted, margin: '2px 0 0' }}>{fmt(p.priceHtg)} HTG</p>
+                        </div>
+                        <input
+                          type="number" min="1" value={qty}
+                          onChange={e => updateCartQty(p.id, e.target.value)}
+                          style={{ width: 50, padding: '6px 4px', borderRadius: 8, border: `1px solid ${D.border}`, textAlign: 'center', fontSize: 13, fontFamily: 'monospace' }}
+                        />
+                        <button onClick={() => removeFromCart(p.id)} style={{ width: 32, height: 32, borderRadius: 8, background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.red, flexShrink: 0 }}>
+                          <Trash2 size={13}/>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+              }
+            </div>
+            <div className="flex justify-end gap-3 p-5 pt-0">
+              <button onClick={() => setCartOpen(false)} className="btn-secondary">Kontinye Achte</button>
+              <button onClick={handleProceedToInvoice} disabled={!cart.length} className="btn-primary">
+                <Plus size={16}/> Kreye Fakti ({cartCount})
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
