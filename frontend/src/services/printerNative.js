@@ -270,3 +270,175 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
 
   return result
 }
+
+// ✅ NOUVO — Estati devi (labèl pou enprime)
+const QUOTE_STATUS_LABELS = {
+  draft:     'BOUYON',
+  sent:      'VOYE',
+  accepted:  'AKSEPTE',
+  converted: 'KONVÈTI AN FAKTI',
+  cancelled: 'ANILE',
+}
+
+/**
+ * Konstwi liy yo pou enprime yon DEVI (pwoforma), epi voye yo bay
+ * plugin UniversalPrinter la (Sunmi/iMin/Telpo/Bluetooth otomatik).
+ * Menm mekanis ak printInvoiceNative, adapte pou estrikti Devi a
+ * (pa gen enfo peman/kesye, men gen dat ekspirasyon + estati).
+ */
+export async function printQuoteNative(quote, tenant) {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
+  }
+
+  const snap        = quote.clientSnapshot || {}
+  const totalHtg     = Number(quote.totalHtg || 0)
+  const isCancelled  = quote.status === 'cancelled'
+  const isConverted  = quote.status === 'converted'
+
+  const lines = []
+
+  // ─── Logo (si genyen) — DWE PREMYE, anlè tèt tout bagay ───
+  if (tenant?.logoUrl) {
+    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
+    lines.push({ type: 'space' })
+  }
+
+  // ─── HEADER: Non konpayi (apre logo a) ───
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
+  if (tenant?.address) {
+    lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
+  }
+  if (tenant?.phone) {
+    const phones = String(tenant.phone).split(/[,\/]/).map(p => p.trim()).filter(Boolean)
+    phones.forEach(phone => {
+      lines.push({ type: 'text', content: `Tel: ${phone}`, align: 'center', size: 'small', bold: true })
+    })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+
+  // ─── Tit DEVI ───
+  lines.push({ type: 'text', content: 'PWOFORMA / DEVI', align: 'center', bold: true })
+
+  // ─── Enfo devi ───
+  lines.push({ type: 'text', content: `Dat: ${fmtDate(quote.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Devi: ${quote.quoteNumber || ''}`, bold: true })
+  if (quote.expiryDate) {
+    lines.push({ type: 'text', content: `Ekspire: ${fmtDate(quote.expiryDate)}`, size: 'small' })
+  }
+  if (snap.name) {
+    lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+  }
+  if (snap.phone) {
+    lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
+  }
+
+  lines.push({ type: 'divider' })
+
+  // ─── Atik yo ───
+  const items = quote.items || []
+  for (const item of items) {
+    const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+    const qty = Number(item.quantity)
+    const pri = fmtN(item.unitPriceHtg)
+    const tot = fmtN(item.totalHtg)
+
+    lines.push({ type: 'text', content: nom, bold: true })
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: `${qty} x ${pri}`, width: 60, align: 'left' },
+        { text: `${tot} HTG`,      width: 40, align: 'right' },
+      ]
+    })
+
+    if (Number(item.discountPct) > 0) {
+      lines.push({ type: 'text', content: `  -> Remiz: -${item.discountPct}%`, size: 'small' })
+    }
+  }
+
+  lines.push({ type: 'divider' })
+
+  // ─── Totaux ───
+  lines.push({
+    type: 'table',
+    columns: [
+      { text: 'SOUS-TOTAL', width: 60, align: 'left' },
+      { text: `${fmtN(quote.subtotalHtg || totalHtg)} HTG`, width: 40, align: 'right' },
+    ]
+  })
+
+  if (Number(quote.discountHtg) > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Rabè', width: 60, align: 'left' },
+        { text: `-${fmtN(quote.discountHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  if (Number(quote.taxHtg) > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: `Taks (${Number(quote.taxRate || 0)}%)`, width: 60, align: 'left' },
+        { text: `${fmtN(quote.taxHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({
+    type: 'table',
+    bold: true,
+    columns: [
+      { text: 'TOTAL', width: 40, align: 'left' },
+      { text: `${fmtN(totalHtg)} HTG`, width: 60, align: 'right' },
+    ]
+  })
+  lines.push({ type: 'divider', char: '=' })
+
+  // ─── Estati devi ───
+  if (isCancelled) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: 'X DEVI ANILE', align: 'center', bold: true, size: 'large' })
+  } else if (isConverted) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: '* KONVÈTI AN FAKTI *', align: 'center', bold: true })
+  } else {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: `Estati: ${QUOTE_STATUS_LABELS[quote.status] || ''}`, align: 'center', size: 'small' })
+  }
+
+  lines.push({ type: 'space' })
+
+  // ─── Footer ───
+  if (tenant?.receiptFooterNote) {
+    lines.push({ type: 'divider' })
+    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small' })
+    lines.push({ type: 'space' })
+  }
+
+  lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
+  lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
+
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+
+  const cleanLines = sanitizeLines(lines)
+
+  const result = await UniversalPrinter.print({
+    lines: cleanLines,
+    copies: 1,
+    cutAtEnd: true,
+  })
+
+  if (!result.success) {
+    throw new Error(result.message || 'Erè pandan enprime')
+  }
+
+  return result
+}

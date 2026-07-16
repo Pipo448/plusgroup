@@ -10,6 +10,7 @@ import {
   Lock, Eye, RefreshCw, Trash2, X, ExternalLink, Link2, KeyRound, Printer
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { printQuoteNative, isNativePrinterAvailable } from '../../services/printerNative'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
@@ -66,6 +67,8 @@ export default function QuoteDetail() {
 
   // ✅ NOUVO — eta modal pataj
   const [shareOpen, setShareOpen] = useState(false)
+  // ✅ NOUVO — eta pandan y ap enprime sou enprimant native (APK)
+  const [printing, setPrinting] = useState(false)
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates || {}
@@ -121,8 +124,23 @@ export default function QuoteDetail() {
   const snap = quote.clientSnapshot || {}
   const canShare = !['cancelled'].includes(quote.status)
 
-  // ✅ NOUVO — Enprime devi a (ouvri dyalòg enprime navigatè a)
-  const handlePrint = () => window.print()
+  // ✅ NOUVO — Enprime devi a: si nou nan APK (Bluetooth/Sunmi/iMin/Telpo konfigire),
+  // voye dirèkteman bay enprimant thermal la. Sinon (navigatè web), itilize dyalòg enprime navigatè a.
+  const handlePrint = async () => {
+    if (isNativePrinterAvailable()) {
+      setPrinting(true)
+      try {
+        await printQuoteNative(quote, tenant)
+        toast.success('Devi enprime!')
+      } catch (e) {
+        toast.error(e.message || 'Erè pandan enprime devi a.')
+      } finally {
+        setPrinting(false)
+      }
+    } else {
+      window.print()
+    }
+  }
 
   return (
     <div className="animate-fade-in max-w-4xl">
@@ -155,8 +173,8 @@ export default function QuoteDetail() {
         <div className="flex gap-2 no-print" style={{ flexWrap:'wrap' }}>
 
           {/* ✅ NOUVO — Bouton Enprime Devi */}
-          <button onClick={handlePrint} className="btn-secondary btn-sm">
-            <Printer size={14}/> Enprime Devi
+          <button onClick={handlePrint} disabled={printing} className="btn-secondary btn-sm">
+            <Printer size={14}/> {printing ? 'Ap enprime...' : 'Enprime Devi'}
           </button>
 
           {/* ✅ NOUVO — Bouton Pataje */}
