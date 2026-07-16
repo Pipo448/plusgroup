@@ -10,6 +10,7 @@ import {
   Plus, Trash2, Search, ArrowLeft, Save,
   ChevronDown, Package, User, Calculator
 } from 'lucide-react'
+import { useDraftCartStore } from '../../stores/draftCartStore'
 
 // ✅ useDebounce — evite API call chak lèt
 function useDebounce(value, delay = 400) {
@@ -437,6 +438,12 @@ export default function QuoteForm() {
   const { tenant } = useAuthStore()
   const isMobile  = useIsMobile()
 
+  // ✅ NOUVO — Panye santral (pataje ak paj Pwodui a ak Fakti a). Sèlman pou
+  // yon NOUVO devi (pa lè n ap modifye youn ki egziste deja).
+  const draftItems     = useDraftCartStore(s => s.items)
+  const setDraftItems  = useDraftCartStore(s => s.setItems)
+  const clearDraftCart = useDraftCartStore(s => s.clear)
+
   const [client, setClient]               = useState(null)
   const [discountType, setDiscountType]   = useState('amount')
   const [discountValue, setDiscountValue] = useState(0)
@@ -448,9 +455,41 @@ export default function QuoteForm() {
   const [currency, setCurrency]           = useState(tenant?.defaultCurrency || 'USD')
 
   // ✅ KORIJE — itilize discountAmt (HTG) olye discountPct
-  const [items, setItems] = useState(() => [
-    { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountAmt:0, unit:'unité' }
-  ])
+  // ✅ NOUVO — si se yon nouvo devi (pa modifikasyon) e panye santral la gen
+  // atik ladan l (soti nan bouton panye Pwodui a), ranpli fakti a ak yo.
+  const [items, setItems] = useState(() => {
+    if (!isEdit && draftItems.length) {
+      return draftItems.map((it, idx) => ({
+        _id:          it.id || Date.now() + idx,
+        productId:    it.productId,
+        productName:  it.description,
+        productCode:  it.product?.code || '',
+        quantity:     Number(it.qty) || 1,
+        unitPriceHtg: Number(it.unitPrice) || 0,
+        unitPriceUsd: 0,
+        discountAmt:  Number(it.discount) || 0,
+        unit:         it.product?.unit || 'unité',
+      }))
+    }
+    return [
+      { _id: Date.now(), productId:null, productName:'', productCode:'', quantity:1, unitPriceHtg:0, unitPriceUsd:0, discountAmt:0, unit:'unité' }
+    ]
+  })
+
+  // ✅ NOUVO — Chak fwa itilizatè a modifye yon liy DIRÈKTEMAN nan paj Devi a
+  // (e se yon nouvo devi, pa yon modifikasyon), senkwonize chanjman an tounen
+  // nan panye santral la, pou l rete ajou si l ale sou Pwodui pou chèche plis.
+  useEffect(() => {
+    if (isEdit) return
+    setDraftItems(items.map(it => ({
+      id: it._id,
+      description: it.productName,
+      productId: it.productId,
+      unitPrice: it.unitPriceHtg,
+      qty: it.quantity,
+      discount: it.discountAmt,
+    })))
+  }, [items, isEdit])
 
   const { data: existingQuote } = useQuery({
     queryKey: ['quote', id],
@@ -528,6 +567,8 @@ export default function QuoteForm() {
     mutationFn: (data) => isEdit ? quoteAPI.update(id, data) : quoteAPI.create(data),
     onSuccess: (res) => {
       toast.success(isEdit ? t('quotes.quoteUpdated') : t('quotes.quoteCreated'))
+      // ✅ NOUVO — Devi a kreye avèk siksè (pa yon modifikasyon), vide panye santral la
+      if (!isEdit) clearDraftCart()
       navigate(`/app/quotes/${res.data.quote?.id || id}`)
     }
   })

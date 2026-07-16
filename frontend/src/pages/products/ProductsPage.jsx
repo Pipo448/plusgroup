@@ -12,6 +12,7 @@ import {
   AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock, Camera, ShoppingCart
 } from 'lucide-react'
 import HelpModal from '../../components/HelpModal'
+import { useDraftCartStore } from '../../stores/draftCartStore'
 
 const COLORS = ['#1B3A6B','#C0392B','#27ae60','#C9A84C','#E8836A','#8e44ad','#16a085','#2980b9','#d35400','#7f8c8d']
 
@@ -470,8 +471,11 @@ export default function ProductsPage() {
   const [page, setPage] = useState(1)
   const qc = useQueryClient()
 
-  // ✅ NOUVO — Panye tanporè pou ranmase plizyè pwodui anvan kreye yon fakti
-  const [cart, setCart] = useState([]) // [{ product, qty }]
+  // ✅ NOUVO — Panye a soti nan depo santral la kounye a, li rete vivan
+  // menm si w chanje paj (Pwodui → Fakti/Devi → tounen Pwodui pou ajoute plis)
+  const cartItems   = useDraftCartStore(s => s.items)
+  const addProduct  = useDraftCartStore(s => s.addProduct)
+  const setCartItems = useDraftCartStore(s => s.setItems)
   const [cartOpen, setCartOpen] = useState(false)
 
   const tenant = useAuthStore(s => s.tenant)
@@ -514,41 +518,34 @@ const deleteMutation = useMutation({
     if (confirm(t('products.deleteConfirm'))) deleteMutation.mutate(p.id)
   }
 
-  // ✅ NOUVO — Ajoute yon pwodui nan panye tanporè a (san kite paj Pwodui a)
+  // ✅ NOUVO — Ajoute yon pwodui nan panye santral la (san kite paj Pwodui a)
   const addToCart = (p) => {
-    setCart(prev => {
-      const existing = prev.find(c => c.product.id === p.id)
-      if (existing) {
-        return prev.map(c => c.product.id === p.id ? { ...c, qty: c.qty + 1 } : c)
-      }
-      return [...prev, { product: p, qty: 1 }]
-    })
+    addProduct(p)
     toast.success(`"${p.name}" ajoute nan panye.`)
     setCartOpen(true)
   }
 
   const updateCartQty = (productId, qty) => {
     const n = Math.max(1, Number(qty) || 1)
-    setCart(prev => prev.map(c => c.product.id === productId ? { ...c, qty: n } : c))
+    setCartItems(cartItems.map(it => it.productId === productId ? { ...it, qty: n } : it))
   }
 
   const removeFromCart = (productId) => {
-    setCart(prev => prev.filter(c => c.product.id !== productId))
+    setCartItems(cartItems.filter(it => it.productId !== productId))
   }
 
-  // ✅ NOUVO — Voye TOUT pwodui nan panye a nan paj Nouvo Fakti
+  // ✅ NOUVO — Voye TOUT pwodui nan panye a: si total atik ≤5 → Fakti,
+  // si li depase 5 → Devi otomatikman. Panye a PA vide isit la — li vide
+  // sèlman lè fakti/devi a reyèlman kreye ak siksè, pou itilizatè a ka
+  // tounen sou Pwodui pou ajoute plis atik san pèdi sa l gen deja.
   const handleProceedToInvoice = () => {
-    if (!cart.length) return
-    navigate('/app/invoices/new', {
-      state: {
-        addProducts: cart.map(c => ({ ...c.product, qty: c.qty }))
-      }
-    })
-    setCart([])
+    if (!cartItems.length) return
+    const destination = cartCount > 5 ? '/app/quotes/new' : '/app/invoices/new'
+    navigate(destination)
     setCartOpen(false)
   }
 
-  const cartCount = cart.reduce((sum, c) => sum + c.qty, 0)
+  const cartCount = cartItems.reduce((sum, it) => sum + Number(it.qty || 0), 0)
 
   const products = data?.products || []
 
@@ -797,39 +794,47 @@ const deleteMutation = useMutation({
               <button onClick={() => setCartOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"><X size={20}/></button>
             </div>
             <div className="p-5" style={{ maxHeight: 400, overflowY: 'auto' }}>
-              {!cart.length
+              {!cartItems.length
                 ? <p style={{ textAlign: 'center', color: D.muted, padding: '24px 0' }}>Panye a vid.</p>
                 : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {cart.map(({ product: p, qty }) => (
-                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: D.bg, border: `1px solid ${D.border}` }}>
-                        <div style={{
-                          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                          background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                          {!p.imageUrl && <Package size={18} color={D.blue}/>}
+                    {cartItems.map((it) => {
+                      const p = it.product || {}
+                      return (
+                        <div key={it.productId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: D.bg, border: `1px solid ${D.border}` }}>
+                          <div style={{
+                            width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                            background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {!p.imageUrl && <Package size={18} color={D.blue}/>}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 700, color: D.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.description}</p>
+                            <p style={{ fontSize: 12, fontFamily: 'monospace', color: D.muted, margin: '2px 0 0' }}>{fmt(it.unitPrice)} HTG</p>
+                          </div>
+                          <input
+                            type="number" min="1" value={it.qty}
+                            onChange={e => updateCartQty(it.productId, e.target.value)}
+                            style={{ width: 50, padding: '6px 4px', borderRadius: 8, border: `1px solid ${D.border}`, textAlign: 'center', fontSize: 13, fontFamily: 'monospace' }}
+                          />
+                          <button onClick={() => removeFromCart(it.productId)} style={{ width: 32, height: 32, borderRadius: 8, background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.red, flexShrink: 0 }}>
+                            <Trash2 size={13}/>
+                          </button>
                         </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: D.text, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</p>
-                          <p style={{ fontSize: 12, fontFamily: 'monospace', color: D.muted, margin: '2px 0 0' }}>{fmt(p.priceHtg)} HTG</p>
-                        </div>
-                        <input
-                          type="number" min="1" value={qty}
-                          onChange={e => updateCartQty(p.id, e.target.value)}
-                          style={{ width: 50, padding: '6px 4px', borderRadius: 8, border: `1px solid ${D.border}`, textAlign: 'center', fontSize: 13, fontFamily: 'monospace' }}
-                        />
-                        <button onClick={() => removeFromCart(p.id)} style={{ width: 32, height: 32, borderRadius: 8, background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.red, flexShrink: 0 }}>
-                          <Trash2 size={13}/>
-                        </button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
               }
             </div>
+            {cartCount > 5 && (
+              <div style={{ margin: '0 20px 12px', padding: '10px 14px', borderRadius: 10, background: 'rgba(217,119,6,0.08)', border: '1px solid rgba(217,119,6,0.25)', fontSize: 12, color: D.warning || '#D97706' }}>
+                ℹ️ Plis pase 5 atik — sa ap kreye yon <strong>Devi</strong> olye yon Fakti dirèk.
+              </div>
+            )}
             <div className="flex justify-end gap-3 p-5 pt-0">
               <button onClick={() => setCartOpen(false)} className="btn-secondary">Kontinye Achte</button>
-              <button onClick={handleProceedToInvoice} disabled={!cart.length} className="btn-primary">
-                <Plus size={16}/> Kreye Fakti ({cartCount})
+              <button onClick={handleProceedToInvoice} disabled={!cartItems.length} className="btn-primary">
+                <Plus size={16}/> {cartCount > 5 ? `Kreye Devi (${cartCount})` : `Kreye Fakti (${cartCount})`}
               </button>
             </div>
           </div>

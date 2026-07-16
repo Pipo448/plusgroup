@@ -1,6 +1,6 @@
 // src/pages/invoices/NewInvoicePage.jsx
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
@@ -16,6 +16,7 @@ import {
 } from '../../services/offlineDb'
 import { syncPendingSales, countPendingSales, onSyncEvent } from '../../services/offlineSync'
 import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
+import { useDraftCartStore } from '../../stores/draftCartStore'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -372,7 +373,6 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
 export default function NewInvoicePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const location = useLocation()
   const { tenant, user } = useAuthStore()
   const isMobile = useIsMobile()
 
@@ -416,59 +416,29 @@ export default function NewInvoicePage() {
   // ✅ KORIJE — discountGlobal kounye a se yon MONTAN HTG, pa pousantaj
   const [discountGlobal, setDiscountGlobal] = useState(0)
 
-  const [items, setItems] = useState(() => [
-    { id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }
-  ])
+  // ✅ NOUVO — Panye santral (pataje ak paj Pwodui a). Si gen atik deja ladan l
+  // (soti nan bouton panye Pwodui a), yo ranpli fakti a otomatikman. Sinon,
+  // yon sèl liy vid parèt kòm dabitid.
+  const draftItems    = useDraftCartStore(s => s.items)
+  const setDraftItems = useDraftCartStore(s => s.setItems)
+  const clearDraftCart = useDraftCartStore(s => s.clear)
 
-  // ✅ NOUVO — Si nou rive isit soti nan paj Pwodui a (bouton panye la), ranpli
-  // otomatikman liy yo ak pwodui yo olye kite yo vid. Sipòte ni yon sèl pwodui
-  // (addProduct — ansyen konpòtman) ni plizyè pwodui an menm tan (addProducts).
+  const [items, setItems] = useState(() =>
+    draftItems.length
+      ? draftItems.map(it => ({
+          id: it.id, description: it.description, productId: it.productId,
+          qty: it.qty, unitPrice: it.unitPrice, discount: it.discount,
+        }))
+      : [{ id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }]
+  )
+
+  // ✅ NOUVO — Chak fwa itilizatè a modifye Qte/Pri/Rabè oswa ajoute/retire yon
+  // liy DIRÈKTEMAN nan paj Fakti a, senkwonize chanjman an tounen nan depo
+  // santral la. Konsa, si l ale sou Pwodui pou chèche yon lòt atik epi tounen,
+  // fakti a rete egzakteman jan l te kite l la.
   useEffect(() => {
-    const single = location.state?.addProduct
-    const multiple = location.state?.addProducts
-    const incoming = multiple?.length ? multiple : (single ? [single] : [])
-    if (!incoming.length) return
-
-    const validLines = []
-    let skippedCount = 0
-
-    incoming.forEach(p => {
-      const stock = Number(p.quantity ?? p.stock ?? 0)
-      if (!p.isService && stock <= 0) {
-        toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
-        skippedCount++
-        return
-      }
-      validLines.push({
-        id: Date.now() + Math.random(),
-        description: p.name,
-        productId: p.id,
-        unitPrice: p.priceHtg || 0,
-        qty: p.qty || 1,
-        discount: 0,
-      })
-    })
-
-    if (validLines.length) {
-      setItems(prev => {
-        // Si gen deja yon liy vid (premye a, san deskripsyon), ranpli l ak premye pwodui a.
-        const emptyIdx = prev.findIndex(it => !it.description && !it.productId)
-        let rest = prev
-        if (emptyIdx !== -1) {
-          rest = prev.map((it, i) => i === emptyIdx ? validLines[0] : it)
-          return [...rest, ...validLines.slice(1)]
-        }
-        return [...prev, ...validLines]
-      })
-      const msg = validLines.length > 1
-        ? `✅ ${validLines.length} pwodui ajoute nan fakti a.`
-        : `✅ "${validLines[0].description}" ajoute nan fakti a.`
-      toast.success(msg)
-    }
-
-    // Netwaye state a pou pwodui yo pa re-ajoute si moun nan refrechi paj la
-    navigate(location.pathname, { replace: true, state: {} })
-  }, [location.state])
+    setDraftItems(items)
+  }, [items])
 
   const debouncedClientSearch = useDebounce(clientSearch, 400)
 
@@ -626,6 +596,8 @@ export default function NewInvoicePage() {
     onSuccess: (res) => {
       const inv = res.data.invoice
       toast.success(t('invoice.invoiceCreated') || 'Fakti kreye avèk siksè!')
+      // ✅ NOUVO — Fakti a kreye avèk siksè, vide panye santral la nèt
+      clearDraftCart()
       navigate(`/app/invoices/${inv.id}`)
     },
     onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
@@ -771,6 +743,8 @@ export default function NewInvoicePage() {
 
   const handleContinueAfterOffline = useCallback(() => {
     setOfflineReceipt(null)
+    // ✅ NOUVO — Vant offline reyisi = fakti "kreye" tou, vide panye a
+    clearDraftCart()
     navigate('/app/invoices')
   }, [navigate])
 
