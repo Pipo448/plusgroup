@@ -214,7 +214,7 @@ function PinEntry({ tenant, onSubmit, error, submitting, isMobile }) {
         )}
 
         <h1 style={{ fontSize: 18, fontWeight: 900, color: D.text, margin: 0, textAlign: 'center' }}>
-          {tenant?.name || 'PLUS GROUP'}
+          {tenant?.name || 'Entreprise'}
         </h1>
 
         {/* Tit Lock */}
@@ -334,6 +334,9 @@ function ProformaView({ quote, isMobile, isTablet }) {
         {/* ═══ ANTÈT KONPAYI (banyè imaj OSWA fallback) ═══ */}
         <CompanyBanner tenant={tenant} isMobile={isMobile}/>
 
+        {/* ═══ NOUVO — Ba kontak (adrès/telefòn/imèl) soti nan Paramèt Tenant ═══ */}
+        <ContactInfoBar tenant={tenant} isMobile={isMobile}/>
+
         {/* ═══ KONTNI PRENSIPAL ═══ */}
         <div style={{ padding: isMobile ? '20px 16px' : '32px 40px' }}>
           <DocumentTitle quote={quote} isMobile={isMobile}/>
@@ -370,13 +373,47 @@ function ProformaView({ quote, isMobile, isTablet }) {
 }
 
 // ════════════════════════════════════════════════════════════
+// NOUVO — Ba kontak biznis tenant an (adrès/telefòn/imèl)
+// Sa yo soti dirèkteman nan Paramèt Tenant a — jamè kodè an dur.
+// ════════════════════════════════════════════════════════════
+function ContactInfoBar({ tenant, isMobile }) {
+  const rows = [
+    tenant?.address && { icon: MapPin, text: tenant.address },
+    tenant?.phone   && { icon: Phone,  text: tenant.phone   },
+    tenant?.email   && { icon: Mail,   text: tenant.email   },
+  ].filter(Boolean)
+
+  if (!rows.length) return null
+
+  return (
+    <div style={{
+      display: 'flex', flexWrap: 'wrap',
+      gap: isMobile ? 10 : 24,
+      padding: isMobile ? '10px 16px' : '12px 40px',
+      background: D.bgGray,
+      borderBottom: `1px solid ${D.borderLt}`,
+    }}>
+      {rows.map((r, i) => {
+        const Icon = r.icon
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Icon size={13} color={D.blue}/>
+            <span style={{ fontSize: isMobile ? 11 : 12, fontWeight: 700, color: D.textLt }}>{r.text}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
 // ANTÈT BANYÈ — itilize tenant.bannerUrl si li egziste
 // ════════════════════════════════════════════════════════════
 
 function CompanyBanner({ tenant, isMobile }) {
   const bannerUrl = tenant?.bannerUrl
   const logoUrl   = tenant?.logoUrl
-  const name      = tenant?.name || 'PLUS GROUP'
+  const name      = tenant?.name || 'Entreprise'
   const tagline   = tenant?.tagline || 'LA QUALITÉ, NOTRE ENGAGEMENT'
 
   // ✅ SI GEN bannerUrl — itilize imaj la dirèkteman
@@ -894,7 +931,7 @@ function ThankYouFooter({ tenant, isMobile }) {
         Merci pour votre confiance !
       </p>
       <p style={{ fontSize: 12, color: D.muted, margin: '6px 0 0', fontWeight: 600 }}>
-        {tenant?.name || 'PLUS GROUP'}, toujours là pour vous servir.
+        {tenant?.name || 'Entreprise'}, toujours là pour vous servir.
       </p>
     </div>
   )
