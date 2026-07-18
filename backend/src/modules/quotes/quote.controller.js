@@ -38,11 +38,10 @@ const revokeShare = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Lyen pataj revoke.' });
 });
 
-// ✅ NOUVO — Wout PIBLIK
-// Si pa gen ?code= → retounen sèlman non konpayi a (paj PIN ap parèt)
-// Si gen ?code=XXXX → verifye e retounen detay devi a
+// ✅ MODIFYE — Wout PIBLIK, san kòd PIN ankò
+// Kliyan an wè devi a imedyatman lè l klike sou lyen an
 const getPublic = asyncHandler(async (req, res) => {
-  const data = await svc.getByPublicToken(req.params.token, req.query.code);
+  const data = await svc.getByPublicToken(req.params.token);
   res.json({ success: true, ...data });
 });
 

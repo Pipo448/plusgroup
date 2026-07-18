@@ -443,10 +443,10 @@ const revokePublicLink = async (tenantId, id) => {
   });
 };
 
-// ── Wout PIBLIK: jwenn devi pa token + kòd akse
-// Si pa gen kòd: retounen sèlman non konpayi a + flag "needsCode"
-// Si kòd la valid: retounen tout detay devi a
-const getByPublicToken = async (token, providedCode) => {
+// ── Wout PIBLIK: jwenn devi pa token
+// ✅ MODIFYE — Pa mande okenn kòd PIN ankò. Kliyan an wè devi a
+// imedyatman lè l klike sou lyen an, san etap enteryè.
+const getByPublicToken = async (token) => {
   if (!token || token.length < 32) {
     throw Object.assign(new Error('Lyen envalid.'), { statusCode: 404 });
   }
@@ -486,27 +486,7 @@ const getByPublicToken = async (token, providedCode) => {
     throw Object.assign(new Error('Devi sa pa egziste oswa lyen an pa valid.'), { statusCode: 404 });
   }
 
-  // ─── Premye etap: si pa gen kòd, retounen sèlman enfo minimal
-  if (!providedCode) {
-    return {
-      needsCode: true,
-      tenant: {
-        name:        quote.tenant?.name || 'Konpayi',
-        slug:        quote.tenant?.slug,
-        logoUrl:     quote.tenant?.logoUrl || null,
-        bannerUrl:   quote.tenant?.bannerUrl || null,
-        primaryColor: quote.tenant?.primaryColor || null,
-      },
-      quoteNumber: quote.quoteNumber,
-    };
-  }
-
-  // ─── Dezyèm etap: verifye kòd la
-  if (String(providedCode).trim() !== quote.accessCode) {
-    throw Object.assign(new Error('Kòd akse a pa kòrèk.'), { statusCode: 401 });
-  }
-
-  // ✅ Kòd la kòrèk — enkremante view count (silent)
+  // ✅ Enkremante view count (silans, san bloke repons lan)
   prisma.quote.update({
     where: { id: quote.id },
     data: {
