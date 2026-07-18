@@ -336,10 +336,9 @@ export default function ReportsPage() {
             1 USD = {fmt(exchangeRate)} HTG (to aktyèl) · "Balans Kredi (Dèt)" se pou peryòd chwazi a, "Total Kredi (Tout Tan)" se total dèt tout kliyan kèlkeswa dat fakti a
           </p>
 
-          {/* ✅ NOUVO — Total SEPARE pou Devi Dirèk ki konvèti an fakti.
-              Montan sa yo PA antre nan "Total Vant" pi wo a — yo separe
-              espre pou yo pa melanje ak lajan ki soti nan vant pwodui
-              ki nan estòk sistèm nan. */}
+          {/* ✅ MODIFYE — Detay Devi Dirèk konvèti. Montan sa yo DEJA ENKLI
+              nan "Total Vant" pi wo a — sa a se yon detay/blòk enfòmatif
+              adisyonèl pou wè konbyen ladan l soti nan Devi Dirèk. */}
           {Number(salesReport?.directQuoteConverted?._count || 0) > 0 && (
             <div className="card" style={{
               padding: isMobile ? 14 : 18,
@@ -348,7 +347,7 @@ export default function ReportsPage() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  🔖 Devi Dirèk Konvèti (apa — pa nan Total Vant anlè a)
+                  🔖 Detay: Devi Dirèk Konvèti (deja enkli nan Total Vant anlè a)
                 </span>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>

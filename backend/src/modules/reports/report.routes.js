@@ -30,20 +30,13 @@ router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
     ? { issueDate: haitiRange(dateFrom, dateTo) }
     : {};
 
-  // ✅ NOUVO — jwenn ID tout fakti ki soti nan yon konvèsyon Devi Dirèk, pou
-  // nou EKSKLI yo nan rapò lavant/estòk la (yo gen pwòp total separe pa yo,
-  // pou yo pa melanje ak lajan ki soti nan vant pwodui ki nan estòk la)
-  const directQuoteLinks = await prisma.directQuote.findMany({
-    where: { tenantId, status: 'converted', convertedToInvoiceId: { not: null } },
-    select: { convertedToInvoiceId: true }
-  });
-  const directQuoteInvoiceIds = directQuoteLinks.map(d => d.convertedToInvoiceId).filter(Boolean);
-
+  // ✅ MODIFYE — Total prensipal la ENKLI tout fakti, ni sa ki soti nan
+  // estòk ni sa ki soti nan Devi Dirèk konvèti. "directQuoteConverted" pi
+  // ba a se yon detay/blòk enfòmatif ADISYONÈL, pa yon eksklizyon.
   const where = {
     tenantId,
     status: { not: 'cancelled' },
     ...(branchId && { branchId }),
-    ...(directQuoteInvoiceIds.length && { id: { notIn: directQuoteInvoiceIds } }),
     ...dateFilter
   };
 
@@ -72,9 +65,8 @@ router.get('/sales', extractBranch, asyncHandler(async (req, res) => {
     return acc;
   }, {});
 
-  // ✅ NOUVO — Total SEPARE pou Devi Dirèk ki konvèti an fakti pandan menm
-  // peryòd la (baze sou convertedAt, pa issueDate), pou yo parèt apa nan
-  // paj Rapò a san yo pa antre nan "total global" lavant estòk la.
+  // ✅ Detay ENFÒMATIF — konbyen nan total anlè a soti espesifikman nan Devi
+  // Dirèk ki konvèti pandan menm peryòd la (deja ENKLI nan "totals" anlè a).
   const directQuoteTotals = await prisma.directQuote.aggregate({
     where: {
       tenantId, status: 'converted',
@@ -161,22 +153,13 @@ router.get('/dashboard', asyncHandler(async (req, res) => {
   const today      = new Date();
   const startMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1, 5, 0, 0));
 
-  // ✅ NOUVO — menm eksklizyon ak /sales, pou total dashboard la pa melanje
-  // ak lajan Devi Dirèk konvèti yo
-  const directQuoteLinks = await prisma.directQuote.findMany({
-    where: { tenantId, status: 'converted', convertedToInvoiceId: { not: null } },
-    select: { convertedToInvoiceId: true }
-  });
-  const directQuoteInvoiceIds = directQuoteLinks.map(d => d.convertedToInvoiceId).filter(Boolean);
-  const excludeDQ = directQuoteInvoiceIds.length ? { id: { notIn: directQuoteInvoiceIds } } : {};
-
   const [invoiceStats, paidThisMonth, lowStockCount, productCount, recentInvoices] = await Promise.all([
     prisma.invoice.groupBy({
-      by: ['status'], where: { tenantId, ...excludeDQ },
+      by: ['status'], where: { tenantId },
       _sum: { totalHtg: true, balanceDueHtg: true }, _count: true
     }),
     prisma.invoice.aggregate({
-      where: { tenantId, status: 'paid', issueDate: { gte: startMonth }, ...excludeDQ },
+      where: { tenantId, status: 'paid', issueDate: { gte: startMonth } },
       _sum: { totalHtg: true, totalUsd: true }, _count: true
     }),
     prisma.product.count({ where: { tenantId, isActive: true, isService: false, quantity: { lte: 5 } } }),
