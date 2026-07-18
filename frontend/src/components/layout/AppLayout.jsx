@@ -567,9 +567,13 @@ export default function AppLayout() {
     // 100dvh ajiste otomatikman selon wotè REYÈL vizib navigatè a.
     height:        isDesktop ? '100vh' : '100dvh',
     minHeight:     isDesktop ? '100vh' : undefined,
-    // ✅ NOUVO — sekirite adisyonèl: si kontni a toujou depase, tout sidebar
-    // la ka defile (pa sèlman <nav> anndan l), pou anyen pa janm rete kache.
-    overflowY:     'auto',
+    // ✅ KORIJE — aside PA dwe defile pou kont pa li ankò. Anvan, li te gen
+    // overflowY:auto ki te "vòlè" defilman an nan men <nav> (paske aside a
+    // te vin conteneur ki defile a olye nav), e defilman aside a te kache
+    // (aside::-webkit-scrollbar display:none), kidonk kontni te disparèt
+    // san okenn bare vizib. Kounye a aside rete FIKS, e SÈLMAN <nav>
+    // anndan l defile — se la bare vizib la parèt kounye a.
+    overflowY:     'hidden',
     background:    `linear-gradient(170deg,${C.sidebarTop} 0%,${C.sidebarBg} 50%,#1a1f35 100%)`,
     display:       'flex',
     flexDirection: 'column',
@@ -670,7 +674,7 @@ export default function AppLayout() {
         </div>
 
         {/* NAV */}
-        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, scrollbarWidth:'none', WebkitOverflowScrolling:'touch' }}>
+        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, WebkitOverflowScrolling:'touch' }}>
           <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
             Menu prensipal
           </p>
@@ -1003,11 +1007,11 @@ export default function AppLayout() {
         /* ✅ KORIJE — barre defile gri, senp, vizib — menm estil ak sa ki
            deja sou paj prensipal la, pou moun konnen yo ka desann wè plis
            paj nan meni an (Restoran, Devi Dirèk, elatriye). */
-        nav::-webkit-scrollbar { width: 8px; display: block; }
-        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
-        nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 10px; }
-        nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
-        nav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.28) rgba(255,255,255,0.04); }
+        nav::-webkit-scrollbar { width: 10px; display: block; }
+        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
+        nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
+        nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.55); background-clip: padding-box; }
+        nav { scrollbar-width: auto; scrollbar-color: rgba(255,255,255,0.35) rgba(255,255,255,0.05); }
       `}</style>
 
       {/* Kalkilatris kounye a nan tèt paj la (gade header), pa gen bezwen bouton flotan ankò */}
