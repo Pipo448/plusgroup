@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog, BarChart2, Calculator,
+  TrendingDown, UserCog, BarChart2, Calculator, Delete,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -215,6 +215,12 @@ function CalculatorMenu({ isMobile }) {
 
   const clearHistory = () => persistHistory([])
 
+  // ✅ NOUVO — Efase dènye chif la sèlman (pa tout ekran an tankou C)
+  const handleBackspace = () => {
+    if (waiting) return
+    setDisplay(d => (d.length > 1 ? d.slice(0, -1) : '0'))
+  }
+
   const fmtDate = (iso) => {
     const d = new Date(iso)
     return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) + ' · ' +
@@ -262,8 +268,16 @@ function CalculatorMenu({ isMobile }) {
 
           {tab === 'pad' ? (
             <>
-              <div style={{ padding: '16px 14px', textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
-                {display}
+              <div style={{ padding: '16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <button onClick={handleBackspace} title="Efase dènye chif" style={{
+                  background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8,
+                  padding: 7, cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0,
+                }}>
+                  <Delete size={16}/>
+                </button>
+                <div style={{ flex: 1, textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
+                  {display}
+                </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.05)' }}>
                 {BTNS.map((b, i) => (

@@ -60,7 +60,8 @@ dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:2.1.0"
 
     // AIDL Sunmi (pou detekte + itilize enprimant Sunmi)
-    // Sunmi SDK ap enkli otomatikman sou aparèy Sunmi
+    // ✅ NOUVO — SDK ofisyèl Sunmi, disponib dirèkteman sou Maven Central
+    implementation "com.sunmi:printerlibrary:1.0.18"
 
     // Pou Bluetooth ESC/POS
     implementation "androidx.core:core-ktx:1.13.1"
