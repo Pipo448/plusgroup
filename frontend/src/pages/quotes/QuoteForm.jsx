@@ -32,14 +32,15 @@ function useIsMobile() {
   return isMobile
 }
 
-// ✅ ClientSearch — deyò, memo, debounce
+// ✅ ClientSearch — deyò, memo, debounce. Kounye a `value` reprezante
+// SWA yon vrè kliyan chwazi (gen `id`), SWA yon non tape alamen pou yon
+// kliyan ki PA anrejistre nan sistèm nan (san `id`) — toude ka itilize.
 const ClientSearch = memo(function ClientSearch({ value, onChange }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState('')
-  const [open, setOpen]     = useState(false)
+  const [open, setOpen] = useState(false)
 
-  // ✅ DEBOUNCE
-  const debouncedSearch = useDebounce(search, 400)
+  // ✅ DEBOUNCE — chèche selon tèks ki nan chan an, sof si yon vrè kliyan deja chwazi
+  const debouncedSearch = useDebounce(value?.id ? '' : (value?.name || ''), 400)
 
   const { data } = useQuery({
     queryKey: ['clients-search', debouncedSearch],
@@ -50,7 +51,6 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
 
   const handleSelect = useCallback((c) => {
     onChange(c)
-    setSearch('')
     setOpen(false)
   }, [onChange])
 
@@ -61,19 +61,19 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
           <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
           <input
             className="input pl-9"
-            placeholder={t('quotes.searchClient')}
-            value={value?.name || search}
-            onChange={e => { setSearch(e.target.value); setOpen(true); if (!e.target.value) onChange(null) }}
+            placeholder={t('quotes.searchClient') || 'Chèche oswa tape non kliyan...'}
+            value={value?.name || ''}
+            onChange={e => { onChange(e.target.value ? { name: e.target.value } : null); setOpen(true) }}
             onFocus={() => setOpen(true)}
             onBlur={() => setTimeout(() => setOpen(false), 200)}
           />
         </div>
         {value && (
-          <button type="button" onClick={() => { onChange(null); setSearch('') }}
+          <button type="button" onClick={() => onChange(null)}
             className="btn-secondary btn-sm px-3">✕</button>
         )}
       </div>
-      {open && data?.length > 0 && !value && (
+      {open && data?.length > 0 && !value?.id && (
         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-20 overflow-hidden">
           {data.map(c => (
             <button key={c.id} type="button"
@@ -88,6 +88,7 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
               </div>
             </button>
           ))}
+
         </div>
       )}
     </div>
@@ -577,7 +578,7 @@ export default function QuoteForm() {
     e.preventDefault()
     if (!items.length || !items.some(i => i.quantity > 0)) return toast.error(t('quotes.addAtLeastOneItem'))
     mutation.mutate({
-      clientId: client?.id,
+      clientId: client?.id || null,
       clientSnapshot: client ? { id:client.id, name:client.name, phone:client.phone, email:client.email } : {},
       currency, exchangeRate: tenant?.exchangeRate || 132,
       // ✅ KORIJE — Rabè global toujou 'amount' kounye a
@@ -625,7 +626,7 @@ export default function QuoteForm() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Kliyan + Dat */}
+          {/* Kliyan */}
           <div className="card p-5">
             <h3 className="section-title">{t('quotes.clientInfo')}</h3>
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
@@ -639,10 +640,6 @@ export default function QuoteForm() {
                   <option value="HTG">HTG — {t('quotes.gourde')}</option>
                   <option value="USD">USD — {t('quotes.dollar')}</option>
                 </select>
-              </div>
-              <div>
-                <label className="label">{t('quotes.expiryDate')}</label>
-                <input type="date" className="input" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}/>
               </div>
             </div>
           </div>
@@ -691,24 +688,6 @@ export default function QuoteForm() {
                 className="text-brand-600 hover:text-brand-800 text-sm font-medium flex items-center gap-1.5 transition-colors">
                 <Plus size={15}/> {t('quotes.addAnotherItem')}
               </button>
-            </div>
-          </div>
-
-          {/* Nòt */}
-          <div className="card p-5">
-            <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
-              <div>
-                <label className="label">{t('quotes.notesForClient')}</label>
-                <textarea className="input resize-none" rows={3}
-                  placeholder={t('quotes.notesPlaceholder')}
-                  value={notes} onChange={e => setNotes(e.target.value)}/>
-              </div>
-              <div>
-                <label className="label">{t('quotes.generalTerms')}</label>
-                <textarea className="input resize-none" rows={3}
-                  placeholder={t('quotes.termsPlaceholder')}
-                  value={terms} onChange={e => setTerms(e.target.value)}/>
-              </div>
             </div>
           </div>
 

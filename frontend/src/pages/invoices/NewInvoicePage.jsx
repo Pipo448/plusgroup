@@ -652,7 +652,11 @@ export default function NewInvoicePage() {
 
     const payload = {
       clientId:      selectedClient?.id || null,
-      clientSnapshot: selectedClient ? { id: selectedClient.id, name: selectedClient.name, phone: selectedClient.phone } : {},
+      // ✅ NOUVO — si okenn kliyan pa seleksyone nan lis la, men itilizatè a
+      // tape yon non, itilize non tape a kanmenm (kliyan ki pa nan sistèm nan)
+      clientSnapshot: selectedClient
+        ? { id: selectedClient.id, name: selectedClient.name, phone: selectedClient.phone }
+        : (clientSearch.trim() ? { name: clientSearch.trim() } : {}),
       // ✅ KORIJE — dat+lè EGZAT (pa sèlman dat), kaptire nan MOMAN vant lan fèt
       issueDate:     buildIssueDateTime(),
       dueDate:       dueDate || null,
@@ -879,18 +883,8 @@ export default function NewInvoicePage() {
               )}
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr 1fr', gap:10 }}>
+            <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '260px', gap:10 }}>
               <div>
-                {label(t('invoice.invoiceDate') || 'Dat Fakti')}
-                <input type="date" value={invoiceDate} onChange={e => setInvoiceDate(e.target.value)} style={inp}
-                  onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
-              </div>
-              <div>
-                {label(t('invoice.dueDate') || 'Dat Limit')}
-                <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} style={inp}
-                  onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
-              </div>
-              <div style={ isMobile ? { gridColumn:'1 / -1' } : {}}>
                 {label(`${t('settings.taxRate') || 'Taks TVA'} (%)`)}
                 <input type="number" min="0" max="100" step="0.5" value={taxRate}
                   onChange={e => setTaxRate(e.target.value)} style={inp}
@@ -930,25 +924,8 @@ export default function NewInvoicePage() {
           </button>
         </div>
 
-        {/* Rezime + Nòt */}
-        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap:14 }}>
-
-          <div style={{ background:D.white, borderRadius:16, padding: isMobile ? 16 : 22, border:`1px solid ${D.border}`, boxShadow:D.shadow, display:'flex', flexDirection:'column', gap:14 }}>
-            <div>
-              {label(t('invoice.notesForClient') || 'Nòt pou kliyan')}
-              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
-                placeholder={t('invoice.notesPlaceholder') || 'Remèsiman, kondisyon...'}
-                style={{ ...inp, resize:'vertical', lineHeight:1.5 }}
-                onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
-            </div>
-            <div>
-              {label(t('invoice.generalTerms') || 'Kondisyon jeneral')}
-              <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={3}
-                placeholder={t('invoice.termsPlaceholder') || 'Kondisyon pèman...'}
-                style={{ ...inp, resize:'vertical', lineHeight:1.5 }}
-                onFocus={e => e.target.style.borderColor = D.blue} onBlur={e => e.target.style.borderColor = D.border}/>
-            </div>
-          </div>
+        {/* Rezime */}
+        <div style={{ display:'grid', gridTemplateColumns: '1fr', gap:14 }}>
 
           <div style={{ background:D.white, borderRadius:16, padding: isMobile ? 16 : 22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>
