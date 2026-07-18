@@ -19,6 +19,8 @@ router.get('/:id',           ctrl.getOne);
 // ✅ 'cashier' ka kreye tou — PIN otorizasyon an jere anndan sèvis la
 router.post('/',             authorize('admin', 'cashier'), ctrl.create);
 router.put('/:id',           authorize('admin', 'cashier'), ctrl.update);
+// ✅ NOUVO — Admin otorize yon Devi Dirèk ak PIN pa li
+router.post('/:id/authorize', authorize('admin'), ctrl.authorize);
 router.patch('/:id/send',    authorize('admin', 'cashier'), ctrl.send);
 router.patch('/:id/cancel',  authorize('admin'), ctrl.cancel);
 router.post('/:id/convert',  authorize('admin', 'cashier'), ctrl.convertToInvoice);

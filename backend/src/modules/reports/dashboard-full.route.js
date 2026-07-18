@@ -48,6 +48,15 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     issueDate: todayRange,
   };
 
+  // ✅ NOUVO — ekskli fakti ki soti nan konvèsyon Devi Dirèk, pou "Vant Jodi
+  // a" ak lòt kat Tablo Bò a pa melanje ak lajan sa yo (yo gen rapò apa).
+  const directQuoteLinks = await prisma.directQuote.findMany({
+    where: { tenantId, status: 'converted', convertedToInvoiceId: { not: null } },
+    select: { convertedToInvoiceId: true }
+  });
+  const directQuoteInvoiceIds = directQuoteLinks.map(d => d.convertedToInvoiceId).filter(Boolean);
+  const excludeDQ = directQuoteInvoiceIds.length ? { id: { notIn: directQuoteInvoiceIds } } : {};
+
   // ✅ Tout queries an paralèl — yon sèl aller-retour backend
   const [
     // dashboard global
@@ -66,15 +75,15 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
   ] = await Promise.all([
     // Global stats
     prisma.invoice.aggregate({
-      where: { ...baseWhere, status: 'unpaid' },
+      where: { ...baseWhere, status: 'unpaid', ...excludeDQ },
       _sum: { balanceDueHtg: true }, _count: true,
     }),
     prisma.invoice.aggregate({
-      where: { ...baseWhere, status: 'paid' },
+      where: { ...baseWhere, status: 'paid', ...excludeDQ },
       _sum: { totalHtg: true }, _count: true,
     }),
     prisma.invoice.aggregate({
-      where: { ...baseWhere, status: 'partial' },
+      where: { ...baseWhere, status: 'partial', ...excludeDQ },
       _sum: { balanceDueHtg: true }, _count: true,
     }),
     prisma.invoice.findMany({
@@ -85,15 +94,15 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     }),
     // Today stats
     prisma.invoice.aggregate({
-      where: { ...todayWhere, status: 'paid' },
+      where: { ...todayWhere, status: 'paid', ...excludeDQ },
       _sum: { totalHtg: true }, _count: true,
     }),
     prisma.invoice.aggregate({
-      where: { ...todayWhere, status: 'unpaid' },
+      where: { ...todayWhere, status: 'unpaid', ...excludeDQ },
       _sum: { balanceDueHtg: true }, _count: true,
     }),
     prisma.invoice.aggregate({
-      where: { ...todayWhere, status: 'partial' },
+      where: { ...todayWhere, status: 'partial', ...excludeDQ },
       _sum: { balanceDueHtg: true, amountPaidHtg: true }, _count: true,
     }),
     // Tout pwodwi aktif (pa sèvis) — filtraj alertThreshold fèt an JS pi ba
@@ -114,6 +123,7 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
             status: { not: 'cancelled' },
             ...(branchId && { branchId }),
             issueDate: salesRange,
+            ...excludeDQ,
           },
           select: { issueDate: true, totalHtg: true },
           orderBy: { issueDate: 'desc' },

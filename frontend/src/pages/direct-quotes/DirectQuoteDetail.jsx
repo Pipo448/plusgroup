@@ -7,7 +7,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   ArrowLeft, FileCheck, Share2, Copy, Check, MessageCircle,
-  Lock, RefreshCw, Trash2, X, Printer, User,
+  Lock, RefreshCw, Trash2, X, Printer, User, ShieldCheck, Clock,
 } from 'lucide-react'
 import { printDirectQuoteNative, isNativePrinterAvailable } from '../../services/printerNative'
 
@@ -24,11 +24,22 @@ export default function DirectQuoteDetail() {
 
   const [shareOpen, setShareOpen] = useState(false)
   const [printing, setPrinting]   = useState(false)
+  const [authModalOpen, setAuthModalOpen] = useState(false)
 
   const { data: dq, isLoading } = useQuery({
     queryKey: ['direct-quote', id],
     queryFn:  () => api.get(`/direct-quotes/${id}`).then(r => r.data.directQuote),
     staleTime: 30_000,
+  })
+
+  const authorizeMutation = useMutation({
+    mutationFn: (pin) => api.post(`/direct-quotes/${id}/authorize`, { pin }),
+    onSuccess: () => {
+      toast.success('Devi Dirèk otorize!')
+      setAuthModalOpen(false)
+      qc.invalidateQueries({ queryKey: ['direct-quote', id] })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'PIN pa kòrèk.')
   })
 
   const convertMutation = useMutation({
@@ -61,8 +72,12 @@ export default function DirectQuoteDetail() {
   if (!dq) return null
 
   const snap = dq.clientSnapshot || {}
-  const canShare = dq.status !== 'cancelled'
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true
+  // ✅ NOUVO — Devi a "an atant" toutotan pa gen okenn admin ki otorize l
+  const isPending = !dq.authorizedBy && dq.status !== 'cancelled'
+  // ✅ Kesye pa gen aksè a enprime/pataje/konvèti toutotan devi a an atant
+  const actionsLocked = isPending && !isAdmin
+  const canShare = dq.status !== 'cancelled' && !actionsLocked
 
   const handlePrint = async () => {
     if (isNativePrinterAvailable()) {
@@ -105,9 +120,18 @@ export default function DirectQuoteDetail() {
         </div>
 
         <div className="flex gap-2 no-print" style={{ flexWrap:'wrap' }}>
-          <button onClick={handlePrint} disabled={printing} className="btn-secondary btn-sm">
-            <Printer size={14}/> {printing ? 'Ap enprime...' : 'Enprime'}
-          </button>
+          {/* ✅ NOUVO — Admin wè bouton Otorize a lè devi an atant */}
+          {isPending && isAdmin && (
+            <button onClick={() => setAuthModalOpen(true)} className="btn-primary btn-sm" style={{ background: 'linear-gradient(135deg,#7c3aed,#9333ea)' }}>
+              <ShieldCheck size={14}/> Otorize Devi sa a
+            </button>
+          )}
+
+          {!actionsLocked && (
+            <button onClick={handlePrint} disabled={printing} className="btn-secondary btn-sm">
+              <Printer size={14}/> {printing ? 'Ap enprime...' : 'Enprime'}
+            </button>
+          )}
 
           {canShare && (
             <button onClick={() => setShareOpen(true)} className="btn-secondary btn-sm">
@@ -121,13 +145,23 @@ export default function DirectQuoteDetail() {
             </button>
           )}
 
-          {['draft', 'sent', 'accepted'].includes(dq.status) && (
+          {!actionsLocked && ['draft', 'sent', 'accepted'].includes(dq.status) && (
             <button onClick={() => convertMutation.mutate()} disabled={convertMutation.isPending} className="btn-primary btn-sm">
               <FileCheck size={14}/> {convertMutation.isPending ? 'Konvèsyon...' : 'Konvèti an Fakti'}
             </button>
           )}
         </div>
       </div>
+
+      {/* ✅ NOUVO — Banyè "an atant" — diferan mesaj pou kesye vs admin */}
+      {isPending && (
+        <div className="mb-5 p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 text-sm text-amber-800">
+          <Clock size={15}/>
+          {isAdmin
+            ? 'Devi sa a an atant otorizasyon. Klike "Otorize Devi sa a" pou bay kesye a aksè pou enprime/pataje/konvèti.'
+            : 'Ap tann yon admin otorize devi sa a. Ou ap gen aksè pou enprime, pataje, oswa konvèti l apre sa.'}
+        </div>
+      )}
 
       {dq.authorizer && (
         <div className="mb-5 p-3 rounded-xl bg-violet-50 border border-violet-100 flex items-center gap-2 text-sm text-violet-700">
@@ -203,6 +237,49 @@ export default function DirectQuoteDetail() {
           revokeMutation={revokeMutation}
         />
       )}
+
+      {authModalOpen && (
+        <AuthorizeModal
+          submitting={authorizeMutation.isPending}
+          onConfirm={(pin) => authorizeMutation.mutate(pin)}
+          onClose={() => setAuthModalOpen(false)}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Modal Otorizasyon (ADMIN antre PWÒP PIN pa li — pa kesye a)
+function AuthorizeModal({ onConfirm, onClose, submitting }) {
+  const [pin, setPin] = useState('')
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+            <ShieldCheck size={18} className="text-violet-600"/>
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-slate-800">Antre PIN Ou</h3>
+            <p className="text-xs text-slate-500">Konfime ak PIN otorizasyon pa ou pou apwouve devi sa a.</p>
+          </div>
+        </div>
+        <input
+          type="password" inputMode="numeric" maxLength={4} autoFocus
+          className="input text-center text-2xl tracking-[0.5em] font-bold py-3"
+          placeholder="••••"
+          value={pin}
+          onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+          onKeyDown={e => { if (e.key === 'Enter' && pin.length === 4) onConfirm(pin) }}
+        />
+        <div className="flex gap-3 mt-5">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Anile</button>
+          <button type="button" disabled={pin.length !== 4 || submitting} onClick={() => onConfirm(pin)}
+            className="btn-primary flex-1" style={{ justifyContent: 'center' }}>
+            {submitting ? 'Verifikasyon...' : 'Otorize'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

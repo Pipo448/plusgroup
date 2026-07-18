@@ -157,41 +157,6 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
   )
 })
 
-// ── Modal PIN otorizasyon (sèlman pou kesye, pa admin)
-function AuthPinModal({ onConfirm, onClose, submitting }) {
-  const [pin, setPin] = useState('')
-  return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
-            <Lock size={18} className="text-violet-600"/>
-          </div>
-          <div>
-            <h3 className="font-display font-bold text-slate-800">Otorizasyon Admin Mande</h3>
-            <p className="text-xs text-slate-500">Mande yon admin PIN otorizasyon pa li pou kontinye.</p>
-          </div>
-        </div>
-        <input
-          type="password" inputMode="numeric" maxLength={4} autoFocus
-          className="input text-center text-2xl tracking-[0.5em] font-bold py-3"
-          placeholder="••••"
-          value={pin}
-          onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          onKeyDown={e => { if (e.key === 'Enter' && pin.length === 4) onConfirm(pin) }}
-        />
-        <div className="flex gap-3 mt-5">
-          <button type="button" onClick={onClose} className="btn-secondary flex-1">Anile</button>
-          <button type="button" disabled={pin.length !== 4 || submitting} onClick={() => onConfirm(pin)}
-            className="btn-primary flex-1" style={{ justifyContent: 'center' }}>
-            {submitting ? 'Verifikasyon...' : 'Konfime'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ══════════════════════════════════════════════
 export default function DirectQuoteForm() {
   const navigate = useNavigate()
@@ -208,7 +173,6 @@ export default function DirectQuoteForm() {
   const [items, setItems] = useState([
     { description: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }
   ])
-  const [pinModalOpen, setPinModalOpen] = useState(false)
 
   const updateItem = useCallback((idx, changes) => {
     setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...changes } : it))
@@ -227,13 +191,17 @@ export default function DirectQuoteForm() {
   const mutation = useMutation({
     mutationFn: (payload) => api.post('/direct-quotes', payload).then(r => r.data),
     onSuccess: (res) => {
-      toast.success('Devi Dirèk kreye avèk siksè!')
+      toast.success(
+        isAdmin
+          ? 'Devi Dirèk kreye avèk siksè!'
+          : 'Devi Dirèk anrejistre! Y ap tann yon admin otorize l anvan ou ka enprime/pataje/konvèti l.'
+      )
       navigate(`/app/direct-quotes/${res.directQuote.id}`)
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan kreyasyon an.')
   })
 
-  const buildPayload = (authCode) => ({
+  const buildPayload = () => ({
     clientId: client?.id || null,
     clientSnapshot: client
       ? { name: client.name, phone: client.phone, address: client.address }
@@ -252,7 +220,6 @@ export default function DirectQuoteForm() {
         unitPriceHtg: Number(it.unitPriceHtg || 0),
         discountAmt: Number(it.discountAmt || 0),
       })),
-    ...(authCode ? { authCode } : {}),
   })
 
   const validate = () => {
@@ -262,18 +229,11 @@ export default function DirectQuoteForm() {
     return true
   }
 
+  // ✅ MODIFYE — Kesye a anrejistre DIRÈKTEMAN, san PIN. Yon notifikasyon
+  // otomatik ap voye bay tout admin yo pou yo otorize devi a apre sa.
   const handleSaveClick = () => {
     if (!validate()) return
-    if (isAdmin) {
-      mutation.mutate(buildPayload())
-    } else {
-      setPinModalOpen(true)
-    }
-  }
-
-  const handlePinConfirm = (pin) => {
-    setPinModalOpen(false)
-    mutation.mutate(buildPayload(pin))
+    mutation.mutate(buildPayload())
   }
 
   return (
@@ -290,7 +250,6 @@ export default function DirectQuoteForm() {
         </div>
         {!isMobile && (
           <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary">
-            {!isAdmin && <Lock size={14}/>}
             <Save size={16}/> {mutation.isPending ? 'Anrejistreman...' : 'Kreye Devi Dirèk'}
           </button>
         )}
@@ -299,7 +258,7 @@ export default function DirectQuoteForm() {
       {!isAdmin && (
         <div className="mb-5 p-3 rounded-xl bg-violet-50 border border-violet-100 flex items-center gap-2 text-sm text-violet-700">
           <Lock size={15}/>
-          Ou pral bezwen PIN otorizasyon yon admin pou anrejistre Devi Dirèk sa a.
+          Apre w anrejistre, yon notifikasyon ap voye bay admin yo. Ou ap ka enprime, pataje, oswa konvèti devi a an fakti sèlman apre yon admin otorize l.
         </div>
       )}
 
@@ -402,20 +361,11 @@ export default function DirectQuoteForm() {
 
           {isMobile && (
             <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary w-full mt-4" style={{ justifyContent: 'center' }}>
-              {!isAdmin && <Lock size={14}/>}
               <Save size={16}/> {mutation.isPending ? 'Anrejistreman...' : 'Kreye Devi Dirèk'}
             </button>
           )}
         </div>
       </div>
-
-      {pinModalOpen && (
-        <AuthPinModal
-          submitting={mutation.isPending}
-          onConfirm={handlePinConfirm}
-          onClose={() => setPinModalOpen(false)}
-        />
-      )}
     </div>
   )
 }

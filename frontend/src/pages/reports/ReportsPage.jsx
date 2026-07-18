@@ -336,6 +336,41 @@ export default function ReportsPage() {
             1 USD = {fmt(exchangeRate)} HTG (to aktyèl) · "Balans Kredi (Dèt)" se pou peryòd chwazi a, "Total Kredi (Tout Tan)" se total dèt tout kliyan kèlkeswa dat fakti a
           </p>
 
+          {/* ✅ NOUVO — Total SEPARE pou Devi Dirèk ki konvèti an fakti.
+              Montan sa yo PA antre nan "Total Vant" pi wo a — yo separe
+              espre pou yo pa melanje ak lajan ki soti nan vant pwodui
+              ki nan estòk sistèm nan. */}
+          {Number(salesReport?.directQuoteConverted?._count || 0) > 0 && (
+            <div className="card" style={{
+              padding: isMobile ? 14 : 18,
+              background: 'linear-gradient(135deg,#f5f3ff,#faf9ff)',
+              border: '1px solid rgba(124,58,237,0.15)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  🔖 Devi Dirèk Konvèti (apa — pa nan Total Vant anlè a)
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: isMobile ? 8 : 12 }}>
+                <div>
+                  <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 3, textTransform: 'uppercase', fontWeight: 700 }}>Total (HTG)</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#7c3aed' }}>{fmt(Number(salesReport?.directQuoteConverted?._sum?.totalHtg || 0))} HTG</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 3, textTransform: 'uppercase', fontWeight: 700 }}>Total (USD)</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#7c3aed' }}>${fmtUSD(Number(salesReport?.directQuoteConverted?._sum?.totalUsd || 0))}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 10, color: '#94a3b8', marginBottom: 3, textTransform: 'uppercase', fontWeight: 700 }}>Kantite Devi</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#7c3aed' }}>{salesReport?.directQuoteConverted?._count || 0}</p>
+                </div>
+              </div>
+              <p style={{ fontSize: 10, color: '#a78bfa', marginTop: 8 }}>
+                Pou detay konplè, gade paj "Devi Dirèk".
+              </p>
+            </div>
+          )}
+
           {/* ✅ NOUVO — Top 5 Kliyan ki Dwe */}
           {topDebtors.length > 0 && (
             <div className="card" style={{ padding: isMobile ? 14 : 20 }}>

@@ -105,7 +105,6 @@ const create = async (tenantId, userId, userRole, data) => {
     discountType, discountValue,
     expiryDate, notes, terms, branchId,
     items = [],
-    authCode, // ✅ PIN admin — obligatwa si userRole !== 'admin'
   } = data;
 
   if (!items.length) throw Object.assign(new Error('Devi Dirèk dwe gen omwen yon atik.'), { statusCode: 400 });
@@ -121,27 +120,14 @@ const create = async (tenantId, userId, userRole, data) => {
   });
   const rate = exchangeRate || Number(tenant.exchangeRate);
 
-  // ✅ OTORIZASYON — sèlman admin PA bezwen kòd. Tout lòt wòl dwe founi
-  // yon PIN 4 chif ki koresponn ak yon admin nan tenant an.
-  let authorizedBy = null;
-  let authorizedAt = null;
-
-  if (userRole !== 'admin') {
-    if (!authCode || String(authCode).trim().length !== 4) {
-      throw Object.assign(new Error('Ou bezwen kòd otorizasyon yon admin pou kreye yon Devi Dirèk.'), { statusCode: 403 });
-    }
-    const admin = await prisma.user.findFirst({
-      where: { tenantId, role: 'admin', isActive: true, directQuotePin: String(authCode).trim() }
-    });
-    if (!admin) {
-      throw Object.assign(new Error('Kòd otorizasyon pa kòrèk.'), { statusCode: 401 });
-    }
-    authorizedBy = admin.id;
-    authorizedAt = new Date();
-  }
-
   const { computedItems, subtotalHtg, discountHtg, totalHtg } = computeTotals(items, discountValue, discountType, rate);
   const quoteNumber = await getNextDirectQuoteNumber(tenantId);
+
+  // ✅ MODIFYE — Kesye a anrejistre SAN okenn kòd. Si se yon admin ki
+  // kreye l, li otorize pwòp tèt li otomatikman. Si se yon kesye,
+  // devi a rete "an atant" (authorizedBy = null) jiskaske yon admin
+  // antre PWÒP PIN pa li pou otorize l.
+  const isAdmin = userRole === 'admin';
 
   const dq = await prisma.$transaction(async (tx) => {
     const created = await tx.directQuote.create({
@@ -156,7 +142,9 @@ const create = async (tenantId, userId, userRole, data) => {
         expiryDate: expiryDate ? new Date(`${expiryDate}T05:00:00.000Z`) : null,
         notes, terms,
         createdBy: userId,
-        authorizedBy, authorizedAt,
+        // ✅ Admin otorize pwòp tèt li imedyatman; kesye rete an atant
+        authorizedBy: isAdmin ? userId : null,
+        authorizedAt: isAdmin ? new Date() : null,
       }
     });
 
@@ -167,21 +155,51 @@ const create = async (tenantId, userId, userRole, data) => {
     return created;
   });
 
-  // ✅ Notifikasyon pou odit — voye bay admin ki otorize a (si se yon kesye)
-  if (authorizedBy) {
+  // ✅ Si se yon kesye ki kreye l — avèti TOUT admin yo (push + notifikasyon,
+  // menm si app la an background). Admin yo ap ouvri devi a pou wè tout
+  // detay li, epi antre PWÒP PIN pa yo pou otorize l.
+  if (!isAdmin) {
+    const admins = await prisma.user.findMany({
+      where: { tenantId, role: 'admin', isActive: true },
+      select: { id: true }
+    });
     const cashier = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
     notifyDirectQuoteAuthRequest({
       tenantId,
       cashierName: cashier?.fullName || 'Yon kesye',
-      adminIds: [authorizedBy],
+      adminIds: admins.map(a => a.id),
+      directQuoteId: dq.id,
+      quoteNumber: dq.quoteNumber,
     }).catch(() => {});
   }
 
   return getOne(tenantId, dq.id);
 };
 
+// ✅ NOUVO — Admin otorize yon Devi Dirèk yon kesye kreye, ak PWÒP PIN pa li.
+const authorize = async (tenantId, id, adminUserId, pin) => {
+  if (!pin || !/^\d{4}$/.test(String(pin).trim())) {
+    throw Object.assign(new Error('PIN dwe gen egzakteman 4 chif.'), { statusCode: 400 });
+  }
+  const admin = await prisma.user.findFirst({
+    where: { id: adminUserId, tenantId, role: 'admin', isActive: true }
+  });
+  if (!admin || admin.directQuotePin !== String(pin).trim()) {
+    throw Object.assign(new Error('PIN pa kòrèk.'), { statusCode: 401 });
+  }
+  const dq = await prisma.directQuote.findFirst({ where: { id, tenantId } });
+  if (!dq) throw Object.assign(new Error('Devi Dirèk pa jwenn.'), { statusCode: 404 });
+
+  await prisma.directQuote.update({
+    where: { id },
+    data: { authorizedBy: adminUserId, authorizedAt: new Date() }
+  });
+
+  return getOne(tenantId, id);
+};
+
 // ── UPDATE (sèlman si status === draft)
-const update = async (tenantId, id, userId, data) => {
+const update = async (tenantId, id, userId, userRole, data) => {
   const existing = await prisma.directQuote.findFirst({ where: { id, tenantId } });
   if (!existing) throw Object.assign(new Error('Devi Dirèk pa jwenn.'), { statusCode: 404 });
   if (existing.status !== 'draft') throw Object.assign(new Error('Ou pa ka modifye yon Devi Dirèk ki pa an bouyon.'), { statusCode: 400 });
@@ -189,6 +207,11 @@ const update = async (tenantId, id, userId, data) => {
   const { clientId, clientSnapshot, discountType, discountValue, expiryDate, notes, terms, items = [] } = data;
   const rate = Number(existing.exchangeRate);
   const { computedItems, subtotalHtg, discountHtg, totalHtg } = computeTotals(items, discountValue, discountType, rate);
+
+  // ✅ NOUVO — Si se yon kesye (pa admin) ki modifye devi a, e li te deja
+  // otorize, retire otorizasyon an epi mande yon NOUVO otorizasyon admin.
+  const isAdmin = userRole === 'admin';
+  const shouldResetAuth = !isAdmin && !!existing.authorizedBy;
 
   await prisma.$transaction(async (tx) => {
     await tx.directQuoteItem.deleteMany({ where: { directQuoteId: id } });
@@ -205,9 +228,26 @@ const update = async (tenantId, id, userId, data) => {
         totalHtg, totalUsd: rate ? totalHtg / rate : 0,
         expiryDate: expiryDate ? new Date(`${expiryDate}T05:00:00.000Z`) : existing.expiryDate,
         notes, terms,
+        ...(shouldResetAuth ? { authorizedBy: null, authorizedAt: null } : {}),
       }
     });
   });
+
+  if (shouldResetAuth) {
+    const admins = await prisma.user.findMany({
+      where: { tenantId, role: 'admin', isActive: true },
+      select: { id: true }
+    });
+    const cashier = await prisma.user.findUnique({ where: { id: userId }, select: { fullName: true } });
+    notifyDirectQuoteAuthRequest({
+      tenantId,
+      cashierName: cashier?.fullName || 'Yon kesye',
+      adminIds: admins.map(a => a.id),
+      directQuoteId: id,
+      quoteNumber: existing.quoteNumber,
+      isModification: true,
+    }).catch(() => {});
+  }
 
   return getOne(tenantId, id);
 };
@@ -217,9 +257,13 @@ const cancel = async (tenantId, id) => prisma.directQuote.update({ where: { id }
 
 // ── KONVÈTI an Fakti — kreye yon Fakti nòmal ak liy ALAMEN (san pwodui,
 // san afekte estòk), swiv menm patwon ak invoice.service.createDirect
-const convertToInvoice = async (tenantId, id, userId) => {
+const convertToInvoice = async (tenantId, id, userId, userRole) => {
   const dq = await getOne(tenantId, id);
   if (dq.status === 'cancelled') throw Object.assign(new Error('Pa ka konvèti yon Devi Dirèk ki anile.'), { statusCode: 400 });
+  // ✅ NOUVO — Aksyon sa a bloke pou kesye jiskaske yon admin otorize devi a
+  if (userRole !== 'admin' && !dq.authorizedBy) {
+    throw Object.assign(new Error('Devi sa a poko otorize pa yon admin.'), { statusCode: 403 });
+  }
   if (dq.status === 'converted') throw Object.assign(new Error('Devi Dirèk sa deja konvèti.'), { statusCode: 400 });
 
   const { getNextInvoiceNumber } = require('../invoices/invoice.service');
@@ -262,10 +306,14 @@ const convertToInvoice = async (tenantId, id, userId) => {
 };
 
 // ── Jenere lyen piblik (dirèk, san kòd — menm mekanis ak Quote)
-const generatePublicLink = async (tenantId, id) => {
+const generatePublicLink = async (tenantId, id, userRole) => {
   const dq = await prisma.directQuote.findFirst({ where: { id, tenantId } });
   if (!dq) throw Object.assign(new Error('Devi Dirèk pa jwenn.'), { statusCode: 404 });
   if (dq.status === 'cancelled') throw Object.assign(new Error('Pa ka pataje yon Devi Dirèk anile.'), { statusCode: 400 });
+  // ✅ NOUVO — Aksyon sa a bloke pou kesye jiskaske yon admin otorize devi a
+  if (userRole !== 'admin' && !dq.authorizedBy) {
+    throw Object.assign(new Error('Devi sa a poko otorize pa yon admin.'), { statusCode: 403 });
+  }
 
   const token = crypto.randomBytes(32).toString('hex');
   const updated = await prisma.directQuote.update({
@@ -332,6 +380,6 @@ const getReport = async (tenantId, { dateFrom, dateTo, branchId } = {}) => {
 };
 
 module.exports = {
-  getAll, getOne, create, update, send, cancel, convertToInvoice,
+  getAll, getOne, create, update, send, cancel, convertToInvoice, authorize,
   generatePublicLink, revokePublicLink, getByPublicToken, getReport,
 };

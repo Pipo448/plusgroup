@@ -19,16 +19,22 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const update = asyncHandler(async (req, res) => {
-  const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body);
+  const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.user.role, req.body);
   res.json({ success: true, directQuote: data });
+});
+
+// ✅ NOUVO — Admin otorize yon Devi Dirèk ak PWÒP PIN pa li
+const authorize = asyncHandler(async (req, res) => {
+  const data = await svc.authorize(req.tenant.id, req.params.id, req.user.id, req.body.pin);
+  res.json({ success: true, directQuote: data, message: 'Devi Dirèk otorize!' });
 });
 
 const send             = asyncHandler(async (req, res) => { const data = await svc.send(req.tenant.id, req.params.id);       res.json({ success: true, directQuote: data, message: 'Devi Dirèk voye.' }); });
 const cancel           = asyncHandler(async (req, res) => { const data = await svc.cancel(req.tenant.id, req.params.id);     res.json({ success: true, directQuote: data, message: 'Devi Dirèk anile.' }); });
-const convertToInvoice = asyncHandler(async (req, res) => { const data = await svc.convertToInvoice(req.tenant.id, req.params.id, req.user.id); res.status(201).json({ success: true, invoice: data, message: 'Devi Dirèk konvèti an fakti avèk siksè.' }); });
+const convertToInvoice = asyncHandler(async (req, res) => { const data = await svc.convertToInvoice(req.tenant.id, req.params.id, req.user.id, req.user.role); res.status(201).json({ success: true, invoice: data, message: 'Devi Dirèk konvèti an fakti avèk siksè.' }); });
 
 const share = asyncHandler(async (req, res) => {
-  const data = await svc.generatePublicLink(req.tenant.id, req.params.id);
+  const data = await svc.generatePublicLink(req.tenant.id, req.params.id, req.user.role);
   res.json({ success: true, ...data, message: 'Lyen pataj kreye.' });
 });
 
@@ -62,4 +68,4 @@ const setMyPin = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'PIN otorizasyon konfigire.' });
 });
 
-module.exports = { getAll, getOne, create, update, send, cancel, convertToInvoice, share, revokeShare, getPublic, getReport, setMyPin };
+module.exports = { getAll, getOne, create, update, send, cancel, convertToInvoice, authorize, share, revokeShare, getPublic, getReport, setMyPin };

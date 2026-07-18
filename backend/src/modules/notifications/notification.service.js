@@ -189,26 +189,31 @@ async function notifyPaymentReceived({ tenantId, invoiceNumber, amountHtg, metho
 // ✅ NOUVO — Avèti CHAK admin (endividyèlman, pa notif jeneral) lè yon
 // kesye ap eseye kreye yon Devi Dirèk e bezwen otorizasyon PIN
 // ─────────────────────────────────────────────
-async function notifyDirectQuoteAuthRequest({ tenantId, cashierName, adminIds = [] }) {
-  const title = `Otorizasyon Devi Dirèk mande 🔐`
-  const body  = `${cashierName} ap mande otorizasyon pou kreye yon Devi Dirèk. Bay li PIN ou si w apwouve.`
+async function notifyDirectQuoteAuthRequest({ tenantId, cashierName, adminIds = [], directQuoteId = null, quoteNumber = '', isModification = false }) {
+  const title = isModification
+    ? `Modifikasyon Devi Dirèk — Otorizasyon mande 🔐`
+    : `Otorizasyon Devi Dirèk mande 🔐`
+  const body  = isModification
+    ? `${cashierName} modifye Devi Dirèk ${quoteNumber}. Louvri l pou wè detay yo epi antre PIN ou pou otorize l ankò.`
+    : `${cashierName} kreye Devi Dirèk ${quoteNumber}. Louvri l pou wè detay yo epi antre PIN ou pou otorize l.`
 
   await Promise.all([
     ...adminIds.map(adminId => createNotification({
       tenantId, userId: adminId, type: 'direct_quote_auth',
       titleHt: title,
-      titleFr: `Autorisation Devis Direct demandée 🔐`,
-      titleEn: `Direct Quote Authorization requested 🔐`,
+      titleFr: isModification ? `Devis Direct modifié — Autorisation demandée 🔐` : `Autorisation Devis Direct demandée 🔐`,
+      titleEn: isModification ? `Direct Quote modified — Authorization requested 🔐` : `Direct Quote Authorization requested 🔐`,
       messageHt: body,
-      messageFr: `${cashierName} demande une autorisation pour créer un Devis Direct. Donnez votre code si vous approuvez.`,
-      messageEn: `${cashierName} is requesting authorization to create a Direct Quote. Share your code if you approve.`,
+      messageFr: `${cashierName} — Devis Direct ${quoteNumber}. Ouvrez-le pour voir les détails et entrez votre code pour l'autoriser.`,
+      messageEn: `${cashierName} — Direct Quote ${quoteNumber}. Open it to see the details and enter your PIN to authorize it.`,
       entityType: 'direct_quote',
+      entityId: directQuoteId,
     })),
     sendPushToAdmins(tenantId, {
       title,
       body,
       tag: 'direct-quote-auth',
-      url: '/app/direct-quotes',
+      url: directQuoteId ? `/app/direct-quotes/${directQuoteId}` : '/app/direct-quotes',
     }),
   ])
 }

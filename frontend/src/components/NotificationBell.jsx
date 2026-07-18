@@ -1,5 +1,6 @@
 // src/components/NotificationBell.jsx
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Bell, Check, CheckCheck, Trash2, X,
   ShoppingCart, CreditCard, AlertTriangle, Info,
@@ -75,6 +76,7 @@ function playNotifSound() {
 
 // ─────────────────────────────────────────────────────────────
 export default function NotificationBell({ lang = 'ht' }) {
+  const navigate = useNavigate()
   const [open, setOpen]             = useState(false)
   const [notifications, setNotifs]  = useState([])
   const [unreadCount, setUnread]    = useState(0)
@@ -240,6 +242,31 @@ export default function NotificationBell({ lang = 'ht' }) {
   }, [open, isMobile])
 
   // ── Aksyon ────────────────────────────────────────────────
+  // ✅ NOUVO — Klike sou yon notifikasyon voye moun nan dirèkteman
+  // sou paj ki gen rapò a (egzanp: Devi Dirèk ki bezwen otorizasyon)
+  const ENTITY_ROUTES = {
+    direct_quote: (n) => n.entityId ? `/app/direct-quotes/${n.entityId}` : '/app/direct-quotes',
+    invoice:      (n) => n.entityId ? `/app/invoices/${n.entityId}`      : '/app/invoices',
+    quote:        (n) => n.entityId ? `/app/quotes/${n.entityId}`        : '/app/quotes',
+    product:      () => '/app/stock',
+    payment:      (n) => n.entityId ? `/app/invoices/${n.entityId}`      : '/app/invoices',
+  }
+
+  const handleNotifClick = async (n) => {
+    if (!n.isRead) {
+      try {
+        await api.patch(`/notifications/${n.id}/read`)
+        setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, isRead: true } : x))
+        setUnread(prev => Math.max(0, prev - 1))
+      } catch {}
+    }
+    const routeFn = ENTITY_ROUTES[n.entityType]
+    if (routeFn) {
+      navigate(routeFn(n))
+      setOpen(false)
+    }
+  }
+
   const handleRead = async (id, e) => {
     e.stopPropagation()
     try {
@@ -530,12 +557,13 @@ export default function NotificationBell({ lang = 'ht' }) {
                   const cfg     = getConfig(n.type)
                   const IconCmp = cfg.icon
                   return (
-                    <div key={n.id} className="notif-item" style={{
+                    <div key={n.id} className="notif-item" onClick={() => handleNotifClick(n)} style={{
                       display:'flex', alignItems:'flex-start', gap:12,
                       padding: isMobile ? '14px 16px' : '12px 18px',
                       background: n.isRead ? '#fff' : '#eff6ff',
                       borderBottom:'1px solid #f3f4f6',
                       transition:'background 0.2s', position:'relative',
+                      cursor: ENTITY_ROUTES[n.entityType] ? 'pointer' : 'default',
                     }}>
                       {!n.isRead && (
                         <div style={{

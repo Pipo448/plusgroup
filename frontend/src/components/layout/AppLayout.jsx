@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog, BarChart2, Calculator, Delete,
+  TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -319,6 +319,73 @@ function CalculatorMenu({ isMobile }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ✅ NOUVO — Swipe pou refrechi (pull-to-refresh), mache sou APK AK web.
+// Detekte yon swipe soti anlè ekran an desann, lè kontni a deja tou anlè.
+function PullToRefresh({ children }) {
+  const [pullY, setPullY]           = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const startY   = useRef(0)
+  const dragging = useRef(false)
+  const scrollRef = useRef(null)
+
+  const THRESHOLD = 70
+
+  const handleTouchStart = (e) => {
+    if (refreshing) return
+    if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
+      startY.current = e.touches[0].clientY
+      dragging.current = true
+    }
+  }
+
+  const handleTouchMove = (e) => {
+    if (!dragging.current || refreshing) return
+    const delta = e.touches[0].clientY - startY.current
+    if (delta > 0) {
+      setPullY(Math.min(delta * 0.5, 110))
+    } else {
+      dragging.current = false
+      setPullY(0)
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!dragging.current) return
+    dragging.current = false
+    if (pullY >= THRESHOLD) {
+      setRefreshing(true)
+      setPullY(THRESHOLD)
+      // ✅ Refrechi app la nèt — garanti tout done ajou, tankou yon relanse
+      setTimeout(() => window.location.reload(), 300)
+    } else {
+      setPullY(0)
+    }
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: pullY, overflow: 'hidden', transition: dragging.current ? 'none' : 'height 0.25s ease',
+        color: '#f5680c', flexShrink: 0,
+      }}>
+        {pullY > 6 && (
+          refreshing
+            ? <div style={{ width: 22, height: 22, border: '3px solid rgba(245,104,12,0.2)', borderTopColor: '#f5680c', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
+            : <RefreshCw size={20} style={{ transform: `rotate(${pullY * 2.4}deg)`, transition: 'transform 0.1s' }}/>
+        )}
+      </div>
+      {children}
     </div>
   )
 }
@@ -881,9 +948,9 @@ export default function AppLayout() {
           <NotificationBell lang={i18n.language}/>
         </header>
 
-        <main style={{ flex:1, overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
+        <PullToRefresh>
           <div style={{ padding:'16px', paddingBottom:46 }}><Outlet /></div>
-        </main>
+        </PullToRefresh>
       </div>
 
       <style>{`
