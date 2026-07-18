@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw,
+  TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -34,6 +34,10 @@ const C = {
   hotel:       '#0EA5E9',
   hotelDim:    'rgba(14,165,233,0.15)',
   hotelBorder: 'rgba(14,165,233,0.28)',
+  // ✅ NOUVO — Restoran
+  restaurant:       '#DC2626',
+  restaurantDim:    'rgba(220,38,38,0.15)',
+  restaurantBorder: 'rgba(220,38,38,0.28)',
   dry:         '#8B5CF6',
   dryDim:      'rgba(139,92,246,0.15)',
   dryBorder:   'rgba(139,92,246,0.28)',
@@ -78,6 +82,11 @@ const HOTEL_ITEMS = [
   { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
   { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
   { to:'/app/hotel/room-types',   icon:Tag,          label:'Tip Chanm',       end:false },
+]
+
+// ✅ NOUVO — Restoran
+const RESTAURANT_ITEMS = [
+  { to:'/app/restaurant/menu', icon:UtensilsCrossed, label:'Meni Restoran', end:true },
 ]
 
 const LANGS = [
@@ -133,6 +142,17 @@ const hotelLinkStyle = (isActive) => ({
   background: isActive ? C.hotelDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
+})
+
+// ✅ NOUVO — Restoran
+const restaurantLinkStyle = (isActive) => ({
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 14px', borderRadius:10, marginBottom:3,
+  textDecoration:'none',
+  background: isActive ? C.restaurantDim : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  borderLeft: isActive ? `3px solid ${C.restaurant}` : '3px solid transparent',
   fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
 })
 
@@ -783,6 +803,30 @@ export default function AppLayout() {
             )
           })()}
 
+          {/* ═══ RESTORAN ═══ */}
+          {(() => {
+            const restaurantLocked = !isPageAllowed('restaurant')
+            return (
+              <>
+                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(220,38,38,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: restaurantLocked ? 0.4 : 1 }}>
+                  <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ Restoran</span>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
+                </div>
+                {RESTAURANT_ITEMS.map(({ to, icon:Icon, label, end }) => (
+                  <NavLink key={to} to={restaurantLocked ? '#' : to} end={end}
+                    onClick={(e) => { if (restaurantLocked) e.preventDefault() }}
+                    style={({ isActive }) => ({ ...restaurantLinkStyle(restaurantLocked ? false : isActive), opacity: restaurantLocked ? 0.4 : 1, cursor: restaurantLocked ? 'not-allowed' : 'pointer' })}>
+                    {({ isActive }) => (<>
+                      <Icon size={15} style={{ flexShrink:0, color: restaurantLocked ? '#475569' : isActive ? C.restaurant : C.mutedMd }}/>
+                      <span style={{ flex:1 }}>{label}</span>
+                      {restaurantLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
+                    </>)}
+                  </NavLink>
+                ))}
+              </>
+            )
+          })()}
+
           {/* ═══ PRESE ═══ */}
           {(() => {
             const dryLocked = !isPageAllowed('dry')
@@ -956,7 +1000,14 @@ export default function AppLayout() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         aside::-webkit-scrollbar { display:none; }
-        nav::-webkit-scrollbar   { display:none; }
+        /* ✅ KORIJE — barre defile a te kache nèt, moun pa t konn yo ka
+           desann pou wè plis paj (Restoran, Devi Dirèk, elatriye).
+           Kounye a li vizib, fen, e koulè gold pou l matche brand la. */
+        nav::-webkit-scrollbar { width: 7px; display: block; }
+        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+        nav::-webkit-scrollbar-thumb { background: rgba(245,104,12,0.55); border-radius: 10px; }
+        nav::-webkit-scrollbar-thumb:hover { background: rgba(245,104,12,0.8); }
+        nav { scrollbar-width: thin; scrollbar-color: rgba(245,104,12,0.55) rgba(255,255,255,0.03); }
       `}</style>
 
       {/* Kalkilatris kounye a nan tèt paj la (gade header), pa gen bezwen bouton flotan ankò */}

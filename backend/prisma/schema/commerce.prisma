@@ -10,6 +10,9 @@ model ProductCategory {
   description String?
   color       String?   @db.VarChar(7)
   isActive    Boolean   @default(true) @map("is_active")
+  // ✅ NOUVO — menm konvansyon ak Product.module, pou kategori Restoran
+  // (egzanp "Antre", "Pla Prensipal", "Bwason") rete separe de kategori magazen jeneral
+  module      String    @default("general") @map("module") @db.VarChar(20)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   branchId    String?   @map("branch_id")
@@ -43,6 +46,10 @@ model Product {
   imageUrl       String?          @map("image_url")
   isActive       Boolean          @default(true) @map("is_active")
   isService      Boolean          @default(false) @map("is_service")
+  // ✅ NOUVO — Distenge Pwodui jeneral (magazen) de Meni Restoran.
+  // "general" = pwodui nòmal, "restaurant" = manje/bwason nan Meni Restoran.
+  // Menm modèl, menm mouvman estòk, menm entegrasyon Fakti/Devi — jis yon tag.
+  module         String           @default("general") @map("module") @db.VarChar(20)
   createdBy      String?          @map("created_by")
   createdAt      DateTime         @default(now()) @map("created_at")
   updatedAt      DateTime         @updatedAt @map("updated_at")
@@ -58,6 +65,7 @@ model Product {
 
   @@unique([tenantId, code])
   @@index([branchId])
+  @@index([module])
   @@map("products")
 }
 

@@ -25,6 +25,8 @@ const clientRoutes  = require('./modules/clients/client.routes');
 const quoteRoutes   = require('./modules/quotes/quote.routes');
 // ✅ NOUVO — Devi Dirèk (pwodui/sèvis ki pa nan katalòg estòk)
 const directQuoteRoutes = require('./modules/direct-quotes/direct-quote.routes');
+// ✅ NOUVO — Restoran (Meni Manje/Bwason)
+const restaurantRoutes = require('./modules/restaurant/restaurant.routes');
 const invoiceRoutes = require('./modules/invoices/invoice.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
@@ -158,6 +160,8 @@ app.use(`${API}/clients`,       clientRoutes);
 app.use(`${API}/quotes`,        quoteRoutes);
 // ✅ NOUVO — Devi Dirèk
 app.use(`${API}/direct-quotes`, directQuoteRoutes);
+// ✅ NOUVO — Restoran
+app.use(`${API}/restaurant`, restaurantRoutes);
 app.use(`${API}/invoices`,      invoiceRoutes);
 app.use(`${API}/payments`,      paymentRoutes);
 app.use(`${API}/stock`,         stockRoutes);

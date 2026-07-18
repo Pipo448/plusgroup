@@ -225,6 +225,8 @@ export default function Dashboard() {
         tiles: [
           { pageKey:'invoices', icon:'🧾', name:'Fakti',   badge:`${dashboard?.totalUnpaid?._count||0} aktif`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices' },
           { pageKey:'quotes',   icon:'📋', name:'Devi',    badge:'Nouvo +',   gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'   },
+          // ✅ NOUVO — Devi Dirèk
+          { pageKey:'direct-quotes', icon:'🔖', name:'Devi Dirèk', badge:'Nouvo +', gradient:'linear-gradient(135deg,#a855f7,#7c3aed)', path:'/app/direct-quotes' },
           { pageKey:'clients',  icon:'👤', name:'Kliyan',  badge:'Jere',      gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'  },
           { pageKey:'products', icon:'📦', name:'Pwodui',  badge:'Katalòg',   gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products' },
           { pageKey:'stock',    icon:'🏭', name:'Estòk',   badge:`${lowStock.length||0} alèt`, gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock' },
@@ -248,6 +250,8 @@ export default function Dashboard() {
           { pageKey:'sabotay',  icon:'📱', name:'Sabotay',           badge:'Sol',   gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'  },
           { pageKey:'mobilpay', icon:'📲', name:'MonCash / NatCash', badge:'Pèman', gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay' },
           { pageKey:'hotel',    icon:'🏨', name:'Otèl',              badge:'Rezèvasyon', gradient:'linear-gradient(135deg,#7c3aed,#5b21b6)', path:'/app/hotel' },
+          // ✅ NOUVO — Restoran
+          { pageKey:'restaurant', icon:'🍽️', name:'Restoran', badge:'Meni', gradient:'linear-gradient(135deg,#DC2626,#991B1B)', path:'/app/restaurant/menu' },
           { pageKey:'dry',      icon:'👔', name:'Blanchisri',        badge:'Kòmand', gradient:'linear-gradient(135deg,#0d9488,#115e59)', path:'/app/dry'   },
           { pageKey:'pre',      icon:'🏦', name:'Mikwo Kredi',       badge:'Prè',   gradient:'linear-gradient(135deg,#d97706,#92400e)', path:'/app/pre'   },
           // ✅ NOUVO — Te kache, kounye a vizib

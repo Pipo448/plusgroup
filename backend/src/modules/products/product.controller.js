@@ -12,7 +12,7 @@ const getAll = asyncHandler(async (req, res) => {
 
 const getLowStock = asyncHandler(async (req, res) => {
   // ✅ KORIJE — pase branchId pou filtre alertes pa branch
-  const data = await svc.getLowStock(req.tenant.id, req.branchId || undefined);
+  const data = await svc.getLowStock(req.tenant.id, req.branchId || undefined, req.query.module || undefined);
   res.json({ success: true, products: data });
 });
 
@@ -45,7 +45,7 @@ const remove = asyncHandler(async (req, res) => {
 
 // ✅ KORIJE — pase branchId nan getCategories
 const getCategories = asyncHandler(async (req, res) => {
-  const data = await svc.getCategories(req.tenant.id, req.branchId || undefined);
+  const data = await svc.getCategories(req.tenant.id, req.branchId || undefined, req.query.module || undefined);
   res.json({ success: true, categories: data });
 });
 

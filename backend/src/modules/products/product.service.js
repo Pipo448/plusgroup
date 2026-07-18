@@ -2,7 +2,7 @@
 const prisma = require('../../config/prisma');
 
 // ── GET ALL — default isActive=true si frontend pa pase parameter
-const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId }) => {
+const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId, module }) => {
   const where = {
     tenantId,
     ...(branchId && { branchId }),
@@ -17,6 +17,9 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
       ]
     }),
     ...(categoryId && { categoryId }),
+    // ✅ NOUVO — filtre pa modil ("general" oswa "restaurant"). Si pa pase,
+    // pa gen filtraj (konpòtman ansyen an rete entak pou apèl ki egziste deja).
+    ...(module && { module }),
   };
 
   const [products, total] = await Promise.all([
@@ -96,6 +99,8 @@ const create = async (tenantId, userId, data) => {
       alertThreshold: data.alertThreshold || 5,
       imageUrl:       data.imageUrl,
       isService:      data.isService || false,
+      // ✅ NOUVO — "general" (pa defo) oswa "restaurant" pou Meni Restoran
+      module:         data.module || 'general',
       // ── Vant an gwo (bwat) ──
       packLabel:      data.packLabel || null,
       packSize:       (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null,
@@ -142,6 +147,8 @@ const update = async (tenantId, id, userId, data) => {
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
       imageUrl: data.imageUrl, isService: data.isService, isActive: data.isActive,
+      // ✅ NOUVO — modil (general/restaurant), sèlman si voye eksplisitman
+      ...(('module' in data) && { module: data.module }),
       // ── Vant an gwo (bwat) — sèlman si frontend voye yo (pa kraze lòt apèl PUT) ──
       ...(('packLabel' in data)    && { packLabel: data.packLabel || null }),
       ...(('packSize' in data)     && { packSize: (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null }),
@@ -206,11 +213,12 @@ const remove = async (tenantId, id) => {
 };
 
 // ── LOW STOCK
-const getLowStock = async (tenantId, branchId) => {
+const getLowStock = async (tenantId, branchId, module) => {
   return prisma.product.findMany({
     where: {
       tenantId,
       ...(branchId && { branchId }),
+      ...(module && { module }),
       isActive:  true,
       isService: false,
       quantity:  { lte: prisma.product.fields.alertThreshold }
@@ -221,12 +229,13 @@ const getLowStock = async (tenantId, branchId) => {
 };
 
 // ── CATEGORIES
-const getCategories = async (tenantId, branchId) => {
+const getCategories = async (tenantId, branchId, module) => {
   return prisma.productCategory.findMany({
     where: {
       tenantId,
       isActive: true,
       ...(branchId && { branchId }),
+      ...(module && { module }),
     },
     include: { _count: { select: { products: true } } },
     orderBy: { name: 'asc' }
@@ -243,6 +252,8 @@ const createCategory = async (tenantId, branchId, data) => {
       nameEn:      data.nameEn,
       color:       data.color,
       description: data.description,
+      // ✅ NOUVO
+      module:      data.module || 'general',
     }
   });
 };

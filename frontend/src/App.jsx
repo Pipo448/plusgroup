@@ -39,6 +39,8 @@ const MobilPayPage       = lazy(() => import('./pages/enterprise/MobilPayPage'))
 const MikwoKrediGuide    = lazy(() => import('./pages/enterprise/MikwoKrediGuide'))
 const SolDashboardPage   = lazy(() => import('./pages/sol/SolDashboardPage'))
 const HotelDashboard     = lazy(() => import('./pages/hotel/HotelDashboard'))
+// ✅ NOUVO — Restoran
+const RestaurantMenuPage = lazy(() => import('./pages/restaurant/RestaurantMenuPage'))
 const ReservationsPage   = lazy(() => import('./pages/hotel/ReservationsPage'))
 const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage'))
 const ReservationDetail  = lazy(() => import('./pages/hotel/ReservationDetail'))
@@ -151,6 +153,8 @@ export default function App() {
             <Route path="hotel/reservations/:id" element={<ProtectedPage pageKey="hotel"><ReservationDetail /></ProtectedPage>} />
             <Route path="hotel/rooms/new"        element={<ProtectedPage pageKey="hotel"><NewRoomPage /></ProtectedPage>} />
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
+            {/* ✅ NOUVO — Restoran */}
+            <Route path="restaurant/menu" element={<ProtectedPage pageKey="restaurant"><RestaurantMenuPage /></ProtectedPage>} />
             <Route path="mikwo-profit" element={<ProtectedPage pageKey="pre"><MikwoKrediProfit/></ProtectedPage>}/>
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
