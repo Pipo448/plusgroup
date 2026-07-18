@@ -137,12 +137,28 @@ const hotelLinkStyle = (isActive) => ({
 })
 
 // ✅ NOUVO — Kalkilatris flotan globalize, disponib sou TOUT paj sistèm nan
-function FloatingCalculator() {
+function CalculatorMenu({ isMobile }) {
   const [open, setOpen] = useState(false)
+  const [tab, setTab] = useState('pad') // 'pad' | 'history'
   const [display, setDisplay] = useState('0')
   const [prevValue, setPrevValue] = useState(null)
   const [operator, setOperator] = useState(null)
   const [waiting, setWaiting] = useState(false)
+  const [history, setHistory] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('plusgroup-calc-history') || '[]') } catch { return [] }
+  })
+  const calcRef = useRef(null)
+
+  useEffect(() => {
+    const onDoc = (e) => { if (calcRef.current && !calcRef.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const persistHistory = (next) => {
+    setHistory(next)
+    try { localStorage.setItem('plusgroup-calc-history', JSON.stringify(next.slice(0, 50))) } catch {}
+  }
 
   const calc = (a, b, op) => {
     switch (op) {
@@ -184,6 +200,11 @@ function FloatingCalculator() {
       const inputValue = parseFloat(display)
       if (operator && prevValue != null) {
         const result = calc(prevValue, inputValue, operator)
+        // ✅ NOUVO — anrejistre kalkil la nan istorik, ak dat
+        persistHistory([
+          { id: `${Date.now()}`, expr: `${prevValue} ${operator} ${inputValue}`, result, at: new Date().toISOString() },
+          ...history,
+        ])
         setDisplay(String(result))
         setPrevValue(null)
         setOperator(null)
@@ -192,49 +213,99 @@ function FloatingCalculator() {
     }
   }
 
+  const clearHistory = () => persistHistory([])
+
+  const fmtDate = (iso) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) + ' · ' +
+      d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  }
+
   const BTNS = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '=']
 
   return (
-    <>
+    <div style={{ position: 'relative', flexShrink: 0 }} ref={calcRef}>
       <button onClick={() => setOpen(o => !o)} title="Kalkilatris" style={{
-        position: 'fixed', bottom: 24, left: 24, zIndex: 500,
-        width: 52, height: 52, borderRadius: '50%',
-        background: `linear-gradient(135deg,${C.gold},${C.goldLt})`,
-        border: 'none', cursor: 'pointer', boxShadow: '0 8px 20px rgba(245,104,12,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+        borderRadius: 10, border: `1px solid ${open ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`,
+        background: open ? 'rgba(245,104,12,0.08)' : 'transparent',
+        color: open ? C.gold : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 700,
       }}>
-        <Calculator size={22} color="#fff"/>
+        <Calculator size={15}/>
+        <span>Kalkilatris</span>
       </button>
 
       {open && (
         <div style={{
-          position: 'fixed', bottom: 84, left: 24, zIndex: 500, width: 260,
+          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100, width: 270,
           background: '#1a1f35', borderRadius: 16,
           boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
           border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>KALKILATRIS</span>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex' }}>
+          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <button onClick={() => setTab('pad')} style={{
+              flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+              background: tab === 'pad' ? 'rgba(245,104,12,0.12)' : 'transparent',
+              color: tab === 'pad' ? C.gold : 'rgba(255,255,255,0.5)',
+              fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
+            }}>KALKILATRIS</button>
+            <button onClick={() => setTab('history')} style={{
+              flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
+              background: tab === 'history' ? 'rgba(245,104,12,0.12)' : 'transparent',
+              color: tab === 'history' ? C.gold : 'rgba(255,255,255,0.5)',
+              fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
+            }}>ISTORIK</button>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', padding: '0 10px' }}>
               <X size={14}/>
             </button>
           </div>
-          <div style={{ padding: '16px 14px', textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
-            {display}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.05)' }}>
-            {BTNS.map((b, i) => (
-              <button key={i} onClick={() => handleBtn(b)} style={{
-                padding: '14px 0', border: 'none', cursor: 'pointer',
-                background: ['÷', '×', '-', '+', '='].includes(b) ? C.gold : ['C', '±', '%'].includes(b) ? 'rgba(255,255,255,0.08)' : '#232841',
-                color: '#fff', fontSize: 16, fontWeight: 700,
-                gridColumn: b === '0' ? 'span 2' : 'span 1',
-              }}>{b}</button>
-            ))}
-          </div>
+
+          {tab === 'pad' ? (
+            <>
+              <div style={{ padding: '16px 14px', textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
+                {display}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.05)' }}>
+                {BTNS.map((b, i) => (
+                  <button key={i} onClick={() => handleBtn(b)} style={{
+                    padding: '14px 0', border: 'none', cursor: 'pointer',
+                    background: ['÷', '×', '-', '+', '='].includes(b) ? C.gold : ['C', '±', '%'].includes(b) ? 'rgba(255,255,255,0.08)' : '#232841',
+                    color: '#fff', fontSize: 16, fontWeight: 700,
+                    gridColumn: b === '0' ? 'span 2' : 'span 1',
+                  }}>{b}</button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+              {!history.length ? (
+                <p style={{ padding: '24px 14px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                  Pa gen kalkil ki fèt ankò.
+                </p>
+              ) : (
+                <>
+                  {history.map(h => (
+                    <div key={h.id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{h.expr} =</span>
+                        <span style={{ fontSize: 15, color: '#fff', fontWeight: 700, fontFamily: 'IBM Plex Mono,monospace' }}>{h.result}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{fmtDate(h.at)}</div>
+                    </div>
+                  ))}
+                  <button onClick={clearHistory} style={{
+                    width: '100%', padding: '10px 0', border: 'none', cursor: 'pointer',
+                    background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: 12, fontWeight: 700,
+                  }}>
+                    Vide istorik la
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
-    </>
+    </div>
   )
 }
 
@@ -790,6 +861,9 @@ export default function AppLayout() {
             {tenant?.defaultCurrency || 'HTG'}
           </div>
 
+          {/* ✅ NOUVO — Kalkilatris, nan tèt paj la bò kote kloch notifikasyon */}
+          <CalculatorMenu isMobile={!isDesktop}/>
+
           <NotificationBell lang={i18n.language}/>
         </header>
 
@@ -804,8 +878,7 @@ export default function AppLayout() {
         nav::-webkit-scrollbar   { display:none; }
       `}</style>
 
-      {/* ✅ NOUVO — Kalkilatris flotan, disponib sou tout paj */}
-      <FloatingCalculator/>
+      {/* Kalkilatris kounye a nan tèt paj la (gade header), pa gen bezwen bouton flotan ankò */}
     </div>
   )
 }
