@@ -153,6 +153,62 @@ const CategoryModal = ({ categories, onClose }) => {
   )
 }
 
+// ── Lightbox — afiche foto pwodwi an gwo, ak zoom lè w klike sou li
+const ImageLightbox = ({ product, onClose }) => {
+  const [zoomed, setZoomed] = useState(false)
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(10,10,20,0.92)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: 20, flexDirection: 'column', gap: 14,
+      }}
+    >
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute', top: 16, right: 16, zIndex: 1001,
+          width: 40, height: 40, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.12)', border: 'none',
+          color: '#fff', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+      >
+        <X size={20}/>
+      </button>
+
+      <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 700, margin: 0 }}>
+        {product.name} — klike sou foto a pou {zoomed ? 'demaji' : 'zoome'}
+      </p>
+
+      <div style={{
+        maxWidth: '90vw', maxHeight: '78vh', overflow: 'hidden',
+        borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <img
+          src={product.imageUrl}
+          alt={product.name}
+          onClick={(e) => { e.stopPropagation(); setZoomed(z => !z) }}
+          style={{
+            maxWidth: zoomed ? 'none' : '90vw',
+            maxHeight: zoomed ? 'none' : '78vh',
+            width: zoomed ? 'auto' : undefined,
+            transform: zoomed ? 'scale(2.2)' : 'scale(1)',
+            transformOrigin: 'center',
+            transition: 'transform 0.25s ease',
+            cursor: zoomed ? 'zoom-out' : 'zoom-in',
+            borderRadius: 12,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 // ── Modal Produit
 const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) => {
   const { t } = useTranslation()
@@ -378,7 +434,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 }
 
 // ── Kart mobil pou yon pwodui
-const ProductCard = ({ p, t, onEdit, onDelete, onAddToCart }) => {
+const ProductCard = ({ p, t, onEdit, onDelete, onAddToCart, onZoom }) => {
   const lowStock = !p.isService && Number(p.quantity) <= Number(p.alertThreshold)
   return (
     <div style={{
@@ -389,12 +445,13 @@ const ProductCard = ({ p, t, onEdit, onDelete, onAddToCart }) => {
       {/* Liy 1: Foto + Non + Aksyon */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ display:'flex', gap:10, flex: 1, minWidth: 0 }}>
-          {/* ✅ Vinyèt foto pwodwi — pi gwo (64px) pou wè l klè sou telefòn/tablèt */}
-          <div style={{
+          {/* ✅ Vinyèt foto pwodwi — pi gwo (64px), klikab pou zoom */}
+          <div onClick={() => p.imageUrl && onZoom(p)} style={{
             width:64, height:64, borderRadius:12, flexShrink:0,
             background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
             display:'flex', alignItems:'center', justifyContent:'center',
             border: `1px solid ${D.border}`,
+            cursor: p.imageUrl ? 'zoom-in' : 'default',
           }}>
             {!p.imageUrl && <Package size={26} color={D.blue}/>}
           </div>
@@ -466,6 +523,8 @@ export default function ProductsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [modal, setModal] = useState(null)
+  // ✅ NOUVO — pwodui ki gen foto a "zoome" kounye a (lightbox)
+  const [zoomProduct, setZoomProduct] = useState(null)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -647,12 +706,13 @@ const deleteMutation = useMutation({
               : products.map(p => (
                   <tr key={p.id}>
                     <td style={{ width: 84 }}>
-                      {/* ✅ Vinyèt foto pwodwi — pi gwo pou kliyan wè l klè */}
-                      <div style={{
+                      {/* ✅ Vinyèt foto pwodwi — pi gwo pou kliyan wè l klè, klikab pou zoom */}
+                      <div onClick={() => p.imageUrl && setZoomProduct(p)} style={{
                         width: 64, height: 64, borderRadius: 12,
                         background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         border: `1px solid ${D.border}`,
+                        cursor: p.imageUrl ? 'zoom-in' : 'default',
                       }}>
                         {!p.imageUrl && <Package size={26} color={D.blue}/>}
                       </div>
@@ -720,6 +780,7 @@ const deleteMutation = useMutation({
                 onEdit={(p) => setModal({ type: 'edit', product: p })}
                 onDelete={handleDelete}
                 onAddToCart={addToCart}
+                onZoom={setZoomProduct}
               />
             ))
         }
@@ -753,6 +814,11 @@ const deleteMutation = useMutation({
       {modal?.type === 'edit' && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate}
           onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
+      )}
+
+      {/* ✅ NOUVO — Lightbox pou zoom foto pwodwi (verifye ak kliyan an) */}
+      {zoomProduct && (
+        <ImageLightbox product={zoomProduct} onClose={() => setZoomProduct(null)}/>
       )}
 
       {/* ✅ NOUVO — Bouton panye flotan (parèt sèlman si gen atik ladan l) */}

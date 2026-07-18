@@ -1000,14 +1000,14 @@ export default function AppLayout() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         aside::-webkit-scrollbar { display:none; }
-        /* ✅ KORIJE — barre defile a te kache nèt, moun pa t konn yo ka
-           desann pou wè plis paj (Restoran, Devi Dirèk, elatriye).
-           Kounye a li vizib, fen, e koulè gold pou l matche brand la. */
-        nav::-webkit-scrollbar { width: 7px; display: block; }
-        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-        nav::-webkit-scrollbar-thumb { background: rgba(245,104,12,0.55); border-radius: 10px; }
-        nav::-webkit-scrollbar-thumb:hover { background: rgba(245,104,12,0.8); }
-        nav { scrollbar-width: thin; scrollbar-color: rgba(245,104,12,0.55) rgba(255,255,255,0.03); }
+        /* ✅ KORIJE — barre defile gri, senp, vizib — menm estil ak sa ki
+           deja sou paj prensipal la, pou moun konnen yo ka desann wè plis
+           paj nan meni an (Restoran, Devi Dirèk, elatriye). */
+        nav::-webkit-scrollbar { width: 8px; display: block; }
+        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 10px; }
+        nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28); border-radius: 10px; }
+        nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); }
+        nav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.28) rgba(255,255,255,0.04); }
       `}</style>
 
       {/* Kalkilatris kounye a nan tèt paj la (gade header), pa gen bezwen bouton flotan ankò */}
