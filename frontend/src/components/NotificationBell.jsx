@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Bell, Check, CheckCheck, Trash2, X,
   ShoppingCart, CreditCard, AlertTriangle, Info,
-  Package, UserCheck, TrendingDown, Tag, BellOff, BellRing,
+  Package, UserCheck, TrendingDown, Tag, BellOff, BellRing, Lock,
 } from 'lucide-react';
 import api from '../services/api';
 
@@ -21,6 +21,8 @@ const TYPE_CONFIG = {
   employee_sale:    { icon: Tag,           color: '#7c3aed', bg: '#F5F3FF', label: { ht:'Anplwaye',   fr:'Employé',       en:'Employee'   } },
   employee_action:  { icon: UserCheck,     color: '#0284c7', bg: '#F0F9FF', label: { ht:'Aksyon',     fr:'Action',        en:'Action'     } },
   stock_alert:      { icon: TrendingDown,  color: '#d97706', bg: '#FFFBEB', label: { ht:'Alèt Stòk',  fr:'Alerte Stock',  en:'Stock Alert'} },
+  // ✅ NOUVO — Otorizasyon Devi Dirèk
+  direct_quote_auth:{ icon: Lock,          color: '#7c3aed', bg: '#F5F3FF', label: { ht:'Otorizasyon', fr:'Autorisation', en:'Authorization'} },
   default:          { icon: Info,          color: '#6b7280', bg: '#F9FAFB', label: { ht:'Info',        fr:'Info',          en:'Info'       } },
 }
 const getConfig = (type) => TYPE_CONFIG[type] || TYPE_CONFIG.default

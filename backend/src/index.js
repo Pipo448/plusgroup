@@ -23,6 +23,8 @@ const userRoutes    = require('./modules/users/user.routes');
 const productRoutes = require('./modules/products/product.routes');
 const clientRoutes  = require('./modules/clients/client.routes');
 const quoteRoutes   = require('./modules/quotes/quote.routes');
+// ✅ NOUVO — Devi Dirèk (pwodui/sèvis ki pa nan katalòg estòk)
+const directQuoteRoutes = require('./modules/direct-quotes/direct-quote.routes');
 const invoiceRoutes = require('./modules/invoices/invoice.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
@@ -154,6 +156,8 @@ app.use(`${API}/users`,         userRoutes);
 app.use(`${API}/products`,      productRoutes);
 app.use(`${API}/clients`,       clientRoutes);
 app.use(`${API}/quotes`,        quoteRoutes);
+// ✅ NOUVO — Devi Dirèk
+app.use(`${API}/direct-quotes`, directQuoteRoutes);
 app.use(`${API}/invoices`,      invoiceRoutes);
 app.use(`${API}/payments`,      paymentRoutes);
 app.use(`${API}/stock`,         stockRoutes);

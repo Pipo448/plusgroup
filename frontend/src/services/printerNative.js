@@ -442,3 +442,110 @@ export async function printQuoteNative(quote, tenant) {
 
   return result
 }
+/**
+ * ✅ NOUVO — Enprime yon DEVI DIRÈK (pwodui/sèvis ki pa nan katalòg estòk).
+ * Atik yo se tèks tape alamen (item.description), pa gen lyen ak Product.
+ */
+export async function printDirectQuoteNative(directQuote, tenant) {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
+  }
+
+  const snap     = directQuote.clientSnapshot || {}
+  const totalHtg = Number(directQuote.totalHtg || 0)
+  const isCancelled = directQuote.status === 'cancelled'
+
+  const lines = []
+
+  if (tenant?.logoUrl) {
+    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
+    lines.push({ type: 'space' })
+  }
+
+  lines.push({ type: 'text', content: tenant?.name || 'Entreprise', align: 'center', size: 'large', bold: true })
+  if (tenant?.address) {
+    lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
+  }
+  if (tenant?.phone) {
+    lines.push({ type: 'text', content: `Tel: ${tenant.phone}`, align: 'center', size: 'small', bold: true })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({ type: 'text', content: 'DEVI DIRÈK', align: 'center', bold: true })
+  lines.push({ type: 'text', content: `Dat: ${fmtDate(directQuote.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Devi: ${directQuote.quoteNumber || ''}`, bold: true })
+  if (snap.name) lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+  if (snap.phone) lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
+
+  lines.push({ type: 'divider' })
+
+  const items = directQuote.items || []
+  for (const item of items) {
+    const qty = fmtN(item.quantity)
+    const pri = fmtN(item.unitPriceHtg)
+    const tot = fmtN(item.totalHtg)
+    lines.push({ type: 'text', content: item.description || 'Atik', bold: true })
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: `${qty} x ${pri}`, width: 60, align: 'left' },
+        { text: `${tot} HTG`,      width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  lines.push({ type: 'divider' })
+  lines.push({
+    type: 'table',
+    columns: [
+      { text: 'SOUS-TOTAL', width: 60, align: 'left' },
+      { text: `${fmtN(directQuote.subtotalHtg || totalHtg)} HTG`, width: 40, align: 'right' },
+    ]
+  })
+
+  if (Number(directQuote.discountHtg) > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Rabè', width: 60, align: 'left' },
+        { text: `-${fmtN(directQuote.discountHtg)} HTG`, width: 40, align: 'right' },
+      ]
+    })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({
+    type: 'table',
+    bold: true,
+    columns: [
+      { text: 'TOTAL', width: 40, align: 'left' },
+      { text: `${fmtN(totalHtg)} HTG`, width: 60, align: 'right' },
+    ]
+  })
+  lines.push({ type: 'divider', char: '=' })
+
+  if (isCancelled) {
+    lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: 'X DEVI ANILE', align: 'center', bold: true, size: 'large' })
+  }
+
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
+  lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+
+  const cleanLines = sanitizeLines(lines)
+
+  const result = await UniversalPrinter.print({
+    lines: cleanLines,
+    copies: 1,
+    cutAtEnd: true,
+  })
+
+  if (!result.success) {
+    throw new Error(result.message || 'Erè pandan enprime')
+  }
+
+  return result
+}

@@ -1,13 +1,13 @@
 // src/pages/settings/SettingsPage.jsx
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { tenantAPI } from '../../services/api'
+import api, { tenantAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield, FileText } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield, FileText, Lock } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -261,6 +261,68 @@ function ChangeUserPassword({ t }) {
               opacity: mutation.isPending ? 0.7 : 1, fontFamily:'DM Sans,sans-serif' }}>
             <Shield size={14}/>
             {mutation.isPending ? t('common.saving') : t('settings.changePassword')}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════
+// ✅ NOUVO — PIN Otorizasyon Devi Dirèk (sèlman admin)
+// Chak admin konfigire PWÒP PIN pa yo. Yon kesye ki vle kreye yon
+// Devi Dirèk (pou pwodui/sèvis ki pa nan katalòg estòk) dwe mande
+// yon admin PIN sa a pou otorize kreyasyon an.
+// ══════════════════════════════════════════════
+function DirectQuotePinSettings({ t }) {
+  const [showPin, setShowPin] = useState(false)
+  const { register, handleSubmit, reset, formState: { errors } } = useForm()
+
+  const mutation = useMutation({
+    mutationFn: (data) => api.patch('/direct-quotes/my-pin', { pin: data.pin }),
+    onSuccess: () => { toast.success('PIN otorizasyon konfigire.'); reset() },
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error'))
+  })
+
+  return (
+    <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
+        <div style={{ width:32, height:32, borderRadius:9, background:'rgba(124,58,237,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <Lock size={16} color="#7c3aed" />
+        </div>
+        <div>
+          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>PIN Otorizasyon Devi Dirèk</h3>
+          <p style={{ color:D.muted, fontSize:11, margin:0 }}>4 chif — kesye yo ap bezwen l pou kreye yon Devi Dirèk (pwodui/sèvis ki pa nan estòk)</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
+        <div>
+          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
+            Nouvo PIN (4 chif) *
+          </label>
+          <div style={{ position:'relative', maxWidth:200 }}>
+            <input type={showPin ? 'text' : 'password'} inputMode="numeric" maxLength={4} style={{ ...inp, paddingRight:44, borderColor: errors.pin ? '#ef4444' : D.border, letterSpacing:'0.3em', fontWeight:800 }}
+              {...register('pin', { required: true, pattern: { value: /^\d{4}$/, message: 'PIN dwe gen egzakteman 4 chif' } })}
+              onFocus={e=>e.target.style.borderColor=D.blue}
+              onBlur={e=>e.target.style.borderColor= errors.pin ? '#ef4444' : D.border}
+            />
+            <button type="button" onClick={() => setShowPin(p=>!p)}
+              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
+              {showPin ? <EyeOff size={15}/> : <Eye size={15}/>}
+            </button>
+          </div>
+          {errors.pin && <p style={{ color:'#ef4444', fontSize:11, marginTop:4 }}>{errors.pin.message}</p>}
+        </div>
+
+        <div style={{ display:'flex', justifyContent:'flex-end' }}>
+          <button type="submit" disabled={mutation.isPending}
+            style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
+              background:'linear-gradient(135deg,#7c3aed,#9333ea)', color:'#fff',
+              border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
+              opacity: mutation.isPending ? 0.7 : 1, fontFamily:'DM Sans,sans-serif' }}>
+            <Lock size={14}/>
+            {mutation.isPending ? t('common.saving') : 'Konfigire PIN'}
           </button>
         </div>
       </form>
@@ -827,6 +889,8 @@ export default function SettingsPage() {
 
           <ChangeMyPassword t={t} />
           {isAdmin && <ChangeUserPassword t={t} />}
+          {/* ✅ NOUVO — PIN otorizasyon Devi Dirèk, sèlman pou admin */}
+          {isAdmin && <DirectQuotePinSettings t={t} />}
         </div>
       )}
 

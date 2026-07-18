@@ -81,6 +81,9 @@ model Tenant {
   activityLogs         ActivityLog[]
   clients              Client[]
   documentSequences    DocumentSequence[]
+  // ✅ NOUVO — Devi Dirèk (pwodui/sèvis ki pa nan katalòg estòk la)
+  directQuotes         DirectQuote[]
+  directQuoteItems     DirectQuoteItem[]
   invoiceItems         InvoiceItem[]
   invoices             Invoice[]
   notifications        Notification[]
@@ -162,6 +165,8 @@ model Branch {
   // Relations
   branchUsers       BranchUser[]
   clients           Client[]
+  // ✅ NOUVO — Devi Dirèk pou branch sa a
+  directQuotes      DirectQuote[]
   invoices          Invoice[]
   kaneAccounts      KaneEpay[]
   prets             Pre[]
@@ -214,6 +219,10 @@ model User {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
   passwordChangedAt    DateTime?          @map("password_changed_at") @db.Timestamptz(6)
+  // ✅ NOUVO — PIN 4 chif pou ADMIN otorize Devi Dirèk yon kesye kreye.
+  // Chak admin gen pwòp PIN pa yo (yo konfigire l nan Paramèt). Rete NULL
+  // pou itilizatè ki pa admin — pa itilize.
+  directQuotePin       String?            @map("direct_quote_pin") @db.VarChar(4)
   tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Commerce
@@ -226,6 +235,10 @@ model User {
   products                Product[]
   push_subscriptions      PushSubscription[]
   quotesCreated           Quote[]            @relation("QuoteCreatedBy")
+  // ✅ NOUVO — Devi Dirèk kreye pa itilizatè a, ak Devi Dirèk itilizatè a
+  // (si li admin) otorize ak PIN pa li pou kesye yo
+  directQuotesCreated     DirectQuote[]      @relation("DirectQuoteCreatedBy")
+  directQuotesAuthorized  DirectQuote[]      @relation("DirectQuoteAuthorizedBy")
   stockMovements          StockMovement[]
   notifications           Notification[]
 

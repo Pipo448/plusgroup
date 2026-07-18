@@ -185,8 +185,37 @@ async function notifyPaymentReceived({ tenantId, invoiceNumber, amountHtg, metho
   ])
 }
 
+// ─────────────────────────────────────────────
+// ✅ NOUVO — Avèti CHAK admin (endividyèlman, pa notif jeneral) lè yon
+// kesye ap eseye kreye yon Devi Dirèk e bezwen otorizasyon PIN
+// ─────────────────────────────────────────────
+async function notifyDirectQuoteAuthRequest({ tenantId, cashierName, adminIds = [] }) {
+  const title = `Otorizasyon Devi Dirèk mande 🔐`
+  const body  = `${cashierName} ap mande otorizasyon pou kreye yon Devi Dirèk. Bay li PIN ou si w apwouve.`
+
+  await Promise.all([
+    ...adminIds.map(adminId => createNotification({
+      tenantId, userId: adminId, type: 'direct_quote_auth',
+      titleHt: title,
+      titleFr: `Autorisation Devis Direct demandée 🔐`,
+      titleEn: `Direct Quote Authorization requested 🔐`,
+      messageHt: body,
+      messageFr: `${cashierName} demande une autorisation pour créer un Devis Direct. Donnez votre code si vous approuvez.`,
+      messageEn: `${cashierName} is requesting authorization to create a Direct Quote. Share your code if you approve.`,
+      entityType: 'direct_quote',
+    })),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'direct-quote-auth',
+      url: '/app/direct-quotes',
+    }),
+  ])
+}
+
 module.exports = {
   createNotification, getNotifications, markAsRead, markAllAsRead,
   deleteNotification, getUnreadCount,
   notifyNewInvoice, notifyInvoicePaid, notifyLowStock, notifyPaymentReceived,
+  notifyDirectQuoteAuthRequest,
 };

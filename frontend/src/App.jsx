@@ -15,6 +15,10 @@ const ClientsPage        = lazy(() => import('./pages/clients/ClientsPage'))
 const QuotesPage         = lazy(() => import('./pages/quotes/QuotesPage'))
 const QuoteForm          = lazy(() => import('./pages/quotes/QuoteForm'))
 const QuoteDetail        = lazy(() => import('./pages/quotes/QuoteDetail'))
+// ✅ NOUVO — Devi Dirèk (pwodui/sèvis ki pa nan katalòg estòk)
+const DirectQuotesPage   = lazy(() => import('./pages/direct-quotes/DirectQuotesPage'))
+const DirectQuoteForm    = lazy(() => import('./pages/direct-quotes/DirectQuoteForm'))
+const DirectQuoteDetail  = lazy(() => import('./pages/direct-quotes/DirectQuoteDetail'))
 const InvoicesPage       = lazy(() => import('./pages/invoices/InvoicesPage'))
 const InvoiceDetail      = lazy(() => import('./pages/invoices/InvoiceDetail'))
 const NewInvoicePage     = lazy(() => import('./pages/invoices/NewInvoicePage'))
@@ -49,6 +53,8 @@ const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPag
 
 // ✅ NOUVO — Paj piblik pwoforma (san otorizasyon, lyen pataje 24è)
 const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
+// ✅ NOUVO
+const PublicDirectQuote = lazy(() => import('./pages/public/PublicDirectQuote'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -96,6 +102,8 @@ export default function App() {
 
           {/* ✅ NOUVO — Wout PIBLIK (san otorizasyon) pou kliyan wè pwoforma a */}
           <Route path="/proforma/:token" element={<PublicQuote />} />
+          {/* ✅ NOUVO — Devi Dirèk pataje */}
+          <Route path="/devi-direk/:token" element={<PublicDirectQuote />} />
 
           <Route path="/admin/login"     element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -113,6 +121,11 @@ export default function App() {
             <Route path="quotes/new"      element={<QuoteForm />} />
             <Route path="quotes/:id"      element={<QuoteDetail />} />
             <Route path="quotes/:id/edit" element={<QuoteForm />} />
+            {/* ✅ NOUVO — Devi Dirèk */}
+            <Route path="direct-quotes"          element={<ProtectedPage pageKey="direct-quotes"><DirectQuotesPage /></ProtectedPage>} />
+            <Route path="direct-quotes/new"      element={<DirectQuoteForm />} />
+            <Route path="direct-quotes/:id"      element={<DirectQuoteDetail />} />
+            <Route path="direct-quotes/:id/edit" element={<DirectQuoteForm />} />
             <Route path="invoices"        element={<ProtectedPage pageKey="invoices"><InvoicesPage /></ProtectedPage>} />
             <Route path="invoices/new"    element={<NewInvoicePage />} />
             <Route path="invoices/:id"    element={<InvoiceDetail />} />

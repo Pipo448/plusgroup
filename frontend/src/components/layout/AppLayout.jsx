@@ -10,7 +10,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog, BarChart2,
+  TrendingDown, UserCog, BarChart2, Calculator,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -54,6 +54,8 @@ const NAV = [
   { to:'/app/products',  icon:Package,         labelKey:'nav.products',  pageKey:'products'  },
   { to:'/app/clients',   icon:Users,           labelKey:'nav.clients',   pageKey:'clients'   },
   { to:'/app/quotes',    icon:FileText,        labelKey:'nav.quotes',    pageKey:'quotes'    },
+  // ✅ NOUVO — Devi Dirèk
+  { to:'/app/direct-quotes', icon:FileText,    labelKey:'nav.directQuotes', pageKey:'direct-quotes', label:'Devi Dirèk' },
   { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices',  pageKey:'invoices'  },
   { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock',     pageKey:'stock'     },
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
@@ -133,6 +135,108 @@ const hotelLinkStyle = (isActive) => ({
   borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
   fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
 })
+
+// ✅ NOUVO — Kalkilatris flotan globalize, disponib sou TOUT paj sistèm nan
+function FloatingCalculator() {
+  const [open, setOpen] = useState(false)
+  const [display, setDisplay] = useState('0')
+  const [prevValue, setPrevValue] = useState(null)
+  const [operator, setOperator] = useState(null)
+  const [waiting, setWaiting] = useState(false)
+
+  const calc = (a, b, op) => {
+    switch (op) {
+      case '+': return a + b
+      case '-': return a - b
+      case '×': return a * b
+      case '÷': return b !== 0 ? a / b : 0
+      default:  return b
+    }
+  }
+
+  const handleBtn = (b) => {
+    if (b >= '0' && b <= '9') {
+      if (waiting) { setDisplay(b); setWaiting(false) }
+      else setDisplay(display === '0' ? b : display + b)
+      return
+    }
+    if (b === '.') {
+      if (waiting) { setDisplay('0.'); setWaiting(false); return }
+      if (!display.includes('.')) setDisplay(display + '.')
+      return
+    }
+    if (b === 'C') { setDisplay('0'); setPrevValue(null); setOperator(null); setWaiting(false); return }
+    if (b === '±') { setDisplay(String(parseFloat(display) * -1)); return }
+    if (b === '%') { setDisplay(String(parseFloat(display) / 100)); return }
+    if (['+', '-', '×', '÷'].includes(b)) {
+      const inputValue = parseFloat(display)
+      if (prevValue == null) setPrevValue(inputValue)
+      else if (operator) {
+        const result = calc(prevValue, inputValue, operator)
+        setDisplay(String(result))
+        setPrevValue(result)
+      }
+      setWaiting(true)
+      setOperator(b)
+      return
+    }
+    if (b === '=') {
+      const inputValue = parseFloat(display)
+      if (operator && prevValue != null) {
+        const result = calc(prevValue, inputValue, operator)
+        setDisplay(String(result))
+        setPrevValue(null)
+        setOperator(null)
+        setWaiting(true)
+      }
+    }
+  }
+
+  const BTNS = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '=']
+
+  return (
+    <>
+      <button onClick={() => setOpen(o => !o)} title="Kalkilatris" style={{
+        position: 'fixed', bottom: 24, left: 24, zIndex: 500,
+        width: 52, height: 52, borderRadius: '50%',
+        background: `linear-gradient(135deg,${C.gold},${C.goldLt})`,
+        border: 'none', cursor: 'pointer', boxShadow: '0 8px 20px rgba(245,104,12,0.4)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Calculator size={22} color="#fff"/>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'fixed', bottom: 84, left: 24, zIndex: 500, width: 260,
+          background: '#1a1f35', borderRadius: 16,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
+          border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em' }}>KALKILATRIS</span>
+            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex' }}>
+              <X size={14}/>
+            </button>
+          </div>
+          <div style={{ padding: '16px 14px', textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
+            {display}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.05)' }}>
+            {BTNS.map((b, i) => (
+              <button key={i} onClick={() => handleBtn(b)} style={{
+                padding: '14px 0', border: 'none', cursor: 'pointer',
+                background: ['÷', '×', '-', '+', '='].includes(b) ? C.gold : ['C', '±', '%'].includes(b) ? 'rgba(255,255,255,0.08)' : '#232841',
+                color: '#fff', fontSize: 16, fontWeight: 700,
+                gridColumn: b === '0' ? 'span 2' : 'span 1',
+              }}>{b}</button>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+}
 
 export default function AppLayout() {
   const { user, tenant, token, logout } = useAuthStore()
@@ -399,7 +503,7 @@ export default function AppLayout() {
             Menu prensipal
           </p>
 
-          {NAV.map(({ to, icon:Icon, labelKey, pageKey }) => {
+          {NAV.map(({ to, icon:Icon, labelKey, pageKey, label }) => {
             const locked = !isPageAllowed(pageKey)
             return (
               <NavLink key={to} to={locked ? '#' : to}
@@ -407,7 +511,7 @@ export default function AppLayout() {
                 style={({ isActive }) => ({ ...navLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
                 {({ isActive }) => (<>
                   <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>{t(labelKey)}</span>
+                  <span style={{ flex:1 }}>{label || t(labelKey)}</span>
                   {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
@@ -699,6 +803,9 @@ export default function AppLayout() {
         aside::-webkit-scrollbar { display:none; }
         nav::-webkit-scrollbar   { display:none; }
       `}</style>
+
+      {/* ✅ NOUVO — Kalkilatris flotan, disponib sou tout paj */}
+      <FloatingCalculator/>
     </div>
   )
 }

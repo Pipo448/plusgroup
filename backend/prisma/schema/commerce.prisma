@@ -87,6 +87,8 @@ model Client {
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices          Invoice[]
   quotes            Quote[]
+  // ✅ NOUVO — Devi Dirèk pou kliyan sa a
+  directQuotes      DirectQuote[]
   reservations      Reservation[]
 
   @@index([branchId])

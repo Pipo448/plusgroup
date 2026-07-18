@@ -428,4 +428,4 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   return { payment, newStatus, balanceDueHtg: Math.max(0, balanceDueHtg) };
 };
 
-module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect };
+module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect, getNextInvoiceNumber };
