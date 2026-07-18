@@ -286,7 +286,14 @@ export default function AppLayout() {
     inset:         isDesktop ? 'auto' : '0 auto 0 0',
     zIndex:        40,
     width:         isDesktop ? 248 : 'min(248px, 85vw)',
-    minHeight:     '100vh',
+    // ✅ KORIJE — 100vh pa konte ba adrès Chrome mobil la, sa te fè bouton
+    // "Dekonekte" a rete kache anba ekran an san posiblite defile jwenn li.
+    // 100dvh ajiste otomatikman selon wotè REYÈL vizib navigatè a.
+    height:        isDesktop ? '100vh' : '100dvh',
+    minHeight:     isDesktop ? '100vh' : undefined,
+    // ✅ NOUVO — sekirite adisyonèl: si kontni a toujou depase, tout sidebar
+    // la ka defile (pa sèlman <nav> anndan l), pou anyen pa janm rete kache.
+    overflowY:     'auto',
     background:    `linear-gradient(170deg,${C.sidebarTop} 0%,${C.sidebarBg} 50%,#1a1f35 100%)`,
     display:       'flex',
     flexDirection: 'column',

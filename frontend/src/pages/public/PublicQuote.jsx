@@ -1,8 +1,8 @@
 // src/pages/public/PublicQuote.jsx
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
-  Phone, Mail, MapPin, Globe, Lock, FileText, User, MessageCircle,
+  Phone, Mail, MapPin, Globe, FileText, User, MessageCircle,
   Printer, AlertTriangle, CheckCircle2, Award, Truck, Headphones,
   ShieldCheck, Building2, CreditCard, Banknote, Calendar
 } from 'lucide-react'
@@ -22,7 +22,6 @@ const D = {
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2 })
 const CURRENCY_SYMBOL = { HTG: 'G', USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
-const SESSION_KEY = (token) => `proforma-code-${token}`
 
 function useScreenSize() {
   const [size, setSize] = useState(() => {
@@ -47,23 +46,15 @@ export default function PublicQuote() {
   const { token } = useParams()
   const { isMobile, isTablet } = useScreenSize()
 
-  const [stage,   setStage]   = useState('loading')   // loading | pin | proforma | error | notFound
-  const [data,    setData]    = useState(null)        // initial metadata (tenant) OR full quote
+  const [stage,   setStage]   = useState('loading')   // loading | proforma | error | notFound
+  const [data,    setData]    = useState(null)        // repons konplè backend la (gen quote ladan l)
   const [error,   setError]   = useState(null)
-  const [tenant,  setTenant]  = useState(null)        // tenant info ki vini nan premye load
-  const [submitting, setSubmitting] = useState(false)
 
   const API_BASE = import.meta.env.VITE_API_URL || 'https://plusgroup-backend.onrender.com/api/v1'
 
-  // ─── Premye load: jwenn enfo tenant (san kòd)
+  // ✅ MODIFYE — Pa gen kòd PIN ankò. Yon sèl apèl API, kliyan an wè
+  // devi a imedyatman lè l klike sou lyen an.
   useEffect(() => {
-    // Si gen kòd nan sessionStorage, ale dirèkteman
-    const savedCode = sessionStorage.getItem(SESSION_KEY(token))
-    if (savedCode) {
-      fetchWithCode(savedCode, true)
-      return
-    }
-
     fetch(`${API_BASE}/quotes/public/${token}`)
       .then(r => {
         if (r.status === 404) throw new Error('notfound')
@@ -71,11 +62,9 @@ export default function PublicQuote() {
         return r.json()
       })
       .then(res => {
-        if (!res.success) throw new Error(res.message || 'Erè')
-        if (res.needsCode) {
-          setTenant(res.tenant)
-          setStage('pin')
-        }
+        if (!res.success || !res.quote) throw new Error(res.message || 'Erè')
+        setData(res)
+        setStage('proforma')
       })
       .catch(err => {
         if (err.message === 'notfound') setStage('notFound')
@@ -84,218 +73,16 @@ export default function PublicQuote() {
     // eslint-disable-next-line
   }, [token])
 
-  const fetchWithCode = async (code, fromSession = false) => {
-    setSubmitting(true)
-    try {
-      const r = await fetch(`${API_BASE}/quotes/public/${token}?code=${encodeURIComponent(code)}`)
-      const res = await r.json()
-      if (r.status === 401) {
-        // Kòd pa kòrèk
-        sessionStorage.removeItem(SESSION_KEY(token))
-        if (fromSession) {
-          // Si kòd ki te sove a pa valid ankò, retounen nan PIN
-          // Premye load tenant info
-          const r2 = await fetch(`${API_BASE}/quotes/public/${token}`)
-          const meta = await r2.json()
-          if (meta.success && meta.needsCode) {
-            setTenant(meta.tenant)
-            setStage('pin')
-            setError('Kòd akse a chanje. Antre nouvo kòd la.')
-          } else {
-            setStage('notFound')
-          }
-        } else {
-          setError('Kòd la pa kòrèk. Eseye ankò.')
-        }
-        setSubmitting(false)
-        return
-      }
-      if (r.status === 404) { setStage('notFound'); return }
-      if (!r.ok || !res.success) throw new Error(res.message || 'Erè')
-
-      sessionStorage.setItem(SESSION_KEY(token), code)
-      setData(res)
-      setStage('proforma')
-      setError(null)
-    } catch (err) {
-      setError(err.message)
-      setStage('error')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   // ─────────── ETA YO ───────────
   if (stage === 'loading')  return <LoadingState/>
   if (stage === 'notFound') return <NotFoundState/>
   if (stage === 'error')    return <ErrorState message={error}/>
-  if (stage === 'pin') {
-    return <PinEntry
-      tenant={tenant}
-      onSubmit={fetchWithCode}
-      error={error}
-      submitting={submitting}
-      isMobile={isMobile}
-    />
-  }
 
   // ─── PROFORMA ───
   const { quote } = data || {}
   if (!quote) return <ErrorState message="Données incomplètes."/>
 
   return <ProformaView quote={quote} isMobile={isMobile} isTablet={isTablet}/>
-}
-
-// ════════════════════════════════════════════════════════════
-// PAJ PIN ENTRY
-// ════════════════════════════════════════════════════════════
-
-function PinEntry({ tenant, onSubmit, error, submitting, isMobile }) {
-  const [digits, setDigits] = useState(['', '', '', ''])
-  const inputs = useRef([])
-
-  const handleChange = (i, v) => {
-    // Aksepte sèlman chif
-    const clean = v.replace(/\D/g, '').slice(-1)
-    const next = [...digits]
-    next[i] = clean
-    setDigits(next)
-
-    if (clean && i < 3) {
-      inputs.current[i + 1]?.focus()
-    }
-
-    // Auto-submit lè 4 chif konplè
-    if (next.every(d => d.length === 1) && !submitting) {
-      onSubmit(next.join(''))
-    }
-  }
-
-  const handleKeyDown = (i, e) => {
-    if (e.key === 'Backspace' && !digits[i] && i > 0) {
-      inputs.current[i - 1]?.focus()
-    }
-    if (e.key === 'ArrowLeft' && i > 0) inputs.current[i - 1]?.focus()
-    if (e.key === 'ArrowRight' && i < 3) inputs.current[i + 1]?.focus()
-  }
-
-  const handlePaste = (e) => {
-    e.preventDefault()
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
-    if (pasted.length === 4) {
-      setDigits(pasted.split(''))
-      if (!submitting) onSubmit(pasted)
-    }
-  }
-
-  return (
-    <div style={pinPageStyle}>
-      <div style={pinCardStyle(isMobile)}>
-
-        {/* Logo / Branding */}
-        {tenant?.logoUrl ? (
-          <img src={tenant.logoUrl} alt={tenant.name} style={{
-            height: 80, width: 'auto', objectFit: 'contain',
-            margin: '0 auto 18px', display: 'block',
-            background: '#fff', padding: 8, borderRadius: 14,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
-          }}/>
-        ) : (
-          <div style={{
-            width: 80, height: 80, borderRadius: 18,
-            background: `linear-gradient(135deg, ${D.orange}, ${D.orangeLt})`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 32, fontWeight: 900, color: '#fff',
-            margin: '0 auto 18px',
-            boxShadow: `0 8px 24px ${D.orange}50`,
-          }}>
-            {(tenant?.name || 'P').charAt(0).toUpperCase()}
-          </div>
-        )}
-
-        <h1 style={{ fontSize: 18, fontWeight: 900, color: D.text, margin: 0, textAlign: 'center' }}>
-          {tenant?.name || 'Entreprise'}
-        </h1>
-
-        {/* Tit Lock */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          margin: '20px 0 14px',
-        }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: `${D.orange}15`, color: D.orange,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Lock size={18}/>
-          </div>
-          <h2 style={{ fontSize: 16, fontWeight: 800, color: D.text, margin: 0 }}>
-            Code d'accès requis
-          </h2>
-        </div>
-
-        <p style={{ fontSize: 13, color: D.muted, textAlign: 'center', margin: '0 0 22px', lineHeight: 1.5 }}>
-          Veuillez saisir le code à 4 chiffres qui vous a été envoyé pour accéder à votre proforma.
-        </p>
-
-        {/* 4 ti bwat PIN */}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginBottom: 12 }}>
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={el => inputs.current[i] = el}
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={1}
-              value={d}
-              onChange={e => handleChange(i, e.target.value)}
-              onKeyDown={e => handleKeyDown(i, e)}
-              onPaste={i === 0 ? handlePaste : undefined}
-              onFocus={e => e.target.select()}
-              autoFocus={i === 0}
-              disabled={submitting}
-              style={{
-                width: 56, height: 64,
-                fontSize: 28, fontWeight: 900, textAlign: 'center',
-                color: D.text,
-                border: `2px solid ${error ? D.red : (d ? D.blue : D.borderLt)}`,
-                borderRadius: 12,
-                background: '#fff',
-                outline: 'none',
-                transition: 'all 0.15s ease',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Mesaj erè */}
-        {error && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '10px 14px', background: 'rgba(220,38,38,0.08)',
-            border: `1px solid ${D.red}30`, borderRadius: 10,
-            marginTop: 6,
-          }}>
-            <AlertTriangle size={14} color={D.red}/>
-            <span style={{ fontSize: 12, color: D.red, fontWeight: 700 }}>{error}</span>
-          </div>
-        )}
-
-        {/* Chajman */}
-        {submitting && (
-          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 12, color: D.muted, fontWeight: 600 }}>
-            ⏳ Vérification en cours...
-          </div>
-        )}
-
-        {/* Ti not anba */}
-        <p style={{ fontSize: 11, color: D.muted, textAlign: 'center', margin: '20px 0 0', lineHeight: 1.5 }}>
-          🔒 Cet accès est sécurisé pour préserver la confidentialité de votre proforma.
-        </p>
-      </div>
-    </div>
-  )
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1036,21 +823,6 @@ function NotFoundState() {
 // ════════════════════════════════════════════════════════════
 // STIL YO
 // ════════════════════════════════════════════════════════════
-
-const pinPageStyle = {
-  minHeight: '100vh',
-  background: `linear-gradient(135deg, ${D.blueDeep}, ${D.blue})`,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  padding: 20, fontFamily: 'DM Sans, sans-serif',
-}
-
-const pinCardStyle = (isMobile) => ({
-  background: D.white,
-  borderRadius: 22,
-  padding: isMobile ? '32px 24px' : '40px 36px',
-  maxWidth: 420, width: '100%',
-  boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-})
 
 const fullPageBlue = {
   minHeight: '100vh',
