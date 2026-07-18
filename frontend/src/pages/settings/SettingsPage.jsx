@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, KeyRound, Shield, FileText, Lock } from 'lucide-react'
+import { Settings, Users, DollarSign, Upload, Save, RefreshCw, ArrowUpDown, Building2, Palette, Printer, Bluetooth, Usb, Wifi, Eye, EyeOff, QrCode, Shield, FileText, Lock } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -55,118 +55,6 @@ function Toggle({ checked, onChange, color = D.blue }) {
 // ══════════════════════════════════════════════
 // Seksyon Chanje Modpas Ou Menm
 // ══════════════════════════════════════════════
-function ChangeMyPassword({ t }) {
-  const [showOld, setShowOld] = useState(false)
-  const [showNew, setShowNew] = useState(false)
-  const [showCon, setShowCon] = useState(false)
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm()
-  const newPwd = watch('newPassword', '')
-
-  const mutation = useMutation({
-    mutationFn: (data) => tenantAPI.changeMyPassword(data),
-    onSuccess: () => { toast.success(t('settings.passwordChanged')); reset() },
-    onError: (e) => toast.error(e.response?.data?.message || t('common.error'))
-  })
-
-  const strength = newPwd.length === 0 ? 0 : newPwd.length < 6 ? 1 : newPwd.length < 10 ? 2 : newPwd.length < 14 ? 3 : 4
-  const strengthColors = ['#e2e8f0', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e']
-  const strengthLabels = ['', t('settings.pwd.weak'), t('settings.pwd.medium'), t('settings.pwd.good'), t('settings.pwd.strong')]
-
-  return (
-    <div style={{ background:D.white, borderRadius:16, padding:24, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, paddingBottom:14, borderBottom:`1px solid ${D.border}` }}>
-        <div style={{ width:32, height:32, borderRadius:9, background:D.blueDim2, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <KeyRound size={16} color={D.blue} />
-        </div>
-        <div>
-          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('settings.changeMyPassword')}</h3>
-          <p style={{ color:D.muted, fontSize:11, margin:0 }}>{t('settings.changeMyPasswordDesc')}</p>
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit(d => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14, marginTop:16 }}>
-        <div>
-          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-            {t('settings.oldPassword')} *
-          </label>
-          <div style={{ position:'relative' }}>
-            <input type={showOld ? 'text' : 'password'} style={{ ...inp, paddingRight:44 }}
-              {...register('oldPassword', { required: true })}
-              onFocus={e=>e.target.style.borderColor=D.blue}
-              onBlur={e=>e.target.style.borderColor=D.border}
-            />
-            <button type="button" onClick={() => setShowOld(p=>!p)}
-              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
-              {showOld ? <EyeOff size={15}/> : <Eye size={15}/>}
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-            {t('settings.newPassword')} *
-          </label>
-          <div style={{ position:'relative' }}>
-            <input type={showNew ? 'text' : 'password'} style={{ ...inp, paddingRight:44 }}
-              {...register('newPassword', { required: true, minLength: 6 })}
-              onFocus={e=>e.target.style.borderColor=D.blue}
-              onBlur={e=>e.target.style.borderColor=D.border}
-            />
-            <button type="button" onClick={() => setShowNew(p=>!p)}
-              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
-              {showNew ? <EyeOff size={15}/> : <Eye size={15}/>}
-            </button>
-          </div>
-          {newPwd.length > 0 && (
-            <div style={{ marginTop:8 }}>
-              <div style={{ display:'flex', gap:4, marginBottom:4 }}>
-                {[1,2,3,4].map(i => (
-                  <div key={i} style={{ flex:1, height:3, borderRadius:99, background: strength >= i ? strengthColors[strength] : '#e2e8f0', transition:'background 0.3s' }}/>
-                ))}
-              </div>
-              <span style={{ fontSize:11, color: strengthColors[strength], fontWeight:700 }}>{strengthLabels[strength]}</span>
-            </div>
-          )}
-        </div>
-
-        <div>
-          <label style={{ display:'block', color:D.muted, fontSize:12, fontWeight:700, marginBottom:6, textTransform:'uppercase', letterSpacing:'0.04em' }}>
-            {t('settings.confirmPassword')} *
-          </label>
-          <div style={{ position:'relative' }}>
-            <input type={showCon ? 'text' : 'password'} style={{ ...inp, paddingRight:44, borderColor: errors.confirmPassword ? '#ef4444' : D.border }}
-              {...register('confirmPassword', {
-                required: true,
-                validate: val => val === newPwd || t('settings.passwordMismatch')
-              })}
-              onFocus={e=>e.target.style.borderColor=D.blue}
-              onBlur={e=>e.target.style.borderColor= errors.confirmPassword ? '#ef4444' : D.border}
-            />
-            <button type="button" onClick={() => setShowCon(p=>!p)}
-              style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:D.muted, padding:4 }}>
-              {showCon ? <EyeOff size={15}/> : <Eye size={15}/>}
-            </button>
-          </div>
-          {errors.confirmPassword && (
-            <p style={{ color:'#ef4444', fontSize:11, marginTop:4 }}>{errors.confirmPassword.message}</p>
-          )}
-        </div>
-
-        <div style={{ display:'flex', justifyContent:'flex-end' }}>
-          <button type="submit" disabled={mutation.isPending}
-            style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
-              background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff',
-              border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
-              opacity: mutation.isPending ? 0.7 : 1, fontFamily:'DM Sans,sans-serif' }}>
-            <KeyRound size={14}/>
-            {mutation.isPending ? t('common.saving') : t('settings.changePassword')}
-          </button>
-        </div>
-      </form>
-    </div>
-  )
-}
-
 // ══════════════════════════════════════════════
 // Seksyon Chanje Modpas Yon Itilizatè (Admin)
 // ══════════════════════════════════════════════
@@ -887,7 +775,6 @@ export default function SettingsPage() {
             )}
           </div>
 
-          <ChangeMyPassword t={t} />
           {isAdmin && <ChangeUserPassword t={t} />}
           {/* ✅ NOUVO — PIN otorizasyon Devi Dirèk, sèlman pou admin */}
           {isAdmin && <DirectQuotePinSettings t={t} />}
