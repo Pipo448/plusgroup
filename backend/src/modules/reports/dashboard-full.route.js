@@ -48,8 +48,8 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     issueDate: todayRange,
   };
 
-  // ✅ NOUVO — ekskli fakti ki soti nan konvèsyon Devi Dirèk, pou "Vant Jodi
-  // a" ak lòt kat Tablo Bò a pa melanje ak lajan sa yo (yo gen rapò apa).
+  // ✅ NOUVO — ekskli fakti ki soti nan konvèsyon Devi Dirèk, pou total
+  // Tablo Bò a pa melanje ak lajan sa yo (yo gen rapò apa nan paj Rapò)
   const directQuoteLinks = await prisma.directQuote.findMany({
     where: { tenantId, status: 'converted', convertedToInvoiceId: { not: null } },
     select: { convertedToInvoiceId: true }
@@ -68,9 +68,13 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     todayPaid,
     todayUnpaid,
     todayPartial,
+    // ✅ KORIJE — "Vant Jodi a" (tout fakti jodi a, kèlkeswa estati peman)
+    // Sa a te AVAN sèlman kalkile pou admin (bay 0 pou kesye). Kounye a li
+    // mache pou TOUT wòl, paske kat "Vant Jodi a" a vizib pou tout moun.
+    todayAllStatus,
     // low stock (tout pwodwi aktif — nou filtre pa alertThreshold reyèl la apre)
     allActiveProducts,
-    // sales 30 jou (admin sèlman)
+    // sales 30 jou (admin sèlman — sèvi pou graf la sèlman)
     salesReport,
   ] = await Promise.all([
     // Global stats
@@ -105,6 +109,11 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
       where: { ...todayWhere, status: 'partial', ...excludeDQ },
       _sum: { balanceDueHtg: true, amountPaidHtg: true }, _count: true,
     }),
+    // ✅ NOUVO — pou TOUT wòl, pa sèlman admin
+    prisma.invoice.aggregate({
+      where: { ...todayWhere, status: { not: 'cancelled' }, ...excludeDQ },
+      _sum: { totalHtg: true }, _count: true,
+    }),
     // Tout pwodwi aktif (pa sèvis) — filtraj alertThreshold fèt an JS pi ba
     prisma.product.findMany({
       where: {
@@ -115,7 +124,8 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
       },
       select: { id: true, name: true, code: true, quantity: true, alertThreshold: true },
     }),
-    // Sales 30 jou — sèlman si admin
+    // Sales 30 jou — sèlman si admin (sa a se pou graf istorik la sèlman,
+    // "Vant Jodi a" pa depann de sa ankò)
     isAdmin
       ? prisma.invoice.findMany({
           where: {
@@ -139,15 +149,10 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     .filter(p => Number(p.quantity) <= Number(p.alertThreshold ?? 5))
     .slice(0, 10);
 
-  // ✅ Kalkile today totals — konvèti chak issueDate an dat Ayiti anvan konparezon,
-  // olye de String(inv.issueDate).startsWith(today) ki ka fail si issueDate se yon Date obj.
-  const todayTotalVentes = isAdmin
-    ? salesReport
-        .filter(inv => getHaitiDateStr(new Date(inv.issueDate)) === today)
-        .reduce((sum, inv) => sum + Number(inv.totalHtg || 0), 0)
-    : 0;
+  // ✅ KORIJE — "Vant Jodi a" mache pou tout wòl kounye a (pa admin sèlman)
+  const todayTotalVentes = Number(todayAllStatus._sum?.totalHtg || 0);
 
-  // Konstrwi chart data 7 jou (grouye pa dat Ayiti, pa dat UTC)
+  // Konstrwi chart data 7 jou (grouye pa dat Ayiti, pa dat UTC) — admin sèlman
   const daily = salesReport.reduce((acc, inv) => {
     const day = getHaitiDateStr(new Date(inv.issueDate));
     if (!acc[day]) acc[day] = { date: day, total_htg: 0 };
