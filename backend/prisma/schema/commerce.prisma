@@ -210,6 +210,10 @@ model Invoice {
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   branchId         String?         @map("branch_id")
+  // ✅ NOUVO — Pataje piblik pa WhatsApp (dirèk, san kòd — menm mekanis ak Devi)
+  publicToken      String?         @unique @map("public_token") @db.VarChar(64)
+  publicViewedAt   DateTime?       @map("public_viewed_at") @db.Timestamptz(6)
+  publicViewCount  Int             @default(0) @map("public_view_count")
   items            InvoiceItem[]
   branch           Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   canceller        User?           @relation("InvoiceCancelledBy", fields: [cancelledBy], references: [id])
@@ -222,6 +226,7 @@ model Invoice {
 
   @@unique([tenantId, invoiceNumber])
   @@index([branchId])
+  @@index([publicToken])
   @@map("invoices")
 }
 

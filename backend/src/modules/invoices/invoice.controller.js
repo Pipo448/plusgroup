@@ -62,4 +62,21 @@ const downloadPDF = asyncHandler(async (req, res) => {
   doc.end();
 });
 
-module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect, downloadPDF };
+// ✅ NOUVO — Pataje Fakti pa WhatsApp (dirèk, san kòd)
+const share = asyncHandler(async (req, res) => {
+  const data = await svc.generatePublicLink(req.tenant.id, req.params.id);
+  res.json({ success: true, ...data, message: 'Lyen pataj kreye.' });
+});
+
+const revokeShare = asyncHandler(async (req, res) => {
+  await svc.revokePublicLink(req.tenant.id, req.params.id);
+  res.json({ success: true, message: 'Lyen pataj revoke.' });
+});
+
+// ✅ Wout PIBLIK — san otantifikasyon, san kòd
+const getPublic = asyncHandler(async (req, res) => {
+  const data = await svc.getByPublicToken(req.params.token);
+  res.json({ success: true, ...data });
+});
+
+module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect, downloadPDF, share, revokeShare, getPublic };

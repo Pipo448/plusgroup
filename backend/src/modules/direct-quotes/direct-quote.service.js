@@ -78,6 +78,9 @@ const computeTotals = (items, discountValue = 0, discountType = 'amount', exchan
     const totalHtg = Math.max(0, qty * price - discAmt);
     return {
       description:  String(it.description || '').trim(),
+      // ✅ NOUVO — foto pwodui a ak gwosè (opsyonèl)
+      imageUrl:     it.imageUrl || null,
+      size:         it.size ? String(it.size).trim() : null,
       quantity:     qty,
       unitPriceHtg: price,
       unitPriceUsd: exchangeRate ? price / exchangeRate : 0,

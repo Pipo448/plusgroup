@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
+import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinterStore } from '../../stores/printerStore'
 import { isAndroid, isSunmi } from '../../services/printerService'
@@ -13,7 +14,7 @@ import { printInvoiceHTML } from '../../services/printReceiptHTML'
 import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff } from 'lucide-react'
+import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff, Share2, Copy, Check, MessageCircle, X, RefreshCw } from 'lucide-react'
 import { format } from 'date-fns'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -407,6 +408,18 @@ export default function InvoiceDetail() {
   const navigate    = useNavigate()
   const { hasRole, tenant, user } = useAuthStore()
   const qc          = useQueryClient()
+  // ✅ NOUVO — Pataje Fakti pa WhatsApp
+  const [shareOpen, setShareOpen] = useState(false)
+  const shareMutation = useMutation({
+    mutationFn: () => api.post(`/invoices/${id}/share`),
+    onSuccess:  () => { toast.success('Lyen pataj kreye!'); qc.invalidateQueries({ queryKey: ['invoice', id] }) },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan kreye lyen.')
+  })
+  const revokeShareMutation = useMutation({
+    mutationFn: () => api.delete(`/invoices/${id}/share`),
+    onSuccess:  () => { toast.success('Lyen revoke.'); qc.invalidateQueries({ queryKey: ['invoice', id] }) },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan revoke lyen.')
+  })
   const pdfMenuRef  = useRef(null)
   const { t, i18n } = useTranslation()
 
@@ -757,6 +770,12 @@ export default function InvoiceDetail() {
               )}
             </>
           )}
+
+          {/* ✅ NOUVO — Pataje Fakti pa WhatsApp */}
+          <button onClick={() => setShareOpen(true)} className="btn-secondary btn-sm"
+            style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <Share2 size={14}/> Pataje
+          </button>
 
           <div className="relative" ref={pdfMenuRef}>
             <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
@@ -1187,6 +1206,70 @@ export default function InvoiceDetail() {
           </div>
         </div>
       )}
+
+      {/* ✅ NOUVO — Modal Pataje pa WhatsApp */}
+      {shareOpen && (
+        <InvoiceShareModal
+          invoice={invoice}
+          onClose={() => setShareOpen(false)}
+          shareMutation={shareMutation}
+          revokeMutation={revokeShareMutation}
+        />
+      )}
+    </div>
+  )
+}
+
+// ── Modal Pataje — lyen dirèk pa WhatsApp (san kòd)
+function InvoiceShareModal({ invoice, onClose, shareMutation, revokeMutation }) {
+  const [copied, setCopied] = useState(false)
+  const shareUrl = invoice.publicToken ? `${window.location.origin}/facture/${invoice.publicToken}` : null
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const waUrl = shareUrl
+    ? `https://wa.me/?text=${encodeURIComponent(`Men fakti ou a: ${shareUrl}`)}`
+    : null
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display font-bold text-slate-800 flex items-center gap-2">
+            <Share2 size={17}/> Pataje Fakti
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+        </div>
+
+        {!invoice.publicToken ? (
+          <div className="text-center py-6">
+            <p className="text-sm text-slate-500 mb-4">Kreye yon lyen pou kliyan an ka wè fakti a nan fòm elektwonik, ak tout enfo peman li yo, dirèkteman, san kòd.</p>
+            <button onClick={() => shareMutation.mutate()} disabled={shareMutation.isPending} className="btn-primary">
+              <Share2 size={15}/> {shareMutation.isPending ? 'Kreyasyon...' : 'Kreye Lyen Pataj'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex gap-2 mb-4">
+              <input readOnly value={shareUrl} className="input flex-1 text-xs font-mono"/>
+              <button onClick={handleCopy} className="btn-secondary p-2.5">
+                {copied ? <Check size={16} className="text-green-600"/> : <Copy size={16}/>}
+              </button>
+            </div>
+            <a href={waUrl} target="_blank" rel="noreferrer" className="btn-primary w-full mb-3" style={{ justifyContent:'center', background:'#25D366' }}>
+              <MessageCircle size={16}/> Voye sou WhatsApp
+            </a>
+            <button onClick={() => revokeMutation.mutate()} disabled={revokeMutation.isPending}
+              className="text-red-500 text-sm font-medium flex items-center gap-1.5 mx-auto hover:text-red-700">
+              <RefreshCw size={13}/> Revoke lyen sa a
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }

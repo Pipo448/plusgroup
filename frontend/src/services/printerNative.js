@@ -485,6 +485,10 @@ export async function printDirectQuoteNative(directQuote, tenant) {
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
     lines.push({ type: 'text', content: item.description || 'Atik', bold: true })
+    // ✅ NOUVO — montre gwosè a sou resi a si li genyen
+    if (item.size) {
+      lines.push({ type: 'text', content: `  Gwosè: ${item.size}`, size: 'small' })
+    }
     lines.push({
       type: 'table',
       columns: [

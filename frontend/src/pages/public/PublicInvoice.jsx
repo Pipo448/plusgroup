@@ -55,14 +55,14 @@ export default function PublicQuote() {
   // ✅ MODIFYE — Pa gen kòd PIN ankò. Yon sèl apèl API, kliyan an wè
   // devi a imedyatman lè l klike sou lyen an.
   useEffect(() => {
-    fetch(`${API_BASE}/direct-quotes/public/${token}`)
+    fetch(`${API_BASE}/invoices/public/${token}`)
       .then(r => {
         if (r.status === 404) throw new Error('notfound')
         if (!r.ok) throw new Error('Erè koneksyon')
         return r.json()
       })
       .then(res => {
-        if (!res.success || !res.quote) throw new Error(res.message || 'Erè')
+        if (!res.success || !res.invoice) throw new Error(res.message || 'Erè')
         setData(res)
         setStage('proforma')
       })
@@ -79,10 +79,10 @@ export default function PublicQuote() {
   if (stage === 'error')    return <ErrorState message={error}/>
 
   // ─── PROFORMA ───
-  const { quote } = data || {}
-  if (!quote) return <ErrorState message="Données incomplètes."/>
+  const { invoice } = data || {}
+  if (!invoice) return <ErrorState message="Données incomplètes."/>
 
-  return <ProformaView quote={quote} isMobile={isMobile} isTablet={isTablet}/>
+  return <ProformaView quote={invoice} isMobile={isMobile} isTablet={isTablet}/>
 }
 
 // ════════════════════════════════════════════════════════════
@@ -300,7 +300,7 @@ function DocumentTitle({ quote, isMobile }) {
         fontSize: isMobile ? 28 : 40, fontWeight: 900,
         margin: 0, lineHeight: 1, letterSpacing: '-0.02em',
       }}>
-        <span style={{ color: D.blue }}>DEVI DIRÈK</span>
+        <span style={{ color: D.blue }}>FAKTI</span>
       </h2>
       <div style={{
         display: 'inline-block',
@@ -310,7 +310,7 @@ function DocumentTitle({ quote, isMobile }) {
         fontSize: isMobile ? 12 : 14, fontWeight: 800,
         fontFamily: 'monospace', letterSpacing: '0.05em',
       }}>
-        N° {quote.quoteNumber}
+        N° {quote.invoiceNumber}
       </div>
     </div>
   )
@@ -318,8 +318,8 @@ function DocumentTitle({ quote, isMobile }) {
 
 function DocumentMeta({ quote, tenant, currency, isMobile, isTablet }) {
   const lines = [
-    { icon: Calendar, label: 'Date',          value: formatDate(quote.issueDate) },
-    { icon: Calendar, label: "Valide jusqu'au", value: quote.expiryDate ? formatDate(quote.expiryDate) : '—' },
+    { icon: Calendar, label: 'Date',      value: formatDate(quote.issueDate) },
+    { icon: Calendar, label: 'Dat Limit', value: quote.dueDate ? formatDate(quote.dueDate) : '—' },
     { icon: User,     label: 'Préparé par',   value: tenant?.name || '—' },
     { icon: Banknote, label: 'Devise',        value: `${currency} (${CURRENCY_SYMBOL[currency] || ''})` },
   ]
@@ -439,7 +439,7 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
           {items.map((item, i) => {
             const lineTotal = useUsd ? item.totalUsd : item.totalHtg
             const unitPrice = useUsd ? item.unitPriceUsd : item.unitPriceHtg
-            const name = item.description || '—'
+            const name = item.product?.name || item.productSnapshot?.name || item.description || '—'
             const desc = item.notes || ''
             return (
               <div key={i} style={{
@@ -512,7 +512,7 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
           {items.map((item, i) => {
             const lineTotal = useUsd ? item.totalUsd : item.totalHtg
             const unitPrice = useUsd ? item.unitPriceUsd : item.unitPriceHtg
-            const name = item.description || '—'
+            const name = item.product?.name || item.productSnapshot?.name || item.description || '—'
             const desc = item.notes || ''
             return (
               <tr key={i} style={{
@@ -588,12 +588,20 @@ function BottomGrid({ quote, items, symbol, subtotal, discount, tax, total, useU
   // Rabè total = rabè liy + rabè global
   const totalDiscount = lineDiscount + Number(discount || 0)
 
+  // ✅ NOUVO — Montan peye ak balans dwe (pou Fakti)
+  const amountPaid = useUsd ? Number(quote.amountPaidUsd || 0) : Number(quote.amountPaidHtg || 0)
+  const balanceDue = useUsd ? Number(quote.balanceDueUsd || 0) : Number(quote.balanceDueHtg || 0)
+  const hasPayments = Array.isArray(quote.payments) && quote.payments.length > 0
+
+  const METHOD_LABELS = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat', transfer:'Transfè', check:'Chèk', other:'Lòt' }
+
   return (
+    <>
     <div style={{
       display: 'grid',
       gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr 1fr',
       gap: 12,
-      marginBottom: isMobile ? 18 : 26,
+      marginBottom: isMobile ? 12 : 16,
     }}>
       {/* CONDITIONS */}
       <div style={blockStyle(D.orange)}>
@@ -642,9 +650,54 @@ function BottomGrid({ quote, items, symbol, subtotal, discount, tax, total, useU
               {fmt(total)} {symbol}
             </span>
           </div>
+
+          {/* ✅ NOUVO — Montan Peye ak Balans Dwe */}
+          {amountPaid > 0 && (
+            <TotalRow label="MONTAN PEYE" value={`${fmt(amountPaid)} ${symbol}`} color="#059669"/>
+          )}
+          <div style={{
+            padding: '10px 16px', borderRadius: 10,
+            background: balanceDue > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(5,150,105,0.08)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.04em', color: balanceDue > 0 ? '#dc2626' : '#059669' }}>
+              {balanceDue > 0 ? 'BALANS DWE' : 'FAKTI PEYE NÈT'}
+            </span>
+            {balanceDue > 0 && (
+              <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 15, color: '#dc2626' }}>
+                {fmt(balanceDue)} {symbol}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
+
+    {/* ✅ NOUVO — Istwa Peman */}
+    {hasPayments && (
+      <div style={{ ...blockStyle('#059669'), marginBottom: isMobile ? 18 : 26 }}>
+        <BlockHeader icon={CreditCard} title={`ISTWA PEMAN (${quote.payments.length})`} color="#059669"/>
+        <div style={{ padding: '4px 0' }}>
+          {quote.payments.map((p, i) => (
+            <div key={p.id || i} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 14px', borderBottom: i < quote.payments.length - 1 ? `1px solid ${D.borderLt}` : 'none',
+            }}>
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: D.text, margin: 0 }}>
+                  {METHOD_LABELS[p.method] || p.method}
+                </p>
+                <p style={{ fontSize: 10, color: D.muted, margin: '2px 0 0' }}>{formatDate(p.paymentDate)}</p>
+              </div>
+              <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 13, color: '#059669' }}>
+                +{fmt(useUsd ? p.amountUsd : p.amountHtg)} {symbol}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    </>
   )
 }
 
@@ -749,7 +802,7 @@ function MobileActionBar({ tenant, quote, isMobile }) {
   const phone = tenant?.phone || ''
   const cleanPhone = phone.replace(/\D/g, '')
   const waMessage = encodeURIComponent(
-    `Bonjour ${tenant?.name || ''},\n\nJ'ai consulté la proforma N° ${quote.quoteNumber} (Total: ${fmt(quote.totalHtg)} HTG).\n\nJe souhaite discuter avec vous.`
+    `Bonjour ${tenant?.name || ''},\n\nJ'ai consulté la facture N° ${quote.invoiceNumber} (Total: ${fmt(quote.totalHtg)} HTG).\n\nJe souhaite discuter avec vous.`
   )
   const waUrl  = cleanPhone ? `https://wa.me/${cleanPhone}?text=${waMessage}` : null
   const telUrl = cleanPhone ? `tel:+${cleanPhone}` : null

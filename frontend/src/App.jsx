@@ -57,6 +57,8 @@ const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPag
 const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
 // ✅ NOUVO
 const PublicDirectQuote = lazy(() => import('./pages/public/PublicDirectQuote'))
+// ✅ NOUVO — Fakti pataje
+const PublicInvoice = lazy(() => import('./pages/public/PublicInvoice'))
 
 const Spinner = () => (
   <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
@@ -106,6 +108,8 @@ export default function App() {
           <Route path="/proforma/:token" element={<PublicQuote />} />
           {/* ✅ NOUVO — Devi Dirèk pataje */}
           <Route path="/devi-direk/:token" element={<PublicDirectQuote />} />
+          {/* ✅ NOUVO — Fakti pataje */}
+          <Route path="/facture/:token" element={<PublicInvoice />} />
 
           <Route path="/admin/login"     element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

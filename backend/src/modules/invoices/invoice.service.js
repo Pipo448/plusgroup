@@ -428,4 +428,65 @@ const addPayment = async (tenantId, invoiceId, userId, data) => {
   return { payment, newStatus, balanceDueHtg: Math.max(0, balanceDueHtg) };
 };
 
-module.exports = { getAll, getOne, getDashboard, cancel, addPayment, createDirect, getNextInvoiceNumber };
+// ✅ NOUVO — Jenere lyen piblik (dirèk, san kòd — pou pataje pa WhatsApp)
+const crypto = require('crypto');
+
+const generatePublicLink = async (tenantId, id) => {
+  const invoice = await prisma.invoice.findFirst({ where: { id, tenantId } });
+  if (!invoice) throw Object.assign(new Error('Fakti pa jwenn.'), { statusCode: 404 });
+  if (invoice.status === 'cancelled') throw Object.assign(new Error('Pa ka pataje yon fakti ki anile.'), { statusCode: 400 });
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const updated = await prisma.invoice.update({
+    where: { id },
+    data: { publicToken: token, publicViewedAt: null, publicViewCount: 0 }
+  });
+
+  return { token, invoiceNumber: updated.invoiceNumber };
+};
+
+const revokePublicLink = async (tenantId, id) => {
+  const invoice = await prisma.invoice.findFirst({ where: { id, tenantId } });
+  if (!invoice) throw Object.assign(new Error('Fakti pa jwenn.'), { statusCode: 404 });
+  return prisma.invoice.update({
+    where: { id }, data: { publicToken: null, publicViewedAt: null, publicViewCount: 0 }
+  });
+};
+
+const getByPublicToken = async (token) => {
+  if (!token || token.length < 32) throw Object.assign(new Error('Lyen envalid.'), { statusCode: 404 });
+
+  const invoice = await prisma.invoice.findFirst({
+    where: { publicToken: token },
+    include: {
+      client: { select: { id: true, name: true, email: true, phone: true, address: true } },
+      items: {
+        include: { product: { select: { id: true, name: true, code: true, unit: true } } },
+        orderBy: { sortOrder: 'asc' }
+      },
+      // ✅ Istwa peman konplè — pou kliyan wè tout vèsman li fè deja
+      payments: { orderBy: { paymentDate: 'asc' } },
+      tenant: {
+        select: {
+          id: true, name: true, slug: true, logoUrl: true, bannerUrl: true,
+          address: true, phone: true, email: true, website: true, primaryColor: true,
+        }
+      }
+    }
+  });
+  if (!invoice || !invoice.publicToken) {
+    throw Object.assign(new Error('Fakti sa pa egziste oswa lyen an pa valid.'), { statusCode: 404 });
+  }
+
+  prisma.invoice.update({
+    where: { id: invoice.id },
+    data: { publicViewCount: { increment: 1 }, publicViewedAt: invoice.publicViewedAt || new Date() }
+  }).catch(err => console.error('[PublicInvoice] Failed to update view count:', err.message));
+
+  return { invoice };
+};
+
+module.exports = {
+  getAll, getOne, getDashboard, cancel, addPayment, createDirect, getNextInvoiceNumber,
+  generatePublicLink, revokePublicLink, getByPublicToken,
+};

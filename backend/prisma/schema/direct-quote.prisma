@@ -66,6 +66,10 @@ model DirectQuoteItem {
   directQuoteId String      @map("direct_quote_id")
   // ✅ Non pwodui/sèvis TAPE ALAMEN — pa gen lyen ak katalòg Product la
   description   String      @db.VarChar(300)
+  // ✅ NOUVO — Foto pwodui a (opsyonèl), ak Gwosè si atik la mande sa
+  // (rad, soulye, elatriye)
+  imageUrl      String?     @map("image_url")
+  size          String?     @db.VarChar(30)
   quantity      Decimal     @db.Decimal(12, 3)
   unitPriceHtg  Decimal     @map("unit_price_htg") @db.Decimal(12, 2)
   unitPriceUsd  Decimal     @default(0) @map("unit_price_usd") @db.Decimal(12, 2)

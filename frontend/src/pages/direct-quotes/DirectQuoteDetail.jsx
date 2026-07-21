@@ -199,7 +199,19 @@ export default function DirectQuoteDetail() {
             <tbody>
               {(dq.items || []).map(it => (
                 <tr key={it.id} className="border-b border-slate-50">
-                  <td className="p-3 pl-4 text-sm text-slate-700">{it.description}</td>
+                  <td className="p-3 pl-4 text-sm text-slate-700">
+                    <div className="flex items-center gap-3">
+                      {/* ✅ NOUVO — Foto atik la (si genyen) */}
+                      {it.imageUrl && (
+                        <img src={it.imageUrl} alt={it.description}
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-slate-100"/>
+                      )}
+                      <div>
+                        <p className="m-0">{it.description}</p>
+                        {it.size && <p className="text-xs text-slate-400 m-0">Gwosè: {it.size}</p>}
+                      </div>
+                    </div>
+                  </td>
                   <td className="p-3 text-center text-sm font-mono">{fmt(it.quantity)}</td>
                   <td className="p-3 text-right text-sm font-mono">{fmt(it.unitPriceHtg)} HTG</td>
                   <td className="p-3 text-right pr-4 text-sm font-mono font-semibold">{fmt(it.totalHtg)} HTG</td>

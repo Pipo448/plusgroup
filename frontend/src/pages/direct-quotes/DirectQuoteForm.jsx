@@ -6,7 +6,7 @@ import api, { clientAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import {
-  Plus, Trash2, Search, ArrowLeft, Save, X, Lock, User,
+  Plus, Trash2, Search, ArrowLeft, Save, X, Lock, User, Camera, Image as ImageIcon,
 } from 'lucide-react'
 
 function useDebounce(value, delay = 400) {
@@ -87,51 +87,52 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
 })
 
 // ── Liy atik (desktop)
-const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
+// ── Atik (foto + deskripsyon + gwosè + kantite/pri/rabè + total)
+// Yon sèl konpozan pou ni web ni mobil — pi klè ak foto/gwosè ladan l
+const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
   const total = Math.max(0, Number(item.quantity || 0) * Number(item.unitPriceHtg || 0) - Number(item.discountAmt || 0))
-  return (
-    <tr className="border-b border-slate-50">
-      <td className="p-2 pl-4">
-        <input className="input py-1.5 text-sm" placeholder="Non pwodui/sèvis..."
-          value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
-      </td>
-      <td className="p-2 w-24">
-        <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-center font-mono"
-          value={item.quantity} onFocus={e => e.target.select()}
-          onChange={e => onChange(index, { quantity: e.target.value })}/>
-      </td>
-      <td className="p-2 w-32">
-        <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
-          value={item.unitPriceHtg} onFocus={e => e.target.select()}
-          onChange={e => onChange(index, { unitPriceHtg: e.target.value })}/>
-      </td>
-      <td className="p-2 w-28">
-        <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
-          value={item.discountAmt} onFocus={e => e.target.select()}
-          onChange={e => onChange(index, { discountAmt: e.target.value })}/>
-      </td>
-      <td className="p-2 text-right font-mono text-sm font-semibold text-slate-700 pr-3">{fmt2(total)}</td>
-      <td className="p-2">
-        <button type="button" onClick={() => onRemove(index)} className="text-slate-300 hover:text-red-500 p-1">
-          <Trash2 size={14}/>
-        </button>
-      </td>
-    </tr>
-  )
-})
 
-// ── Kat atik (mobil)
-const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
-  const total = Math.max(0, Number(item.quantity || 0) * Number(item.unitPriceHtg || 0) - Number(item.discountAmt || 0))
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Sèlman fichye imaj aksepte.'); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error('Foto a twò gwo — maksimòm 2MB.'); return }
+    const reader = new FileReader()
+    reader.onload = () => onChange(index, { imageUrl: reader.result })
+    reader.readAsDataURL(file)
+  }
+
   return (
-    <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50">
-      <div className="flex items-start gap-2 mb-2">
-        <input className="input py-1.5 text-sm flex-1" placeholder="Non pwodui/sèvis..."
-          value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
-        <button type="button" onClick={() => onRemove(index)} className="text-slate-300 hover:text-red-500 p-2">
+    <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/40">
+      <div className="flex items-start gap-3 mb-3">
+        {/* ✅ NOUVO — Foto pwodui a (opsyonèl), klikab pou ajoute/chanje */}
+        <label className="relative flex-shrink-0 cursor-pointer group">
+          <div style={{
+            width: 56, height: 56, borderRadius: 10,
+            background: item.imageUrl ? `url(${item.imageUrl}) center/cover no-repeat` : '#eef1f6',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1.5px dashed #cbd5e1', overflow: 'hidden',
+          }}>
+            {!item.imageUrl && <ImageIcon size={20} className="text-slate-400"/>}
+          </div>
+          <input type="file" accept="image/*" onChange={handleImageChange} className="hidden"/>
+          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-brand-600 flex items-center justify-center border-2 border-white">
+            <Camera size={10} className="text-white"/>
+          </div>
+        </label>
+
+        <div className="flex-1 min-w-0">
+          <input className="input py-1.5 text-sm w-full" placeholder="Non pwodui/sèvis..."
+            value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
+          <input className="input py-1 text-xs mt-1.5 w-32" placeholder="Gwosè (opsyonèl: M, L, 42...)"
+            value={item.size || ''} onChange={e => onChange(index, { size: e.target.value })}/>
+        </div>
+
+        <button type="button" onClick={() => onRemove(index)} className="text-slate-300 hover:text-red-500 p-1 flex-shrink-0">
           <Trash2 size={15}/>
         </button>
       </div>
+
       <div className="grid grid-cols-3 gap-2">
         <div>
           <label className="text-[10px] text-slate-400 uppercase font-semibold">Kantite</label>
@@ -171,7 +172,7 @@ export default function DirectQuoteForm() {
   const [terms, setTerms]             = useState('')
   const [discountValue, setDiscountValue] = useState(0)
   const [items, setItems] = useState([
-    { description: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }
+    { description: '', imageUrl: null, size: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }
   ])
 
   const updateItem = useCallback((idx, changes) => {
@@ -181,7 +182,7 @@ export default function DirectQuoteForm() {
     setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))
   }, [])
   const addItem = useCallback(() => {
-    setItems(prev => [...prev, { description: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }])
+    setItems(prev => [...prev, { description: '', imageUrl: null, size: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }])
   }, [])
 
   const subtotal = items.reduce((sum, it) =>
@@ -216,6 +217,9 @@ export default function DirectQuoteForm() {
       .filter(it => it.description.trim())
       .map(it => ({
         description: it.description.trim(),
+        // ✅ NOUVO
+        imageUrl: it.imageUrl || null,
+        size: it.size ? it.size.trim() : null,
         quantity: Number(it.quantity || 0),
         unitPriceHtg: Number(it.unitPriceHtg || 0),
         discountAmt: Number(it.discountAmt || 0),
@@ -287,33 +291,11 @@ export default function DirectQuoteForm() {
               </button>
             </div>
 
-            {isMobile ? (
-              <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {items.map((item, idx) => (
-                  <ItemCard key={idx} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
-                ))}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 text-xs font-display font-semibold text-slate-500 uppercase tracking-wide">
-                    <tr>
-                      <th className="p-2 text-left pl-4">Pwodui / Sèvis</th>
-                      <th className="p-2 text-center">Kantite</th>
-                      <th className="p-2 text-right">Pri Inite (HTG)</th>
-                      <th className="p-2 text-right">Rabè (HTG)</th>
-                      <th className="p-2 text-right pr-3">Total</th>
-                      <th className="p-2"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {items.map((item, idx) => (
-                      <ItemRow key={idx} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {items.map((item, idx) => (
+                <ItemEntry key={idx} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
+              ))}
+            </div>
 
             <div className="p-3 border-t border-slate-100">
               <button type="button" onClick={addItem}
