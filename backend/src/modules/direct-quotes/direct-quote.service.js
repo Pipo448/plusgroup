@@ -292,7 +292,8 @@ const convertToInvoice = async (tenantId, id, userId, userRole) => {
     await tx.invoiceItem.createMany({
       data: dq.items.map((it, idx) => ({
         tenantId, invoiceId: inv.id, productId: null,
-        productSnapshot: { name: it.description, direct: true },
+        // ✅ KORIJE — pote foto ak gwosè a nan Fakti a lè konvèsyon an fèt
+        productSnapshot: { name: it.description, direct: true, imageUrl: it.imageUrl || null, size: it.size || null },
         quantity: it.quantity, unitPriceHtg: it.unitPriceHtg, unitPriceUsd: it.unitPriceUsd,
         discountPct: 0, totalHtg: it.totalHtg, totalUsd: it.totalUsd, sortOrder: idx,
       }))

@@ -441,6 +441,10 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
             const unitPrice = useUsd ? item.unitPriceUsd : item.unitPriceHtg
             const name = item.product?.name || item.productSnapshot?.name || item.description || '—'
             const desc = item.notes || ''
+            // ✅ KORIJE — pou atik ki soti nan Devi Direk konvèti, foto/gwose a
+            // rete anndan productSnapshot (JSON), pa yon chan dirèk
+            const photoUrl = item.imageUrl || item.productSnapshot?.imageUrl || null
+            const itemSize = item.size || item.productSnapshot?.size || null
             return (
               <div key={i} style={{
                 background: D.white,
@@ -449,8 +453,8 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
                 border: `1px solid ${D.borderLt}`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 8 }}>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={name} style={{
+                  {photoUrl ? (
+                    <img src={photoUrl} alt={name} style={{
                       width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0,
                       border: `1px solid ${D.borderLt}`,
                     }}/>
@@ -466,8 +470,8 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: D.text, margin: 0 }}>{name}</p>
-                    {item.size && (
-                      <p style={{ fontSize: 11, color: D.blue, margin: '2px 0 0', fontWeight: 700 }}>Gwosè: {item.size}</p>
+                    {itemSize && (
+                      <p style={{ fontSize: 11, color: D.blue, margin: '2px 0 0', fontWeight: 700 }}>Gwosè: {itemSize}</p>
                     )}
                     {desc && (
                       <p style={{ fontSize: 11, color: D.muted, margin: '3px 0 0', lineHeight: 1.4 }}>
@@ -514,14 +518,16 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
             const unitPrice = useUsd ? item.unitPriceUsd : item.unitPriceHtg
             const name = item.product?.name || item.productSnapshot?.name || item.description || '—'
             const desc = item.notes || ''
+            const photoUrl = item.imageUrl || item.productSnapshot?.imageUrl || null
+            const itemSize = item.size || item.productSnapshot?.size || null
             return (
               <tr key={i} style={{
                 background: i % 2 === 0 ? D.white : D.bgLight,
                 borderBottom: `1px solid ${D.borderLt}`,
               }}>
                 <td style={{ padding: '14px', textAlign: 'center' }}>
-                  {item.imageUrl ? (
-                    <img src={item.imageUrl} alt={name} style={{
+                  {photoUrl ? (
+                    <img src={photoUrl} alt={name} style={{
                       width: 36, height: 36, borderRadius: 8, objectFit: 'cover',
                       border: `1px solid ${D.borderLt}`, display: 'inline-block',
                     }}/>
@@ -533,8 +539,8 @@ function ItemsTable({ items, symbol, useUsd, isMobile }) {
                 </td>
                 <td style={{ padding: '14px', fontSize: 13, fontWeight: 700, color: D.text }}>
                   {name}
-                  {item.size && (
-                    <div style={{ fontSize: 11, fontWeight: 700, color: D.blue, marginTop: 2 }}>Gwosè: {item.size}</div>
+                  {itemSize && (
+                    <div style={{ fontSize: 11, fontWeight: 700, color: D.blue, marginTop: 2 }}>Gwosè: {itemSize}</div>
                   )}
                 </td>
                 <td style={{ padding: '14px', fontSize: 12, color: D.textLt, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
