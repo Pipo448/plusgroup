@@ -190,9 +190,14 @@ function CalculatorMenu({ isMobile }) {
     }
   }
 
+  // ✅ NOUVO — ekspresyon konplè a, pou moun wè egzakteman sa l ap antre
+  // (egzanp: "6 × 9" pandan l ap tape, "6 × 9 = 54" apre li fin kalkile)
+  const [lastExpr, setLastExpr] = useState('')
+  const liveExpr = (operator && prevValue != null) ? `${prevValue} ${operator} ${display}` : ''
+
   const handleBtn = (b) => {
     if (b >= '0' && b <= '9') {
-      if (waiting) { setDisplay(b); setWaiting(false) }
+      if (waiting) { setDisplay(b); setWaiting(false); if (!operator) setLastExpr('') }
       else setDisplay(display === '0' ? b : display + b)
       return
     }
@@ -201,7 +206,7 @@ function CalculatorMenu({ isMobile }) {
       if (!display.includes('.')) setDisplay(display + '.')
       return
     }
-    if (b === 'C') { setDisplay('0'); setPrevValue(null); setOperator(null); setWaiting(false); return }
+    if (b === 'C') { setDisplay('0'); setPrevValue(null); setOperator(null); setWaiting(false); setLastExpr(''); return }
     if (b === '±') { setDisplay(String(parseFloat(display) * -1)); return }
     if (b === '%') { setDisplay(String(parseFloat(display) / 100)); return }
     if (['+', '-', '×', '÷'].includes(b)) {
@@ -220,6 +225,8 @@ function CalculatorMenu({ isMobile }) {
       const inputValue = parseFloat(display)
       if (operator && prevValue != null) {
         const result = calc(prevValue, inputValue, operator)
+        // ✅ Montre ekspresyon konplè a AK rezilta a apre "="
+        setLastExpr(`${prevValue} ${operator} ${inputValue} =`)
         // ✅ NOUVO — anrejistre kalkil la nan istorik, ak dat
         persistHistory([
           { id: `${Date.now()}`, expr: `${prevValue} ${operator} ${inputValue}`, result, at: new Date().toISOString() },
@@ -262,7 +269,16 @@ function CalculatorMenu({ isMobile }) {
       </button>
 
       {open && (
-        <div style={{
+        <div style={isMobile ? {
+          // ✅ KORIJE — sou mobil, panèl la te ankre a dwat bouton an, e li te
+          // depase bò goch ekran an nèt lè bouton an te tou pre bò goch la.
+          // Kounye a li fiks e santre sou ekran an, kèlkeswa kote bouton an ye.
+          position: 'fixed', top: 96, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 1000, width: 'min(280px, 92vw)',
+          background: '#1a1f35', borderRadius: 16,
+          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+          border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
+        } : {
           position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100, width: 270,
           background: '#1a1f35', borderRadius: 16,
           boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
@@ -288,7 +304,10 @@ function CalculatorMenu({ isMobile }) {
 
           {tab === 'pad' ? (
             <>
-              <div style={{ padding: '16px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ padding: '14px 14px 0', textAlign: 'right', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'IBM Plex Mono,monospace', minHeight: 16, wordBreak: 'break-all' }}>
+                {liveExpr || lastExpr || '\u00A0'}
+              </div>
+              <div style={{ padding: '4px 14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <button onClick={handleBackspace} title="Efase dènye chif" style={{
                   background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8,
                   padding: 7, cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0,
