@@ -93,6 +93,7 @@ const LANGS = [
   { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
   { code:'fr', name:'Français', flag:'🇫🇷' },
   { code:'en', name:'English',  flag:'🇺🇸' },
+  { code:'es', name:'Español',  flag:'🇪🇸' },
 ]
 
 const ROLE_LABELS = {
