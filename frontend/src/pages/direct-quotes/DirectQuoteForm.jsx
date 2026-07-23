@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, memo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api, { clientAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
@@ -32,6 +33,7 @@ const fmt2 = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigi
 
 // ── Rechèch kliyan (opsyonèl — Devi Dirèk ka fèt san kliyan)
 const ClientSearch = memo(function ClientSearch({ value, onChange }) {
+  const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [open, setOpen]     = useState(false)
   const debouncedSearch = useDebounce(search, 400)
@@ -56,7 +58,7 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
           <input
             className="input pl-9"
-            placeholder="Chèche kliyan (opsyonèl)..."
+            placeholder={t('directQuotes.searchClient')}
             value={value ? value.name : search}
             onFocus={() => setOpen(true)}
             onChange={e => { setSearch(e.target.value); if (value) onChange(null) }}
@@ -90,13 +92,14 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
 // ── Atik (foto + deskripsyon + gwosè + kantite/pri/rabè + total)
 // Yon sèl konpozan pou ni web ni mobil — pi klè ak foto/gwosè ladan l
 const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
+  const { t } = useTranslation()
   const total = Math.max(0, Number(item.quantity || 0) * Number(item.unitPriceHtg || 0) - Number(item.discountAmt || 0))
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Sèlman fichye imaj aksepte.'); return }
-    if (file.size > 2 * 1024 * 1024) { toast.error('Foto a twò gwo — maksimòm 2MB.'); return }
+    if (!file.type.startsWith('image/')) { toast.error(t('directQuotes.imageOnlyError')); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('directQuotes.imageTooLarge')); return }
     const reader = new FileReader()
     reader.onload = () => onChange(index, { imageUrl: reader.result })
     reader.readAsDataURL(file)
@@ -122,9 +125,9 @@ const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
         </label>
 
         <div className="flex-1 min-w-0">
-          <input className="input py-1.5 text-sm w-full" placeholder="Non pwodui/sèvis..."
+          <input className="input py-1.5 text-sm w-full" placeholder={t('directQuotes.itemNamePlaceholder')}
             value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
-          <input className="input py-1 text-xs mt-1.5 w-32" placeholder="Gwosè (opsyonèl: M, L, 42...)"
+          <input className="input py-1 text-xs mt-1.5 w-32" placeholder={t('directQuotes.sizePlaceholder')}
             value={item.size || ''} onChange={e => onChange(index, { size: e.target.value })}/>
         </div>
 
@@ -135,19 +138,19 @@ const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
 
       <div className="grid grid-cols-3 gap-2">
         <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">Kantite</label>
+          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.quantity')}</label>
           <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-center font-mono"
             value={item.quantity} onFocus={e => e.target.select()}
             onChange={e => onChange(index, { quantity: e.target.value })}/>
         </div>
         <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">Pri Inite</label>
+          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.unitPrice')}</label>
           <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
             value={item.unitPriceHtg} onFocus={e => e.target.select()}
             onChange={e => onChange(index, { unitPriceHtg: e.target.value })}/>
         </div>
         <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">Rabè</label>
+          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.discount')}</label>
           <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
             value={item.discountAmt} onFocus={e => e.target.select()}
             onChange={e => onChange(index, { discountAmt: e.target.value })}/>
@@ -160,6 +163,7 @@ const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
 
 // ══════════════════════════════════════════════
 export default function DirectQuoteForm() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const { id } = useParams()
   const { tenant, user } = useAuthStore()
@@ -194,19 +198,19 @@ export default function DirectQuoteForm() {
     onSuccess: (res) => {
       toast.success(
         isAdmin
-          ? 'Devi Dirèk kreye avèk siksè!'
-          : 'Devi Dirèk anrejistre! Y ap tann yon admin otorize l anvan ou ka enprime/pataje/konvèti l.'
+          ? t('directQuotes.createdSuccessAdmin')
+          : t('directQuotes.createdSuccessCashier')
       )
       navigate(`/app/direct-quotes/${res.directQuote.id}`)
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan kreyasyon an.')
+    onError: (e) => toast.error(e.response?.data?.message || t('directQuotes.errorCreating'))
   })
 
   const buildPayload = () => ({
     clientId: client?.id || null,
     clientSnapshot: client
       ? { name: client.name, phone: client.phone, address: client.address }
-      : { name: 'San kliyan' },
+      : { name: t('directQuotes.noClient') },
     currency: 'HTG',
     exchangeRate: Number(tenant?.exchangeRate || 132),
     discountType: 'amount',
@@ -228,8 +232,8 @@ export default function DirectQuoteForm() {
 
   const validate = () => {
     const valid = items.filter(it => it.description.trim())
-    if (!valid.length) { toast.error('Ajoute omwen yon atik ak yon deskripsyon.'); return false }
-    if (valid.some(it => Number(it.quantity) <= 0)) { toast.error('Chak atik dwe gen yon kantite pi gwo pase 0.'); return false }
+    if (!valid.length) { toast.error(t('directQuotes.addAtLeastOneItem')); return false }
+    if (valid.some(it => Number(it.quantity) <= 0)) { toast.error(t('directQuotes.quantityMustBePositive')); return false }
     return true
   }
 
@@ -248,13 +252,13 @@ export default function DirectQuoteForm() {
             <ArrowLeft size={18}/>
           </button>
           <div>
-            <h1 className="page-title">Nouvo Devi Dirèk</h1>
-            <p className="text-slate-500 text-sm">Pou pwodui oswa sèvis ki PA nan katalòg estòk la</p>
+            <h1 className="page-title">{t('directQuotes.newDirectQuote')}</h1>
+            <p className="text-slate-500 text-sm">{t('directQuotes.subtitle')}</p>
           </div>
         </div>
         {!isMobile && (
           <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary">
-            <Save size={16}/> {mutation.isPending ? 'Anrejistreman...' : 'Kreye Devi Dirèk'}
+            <Save size={16}/> {mutation.isPending ? t('directQuotes.saving') : t('directQuotes.createDirectQuote')}
           </button>
         )}
       </div>
@@ -262,7 +266,7 @@ export default function DirectQuoteForm() {
       {!isAdmin && (
         <div className="mb-5 p-3 rounded-xl bg-violet-50 border border-violet-100 flex items-center gap-2 text-sm text-violet-700">
           <Lock size={15}/>
-          Apre w anrejistre, yon notifikasyon ap voye bay admin yo. Ou ap ka enprime, pataje, oswa konvèti devi a an fakti sèlman apre yon admin otorize l.
+          {t('directQuotes.authWarningCashier')}
         </div>
       )}
 
@@ -270,14 +274,14 @@ export default function DirectQuoteForm() {
         <div className="lg:col-span-2 space-y-5">
 
           <div className="card p-5">
-            <h3 className="section-title">Kliyan ak Dat</h3>
+            <h3 className="section-title">{t('directQuotes.clientAndDate')}</h3>
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
               <div className={isMobile ? '' : 'col-span-2'}>
-                <label className="label">Kliyan (opsyonèl)</label>
+                <label className="label">{t('directQuotes.searchClient')}</label>
                 <ClientSearch value={client} onChange={setClient}/>
               </div>
               <div>
-                <label className="label">Dat Ekspirasyon</label>
+                <label className="label">{t('directQuotes.expiryDate')}</label>
                 <input type="date" className="input" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}/>
               </div>
             </div>
@@ -285,9 +289,9 @@ export default function DirectQuoteForm() {
 
           <div className="card overflow-hidden">
             <div className="flex items-center justify-between p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">Atik (Pwodui/Sèvis ki pa nan Estòk)</h3>
+              <h3 className="font-display font-bold text-slate-800">{t('directQuotes.itemsTitle')}</h3>
               <button type="button" onClick={addItem} className="btn-secondary btn-sm">
-                <Plus size={14}/> Ajoute Liy
+                <Plus size={14}/> {t('directQuotes.addLine')}
               </button>
             </div>
 
@@ -300,7 +304,7 @@ export default function DirectQuoteForm() {
             <div className="p-3 border-t border-slate-100">
               <button type="button" onClick={addItem}
                 className="text-brand-600 hover:text-brand-800 text-sm font-medium flex items-center gap-1.5 transition-colors">
-                <Plus size={15}/> Ajoute yon lòt atik
+                <Plus size={15}/> {t('directQuotes.addAnotherItem')}
               </button>
             </div>
           </div>
@@ -308,11 +312,11 @@ export default function DirectQuoteForm() {
           <div className="card p-5">
             <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
               <div>
-                <label className="label">Nòt pou kliyan</label>
+                <label className="label">{t('directQuotes.notesForClient')}</label>
                 <textarea className="input" rows={3} value={notes} onChange={e => setNotes(e.target.value)}/>
               </div>
               <div>
-                <label className="label">Kondisyon</label>
+                <label className="label">{t('directQuotes.generalTerms')}</label>
                 <textarea className="input" rows={3} value={terms} onChange={e => setTerms(e.target.value)}/>
               </div>
             </div>
@@ -321,21 +325,21 @@ export default function DirectQuoteForm() {
 
         {/* Rezime */}
         <div className="card p-5 h-fit lg:sticky lg:top-5">
-          <h3 className="section-title">Rezime</h3>
+          <h3 className="section-title">{t('directQuotes.summary')}</h3>
           <div className="space-y-3">
             <div className="flex justify-between text-sm text-slate-600">
-              <span>Sou-total</span>
+              <span>{t('directQuotes.subtotalLabel')}</span>
               <span className="font-mono">{fmt2(subtotal)} HTG</span>
             </div>
             <div className="border-t border-slate-100 pt-3">
-              <label className="label">Rabè Jeneral (HTG)</label>
+              <label className="label">{t('directQuotes.generalDiscount')}</label>
               <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono w-full"
                 value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)}
                 placeholder="0.00"/>
             </div>
             <div className="border-t-2 border-brand-200 pt-3 mt-1">
               <div className="flex justify-between items-start">
-                <span className="font-display font-bold text-slate-800 text-lg">TOTAL</span>
+                <span className="font-display font-bold text-slate-800 text-lg">{t('directQuotes.totalLabel')}</span>
                 <p className="font-bold text-brand-700 text-xl font-mono">{fmt2(total)} HTG</p>
               </div>
             </div>
@@ -343,7 +347,7 @@ export default function DirectQuoteForm() {
 
           {isMobile && (
             <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary w-full mt-4" style={{ justifyContent: 'center' }}>
-              <Save size={16}/> {mutation.isPending ? 'Anrejistreman...' : 'Kreye Devi Dirèk'}
+              <Save size={16}/> {mutation.isPending ? t('directQuotes.saving') : t('directQuotes.createDirectQuote')}
             </button>
           )}
         </div>

@@ -86,7 +86,7 @@ const HOTEL_ITEMS = [
 
 // ✅ NOUVO — Restoran
 const RESTAURANT_ITEMS = [
-  { to:'/app/restaurant/menu', icon:UtensilsCrossed, label:'Meni Restoran', end:true },
+  { to:'/app/restaurant/menu', icon:UtensilsCrossed, labelKey:'nav.restaurant', label:'Meni Restoran', end:true },
 ]
 
 const LANGS = [
@@ -158,6 +158,7 @@ const restaurantLinkStyle = (isActive) => ({
 
 // ✅ NOUVO — Kalkilatris flotan globalize, disponib sou TOUT paj sistèm nan
 function CalculatorMenu({ isMobile }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState('pad') // 'pad' | 'history'
   const [display, setDisplay] = useState('0')
@@ -258,14 +259,14 @@ function CalculatorMenu({ isMobile }) {
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }} ref={calcRef}>
-      <button onClick={() => setOpen(o => !o)} title="Kalkilatris" style={{
+      <button onClick={() => setOpen(o => !o)} title={t('calculator.title')} style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
         borderRadius: 10, border: `1px solid ${open ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`,
         background: open ? 'rgba(245,104,12,0.08)' : 'transparent',
         color: open ? C.gold : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 700,
       }}>
         <Calculator size={15}/>
-        <span>Kalkilatris</span>
+        <span>{t('calculator.title')}</span>
       </button>
 
       {open && (
@@ -290,13 +291,13 @@ function CalculatorMenu({ isMobile }) {
               background: tab === 'pad' ? 'rgba(245,104,12,0.12)' : 'transparent',
               color: tab === 'pad' ? C.gold : 'rgba(255,255,255,0.5)',
               fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
-            }}>KALKILATRIS</button>
+            }}>{t('calculator.title').toUpperCase()}</button>
             <button onClick={() => setTab('history')} style={{
               flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
               background: tab === 'history' ? 'rgba(245,104,12,0.12)' : 'transparent',
               color: tab === 'history' ? C.gold : 'rgba(255,255,255,0.5)',
               fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
-            }}>ISTORIK</button>
+            }}>{t('calculator.history').toUpperCase()}</button>
             <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', padding: '0 10px' }}>
               <X size={14}/>
             </button>
@@ -333,7 +334,7 @@ function CalculatorMenu({ isMobile }) {
             <div style={{ maxHeight: 320, overflowY: 'auto' }}>
               {!history.length ? (
                 <p style={{ padding: '24px 14px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                  Pa gen kalkil ki fèt ankò.
+                  {t('calculator.noHistory')}
                 </p>
               ) : (
                 <>
@@ -350,7 +351,7 @@ function CalculatorMenu({ isMobile }) {
                     width: '100%', padding: '10px 0', border: 'none', cursor: 'pointer',
                     background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: 12, fontWeight: 700,
                   }}>
-                    Vide istorik la
+                    {t('calculator.clearHistory')}
                   </button>
                 </>
               )}
@@ -706,7 +707,7 @@ export default function AppLayout() {
                 style={({ isActive }) => ({ ...navLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
                 {({ isActive }) => (<>
                   <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>{label || t(labelKey)}</span>
+                  <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
                   {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
@@ -832,16 +833,16 @@ export default function AppLayout() {
             return (
               <>
                 <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(220,38,38,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: restaurantLocked ? 0.4 : 1 }}>
-                  <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ Restoran</span>
+                  <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ {t('nav.restaurant')}</span>
                   <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
                 </div>
-                {RESTAURANT_ITEMS.map(({ to, icon:Icon, label, end }) => (
+                {RESTAURANT_ITEMS.map(({ to, icon:Icon, labelKey, label, end }) => (
                   <NavLink key={to} to={restaurantLocked ? '#' : to} end={end}
                     onClick={(e) => { if (restaurantLocked) e.preventDefault() }}
                     style={({ isActive }) => ({ ...restaurantLinkStyle(restaurantLocked ? false : isActive), opacity: restaurantLocked ? 0.4 : 1, cursor: restaurantLocked ? 'not-allowed' : 'pointer' })}>
                     {({ isActive }) => (<>
                       <Icon size={15} style={{ flexShrink:0, color: restaurantLocked ? '#475569' : isActive ? C.restaurant : C.mutedMd }}/>
-                      <span style={{ flex:1 }}>{label}</span>
+                      <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
                       {restaurantLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
                     </>)}
                   </NavLink>

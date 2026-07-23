@@ -1,6 +1,7 @@
 // src/pages/restaurant/RestaurantMenuPage.jsx
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useForm } from 'react-hook-form'
@@ -28,6 +29,7 @@ const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigit
 // Modal Atik Meni (Manje/Bwason)
 // ══════════════════════════════════════════════
 function MenuItemModal({ item, categories, exchangeRate, onClose }) {
+  const { t } = useTranslation()
   const isEdit = !!item
   const rate = Number(exchangeRate || 132)
   const qc = useQueryClient()
@@ -38,8 +40,8 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error('Sèlman fichye imaj aksepte (JPEG, PNG, WebP).'); return }
-    if (file.size > 2 * 1024 * 1024) { toast.error('Foto a twò gwo — maksimòm 2MB.'); return }
+    if (!file.type.startsWith('image/')) { toast.error(t('restaurant.imageOnlyError')); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('restaurant.imageTooLarge')); return }
     const reader = new FileReader()
     reader.onload = () => { setImagePreview(reader.result); setImageChanged(true) }
     reader.readAsDataURL(file)
@@ -66,11 +68,11 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
         : api.post('/restaurant/menu', payload)
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'Atik meni mete ajou!' : 'Atik meni ajoute!')
+      toast.success(isEdit ? t('restaurant.updatedSuccess') : t('restaurant.addedSuccess'))
       qc.invalidateQueries(['restaurant-menu'])
       onClose()
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+    onError: (e) => toast.error(e.response?.data?.message || t('restaurant.errorGeneric'))
   })
 
   const inp = {
@@ -90,14 +92,14 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
       <div className="modal max-w-2xl w-full">
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
           <h2 className="text-lg font-display font-bold" style={{ color: D.text }}>
-            {isEdit ? 'Modifye Atik Meni' : 'Nouvo Atik nan Meni'}
+            {isEdit ? t('restaurant.editModalTitle') : t('restaurant.newModalTitle')}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"><X size={20}/></button>
         </div>
 
         <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="p-5 space-y-4">
           <div>
-            {label('Foto (opsyonèl)')}
+            {label(t('restaurant.photoOptional'))}
             <div style={{ display:'flex', alignItems:'center', gap:12 }}>
               <div style={{
                 width:72, height:72, borderRadius:14, flexShrink:0,
@@ -109,12 +111,12 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
               </div>
               <div style={{ display:'flex', gap:8 }}>
                 <label style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, background:D.redDim, color:D.red, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                  <Camera size={14}/> {imagePreview ? 'Chanje' : 'Ajoute Foto'}
+                  <Camera size={14}/> {imagePreview ? t('restaurant.changePhoto') : t('restaurant.addPhoto')}
                   <input type="file" accept="image/*" onChange={handleImageChange} style={{ display:'none' }}/>
                 </label>
                 {imagePreview && (
                   <button type="button" onClick={handleRemoveImage} style={{ padding:'8px 14px', borderRadius:10, background:'#fee2e2', color:'#dc2626', fontWeight:700, fontSize:12, border:'none', cursor:'pointer' }}>
-                    Retire
+                    {t('restaurant.removePhoto')}
                   </button>
                 )}
               </div>
@@ -122,34 +124,34 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
           </div>
 
           <div>
-            {label('Non Plat/Bwason *')}
-            <input {...register('name', { required: true })} placeholder="Ex: Diri Kole ak Pwa Nwa"
+            {label(`${t('restaurant.itemName')} *`)}
+            <input {...register('name', { required: true })} placeholder={t('restaurant.itemNamePlaceholder')}
               style={{ ...inp, borderColor: errors.name ? '#dc2626' : D.border }}/>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              {label('Kategori')}
+              {label(t('restaurant.category'))}
               <select {...register('categoryId')} style={inp}>
-                <option value="">— San kategori —</option>
+                <option value="">{t('restaurant.noCategoryOption')}</option>
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
             <div>
-              {label('Inite')}
-              <input {...register('unit')} placeholder="pòsyon, vè, boutèy..." style={inp}/>
+              {label(t('restaurant.unit'))}
+              <input {...register('unit')} placeholder={t('restaurant.unitPlaceholder')} style={inp}/>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              {label('Pri Vant (HTG) *')}
+              {label(`${t('restaurant.priceHtg')} *`)}
               <input type="number" step="0.01" min="0" {...register('priceHtg', { required: true, min: 0 })}
                 onChange={handlePriceChange}
                 style={{ ...inp, borderColor: errors.priceHtg ? '#dc2626' : D.border, fontFamily:'monospace' }}/>
             </div>
             <div>
-              {label('Pri Vant (USD)')}
+              {label(t('restaurant.priceUsd'))}
               <input type="number" step="0.01" min="0" {...register('priceUsd')} readOnly
                 style={{ ...inp, background:'#f8f8f8', fontFamily:'monospace', color:D.muted }}/>
             </div>
@@ -157,31 +159,31 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              {label('Kantite Disponib *')}
+              {label(`${t('restaurant.quantity')} *`)}
               <input type="number" step="1" min="0" {...register('quantity', { required: true, min: 0 })}
                 style={{ ...inp, borderColor: errors.quantity ? '#dc2626' : D.border, fontFamily:'monospace' }}/>
             </div>
             <div>
-              {label('Seyi Alèt (stòk ba)')}
+              {label(t('restaurant.alertThreshold'))}
               <input type="number" step="1" min="0" {...register('alertThreshold')}
                 style={{ ...inp, fontFamily:'monospace' }}/>
             </div>
           </div>
 
           <div>
-            {label('Deskripsyon (opsyonèl)')}
-            <textarea {...register('description')} rows={2} placeholder="Engredyan, ti detay pou kliyan..."
+            {label(t('restaurant.description'))}
+            <textarea {...register('description')} rows={2} placeholder={t('restaurant.descriptionPlaceholder')}
               style={{ ...inp, resize:'vertical' }}/>
           </div>
 
           <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">Anile</button>
+            <button type="button" onClick={onClose} className="btn-secondary">{t('restaurant.cancelBtn')}</button>
             <button type="submit" disabled={mutation.isPending}
               style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
                 background:`linear-gradient(135deg,${D.red},${D.redLt})`, color:'#fff',
                 border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
                 opacity: mutation.isPending ? 0.7 : 1 }}>
-              {mutation.isPending ? 'Anrejistreman...' : isEdit ? 'Mete Ajou' : 'Ajoute nan Meni'}
+              {mutation.isPending ? t('restaurant.saving') : isEdit ? t('restaurant.updateBtn') : t('restaurant.addToMenuBtn')}
             </button>
           </div>
         </form>
@@ -194,6 +196,7 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
 // PAJ PRENSIPAL
 // ══════════════════════════════════════════════
 export default function RestaurantMenuPage() {
+  const { t } = useTranslation()
   const [search, setSearch]       = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [page, setPage]           = useState(1)
@@ -219,14 +222,14 @@ export default function RestaurantMenuPage() {
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/restaurant/menu/${id}`),
     onSuccess: (res) => {
-      toast.success(res?.data?.message || 'Atik siprime.')
+      toast.success(res?.data?.message || t('restaurant.deletedSuccess'))
       qc.invalidateQueries(['restaurant-menu'])
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan siprime a.')
+    onError: (e) => toast.error(e.response?.data?.message || t('restaurant.errorDeleting'))
   })
 
   const handleDelete = (item) => {
-    if (confirm(`Retire "${item.name}" nan meni an?`)) deleteMutation.mutate(item.id)
+    if (confirm(t('restaurant.confirmRemove', { name: item.name }))) deleteMutation.mutate(item.id)
   }
 
   const items = data?.products || []
@@ -239,15 +242,15 @@ export default function RestaurantMenuPage() {
             <UtensilsCrossed size={19} color="#fff"/>
           </div>
           <div>
-            <h1 className="page-title" style={{ color: D.text }}>Meni Restoran</h1>
-            <p style={{ color: D.muted, fontSize: 13, margin: '2px 0 0' }}>Jere manje ak bwason ki disponib pou kliyan yo</p>
+            <h1 className="page-title" style={{ color: D.text }}>{t('restaurant.menuTitle')}</h1>
+            <p style={{ color: D.muted, fontSize: 13, margin: '2px 0 0' }}>{t('restaurant.menuSubtitle')}</p>
           </div>
         </div>
         <button onClick={() => setModal({ type: 'new' })}
           style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 20px', borderRadius:12,
             background:`linear-gradient(135deg,${D.red},${D.redLt})`, color:'#fff',
             border:'none', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadow }}>
-          <Plus size={16}/> Nouvo Atik
+          <Plus size={16}/> {t('restaurant.newItem')}
         </button>
       </div>
 
@@ -258,7 +261,7 @@ export default function RestaurantMenuPage() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Chèche yon plat oswa bwason..."
+            placeholder={t('restaurant.searchPlaceholder')}
             style={{ width:'100%', padding:'10px 14px 10px 36px', borderRadius:12, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, background:D.white }}
           />
         </div>
@@ -268,7 +271,7 @@ export default function RestaurantMenuPage() {
               flexShrink:0, padding:'8px 16px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
               background: !catFilter ? D.red : D.white, color: !catFilter ? '#fff' : D.muted,
               border:`1.5px solid ${!catFilter ? D.red : D.border}`,
-            }}>Tout</button>
+            }}>{t('restaurant.allCategoriesBtn')}</button>
           {categories.map(c => (
             <button key={c.id} onClick={() => { setCatFilter(c.id); setPage(1) }}
               style={{
@@ -282,11 +285,11 @@ export default function RestaurantMenuPage() {
 
       {/* Grid Atik yo */}
       {isLoading ? (
-        <div style={{ textAlign:'center', padding:'60px 0', color:D.muted }}>Chajman...</div>
+        <div style={{ textAlign:'center', padding:'60px 0', color:D.muted }}>{t('common.loading')}</div>
       ) : !items.length ? (
         <div style={{ textAlign:'center', padding:'60px 20px' }}>
           <UtensilsCrossed size={40} style={{ color: D.border, margin:'0 auto 12px' }}/>
-          <p style={{ color:D.muted }}>Pa gen atik nan meni an pou kounye a.</p>
+          <p style={{ color:D.muted }}>{t('restaurant.noItems')}</p>
         </div>
       ) : (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(230px, 1fr))', gap:16 }}>
@@ -315,7 +318,7 @@ export default function RestaurantMenuPage() {
                       background: outOfStock ? '#dc2626' : D.warning, color:'#fff',
                       fontSize:10, fontWeight:800, display:'flex', alignItems:'center', gap:3,
                     }}>
-                      <AlertTriangle size={10}/> {outOfStock ? 'Fini' : 'Ba'}
+                      <AlertTriangle size={10}/> {outOfStock ? t('restaurant.outOfStock') : t('restaurant.lowStock')}
                     </span>
                   )}
                 </div>
@@ -331,7 +334,7 @@ export default function RestaurantMenuPage() {
                   <div style={{ display:'flex', gap:8, marginTop:6 }}>
                     <button onClick={() => setModal({ type: 'edit', item })}
                       style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, padding:'7px 0', borderRadius:9, background:D.redDim, color:D.red, border:'none', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                      <Edit2 size={12}/> Modifye
+                      <Edit2 size={12}/> {t('restaurant.edit')}
                     </button>
                     <button onClick={() => handleDelete(item)}
                       style={{ width:34, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:9, background:'#fee2e2', color:'#dc2626', border:'none', cursor:'pointer' }}>
@@ -352,7 +355,7 @@ export default function RestaurantMenuPage() {
             style={{ padding:8, borderRadius:9, border:`1px solid ${D.border}`, background:D.white, cursor: page <= 1 ? 'not-allowed' : 'pointer', opacity: page <= 1 ? 0.4 : 1 }}>
             <ChevronLeft size={16} color={D.text}/>
           </button>
-          <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>Paj {data.page} sou {data.pages}</span>
+          <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>{t('products.page')} {data.page} / {data.pages}</span>
           <button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}
             style={{ padding:8, borderRadius:9, border:`1px solid ${D.border}`, background:D.white, cursor: page >= data.pages ? 'not-allowed' : 'pointer', opacity: page >= data.pages ? 0.4 : 1 }}>
             <ChevronRight size={16} color={D.text}/>
