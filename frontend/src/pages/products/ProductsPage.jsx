@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { compressImage } from '../../utils/imageCompression'
 import {
   Plus, Search, Edit2, Trash2, Package,
   AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock, Camera, ShoppingCart
@@ -221,7 +222,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
   const [imagePreview, setImagePreview] = useState(product?.imageUrl || null)
   const [imageChanged, setImageChanged] = useState(false)
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -229,18 +230,22 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
       toast.error('Sèlman fichye imaj aksepte (JPEG, PNG, WebP).')
       return
     }
-    // Limit 2MB — evite imaj twò lou ki ka ranpli baz done a
+    // Limit 2MB sou fichye ORIJINAL la (avan konprese) — pa kite moun
+    // chwazi yon foto ki twò gwo pou konprese rapid nan navigatè a
     if (file.size > 2 * 1024 * 1024) {
       toast.error('Foto a twò gwo — maksimòm 2MB.')
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = () => {
-      setImagePreview(reader.result)
+    try {
+      // ✅ NOUVO — konprese foto a (redwi dimansyon + kalite) anvan l
+      // vin base64, pou l pa manje twòp bandwidth chak fwa lis la chaje
+      const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
+      setImagePreview(compressed)
       setImageChanged(true)
+    } catch {
+      toast.error('Erè pandan konprese foto a.')
     }
-    reader.readAsDataURL(file)
   }
 
   const handleRemoveImage = () => {

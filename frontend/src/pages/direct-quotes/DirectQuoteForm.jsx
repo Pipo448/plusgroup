@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import api, { clientAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
+import { compressImage } from '../../utils/imageCompression'
 import {
   Plus, Trash2, Search, ArrowLeft, Save, X, Lock, User, Camera, Image as ImageIcon,
 } from 'lucide-react'
@@ -95,14 +96,18 @@ const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
   const { t } = useTranslation()
   const total = Math.max(0, Number(item.quantity || 0) * Number(item.unitPriceHtg || 0) - Number(item.discountAmt || 0))
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) { toast.error(t('directQuotes.imageOnlyError')); return }
     if (file.size > 2 * 1024 * 1024) { toast.error(t('directQuotes.imageTooLarge')); return }
-    const reader = new FileReader()
-    reader.onload = () => onChange(index, { imageUrl: reader.result })
-    reader.readAsDataURL(file)
+    try {
+      // ✅ NOUVO — konprese foto atik la anvan l vin base64
+      const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
+      onChange(index, { imageUrl: compressed })
+    } catch {
+      toast.error(t('directQuotes.errorCreating'))
+    }
   }
 
   return (

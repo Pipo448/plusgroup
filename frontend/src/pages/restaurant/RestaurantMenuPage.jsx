@@ -6,6 +6,7 @@ import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { compressImage } from '../../utils/imageCompression'
 import {
   Plus, Search, Edit2, Trash2, UtensilsCrossed, AlertTriangle,
   X, ChevronLeft, ChevronRight, Camera,
@@ -37,14 +38,19 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
   const [imagePreview, setImagePreview] = useState(item?.imageUrl || null)
   const [imageChanged, setImageChanged] = useState(false)
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.type.startsWith('image/')) { toast.error(t('restaurant.imageOnlyError')); return }
     if (file.size > 2 * 1024 * 1024) { toast.error(t('restaurant.imageTooLarge')); return }
-    const reader = new FileReader()
-    reader.onload = () => { setImagePreview(reader.result); setImageChanged(true) }
-    reader.readAsDataURL(file)
+    try {
+      // ✅ NOUVO — konprese foto plat/bwason an anvan l vin base64
+      const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
+      setImagePreview(compressed)
+      setImageChanged(true)
+    } catch {
+      toast.error(t('restaurant.errorGeneric'))
+    }
   }
   const handleRemoveImage = () => { setImagePreview(null); setImageChanged(true) }
 
