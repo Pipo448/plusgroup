@@ -50,13 +50,13 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
 }
 
 const LABELS = {
-  salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales" },
-  paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today' },
-  balance:    { ht:'Pa Peye Jodi a', fr:'Impayé du Jour',    en:'Unpaid Today' },
+  salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales",  es:'Ventas de Hoy' },
+  paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today',     es:'Pagado Hoy' },
+  balance:    { ht:'Pa Peye Jodi a', fr:'Impayé du Jour',    en:'Unpaid Today',   es:'No Pagado Hoy' },
   // ✅ KORIJE — kat sa a montre balanceDueHtg (rès ki rete pou peye) sou fakti
   // pasyèl yo, se pa yon "depo". Etikèt la te ka bay konfizyon (sanble se kòb
   // ki antre, alòske se kòb ki toujou dwe). Kounye a li di sa l vrèman ye: Kredi.
-  partial:    { ht:'Kredi Jodi a',  fr:'Crédit du Jour',    en:'Credit Today' },
+  partial:    { ht:'Kredi Jodi a',  fr:'Crédit du Jour',    en:'Credit Today',    es:'Crédito de Hoy' },
 }
 
 const msg = "💳 Pou renouvle abònman ou — Voye pèman via MonCash, NatCash, Sogebanking oswa BUH ✦ Apre pèman an, pran yon screenshot epi voye l pou nou sou WhatsApp +509 4244 9024 ✦ Ekip PLUS GROUP ap konfime abònman ou nan 24 è ✦ Ou ka vizite biwo nou nan Ouanaminthe si ou pa kapab fè pèman an sou entènèt ✦ Mèsi pou konfyans ou nan PLUS GROUP — Inovasyon & Teknoloji ✦ "
@@ -221,57 +221,57 @@ export default function Dashboard() {
   const TILE_SECTIONS = useMemo(() => {
     const sections = [
       {
-        title: 'Vant & Jesyon',
+        title: t('dashboard.sections.sales'),
         tiles: [
-          { pageKey:'invoices', icon:'🧾', name:'Fakti',   badge:`${dashboard?.totalUnpaid?._count||0} aktif`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices' },
-          { pageKey:'quotes',   icon:'📋', name:'Devi',    badge:'Nouvo +',   gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'   },
+          { pageKey:'invoices', icon:'🧾', name:t('dashboard.tiles.invoices'), badge:`${dashboard?.totalUnpaid?._count||0} ${t('dashboard.tiles.active')}`, gradient:'linear-gradient(135deg,#1B2A8F,#2D3FBF)', path:'/app/invoices' },
+          { pageKey:'quotes',   icon:'📋', name:t('nav.quotes'),    badge:t('dashboard.tiles.quotesNew'),   gradient:'linear-gradient(135deg,#8b5cf6,#6d28d9)', path:'/app/quotes'   },
           // ✅ NOUVO — Devi Dirèk
-          { pageKey:'direct-quotes', icon:'🔖', name:'Devi Dirèk', badge:'Nouvo +', gradient:'linear-gradient(135deg,#a855f7,#7c3aed)', path:'/app/direct-quotes' },
-          { pageKey:'clients',  icon:'👤', name:'Kliyan',  badge:'Jere',      gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'  },
-          { pageKey:'products', icon:'📦', name:'Pwodui',  badge:'Katalòg',   gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products' },
-          { pageKey:'stock',    icon:'🏭', name:'Estòk',   badge:`${lowStock.length||0} alèt`, gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock' },
-          { pageKey:'reports',  icon:'📊', name:'Rapò',    badge:'Analytics', gradient:'linear-gradient(135deg,#6366f1,#4338ca)', path:'/app/reports'  },
+          { pageKey:'direct-quotes', icon:'🔖', name:t('nav.directQuotes'), badge:t('dashboard.tiles.quotesNew'), gradient:'linear-gradient(135deg,#a855f7,#7c3aed)', path:'/app/direct-quotes' },
+          { pageKey:'clients',  icon:'👤', name:t('nav.clients'),  badge:t('dashboard.tiles.manage'),      gradient:'linear-gradient(135deg,#059669,#047857)', path:'/app/clients'  },
+          { pageKey:'products', icon:'📦', name:t('nav.products'),  badge:t('dashboard.tiles.catalog'),   gradient:'linear-gradient(135deg,#f97316,#c2410c)', path:'/app/products' },
+          { pageKey:'stock',    icon:'🏭', name:t('nav.stock'),   badge:`${lowStock.length||0} ${t('dashboard.tiles.alerts')}`, gradient:'linear-gradient(135deg,#14b8a6,#0f766e)', path:'/app/stock' },
+          { pageKey:'reports',  icon:'📊', name:t('nav.reports'),    badge:t('dashboard.tiles.analytics'), gradient:'linear-gradient(135deg,#6366f1,#4338ca)', path:'/app/reports'  },
         ],
       },
       {
-        title: 'Finans',
+        title: t('dashboard.sections.finance'),
         tiles: [
-          { pageKey:'kane',      icon:'💰', name:'Ti Kanè Kès', badge:'Kès',   gradient:'linear-gradient(135deg,#C9A84C,#8B6914)', path:'/app/kane'      },
-          { pageKey:'kane-epay', icon:'💳', name:'Kanè Epay',   badge:'Pèman', gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay' },
-          { pageKey:'expenses',  icon:'🧮', name:'Depans',      badge:'Jere',  gradient:'linear-gradient(135deg,#0891b2,#155e75)', path:'/app/expenses'  },
-          { pageKey:null, adminOnly:true, icon:'📈', name:'Finans', badge:'Admin', gradient:'linear-gradient(135deg,#16a34a,#166534)', path:'/app/finances' },
+          { pageKey:'kane',      icon:'💰', name:t('dashboard.tiles.kane'), badge:t('dashboard.tiles.cash'),   gradient:'linear-gradient(135deg,#C9A84C,#8B6914)', path:'/app/kane'      },
+          { pageKey:'kane-epay', icon:'💳', name:t('dashboard.tiles.kaneEpay'),   badge:t('dashboard.tiles.payment'), gradient:'linear-gradient(135deg,#ec4899,#be185d)', path:'/app/kane-epay' },
+          { pageKey:'expenses',  icon:'🧮', name:t('dashboard.tiles.expenses'),      badge:t('dashboard.tiles.manage'),  gradient:'linear-gradient(135deg,#0891b2,#155e75)', path:'/app/expenses'  },
+          { pageKey:null, adminOnly:true, icon:'📈', name:t('dashboard.tiles.finances'), badge:t('dashboard.tiles.admin'), gradient:'linear-gradient(135deg,#16a34a,#166534)', path:'/app/finances' },
           // ✅ NOUVO — Te kache, kounye a vizib
-          { pageKey:null, icon:'💎', name:'Plan Abònman', badge:'Plan', gradient:'linear-gradient(135deg,#a855f7,#6b21a8)', path:'/app/plans' },
+          { pageKey:null, icon:'💎', name:t('dashboard.tiles.plans'), badge:t('dashboard.tiles.plan'), gradient:'linear-gradient(135deg,#a855f7,#6b21a8)', path:'/app/plans' },
         ],
       },
       {
-        title: 'Sèvis Antrepriz',
+        title: t('dashboard.sections.enterprise'),
         tiles: [
-          { pageKey:'sabotay',  icon:'📱', name:'Sabotay',           badge:'Sol',   gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'  },
-          { pageKey:'mobilpay', icon:'📲', name:'MonCash / NatCash', badge:'Pèman', gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay' },
-          { pageKey:'hotel',    icon:'🏨', name:'Otèl',              badge:'Rezèvasyon', gradient:'linear-gradient(135deg,#7c3aed,#5b21b6)', path:'/app/hotel' },
+          { pageKey:'sabotay',  icon:'📱', name:t('dashboard.tiles.sabotay'),           badge:t('dashboard.tiles.sol'),   gradient:'linear-gradient(135deg,#06b6d4,#0e7490)', path:'/app/sabotay'  },
+          { pageKey:'mobilpay', icon:'📲', name:t('dashboard.tiles.mobilpay'), badge:t('dashboard.tiles.payment'), gradient:'linear-gradient(135deg,#ef4444,#991b1b)', path:'/app/mobilpay' },
+          { pageKey:'hotel',    icon:'🏨', name:t('dashboard.tiles.hotel'),              badge:t('dashboard.tiles.reservation'), gradient:'linear-gradient(135deg,#7c3aed,#5b21b6)', path:'/app/hotel' },
           // ✅ NOUVO — Restoran
-          { pageKey:'restaurant', icon:'🍽️', name:'Restoran', badge:'Meni', gradient:'linear-gradient(135deg,#DC2626,#991B1B)', path:'/app/restaurant/menu' },
-          { pageKey:'dry',      icon:'👔', name:'Blanchisri',        badge:'Kòmand', gradient:'linear-gradient(135deg,#0d9488,#115e59)', path:'/app/dry'   },
-          { pageKey:'pre',      icon:'🏦', name:'Mikwo Kredi',       badge:'Prè',   gradient:'linear-gradient(135deg,#d97706,#92400e)', path:'/app/pre'   },
+          { pageKey:'restaurant', icon:'🍽️', name:t('nav.restaurant'), badge:t('dashboard.tiles.restaurantBadge'), gradient:'linear-gradient(135deg,#DC2626,#991B1B)', path:'/app/restaurant/menu' },
+          { pageKey:'dry',      icon:'👔', name:t('dashboard.tiles.dry'),        badge:t('dashboard.tiles.order'), gradient:'linear-gradient(135deg,#0d9488,#115e59)', path:'/app/dry'   },
+          { pageKey:'pre',      icon:'🏦', name:t('dashboard.tiles.pre'),       badge:t('dashboard.tiles.loan'),   gradient:'linear-gradient(135deg,#d97706,#92400e)', path:'/app/pre'   },
           // ✅ NOUVO — Te kache, kounye a vizib
-          { pageKey:'pre',      icon:'📖', name:'Gid Mikwo Kredi',   badge:'Enfo',  gradient:'linear-gradient(135deg,#b45309,#78350f)', path:'/app/mikwo-kredi-gid' },
-          { pageKey:'pre', adminOnly:true, icon:'💹', name:'Pwofi Mikwo Kredi', badge:'Admin', gradient:'linear-gradient(135deg,#065f46,#022c22)', path:'/app/mikwo-profit' },
+          { pageKey:'pre',      icon:'📖', name:t('dashboard.tiles.preGuide'),   badge:t('dashboard.tiles.info'),  gradient:'linear-gradient(135deg,#b45309,#78350f)', path:'/app/mikwo-kredi-gid' },
+          { pageKey:'pre', adminOnly:true, icon:'💹', name:t('dashboard.tiles.preProfit'), badge:t('dashboard.tiles.admin'), gradient:'linear-gradient(135deg,#065f46,#022c22)', path:'/app/mikwo-profit' },
         ],
       },
       {
-        title: 'Administrasyon',
+        title: t('dashboard.sections.admin'),
         tiles: [
-          { pageKey:'employees', icon:'🧑‍💼', name:'Anplwaye',  badge:'RH',      gradient:'linear-gradient(135deg,#475569,#1e293b)', path:'/app/employees'      },
-          { pageKey:'branches',  icon:'🏬', name:'Branch yo',   badge:'Jere',    gradient:'linear-gradient(135deg,#334155,#0f172a)', path:'/app/branches'       },
-          { pageKey:'users',     icon:'🔑', name:'Itilizatè',   badge:'Kont',    gradient:'linear-gradient(135deg,#57534e,#292524)', path:'/app/settings/users' },
-          { pageKey:'settings',  icon:'⚙️', name:'Paramèt',     badge:'Konfig',  gradient:'linear-gradient(135deg,#64748b,#334155)', path:'/app/settings'       },
+          { pageKey:'employees', icon:'🧑‍💼', name:t('dashboard.tiles.employees'),  badge:t('dashboard.tiles.hr'),      gradient:'linear-gradient(135deg,#475569,#1e293b)', path:'/app/employees'      },
+          { pageKey:'branches',  icon:'🏬', name:t('nav.branches'),   badge:t('dashboard.tiles.manage'),    gradient:'linear-gradient(135deg,#334155,#0f172a)', path:'/app/branches'       },
+          { pageKey:'users',     icon:'🔑', name:t('dashboard.tiles.users'),   badge:t('dashboard.tiles.account'),    gradient:'linear-gradient(135deg,#57534e,#292524)', path:'/app/settings/users' },
+          { pageKey:'settings',  icon:'⚙️', name:t('nav.settings'),     badge:t('dashboard.tiles.config'),  gradient:'linear-gradient(135deg,#64748b,#334155)', path:'/app/settings'       },
         ],
       },
       {
-        title: 'POS & Sistèm',
+        title: t('dashboard.sections.posSystem'),
         tiles: [
-          { pageKey:null, icon:'🖨️', name:'Tès Enprimant', badge:'POS', gradient:'linear-gradient(135deg,#0EA5E9,#0369A1)', path:'/app/printer-test' },
+          { pageKey:null, icon:'🖨️', name:t('dashboard.tiles.printerTest'), badge:t('dashboard.tiles.pos'), gradient:'linear-gradient(135deg,#0EA5E9,#0369A1)', path:'/app/printer-test' },
         ],
       },
     ]
@@ -283,7 +283,7 @@ export default function Dashboard() {
         tiles: sec.tiles.filter(t => isPageAllowed(tenant, t.pageKey) && (!t.adminOnly || isAdmin)),
       }))
       .filter(sec => sec.tiles.length > 0)
-  }, [dashboard?.totalUnpaid?._count, lowStock.length, tenant, isAdmin])
+  }, [dashboard?.totalUnpaid?._count, lowStock.length, tenant, isAdmin, t])
 
   return (
     <div style={{display:'flex', flexDirection:'column', gap:20, fontFamily:'DM Sans,sans-serif', paddingBottom:40}}>
@@ -390,8 +390,8 @@ export default function Dashboard() {
 
       {/* Aksè Rapid — kounye a divize an seksyon */}
       <div>
-        <h2 style={{fontSize:13, fontWeight:900, color:D.text, margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'0.09em'}}>🎨 Aksè Rapid</h2>
-        <p style={{fontSize:11, color:D.muted, margin:'0 0 16px'}}>Klike sou yon modil pou louvri l dirèkteman</p>
+        <h2 style={{fontSize:13, fontWeight:900, color:D.text, margin:'0 0 4px', textTransform:'uppercase', letterSpacing:'0.09em'}}>🎨 {t('dashboard.quickAccessTitle')}</h2>
+        <p style={{fontSize:11, color:D.muted, margin:'0 0 16px'}}>{t('dashboard.quickAccessSubtitle')}</p>
 
         <div style={{display:'flex', flexDirection:'column', gap:18}}>
           {TILE_SECTIONS.map(section => (
