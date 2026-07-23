@@ -8,7 +8,7 @@ export default {
         settings: 'Paramètres', branches: 'Branches',
         directQuotes: 'Devis Direct', restaurant: 'Menu Restaurant',
       },
-      header: { settings: 'Paramètres', logout: 'Déconnexion' },
+      header: { settings: 'Paramètres', logout: 'Déconnexion', loggedOutSuccess: 'Vous êtes déconnecté.' },
       common: {
         search: 'Rechercher', save: 'Enregistrer', saving: 'Enregistrement...', update: 'Mettre à jour',
         cancel: 'Annuler', delete: 'Supprimer', edit: 'Modifier', add: 'Ajouter', close: 'Fermer',

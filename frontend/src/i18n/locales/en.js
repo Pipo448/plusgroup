@@ -8,7 +8,7 @@ export default {
         settings: 'Settings', branches: 'Branches',
         directQuotes: 'Direct Quote', restaurant: 'Restaurant Menu',
       },
-      header: { settings: 'Settings', logout: 'Logout' },
+      header: { settings: 'Settings', logout: 'Logout', loggedOutSuccess: 'You are logged out.' },
       common: {
         search: 'Search', save: 'Save', saving: 'Saving...', update: 'Update',
         cancel: 'Cancel', delete: 'Delete', edit: 'Edit', add: 'Add', close: 'Close',

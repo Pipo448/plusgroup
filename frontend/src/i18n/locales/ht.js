@@ -9,7 +9,7 @@ export default {
         branches: 'Branch yo',
         directQuotes: 'Devi Dirèk', restaurant: 'Meni Restoran',
       },
-      header: { settings: 'Paramèt', logout: 'Dekonekte' },
+      header: { settings: 'Paramèt', logout: 'Dekonekte', loggedOutSuccess: 'Ou dekonekte.' },
       common: {
         search: 'Chèche', save: 'Sovgade', saving: 'Ap sovgade...', update: 'Mete ajou',
         cancel: 'Anile', delete: 'Efase', edit: 'Modifye', add: 'Ajoute', close: 'Fèmen',

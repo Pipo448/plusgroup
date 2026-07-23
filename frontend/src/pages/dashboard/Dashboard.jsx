@@ -14,7 +14,27 @@ import {
   Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
 import { format, subDays } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, es, enUS } from 'date-fns/locale'
+
+// ✅ NOUVO — date-fns pa gen lokal Kreyòl Ayisyen ki egziste, kidonk nou
+// ekri non jou/mwa yo alamen pou Kreyòl, epi itilize lokal date-fns pou
+// Fransè/Anglè/Panyòl.
+const HT_DAYS   = ['Dimanch', 'Lendi', 'Madi', 'Mèkredi', 'Jedi', 'Vandredi', 'Samdi']
+const HT_MONTHS = ['Janvye', 'Fevriye', 'Mas', 'Avril', 'Me', 'Jen', 'Jiyè', 'Out', 'Septanm', 'Oktòb', 'Novanm', 'Desanm']
+const DATE_FNS_LOCALES = { fr, es, en: enUS }
+
+const formatFullDate = (date, lang) => {
+  if (lang === 'ht') {
+    return `${HT_DAYS[date.getDay()]} ${date.getDate()} ${HT_MONTHS[date.getMonth()]} ${date.getFullYear()}`
+  }
+  return format(date, 'EEEE d MMMM yyyy', { locale: DATE_FNS_LOCALES[lang] || fr })
+}
+
+const HT_DAYS_SHORT = ['Dim', 'Len', 'Mad', 'Mèk', 'Jed', 'Van', 'Sam']
+const formatShortDay = (date, lang) => {
+  if (lang === 'ht') return HT_DAYS_SHORT[date.getDay()]
+  return format(date, 'EEE', { locale: DATE_FNS_LOCALES[lang] || fr })
+}
 import { memo, useMemo } from 'react'
 
 const D = {
@@ -188,8 +208,8 @@ export default function Dashboard() {
     const d   = subDays(new Date(), 6-i)
     const key = format(d, 'yyyy-MM-dd')
     const found = salesDaily.find(x => String(x.date).startsWith(key))
-    return { date: format(d, 'EEE', {locale:fr}), ventes: Number(found?.total_htg||0) }
-  }), [salesDaily])
+    return { date: formatShortDay(d, lang), ventes: Number(found?.total_htg||0) }
+  }), [salesDaily, lang])
 
   const totalVentesJodi = Number(data?.todayTotalVentes||0)
   // ✅ KORIJE — "Peye Jodi a" dwe konte KACH ki antre jodi a: fakti peye konplè
@@ -365,7 +385,7 @@ export default function Dashboard() {
               })()}
             </h1>
             <p style={{fontSize:12, color:'rgba(255,255,255,0.5)', margin:0, textTransform:'capitalize'}}>
-              {format(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})),'EEEE d MMMM yyyy',{locale:fr})}
+              {formatFullDate(new Date(new Date().toLocaleString('en-US',{timeZone:'America/Port-au-Prince'})), lang)}
             </p>
           </div>
           <Link to="/app/quotes/new" style={{

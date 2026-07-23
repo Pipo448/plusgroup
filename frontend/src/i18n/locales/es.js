@@ -7,7 +7,7 @@ export default {
     settings: 'Configuración', branches: 'Sucursales',
     directQuotes: 'Cotización Directa', restaurant: 'Menú del Restaurante',
   },
-  header: { settings: 'Configuración', logout: 'Cerrar Sesión' },
+  header: { settings: 'Configuración', logout: 'Cerrar Sesión', loggedOutSuccess: 'Ha cerrado sesión.' },
   common: {
     search: 'Buscar', save: 'Guardar', saving: 'Guardando...', update: 'Actualizar',
     cancel: 'Cancelar', delete: 'Eliminar', edit: 'Editar', add: 'Agregar', close: 'Cerrar',

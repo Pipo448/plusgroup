@@ -535,7 +535,7 @@ export default function AppLayout() {
     localStorage.removeItem('plusgroup-branch-id')
     localStorage.removeItem('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
-    logout(); toast.success('Ou dekonekte.'); navigate('/login')
+    logout(); toast.success(t('header.loggedOutSuccess')); navigate('/login')
   }, [logout, navigate])
 
   const changeLanguage = useCallback((code) => {
