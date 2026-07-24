@@ -553,12 +553,12 @@ export default function InvoiceDetail() {
 
   // ✅ NOUVO — Enprime dirèkteman via plugin native (Bluetooth/Sunmi/iMin/Telpo)
   // Sa a mache SÈLMAN nan APK Capacitor — pa nan navigatè web
-  const handlePrintNative = async () => {
+  const handlePrintNative = async (copies = 1) => {
     setPrintingNative(true)
-    const toastId = toast.loading('Ap voye resi bay enprimant...')
+    const toastId = toast.loading(copies > 1 ? `Ap voye ${copies} kopi bay enprimant...` : 'Ap voye resi bay enprimant...')
     try {
-      await printInvoiceNative(invoice, tenant, user)
-      toast.success('Resi enprime!', { id: toastId })
+      await printInvoiceNative(invoice, tenant, user, copies)
+      toast.success(copies > 1 ? `${copies} kopi enprime!` : 'Resi enprime!', { id: toastId })
     } catch (err) {
       toast.error('Erè enprime: ' + err.message, { id: toastId })
     } finally {
@@ -707,15 +707,27 @@ export default function InvoiceDetail() {
 
           {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman parèt nan APK */}
           {isNativePrinterAvailable() && (
-            <button
-              onClick={handlePrintNative}
-              disabled={printingNative}
-              className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)' }}
-            >
-              <Bluetooth size={14} />
-              {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
-            </button>
+            <>
+              <button
+                onClick={() => handlePrintNative(1)}
+                disabled={printingNative}
+                className="btn-secondary btn-sm"
+                style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)' }}
+              >
+                <Bluetooth size={14} />
+                {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
+              </button>
+              {/* ✅ NOUVO — Enprime 2 kopi (1 pou kliyan, 1 pou achiv) */}
+              <button
+                onClick={() => handlePrintNative(2)}
+                disabled={printingNative}
+                title="Enprime 2 kopi (1 pou kliyan, 1 pou achiv)"
+                className="btn-secondary btn-sm"
+                style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', padding:'8px 10px' }}
+              >
+                <Bluetooth size={14} />×2
+              </button>
+            </>
           )}
 
           {onSunmi && (
@@ -1000,15 +1012,26 @@ export default function InvoiceDetail() {
 
             {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman nan APK */}
             {isNativePrinterAvailable() && (
-              <button
-                onClick={handlePrintNative}
-                disabled={printingNative}
-                className="w-full mt-4"
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
-              >
-                <Bluetooth size={15} />
-                {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
-              </button>
+              <>
+                <button
+                  onClick={() => handlePrintNative(1)}
+                  disabled={printingNative}
+                  className="w-full mt-4"
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
+                >
+                  <Bluetooth size={15} />
+                  {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
+                </button>
+                {/* ✅ NOUVO — Enprime 2 kopi (1 pou kliyan, 1 pou achiv) */}
+                <button
+                  onClick={() => handlePrintNative(2)}
+                  disabled={printingNative}
+                  className="w-full mt-2"
+                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
+                >
+                  <Bluetooth size={15} /> Enprime 2 Kopi
+                </button>
+              </>
             )}
 
             {onSunmi && (

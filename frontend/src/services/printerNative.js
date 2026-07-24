@@ -37,11 +37,11 @@ const fmtDateTime = (d) => {
 }
 
 const STATUS_LABELS = {
-  unpaid:    'PA PEYE',
-  partial:   'DEPO (PASYÈL)',
-  paid:      'PEYE',
-  cancelled: 'ANILE',
-  refunded:  'REMÈT',
+  unpaid:    'NON PAYEE',
+  partial:   'ACOMPTE (PARTIEL)',
+  paid:      'PAYEE',
+  cancelled: 'ANNULEE',
+  refunded:  'REMBOURSEE',
 }
 
 // ✅ NOUVO — Retire aksan (é, è, à, ò, ù, ç, ñ...) pou GARANTI konpatibilite
@@ -86,7 +86,7 @@ export function isNativePrinterAvailable() {
  * Konstwi liy yo pou enprime yon fakti, epi voye yo bay
  * plugin UniversalPrinter la (Sunmi/iMin/Telpo/Bluetooth otomatik).
  */
-export async function printInvoiceNative(invoice, tenant, cashier = null) {
+export async function printInvoiceNative(invoice, tenant, cashier = null, copies = 1) {
   if (!Capacitor.isNativePlatform()) {
     throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
   }
@@ -125,13 +125,13 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   lines.push({ type: 'divider', char: '=' })
 
   // ─── Enfo fakti ───
-  lines.push({ type: 'text', content: `Dat: ${fmtDateTime(invoice.issueDate)}`, size: 'small' })
-  lines.push({ type: 'text', content: `Fakti: ${invoice.invoiceNumber || ''}`, bold: true })
+  lines.push({ type: 'text', content: `Date : ${fmtDateTime(invoice.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Facture : ${invoice.invoiceNumber || ''}`, bold: true })
   if (cashier?.fullName || cashier?.email) {
-    lines.push({ type: 'text', content: `Kesye: ${cashier.fullName || cashier.email}`, size: 'small' })
+    lines.push({ type: 'text', content: `Caissier : ${cashier.fullName || cashier.email}`, size: 'small' })
   }
   if (snap.name) {
-    lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+    lines.push({ type: 'text', content: `Client : ${snap.name}`, size: 'small' })
   }
   if (snap.phone) {
     lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
@@ -142,7 +142,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   // ─── Atik yo ───
   const items = invoice.items || []
   for (const item of items) {
-    const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+    const nom = item.product?.name || item.productSnapshot?.name || 'Article'
     const qty = Number(item.quantity)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
@@ -158,7 +158,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
 
     if (Number(item.discountPct) > 0) {
       // ✅ KORIJE — '↳' pa nan codepage Windows-1252, ranplase l ak ekivalan ASCII
-      lines.push({ type: 'text', content: `  -> Remiz: -${item.discountPct}%`, size: 'small' })
+      lines.push({ type: 'text', content: `  -> Remise : -${item.discountPct}%`, size: 'small' })
     }
   }
 
@@ -177,7 +177,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Rabè', width: 60, align: 'left' },
+        { text: 'Remise', width: 60, align: 'left' },
         { text: `-${fmtN(invoice.discountHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
@@ -187,7 +187,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
     lines.push({
       type: 'table',
       columns: [
-        { text: `Taks (${Number(invoice.taxRate || 0)}%)`, width: 60, align: 'left' },
+        { text: `Taxe (${Number(invoice.taxRate || 0)}%)`, width: 60, align: 'left' },
         { text: `${fmtN(invoice.taxHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
@@ -210,29 +210,29 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   // ─── Estati peman ───
   if (isCancelled) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: 'X FAKTI ANILE', align: 'center', bold: true, size: 'large' })
+    lines.push({ type: 'text', content: 'X FACTURE ANNULEE', align: 'center', bold: true, size: 'large' })
   } else if (isPaid) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: '* PEYE KONPLÈ *', align: 'center', bold: true })
+    lines.push({ type: 'text', content: '* PAYEE INTEGRALEMENT *', align: 'center', bold: true })
   } else if (isPartial) {
     lines.push({ type: 'divider' })
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Depo peye', width: 60, align: 'left' },
+        { text: 'Acompte verse', width: 60, align: 'left' },
         { text: `${fmtN(paidHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Rete pou peye', width: 60, align: 'left' },
+        { text: 'Solde restant', width: 60, align: 'left' },
         { text: `${fmtN(balanceHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
   } else {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: `POU PEYE: ${fmtN(balanceHtg)} HTG`, align: 'center', bold: true })
+    lines.push({ type: 'text', content: `A PAYER : ${fmtN(balanceHtg)} HTG`, align: 'center', bold: true })
   }
 
   lines.push({ type: 'space' })
@@ -252,7 +252,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
 
   // ✅ NOUVO — Dat/Lè REYÈL enprimasyon an (pa lè vant lan fèt) — nan pye paj tout anba
   lines.push({ type: 'space' })
-  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
   // ✅ NOUVO — Netwaye aksan yo (é, è, à, ò...) pou evite "?" sou enprimant Bluetooth
   const cleanLines = sanitizeLines(lines)
@@ -260,7 +260,8 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
   // ─── Voye nan plugin la ───
   const result = await UniversalPrinter.print({
     lines: cleanLines,
-    copies: 1,
+    // ✅ NOUVO — pèmèt enprime plizyè kopi (egzanp: 1 pou kliyan, 1 pou achiv)
+    copies: Math.max(1, Number(copies) || 1),
     cutAtEnd: true,
   })
 
@@ -273,11 +274,11 @@ export async function printInvoiceNative(invoice, tenant, cashier = null) {
 
 // ✅ NOUVO — Estati devi (labèl pou enprime)
 const QUOTE_STATUS_LABELS = {
-  draft:     'BOUYON',
-  sent:      'VOYE',
-  accepted:  'AKSEPTE',
-  converted: 'KONVÈTI AN FAKTI',
-  cancelled: 'ANILE',
+  draft:     'BROUILLON',
+  sent:      'ENVOYE',
+  accepted:  'ACCEPTE',
+  converted: 'CONVERTI EN FACTURE',
+  cancelled: 'ANNULE',
 }
 
 /**
@@ -319,16 +320,16 @@ export async function printQuoteNative(quote, tenant) {
   lines.push({ type: 'divider', char: '=' })
 
   // ─── Tit DEVI ───
-  lines.push({ type: 'text', content: 'PWOFORMA / DEVI', align: 'center', bold: true })
+  lines.push({ type: 'text', content: 'PROFORMA / DEVIS', align: 'center', bold: true })
 
   // ─── Enfo devi ───
-  lines.push({ type: 'text', content: `Dat: ${fmtDate(quote.issueDate)}`, size: 'small' })
-  lines.push({ type: 'text', content: `Devi: ${quote.quoteNumber || ''}`, bold: true })
+  lines.push({ type: 'text', content: `Date : ${fmtDate(quote.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Devis : ${quote.quoteNumber || ''}`, bold: true })
   if (quote.expiryDate) {
-    lines.push({ type: 'text', content: `Ekspire: ${fmtDate(quote.expiryDate)}`, size: 'small' })
+    lines.push({ type: 'text', content: `Expire le : ${fmtDate(quote.expiryDate)}`, size: 'small' })
   }
   if (snap.name) {
-    lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+    lines.push({ type: 'text', content: `Client : ${snap.name}`, size: 'small' })
   }
   if (snap.phone) {
     lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
@@ -339,7 +340,7 @@ export async function printQuoteNative(quote, tenant) {
   // ─── Atik yo ───
   const items = quote.items || []
   for (const item of items) {
-    const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+    const nom = item.product?.name || item.productSnapshot?.name || 'Article'
     const qty = Number(item.quantity)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
@@ -354,7 +355,7 @@ export async function printQuoteNative(quote, tenant) {
     })
 
     if (Number(item.discountPct) > 0) {
-      lines.push({ type: 'text', content: `  -> Remiz: -${item.discountPct}%`, size: 'small' })
+      lines.push({ type: 'text', content: `  -> Remise : -${item.discountPct}%`, size: 'small' })
     }
   }
 
@@ -373,7 +374,7 @@ export async function printQuoteNative(quote, tenant) {
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Rabè', width: 60, align: 'left' },
+        { text: 'Remise', width: 60, align: 'left' },
         { text: `-${fmtN(quote.discountHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
@@ -403,13 +404,13 @@ export async function printQuoteNative(quote, tenant) {
   // ─── Estati devi ───
   if (isCancelled) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: 'X DEVI ANILE', align: 'center', bold: true, size: 'large' })
+    lines.push({ type: 'text', content: 'X DEVIS ANNULE', align: 'center', bold: true, size: 'large' })
   } else if (isConverted) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: '* KONVÈTI AN FAKTI *', align: 'center', bold: true })
+    lines.push({ type: 'text', content: '* CONVERTI EN FACTURE *', align: 'center', bold: true })
   } else {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: `Estati: ${QUOTE_STATUS_LABELS[quote.status] || ''}`, align: 'center', size: 'small' })
+    lines.push({ type: 'text', content: `Statut : ${QUOTE_STATUS_LABELS[quote.status] || ''}`, align: 'center', size: 'small' })
   }
 
   lines.push({ type: 'space' })
@@ -426,7 +427,7 @@ export async function printQuoteNative(quote, tenant) {
   lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
 
   lines.push({ type: 'space' })
-  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
   const cleanLines = sanitizeLines(lines)
 
@@ -471,10 +472,10 @@ export async function printDirectQuoteNative(directQuote, tenant) {
   }
 
   lines.push({ type: 'divider', char: '=' })
-  lines.push({ type: 'text', content: 'DEVI DIRÈK', align: 'center', bold: true })
-  lines.push({ type: 'text', content: `Dat: ${fmtDate(directQuote.issueDate)}`, size: 'small' })
-  lines.push({ type: 'text', content: `Devi: ${directQuote.quoteNumber || ''}`, bold: true })
-  if (snap.name) lines.push({ type: 'text', content: `Kliyan: ${snap.name}`, size: 'small' })
+  lines.push({ type: 'text', content: 'DEVIS DIRECT', align: 'center', bold: true })
+  lines.push({ type: 'text', content: `Date : ${fmtDate(directQuote.issueDate)}`, size: 'small' })
+  lines.push({ type: 'text', content: `Devis : ${directQuote.quoteNumber || ''}`, bold: true })
+  if (snap.name) lines.push({ type: 'text', content: `Client : ${snap.name}`, size: 'small' })
   if (snap.phone) lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
 
   lines.push({ type: 'divider' })
@@ -484,10 +485,10 @@ export async function printDirectQuoteNative(directQuote, tenant) {
     const qty = fmtN(item.quantity)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
-    lines.push({ type: 'text', content: item.description || 'Atik', bold: true })
+    lines.push({ type: 'text', content: item.description || 'Article', bold: true })
     // ✅ NOUVO — montre gwosè a sou resi a si li genyen
     if (item.size) {
-      lines.push({ type: 'text', content: `  Gwosè: ${item.size}`, size: 'small' })
+      lines.push({ type: 'text', content: `  Taille : ${item.size}`, size: 'small' })
     }
     lines.push({
       type: 'table',
@@ -511,7 +512,7 @@ export async function printDirectQuoteNative(directQuote, tenant) {
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Rabè', width: 60, align: 'left' },
+        { text: 'Remise', width: 60, align: 'left' },
         { text: `-${fmtN(directQuote.discountHtg)} HTG`, width: 40, align: 'right' },
       ]
     })
@@ -530,14 +531,14 @@ export async function printDirectQuoteNative(directQuote, tenant) {
 
   if (isCancelled) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: 'X DEVI ANILE', align: 'center', bold: true, size: 'large' })
+    lines.push({ type: 'text', content: 'X DEVIS ANNULE', align: 'center', bold: true, size: 'large' })
   }
 
   lines.push({ type: 'space' })
   lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
   lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
   lines.push({ type: 'space' })
-  lines.push({ type: 'text', content: `Enprime: ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
   const cleanLines = sanitizeLines(lines)
 
