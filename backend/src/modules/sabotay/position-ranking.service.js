@@ -424,12 +424,71 @@ function _lockKeyFromId(id) {
   return Math.abs(h) % 2147483647
 }
 
+// ─────────────────────────────────────────────────────────────
+// ✅ PÈFÒMANS: mizajou annmas (bulk) olye yon UPDATE pa manm.
+//   Yon sèl rekèt SQL pou N manm (unnest arrays) — sa retire
+//   santèn de ale-retou rezo sekans ki te lakòz timeout 30s la
+//   lè yon plan gen anpil manm.
+// ─────────────────────────────────────────────────────────────
+async function _bulkUpdateMemberPositions(tx, rows) {
+  if (!rows.length) return
+  const ids       = rows.map(r => r.id)
+  const positions = rows.map(r => r.position)
+  await tx.$executeRaw`
+    UPDATE sabotay_members AS sm
+    SET position = v.position
+    FROM (SELECT * FROM unnest(${ids}::text[], ${positions}::int[]) AS v(id, position)) AS v
+    WHERE sm.id = v.id
+  `
+}
+
+async function _bulkUpdateMemberPositionsAndScores(tx, rows) {
+  if (!rows.length) return
+  const ids       = rows.map(r => r.id)
+  const positions = rows.map(r => r.position)
+  const scores    = rows.map(r => r.score)
+  await tx.$executeRaw`
+    UPDATE sabotay_members AS sm
+    SET position = v.position, "performanceScore" = v.score
+    FROM (SELECT * FROM unnest(${ids}::text[], ${positions}::int[], ${scores}::int[]) AS v(id, position, score)) AS v
+    WHERE sm.id = v.id
+  `
+}
+
+async function _bulkUpdateMemberScores(tx, rows) {
+  if (!rows.length) return
+  const ids    = rows.map(r => r.id)
+  const scores = rows.map(r => r.score)
+  await tx.$executeRaw`
+    UPDATE sabotay_members AS sm
+    SET "performanceScore" = v.score
+    FROM (SELECT * FROM unnest(${ids}::text[], ${scores}::int[]) AS v(id, score)) AS v
+    WHERE sm.id = v.id
+  `
+}
+
+async function _bulkUpdateSolMemberPositions(tx, planId, rows) {
+  if (!rows.length) return
+  const ids       = rows.map(r => r.id)
+  const positions = rows.map(r => r.position)
+  try {
+    await tx.$executeRaw`
+      UPDATE sol_member_positions AS sp
+      SET "memberPosition" = v.position
+      FROM (SELECT * FROM unnest(${ids}::text[], ${positions}::int[]) AS v(id, position)) AS v
+      WHERE sp."memberId" = v.id AND sp."planId" = ${planId}
+    `
+  } catch (_) {}
+}
+
 async function recalculatePositions(planId) {
   // ═══════════════════════════════════════════════════════════════
   // TOUT NAN YON SÈL TRANSACTION + ADVISORY LOCK
   //   → serialize apèl konkiran pou MENM plan an.
   //   → si nenpòt bagay echwe, TOUT bagay woule fè bak (rollback)
   //     donk pa gen pozisyon negatif ki ka rete bloke.
+  //   ✅ PÈFÒMANS: tout mizajou yo kounye a fèt AN MAS (bulk),
+  //      pa gen ankò yon rekèt sekans pa manm.
   // ═══════════════════════════════════════════════════════════════
   return await prisma.$transaction(async (tx) => {
 
@@ -474,26 +533,18 @@ async function recalculatePositions(planId) {
         const pb = b.position > 0 ? b.position : 1e9 + Math.abs(b.position || 0)
         return pa - pb
       })
-      // ETAP 1: tout sou negatif tanporè (san konfli)
-      for (let i = 0; i < ordered.length; i++) {
-        await tx.sabotayMember.update({
-          where: { id: ordered[i].id },
-          data:  { position: -(i + 5000) },
-        })
-      }
-      // ETAP 2: renumewote 1..N
-      for (let i = 0; i < ordered.length; i++) {
-        await tx.sabotayMember.update({
-          where: { id: ordered[i].id },
-          data:  { position: i + 1 },
-        })
-        await tx.solMemberPosition.updateMany({
-          where: { memberId: ordered[i].id, planId },
-          data:  { memberPosition: i + 1 },
-        }).catch(() => {})
-        // Mete ajou objè lokal la tou pou rès kalkil la
-        const am = activeMembers.find(x => x.id === ordered[i].id)
-        if (am) am.position = i + 1
+      // ETAP 1: tout sou negatif tanporè (san konfli) — 1 rekèt annmas
+      await _bulkUpdateMemberPositions(
+        tx, ordered.map((m, i) => ({ id: m.id, position: -(i + 5000) }))
+      )
+      // ETAP 2: renumewote 1..N — 1 rekèt annmas
+      const healedRows = ordered.map((m, i) => ({ id: m.id, position: i + 1 }))
+      await _bulkUpdateMemberPositions(tx, healedRows)
+      await _bulkUpdateSolMemberPositions(tx, planId, healedRows)
+      // Mete ajou objè lokal yo tou pou rès kalkil la
+      for (const r of healedRows) {
+        const am = activeMembers.find(x => x.id === r.id)
+        if (am) am.position = r.position
       }
       console.log(`[SELF-HEAL] Plan ${planId}: ${ordered.length} pozisyon korije renumewote 1..${ordered.length}`)
     }
@@ -552,37 +603,31 @@ async function recalculatePositions(planId) {
 
     // ═════════════════════════════════════════════════════════════
     // ETAP 1: Pozisyon temp negatif — SÈLMAN konpetisyone
-    //   (anndan menm tx — pa gen interleave gras a advisory lock)
+    //   (1 rekèt annmas olye N — anndan menm tx, lock la anpeche
+    //    nenpòt lòt apèl entèfere)
     // ═════════════════════════════════════════════════════════════
-    for (let idx = 0; idx < competing.length; idx++) {
-      await tx.sabotayMember.update({
-        where: { id: competing[idx].id },
-        data:  { position: -(idx + 1000) },
-      })
-    }
+    await _bulkUpdateMemberPositions(
+      tx, competing.map((m, idx) => ({ id: m.id, position: -(idx + 1000) }))
+    )
 
     // ═════════════════════════════════════════════════════════════
-    // ETAP 2: Pozisyon final + skò pou konpetisyone yo
+    // ETAP 2: Pozisyon final + skò pou konpetisyone yo — 1 rekèt annmas
     // ═════════════════════════════════════════════════════════════
-    for (let idx = 0; idx < competing.length; idx++) {
-      await tx.sabotayMember.update({
-        where: { id: competing[idx].id },
-        data: {
-          position:         available[idx] ?? competing[idx].currentPosition,
-          performanceScore: competing[idx].score,
-        },
-      })
-    }
+    await _bulkUpdateMemberPositionsAndScores(
+      tx,
+      competing.map((m, idx) => ({
+        id:       m.id,
+        position: available[idx] ?? m.currentPosition,
+        score:    m.score,
+      }))
+    )
 
     // ═════════════════════════════════════════════════════════════
-    // ETAP 3: Skò pou manm LOCK yo (pozisyon PA chanje)
+    // ETAP 3: Skò pou manm LOCK yo (pozisyon PA chanje) — 1 rekèt annmas
     // ═════════════════════════════════════════════════════════════
-    for (const m of lockedScored) {
-      await tx.sabotayMember.update({
-        where: { id: m.id },
-        data:  { performanceScore: m.score },
-      })
-    }
+    await _bulkUpdateMemberScores(
+      tx, lockedScored.map(m => ({ id: m.id, score: m.score }))
+    )
 
     console.log(
       `[RANKING] Plan ${planId}: ${competing.length} reklase, ` +
