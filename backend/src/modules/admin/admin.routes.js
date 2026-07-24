@@ -108,71 +108,61 @@ router.post('/login', asyncHandler(async (req, res) => {
 }))
 
 // ── POST /api/v1/admin/setup-superadmin
-router.post('/setup-superadmin', async (req, res) => {
-  try {
-    const { PrismaClient } = require('@prisma/client')
-    const bcrypt = require('bcryptjs')
-    const prismaClient = new PrismaClient()
-
-    const existing = await prismaClient.superAdmin.findFirst()
-    if (existing) {
-      await prismaClient.$disconnect()
-      return res.json({ success: false, message: 'Super Admin deja egziste!' })
-    }
-
-    const hashedPassword = await bcrypt.hash('SuperAdmin2024!', 12)
-    const superAdmin = await prismaClient.superAdmin.create({
-      data: { name: 'PLUS GROUP Admin', email: 'admin@plusgroup.ht', passwordHash: hashedPassword, isActive: true }
-    })
-    await prismaClient.$disconnect()
-
-    res.json({
-      success: true,
-      message: 'Super Admin kreye avèk siksè!',
-      data: {
-        superAdmin: { id: superAdmin.id, name: superAdmin.name, email: superAdmin.email },
-        credentials: { email: 'admin@plusgroup.ht', password: 'SuperAdmin2024!', loginUrl: '/admin/login' }
-      }
-    })
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erè pandan kreye super admin', error: error.message })
+// ⚠️ KORIJE — itilize `prisma` pataje a olye kreye yon PrismaClient nouvo
+// (chak apèl te kreye yon pool koneksyon separe ki pa t janm fèmen si
+// tenantExists te fè fonksyon an retounen bonè, sa te fwi koneksyon
+// Postgres/Supabase yo pandan tan).
+router.post('/setup-superadmin', asyncHandler(async (req, res) => {
+  const existing = await prisma.superAdmin.findFirst()
+  if (existing) {
+    return res.json({ success: false, message: 'Super Admin deja egziste!' })
   }
-})
+
+  const hashedPassword = await bcrypt.hash('SuperAdmin2024!', 12)
+  const superAdmin = await prisma.superAdmin.create({
+    data: { name: 'PLUS GROUP Admin', email: 'admin@plusgroup.ht', passwordHash: hashedPassword, isActive: true }
+  })
+
+  res.json({
+    success: true,
+    message: 'Super Admin kreye avèk siksè!',
+    data: {
+      superAdmin: { id: superAdmin.id, name: superAdmin.name, email: superAdmin.email },
+      credentials: { email: 'admin@plusgroup.ht', password: 'SuperAdmin2024!', loginUrl: '/admin/login' }
+    }
+  })
+}))
 
 // ── DELETE /api/v1/admin/tenants/by-slug/:slug
-router.delete('/tenants/by-slug/:slug', async (req, res) => {
-  try {
-    const { PrismaClient } = require('@prisma/client')
-    const prismaClient = new PrismaClient()
-    const { slug } = req.params
+// ⚠️ KORIJE — itilize `prisma` pataje a olye kreye yon PrismaClient nouvo.
+// Ansyen kòd la te kreye yon nouvo pool koneksyon CHAK fwa wout sa a rele,
+// e li pa t janm rele $disconnect() si youn nan safeDelete yo te leve yon
+// erè ki pa jere — koneksyon yo te rete louvri pou tout tan sou Supabase.
+router.delete('/tenants/by-slug/:slug', asyncHandler(async (req, res) => {
+  const { slug } = req.params
 
-    const tenant = await prismaClient.tenant.findUnique({ where: { slug } })
-    if (!tenant) {
-      await prismaClient.$disconnect()
-      return res.status(404).json({ success: false, message: `Tenant "${slug}" pa jwenn.` })
-    }
-
-    const safeDelete = async (fn) => { try { await fn() } catch(e) { console.warn('Skip:', e.message) } }
-    await safeDelete(() => prismaClient.stockMovement.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } }))
-    await safeDelete(() => prismaClient.payment.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.invoice.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.quoteItem.deleteMany({ where: { quote: { tenantId: tenant.id } } }))
-    await safeDelete(() => prismaClient.quote.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.product.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.client.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.documentSequence.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.branchUser.deleteMany({ where: { branch: { tenantId: tenant.id } } }))
-    await safeDelete(() => prismaClient.branch.deleteMany({ where: { tenantId: tenant.id } }))
-    await safeDelete(() => prismaClient.user.deleteMany({ where: { tenantId: tenant.id } }))
-    await prismaClient.tenant.delete({ where: { id: tenant.id } })
-    await prismaClient.$disconnect()
-
-    res.json({ success: true, message: `Tenant "${slug}" efase avèk siksè!` })
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Erè pandan efase tenant', error: error.message })
+  const tenant = await prisma.tenant.findUnique({ where: { slug } })
+  if (!tenant) {
+    return res.status(404).json({ success: false, message: `Tenant "${slug}" pa jwenn.` })
   }
-})
+
+  const safeDelete = async (fn) => { try { await fn() } catch(e) { console.warn('Skip:', e.message) } }
+  await safeDelete(() => prisma.stockMovement.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.invoiceItem.deleteMany({ where: { invoice: { tenantId: tenant.id } } }))
+  await safeDelete(() => prisma.payment.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.invoice.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.quoteItem.deleteMany({ where: { quote: { tenantId: tenant.id } } }))
+  await safeDelete(() => prisma.quote.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.product.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.client.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.documentSequence.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.branchUser.deleteMany({ where: { branch: { tenantId: tenant.id } } }))
+  await safeDelete(() => prisma.branch.deleteMany({ where: { tenantId: tenant.id } }))
+  await safeDelete(() => prisma.user.deleteMany({ where: { tenantId: tenant.id } }))
+  await prisma.tenant.delete({ where: { id: tenant.id } })
+
+  res.json({ success: true, message: `Tenant "${slug}" efase avèk siksè!` })
+}))
 
 // ══════════════════════════════════════════════
 // ── Proteksyon tout routes anba a
