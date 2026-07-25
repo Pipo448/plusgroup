@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { invoiceAPI, clientAPI, productAPI, branchAPI } from '../../services/api'
+import { invoiceAPI, clientAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Plus, Trash2, Receipt, User, Search, Save, WifiOff, RefreshCw, UploadCloud, Package } from 'lucide-react'
@@ -392,19 +392,6 @@ export default function NewInvoicePage() {
   const [selectedClient, setSelectedClient] = useState(null)
   const clientRef = useRef(null)
 
-  // ⚠️ NOUVO — Admin ka chwazi ki branch fakti a konsène
-  // (sèlman si tenant lan gen plis pase 1 branch)
-  const isAdmin = user?.role === 'admin'
-  const { data: branchesData } = useQuery({
-    queryKey: ['branches-for-invoice'],
-    queryFn: () => branchAPI.getAll().then(r => r.data),
-    enabled: isAdmin,
-  })
-  const branches = branchesData?.branches || []
-  const showBranchSelector = isAdmin && branches.length > 1
-  const [selectedBranchId, setSelectedBranchId] = useState('')
-  const [branchError, setBranchError] = useState(false)
-
   const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
   const [invoiceDate, setInvoiceDate]       = useState(today)
 
@@ -622,11 +609,6 @@ export default function NewInvoicePage() {
       toast.error(t('invoice.addAtLeastOneItem') || 'Ajoute omwen yon atik.')
       return
     }
-    if (showBranchSelector && !selectedBranchId) {
-      setBranchError(true)
-      toast.error('Ou dwe chwazi yon branch.')
-      return
-    }
 
     // ✅ KORIJE — pou chak liy, konvèti montan rabè a an pousantaj
     // (paske schema InvoiceItem nan backend la sèlman gen `discountPct`)
@@ -670,8 +652,6 @@ export default function NewInvoicePage() {
 
     const payload = {
       clientId:      selectedClient?.id || null,
-      // ⚠️ NOUVO — branch admin chwazi (si aplikab)
-      ...(showBranchSelector && { branchId: selectedBranchId }),
       // ✅ NOUVO — si okenn kliyan pa seleksyone nan lis la, men itilizatè a
       // tape yon non, itilize non tape a kanmenm (kliyan ki pa nan sistèm nan)
       clientSnapshot: selectedClient
@@ -749,7 +729,7 @@ export default function NewInvoicePage() {
 
     // ─── Online — kontinye jan sa te ye a ───
     mutation.mutate(payload)
-  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate, paymentMethod, amountReceived, showBranchSelector, selectedBranchId])
+  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate, paymentMethod, amountReceived])
 
   // ✅ NOUVO — Enprime resi offline (itilize plugin native Bluetooth/Sunmi/etc)
   const handlePrintOfflineReceipt = useCallback(async () => {
@@ -911,24 +891,6 @@ export default function NewInvoicePage() {
                   onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
             </div>
-
-            {/* ⚠️ NOUVO — Branch, sèlman pou admin, sèlman si plis pase 1 branch */}
-            {showBranchSelector && (
-              <div>
-                {label('Branch *')}
-                <select
-                  value={selectedBranchId}
-                  onChange={e => { setSelectedBranchId(e.target.value); setBranchError(false) }}
-                  style={{ ...inp, borderColor: branchError ? D.red : D.border }}
-                >
-                  <option value="">Chwazi yon branch...</option>
-                  {branches.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}{!b.isActive ? ' (bloke)' : ''}</option>
-                  ))}
-                </select>
-                {branchError && <p style={{ color: D.red, fontSize: 11, marginTop: 4 }}>Ou dwe chwazi yon branch.</p>}
-              </div>
-            )}
           </div>
         </div>
 

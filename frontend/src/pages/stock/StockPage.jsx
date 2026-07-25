@@ -1,8 +1,7 @@
 // src/pages/stock/StockPage.jsx
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { stockAPI, productAPI, branchAPI } from '../../services/api'
-import { useAuthStore } from '../../stores/authStore'
+import { stockAPI, productAPI } from '../../services/api'
 import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import { Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, RefreshCw, X } from 'lucide-react'
@@ -61,28 +60,15 @@ const AdjustModal = ({ onClose }) => {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const isMobile = useIsMobile()
-  const user = useAuthStore(s => s.user)
-  const isAdmin = user?.role === 'admin'
   const [search, setSearch]     = useState('')
   const [selected, setSelected] = useState(null)
-  const [form, setForm]         = useState({ quantity: '', type: 'add', notes: '', branchId: '' })
-  const [branchError, setBranchError] = useState(false)
+  const [form, setForm]         = useState({ quantity: '', type: 'add', notes: '' })
 
   const { data: products } = useQuery({
     queryKey: ['products-adj', search],
     queryFn: () => productAPI.getAll({ search, limit: 6 }).then(r => r.data.products),
     enabled: search.length > 0,
   })
-
-  // ⚠️ NOUVO — Admin ka chwazi ki branch mouvman estòk la konsène
-  // (sèlman si tenant lan gen plis pase 1 branch — pa gen rezon "chwazi" pou 1 sèl)
-  const { data: branchesData } = useQuery({
-    queryKey: ['branches-for-stock-modal'],
-    queryFn: () => branchAPI.getAll().then(r => r.data),
-    enabled: isAdmin,
-  })
-  const branches = branchesData?.branches || []
-  const showBranchSelector = isAdmin && branches.length > 1
 
   const mutation = useMutation({
     mutationFn: (data) => stockAPI.addMovement(data),
@@ -104,17 +90,12 @@ const AdjustModal = ({ onClose }) => {
   const handleConfirm = () => {
     if (!selected) return toast.error(t('stock.selectProduct'))
     if (!form.quantity || Number(form.quantity) <= 0) return toast.error(t('stock.quantityRequired'))
-    if (showBranchSelector && !form.branchId) {
-      setBranchError(true)
-      return toast.error('Ou dwe chwazi yon branch.')
-    }
     const typeMap = { add: 'add', remove: 'remove', purchase: 'purchase', loss: 'loss' }
     mutation.mutate({
       productId: selected.id,
       quantity:  Number(form.quantity),
       type:      typeMap[form.type] || 'add',
       notes:     form.notes,
-      ...(showBranchSelector && { branchId: form.branchId }),
     })
   }
 
@@ -213,24 +194,6 @@ const AdjustModal = ({ onClose }) => {
               ))}
             </div>
           </div>
-
-          {/* Branch — sèlman pou admin, sèlman si plis pase 1 branch */}
-          {showBranchSelector && (
-            <div>
-              <label style={{ display: 'block', color: S.text, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Branch</label>
-              <select
-                value={form.branchId}
-                onChange={e => { setForm({ ...form, branchId: e.target.value }); setBranchError(false) }}
-                style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: `1.5px solid ${branchError ? S.danger : S.border}`, outline: 'none', fontSize: 14, color: S.text, background: '#F8F9FF', boxSizing: 'border-box' }}
-              >
-                <option value="">Chwazi yon branch...</option>
-                {branches.map(b => (
-                  <option key={b.id} value={b.id}>{b.name}{!b.isActive ? ' (bloke)' : ''}</option>
-                ))}
-              </select>
-              {branchError && <p style={{ color: S.danger, fontSize: 11, marginTop: 4 }}>Ou dwe chwazi yon branch.</p>}
-            </div>
-          )}
 
           {/* Kantite */}
           <div>
