@@ -8,24 +8,22 @@
 //   node scripts/migrate-tenant-to-branch.js plus-store
 //   node scripts/migrate-tenant-to-branch.js plus-store "Plus Store" --apply
 //
-// ⚠️ KORIJE (apre ensidan 25 jiyè 2026) — ANSYEN vèsyon an te "adopte" yon
-// branch ki te DEJA egziste kòm sib backfill si tenant lan te gen youn.
-// Sa te fè done "jeneral" yon tenant (pa egzanp Plus Store) mal tache sou
-// yon lòt branch ki te deja gen pwòp vrè done pa li (Plus Barber), melanje
-// de biznis diferan anba menm branch_id.
-//
-// KOUNYE A: script la TOUJOU kreye yon NOUVO branch dedye pou done san
-// branch yo, kèlkeswa si tenant lan gen deja lòt branch. Li pa janm touche
-// oswa "adopte" yon branch ki egziste deja.
+// ⚠️ SAN DANJE POU RE-KOURI sou yon tenant ki DEJA migre (pa egzanp
+// plus-store, hme) — si tenant lan gen deja yon branch e pa gen okenn
+// done san branch ankò, script la sote etap kreyasyon/backfill done a,
+// men li KONTINYE rive nan ETAP 4 (lye kesye) pou l ka repare kesye ki
+// te kreye AVAN migrasyon an epi ki poko gen okenn BranchUser.
 //
 // Sa script la fè:
 //   1. Jwenn tenant lan pa slug
-//   2. Konte done san branch (branchId = NULL) pou chak modil — AVAN nenpòt kreyasyon
-//   3. Si TOTAL la se 0 pou tout modil, pa gen anyen pou fè — sòti san kreye anyen
-//   4. Sinon, kreye yon NOUVO branch dedye (non pa defo = non tenant lan,
-//      oswa non ou bay kòm 2yèm agiman)
-//   5. Backfill done san branch yo sou nouvo branch sa a
-//   6. Montre yon rapò konte pou chak tab
+//   2. Konte done san branch (branchId = NULL) pou chak modil
+//   3. Si gen done san branch: kreye yon NOUVO branch dedye (JANM adopte
+//      yon branch ki egziste deja), backfill done yo sou li
+//   4. ⚠️ NOUVO — Si tenant lan gen EGZAKTEMAN yon sèl branch (kit li
+//      fèk kreye kounye a, kit li te deja la), lye tout itilizatè
+//      non-admin ki PA GEN okenn BranchUser ak branch sa a (kòm
+//      'cashier' pa defo). Si tenant lan gen 0 oswa 2+ branch, sote
+//      etap sa a — ambigwite egzije yon aksyon manyèl admin nan UI a.
 
 const prisma = require('../src/config/prisma')
 
@@ -72,7 +70,6 @@ async function main() {
   }
   console.log(`✅ Tenant jwenn: ${tenant.name} (${tenant.id})\n`)
 
-  // ── Enfo sèlman — montre branch ki deja egziste yo, pa janm itilize yo kòm sib
   const existingBranches = await prisma.branch.findMany({
     where: { tenantId: tenant.id },
     select: { id: true, name: true, slug: true },
@@ -81,19 +78,16 @@ async function main() {
   if (existingBranches.length > 0) {
     console.log(`ℹ️  Tenant sa a deja gen ${existingBranches.length} branch:`)
     existingBranches.forEach(b => console.log(`     - ${b.name} (${b.slug})`))
-    console.log(`   ⚠️  OKENN nan yo p ap touche oswa itilize kòm sib — nou pral kreye yon NOUVO branch separe.\n`)
+    console.log(`   ⚠️  OKENN nan yo p ap touche/adopte kòm sib backfill — nou kreye yon NOUVO branch separe si nesesè.\n`)
   }
 
-  // ── Etap 1: Konte done san branch AVAN nenpòt kreyasyon
+  // ── ETAP 1: Konte done san branch AVAN nenpòt kreyasyon
   console.log('── Konte done san branch (avan kreyasyon) ──\n')
   const counts = {}
   let totalOrphans = 0
 
   for (const { model, label } of MODELS_TO_BACKFILL) {
-    if (!prisma[model]) {
-      console.log(`⏭️  ${label}: modil pa egziste nan schema a, skip.`)
-      continue
-    }
+    if (!prisma[model]) { console.log(`⏭️  ${label}: modil pa egziste, skip.`); continue }
     try {
       const c = await prisma[model].count({ where: { tenantId: tenant.id, branchId: null } })
       counts[model] = c
@@ -105,57 +99,127 @@ async function main() {
   }
 
   if (totalOrphans === 0) {
-    console.log(`\n✅ Pa gen okenn done san branch pou tenant sa a. Anyen pou fè — script sòti san touche anyen.\n`)
-    await prisma.$disconnect()
-    return
-  }
+    console.log(`\n✅ Pa gen okenn done san branch pou tenant sa a — pa gen kreyasyon/backfill branch pou fè.\n`)
+  } else if (existingBranches.length >= 2) {
+    // ⚠️ NOUVO — Tenant gen plizyè branch deja: pa gen fason otomatik san
+    // danje pou konnen ki branch done san branch yo dwe ale. Pa kreye yon
+    // nouvo branch (sa ta fann tenant lan an plis moso), pa gen chwa
+    // otomatik ki san danje — mande aksyon manyèl.
+    console.log(`⚠️  Tenant sa a gen ${existingBranches.length} branch deja e ${totalOrphans} done san branch.`)
+    console.log(`    Pa gen fason otomatik san danje pou detèmine ki branch yo dwe ale.`)
+    console.log(`    Sèvi ak SQL manyèl (menm apwòch ak repare-plus-store-branch.sql) pou idantifye`)
+    console.log(`    ak deplase done sa yo pa timestamp/kontèks, oswa envestige kòman yo vin san branch.\n`)
+  } else if (existingBranches.length === 1) {
+    // ⚠️ NOUVO — Tenant gen DEJA egzakteman yon branch: backfill dirèkteman
+    // sou branch sa a, JANM kreye yon dezyèm branch (sa ta fragmante done
+    // tenant lan an de moso san rezon).
+    const onlyBranch = existingBranches[0]
+    console.log(`📦 Tenant sa a gen deja yon sèl branch — backfill done yo dirèkteman sou li:`)
+    console.log(`   Branch: "${onlyBranch.name}" (${onlyBranch.slug})\n`)
 
-  console.log(`\n📊 Total: ${totalOrphans} done san branch jwenn nan tenant sa a.\n`)
-
-  // ── Etap 2: Kreye NOUVO branch dedye (JANM adopte youn ki egziste)
-  const branchName = customBranchName || tenant.name
-  let baseSlug = slugify(branchName) || 'main'
-  let finalSlug = baseSlug
-  let suffix = 1
-
-  // Evite kolizyon si yon branch ak menm slug deja egziste
-  while (await prisma.branch.findFirst({ where: { tenantId: tenant.id, slug: finalSlug } })) {
-    suffix += 1
-    finalSlug = `${baseSlug}-${suffix}`
-  }
-
-  console.log(`📦 Pral kreye NOUVO branch dedye pou done san branch yo:`)
-  console.log(`   Non: "${branchName}"  ·  Slug: "${finalSlug}"  ·  isActive: true\n`)
-
-  let newBranch = null
-  if (apply) {
-    newBranch = await prisma.branch.create({
-      data: { tenantId: tenant.id, name: branchName, slug: finalSlug, isActive: true }
-    })
-    console.log(`✅ Nouvo branch kreye: ${newBranch.id}\n`)
+    console.log('── Backfill pa modil ──\n')
+    for (const { model, label } of MODELS_TO_BACKFILL) {
+      const orphanCount = counts[model]
+      if (orphanCount === undefined || orphanCount === 0) continue
+      if (apply) {
+        const result = await prisma[model].updateMany({
+          where: { tenantId: tenant.id, branchId: null },
+          data: { branchId: onlyBranch.id }
+        })
+        console.log(`✅ ${label}: ${result.count} liy tache sou "${onlyBranch.name}".`)
+      } else {
+        console.log(`(dry run) ${label}: ${orphanCount} liy ta pral tache sou "${onlyBranch.name}" (branch ki deja egziste a).`)
+      }
+    }
+    console.log('')
   } else {
-    console.log(`   (dry run — branch pa kreye toutbon)\n`)
+    console.log(`\n📊 Total: ${totalOrphans} done san branch jwenn.\n`)
+
+    // ── Kreye NOUVO branch dedye SÈLMAN lè tenant lan pa gen okenn branch
+    const branchName = customBranchName || tenant.name
+    let baseSlug = slugify(branchName) || 'main'
+    let finalSlug = baseSlug
+    let suffix = 1
+    while (await prisma.branch.findFirst({ where: { tenantId: tenant.id, slug: finalSlug } })) {
+      suffix += 1
+      finalSlug = `${baseSlug}-${suffix}`
+    }
+
+    console.log(`📦 Tenant sa a pa gen okenn branch — pral kreye NOUVO branch dedye:`)
+    console.log(`   Non: "${branchName}"  ·  Slug: "${finalSlug}"  ·  isActive: true\n`)
+
+    let newBranch = null
+    if (apply) {
+      newBranch = await prisma.branch.create({
+        data: { tenantId: tenant.id, name: branchName, slug: finalSlug, isActive: true }
+      })
+      console.log(`✅ Nouvo branch kreye: ${newBranch.id}\n`)
+    } else {
+      console.log(`   (dry run — branch pa kreye toutbon)\n`)
+    }
+
+    console.log('── Backfill pa modil ──\n')
+    for (const { model, label } of MODELS_TO_BACKFILL) {
+      const orphanCount = counts[model]
+      if (orphanCount === undefined || orphanCount === 0) continue
+      if (apply && newBranch) {
+        const result = await prisma[model].updateMany({
+          where: { tenantId: tenant.id, branchId: null },
+          data: { branchId: newBranch.id }
+        })
+        console.log(`✅ ${label}: ${result.count} liy tache sou "${newBranch.name}".`)
+      } else {
+        console.log(`(dry run) ${label}: ${orphanCount} liy ta pral tache sou "${branchName}".`)
+      }
+    }
+    console.log('')
   }
 
-  // ── Etap 3: Backfill done san branch yo sou NOUVO branch la sèlman
-  console.log('── Backfill pa modil ──\n')
+  // ── ETAP 4 (⚠️ NOUVO) — Lye kesye san BranchUser ak sèl branch tenant lan,
+  // si e sèlman si tenant lan gen EGZAKTEMAN yon sèl branch total
+  console.log('── Verifye kesye san BranchUser ──\n')
 
-  for (const { model, label } of MODELS_TO_BACKFILL) {
-    const orphanCount = counts[model]
-    if (orphanCount === undefined || orphanCount === 0) continue
+  const allBranches = await prisma.branch.findMany({ where: { tenantId: tenant.id } })
 
-    if (apply && newBranch) {
-      const result = await prisma[model].updateMany({
-        where: { tenantId: tenant.id, branchId: null },
-        data: { branchId: newBranch.id }
-      })
-      console.log(`✅ ${label}: ${result.count} liy tache sou nouvo branch "${newBranch.name}".`)
+  if (allBranches.length === 0) {
+    console.log('ℹ️  Tenant sa a pa gen okenn branch — pa gen kesye pou lye.\n')
+  } else if (allBranches.length > 1) {
+    console.log(`⚠️  Tenant sa a gen ${allBranches.length} branch — twòp anbigwite pou lye kesye otomatikman.`)
+    console.log(`    Sèvi ak "Jere Itilizatè Branch" nan panèl admin pou asiyen kesye yo manyèlman.\n`)
+  } else {
+    const onlyBranch = allBranches[0]
+    const allUsers = await prisma.user.findMany({
+      where: { tenantId: tenant.id, role: { not: 'admin' } },
+      select: { id: true, fullName: true, email: true, role: true }
+    })
+
+    const existingLinks = await prisma.branchUser.findMany({
+      where: { userId: { in: allUsers.map(u => u.id) } },
+      select: { userId: true }
+    })
+    const linkedIds = new Set(existingLinks.map(l => l.userId))
+    const unlinkedUsers = allUsers.filter(u => !linkedIds.has(u.id))
+
+    if (unlinkedUsers.length === 0) {
+      console.log(`✅ Tout itilizatè non-admin deja lye ak branch "${onlyBranch.name}".\n`)
     } else {
-      console.log(`(dry run) ${label}: ${orphanCount} liy ta pral tache sou nouvo branch "${branchName}".`)
+      console.log(`📋 ${unlinkedUsers.length} itilizatè san BranchUser jwenn (ap lye ak "${onlyBranch.name}"):`)
+      unlinkedUsers.forEach(u => console.log(`     - ${u.fullName} (${u.email}) — wòl: ${u.role}`))
+
+      if (apply) {
+        for (const u of unlinkedUsers) {
+          await prisma.branchUser.create({
+            data: { branchId: onlyBranch.id, userId: u.id, role: 'cashier', isAdmin: false }
+          })
+        }
+        console.log(`\n✅ ${unlinkedUsers.length} itilizatè lye ak branch "${onlyBranch.name}".\n`)
+      } else {
+        console.log(`\n   (dry run — okenn BranchUser pa kreye toutbon)\n`)
+      }
     }
   }
 
-  console.log(`\n${apply ? '✅ Migrasyon fini.' : '🔍 Dry run fini — rerun ak --apply pou aplike vrèman.'}\n`)
+  console.log(`${apply ? '✅ Migrasyon fini.' : '🔍 Dry run fini — rerun ak --apply pou aplike vrèman.'}\n`)
   await prisma.$disconnect()
 }
 

@@ -38,11 +38,14 @@ const identifyTenant = asyncHandler(async (req, res, next) => {
       printerConnection: true,
       subscriptionEndsAt: true,
       planId: true,
-      allowedPages: true,  // ✅ KOREKSYON KRITIK — te manke, blokaj pa t fonksyone
+      allowedPages: true,
       plan: {
         select: {
+          // ⚠️ KORIJE — maxBranches te manke isit la. San li, req.tenant.plan.maxBranches
+          // te toujou `undefined`, sa te fè branch.routes.js tonbe sou `|| 1` kòm fallback
+          // pou TOUT tenant, kèlkeswa plan yo (Estanda, Biznis, Premyum, Antepriz).
           id: true, name: true,
-          maxUsers: true, maxProducts: true, features: true
+          maxUsers: true, maxProducts: true, maxBranches: true, features: true
         }
       }
     }
