@@ -7,16 +7,10 @@ const prisma  = require('../../config/prisma')
 
 router.use(identifyTenant, authenticate)
 
-// ⚠️ NOUVO — Sèlman Super Admin ki ka toggle branch
-const requireSuperAdmin = asyncHandler(async (req, res, next) => {
-  if (!req.user.isSuperAdmin) {
-    return res.status(403).json({
-      success: false,
-      message: 'Sèlman Super Admin ki ka bloke oswa debloke yon branch.'
-    })
-  }
-  next()
-})
+// ℹ️ NÒT — Aktivasyon/blokaj branch se responsablite SuperAdmin sèlman,
+// jere nan modil separe `src/modules/admin/admin.routes.js` (superAdminAuth).
+// Pa gen wout toggle isit la pou evite konfizyon ak yon kontwòl ki pa ka
+// janm valide nan kontèks yon itilizatè tenant (req.user pa gen isSuperAdmin).
 
 const checkBranchAccess = asyncHandler(async (req, res, next) => {
   const branchId = req.params.branchId || req.params.id || req.body.branchId
@@ -82,7 +76,7 @@ router.post('/', authorize('admin'), asyncHandler(async (req, res) => {
   const { name, slug, description, address, phone, email } = req.body
   if (!name || !slug) return res.status(400).json({ success: false, message: 'Non ak slug obligatwa.' })
 
-  const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '')
+  const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '')
   const maxBranches = req.tenant.plan?.maxBranches || 1
   const currentCount = await prisma.branch.count({ where: { tenantId: req.tenant.id } })
 
@@ -96,7 +90,7 @@ router.post('/', authorize('admin'), asyncHandler(async (req, res) => {
   const branch = await prisma.branch.create({
     data: { tenantId: req.tenant.id, name: name.trim(), slug: cleanSlug, description: description || null, address: address || null, phone: phone || null, email: email || null, isActive: false }
   })
-  res.status(201).json({ success: true, branch, message: `Branch "${branch.name}" kreye. Li bloke — aktive li nan pano admin.` })
+  res.status(201).json({ success: true, branch, message: `Branch "${branch.name}" kreye. Kontakte Plus Group pou aktive l.` })
 }))
 
 router.put('/:id', authorize('admin'), asyncHandler(async (req, res) => {
@@ -109,19 +103,6 @@ router.put('/:id', authorize('admin'), asyncHandler(async (req, res) => {
     data: { name: name?.trim() || branch.name, description: description ?? branch.description, address: address ?? branch.address, phone: phone ?? branch.phone, email: email ?? branch.email }
   })
   res.json({ success: true, branch: updated, message: 'Branch ajou avèk siksè.' })
-}))
-
-// ⚠️ CHANJMAN KLÈ — requireSuperAdmin ajoute
-router.patch('/:id/toggle', authorize('admin'), requireSuperAdmin, asyncHandler(async (req, res) => {
-  const branch = await prisma.branch.findFirst({ where: { id: req.params.id, tenantId: req.tenant.id } })
-  if (!branch) return res.status(404).json({ success: false, message: 'Branch pa jwenn.' })
-
-  const newStatus = !branch.isActive
-  const updated = await prisma.branch.update({
-    where: { id: branch.id },
-    data: { isActive: newStatus, unlockedAt: newStatus ? new Date() : branch.unlockedAt }
-  })
-  res.json({ success: true, branch: updated, message: newStatus ? `Branch "${branch.name}" aktive.` : `Branch "${branch.name}" bloke.` })
 }))
 
 router.delete('/:id', authorize('admin'), asyncHandler(async (req, res) => {
