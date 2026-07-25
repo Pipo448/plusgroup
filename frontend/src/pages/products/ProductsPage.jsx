@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { productAPI } from '../../services/api'
+import { productAPI, branchAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import { useForm } from 'react-hook-form'
@@ -214,9 +214,21 @@ const ImageLightbox = ({ product, onClose }) => {
 const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) => {
   const { t } = useTranslation()
   const tenant = useAuthStore(s => s.tenant)
+  const user   = useAuthStore(s => s.user)
   const isEdit = !!product
   const rate = Number(exchangeRate || 132)
   const hasServiceFeature = planHasFeature(tenant, 'sevis')
+  const isAdmin = user?.role === 'admin'
+
+  // ⚠️ NOUVO — Admin ka chwazi ki branch pwodui a fè pati (sèlman si
+  // tenant lan gen plis pase yon branch — pa gen rezon "chwazi" pou 1 sèl)
+  const { data: branchesData } = useQuery({
+    queryKey: ['branches-for-product-modal'],
+    queryFn: () => branchAPI.getAll().then(r => r.data),
+    enabled: isAdmin,
+  })
+  const branches = branchesData?.branches || []
+  const showBranchSelector = isAdmin && branches.length > 1
 
   // ✅ NOUVO — Foto pwodwi (base64, prè pou anrejistre)
   const [imagePreview, setImagePreview] = useState(product?.imageUrl || null)
@@ -255,8 +267,8 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: product
-      ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg) }
-      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '' }
+      ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg), branchId: product.branchId || '' }
+      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', branchId: '' }
   })
   const qc = useQueryClient()
 
@@ -368,6 +380,18 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
               </select>
             </div>
           </div>
+          {showBranchSelector && (
+            <div>
+              <label className="label">Branch *</label>
+              <select className={`input ${errors.branchId ? 'input-error' : ''}`} {...register('branchId', { required: true })}>
+                <option value="">Chwazi yon branch...</option>
+                {branches.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}{!b.isActive ? ' (bloke)' : ''}</option>
+                ))}
+              </select>
+              {errors.branchId && <p className="text-xs text-red-500 mt-1">Ou dwe chwazi yon branch.</p>}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">{t('products.priceHtg')} *</label>

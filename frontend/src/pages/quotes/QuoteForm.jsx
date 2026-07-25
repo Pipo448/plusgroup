@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { quoteAPI, clientAPI, productAPI } from '../../services/api'
+import { quoteAPI, clientAPI, productAPI, branchAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
@@ -436,8 +436,21 @@ export default function QuoteForm() {
   const navigate  = useNavigate()
   const { id }    = useParams()
   const isEdit    = !!id
-  const { tenant } = useAuthStore()
+  const { tenant, user } = useAuthStore()
   const isMobile  = useIsMobile()
+
+  // ⚠️ NOUVO — Admin ka chwazi ki branch devi a konsène
+  // (sèlman si tenant lan gen plis pase 1 branch)
+  const isAdmin = user?.role === 'admin'
+  const { data: branchesData } = useQuery({
+    queryKey: ['branches-for-quote'],
+    queryFn: () => branchAPI.getAll().then(r => r.data),
+    enabled: isAdmin,
+  })
+  const branches = branchesData?.branches || []
+  const showBranchSelector = isAdmin && branches.length > 1
+  const [selectedBranchId, setSelectedBranchId] = useState('')
+  const [branchError, setBranchError] = useState(false)
 
   // ✅ NOUVO — Panye santral (pataje ak paj Pwodui a ak Fakti a). Sèlman pou
   // yon NOUVO devi (pa lè n ap modifye youn ki egziste deja).
@@ -535,6 +548,7 @@ export default function QuoteForm() {
     setNotes(existingQuote.notes || '')
     setTerms(existingQuote.terms || '')
     setCurrency(existingQuote.currency)
+    setSelectedBranchId(existingQuote.branchId || '')
   }, [existingQuote])
 
   // ✅ useMemo — pa recalcule chak keystroke (kounye a ak discountAmt HTG pa liy)
@@ -577,10 +591,16 @@ export default function QuoteForm() {
   const handleSubmit = useCallback((e) => {
     e.preventDefault()
     if (!items.length || !items.some(i => i.quantity > 0)) return toast.error(t('quotes.addAtLeastOneItem'))
+    if (showBranchSelector && !selectedBranchId) {
+      setBranchError(true)
+      return toast.error('Ou dwe chwazi yon branch.')
+    }
     mutation.mutate({
       clientId: client?.id || null,
       clientSnapshot: client ? { id:client.id, name:client.name, phone:client.phone, email:client.email } : {},
       currency, exchangeRate: tenant?.exchangeRate || 132,
+      // ⚠️ NOUVO — branch admin chwazi (si aplikab)
+      ...(showBranchSelector && { branchId: selectedBranchId }),
       // ✅ KORIJE — Rabè global toujou 'amount' kounye a
       discountType: 'amount',
       discountValue: Number(discountValue),
@@ -602,7 +622,7 @@ export default function QuoteForm() {
         }
       })
     })
-  }, [items, client, currency, discountValue, taxRate, notes, terms, expiryDate, mutation, tenant, t])
+  }, [items, client, currency, discountValue, taxRate, notes, terms, expiryDate, mutation, tenant, t, showBranchSelector, selectedBranchId])
 
   return (
     <form onSubmit={handleSubmit} className="animate-fade-in max-w-5xl">
@@ -641,6 +661,22 @@ export default function QuoteForm() {
                   <option value="USD">USD — {t('quotes.dollar')}</option>
                 </select>
               </div>
+              {showBranchSelector && (
+                <div>
+                  <label className="label">Branch *</label>
+                  <select
+                    className={`input ${branchError ? 'input-error' : ''}`}
+                    value={selectedBranchId}
+                    onChange={e => { setSelectedBranchId(e.target.value); setBranchError(false) }}
+                  >
+                    <option value="">Chwazi yon branch...</option>
+                    {branches.map(b => (
+                      <option key={b.id} value={b.id}>{b.name}{!b.isActive ? ' (bloke)' : ''}</option>
+                    ))}
+                  </select>
+                  {branchError && <p className="text-xs text-red-500 mt-1">Ou dwe chwazi yon branch.</p>}
+                </div>
+              )}
             </div>
           </div>
 
