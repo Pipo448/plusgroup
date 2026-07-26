@@ -13,14 +13,18 @@ function slugifyCode(name) {
     .slice(0, 8)
 }
 
+// ⚠️ KORIJE — toujou ajoute 3 chif aleatwa apre non an, pa sèlman lè gen
+// kolizyon. Sa evite konfizyon lè 2 ajan gen menm non/non sanble
+// (egzanp "Jean Baptiste" ak "Jean Bòs" ta ka toude jenere "JEANBAPTIS"
+// san chif — kounye a yo toujou gen yon sifiks distenktif).
 async function generateUniquePromoCode(fullName) {
-  const base = slugifyCode(fullName) || 'AGENT'
-  let code = base
-  let suffix = 0
-  while (await prisma.agent.findUnique({ where: { promoCode: code } })) {
-    suffix += 1
-    code = `${base}${suffix}`
-  }
+  const base = slugifyCode(fullName).slice(0, 6) || 'AGENT'
+  let code, exists
+  do {
+    const rand = Math.floor(100 + Math.random() * 900) // 3 chif, 100-999
+    code = `${base}${rand}`
+    exists = await prisma.agent.findUnique({ where: { promoCode: code } })
+  } while (exists)
   return code
 }
 

@@ -143,7 +143,7 @@ export default function AgentApplyPage() {
     languages: [],
     domains: [],
     commercialEval: { hasExperience: [], clientTypes: [], socialMedia: [], convinceApproach: '', monthlyClientsEstimate: '', workZone: '' },
-    systemEval: { systemTypes: [], toolsKnown: [], hasDemoedSoftware: null, businessContacts: [], whyNeedSystem: '', plusGroupAdvantage: '' },
+    systemEval: { systemTypes: [], toolsKnown: [], hasDemoedSoftware: null, businessContacts: [], whyNeedSystem: '', plusGroupAdvantage: '', yearlyBusinessTarget: '', businessGrowthStrategy: '' },
     whyAgent: '', goals12Months: '', threeTraits: '', weakness: '',
     references: [{ name: '', phone: '', relation: '' }, { name: '', phone: '', relation: '' }],
     payoutMethod: '', natcashNumber: '',
@@ -515,6 +515,18 @@ export default function AgentApplyPage() {
 
               {step === 3 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1.5px solid ${C.orangeLight}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: 28, flexShrink: 0 }}>🏆</div>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: C.orangeDark, margin: '0 0 4px' }}>Konkou Ajan Ane a</p>
+                      <p style={{ fontSize: 12, color: C.navy, margin: 0, lineHeight: 1.5 }}>
+                        Chak ane, Plus Group distribye <strong>100,000 HTG</strong> bay 3 pi gwo ajan yo. Pou fè pati 3 ganyan yo,
+                        objektif la se konekte <strong>plis pase 20 antrepriz</strong> sou kòd promo w la. Plis ou mennen antrepriz,
+                        plis chans ou genyen pou ranpòte gwo lo a nan fèt fen ane a!
+                      </p>
+                    </div>
+                  </div>
+
                   {wantsCommercial && (
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 800, color: C.orangeDark, margin: '0 0 12px' }}>🛒 Evalyasyon — Ajan Komèsyal</p>
@@ -563,6 +575,12 @@ export default function AgentApplyPage() {
                       </Field>
                       <Field label="Ki avantaj Plus Group ta ka ofri yon antrepriz?">
                         <TextArea value={f.systemEval.plusGroupAdvantage} onChange={e => setNested('systemEval', 'plusGroupAdvantage', e.target.value)} />
+                      </Field>
+                      <Field label="Konbyen antrepriz ou kwè ou ka konekte sou kòd promo w la nan 12 pwochen mwa yo?" hint="Objektif konkou a se 20+ antrepriz pou yon ane.">
+                        <TextInput type="number" min="0" value={f.systemEval.yearlyBusinessTarget} onChange={e => setNested('systemEval', 'yearlyBusinessTarget', e.target.value)} placeholder="egzanp: 25" />
+                      </Field>
+                      <Field label="Ki estrateji ou pral itilize pou jwenn plizyè antrepriz (pa sèlman youn)?">
+                        <TextArea value={f.systemEval.businessGrowthStrategy} onChange={e => setNested('systemEval', 'businessGrowthStrategy', e.target.value)} />
                       </Field>
                     </div>
                   )}
