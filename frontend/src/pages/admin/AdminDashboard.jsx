@@ -404,12 +404,19 @@ const AgentsPanel = ({ onClose }) => {
   const qc = useQueryClient()
   const [filter, setFilter] = useState('pending')
   const [revealedPwd, setRevealedPwd] = useState(null) // { agentName, password }
+  const [viewAgentId, setViewAgentId] = useState(null) // ⚠️ NOUVO — pou modal detay dosye
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-agents', filter],
     queryFn: () => adminApi.get('/admin/agents', { params: filter ? { status: filter } : {} }).then(r => r.data)
   })
   const agents = data?.agents || []
+
+  // ⚠️ NOUVO — Estatistik vizit vs kandidati (konvèsyon)
+  const { data: visitStats } = useQuery({
+    queryKey: ['admin-agents-visit-stats'],
+    queryFn: () => adminApi.get('/admin/agents/visit-stats').then(r => r.data.stats)
+  })
 
   const approveMutation = useMutation({
     mutationFn: (id) => adminApi.patch(`/admin/agents/${id}/approve`),
@@ -429,6 +436,12 @@ const AgentsPanel = ({ onClose }) => {
     onSuccess: () => { toast.success('Ajan sispann.'); qc.invalidateQueries(['admin-agents']) },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
   })
+  const rateMutation = useMutation({
+    mutationFn: ({ id, rate }) => adminApi.patch(`/admin/agents/${id}/commercial-rate`, { rate }),
+    onSuccess: (res) => { toast.success(res.data.message); qc.invalidateQueries(['admin-agents']) },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+  })
+  const [rateDrafts, setRateDrafts] = useState({})
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
@@ -453,6 +466,23 @@ const AgentsPanel = ({ onClose }) => {
                 style={{ padding:'8px 14px', borderRadius:6, border:'none', background:'#27ae60', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:12 }}>Kopye</button>
             </div>
             <button onClick={() => setRevealedPwd(null)} style={{ marginTop:10, background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:11, textDecoration:'underline' }}>Fèmen</button>
+          </div>
+        )}
+
+        {/* Estatistik konvèsyon vizit → kandidati */}
+        {visitStats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+            {[
+              { label: 'Vizit Total', value: visitStats.totalVisits },
+              { label: 'Vizit (30j)', value: visitStats.last30DaysVisits },
+              { label: 'Kandidati', value: visitStats.totalApplications },
+              { label: 'Konvèsyon', value: `${visitStats.conversionRate}%` },
+            ].map(s => (
+              <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+                <p style={{ color: '#C9A84C', fontWeight: 800, fontSize: 16, margin: 0 }}>{s.value}</p>
+                <p style={{ color: '#64748b', fontSize: 10, margin: '2px 0 0' }}>{s.label}</p>
+              </div>
+            ))}
           </div>
         )}
 
@@ -488,10 +518,36 @@ const AgentsPanel = ({ onClose }) => {
                     <p style={{ color:'#64748b', fontSize:11, margin:'2px 0 0' }}>
                       Kòd: <span style={{ fontFamily:'monospace', color:'#C9A84C' }}>{agent.promoCode}</span>
                       {' · '}🏢 {agent._count?.tenants || 0} antrepriz
+                      {Array.isArray(agent.domains) && agent.domains.length > 0 && (
+                        <>{' · '}🎯 {agent.domains.join(', ')}</>
+                      )}
                     </p>
+                    {Array.isArray(agent.domains) && (agent.domains.includes('commercial') || agent.domains.includes('both')) && (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8, padding:'8px 10px', background:'rgba(96,165,250,0.08)', borderRadius:8 }}>
+                        <span style={{ color:'#60a5fa', fontSize:11, fontWeight:700, whiteSpace:'nowrap' }}>💵 Pousantaj Komèsyal:</span>
+                        <input
+                          type="number" min="0" max="100" step="0.5"
+                          value={rateDrafts[agent.id] ?? (agent.commercialCommissionRate ?? '')}
+                          onChange={e => setRateDrafts(d => ({ ...d, [agent.id]: e.target.value }))}
+                          placeholder="egzanp: 5"
+                          style={{ width:70, padding:'4px 8px', borderRadius:6, border:'1px solid rgba(96,165,250,0.3)', background:'rgba(0,0,0,0.2)', color:'#fff', fontSize:11 }}
+                        />
+                        <span style={{ color:'#64748b', fontSize:11 }}>%</span>
+                        <button
+                          onClick={() => rateMutation.mutate({ id: agent.id, rate: rateDrafts[agent.id] ?? agent.commercialCommissionRate })}
+                          disabled={rateMutation.isPending}
+                          style={{ padding:'4px 10px', borderRadius:6, border:'none', background:'rgba(96,165,250,0.15)', color:'#60a5fa', cursor:'pointer', fontWeight:700, fontSize:10 }}
+                        >Sove</button>
+                        {agent.commercialCommissionRate != null && (
+                          <span style={{ color:'#27ae60', fontSize:10 }}>✅ Aktyèl: {agent.commercialCommissionRate}%</span>
+                        )}
+                      </div>
+                    )}
                     {agent.message && <p style={{ color:'#94a3b8', fontSize:11, margin:'6px 0 0', fontStyle:'italic' }}>"{agent.message}"</p>}
                   </div>
-                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                  <div style={{ display:'flex', gap:6, flexShrink:0, flexWrap:'wrap' }}>
+                    <button onClick={() => setViewAgentId(agent.id)}
+                      style={{ padding:'6px 12px', borderRadius:6, border:'1px solid rgba(96,165,250,0.3)', background:'rgba(96,165,250,0.1)', color:'#60a5fa', cursor:'pointer', fontWeight:700, fontSize:11 }}>📄 Wè Dosye</button>
                     {agent.status === 'pending' && (
                       <>
                         <button onClick={() => approveMutation.mutate(agent.id)} disabled={approveMutation.isPending}
@@ -509,6 +565,177 @@ const AgentsPanel = ({ onClose }) => {
               </div>
             ))}
           </div>
+        )}
+      </div>
+      {viewAgentId && <AgentDetailModal agentId={viewAgentId} onClose={() => setViewAgentId(null)} />}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════
+// MODAL DETAY DOSYE AJAN (fòm konplè 6 etap)
+// ══════════════════════════════════════════════
+const Tag = ({ children }) => (
+  <span style={{ display:'inline-block', padding:'3px 10px', borderRadius:12, background:'rgba(255,255,255,0.06)', color:'#e2e8f0', fontSize:11, margin:'2px 4px 2px 0' }}>{children}</span>
+)
+const Section = ({ title, children }) => (
+  <div style={{ marginBottom:20 }}>
+    <p style={{ color:'#C9A84C', fontSize:12, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 10px', borderBottom:'1px solid rgba(201,168,76,0.15)', paddingBottom:6 }}>{title}</p>
+    {children}
+  </div>
+)
+const Row = ({ label, value }) => (
+  (value === null || value === undefined || value === '') ? null : (
+    <p style={{ color:'#94a3b8', fontSize:12, margin:'0 0 6px' }}>
+      <span style={{ color:'#64748b' }}>{label}:</span> <span style={{ color:'#e2e8f0' }}>{String(value)}</span>
+    </p>
+  )
+)
+
+const AgentDetailModal = ({ agentId, onClose }) => {
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-agent-detail', agentId],
+    queryFn: () => adminApi.get(`/admin/agents/${agentId}`).then(r => r.data.agent)
+  })
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.9)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:3000, padding:16 }}>
+      <div style={{ background:'#0f172a', border:'1px solid rgba(201,168,76,0.3)', borderRadius:16, padding:28, width:'100%', maxWidth:760, maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <h3 style={{ color:'#C9A84C', margin:0, fontSize:18 }}>📄 Dosye Konplè{data ? ` — ${data.fullName}` : ''}</h3>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:20 }}>✕</button>
+        </div>
+
+        {isLoading ? (
+          <div style={{ textAlign:'center', color:'#64748b', padding:40 }}>Chajman...</div>
+        ) : !data ? (
+          <div style={{ textAlign:'center', color:'#64748b', padding:40 }}>Dosye pa jwenn.</div>
+        ) : (
+          <>
+            {data.dossierNumber && <p style={{ color:'#64748b', fontSize:11, margin:'0 0 16px', fontFamily:'monospace' }}>Dosye: {data.dossierNumber}</p>}
+
+            {/* Foto ak Pyès Idantite */}
+            <Section title="Foto & Pyès Idantite">
+              <div style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
+                {data.photoBase64 && (
+                  <div>
+                    <p style={{ color:'#64748b', fontSize:10, margin:'0 0 4px' }}>Foto Resan</p>
+                    <img src={data.photoBase64} alt="Foto" style={{ width:120, height:120, objectFit:'cover', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)' }} />
+                  </div>
+                )}
+                {data.idDocumentBase64 && (
+                  <div>
+                    <p style={{ color:'#64748b', fontSize:10, margin:'0 0 4px' }}>Pyès Idantite ({data.idDocumentType || '—'})</p>
+                    <img src={data.idDocumentBase64} alt="Pyès idantite" style={{ maxWidth:220, maxHeight:140, objectFit:'contain', borderRadius:10, border:'1px solid rgba(255,255,255,0.1)', background:'#fff' }} />
+                  </div>
+                )}
+                {!data.photoBase64 && !data.idDocumentBase64 && <p style={{ color:'#64748b', fontSize:12 }}>Pa gen dokiman.</p>}
+              </div>
+            </Section>
+
+            {/* Idantite */}
+            <Section title="Idantite & Kontak">
+              <Row label="Non konplè" value={data.fullName} />
+              <Row label="Siyati" value={data.lastName} />
+              <Row label="Dat nesans" value={data.dateOfBirth && new Date(data.dateOfBirth).toLocaleDateString('fr-FR')} />
+              <Row label="Sèks" value={data.gender} />
+              <Row label="Eta sivil" value={data.maritalStatus} />
+              <Row label="Email" value={data.email} />
+              <Row label="Telefòn/WhatsApp" value={data.phone} />
+              <Row label="Adrès" value={data.addressFull} />
+              <Row label="Vil/Komin" value={data.city} />
+              <Row label="Depatman" value={data.department} />
+              <Row label="Peyi" value={data.country} />
+            </Section>
+
+            {/* Edikasyon */}
+            <Section title="Edikasyon">
+              <Row label="Nivo etid" value={data.educationLevel} />
+              <Row label="Domèn etid" value={data.fieldOfStudy} />
+              <Row label="Lekòl/Inivèsite" value={data.schoolName} />
+              <Row label="Sètifikasyon" value={data.otherCertifications} />
+            </Section>
+
+            {/* Pwofesyonèl */}
+            <Section title="Sitiyasyon Pwofesyonèl & Eksperyans">
+              <Row label="Pwofesyon aktyèl" value={data.currentProfession} />
+              <Row label="Travay kounye a" value={data.currentlyEmployed === true ? 'Wi' : data.currentlyEmployed === false ? 'Non' : null} />
+              <Row label="Konpayi" value={data.companyName} />
+              <Row label="Pòs" value={data.jobTitle} />
+              <Row label="Ane eksperyans" value={data.yearsExperience} />
+              <Row label="Domèn eksperyans" value={data.experienceDomain} />
+            </Section>
+
+            {/* Konpetans */}
+            <Section title="Konpetans & Lang">
+              {data.skills && (
+                <div style={{ marginBottom:8 }}>
+                  {Object.entries(data.skills).filter(([,v]) => v).map(([k]) => <Tag key={k}>{k}</Tag>)}
+                </div>
+              )}
+              {Array.isArray(data.languages) && data.languages.map(l => <Tag key={l}>{l}</Tag>)}
+            </Section>
+
+            {/* Domèn */}
+            <Section title="Domèn Chwazi">
+              {Array.isArray(data.domains) && data.domains.map(d => <Tag key={d}>{d}</Tag>)}
+            </Section>
+
+            {/* Evalyasyon Komèsyal */}
+            {data.commercialEval && (Object.values(data.commercialEval).some(v => Array.isArray(v) ? v.length : v)) && (
+              <Section title="🛒 Evalyasyon Komèsyal">
+                {data.commercialEval.hasExperience?.length > 0 && <div style={{marginBottom:6}}>{data.commercialEval.hasExperience.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                {data.commercialEval.clientTypes?.length > 0 && <div style={{marginBottom:6}}>{data.commercialEval.clientTypes.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                {data.commercialEval.socialMedia?.length > 0 && <div style={{marginBottom:6}}>{data.commercialEval.socialMedia.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                <Row label="Kijan l konvenk kliyan" value={data.commercialEval.convinceApproach} />
+                <Row label="Estimasyon kliyan/mwa" value={data.commercialEval.monthlyClientsEstimate} />
+                <Row label="Zòn travay" value={data.commercialEval.workZone} />
+              </Section>
+            )}
+
+            {/* Evalyasyon Sistèm */}
+            {data.systemEval && (Object.values(data.systemEval).some(v => Array.isArray(v) ? v.length : v)) && (
+              <Section title="💻 Evalyasyon Sistèm">
+                {data.systemEval.systemTypes?.length > 0 && <div style={{marginBottom:6}}>{data.systemEval.systemTypes.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                {data.systemEval.toolsKnown?.length > 0 && <div style={{marginBottom:6}}>{data.systemEval.toolsKnown.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                <Row label="Deja fè demonstrasyon" value={data.systemEval.hasDemoedSoftware === true ? 'Wi' : data.systemEval.hasDemoedSoftware === false ? 'Non' : null} />
+                {data.systemEval.businessContacts?.length > 0 && <div style={{marginBottom:6}}>{data.systemEval.businessContacts.map(v => <Tag key={v}>{v}</Tag>)}</div>}
+                <Row label="Sijesyon kliyan potansyèl" value={data.systemEval.potentialClientSuggestion} />
+                <Row label="Objektif antrepriz/ane" value={data.systemEval.yearlyBusinessTarget} />
+                <Row label="Estrateji kwasans" value={data.systemEval.businessGrowthStrategy} />
+              </Section>
+            )}
+
+            {/* Motivasyon */}
+            <Section title="🎯 Motivasyon">
+              <Row label="Poukisa vin ajan" value={data.whyAgent} />
+              <Row label="Objektif 12 mwa" value={data.goals12Months} />
+              <Row label="3 kalite" value={data.threeTraits} />
+              <Row label="Pi gwo feblès" value={data.weakness} />
+            </Section>
+
+            {/* Referans */}
+            {Array.isArray(data.references) && data.references.some(r => r?.name) && (
+              <Section title="Referans">
+                {data.references.map((r, i) => r?.name && (
+                  <p key={i} style={{ color:'#94a3b8', fontSize:12, margin:'0 0 4px' }}>
+                    {i+1}. <span style={{ color:'#e2e8f0' }}>{r.name}</span> — {r.phone} ({r.relation})
+                  </p>
+                ))}
+              </Section>
+            )}
+
+            {/* Peman & Deklarasyon */}
+            <Section title="Peman & Deklarasyon">
+              <Row label="Mwayen peman" value={data.payoutMethod} />
+              <Row label="Nimewo NatCash" value={data.natcashNumber} />
+              <Row label="Deklarasyon egzak" value={data.declareInfoAccurate ? '✅ Wi' : '❌ Non'} />
+              <Row label="Dakò règ yo" value={data.agreeRules ? '✅ Wi' : '❌ Non'} />
+              <Row label="Dakò verifikasyon" value={data.agreeVerification ? '✅ Wi' : '❌ Non'} />
+            </Section>
+
+            <button onClick={onClose} style={{ width:'100%', padding:'10px', borderRadius:8, border:'1px solid rgba(201,168,76,0.3)', background:'transparent', color:'#94a3b8', cursor:'pointer', fontWeight:600, fontSize:13 }}>Fèmen</button>
+          </>
         )}
       </div>
     </div>
