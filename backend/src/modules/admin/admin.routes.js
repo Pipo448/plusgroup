@@ -522,6 +522,49 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
   })
 }))
 
+// ⚠️ NOUVO — Pwolonje abònman an pa yon NIMEWO JOU manyèl (gras peryòd),
+// pou lè yon kliyan poko pre pou peye men li bezwen plis tan anvan blokaj.
+// KONTRÈMAN ak /renew: sa a PA jenere komisyon ajan (pa gen vrè peman ki fèt),
+// e li pa limite a mwa antye — nenpòt kantite jou (1-90) aksepte.
+router.post('/tenants/:id/extend-grace', asyncHandler(async (req, res) => {
+  const { days } = req.body
+  if (!days || isNaN(Number(days)) || Number(days) <= 0) {
+    return res.status(400).json({ success: false, message: 'Antre yon kantite jou valid (1-90).' })
+  }
+  const numDays = Math.max(1, Math.min(90, Number(days)))
+
+  const existing = await prisma.tenant.findUnique({
+    where: { id: req.params.id },
+    select: { id: true, name: true, subscriptionEndsAt: true, status: true }
+  })
+  if (!existing)
+    return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' })
+
+  // Baz kalkil la: si abònman an poko ekspire, ajoute jou yo sou dat ekspirasyon
+  // ki egziste a; si li deja ekspire (oswa pa gen dat ditou), ajoute soti kounye a.
+  const now = new Date()
+  const base = (existing.subscriptionEndsAt && new Date(existing.subscriptionEndsAt) > now)
+    ? new Date(existing.subscriptionEndsAt)
+    : now
+  const newEndsAt = new Date(base.getTime() + numDays * 24 * 60 * 60 * 1000)
+
+  const tenant = await prisma.tenant.update({
+    where: { id: req.params.id },
+    data: { subscriptionEndsAt: newEndsAt, status: 'active' },
+    select: { id: true, name: true, subscriptionEndsAt: true, status: true }
+  })
+
+  // ── Audit log — pa gen komisyon ajan isit la (pa gen peman)
+  await logAudit(req.params.id, 'SUBSCRIPTION_GRACE_EXTENDED', null, existing.name, {
+    days: numDays, newEndsAt: newEndsAt.toISOString()
+  })
+
+  res.json({
+    success: true, tenant,
+    message: `${existing.name} jwenn ${numDays} jou anplis. Nouvo ekspirasyon: ${newEndsAt.toLocaleDateString('fr-FR')}.`
+  })
+}))
+
 // ══════════════════════════════════════════════
 // BRANCH MANAGEMENT PAR SUPER ADMIN
 // ══════════════════════════════════════════════

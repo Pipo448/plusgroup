@@ -152,6 +152,7 @@ const ACTION_LABELS = {
   STATUS_CHANGED:       { label:'Statut Chanje',      color:'#C9A84C', bg:'rgba(201,168,76,0.1)',  icon:'🔄' },
   PLAN_CHANGED:         { label:'Plan Chanje',        color:'#a78bfa', bg:'rgba(167,139,250,0.1)', icon:'⭐' },
   SUBSCRIPTION_RENEWED: { label:'Abònman Renouvle',   color:'#27ae60', bg:'rgba(39,174,96,0.1)',   icon:'↻'  },
+  SUBSCRIPTION_GRACE_EXTENDED: { label:'Jou Gras Ajoute', color:'#60a5fa', bg:'rgba(96,165,250,0.1)', icon:'⏳' },
   TENANT_CREATED:       { label:'Tenant Kreye',       color:'#34d399', bg:'rgba(52,211,153,0.1)',  icon:'🏢' },
   BRANCH_TOGGLED:       { label:'Branch Toggle',      color:'#64a0ed', bg:'rgba(100,160,237,0.1)', icon:'🔀' },
   PAGE_ACCESS_UPDATED:  { label:'Aksè Paj Ajou',      color:'#f59e0b', bg:'rgba(245,158,11,0.1)',  icon:'📄' },
@@ -399,6 +400,70 @@ const BranchPanel = ({ tenantId, tenantName, branches, onToggle, loadingMap, onC
 // ══════════════════════════════════════════════
 const AGENT_STATUS_LABEL = { pending: 'An Atant', approved: 'Apwouve', rejected: 'Rejte', suspended: 'Sispann' }
 const AGENT_STATUS_COLOR = { pending: '#C9A84C', approved: '#27ae60', rejected: '#C0392B', suspended: '#64748b' }
+
+// ══════════════════════════════════════════════
+// MODAL EKSPIRASYON — Renouvle pa mwa (ak komisyon) OSWA
+// pwolonje pa jou gras (san komisyon, pou kliyan poko pre peye)
+// ══════════════════════════════════════════════
+const RenewModal = ({ tenant, onClose, onRenewMonths, onExtendDays, renewing, extending }) => {
+  const [tab, setTab] = useState('months') // 'months' | 'days'
+  const [months, setMonths] = useState(1)
+  const [days, setDays] = useState(7)
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2500, padding:16 }}>
+      <div style={{ background:'#0f172a', border:'1px solid rgba(201,168,76,0.3)', borderRadius:16, padding:28, width:'100%', maxWidth:440 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <div>
+            <h3 style={{ color:'#C9A84C', margin:0, fontSize:17 }}>↻ Ekspirasyon</h3>
+            <p style={{ color:'#64748b', margin:'4px 0 0', fontSize:12 }}>{tenant.name}</p>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:20 }}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display:'flex', gap:6, marginBottom:20, background:'rgba(255,255,255,0.03)', borderRadius:10, padding:4 }}>
+          <button onClick={() => setTab('months')} style={{
+            flex:1, padding:'8px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:700,
+            background: tab==='months' ? 'rgba(39,174,96,0.15)' : 'transparent', color: tab==='months' ? '#27ae60' : '#64748b'
+          }}>💰 Renouvle (Peman)</button>
+          <button onClick={() => setTab('days')} style={{
+            flex:1, padding:'8px', borderRadius:8, border:'none', cursor:'pointer', fontSize:12, fontWeight:700,
+            background: tab==='days' ? 'rgba(96,165,250,0.15)' : 'transparent', color: tab==='days' ? '#60a5fa' : '#64748b'
+          }}>⏳ Jou Gras</button>
+        </div>
+
+        {tab === 'months' ? (
+          <>
+            <p style={{ color:'#94a3b8', fontSize:12, margin:'0 0 12px', lineHeight:1.5 }}>
+              Pou lè kliyan an **fin peye** — sa kalkile komisyon ajan an si tenant lan lye ak yon ajan.
+            </p>
+            <label style={{ display:'block', color:'#94a3b8', fontSize:12, marginBottom:6 }}>Konbyen mwa?</label>
+            <input type="number" min="1" max="36" value={months} onChange={e => setMonths(e.target.value)}
+              style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid rgba(39,174,96,0.3)', background:'rgba(0,0,0,0.2)', color:'#fff', fontSize:15, marginBottom:16, boxSizing:'border-box' }}/>
+            <button onClick={() => onRenewMonths(Number(months))} disabled={renewing}
+              style={{ width:'100%', padding:'11px', borderRadius:8, border:'none', background:'#27ae60', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:13 }}>
+              {renewing ? 'Ap renouvle...' : `Renouvle ${months} mwa`}
+            </button>
+          </>
+        ) : (
+          <>
+            <p style={{ color:'#94a3b8', fontSize:12, margin:'0 0 12px', lineHeight:1.5 }}>
+              Pou lè kliyan an **poko pre pou peye** men bezwen plis tan anvan blokaj. Sa a <strong>pa</strong> jenere komisyon ajan.
+            </p>
+            <label style={{ display:'block', color:'#94a3b8', fontSize:12, marginBottom:6 }}>Konbyen jou? (max 90)</label>
+            <input type="number" min="1" max="90" value={days} onChange={e => setDays(e.target.value)}
+              style={{ width:'100%', padding:'10px 14px', borderRadius:8, border:'1px solid rgba(96,165,250,0.3)', background:'rgba(0,0,0,0.2)', color:'#fff', fontSize:15, marginBottom:16, boxSizing:'border-box' }}/>
+            <button onClick={() => onExtendDays(Number(days))} disabled={extending}
+              style={{ width:'100%', padding:'11px', borderRadius:8, border:'none', background:'#60a5fa', color:'#fff', fontWeight:700, cursor:'pointer', fontSize:13 }}>
+              {extending ? 'Ap ajoute...' : `Ajoute ${days} jou`}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 
 const AgentsPanel = ({ onClose }) => {
   const qc = useQueryClient()
@@ -1524,8 +1589,8 @@ const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onRese
         <PriceEditor tenantId={t.id} currentPrice={monthlyPrice} onSave={onSavePrice} small/>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
-        <button onClick={() => { if(window.confirm(`Renouvle "${t.name}" +1 mwa?`)) onRenew(t.id) }}
-          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.25)', color:'#27ae60', cursor:'pointer', fontSize:12, fontWeight:700 }}>↻ +1 Mwa</button>
+        <button onClick={() => onRenew(t)}
+          style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.25)', color:'#27ae60', cursor:'pointer', fontSize:12, fontWeight:700 }}>↻ Ekspirasyon</button>
         <button onClick={() => onChangePlan(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(201,168,76,0.1)', border:'1px solid rgba(201,168,76,0.25)', color:'#C9A84C', cursor:'pointer', fontSize:12, fontWeight:700 }}><Crown size={12}/> Plan</button>
         <button onClick={() => onBranch(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(100,148,237,0.12)', border:'1px solid rgba(100,148,237,0.25)', color:'#64a0ed', cursor:'pointer', fontSize:12, fontWeight:700 }}><GitBranch size={12}/> Branch ({t._count?.branches||0})</button>
         <button onClick={() => onPages(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(167,139,250,0.12)', border:'1px solid rgba(167,139,250,0.25)', color:'#a78bfa', cursor:'pointer', fontSize:12, fontWeight:700 }}><LayoutGrid size={12}/> Paj yo</button>
@@ -1621,9 +1686,16 @@ export default function AdminDashboard() {
   })
   const renewMutation = useMutation({
     mutationFn: ({id, months}) => adminApi.post(`/admin/tenants/${id}/renew`, { months }),
-    onSuccess: (res) => { toast.success(res.data.message); invalidateAll() },
+    onSuccess: (res) => { toast.success(res.data.message); invalidateAll(); setRenewModalTenant(null) },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
   })
+  // ⚠️ NOUVO — Pwolonjasyon gras peryòd pa jou (san peman, san komisyon ajan)
+  const extendGraceMutation = useMutation({
+    mutationFn: ({id, days}) => adminApi.post(`/admin/tenants/${id}/extend-grace`, { days }),
+    onSuccess: (res) => { toast.success(res.data.message); invalidateAll(); setRenewModalTenant(null) },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+  })
+  const [renewModalTenant, setRenewModalTenant] = useState(null) // ⚠️ NOUVO
 
   const loadBranches = async (tenant) => {
     try {
@@ -1820,7 +1892,7 @@ export default function AdminDashboard() {
                 : tenants.map(t => (
                     <TenantCard key={t.id} t={t}
                       monthlyPrice={monthlyPrices[t.id] || 0}
-                      onRenew={(id) => renewMutation.mutate({ id, months:1 })}
+                      onRenew={(t) => setRenewModalTenant(t)}
                       onChangePlan={(t) => setChangePlanT(t)}
                       onToggleStatus={(id, status) => statusMutation.mutate({ id, status })}
                       onDelete={(t) => setDeleteT(t)}
@@ -1890,8 +1962,8 @@ export default function AdminDashboard() {
                           </td>
                           <td style={{ padding:'14px 16px' }}>
                             <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
-                              <button onClick={() => { if(window.confirm(`Renouvle "${t.name}" +1 mwa?`)) renewMutation.mutate({id:t.id,months:1}) }}
-                                style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.25)', color:'#27ae60', cursor:'pointer', fontSize:11, fontWeight:700 }}>↻ +1 Mwa</button>
+                              <button onClick={() => setRenewModalTenant(t)}
+                                style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.25)', color:'#27ae60', cursor:'pointer', fontSize:11, fontWeight:700 }}>↻ Ekspirasyon</button>
                               <button onClick={() => setChangePlanT(t)}
                                 style={{ display:'inline-flex', alignItems:'center', gap:3, padding:'4px 10px', borderRadius:6, background:'rgba(201,168,76,0.1)', border:'1px solid rgba(201,168,76,0.25)', color:'#C9A84C', cursor:'pointer', fontSize:11, fontWeight:700 }}>
                                 <Crown size={11}/> Plan</button>
@@ -1958,6 +2030,16 @@ export default function AdminDashboard() {
       {auditViewT   && <AuditLogModal tenant={auditViewT} onClose={() => setAuditViewT(null)}/>}
       {solViewT     && <SolManagerModal tenant={solViewT} onClose={() => setSolViewT(null)}/>}
       {showAgents   && <AgentsPanel onClose={() => setShowAgents(false)}/>}
+      {renewModalTenant && (
+        <RenewModal
+          tenant={renewModalTenant}
+          onClose={() => setRenewModalTenant(null)}
+          onRenewMonths={(months) => renewMutation.mutate({ id: renewModalTenant.id, months })}
+          onExtendDays={(days) => extendGraceMutation.mutate({ id: renewModalTenant.id, days })}
+          renewing={renewMutation.isPending}
+          extending={extendGraceMutation.isPending}
+        />
+      )}
 
       <TickerBanner/>
       <style>{`
