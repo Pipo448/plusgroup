@@ -1,15 +1,26 @@
 // src/pages/agent/AgentLoginPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, ArrowLeft, ShieldCheck } from 'lucide-react'
 import { agentApi, setAgent } from '../../services/agentApi'
 
 const LOGO_URL = '/assets/logo.webp'
+const BANNER_URL = '/assets/banner-konkou.png'
 
 const C = {
   navy: '#0F172A', orange: '#F97316', orangeDark: '#EA580C',
   white: '#FFFFFF', bg: '#F1F5F9', blue: '#2563EB', danger: '#EF4444',
   border: '#E2E8F0', textMuted: '#64748B'
+}
+
+const useIsMobile = () => {
+  const [m, setM] = useState(window.innerWidth < 860)
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 860)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [])
+  return m
 }
 
 const inputStyle = {
@@ -20,6 +31,7 @@ const labelStyle = { display: 'block', fontSize: 13, fontWeight: 600, color: C.n
 
 export default function AgentLoginPage() {
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading]   = useState(false)
@@ -51,7 +63,10 @@ export default function AgentLoginPage() {
         </div>
       </header>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 24 }}>
+        <div style={{ width: '100%', maxWidth: 380 }}>
+          <img src={BANNER_URL} alt="Konkou Ajan — 100,000 HTG" style={{ width: '100%', borderRadius: 20, boxShadow: '0 8px 32px rgba(15,23,42,0.12)', display: 'block' }} />
+        </div>
         <div style={{ width: '100%', maxWidth: 420, background: C.white, borderRadius: 20, padding: 32, boxShadow: '0 4px 24px rgba(15,23,42,0.06)', border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

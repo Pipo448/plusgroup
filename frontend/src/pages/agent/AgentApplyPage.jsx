@@ -12,6 +12,7 @@ import { agentApi } from '../../services/agentApi'
 
 // ⚠️ Logo a nan public/assets/ — chemen dirèk, pa bezwen import
 const LOGO_URL = '/assets/logo.webp'
+const BANNER_URL = '/assets/banner-konkou.png'
 
 const C = {
   navy: '#0F172A', navyLight: '#1E293B', navyPanel: '#14213D',
@@ -306,6 +307,11 @@ export default function AgentApplyPage() {
 
         <main style={{ flex: 1, padding: isMobile ? '20px 16px' : '28px 24px', display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           <div style={{ flex: 1, minWidth: 0, maxWidth: 720 }}>
+            {isMobile && (
+              <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(15,23,42,0.05)', border: `1px solid ${C.border}`, marginBottom: 16 }}>
+                <img src={BANNER_URL} alt="Konkou Ajan — 100,000 HTG" style={{ width: '100%', display: 'block' }} />
+              </div>
+            )}
             {isMobile && (
               <div style={{ marginBottom: 16 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: C.textMuted, marginBottom: 6 }}>
@@ -683,6 +689,9 @@ export default function AgentApplyPage() {
 
           {!isMobile && (
             <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div style={{ borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 12px rgba(15,23,42,0.05)', border: `1px solid ${C.border}` }}>
+                <img src={BANNER_URL} alt="Konkou Ajan — 100,000 HTG" style={{ width: '100%', display: 'block' }} />
+              </div>
               <InfoCard title="Poukisa vin ajan" titleAccent="PLUS GROUP?">
                 {[
                   { icon: DollarSign, text: 'Opòtinite revni atraktif' },
