@@ -93,18 +93,48 @@ export default function AgentDashboardPage() {
           <p style={{ color: C.green, fontSize: 13, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>💪 {message}</p>
         </div>
 
-        <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1px solid ${C.orangeLight}`, borderRadius: 12, overflow: 'hidden', padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <PromoCarousel maxWidth={300} height={260} />
-          <div style={{ marginTop: 14, textAlign: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
-              <Trophy size={20} color={C.orange} />
-              <p style={{ color: C.navy, fontSize: 13, margin: 0 }}>
-                Ou nan pozisyon <strong style={{ color: C.orangeDark }}>#{rank || '—'}</strong>{totalAgents > 0 ? ` sou ${totalAgents} ajan` : ''}
-              </p>
-            </div>
-            <p style={{ color: C.textMuted, fontSize: 11.5, margin: 0 }}>🏆 Konkou fen ane: 100,000 HTG bay 3 pi gwo ajan yo — objektif se 20+ antrepriz konekte.</p>
-          </div>
-        </div>
+        {(() => {
+          const domains = Array.isArray(agent.domains) ? agent.domains : []
+          const isSystem = domains.includes('system') || domains.includes('both')
+          const isCommercial = domains.includes('commercial') || domains.includes('both')
+
+          return (
+            <>
+              {isSystem && (
+                <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1px solid ${C.orangeLight}`, borderRadius: 12, overflow: 'hidden', padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <PromoCarousel maxWidth={300} height={260} />
+                  <div style={{ marginTop: 14, textAlign: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
+                      <Trophy size={20} color={C.orange} />
+                      <p style={{ color: C.navy, fontSize: 13, margin: 0 }}>
+                        Ou nan pozisyon <strong style={{ color: C.orangeDark }}>#{rank || '—'}</strong>{totalAgents > 0 ? ` sou ${totalAgents} ajan` : ''}
+                      </p>
+                    </div>
+                    <p style={{ color: C.textMuted, fontSize: 11.5, margin: 0 }}>🏆 Konkou fen ane: 100,000 HTG bay 3 pi gwo Ajan Sistèm yo — objektif se 20+ antrepriz konekte.</p>
+                  </div>
+                </div>
+              )}
+
+              {isCommercial && (
+                <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontSize: 22 }}>💵</span>
+                    <p style={{ color: '#1E40AF', fontSize: 14, fontWeight: 800, margin: 0 }}>Komisyon Ajan Komèsyal</p>
+                  </div>
+                  {agent.commercialCommissionRate != null ? (
+                    <p style={{ color: C.navy, fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                      Ou touche <strong style={{ color: '#1E40AF', fontSize: 18 }}>{agent.commercialCommissionRate}%</strong> sou chak acha pwodui kliyan ou yo fè.
+                    </p>
+                  ) : (
+                    <p style={{ color: C.textMuted, fontSize: 13, margin: 0, lineHeight: 1.5 }}>
+                      Ekip Plus Group poko defini pousantaj komisyon ou. Y ap kontakte w byento.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )
+        })()}
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
           <StatCard label="Total Touche" value={fmt(stats.totalEarned)} icon={<Wallet size={16} />} color={C.orange} />

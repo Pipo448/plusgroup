@@ -987,6 +987,28 @@ router.patch('/agents/:id/evaluate', asyncHandler(async (req, res) => {
   res.json({ success: true, agent: updated, message: `Nòt final: ${scoreTotal}/100 — ${scoreDecision}.` })
 }))
 
+// ── PATCH /api/v1/admin/agents/:id/commercial-rate — SuperAdmin defini
+// pousantaj komisyon Ajan Komèsyal la manyèlman (sou acha pwodui)
+router.patch('/agents/:id/commercial-rate', asyncHandler(async (req, res) => {
+  const { rate } = req.body
+  const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+
+  const cleanRate = rate === null || rate === '' ? null : Math.max(0, Math.min(100, Number(rate)))
+
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { commercialCommissionRate: cleanRate }
+  })
+
+  await logAudit(null, 'AGENT_COMMERCIAL_RATE_SET', agent.email, agent.fullName, { rate: cleanRate })
+
+  res.json({
+    success: true, agent: updated,
+    message: cleanRate === null ? 'Pousantaj retire.' : `Pousantaj komisyon defini: ${cleanRate}%.`
+  })
+}))
+
 
 router.patch('/agent-commissions/:id/paid', asyncHandler(async (req, res) => {
   const commission = await prisma.agentCommission.findUnique({ where: { id: req.params.id } })

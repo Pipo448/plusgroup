@@ -23,7 +23,8 @@ const agentAuth = asyncHandler(async (req, res, next) => {
     where: { id: decoded.agentId },
     select: {
       id: true, fullName: true, email: true, phone: true, city: true,
-      promoCode: true, status: true, commissionPerTenant: true
+      promoCode: true, status: true, commissionPerTenant: true,
+      domains: true, commercialCommissionRate: true // ⚠️ NOUVO
     }
   })
 

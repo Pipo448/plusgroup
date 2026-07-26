@@ -496,8 +496,8 @@ export default function AgentApplyPage() {
                   <p style={{ fontSize: 13, color: C.textMuted, marginBottom: 16 }}>Nan ki domèn ou ta renmen reprezante PLUS GROUP? (Ou kapab chwazi plis pase yon opsyon.)</p>
                   <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14 }}>
                     {[
-                      { value: 'commercial', icon: '🛒', title: 'AJAN KOMÈSYAL', desc: 'Vann pwodwi ak sèvis PLUS GROUP.' },
-                      { value: 'system',     icon: '💻', title: 'AJAN SISTÈM',   desc: 'Vann sistèm jesyon pou biznis ak enstitisyon.' },
+                      { value: 'commercial', icon: '🛒', title: 'AJAN KOMÈSYAL', desc: 'Vann pwodwi ak sèvis PLUS GROUP. 💵 Pousantaj sou chak acha.' },
+                      { value: 'system',     icon: '💻', title: 'AJAN SISTÈM',   desc: 'Vann sistèm jesyon pou biznis ak enstitisyon. 🏆 Antre nan konkou 100,000 HTG.' },
                       { value: 'both',       icon: '⭐', title: 'TOUDE DOMÈN',  desc: 'Mwen kapab travay nan toude domèn yo.' },
                       { value: 'open',       icon: '🚀', title: 'NENPÒT OPSYON', desc: 'Mwen ouvè pou nenpòt lòt opòtinite Plus Group genyen.' },
                     ].map(opt => {
@@ -521,17 +521,32 @@ export default function AgentApplyPage() {
 
               {step === 3 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                  <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1.5px solid ${C.orangeLight}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                    <div style={{ fontSize: 28, flexShrink: 0 }}>🏆</div>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: C.orangeDark, margin: '0 0 4px' }}>Konkou Ajan Ane a</p>
-                      <p style={{ fontSize: 12, color: C.navy, margin: 0, lineHeight: 1.5 }}>
-                        Chak ane, Plus Group distribye <strong>100,000 HTG</strong> bay 3 pi gwo ajan yo. Pou fè pati 3 ganyan yo,
-                        objektif la se konekte <strong>plis pase 20 antrepriz</strong> sou kòd promo w la. Plis ou mennen antrepriz,
-                        plis chans ou genyen pou ranpòte gwo lo a nan fèt fen ane a!
-                      </p>
+                  {wantsSystem && (
+                    <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1.5px solid ${C.orangeLight}`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 28, flexShrink: 0 }}>🏆</div>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: C.orangeDark, margin: '0 0 4px' }}>Konkou Ajan Sistèm — Ane a</p>
+                        <p style={{ fontSize: 12, color: C.navy, margin: 0, lineHeight: 1.5 }}>
+                          Chak ane, Plus Group distribye <strong>100,000 HTG</strong> bay 3 pi gwo Ajan Sistèm yo. Pou fè pati 3 ganyan yo,
+                          objektif la se konekte <strong>plis pase 20 antrepriz</strong> sou kòd promo w la. Plis ou mennen antrepriz,
+                          plis chans ou genyen pou ranpòte gwo lo a nan fèt fen ane a!
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {wantsCommercial && (
+                    <div style={{ background: '#EFF6FF', border: `1.5px solid #BFDBFE`, borderRadius: 14, padding: 18, display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                      <div style={{ fontSize: 28, flexShrink: 0 }}>💵</div>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 800, color: '#1E40AF', margin: '0 0 4px' }}>Komisyon Ajan Komèsyal</p>
+                        <p style={{ fontSize: 12, color: C.navy, margin: 0, lineHeight: 1.5 }}>
+                          Kòm Ajan Komèsyal, ou touche yon <strong>pousantaj sou chak acha pwodui</strong> kliyan ou yo fè.
+                          Pousantaj la defini pa ekip Plus Group apre revizyon dosye w la, e li ap parèt sou dashboard ou apre apwobasyon.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {wantsCommercial && (
                     <div>
