@@ -9,7 +9,9 @@ import {
   DollarSign, GraduationCap, Monitor, Star, ChevronDown
 } from 'lucide-react'
 import { agentApi } from '../../services/agentApi'
-import logo from '../../assets/plus-group-logo.webp'
+
+// ⚠️ Logo a nan public/assets/ — chemen dirèk, pa bezwen import
+const LOGO_URL = '/assets/logo.webp'
 
 const C = {
   navy: '#0F172A', navyLight: '#1E293B', navyPanel: '#14213D',
@@ -235,7 +237,7 @@ export default function AgentApplyPage() {
     <div style={{ minHeight: '100vh', background: C.bg, display: 'flex', flexDirection: 'column' }}>
       <header style={{ background: C.white, borderBottom: `1px solid ${C.border}`, padding: isMobile ? '14px 16px' : '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <img src={logo} alt="Plus Group" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
+          <img src={LOGO_URL} alt="Plus Group" style={{ width: 46, height: 46, objectFit: 'contain', flexShrink: 0 }} />
           <div>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: C.navy, letterSpacing: '-0.01em' }}>
               PLUS <span style={{ color: C.orange }}>GROUP</span>
