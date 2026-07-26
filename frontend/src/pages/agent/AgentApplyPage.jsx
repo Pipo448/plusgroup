@@ -144,7 +144,7 @@ export default function AgentApplyPage() {
     languages: [],
     domains: [],
     commercialEval: { hasExperience: [], clientTypes: [], socialMedia: [], convinceApproach: '', monthlyClientsEstimate: '', workZone: '' },
-    systemEval: { systemTypes: [], toolsKnown: [], hasDemoedSoftware: null, businessContacts: [], whyNeedSystem: '', plusGroupAdvantage: '', yearlyBusinessTarget: '', businessGrowthStrategy: '' },
+    systemEval: { systemTypes: [], toolsKnown: [], hasDemoedSoftware: null, businessContacts: [], potentialClientSuggestion: '', yearlyBusinessTarget: '', businessGrowthStrategy: '' },
     whyAgent: '', goals12Months: '', threeTraits: '', weakness: '',
     references: [{ name: '', phone: '', relation: '' }, { name: '', phone: '', relation: '' }],
     payoutMethod: '', natcashNumber: '',
@@ -576,11 +576,8 @@ export default function AgentApplyPage() {
                         <CheckboxGroup options={['Boutik', 'Makèt', 'Lekòl', 'Klinik', 'Restoran', 'Otèl', 'ONG', 'Lòt']}
                           values={f.systemEval.businessContacts} onChange={v => setNested('systemEval', 'businessContacts', v)} />
                       </Field>
-                      <Field label="Poukisa ou panse yon antrepriz bezwen yon sistèm jesyon?">
-                        <TextArea value={f.systemEval.whyNeedSystem} onChange={e => setNested('systemEval', 'whyNeedSystem', e.target.value)} />
-                      </Field>
-                      <Field label="Ki avantaj Plus Group ta ka ofri yon antrepriz?">
-                        <TextArea value={f.systemEval.plusGroupAdvantage} onChange={e => setNested('systemEval', 'plusGroupAdvantage', e.target.value)} />
+                      <Field label="Èske w gen yon antrepriz espesifik nan tèt ou deja ou ta ka pote?" hint="Opsyonèl — si w gen yon kliyan an tèt, ekri non biznis la ak yon ti detay.">
+                        <TextArea value={f.systemEval.potentialClientSuggestion} onChange={e => setNested('systemEval', 'potentialClientSuggestion', e.target.value)} placeholder="egzanp: Yon boutik/famasi/lekòl mwen konnen ki ta bezwen sistèm konsa..." />
                       </Field>
                       <Field label="Konbyen antrepriz ou kwè ou ka konekte sou kòd promo w la nan 12 pwochen mwa yo?" hint="Objektif konkou a se 20+ antrepriz pou yon ane.">
                         <TextInput type="number" min="0" value={f.systemEval.yearlyBusinessTarget} onChange={e => setNested('systemEval', 'yearlyBusinessTarget', e.target.value)} placeholder="egzanp: 25" />
