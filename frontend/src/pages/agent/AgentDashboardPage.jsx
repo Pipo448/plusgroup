@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Trophy, Copy, LogOut, Building2, Wallet, Clock, TrendingUp } from 'lucide-react'
-import { agentApi, getAgent, clearAgent } from '../../lib/agentApi'
+import { agentApi, getAgent, clearAgent } from '../../services/agentApi'
 
 const StatCard = ({ label, value, icon, color }) => (
   <div style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${color}30`, borderRadius: 14, padding: '16px 18px' }}>

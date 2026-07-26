@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { UserPlus, CheckCircle2, ArrowLeft } from 'lucide-react'
-import { agentApi } from '../../lib/agentApi'
+import { agentApi } from '../../services/agentApi'
 
 const iStyle = {
   width: '100%', padding: '12px 14px', borderRadius: 10, boxSizing: 'border-box',

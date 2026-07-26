@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, ArrowLeft } from 'lucide-react'
-import { agentApi, setAgent } from '../../lib/agentApi'
+import { agentApi, setAgent } from '../../services/agentApi'
 
 const iStyle = {
   width: '100%', padding: '12px 14px', borderRadius: 10, boxSizing: 'border-box',
