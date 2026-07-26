@@ -869,6 +869,24 @@ function generatePassword() {
 }
 
 // ── GET /api/v1/admin/agents — lis tout ajan (filtre pa status opsyonèl)
+// ── GET /api/v1/admin/agents/visit-stats — vizit vs kandidati (konvèsyon)
+router.get('/agents/visit-stats', asyncHandler(async (req, res) => {
+  const [totalVisits, totalApplications, last30DaysVisits] = await Promise.all([
+    prisma.agentApplyVisit.count(),
+    prisma.agent.count(),
+    prisma.agentApplyVisit.count({
+      where: { createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }
+    })
+  ])
+
+  const conversionRate = totalVisits > 0 ? ((totalApplications / totalVisits) * 100).toFixed(1) : '0.0'
+
+  res.json({
+    success: true,
+    stats: { totalVisits, totalApplications, last30DaysVisits, conversionRate }
+  })
+}))
+
 router.get('/agents', asyncHandler(async (req, res) => {
   const { status } = req.query
   const agents = await prisma.agent.findMany({

@@ -122,6 +122,16 @@ model Agent {
   @@map("agents")
 }
 
+// ⚠️ NOUVO — Konte chak fwa paj kandidati a (/agent/apply) chaje, pou mezire
+// konvèsyon (vizit vs vrè kandidati soumèt).
+model AgentApplyVisit {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("agent_apply_visits")
+}
+
 model AgentCommission {
   id        String   @id @default(uuid())
   agentId   String   @map("agent_id")

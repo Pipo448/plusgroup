@@ -84,6 +84,17 @@ function calcDecision(total) {
 // WOUT PIBLIK — san otantifikasyon
 // ═══════════════════════════════════════════════════════
 
+// ── POST /agents/track-visit — konte chak fwa paj kandidati a chaje
+// (piblik, san auth — jis pou estatistik konvèsyon SuperAdmin)
+router.post('/track-visit', asyncHandler(async (req, res) => {
+  try {
+    await prisma.agentApplyVisit.create({ data: {} })
+  } catch (e) {
+    console.warn('[AgentApplyVisit]', e.message)
+  }
+  res.json({ success: true })
+}))
+
 // ── POST /agents/apply — Fòm kandidati piblik konplè (6 faz)
 router.post('/apply', asyncHandler(async (req, res) => {
   const {
