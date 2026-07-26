@@ -271,7 +271,8 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   const {
     name, slug, email, phone, address, planId,
     adminEmail, adminPassword, adminName,
-    subscriptionMonths, defaultCurrency, defaultLanguage
+    subscriptionMonths, defaultCurrency, defaultLanguage,
+    promoCode // ⚠️ NOUVO — kòd ajan (opsyonèl)
   } = req.body
 
   if (!name || !slug)
@@ -303,6 +304,20 @@ router.post('/tenants', asyncHandler(async (req, res) => {
   const cleanCurrency = ['HTG', 'USD'].includes(defaultCurrency) ? defaultCurrency : 'HTG'
   const cleanLanguage  = ['ht', 'fr', 'en'].includes(defaultLanguage) ? defaultLanguage : 'ht'
 
+  // ⚠️ NOUVO — Valide kòd promo si youn bay, jwenn ajan ki koresponn
+  let referringAgent = null
+  if (promoCode && promoCode.trim() !== '') {
+    referringAgent = await prisma.agent.findUnique({
+      where: { promoCode: promoCode.trim().toUpperCase() }
+    })
+    if (!referringAgent) {
+      return res.status(400).json({ success: false, message: `Kòd promo "${promoCode}" pa jwenn.` })
+    }
+    if (referringAgent.status !== 'approved') {
+      return res.status(400).json({ success: false, message: `Ajan ki gen kòd promo sa a pa aktif kounye a.` })
+    }
+  }
+
   const tenant = await prisma.tenant.create({
     data: {
       name: name.trim(), slug: cleanSlug,
@@ -310,9 +325,23 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       planId: cleanPlanId,
       defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage,
       status: 'active',
-      subscriptionEndsAt
+      subscriptionEndsAt,
+      agentId: referringAgent?.id || null // ⚠️ NOUVO
     }
   })
+
+  // ⚠️ NOUVO — Jenere premye komisyon ajan an si tenant lan lye ak yon ajan
+  if (referringAgent) {
+    await prisma.agentCommission.create({
+      data: {
+        agentId: referringAgent.id,
+        tenantId: tenant.id,
+        months,
+        amountHtg: referringAgent.commissionPerTenant * months,
+        status: 'pending'
+      }
+    })
+  }
 
   if (adminEmail && adminPassword) {
     const emailExists = await prisma.user.findFirst({
@@ -348,12 +377,13 @@ router.post('/tenants', asyncHandler(async (req, res) => {
 
   // ── Audit log
   await logAudit(tenant.id, 'TENANT_CREATED', adminEmail || null, tenant.name, {
-    plan: cleanPlanId, months, currency: cleanCurrency
+    plan: cleanPlanId, months, currency: cleanCurrency, agentId: referringAgent?.id || null
   })
 
   res.status(201).json({
     success: true, tenant,
     message: `Entreprise "${tenant.name}" kreye. Abònman ekspire ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`
+      + (referringAgent ? ` Lye ak ajan "${referringAgent.fullName}".` : '')
   })
 }))
 
@@ -412,7 +442,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 
   const existing = await prisma.tenant.findUnique({
     where: { id: req.params.id },
-    select: { id: true, name: true, subscriptionEndsAt: true, status: true }
+    select: { id: true, name: true, subscriptionEndsAt: true, status: true, agentId: true }
   })
   if (!existing)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' })
@@ -424,6 +454,22 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     data: { subscriptionEndsAt: newEndsAt, status: 'active' },
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   })
+
+  // ⚠️ NOUVO — Jenere komisyon ajan an si tenant lan lye ak yon ajan
+  if (existing.agentId) {
+    const agent = await prisma.agent.findUnique({ where: { id: existing.agentId } })
+    if (agent && agent.status === 'approved') {
+      await prisma.agentCommission.create({
+        data: {
+          agentId: agent.id,
+          tenantId: existing.id,
+          months: numMonths,
+          amountHtg: agent.commissionPerTenant * numMonths,
+          status: 'pending'
+        }
+      })
+    }
+  }
 
   // ── Audit log
   await logAudit(req.params.id, 'SUBSCRIPTION_RENEWED', null, existing.name, {
@@ -775,9 +821,116 @@ router.get('/expiring-soon', asyncHandler(async (req, res) => {
 }))
 
 // ══════════════════════════════════════════════
-// SOL MEMBER ACCOUNTS — Super Admin access
-// Ajoute sa ANVAN module.exports = router
+// JESYON AJAN (Faz 2 — Kòd Promo / Komisyon)
 // ══════════════════════════════════════════════
+
+function generatePassword() {
+  return Math.random().toString(36).slice(-8) + Math.floor(Math.random() * 100)
+}
+
+// ── GET /api/v1/admin/agents — lis tout ajan (filtre pa status opsyonèl)
+router.get('/agents', asyncHandler(async (req, res) => {
+  const { status } = req.query
+  const agents = await prisma.agent.findMany({
+    where: { ...(status && { status }) },
+    include: {
+      _count: { select: { tenants: true, commissions: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+  res.json({ success: true, agents, total: agents.length })
+}))
+
+// ── GET /api/v1/admin/agents/:id — detay yon ajan (tenant + komisyon)
+router.get('/agents/:id', asyncHandler(async (req, res) => {
+  const agent = await prisma.agent.findUnique({
+    where: { id: req.params.id },
+    include: {
+      tenants: { select: { id: true, name: true, slug: true, status: true, createdAt: true } },
+      commissions: { orderBy: { createdAt: 'desc' } }
+    }
+  })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+
+  const totalEarned = agent.commissions.reduce((s, c) => s + c.amountHtg, 0)
+  const totalPaid    = agent.commissions.filter(c => c.status === 'paid').reduce((s, c) => s + c.amountHtg, 0)
+  const totalPending = totalEarned - totalPaid
+
+  res.json({ success: true, agent, stats: { totalEarned, totalPaid, totalPending } })
+}))
+
+// ── PATCH /api/v1/admin/agents/:id/approve — apwouve kandidati, jenere premye modpas
+router.patch('/agents/:id/approve', asyncHandler(async (req, res) => {
+  const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+  if (agent.status === 'approved') {
+    return res.status(400).json({ success: false, message: 'Ajan sa a deja apwouve.' })
+  }
+
+  const initialPassword = generatePassword()
+  const passwordHash = await bcrypt.hash(initialPassword, 12)
+
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { status: 'approved', passwordHash, approvedAt: new Date() }
+  })
+
+  await logAudit(null, 'AGENT_APPROVED', agent.email, agent.fullName, { agentId: agent.id })
+
+  res.json({
+    success: true,
+    agent: updated,
+    // ⚠️ Modpas la sèlman parèt YON SÈL FWA isit la — SuperAdmin dwe kopye l
+    // e voye l bay ajan an manyèlman (WhatsApp/telefòn), pa gen sistèm email.
+    initialPassword,
+    message: `Ajan "${agent.fullName}" apwouve. Kòd promo: ${agent.promoCode}. Modpas inisyal: ${initialPassword} (kopye l kounye a, li p ap parèt ankò).`
+  })
+}))
+
+// ── PATCH /api/v1/admin/agents/:id/reject
+router.patch('/agents/:id/reject', asyncHandler(async (req, res) => {
+  const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { status: 'rejected' }
+  })
+
+  await logAudit(null, 'AGENT_REJECTED', agent.email, agent.fullName, { agentId: agent.id })
+
+  res.json({ success: true, agent: updated, message: `Kandidati "${agent.fullName}" rejte.` })
+}))
+
+// ── PATCH /api/v1/admin/agents/:id/suspend — bloke yon ajan ki te deja apwouve
+router.patch('/agents/:id/suspend', asyncHandler(async (req, res) => {
+  const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { status: 'suspended' }
+  })
+
+  await logAudit(null, 'AGENT_SUSPENDED', agent.email, agent.fullName, { agentId: agent.id })
+
+  res.json({ success: true, agent: updated, message: `Ajan "${agent.fullName}" sispann.` })
+}))
+
+// ── PATCH /api/v1/admin/agent-commissions/:id/paid — make yon komisyon kòm peye
+router.patch('/agent-commissions/:id/paid', asyncHandler(async (req, res) => {
+  const commission = await prisma.agentCommission.findUnique({ where: { id: req.params.id } })
+  if (!commission) return res.status(404).json({ success: false, message: 'Komisyon pa jwenn.' })
+
+  const updated = await prisma.agentCommission.update({
+    where: { id: commission.id },
+    data: { status: 'paid' }
+  })
+
+  res.json({ success: true, commission: updated, message: 'Komisyon make kòm peye.' })
+}))
+
+
 
 // ── GET /api/v1/admin/tenants/:id/sol/accounts
 // Wè tout kont Sol pou yon tenant (ak credentials)
