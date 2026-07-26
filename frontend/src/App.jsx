@@ -8,6 +8,9 @@ import LoginPage      from './pages/auth/LoginPage'
 import WelcomePage    from './pages/WelcomePage'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import SolLoginPage   from './pages/sol/SolLoginPage'
+// ⚠️ NOUVO — Pòtal Ajan (kandidati + login, piblik — pa lazy, tankou lòt login yo)
+import AgentApplyPage from './pages/agent/AgentApplyPage'
+import AgentLoginPage from './pages/agent/AgentLoginPage'
 
 const Dashboard          = lazy(() => import('./pages/dashboard/Dashboard'))
 const ProductsPage       = lazy(() => import('./pages/products/ProductsPage'))
@@ -52,6 +55,8 @@ const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
 const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
 const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
 const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
+// ⚠️ NOUVO — Dashboard Ajan (pwoteje, lazy tankou lòt dashboard yo)
+const AgentDashboardPage = lazy(() => import('./pages/agent/AgentDashboardPage'))
 
 // ✅ NOUVO — Paj piblik pwoforma (san otorizasyon, lyen pataje 24è)
 const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
@@ -77,6 +82,12 @@ const PrivateRoute = ({ children }) => {
 const AdminRoute = ({ children }) => {
   const session = localStorage.getItem('pg-admin')
   return session ? children : <Navigate to="/admin/login" replace />
+}
+
+// ⚠️ NOUVO — Guard pòtal ajan, pwòp tokenn pa li (pg-agent), separe de tenant/SuperAdmin
+const AgentRoute = ({ children }) => {
+  const session = localStorage.getItem('pg-agent')
+  return session ? children : <Navigate to="/agent" replace />
 }
 
 const ProtectedPage = ({ pageKey, children }) => {
@@ -117,6 +128,12 @@ export default function App() {
 
           <Route path="/app/sol/login"     element={<SolLoginPage />} />
           <Route path="/app/sol/dashboard" element={<SolDashboardPage />} />
+
+          {/* ⚠️ NOUVO — Pòtal Ajan: /agent/apply ak /agent (login) piblik,
+              /agent/dashboard pwoteje pa AgentRoute (pwòp tokenn pg-agent) */}
+          <Route path="/agent/apply"     element={<AgentApplyPage />} />
+          <Route path="/agent"           element={<AgentLoginPage />} />
+          <Route path="/agent/dashboard" element={<AgentRoute><AgentDashboardPage /></AgentRoute>} />
 
           <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
