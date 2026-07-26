@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   User, FileText, Briefcase, ClipboardList, Users, CheckCircle2,
-  Camera, IdCard, ArrowLeft, ArrowRight, ShieldCheck, Lock, Loader2, X
+  Camera, CreditCard, ArrowLeft, ArrowRight, ShieldCheck, Lock, Loader2, X
 } from 'lucide-react'
 import { agentApi } from '../../services/agentApi'
 
@@ -16,7 +16,7 @@ const C = {
 
 const STEPS = [
   { key: 'personal',      label: 'Enfòmasyon Pèsonèl', sub: 'Idantite & kontak',        icon: User },
-  { key: 'documents',     label: 'Dokiman',             sub: 'Foto & Pyès idantite',      icon: IdCard },
+  { key: 'documents',     label: 'Dokiman',             sub: 'Foto & Pyès idantite',      icon: CreditCard },
   { key: 'domain',        label: 'Domèn',                sub: 'Chwa domèn ou yo',          icon: Briefcase },
   { key: 'evaluation',    label: 'Evalyasyon',           sub: 'Kesyon selon domèn',        icon: ClipboardList },
   { key: 'references',    label: 'Referans',              sub: 'Moun ki ka bay referans',   icon: Users },
@@ -404,7 +404,7 @@ export default function AgentApplyPage() {
                       <img src={f.idDocumentBase64} alt="preview" style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
                     ) : (
                       <>
-                        <IdCard size={28} color={C.textMuted} />
+                        <CreditCard size={28} color={C.textMuted} />
                         <span style={{ fontSize: 13, color: C.textMuted, fontWeight: 600 }}>Klike pou ajoute Pyès Idantite</span>
                       </>
                     )}
