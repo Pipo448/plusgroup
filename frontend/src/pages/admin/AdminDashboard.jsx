@@ -395,6 +395,129 @@ const BranchPanel = ({ tenantId, tenantName, branches, onToggle, loadingMap, onC
 }
 
 // ══════════════════════════════════════════════
+// PANÈL JESYON AJAN (Faz 2)
+// ══════════════════════════════════════════════
+const AGENT_STATUS_LABEL = { pending: 'An Atant', approved: 'Apwouve', rejected: 'Rejte', suspended: 'Sispann' }
+const AGENT_STATUS_COLOR = { pending: '#C9A84C', approved: '#27ae60', rejected: '#C0392B', suspended: '#64748b' }
+
+const AgentsPanel = ({ onClose }) => {
+  const qc = useQueryClient()
+  const [filter, setFilter] = useState('pending')
+  const [revealedPwd, setRevealedPwd] = useState(null) // { agentName, password }
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['admin-agents', filter],
+    queryFn: () => adminApi.get('/admin/agents', { params: filter ? { status: filter } : {} }).then(r => r.data)
+  })
+  const agents = data?.agents || []
+
+  const approveMutation = useMutation({
+    mutationFn: (id) => adminApi.patch(`/admin/agents/${id}/approve`),
+    onSuccess: (res) => {
+      qc.invalidateQueries(['admin-agents'])
+      setRevealedPwd({ agentName: res.data.agent.fullName, password: res.data.initialPassword, promoCode: res.data.agent.promoCode })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè apwobasyon.')
+  })
+  const rejectMutation = useMutation({
+    mutationFn: (id) => adminApi.patch(`/admin/agents/${id}/reject`),
+    onSuccess: () => { toast.success('Kandidati rejte.'); qc.invalidateQueries(['admin-agents']) },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+  })
+  const suspendMutation = useMutation({
+    mutationFn: (id) => adminApi.patch(`/admin/agents/${id}/suspend`),
+    onSuccess: () => { toast.success('Ajan sispann.'); qc.invalidateQueries(['admin-agents']) },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+  })
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+      <div style={{ background:'#0f172a', border:'1px solid rgba(201,168,76,0.3)', borderRadius:16, padding:28, width:'100%', maxWidth:720, maxHeight:'85vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <div>
+            <h3 style={{ color:'#C9A84C', margin:0, fontSize:18 }}>👤 Jesyon Ajan / Kòd Promo</h3>
+            <p style={{ color:'#64748b', margin:'4px 0 0', fontSize:12 }}>Apwouve kandidati, jere kòd promo ak komisyon</p>
+          </div>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:20 }}>✕</button>
+        </div>
+
+        {/* Modal ki montre modpas inisyal AYONFWA */}
+        {revealedPwd && (
+          <div style={{ background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.4)', borderRadius:10, padding:16, marginBottom:16 }}>
+            <p style={{ color:'#27ae60', fontWeight:700, fontSize:13, margin:'0 0 8px' }}>✅ {revealedPwd.agentName} apwouve!</p>
+            <p style={{ color:'#94a3b8', fontSize:12, margin:'0 0 4px' }}>Kòd Promo: <strong style={{ color:'#fff', fontFamily:'monospace' }}>{revealedPwd.promoCode}</strong></p>
+            <p style={{ color:'#94a3b8', fontSize:12, margin:'0 0 10px' }}>Modpas inisyal (kopye l epi voye l bay ajan an — li p ap parèt ankò):</p>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              <code style={{ background:'#000', color:'#27ae60', padding:'8px 12px', borderRadius:6, fontSize:14, flex:1 }}>{revealedPwd.password}</code>
+              <button onClick={() => { navigator.clipboard.writeText(revealedPwd.password); toast.success('Kopye!') }}
+                style={{ padding:'8px 14px', borderRadius:6, border:'none', background:'#27ae60', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:12 }}>Kopye</button>
+            </div>
+            <button onClick={() => setRevealedPwd(null)} style={{ marginTop:10, background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:11, textDecoration:'underline' }}>Fèmen</button>
+          </div>
+        )}
+
+        {/* Filtè status */}
+        <div style={{ display:'flex', gap:8, marginBottom:16, flexWrap:'wrap' }}>
+          {['pending', 'approved', 'rejected', 'suspended', ''].map(s => (
+            <button key={s || 'all'} onClick={() => setFilter(s)}
+              style={{ padding:'6px 14px', borderRadius:20, border:`1px solid ${filter===s ? '#C9A84C' : 'rgba(255,255,255,0.1)'}`, background: filter===s ? 'rgba(201,168,76,0.15)' : 'transparent', color: filter===s ? '#C9A84C' : '#64748b', cursor:'pointer', fontSize:11, fontWeight:700 }}>
+              {s ? AGENT_STATUS_LABEL[s] : 'Tout'}
+            </button>
+          ))}
+        </div>
+
+        {isLoading ? (
+          <div style={{ textAlign:'center', color:'#64748b', padding:40 }}>Chajman...</div>
+        ) : agents.length === 0 ? (
+          <div style={{ textAlign:'center', color:'#64748b', padding:40, background:'rgba(255,255,255,0.03)', borderRadius:10 }}>
+            Pa gen ajan nan kategori sa a.
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+            {agents.map(agent => (
+              <div key={agent.id} style={{ background:'rgba(255,255,255,0.04)', border:`1px solid ${AGENT_STATUS_COLOR[agent.status]}30`, borderRadius:10, padding:'12px 16px' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12, flexWrap:'wrap' }}>
+                  <div style={{ flex:1, minWidth:200 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ color:'#fff', fontWeight:700, fontSize:14 }}>{agent.fullName}</span>
+                      <span style={{ padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:700, background:`${AGENT_STATUS_COLOR[agent.status]}20`, color:AGENT_STATUS_COLOR[agent.status] }}>
+                        {AGENT_STATUS_LABEL[agent.status]}
+                      </span>
+                    </div>
+                    <p style={{ color:'#64748b', fontSize:11, margin:'4px 0 0' }}>{agent.email} · {agent.phone} · {agent.city}</p>
+                    <p style={{ color:'#64748b', fontSize:11, margin:'2px 0 0' }}>
+                      Kòd: <span style={{ fontFamily:'monospace', color:'#C9A84C' }}>{agent.promoCode}</span>
+                      {' · '}{agent.commissionPerTenant} HTG/mwa/antrepriz
+                      {' · '}🏢 {agent._count?.tenants || 0} antrepriz
+                    </p>
+                    {agent.message && <p style={{ color:'#94a3b8', fontSize:11, margin:'6px 0 0', fontStyle:'italic' }}>"{agent.message}"</p>}
+                  </div>
+                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
+                    {agent.status === 'pending' && (
+                      <>
+                        <button onClick={() => approveMutation.mutate(agent.id)} disabled={approveMutation.isPending}
+                          style={{ padding:'6px 12px', borderRadius:6, border:'none', background:'rgba(39,174,96,0.15)', color:'#27ae60', cursor:'pointer', fontWeight:700, fontSize:11 }}>Apwouve</button>
+                        <button onClick={() => rejectMutation.mutate(agent.id)} disabled={rejectMutation.isPending}
+                          style={{ padding:'6px 12px', borderRadius:6, border:'none', background:'rgba(192,57,43,0.15)', color:'#C0392B', cursor:'pointer', fontWeight:700, fontSize:11 }}>Rejte</button>
+                      </>
+                    )}
+                    {agent.status === 'approved' && (
+                      <button onClick={() => suspendMutation.mutate(agent.id)} disabled={suspendMutation.isPending}
+                        style={{ padding:'6px 12px', borderRadius:6, border:'none', background:'rgba(192,57,43,0.15)', color:'#C0392B', cursor:'pointer', fontWeight:700, fontSize:11 }}>Sispann</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+
+// ══════════════════════════════════════════════
 // MODAL RESET MODPAS
 // ══════════════════════════════════════════════
 const ResetPasswordModal = ({ tenant, onClose }) => {
@@ -536,6 +659,11 @@ const CreateTenantModal = ({ plans, onClose, onCreated }) => {
                 <option value="HTG">HTG — Goud Ayisyen</option>
                 <option value="USD">USD — Dola Ameriken</option>
               </select>
+            </div>
+            <div>
+              <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'DM Sans' }}>Kòd Promo (Ajan) — opsyonèl</label>
+              <input placeholder="egzanp: TSJEAN1" {...register('promoCode')} style={{ ...iStyle(false), textTransform:'uppercase' }}/>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:10, margin:'4px 0 0' }}>Si kliyan sa a soti nan yon ajan, antre kòd li a isit la.</p>
             </div>
           </div>
           <div style={{ borderTop:'1px solid rgba(201,168,76,0.1)', paddingTop:18 }}>
@@ -1178,6 +1306,7 @@ export default function AdminDashboard() {
   const [auditViewT,    setAuditViewT]   = useState(null)
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
+  const [showAgents,    setShowAgents]   = useState(false)
 
   const { admin } = getAdmin()
 
@@ -1416,9 +1545,14 @@ export default function AdminDashboard() {
               <h3 style={{ margin:0, fontSize: isMobile?14:15, fontWeight:700, color:'#fff', fontFamily:"'Playfair Display'" }}>Entreprise yo ({tenants.length})</h3>
               {!isMobile && <p style={{ margin:0, fontSize:10, color:'rgba(201,168,76,0.6)', letterSpacing:'0.06em' }}>KLIYAN SaaS AKTIF</p>}
             </div>
-            <button onClick={() => setShowCreate(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)', color:'#fff', border:'none', cursor:'pointer', fontSize: isMobile?12:13, fontWeight:700, boxShadow:'0 4px 20px rgba(139,0,0,0.4)' }}>
-              <Plus size={14}/>{isMobile?'Nouvo':'Nouvo Entreprise'}
-            </button>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setShowAgents(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'rgba(201,168,76,0.12)', color:'#C9A84C', border:'1px solid rgba(201,168,76,0.3)', cursor:'pointer', fontSize: isMobile?12:13, fontWeight:700 }}>
+                👤 {isMobile?'Ajan':'Jesyon Ajan'}
+              </button>
+              <button onClick={() => setShowCreate(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'linear-gradient(135deg, #8B0000, #C0392B 50%, #C9A84C)', color:'#fff', border:'none', cursor:'pointer', fontSize: isMobile?12:13, fontWeight:700, boxShadow:'0 4px 20px rgba(139,0,0,0.4)' }}>
+                <Plus size={14}/>{isMobile?'Nouvo':'Nouvo Entreprise'}
+              </button>
+            </div>
           </div>
 
           {/* MOBIL */}
@@ -1566,6 +1700,7 @@ export default function AdminDashboard() {
       {pageViewT    && <PageAccessPanel tenant={pageViewT} pages={pagesData[pageViewT.id]} onSave={savePages} saving={pageSaving} onClose={() => setPageViewT(null)}/>}
       {auditViewT   && <AuditLogModal tenant={auditViewT} onClose={() => setAuditViewT(null)}/>}
       {solViewT     && <SolManagerModal tenant={solViewT} onClose={() => setSolViewT(null)}/>}
+      {showAgents   && <AgentsPanel onClose={() => setShowAgents(false)}/>}
 
       <TickerBanner/>
       <style>{`
