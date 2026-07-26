@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Trophy, Copy, LogOut, Building2, Wallet, Clock, TrendingUp } from 'lucide-react'
 import { agentApi, clearAgent } from '../../services/agentApi'
+import PromoCarousel from '../../components/agent/PromoCarousel'
 
 const LOGO_URL = '/assets/logo.webp'
-const BANNER_URL = '/assets/banner-konkou.png'
 
 const C = {
   navy: '#0F172A', orange: '#F97316', orangeDark: '#EA580C', orangeLight: '#FDBA74',
@@ -93,10 +93,10 @@ export default function AgentDashboardPage() {
           <p style={{ color: C.green, fontSize: 13, fontWeight: 600, margin: 0, lineHeight: 1.5 }}>💪 {message}</p>
         </div>
 
-        <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1px solid ${C.orangeLight}`, borderRadius: 12, overflow: 'hidden' }}>
-          <img src={BANNER_URL} alt="Konkou Ajan — 100,000 HTG" style={{ width: '100%', display: 'block' }} />
-          <div style={{ padding: '14px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+        <div style={{ background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)', border: `1px solid ${C.orangeLight}`, borderRadius: 12, overflow: 'hidden', padding: 20, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <PromoCarousel maxWidth={300} height={260} />
+          <div style={{ marginTop: 14, textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 6 }}>
               <Trophy size={20} color={C.orange} />
               <p style={{ color: C.navy, fontSize: 13, margin: 0 }}>
                 Ou nan pozisyon <strong style={{ color: C.orangeDark }}>#{rank || '—'}</strong>{totalAgents > 0 ? ` sou ${totalAgents} ajan` : ''}

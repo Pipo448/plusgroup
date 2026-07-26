@@ -3,9 +3,9 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { LogIn, ArrowLeft, ShieldCheck } from 'lucide-react'
 import { agentApi, setAgent } from '../../services/agentApi'
+import PromoCarousel from '../../components/agent/PromoCarousel'
 
 const LOGO_URL = '/assets/logo.webp'
-const BANNER_URL = '/assets/banner-konkou.png'
 
 const C = {
   navy: '#0F172A', orange: '#F97316', orangeDark: '#EA580C',
@@ -65,7 +65,7 @@ export default function AgentLoginPage() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 24 }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
-          <img src={BANNER_URL} alt="Konkou Ajan — 100,000 HTG" style={{ width: '100%', borderRadius: 20, boxShadow: '0 8px 32px rgba(15,23,42,0.12)', display: 'block' }} />
+          <PromoCarousel maxWidth={380} height={420} />
         </div>
         <div style={{ width: '100%', maxWidth: 420, background: C.white, borderRadius: 20, padding: 32, boxShadow: '0 4px 24px rgba(15,23,42,0.06)', border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
