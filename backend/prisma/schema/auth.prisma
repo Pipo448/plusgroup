@@ -14,6 +14,49 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
+// ⚠️ NOUVO — Ajan k ap mennen nouvo antrepriz sou platfòm lan atravè
+// yon kòd promo. Kandidati soumèt piblikman (status: pending), SuperAdmin
+// apwouve/rejte manyèlman. Yon fwa apwouve, ajan an ka konekte sou pwòp
+// pòtal pa yo (app.plusgroupe.com/agent) pou swiv komisyon yo.
+model Agent {
+  id                  String    @id @default(uuid())
+  fullName            String    @map("full_name") @db.VarChar(150)
+  email               String    @unique @db.VarChar(150)
+  phone               String    @db.VarChar(50)
+  city                String    @db.VarChar(100)
+  passwordHash        String?   @map("password_hash")
+  promoCode           String    @unique @map("promo_code") @db.VarChar(20)
+  status              String    @default("pending") @db.VarChar(20) // pending | approved | rejected | suspended
+  commissionPerTenant Int       @default(500) @map("commission_per_tenant") // HTG pa mwa pa antrepriz
+  message             String?   // ti mo motivasyon nan kandidati a
+  createdAt           DateTime  @default(now()) @map("created_at")
+  approvedAt          DateTime? @map("approved_at")
+
+  tenants     Tenant[]          @relation("AgentReferrals")
+  commissions AgentCommission[]
+
+  @@index([status])
+  @@map("agents")
+}
+
+// ⚠️ NOUVO — Istorik komisyon: yon liy pou chak evènman (kreyasyon
+// tenant oswa renouvèlman abònman) ki jenere lajan pou ajan an.
+model AgentCommission {
+  id        String   @id @default(uuid())
+  agentId   String   @map("agent_id")
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  tenantId  String   @map("tenant_id")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  months    Int      // konbyen mwa transaksyon (kreyasyon/renouvèlman) sa a kouvri
+  amountHtg Int      @map("amount_htg") // commissionPerTenant × months, figé nan moman an
+  status    String   @default("pending") @db.VarChar(20) // pending | paid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([agentId])
+  @@index([tenantId])
+  @@map("agent_commissions")
+}
+
 model SubscriptionPlan {
   id            String               @id @default(uuid())
   name          String               @db.VarChar(100)
@@ -67,15 +110,20 @@ model Tenant {
   receiptFooterNote    String?               @map("receipt_footer_note")
   allowedPages         Json?                 @default("{}") @map("allowed_pages")
   monthlyPrice         Int                   @default(0) @map("monthly_price")
+  // ⚠️ NOUVO — Ajan ki mennen tenant sa a atravè yon kòd promo (opsyonèl,
+  // sèlman SuperAdmin antre l pandan kreyasyon tenant lan)
+  agentId              String?               @map("agent_id")
 
   // ─── Relations ───────────────────────────────────────────────
   creator              SuperAdmin?           @relation(fields: [createdBy], references: [id])
   plan                 SubscriptionPlan?     @relation(fields: [planId], references: [id])
+  agent                Agent?                @relation("AgentReferrals", fields: [agentId], references: [id])
 
   // Auth
   users                User[]
   branches             Branch[]
   subscriptions        TenantSubscription[]
+  agentCommissions     AgentCommission[]
 
   // Commerce
   activityLogs         ActivityLog[]
