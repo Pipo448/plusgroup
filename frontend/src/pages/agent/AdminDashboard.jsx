@@ -411,6 +411,12 @@ const AgentsPanel = ({ onClose }) => {
   })
   const agents = data?.agents || []
 
+  // ⚠️ NOUVO — Estatistik vizit vs kandidati (konvèsyon)
+  const { data: visitStats } = useQuery({
+    queryKey: ['admin-agents-visit-stats'],
+    queryFn: () => adminApi.get('/admin/agents/visit-stats').then(r => r.data.stats)
+  })
+
   const approveMutation = useMutation({
     mutationFn: (id) => adminApi.patch(`/admin/agents/${id}/approve`),
     onSuccess: (res) => {
@@ -459,6 +465,23 @@ const AgentsPanel = ({ onClose }) => {
                 style={{ padding:'8px 14px', borderRadius:6, border:'none', background:'#27ae60', color:'#fff', cursor:'pointer', fontWeight:700, fontSize:12 }}>Kopye</button>
             </div>
             <button onClick={() => setRevealedPwd(null)} style={{ marginTop:10, background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:11, textDecoration:'underline' }}>Fèmen</button>
+          </div>
+        )}
+
+        {/* Estatistik konvèsyon vizit → kandidati */}
+        {visitStats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 16 }}>
+            {[
+              { label: 'Vizit Total', value: visitStats.totalVisits },
+              { label: 'Vizit (30j)', value: visitStats.last30DaysVisits },
+              { label: 'Kandidati', value: visitStats.totalApplications },
+              { label: 'Konvèsyon', value: `${visitStats.conversionRate}%` },
+            ].map(s => (
+              <div key={s.label} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '10px 8px', textAlign: 'center' }}>
+                <p style={{ color: '#C9A84C', fontWeight: 800, fontSize: 16, margin: 0 }}>{s.value}</p>
+                <p style={{ color: '#64748b', fontSize: 10, margin: '2px 0 0' }}>{s.label}</p>
+              </div>
+            ))}
           </div>
         )}
 

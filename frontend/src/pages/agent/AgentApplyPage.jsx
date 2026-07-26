@@ -133,6 +133,12 @@ export default function AgentApplyPage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadingId, setUploadingId] = useState(false)
 
+  // ⚠️ NOUVO — Konte vizit la yon sèl fwa lè paj la fin chaje (pou estatistik
+  // konvèsyon SuperAdmin). Si demand lan echwe, pa gen konsekans — se jis stat.
+  useEffect(() => {
+    agentApi.post('/agents/track-visit').catch(() => {})
+  }, [])
+
   const [f, setF] = useState({
     fullName: '', lastName: '', dateOfBirth: '', gender: '', maritalStatus: '',
     email: '', phone: '', addressFull: '', city: '', department: '', country: 'Ayiti',
