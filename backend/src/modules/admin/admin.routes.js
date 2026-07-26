@@ -12,6 +12,15 @@ const prisma  = require('../../config/prisma')
 // ant pri mansyèl la ak planche sa a se komisyon ajan an.
 const PLUS_GROUP_BASE_MONTHLY = 2500
 
+// ⚠️ NOUVO — Menm lojik desizyon ak agent.routes.js (Faz 5 — evalyasyon ajan)
+function calcDecisionLabel(total) {
+  if (total >= 90) return 'rekrite'
+  if (total >= 80) return 'entèvyou'
+  if (total >= 70) return 'atant'
+  if (total >= 60) return 'fòmasyon'
+  return 'refize'
+}
+
 // ══════════════════════════════════════════════
 // LOJIK ABÒNMAN — JOU 5 MWA KAP VINI
 // ══════════════════════════════════════════════
@@ -948,7 +957,37 @@ router.patch('/agents/:id/suspend', asyncHandler(async (req, res) => {
   res.json({ success: true, agent: updated, message: `Ajan "${agent.fullName}" sispann.` })
 }))
 
-// ── PATCH /api/v1/admin/agent-commissions/:id/paid — make yon komisyon kòm peye
+// ── PATCH /api/v1/admin/agents/:id/evaluate — SuperAdmin antre nòt
+// subjektif yo (Komèsyal/Sistèm/Bonus) apre entèvyou, kalkile nòt total
+router.patch('/agents/:id/evaluate', asyncHandler(async (req, res) => {
+  const { scoreCommercial, scoreSystem, scoreBonus } = req.body
+  const agent = await prisma.agent.findUnique({ where: { id: req.params.id } })
+  if (!agent) return res.status(404).json({ success: false, message: 'Ajan pa jwenn.' })
+
+  const clamp = (v, max) => Math.max(0, Math.min(max, Number(v) || 0))
+  const commercial = scoreCommercial !== undefined ? clamp(scoreCommercial, 20) : agent.scoreCommercial
+  const system      = scoreSystem     !== undefined ? clamp(scoreSystem, 20)     : agent.scoreSystem
+  const bonus       = scoreBonus      !== undefined ? clamp(scoreBonus, 10)      : agent.scoreBonus
+
+  const objectiveTotal = (agent.scorePersonal || 0) + (agent.scoreEducation || 0)
+    + (agent.scoreExperience || 0) + (agent.scoreDigitalSkills || 0)
+  const scoreTotal = objectiveTotal + (commercial || 0) + (system || 0) + (bonus || 0)
+  const scoreDecision = calcDecisionLabel(scoreTotal)
+
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: {
+      scoreCommercial: commercial, scoreSystem: system, scoreBonus: bonus,
+      scoreTotal, scoreDecision
+    }
+  })
+
+  await logAudit(null, 'AGENT_EVALUATED', agent.email, agent.fullName, { scoreTotal, scoreDecision })
+
+  res.json({ success: true, agent: updated, message: `Nòt final: ${scoreTotal}/100 — ${scoreDecision}.` })
+}))
+
+
 router.patch('/agent-commissions/:id/paid', asyncHandler(async (req, res) => {
   const commission = await prisma.agentCommission.findUnique({ where: { id: req.params.id } })
   if (!commission) return res.status(404).json({ success: false, message: 'Komisyon pa jwenn.' })
