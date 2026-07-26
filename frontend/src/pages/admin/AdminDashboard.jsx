@@ -487,7 +487,6 @@ const AgentsPanel = ({ onClose }) => {
                     <p style={{ color:'#64748b', fontSize:11, margin:'4px 0 0' }}>{agent.email} · {agent.phone} · {agent.city}</p>
                     <p style={{ color:'#64748b', fontSize:11, margin:'2px 0 0' }}>
                       Kòd: <span style={{ fontFamily:'monospace', color:'#C9A84C' }}>{agent.promoCode}</span>
-                      {' · '}{agent.commissionPerTenant} HTG/mwa/antrepriz
                       {' · '}🏢 {agent._count?.tenants || 0} antrepriz
                     </p>
                     {agent.message && <p style={{ color:'#94a3b8', fontSize:11, margin:'6px 0 0', fontStyle:'italic' }}>"{agent.message}"</p>}
@@ -592,15 +591,31 @@ const ResetPasswordModal = ({ tenant, onClose }) => {
 // ══════════════════════════════════════════════
 const CreateTenantModal = ({ plans, onClose, onCreated }) => {
   const isMobile = useIsMobile()
-  const { register, handleSubmit, formState: { errors } } = useForm({ defaultValues: { defaultCurrency:'HTG', defaultLanguage:'ht', subscriptionMonths:1 } })
+  const { register, handleSubmit, watch, formState: { errors } } = useForm({ defaultValues: { defaultCurrency:'HTG', defaultLanguage:'ht', subscriptionMonths:1 } })
   const [selectedPlan, setSelectedPlan] = useState(null)
+  const promoCodeValue   = watch('promoCode')
+  const monthlyPriceValue = watch('monthlyPrice')
+  const { data: approvedAgentsData } = useQuery({
+    queryKey: ['admin-agents-approved-lookup'],
+    queryFn: () => adminApi.get('/admin/agents', { params: { status: 'approved' } }).then(r => r.data)
+  })
+  const matchedAgent = (approvedAgentsData?.agents || []).find(
+    a => a.promoCode?.toUpperCase() === (promoCodeValue || '').trim().toUpperCase()
+  )
   const iStyle = (e) => ({ width:'100%', padding:'12px 14px', borderRadius:10, boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border: e?'1px solid rgba(192,57,43,0.6)':'1px solid rgba(255,255,255,0.08)', color:'#fff', fontSize:16, fontFamily:'DM Sans', outline:'none' })
   const mutation = useMutation({
     mutationFn: (data) => adminApi.post('/admin/tenants', data),
-    onSuccess: (res) => { toast.success(`Entreprise "${res.data.tenant.name}" kreye!`); onCreated?.() },
+    onSuccess: (res) => { toast.success(res.data.message || `Entreprise "${res.data.tenant.name}" kreye!`); onCreated?.() },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan kreyasyon.')
   })
-  const onSubmit = (data) => mutation.mutate({ ...data, planId: selectedPlan||'' })
+  const onSubmit = (data) => {
+    // ⚠️ NOUVO — pri mansyèl obligatwa lè gen kòd promo
+    if (data.promoCode && data.promoCode.trim() !== '' && (!data.monthlyPrice || Number(data.monthlyPrice) <= 0)) {
+      toast.error('Antre pri mansyèl kliyan an lè w itilize yon kòd promo ajan.')
+      return
+    }
+    mutation.mutate({ ...data, planId: selectedPlan||'' })
+  }
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.8)', backdropFilter:'blur(6px)', zIndex:50, display:'flex', alignItems: isMobile?'flex-end':'center', justifyContent:'center', padding: isMobile?0:16 }} onClick={e => e.target===e.currentTarget && onClose()}>
       <div style={{ background:'linear-gradient(160deg, #0f1923, #111827)', borderRadius: isMobile?'20px 20px 0 0':24, width:'100%', maxWidth: isMobile?'100%':600, maxHeight:'92vh', overflowY:'auto', border:'1px solid rgba(201,168,76,0.2)', position:'relative' }}>
@@ -665,6 +680,21 @@ const CreateTenantModal = ({ plans, onClose, onCreated }) => {
               <input placeholder="egzanp: TSJEAN1" {...register('promoCode')} style={{ ...iStyle(false), textTransform:'uppercase' }}/>
               <p style={{ color:'rgba(255,255,255,0.3)', fontSize:10, margin:'4px 0 0' }}>Si kliyan sa a soti nan yon ajan, antre kòd li a isit la.</p>
             </div>
+            {promoCodeValue && promoCodeValue.trim() !== '' && (
+              <div style={{ gridColumn:'1/-1' }}>
+                <label style={{ display:'block', color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, marginBottom:7, textTransform:'uppercase', letterSpacing:'0.08em', fontFamily:'DM Sans' }}>Pri Mansyèl Kliyan an (HTG) *</label>
+                <input type="number" min="1" placeholder="egzanp: 2500" {...register('monthlyPrice', { required: true })} style={iStyle(false)}/>
+                <p style={{ color:'rgba(201,168,76,0.6)', fontSize:11, margin:'6px 0 0' }}>
+                  💰 Sa a se pri ajan an dakò ak kliyan an. Nan lajan sa a, ajan an touche komisyon li chak mwa
+                  (defini sou pwofil li), rès la ale pou Plus Group.
+                  {matchedAgent && monthlyPriceValue > 0 && (
+                    <><br/>Plus Group touche <strong>{Math.min(Number(monthlyPriceValue), 2500)} HTG</strong>/mwa (planche fiks),
+                    <strong> {matchedAgent.fullName}</strong> touche <strong>{Math.max(0, Number(monthlyPriceValue) - 2500)} HTG</strong>/mwa (rès la) — chak fwa w klike "+1 mwa".</>
+                  )}
+                  {promoCodeValue && !matchedAgent && <><br/><span style={{ color:'#E8836A' }}>⚠️ Kòd sa a pa koresponn ak okenn ajan apwouve.</span></>}
+                </p>
+              </div>
+            )}
           </div>
           <div style={{ borderTop:'1px solid rgba(201,168,76,0.1)', paddingTop:18 }}>
             <p style={{ color:'rgba(201,168,76,0.7)', fontSize:10, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.1em', margin:'0 0 12px', fontFamily:'DM Sans' }}>👤 Kont Administratè Entreprise</p>

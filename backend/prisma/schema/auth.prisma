@@ -14,42 +14,120 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
-// ⚠️ NOUVO — Ajan k ap mennen nouvo antrepriz sou platfòm lan atravè
-// yon kòd promo. Kandidati soumèt piblikman (status: pending), SuperAdmin
-// apwouve/rejte manyèlman. Yon fwa apwouve, ajan an ka konekte sou pwòp
-// pòtal pa yo (app.plusgroupe.com/agent) pou swiv komisyon yo.
+// ⚠️ ELAJI (Faz 5) — Fòm ofisyèl rekritman ajan konplè: idantite, dokiman,
+// edikasyon, sitiyasyon pwofesyonèl, eksperyans, konpetans, domèn ak
+// evalyasyon espesifik, motivasyon, referans, deklarasyon, ak sistèm nòt
+// 100 pwen (pati objektif kalkile otomatik, pati subjektif SuperAdmin
+// antre apre entèvyou).
 model Agent {
-  id                  String    @id @default(uuid())
-  fullName            String    @map("full_name") @db.VarChar(150)
-  email               String    @unique @db.VarChar(150)
-  phone               String    @db.VarChar(50)
-  city                String    @db.VarChar(100)
-  passwordHash        String?   @map("password_hash")
-  promoCode           String    @unique @map("promo_code") @db.VarChar(20)
-  status              String    @default("pending") @db.VarChar(20) // pending | approved | rejected | suspended
-  commissionPerTenant Int       @default(500) @map("commission_per_tenant") // HTG pa mwa pa antrepriz
-  message             String?   // ti mo motivasyon nan kandidati a
-  createdAt           DateTime  @default(now()) @map("created_at")
-  approvedAt          DateTime? @map("approved_at")
+  id         String  @id @default(uuid())
+  // Nimewo dosye ofisyèl, jenere otomatik: PG-2026-000123
+  dossierNumber String @unique @map("dossier_number") @db.VarChar(20)
+
+  // ── Idantite ──────────────────────────────────────────
+  fullName    String    @map("full_name") @db.VarChar(150) // Non
+  lastName    String?   @map("last_name") @db.VarChar(100) // Siyati
+  dateOfBirth DateTime? @map("date_of_birth")
+  gender      String?   @db.VarChar(20)
+  maritalStatus String? @map("marital_status") @db.VarChar(30)
+  email       String    @unique @db.VarChar(150)
+  phone       String    @db.VarChar(50) // Sèvi kòm Nimewo WhatsApp tou
+  addressFull String?   @map("address_full")
+  city        String    @db.VarChar(100) // Vil/Komin
+  department  String?   @map("department") @db.VarChar(100)
+  country     String    @default("Ayiti") @db.VarChar(100)
+
+  // ── Dokiman (base64, menm apwòch ak foto pwodui, limit 2MB) ──
+  photoBase64       String? @map("photo_base64") @db.Text
+  idDocumentType    String? @map("id_document_type") @db.VarChar(30) // kat_nasyonal | paspò | permi
+  idDocumentBase64  String? @map("id_document_base64") @db.Text
+
+  // ── Edikasyon ─────────────────────────────────────────
+  educationLevel String? @map("education_level") @db.VarChar(30) // primè|segondè|teknik|inivèsite
+  fieldOfStudy   String? @map("field_of_study") @db.VarChar(150)
+  schoolName     String? @map("school_name") @db.VarChar(200)
+  otherCertifications String? @map("other_certifications") @db.Text
+
+  // ── Sitiyasyon pwofesyonèl ────────────────────────────
+  currentProfession String?  @map("current_profession") @db.VarChar(150)
+  currentlyEmployed Boolean? @map("currently_employed")
+  companyName       String?  @map("company_name") @db.VarChar(150)
+  jobTitle          String?  @map("job_title") @db.VarChar(150)
+
+  // ── Eksperyans ────────────────────────────────────────
+  yearsExperience   String? @map("years_experience") @db.VarChar(20) // pa_genyen|mwens_1|1-3|3-5|5+
+  experienceDomain  String? @map("experience_domain") @db.VarChar(200)
+
+  // ── Konpetans & Lang (Json — chwa miltip) ─────────────
+  skills    Json? // { smartphone, laptop, internetHome, transport }
+  languages Json? // ["Kreyòl","Fransè",...]
+
+  // ── Domèn kandida a chwazi ──────────────────────────
+  domains Json? // ["commercial","system"] — ka gen toude
+
+  // ── Evalyasyon espesifik domèn (Json, ranpli si aplikab) ──
+  commercialEval Json? @map("commercial_eval")
+  // { hasExperience:[], clientTypes:[], socialMedia:[], convinceApproach, monthlyClientsEstimate, workZone }
+  systemEval     Json? @map("system_eval")
+  // { systemTypes:[], toolsKnown:[], hasDemoedSoftware, businessContacts:[], whyNeedSystem, plusGroupAdvantage }
+
+  // ── Motivasyon ────────────────────────────────────────
+  whyAgent      String? @map("why_agent") @db.Text
+  goals12Months String? @map("goals_12_months") @db.Text
+  threeTraits   String? @map("three_traits") @db.VarChar(300)
+  weakness      String? @db.Text
+
+  // ── Referans (Json — [{name,phone,relation}, {...}]) ─
+  references Json?
+
+  // ── Peman komisyon (fòm rekritman) ────────────────────
+  payoutMethod   String? @map("payout_method") @db.VarChar(20) // natcash | office
+  natcashNumber  String? @map("natcash_number") @db.VarChar(50)
+
+  // ── Deklarasyon ───────────────────────────────────────
+  declareInfoAccurate  Boolean @default(false) @map("declare_info_accurate")
+  agreeRules           Boolean @default(false) @map("agree_rules")
+  agreeVerification    Boolean @default(false) @map("agree_verification")
+
+  // ── Nòt (sou 100) ─────────────────────────────────────
+  // Objektif — kalkile otomatik pandan soumisyon fòm lan
+  scorePersonal     Int? @map("score_personal")      // /10
+  scoreEducation    Int? @map("score_education")     // /15
+  scoreExperience   Int? @map("score_experience")    // /20
+  scoreDigitalSkills Int? @map("score_digital_skills") // /15
+  // Subjektif — SuperAdmin antre apre entèvyou
+  scoreCommercial Int? @map("score_commercial") // /20
+  scoreSystem     Int? @map("score_system")     // /20
+  scoreBonus      Int? @map("score_bonus")      // /10
+  scoreTotal      Int? @map("score_total")      // total final
+  scoreDecision   String? @map("score_decision") @db.VarChar(50) // rekrite|entèvyou|atant|fòmasyon|refize
+
+  // ── Kont/Aksè (menm jan ak avan) ──────────────────────
+  passwordHash        String?  @map("password_hash")
+  promoCode            String   @unique @map("promo_code") @db.VarChar(20)
+  status                String   @default("pending") @db.VarChar(20) // pending | approved | rejected | suspended
+  commissionPerTenant Int      @default(500) @map("commission_per_tenant")
+  message               String? // konsève pou konpatibilite Faz 1
+  createdAt             DateTime  @default(now()) @map("created_at")
+  approvedAt             DateTime? @map("approved_at")
 
   tenants     Tenant[]          @relation("AgentReferrals")
   commissions AgentCommission[]
 
   @@index([status])
+  @@index([scoreTotal])
   @@map("agents")
 }
 
-// ⚠️ NOUVO — Istorik komisyon: yon liy pou chak evènman (kreyasyon
-// tenant oswa renouvèlman abònman) ki jenere lajan pou ajan an.
 model AgentCommission {
   id        String   @id @default(uuid())
   agentId   String   @map("agent_id")
   agent     Agent    @relation(fields: [agentId], references: [id])
   tenantId  String   @map("tenant_id")
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  months    Int      // konbyen mwa transaksyon (kreyasyon/renouvèlman) sa a kouvri
-  amountHtg Int      @map("amount_htg") // commissionPerTenant × months, figé nan moman an
-  status    String   @default("pending") @db.VarChar(20) // pending | paid
+  months    Int
+  amountHtg Int      @map("amount_htg")
+  status    String   @default("pending") @db.VarChar(20)
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([agentId])
@@ -106,12 +184,9 @@ model Tenant {
   visibleCurrencies    String?               @default("[\"USD\"]")
   showQrCode           Boolean               @default(true) @map("show_qr_code")
   requireQuote         Boolean               @default(false) @map("require_quote")
-  // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
   receiptFooterNote    String?               @map("receipt_footer_note")
   allowedPages         Json?                 @default("{}") @map("allowed_pages")
   monthlyPrice         Int                   @default(0) @map("monthly_price")
-  // ⚠️ NOUVO — Ajan ki mennen tenant sa a atravè yon kòd promo (opsyonèl,
-  // sèlman SuperAdmin antre l pandan kreyasyon tenant lan)
   agentId              String?               @map("agent_id")
 
   // ─── Relations ───────────────────────────────────────────────
@@ -129,7 +204,6 @@ model Tenant {
   activityLogs         ActivityLog[]
   clients              Client[]
   documentSequences    DocumentSequence[]
-  // ✅ NOUVO — Devi Dirèk (pwodui/sèvis ki pa nan katalòg estòk la)
   directQuotes         DirectQuote[]
   directQuoteItems     DirectQuoteItem[]
   invoiceItems         InvoiceItem[]
@@ -213,7 +287,6 @@ model Branch {
   // Relations
   branchUsers       BranchUser[]
   clients           Client[]
-  // ✅ NOUVO — Devi Dirèk pou branch sa a
   directQuotes      DirectQuote[]
   invoices          Invoice[]
   kaneAccounts      KaneEpay[]
@@ -267,9 +340,6 @@ model User {
   createdAt            DateTime           @default(now()) @map("created_at")
   updatedAt            DateTime           @updatedAt @map("updated_at")
   passwordChangedAt    DateTime?          @map("password_changed_at") @db.Timestamptz(6)
-  // ✅ NOUVO — PIN 4 chif pou ADMIN otorize Devi Dirèk yon kesye kreye.
-  // Chak admin gen pwòp PIN pa yo (yo konfigire l nan Paramèt). Rete NULL
-  // pou itilizatè ki pa admin — pa itilize.
   directQuotePin       String?            @map("direct_quote_pin") @db.VarChar(4)
   tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
@@ -283,8 +353,6 @@ model User {
   products                Product[]
   push_subscriptions      PushSubscription[]
   quotesCreated           Quote[]            @relation("QuoteCreatedBy")
-  // ✅ NOUVO — Devi Dirèk kreye pa itilizatè a, ak Devi Dirèk itilizatè a
-  // (si li admin) otorize ak PIN pa li pou kesye yo
   directQuotesCreated     DirectQuote[]      @relation("DirectQuoteCreatedBy")
   directQuotesAuthorized  DirectQuote[]      @relation("DirectQuoteAuthorizedBy")
   stockMovements          StockMovement[]

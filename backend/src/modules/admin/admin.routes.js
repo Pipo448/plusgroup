@@ -7,6 +7,11 @@ const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const prisma  = require('../../config/prisma')
 
+// ⚠️ NOUVO — Planche fiks Plus Group touche chak mwa sou TOUT tenant ki
+// soti nan yon ajan, kèlkeswa pri ajan an negosye ak kliyan an. Diferans
+// ant pri mansyèl la ak planche sa a se komisyon ajan an.
+const PLUS_GROUP_BASE_MONTHLY = 2500
+
 // ══════════════════════════════════════════════
 // LOJIK ABÒNMAN — JOU 5 MWA KAP VINI
 // ══════════════════════════════════════════════
@@ -272,7 +277,8 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     name, slug, email, phone, address, planId,
     adminEmail, adminPassword, adminName,
     subscriptionMonths, defaultCurrency, defaultLanguage,
-    promoCode // ⚠️ NOUVO — kòd ajan (opsyonèl)
+    promoCode, // ⚠️ NOUVO — kòd ajan (opsyonèl)
+    monthlyPrice // ⚠️ NOUVO — pri mansyèl espesifik pou tenant sa a (obligatwa si gen kòd promo)
   } = req.body
 
   if (!name || !slug)
@@ -316,7 +322,20 @@ router.post('/tenants', asyncHandler(async (req, res) => {
     if (referringAgent.status !== 'approved') {
       return res.status(400).json({ success: false, message: `Ajan ki gen kòd promo sa a pa aktif kounye a.` })
     }
+    // ⚠️ NOUVO — Pri mansyèl obligatwa lè gen yon ajan, pou n konnen konbyen
+    // Plus Group touche (monthlyPrice - agent.commissionPerTenant) vs ajan an
+    if (!monthlyPrice || Number(monthlyPrice) <= 0) {
+      return res.status(400).json({ success: false, message: 'Pri mansyèl kliyan an obligatwa lè w itilize yon kòd promo ajan.' })
+    }
+    if (Number(monthlyPrice) < PLUS_GROUP_BASE_MONTHLY) {
+      return res.status(400).json({
+        success: false,
+        message: `Pri mansyèl la (${monthlyPrice} HTG) pa ka pi piti pase ${PLUS_GROUP_BASE_MONTHLY} HTG (planche Plus Group).`
+      })
+    }
   }
+
+  const cleanMonthlyPrice = monthlyPrice && Number(monthlyPrice) > 0 ? Math.round(Number(monthlyPrice)) : 0
 
   const tenant = await prisma.tenant.create({
     data: {
@@ -326,21 +345,26 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       defaultCurrency: cleanCurrency, defaultLanguage: cleanLanguage,
       status: 'active',
       subscriptionEndsAt,
-      agentId: referringAgent?.id || null // ⚠️ NOUVO
+      agentId: referringAgent?.id || null, // ⚠️ NOUVO
+      monthlyPrice: cleanMonthlyPrice // ⚠️ NOUVO — pri espesifik si defini
     }
   })
 
   // ⚠️ NOUVO — Jenere premye komisyon ajan an si tenant lan lye ak yon ajan
+  // Komisyon = (pri mansyèl - planche Plus Group) × kantite mwa peye
   if (referringAgent) {
-    await prisma.agentCommission.create({
-      data: {
-        agentId: referringAgent.id,
-        tenantId: tenant.id,
-        months,
-        amountHtg: referringAgent.commissionPerTenant * months,
-        status: 'pending'
-      }
-    })
+    const agentCutPerMonth = Math.max(0, cleanMonthlyPrice - PLUS_GROUP_BASE_MONTHLY)
+    if (agentCutPerMonth > 0) {
+      await prisma.agentCommission.create({
+        data: {
+          agentId: referringAgent.id,
+          tenantId: tenant.id,
+          months,
+          amountHtg: agentCutPerMonth * months,
+          status: 'pending'
+        }
+      })
+    }
   }
 
   if (adminEmail && adminPassword) {
@@ -377,13 +401,18 @@ router.post('/tenants', asyncHandler(async (req, res) => {
 
   // ── Audit log
   await logAudit(tenant.id, 'TENANT_CREATED', adminEmail || null, tenant.name, {
-    plan: cleanPlanId, months, currency: cleanCurrency, agentId: referringAgent?.id || null
+    plan: cleanPlanId, months, currency: cleanCurrency, agentId: referringAgent?.id || null,
+    monthlyPrice: cleanMonthlyPrice,
+    agentCut: referringAgent ? Math.max(0, cleanMonthlyPrice - PLUS_GROUP_BASE_MONTHLY) : null,
+    plusGroupCut: referringAgent ? Math.min(cleanMonthlyPrice, PLUS_GROUP_BASE_MONTHLY) : null
   })
 
   res.status(201).json({
     success: true, tenant,
     message: `Entreprise "${tenant.name}" kreye. Abònman ekspire ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`
-      + (referringAgent ? ` Lye ak ajan "${referringAgent.fullName}".` : '')
+      + (referringAgent
+          ? ` Lye ak ajan "${referringAgent.fullName}" — li touche ${Math.max(0, cleanMonthlyPrice - PLUS_GROUP_BASE_MONTHLY)} HTG/mwa, Plus Group touche ${Math.min(cleanMonthlyPrice, PLUS_GROUP_BASE_MONTHLY)} HTG/mwa.`
+          : '')
   })
 }))
 
@@ -442,7 +471,7 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
 
   const existing = await prisma.tenant.findUnique({
     where: { id: req.params.id },
-    select: { id: true, name: true, subscriptionEndsAt: true, status: true, agentId: true }
+    select: { id: true, name: true, subscriptionEndsAt: true, status: true, agentId: true, monthlyPrice: true }
   })
   if (!existing)
     return res.status(404).json({ success: false, message: 'Entreprise pa jwenn.' })
@@ -455,16 +484,18 @@ router.post('/tenants/:id/renew', asyncHandler(async (req, res) => {
     select: { id: true, name: true, subscriptionEndsAt: true, status: true }
   })
 
-  // ⚠️ NOUVO — Jenere komisyon ajan an si tenant lan lye ak yon ajan
+  // ⚠️ NOUVO — Jenere komisyon ajan an chak fwa gen yon renouvèlman
+  // Komisyon = (monthlyPrice tenant lan - planche Plus Group) × mwa renouvle
   if (existing.agentId) {
     const agent = await prisma.agent.findUnique({ where: { id: existing.agentId } })
-    if (agent && agent.status === 'approved') {
+    const agentCutPerMonth = Math.max(0, (existing.monthlyPrice || 0) - PLUS_GROUP_BASE_MONTHLY)
+    if (agent && agent.status === 'approved' && agentCutPerMonth > 0) {
       await prisma.agentCommission.create({
         data: {
           agentId: agent.id,
           tenantId: existing.id,
           months: numMonths,
-          amountHtg: agent.commissionPerTenant * numMonths,
+          amountHtg: agentCutPerMonth * numMonths,
           status: 'pending'
         }
       })
