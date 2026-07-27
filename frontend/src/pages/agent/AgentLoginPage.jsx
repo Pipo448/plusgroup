@@ -40,7 +40,7 @@ export default function AgentLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (!email || !password) { setError('Email ak modpas obligatwa.'); return }
+    if (!email || !password) { setError('Email/Kòd Ajan ak modpas obligatwa.'); return }
     setLoading(true)
     try {
       const res = await agentApi.post('/agents/login', { email, password })
@@ -86,8 +86,8 @@ export default function AgentLoginPage() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
-              <label style={labelStyle}>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jean@email.com" style={inputStyle} />
+              <label style={labelStyle}>Email oswa Kòd Ajan</label>
+              <input type="text" autoCapitalize="none" autoCorrect="off" value={email} onChange={e => setEmail(e.target.value)} placeholder="jean@email.com oswa MARCHA509" style={inputStyle} />
             </div>
             <div>
               <label style={labelStyle}>Modpas</label>
