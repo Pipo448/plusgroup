@@ -75,8 +75,14 @@ const create = async (tenantId, userId, data) => {
     }
   }
 
-  if (data.code) {
-    const exists = await prisma.product.findUnique({ where: { tenantId_code: { tenantId, code: data.code } } });
+  // ⚠️ KORIJE — chan "code" opsyonèl la ka rive kòm "" (tèks vid) soti nan
+  // fòm frontend lan. Contrainte inik (tenant_id, code) konsidere 2 tèks vid
+  // kòm idantik (kontrèman ak NULL ki toujou diferan), kidonk san normalize
+  // sa a, DEZYÈM pwodui san kòd la toujou echwe ak "Unique constraint failed".
+  const code = (data.code && data.code.trim() !== '') ? data.code.trim() : null;
+
+  if (code) {
+    const exists = await prisma.product.findUnique({ where: { tenantId_code: { tenantId, code } } });
     if (exists) throw Object.assign(new Error('Kòd pwodui sa deja egziste.'), { statusCode: 409 });
   }
 
@@ -88,7 +94,7 @@ const create = async (tenantId, userId, data) => {
       name:           data.name,
       nameFr:         data.nameFr,
       nameEn:         data.nameEn,
-      code:           data.code,
+      code:           code,
       description:    data.description,
       categoryId:     data.categoryId,
       unit:           data.unit || 'unité',
@@ -133,8 +139,11 @@ const update = async (tenantId, id, userId, data) => {
   const existing = await prisma.product.findFirst({ where: { id, tenantId } });
   if (!existing) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
 
-  if (data.code && data.code !== existing.code) {
-    const dup = await prisma.product.findFirst({ where: { tenantId, code: data.code, NOT: { id } } });
+  // ⚠️ KORIJE — menm nòmalizasyon ak create(): "" → null
+  const code = (data.code && data.code.trim() !== '') ? data.code.trim() : null;
+
+  if (code && code !== existing.code) {
+    const dup = await prisma.product.findFirst({ where: { tenantId, code, NOT: { id } } });
     if (dup) throw Object.assign(new Error('Kòd sa deja itilize.'), { statusCode: 409 });
   }
 
@@ -142,7 +151,7 @@ const update = async (tenantId, id, userId, data) => {
     where: { id },
     data: {
       name: data.name, nameFr: data.nameFr, nameEn: data.nameEn,
-      code: data.code, description: data.description,
+      code, description: data.description,
       categoryId: data.categoryId, unit: data.unit,
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
