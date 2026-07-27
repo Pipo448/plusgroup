@@ -28,17 +28,18 @@
 const prisma = require('../src/config/prisma')
 
 const MODELS_TO_BACKFILL = [
-  { model: 'product',       label: 'Pwodui' },
-  { model: 'client',        label: 'Kliyan' },
-  { model: 'quote',         label: 'Devi' },
-  { model: 'invoice',       label: 'Fakti' },
-  { model: 'stockMovement', label: 'Mouvman Estòk' },
-  { model: 'dryOrder',      label: 'Kòmand Dry (si modil aktif)' },
-  { model: 'room',          label: 'Chanm Hotel (si modil aktif)' },
-  { model: 'reservation',   label: 'Rezèvasyon Hotel (si modil aktif)' },
-  { model: 'kaneEpay',      label: 'Kane Epay (si modil aktif)' },
-  { model: 'pre',           label: 'Prè Mikwo Kredi (si modil aktif)' },
-  { model: 'sabotayPlan',   label: 'Plan Sabotay (si modil aktif)' },
+  { model: 'product',         label: 'Pwodui' },
+  { model: 'productCategory', label: 'Kategori Pwodui' }, // ⚠️ KORIJE — te manke, se sa ki te lakòz kategori disparèt apre migrasyon
+  { model: 'client',          label: 'Kliyan' },
+  { model: 'quote',           label: 'Devi' },
+  { model: 'invoice',         label: 'Fakti' },
+  { model: 'stockMovement',   label: 'Mouvman Estòk' },
+  { model: 'dryOrder',        label: 'Kòmand Dry (si modil aktif)' },
+  { model: 'room',            label: 'Chanm Hotel (si modil aktif)' },
+  { model: 'reservation',     label: 'Rezèvasyon Hotel (si modil aktif)' },
+  { model: 'kaneEpay',        label: 'Kane Epay (si modil aktif)' },
+  { model: 'pre',             label: 'Prè Mikwo Kredi (si modil aktif)' },
+  { model: 'sabotayPlan',     label: 'Plan Sabotay (si modil aktif)' },
 ]
 
 function slugify(text) {

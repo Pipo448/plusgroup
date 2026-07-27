@@ -1,4 +1,5 @@
 // src/components/layout/AppLayout.jsx
+import { createPortal } from 'react-dom'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
@@ -449,9 +450,11 @@ export default function AppLayout() {
                         location.pathname.startsWith('/app/mikwo-kredi-gid')
   const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
 
-  const langRef   = useRef(null)
-  const branchRef = useRef(null)
-  const meCalled  = useRef(false)
+  const langRef       = useRef(null)
+  const branchRef     = useRef(null)
+  const branchMenuRef = useRef(null)
+  const meCalled      = useRef(false)
+  const [branchMenuPos, setBranchMenuPos] = useState({ top: 70, left: 16 })
 
   const { connected:btConnected, connecting:btConnecting, printing:btPrinting, connect:btConnect, disconnect:btDisconnect, deviceName } = usePrinterStore()
   const onSunmi      = useMemo(() => isSunmi(), [])
@@ -508,9 +511,31 @@ export default function AppLayout() {
     branchAPI.getAll().then(r => setBranches(r.data?.branches || [])).catch(() => {})
   }, [isAdmin, token])
 
+  const updateBranchMenuPos = useCallback(() => {
+    if (!branchRef.current) return
+    const rect = branchRef.current.getBoundingClientRect()
+    const menuWidth = 240
+    let left = rect.left
+    if (left + menuWidth > window.innerWidth - 16) left = window.innerWidth - menuWidth - 16
+    if (left < 16) left = 16
+    setBranchMenuPos({ top: rect.bottom + 8, left })
+  }, [])
+
+  useEffect(() => {
+    if (!showBranches) return
+    updateBranchMenuPos()
+    window.addEventListener('resize', updateBranchMenuPos)
+    window.addEventListener('scroll', updateBranchMenuPos, true)
+    return () => {
+      window.removeEventListener('resize', updateBranchMenuPos)
+      window.removeEventListener('scroll', updateBranchMenuPos, true)
+    }
+  }, [showBranches, updateBranchMenuPos])
+
   useEffect(() => {
     const onDoc = (e) => {
-      if (branchRef.current && !branchRef.current.contains(e.target)) setShowBranches(false)
+      if (branchRef.current && !branchRef.current.contains(e.target) &&
+          branchMenuRef.current && !branchMenuRef.current.contains(e.target)) setShowBranches(false)
       if (langRef.current   && !langRef.current.contains(e.target))   setShowLang(false)
     }
     document.addEventListener('mousedown', onDoc)
@@ -648,8 +673,8 @@ export default function AppLayout() {
                   <ChevronDown size={11} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted, transform: showBranches ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
                 </button>
 
-                {showBranches && (
-                  <div style={{ position:'fixed', top:70, left: isDesktop ? 252 : 16, minWidth:220, maxWidth:'calc(100vw - 32px)', zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
+                {showBranches && createPortal(
+                  <div ref={branchMenuRef} style={{ position:'fixed', top:branchMenuPos.top, left:branchMenuPos.left, minWidth:220, maxWidth:'calc(100vw - 32px)', zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
                     <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
                       <GitBranch size={12} style={{ color:C.gold }}/>
                       <span style={{ color:C.gold, fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Chanje Branch</span>
@@ -682,7 +707,8 @@ export default function AppLayout() {
                       style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.10)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
                       <GitBranch size={11}/> Jere Branch yo →
                     </button>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}
