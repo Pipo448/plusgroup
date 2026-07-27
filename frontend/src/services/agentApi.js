@@ -15,9 +15,13 @@ agentApi.interceptors.request.use((config) => {
 })
 
 // ✅ Sèlman redirect sou yon vrè 401 — pa sou timeout/network error (cold start Render)
+// ⚠️ KORIJE — pa aplike redireksyon an sou repons /agents/login limenm, sinon
+// yon idantifyan ki mal antre (401 nòmal) fè paj la rechaje san mesaj erè
+// olye l kite handleSubmit() afiche mesaj la nan fòm lan.
 agentApi.interceptors.response.use(r => r, err => {
   const status = err.response?.status
-  if (status === 401) {
+  const isLoginRequest = err.config?.url?.includes('/agents/login')
+  if (status === 401 && !isLoginRequest) {
     localStorage.removeItem('pg-agent')
     window.location.href = '/agent'
   }

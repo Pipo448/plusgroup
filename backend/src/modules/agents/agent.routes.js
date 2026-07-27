@@ -225,7 +225,18 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email ak modpas obligatwa.' })
   }
 
-  const agent = await prisma.agent.findUnique({ where: { email: email.toLowerCase().trim() } })
+  // ⚠️ KORIJE — aksepte ni yon vrè imèl ni kòd promo ajan an (egzanp "JEANQU387")
+  // kòm idantifyan. Anvan sa, backend la te sèlman chèche pa email, kidonk
+  // yon ajan ki antre kòd promo li te toujou jwenn 401 menm ak bon mopas.
+  const identifier = String(email).trim()
+  const agent = await prisma.agent.findFirst({
+    where: {
+      OR: [
+        { email: identifier.toLowerCase() },
+        { promoCode: identifier.toUpperCase() }
+      ]
+    }
+  })
   if (!agent || !agent.passwordHash) {
     return res.status(401).json({ success: false, message: 'Idantifyan pa kòrèk.' })
   }
