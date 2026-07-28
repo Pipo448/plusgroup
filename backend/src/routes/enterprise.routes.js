@@ -8,69 +8,22 @@ const { identifyTenant, authenticate, requireEnterprise } = require('../middlewa
 // Sa ki te kase: authenticate ap rele req.tenant.id men identifyTenant pa t la
 const enterpriseMiddleware = [identifyTenant, authenticate, requireEnterprise]
 
+const ejCtrl = require('../modules/epay-jounalye/epayJounalye.controller')
+
 // ═══════════════════════════════════════════════════════
-// TI KANÈ KÈS
-// Frontend rele: GET /kane, POST /kane, PATCH /kane/:id/status
+// EPAY JOUNALYE (ansyen "Ti Kanè Kès") — kontra epay fòse chak jou
+// Frontend rele: GET /kane, POST /kane, GET /kane/:id,
+//                POST /kane/:id/pay, PATCH /kane/:id/cancel, GET /kane/config
 // ═══════════════════════════════════════════════════════
 const kaneRouter = express.Router()
 kaneRouter.use(enterpriseMiddleware)
 
-// GET /kane — Lis kanè + statistik
-kaneRouter.get('/', async (req, res) => {
-  try {
-    const { status } = req.query
-    const kanes = []
-    const stats = { totalToday: 0, totalPaid: 0, totalPending: 0 }
-    res.json({ success: true, kanes, stats })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-})
-
-// POST /kane — Kreye nouvo kanè
-kaneRouter.post('/', async (req, res) => {
-  try {
-    const { description, amount, currency, clientName, clientPhone, notes } = req.body
-    if (!description || !amount) {
-      return res.status(400).json({ success: false, message: 'Deskripsyon ak montan obligatwa.' })
-    }
-    const cashierName = req.user?.fullName || 'Kesye'
-    const kaneNumber = `KNE-${Date.now().toString().slice(-6)}`
-    // TODO: Sove nan baz done ou a
-    const kane = {
-      id: Date.now(),
-      kaneNumber,
-      description,
-      amount: Number(amount),
-      currency: currency || 'HTG',
-      clientName: clientName || null,
-      clientPhone: clientPhone || null,
-      notes: notes || null,
-      cashierName,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    }
-    res.status(201).json({ success: true, kane })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-})
-
-// PATCH /kane/:id/status — Chanje statut
-kaneRouter.patch('/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params
-    const { status } = req.body
-    const validStatuses = ['pending', 'paid', 'cancelled']
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ success: false, message: `Statut envalid. Dwe youn nan: ${validStatuses.join(', ')}` })
-    }
-    // TODO: Mete ajou nan baz done ou a
-    res.json({ success: true, message: 'Statut ajou!', id, status })
-  } catch (e) {
-    res.status(500).json({ success: false, message: e.message })
-  }
-})
+kaneRouter.get('/config',        ejCtrl.getConfig)
+kaneRouter.get('/',              ejCtrl.getAll)
+kaneRouter.post('/',             ejCtrl.create)
+kaneRouter.get('/:id',           ejCtrl.getOne)
+kaneRouter.post('/:id/pay',      ejCtrl.recordPayment)
+kaneRouter.patch('/:id/cancel',  ejCtrl.cancel)
 
 // ═══════════════════════════════════════════════════════
 // SABOTAY

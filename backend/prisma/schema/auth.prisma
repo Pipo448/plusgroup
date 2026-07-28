@@ -235,6 +235,8 @@ model Tenant {
   kaneTransactions     KaneTransaction[]
   prets                Pre[]
   prePaiements         PrePaiement[]
+  epayJounalyeContracts EpayJounalyeContract[]
+  epayJounalyePayments  EpayJounalyePayment[]
 
   // Sabotay / Sol
   sabotayPlans         SabotayPlan[]
@@ -304,6 +306,7 @@ model Branch {
   invoices          Invoice[]
   kaneAccounts      KaneEpay[]
   prets             Pre[]
+  epayJounalyeContracts EpayJounalyeContract[]
   productCategories ProductCategory[]
   products          Product[]
   quotes            Quote[]
@@ -376,6 +379,8 @@ model User {
   kaneTransactionsCreated KaneTransaction[]  @relation("KaneTxCreatedBy")
   pretsCreated            Pre[]              @relation("PreCreatedBy")
   prePaiementsCreated     PrePaiement[]      @relation("PrePaiementCreatedBy")
+  epayJounalyeContractsCreated EpayJounalyeContract[] @relation("EpayJounalyeCreatedBy")
+  epayJounalyePaymentsCreated  EpayJounalyePayment[]  @relation("EpayJounalyePaymentCreatedBy")
 
   // Hotel
   hotelPaymentsCreated    HotelPayment[]     @relation("HotelPaymentCreatedBy")

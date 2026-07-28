@@ -1,0 +1,240 @@
+// src/modules/epay-jounalye/epayJounalye.service.js
+const prisma = require('../../config/prisma')
+
+// 3mo→2, 6mo→5, 9mo→10, 12mo→15, 24mo→20 (jou bonus)
+const BONUS_DAYS = { 3: 2, 6: 5, 9: 10, 12: 15, 24: 20 }
+const ALLOWED_DURATIONS = Object.keys(BONUS_DAYS).map(Number)
+const DAYS_PER_CYCLE = 30
+
+// ── Dat Ayiti (san lè), fòma 'YYYY-MM-DD', pou konparezon kalandriye
+const haitiDateStr = (d = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(d)
+  const g = (t) => parts.find(p => p.type === t).value
+  return `${g('year')}-${g('month')}-${g('day')}`
+}
+
+// Konbyen jou kalandriye ki fin pase ANTRE startDate ak referenceDate (san konte jodi a)
+const daysFullyElapsedSince = (startDateStr, referenceDateStr) => {
+  const a = new Date(`${startDateStr}T00:00:00Z`)
+  const b = new Date(`${referenceDateStr}T00:00:00Z`)
+  return Math.max(0, Math.round((b - a) / 86400000))
+}
+
+// ⚠️ Verifikasyon "paresè" (lazy) jou rate — rele l chak fwa nou li/modifye
+// yon kontra, olye de yon travay pwograme (cron) separe. Depi bonis pèdi,
+// li rete pèdi pou tout rès kontra a (pa gen "retabli").
+const checkAndApplyMissedDays = async (contract) => {
+  if (contract.status !== 'active' || !contract.bonusStillEligible) return contract
+
+  const todayStr = haitiDateStr()
+  const startStr = haitiDateStr(contract.startDate)
+  const expectedCompleted = Math.min(
+    daysFullyElapsedSince(startStr, todayStr),
+    contract.totalDaysPlanned
+  )
+
+  if (contract.daysPaid < expectedCompleted) {
+    return prisma.epayJounalyeContract.update({
+      where: { id: contract.id },
+      data: { bonusStillEligible: false }
+    })
+  }
+  return contract
+}
+
+const generateContractNumber = async (tenantId) => {
+  let num, exists
+  do {
+    num = `EJ-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 10)}`
+    exists = await prisma.epayJounalyeContract.findUnique({
+      where: { tenantId_contractNumber: { tenantId, contractNumber: num } }
+    })
+  } while (exists)
+  return num
+}
+
+// ── Konstwi grid kalandriye a (pou afichaj frontend): tablo de sik,
+// chak sik gen 30 kazye ak estati 'paid' | 'missed' | 'pending'
+const buildCalendarGrid = (contract) => {
+  const todayStr = haitiDateStr()
+  const startStr = haitiDateStr(contract.startDate)
+  const expectedCompleted = Math.min(
+    daysFullyElapsedSince(startStr, todayStr),
+    contract.totalDaysPlanned
+  )
+
+  const totalCycles = Math.ceil(contract.totalDaysPlanned / DAYS_PER_CYCLE)
+  const cycles = []
+  for (let c = 0; c < totalCycles; c++) {
+    const cells = []
+    for (let d = 0; d < DAYS_PER_CYCLE; d++) {
+      const cellIndex = c * DAYS_PER_CYCLE + d
+      if (cellIndex >= contract.totalDaysPlanned) break
+      let cellStatus
+      if (cellIndex < contract.daysPaid) cellStatus = 'paid'
+      else if (cellIndex < expectedCompleted) cellStatus = 'missed'
+      else cellStatus = 'pending'
+      cells.push({ dayNumber: d + 1, status: cellStatus })
+    }
+    cycles.push({ cycleNumber: c + 1, cells })
+  }
+  return cycles
+}
+
+const getAll = async (tenantId, { status, branchId, search } = {}) => {
+  const where = {
+    tenantId,
+    ...(status && { status }),
+    ...(branchId && { branchId }),
+    ...(search && {
+      OR: [
+        { clientFirstName: { contains: search, mode: 'insensitive' } },
+        { clientLastName: { contains: search, mode: 'insensitive' } },
+        { contractNumber: { contains: search, mode: 'insensitive' } },
+        { clientPhone: { contains: search, mode: 'insensitive' } },
+      ]
+    })
+  }
+
+  const contracts = await prisma.epayJounalyeContract.findMany({
+    where, orderBy: { createdAt: 'desc' }
+  })
+
+  const stats = contracts.reduce((s, c) => {
+    s.totalContracts += 1
+    if (c.status === 'active') s.activeContracts += 1
+    if (c.status === 'completed') s.completedContracts += 1
+    s.totalCollected += Number(c.totalPaid)
+    return s
+  }, { totalContracts: 0, activeContracts: 0, completedContracts: 0, totalCollected: 0 })
+
+  return { contracts, stats }
+}
+
+const getOne = async (tenantId, id) => {
+  let contract = await prisma.epayJounalyeContract.findFirst({
+    where: { id, tenantId },
+    include: { payments: { orderBy: { createdAt: 'desc' } } }
+  })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+
+  contract = await checkAndApplyMissedDays(contract)
+  const calendar = buildCalendarGrid(contract)
+  return { ...contract, calendar }
+}
+
+const create = async (tenantId, userId, data) => {
+  const durationMonths = Number(data.durationMonths)
+  if (!ALLOWED_DURATIONS.includes(durationMonths)) {
+    throw Object.assign(
+      new Error(`Dire kontra dwe youn nan: ${ALLOWED_DURATIONS.join(', ')} mwa.`),
+      { statusCode: 400 }
+    )
+  }
+  const dailyAmount = Number(data.dailyAmount)
+  if (!dailyAmount || dailyAmount <= 0) {
+    throw Object.assign(new Error('Montan chak jou obligatwa.'), { statusCode: 400 })
+  }
+  if (!data.clientFirstName?.trim() || !data.clientLastName?.trim()) {
+    throw Object.assign(new Error('Prenon ak non kliyan obligatwa.'), { statusCode: 400 })
+  }
+
+  const totalDaysPlanned = durationMonths * DAYS_PER_CYCLE
+  const contractNumber   = await generateContractNumber(tenantId)
+
+  return prisma.epayJounalyeContract.create({
+    data: {
+      tenantId,
+      branchId:          data.branchId || null,
+      contractNumber,
+      clientFirstName:   data.clientFirstName.trim(),
+      clientLastName:    data.clientLastName.trim(),
+      clientPhone:       data.clientPhone || null,
+      clientNifCin:      data.clientNifCin || null,
+      clientAddress:     data.clientAddress || null,
+      dailyAmount,
+      currency:          data.currency || 'HTG',
+      durationMonths,
+      totalDaysPlanned,
+      totalObjective:    dailyAmount * totalDaysPlanned,
+      bonusDaysEligible: BONUS_DAYS[durationMonths],
+      startDate:         data.startDate ? new Date(data.startDate) : new Date(`${haitiDateStr()}T00:00:00Z`),
+      notes:             data.notes || null,
+      createdBy:         userId,
+    }
+  })
+}
+
+// ── Anrejistre pèman "jodi a" pou kontra a
+const recordPayment = async (tenantId, id, userId, data) => {
+  let contract = await prisma.epayJounalyeContract.findFirst({ where: { id, tenantId } })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+  if (contract.status !== 'active') {
+    throw Object.assign(new Error('Kontra sa a pa aktif ankò.'), { statusCode: 400 })
+  }
+
+  contract = await checkAndApplyMissedDays(contract)
+
+  if (contract.daysPaid >= contract.totalDaysPlanned) {
+    throw Object.assign(new Error('Tout jou kontra a deja peye.'), { statusCode: 400 })
+  }
+
+  // ⚠️ KORIJE — kliyan an ka vin ak kòb pou plizyè jou an menm fwa (peman
+  // an avans). Kesye a antre `daysCount` (konbyen jou l ap peye) olye de
+  // yon sèl jou fikse — pa gen limit "yon sèl pèman pa jou" ankò.
+  const remaining = contract.totalDaysPlanned - contract.daysPaid
+  const daysCount  = Math.max(1, Math.min(Math.floor(Number(data.daysCount) || 1), remaining))
+
+  // Si kesye a bay yon montan total eksplisit, separe l egalman sou chak
+  // jou; sinon chak jou pran montan fiks kontra a (dailyAmount).
+  const perDayAmount = data.amount != null ? Number(data.amount) / daysCount : Number(contract.dailyAmount)
+
+  const paymentRows = Array.from({ length: daysCount }, (_, i) => {
+    const seq = contract.daysPaid + i
+    return {
+      tenantId, contractId: id,
+      cycleNumber: Math.floor(seq / DAYS_PER_CYCLE) + 1,
+      dayNumber:   (seq % DAYS_PER_CYCLE) + 1,
+      amount: perDayAmount,
+      method: data.method || 'cash',
+      reference: data.reference || null,
+      notes: data.notes || null,
+      createdBy: userId,
+    }
+  })
+
+  const newDaysPaid  = contract.daysPaid + daysCount
+  const newTotalPaid = Number(contract.totalPaid) + perDayAmount * daysCount
+  const isCompleting = newDaysPaid >= contract.totalDaysPlanned
+
+  const [, updatedContract] = await prisma.$transaction([
+    prisma.epayJounalyePayment.createMany({ data: paymentRows }),
+    prisma.epayJounalyeContract.update({
+      where: { id },
+      data: {
+        daysPaid: newDaysPaid,
+        totalPaid: newTotalPaid,
+        ...(isCompleting && {
+          status: 'completed',
+          completedAt: new Date(),
+          finalPayoutAmount: newTotalPaid + (contract.bonusStillEligible ? contract.bonusDaysEligible * Number(contract.dailyAmount) : 0)
+        })
+      }
+    })
+  ])
+
+  return { daysPaid: daysCount, amountPaid: perDayAmount * daysCount, contract: updatedContract }
+}
+
+const cancel = async (tenantId, id) => {
+  const contract = await prisma.epayJounalyeContract.findFirst({ where: { id, tenantId } })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+  if (contract.status !== 'active') {
+    throw Object.assign(new Error('Sèl kontra aktif ka anile.'), { statusCode: 400 })
+  }
+  return prisma.epayJounalyeContract.update({ where: { id }, data: { status: 'cancelled' } })
+}
+
+module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, getAll, getOne, create, recordPayment, cancel }

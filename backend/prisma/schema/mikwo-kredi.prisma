@@ -107,6 +107,87 @@ model Pre {
   @@map("prets")
 }
 
+// ─── Epay Jounalye — Kontra Epay Fòse Chak Jou (ak Bonis Fidelite) ──
+// Kliyan angaje l peye yon montan fiks chak jou pandan yon peryòd
+// detèmine (3/6/9/12/24 mwa). Kalandriye a gen 30 kazye pou 30 "jou"
+// pou chak sik/mwa (pa mansyone dat/mwa reyèl). Si kliyan pa janm rate
+// yon jou pandan tout dire kontra a, li resevwa jou bonus anplis
+// (valè = jou bonus × montan chak jou) lè kontra a fini. Yon sèl jou
+// rate anile bonis la pou tout rès kontra a — pa gen "rekiperasyon".
+enum EpayJounalyeStatus {
+  active
+  completed
+  cancelled
+}
+
+model EpayJounalyeContract {
+  id                 String                @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId           String                @map("tenant_id")
+  branchId           String?               @map("branch_id")
+  contractNumber     String                @map("contract_number") @db.VarChar(30)
+  clientFirstName    String                @map("client_first_name") @db.VarChar(100)
+  clientLastName     String                @map("client_last_name") @db.VarChar(100)
+  clientPhone        String?               @map("client_phone") @db.VarChar(50)
+  clientNifCin       String?               @map("client_nif_cin") @db.VarChar(50)
+  clientAddress      String?               @map("client_address")
+  dailyAmount        Decimal               @map("daily_amount") @db.Decimal(14, 2)
+  currency           String                @default("HTG") @db.VarChar(10)
+  // Youn nan: 3, 6, 9, 12, 24 (mwa)
+  durationMonths     Int                   @map("duration_months")
+  // durationMonths × 30 — total kazye/jou nan tout kontra a
+  totalDaysPlanned   Int                   @map("total_days_planned")
+  // dailyAmount × totalDaysPlanned
+  totalObjective     Decimal               @map("total_objective") @db.Decimal(14, 2)
+  // 3mo→2, 6mo→5, 9mo→10, 12mo→15, 24mo→20
+  bonusDaysEligible  Int                   @map("bonus_days_eligible")
+  // Vin false pou tout rès kontra a depi kliyan rate yon jou (pa reversib)
+  bonusStillEligible Boolean               @default(true) @map("bonus_still_eligible")
+  daysPaid           Int                   @default(0) @map("days_paid")
+  totalPaid          Decimal               @default(0) @map("total_paid") @db.Decimal(14, 2)
+  startDate          DateTime              @map("start_date") @db.Date
+  status             EpayJounalyeStatus    @default(active)
+  // totalPaid + (bonusStillEligible ? bonusDaysEligible×dailyAmount : 0), ranpli lè status=completed
+  finalPayoutAmount  Decimal?              @map("final_payout_amount") @db.Decimal(14, 2)
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz(6)
+  notes              String?
+  createdBy          String?               @map("created_by")
+  createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branch             Branch?               @relation(fields: [branchId], references: [id], onUpdate: NoAction, map: "epay_jounalye_branch_fk")
+  creator            User?                 @relation("EpayJounalyeCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "epay_jounalye_creator_fk")
+  tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_tenant_fk")
+  payments           EpayJounalyePayment[]
+
+  @@unique([tenantId, contractNumber], map: "epay_jounalye_tenant_contract_key")
+  @@index([tenantId, status], map: "epay_jounalye_tenant_status_idx")
+  @@index([branchId], map: "epay_jounalye_branch_idx")
+  @@map("epay_jounalye_contracts")
+}
+
+model EpayJounalyePayment {
+  id          String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId    String               @map("tenant_id")
+  contractId  String               @map("contract_id")
+  // Sik/mwa nimewo (1, 2, 3...) nan dire kontra a
+  cycleNumber Int                  @map("cycle_number")
+  // Pozisyon kazye a nan sik la (1-30)
+  dayNumber   Int                  @map("day_number")
+  amount      Decimal              @db.Decimal(14, 2)
+  method      PaymentMethod        @default(cash)
+  reference   String?              @db.VarChar(200)
+  notes       String?
+  createdBy   String?              @map("created_by")
+  createdAt   DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  contract    EpayJounalyeContract @relation(fields: [contractId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_payments_contract_fk")
+  creator     User?                @relation("EpayJounalyePaymentCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "epay_jounalye_payments_creator_fk")
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_payments_tenant_fk")
+
+  @@unique([contractId, cycleNumber, dayNumber], map: "epay_jounalye_payments_slot_key")
+  @@index([contractId], map: "epay_jounalye_payments_contract_idx")
+  @@index([tenantId], map: "epay_jounalye_payments_tenant_idx")
+  @@map("epay_jounalye_payments")
+}
+
 model PrePaiement {
   id           String        @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId     String        @map("tenant_id")
