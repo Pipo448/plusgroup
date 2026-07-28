@@ -22,6 +22,13 @@ const daysFullyElapsedSince = (startDateStr, referenceDateStr) => {
   return Math.max(0, Math.round((b - a) / 86400000))
 }
 
+// Konbyen jou ki "dwe" deja peye jiska JODI A enkli (jodi a konte kòm yon jou
+// ki gen dwa peye) — SAN okenn davans. Baz pou de règ bonis yo pi ba a.
+const MAX_ADVANCE_DAYS  = 10  // limit total davans ki tolere
+const MIN_RENEWAL_DAYS  = 2   // ka "ranpli" sèlman lè rete sa a jou oswa mwens
+const daysDueStrict = (startDateStr, referenceDateStr, cap) =>
+  Math.min(daysFullyElapsedSince(startDateStr, referenceDateStr) + 1, cap)
+
 // ⚠️ Verifikasyon "paresè" (lazy) jou rate — rele l chak fwa nou li/modifye
 // yon kontra, olye de yon travay pwograme (cron) separe. Depi bonis pèdi,
 // li rete pèdi pou tout rès kontra a (pa gen "retabli").
@@ -209,6 +216,21 @@ const recordPayment = async (tenantId, id, userId, data) => {
   const newTotalPaid = Number(contract.totalPaid) + perDayAmount * daysCount
   const isCompleting = newDaysPaid >= contract.totalDaysPlanned
 
+  // ⚠️ De règ bonis (an plis de deteksyon jou rate ki deja fèt pi wo a):
+  //  1) Total davans akimile pa ka depase MAX_ADVANCE_DAYS jou
+  //  2) Yon depo ki AJOUTE sou yon davans ki deja egziste (pa premye depo a)
+  //     dwe fèt sèlman lè rete MIN_RENEWAL_DAYS jou oswa mwens nan davans
+  //     aktyèl la — "ranpli twò bonè" (pandan gen 3+ jou ki rete) anile bonis
+  //     la menm si total la ta rete anba 10 jou.
+  const startStr        = haitiDateStr(contract.startDate)
+  const todayStr         = haitiDateStr()
+  const dueStrict        = daysDueStrict(startStr, todayStr, contract.totalDaysPlanned)
+  const bufferBefore     = contract.daysPaid - dueStrict          // davans ki rete anvan depo sa a
+  const isFirstDeposit   = contract.daysPaid === 0
+  const tooEarlyRenewal  = !isFirstDeposit && bufferBefore > MIN_RENEWAL_DAYS
+  const exceedsMaxBuffer = (newDaysPaid - dueStrict) > MAX_ADVANCE_DAYS
+  const bonusStillEligible = contract.bonusStillEligible && !tooEarlyRenewal && !exceedsMaxBuffer
+
   const [, updatedContract] = await prisma.$transaction([
     prisma.epayJounalyePayment.createMany({ data: paymentRows }),
     prisma.epayJounalyeContract.update({
@@ -216,16 +238,23 @@ const recordPayment = async (tenantId, id, userId, data) => {
       data: {
         daysPaid: newDaysPaid,
         totalPaid: newTotalPaid,
+        bonusStillEligible,
         ...(isCompleting && {
           status: 'completed',
           completedAt: new Date(),
-          finalPayoutAmount: newTotalPaid + (contract.bonusStillEligible ? contract.bonusDaysEligible * Number(contract.dailyAmount) : 0)
+          finalPayoutAmount: newTotalPaid + (bonusStillEligible ? contract.bonusDaysEligible * Number(contract.dailyAmount) : 0)
         })
       }
     })
   ])
 
-  return { daysPaid: daysCount, amountPaid: perDayAmount * daysCount, contract: updatedContract }
+  return {
+    daysPaid: daysCount,
+    amountPaid: perDayAmount * daysCount,
+    bonusJustForfeited: (tooEarlyRenewal || exceedsMaxBuffer) && contract.bonusStillEligible,
+    forfeitReason: tooEarlyRenewal ? 'too_early' : exceedsMaxBuffer ? 'max_advance' : null,
+    contract: updatedContract
+  }
 }
 
 const cancel = async (tenantId, id) => {
@@ -237,4 +266,4 @@ const cancel = async (tenantId, id) => {
   return prisma.epayJounalyeContract.update({ where: { id }, data: { status: 'cancelled' } })
 }
 
-module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, getAll, getOne, create, recordPayment, cancel }
+module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, MAX_ADVANCE_DAYS, MIN_RENEWAL_DAYS, getAll, getOne, create, recordPayment, cancel }

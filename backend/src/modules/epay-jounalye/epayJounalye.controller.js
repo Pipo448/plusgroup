@@ -31,7 +31,10 @@ const cancel = asyncHandler(async (req, res) => {
 })
 
 const getConfig = asyncHandler(async (req, res) => {
-  res.json({ success: true, bonusDays: svc.BONUS_DAYS, allowedDurations: svc.ALLOWED_DURATIONS })
+  res.json({
+    success: true, bonusDays: svc.BONUS_DAYS, allowedDurations: svc.ALLOWED_DURATIONS,
+    maxAdvanceDays: svc.MAX_ADVANCE_DAYS, minRenewalDays: svc.MIN_RENEWAL_DAYS
+  })
 })
 
 module.exports = { getAll, getOne, create, recordPayment, cancel, getConfig }

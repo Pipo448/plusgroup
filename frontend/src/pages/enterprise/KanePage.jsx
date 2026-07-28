@@ -71,6 +71,14 @@ function ContractDetailModal({ contractId, onClose }) {
   const [openCycles, setOpenCycles] = useState({})
   const [payDays, setPayDays] = useState(1)
 
+  const { data: config } = useQuery({
+    queryKey: ['epay-jounalye-config'],
+    queryFn: () => api.get('/kane/config').then(r => r.data),
+    staleTime: Infinity,
+  })
+  const maxAdvanceDays = config?.maxAdvanceDays ?? 10
+  const minRenewalDays = config?.minRenewalDays ?? 2
+
   const { data, isLoading } = useQuery({
     queryKey: ['epay-jounalye', contractId],
     queryFn: () => api.get(`/kane/${contractId}`).then(r => r.data.contract),
@@ -80,7 +88,14 @@ function ContractDetailModal({ contractId, onClose }) {
     mutationFn: (daysCount) => api.post(`/kane/${contractId}/pay`, { daysCount }),
     onSuccess: (res) => {
       const n = res?.data?.daysPaid || 1
-      toast.success(n > 1 ? `${n} jou anrejistre!` : 'Pèman jodi a anrejistre!')
+      if (res?.data?.bonusJustForfeited) {
+        const reason = res.data.forfeitReason === 'too_early'
+          ? 'ou te ranpli twò bonè (plizyè jou te rete nan depo anvan an).'
+          : 'peman sa a depase limit jou davans lan.'
+        toast.error(`⚠️ Bonis pèdi — ${reason}`, { duration: 6000 })
+      } else {
+        toast.success(n > 1 ? `${n} jou anrejistre!` : 'Pèman jodi a anrejistre!')
+      }
       setPayDays(1)
       qc.invalidateQueries({ queryKey: ['epay-jounalye', contractId] })
       qc.invalidateQueries({ queryKey: ['epay-jounalye-list'] })
@@ -95,6 +110,16 @@ function ContractDetailModal({ contractId, onClose }) {
       </div>
     )
   }
+
+  const startStr = data.startDate ? new Date(data.startDate).toISOString().slice(0, 10) : null
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const daysElapsed = startStr ? Math.max(0, Math.round((new Date(todayStr) - new Date(startStr)) / 86400000)) : 0
+  const dueStrict = Math.min(daysElapsed + 1, data.totalDaysPlanned)
+  const bufferBefore = data.daysPaid - dueStrict
+  const isFirstDeposit = data.daysPaid === 0
+  const tooEarlyRenewal = !isFirstDeposit && bufferBefore > minRenewalDays
+  const exceedsMaxBuffer = (data.daysPaid + payDays - dueStrict) > maxAdvanceDays
+  const wouldForfeitBonus = data.bonusStillEligible && (tooEarlyRenewal || exceedsMaxBuffer)
 
   const activeCycleIdx = Math.min(Math.floor(data.daysPaid / 30), data.calendar.length - 1)
 
@@ -164,24 +189,34 @@ function ContractDetailModal({ contractId, onClose }) {
         </div>
 
         {data.status === 'active' && (
-          <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, background: 'rgba(0,0,0,0.2)', display: 'flex', gap: 10, alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 90 }}>
-              <label style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: C.label }}>KONBYEN JOU</label>
-              <input
-                type="number" min={1} max={data.totalDaysPlanned - data.daysPaid}
-                value={payDays}
-                onChange={e => setPayDays(Math.max(1, Math.min(Number(e.target.value) || 1, data.totalDaysPlanned - data.daysPaid)))}
-                style={{ ...baseInput, padding: '9px 10px', textAlign: 'center', fontWeight: 700 }}
-              />
+          <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {wouldForfeitBonus && (
+              <div style={{ fontSize: 11.5, color: C.red, background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', borderRadius: 8, padding: '8px 10px' }}>
+                ⚠️ {tooEarlyRenewal
+                  ? `Ou gen tan ap ranpli twò bonè — rete ${bufferBefore} jou nan sa w deja peye. Tann jiskaske li rive ${minRenewalDays} jou oswa mwens.`
+                  : `${payDays} jou sa a depase limit ${maxAdvanceDays} jou davans lan.`} Bonis fidelite a ap pèdi si w kontinye.
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 90 }}>
+                <label style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: C.label }}>KONBYEN JOU</label>
+                <input
+                  type="number" min={1} max={data.totalDaysPlanned - data.daysPaid}
+                  value={payDays}
+                  onChange={e => setPayDays(Math.max(1, Math.min(Number(e.target.value) || 1, data.totalDaysPlanned - data.daysPaid)))}
+                  style={{ ...baseInput, padding: '9px 10px', textAlign: 'center', fontWeight: 700 }}
+                />
+              </div>
+              <button onClick={() => payMutation.mutate(payDays)} disabled={payMutation.isPending} style={{
+                flex: 1, padding: '13px', borderRadius: 10, border: 'none',
+                background: wouldForfeitBonus ? 'linear-gradient(135deg,#C0392B,#8B2318)' : C.goldBtn,
+                color: wouldForfeitBonus ? '#fff' : '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}>
+                <CheckCircle2 size={16} />
+                {payMutation.isPending ? 'Ap anrejistre...' : `Peye ${payDays} jou — ${fmt(payDays * data.dailyAmount)} ${data.currency}`}
+              </button>
             </div>
-            <button onClick={() => payMutation.mutate(payDays)} disabled={payMutation.isPending} style={{
-              flex: 1, padding: '13px', borderRadius: 10, border: 'none',
-              background: C.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}>
-              <CheckCircle2 size={16} />
-              {payMutation.isPending ? 'Ap anrejistre...' : `Peye ${payDays} jou — ${fmt(payDays * data.dailyAmount)} ${data.currency}`}
-            </button>
           </div>
         )}
         {data.status === 'completed' && (
