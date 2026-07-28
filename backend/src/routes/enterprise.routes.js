@@ -7,6 +7,8 @@ const { identifyTenant, authenticate, requireEnterprise } = require('../middlewa
 // ✅ KORIJE — identifyTenant AJOUTE nan chenn middleware
 // Sa ki te kase: authenticate ap rele req.tenant.id men identifyTenant pa t la
 const enterpriseMiddleware = [identifyTenant, authenticate, requireEnterprise]
+// ⚠️ NOUVO — Epay Jounalye disponib pou TOUT plan (pa rezève pou Antrepriz)
+const baseMiddleware = [identifyTenant, authenticate]
 
 const ejCtrl = require('../modules/epay-jounalye/epayJounalye.controller')
 
@@ -16,7 +18,7 @@ const ejCtrl = require('../modules/epay-jounalye/epayJounalye.controller')
 //                POST /kane/:id/pay, PATCH /kane/:id/cancel, GET /kane/config
 // ═══════════════════════════════════════════════════════
 const kaneRouter = express.Router()
-kaneRouter.use(enterpriseMiddleware)
+kaneRouter.use(baseMiddleware)
 
 kaneRouter.get('/config',        ejCtrl.getConfig)
 kaneRouter.get('/',              ejCtrl.getAll)
