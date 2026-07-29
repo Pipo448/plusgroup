@@ -51,10 +51,25 @@ const checkAndApplyMissedDays = async (contract) => {
   return contract
 }
 
+// Tire yon prefiks 2-4 lèt soti nan premye lèt chak mo nan non antrepriz la
+// (egzanp: "Plus Store" → "PS", "H&M Entreprise Ouanaminthe" → "HEO").
+// Si non an se yon sèl mo san espas, pran 3 premye lèt li yo olye de sa.
+const deriveTenantPrefix = (tenantName) => {
+  if (!tenantName) return 'EJ'
+  const words = tenantName.split(/\s+/).map(w => w.replace(/[^A-Za-z0-9]/g, '')).filter(Boolean)
+  let prefix = words.map(w => w[0].toUpperCase()).join('')
+  if (prefix.length < 2) {
+    prefix = tenantName.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase()
+  }
+  return prefix.slice(0, 4) || 'EJ'
+}
+
 const generateContractNumber = async (tenantId) => {
+  const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } })
+  const prefix = deriveTenantPrefix(tenant?.name)
   let num, exists
   do {
-    num = `EJ-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 10)}`
+    num = `${prefix}-${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 10)}`
     exists = await prisma.epayJounalyeContract.findUnique({
       where: { tenantId_contractNumber: { tenantId, contractNumber: num } }
     })
