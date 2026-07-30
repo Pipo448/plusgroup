@@ -83,6 +83,35 @@ export function isNativePrinterAvailable() {
 }
 
 /**
+ * Ouvri tiwa kès la (si l konekte atravè enprimant lan — kab "kick-out").
+ * ⚠️ NOUVO — Eseye dabò metòd dedye plugin UniversalPrinter a
+ * (`openDrawer` / `openCashBox`, selon vèsyon plugin). Si plugin an pa
+ * gen metòd sa a, li tonbe sou voye kòmand brit ESC/POS pou "kick"
+ * atravè `print()` (paramèt `raw`), ki mache ak prèske tout enprimant/tiwa.
+ */
+export async function openCashDrawerNative() {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Ouvri tiwa kès sèlman disponib nan app Android la (APK)')
+  }
+  // ── Metòd 1: API dedye plugin la (verifye non egzat metòd la nan
+  // dokimantasyon @capacitor-plus/universal-printer ou a — chanje l si
+  // li rele yon lòt jan, egzanp openCashBox() oswa kickDrawer())
+  if (typeof UniversalPrinter.openDrawer === 'function') {
+    await UniversalPrinter.openDrawer()
+    return
+  }
+  // ── Metòd 2 (repli) — kòmand brit ESC/POS pou "kick" tiwa a,
+  // voye atravè menm mekanis print() lan tankou yon "print" espesyal
+  const ESC = 0x1B
+  const kickBytes = [ESC, 0x70, 0x00, 0x19, 0xFA]
+  if (typeof UniversalPrinter.printRaw === 'function') {
+    await UniversalPrinter.printRaw({ bytes: kickBytes })
+    return
+  }
+  throw new Error('Plugin UniversalPrinter la pa sipòte ouvri tiwa kès dirèkteman — verifye dokimantasyon plugin la pou bon non fonksyon an.')
+}
+
+/**
  * Konstwi liy yo pou enprime yon fakti, epi voye yo bay
  * plugin UniversalPrinter la (Sunmi/iMin/Telpo/Bluetooth otomatik).
  */

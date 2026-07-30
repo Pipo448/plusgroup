@@ -8,7 +8,12 @@ import {
   printSabotayReceipt,
   printKaneReceipt, printPreReceipt,
   isAndroid,
+  // ⚠️ NOUVO — Tiwa Kès
+  openCashDrawer as openCashDrawerWeb,
+  openCashDrawerSerial,
+  isWebSerialSupported,
 } from '../services/printerService'
+import { isNativePrinterAvailable, openCashDrawerNative } from '../services/printerNative'
 import toast from 'react-hot-toast'
 
 // ─────────────────────────────────────────────────────────────
@@ -388,6 +393,8 @@ export const usePrinterStore = create((set, get) => ({
   connecting: false,
   printing:   false,
   deviceName: null,
+  // ⚠️ NOUVO — Tiwa Kès
+  drawerOpening: false,
 
   // ── KONEKTE ─────────────────────────────────────────────
   connect: async () => {
@@ -505,4 +512,48 @@ printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = nul
     set({ printing: false })
   }
 },
+
+  // ── TIWA KÈS — Metòd #1: via enprimant (Native APK oswa Web Bluetooth/RawBT) ──
+  openCashDrawer: async () => {
+    set({ drawerOpening: true })
+    try {
+      if (isNativePrinterAvailable()) {
+        await openCashDrawerNative()
+      } else {
+        await openCashDrawerWeb()
+      }
+      toast.success('Tiwa kès la louvri! 🗄️')
+      return true
+    } catch (err) {
+      console.error('Ouvri tiwa kès error:', err)
+      toast.error(err.message === 'Okenn printer disponib.'
+        ? 'Konekte enprimant lan dabò (tiwa a konekte atravè li).'
+        : `Pa t ka ouvri tiwa a: ${err?.message || 'erè enkoni'}`)
+      return false
+    } finally {
+      set({ drawerOpening: false })
+    }
+  },
+
+  // ── TIWA KÈS — Metòd #2: konekte dirèkteman nan òdinatè a (USB/Sèryal) ──
+  openCashDrawerSerial: async () => {
+    if (!isWebSerialSupported()) {
+      toast.error('Navigatè sa a pa sipòte USB/Sèryal dirèk. Itilize Chrome oswa Edge sou òdinatè.')
+      return false
+    }
+    set({ drawerOpening: true })
+    try {
+      await openCashDrawerSerial()
+      toast.success('Tiwa kès la louvri! 🗄️')
+      return true
+    } catch (err) {
+      console.error('Ouvri tiwa kès (Serial) error:', err)
+      toast.error(`Pa t ka ouvri tiwa a (USB/Sèryal): ${err?.message || 'erè enkoni'}`)
+      return false
+    } finally {
+      set({ drawerOpening: false })
+    }
+  },
+
+  isWebSerialSupported,
 }))  

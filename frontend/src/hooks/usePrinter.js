@@ -17,5 +17,10 @@ export const usePrinter = () => {
     printSabotay: store.printSabotay,
     printKane:  store.printKane,
     printPre:   store.printPre,  // ← AJOUTE SA
+    // ⚠️ NOUVO — Tiwa Kès
+    drawerOpening: store.drawerOpening,
+    openCashDrawer: store.openCashDrawer,
+    openCashDrawerSerial: store.openCashDrawerSerial,
+    isWebSerialSupported: store.isWebSerialSupported,
   }
 }

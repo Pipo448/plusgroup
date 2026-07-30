@@ -41,6 +41,9 @@ const CMD = {
   QR_SIZE:       [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x07],  // ✅ size 7 = pi gwo QR
   QR_ERROR:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30],
   QR_PRINT:      [GS, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30],
+  // ⚠️ NOUVO — Kòmand estanda ESC/POS pou "kick" tiwa kès la (pin 2,
+  // ka varye selon modèl — 0x00=pin2 pi komen, 0x19=on-time, 0xFA=off-time)
+  CASH_DRAWER_KICK: [ESC, 0x70, 0x00, 0x19, 0xFA],
 }
 
 // ── Retire aksan ESC/POS ──────────────────────────────────────
@@ -243,6 +246,41 @@ const dispatch = async (bytes) => {
   if (_char)    { await sendViaBluetooth(bytes); return }
   if (_isAndroid) throw new Error('ANDROID_USE_BROWSER_PRINT')
   throw new Error('Okenn printer disponib.')
+}
+
+// ══════════════════════════════════════════════════════════════
+// TIWA KÈS — "Ouvri Tiwa Kès"
+// Metòd #1 (pi komen): tiwa a konekte AK ENPRIMANT LA (kab "kick-out"
+// RJ11/RJ12) — nou voye menm kòmand ESC/POS a atravè menm kanal
+// enprimant lan deja itilize a (RawBT/Sunmi oswa Web Bluetooth).
+// ══════════════════════════════════════════════════════════════
+export const openCashDrawer = async () => {
+  await dispatch(CMD.CASH_DRAWER_KICK)
+}
+
+// ── Metòd #2: tiwa a konekte DIRÈKTEMAN nan òdinatè a (USB/Sèryal),
+// pa atravè enprimant lan. Sèvi ak Web Serial API (Chrome/Edge sèlman,
+// mande yon jès itilizatè — dwe rele apati yon klik bouton).
+let _serialPort = null
+
+export const isWebSerialSupported = () => typeof navigator !== 'undefined' && !!navigator.serial
+
+export const openCashDrawerSerial = async () => {
+  if (!isWebSerialSupported()) throw new Error('WEB_SERIAL_NOT_SUPPORTED')
+  if (!_serialPort) {
+    _serialPort = await navigator.serial.requestPort()
+    await _serialPort.open({ baudRate: 9600 })
+  }
+  const writer = _serialPort.writable.getWriter()
+  try {
+    await writer.write(new Uint8Array(CMD.CASH_DRAWER_KICK))
+  } finally {
+    writer.releaseLock()
+  }
+}
+
+export const disconnectCashDrawerSerial = async () => {
+  try { if (_serialPort) { await _serialPort.close(); _serialPort = null } } catch {}
 }
 
 // ══════════════════════════════════════════════════════════════
