@@ -1,6 +1,7 @@
 // src/pages/enterprise/KanePage.jsx
 // Epay Jounalye — Kontra Epay Fòse Chak Jou (ak Bonis Fidelite)
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Wallet, Plus, Search, RefreshCw, X, Trophy, Ban, CheckCircle2, Sparkles } from 'lucide-react'
@@ -192,10 +193,11 @@ function ContractDetailModal({ contractId, onClose }) {
   })
 
   if (isLoading || !data) {
-    return (
+    return createPortal(
       <div className="ej-modal-backdrop" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
         <RefreshCw className="ej-spin" size={22} color={C.gold} />
-      </div>
+      </div>,
+      document.body
     )
   }
 
@@ -212,7 +214,7 @@ function ContractDetailModal({ contractId, onClose }) {
   const activeCycleIdx = Math.min(Math.floor(data.daysPaid / 30), data.calendar.length - 1)
   const pct = Math.round((data.daysPaid / data.totalDaysPlanned) * 100)
 
-  return (
+  return createPortal(
     <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
       <div className="ej-modal" style={{ background: C.modalBg, border: `1px solid ${C.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -326,7 +328,8 @@ function ContractDetailModal({ contractId, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -349,7 +352,7 @@ function NewContractModal({ onClose, onSave, saving }) {
     onSave(form)
   }
 
-  return (
+  return createPortal(
     <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
       <div className="ej-modal" style={{ background: C.modalBg, border: `1px solid ${C.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -410,7 +413,8 @@ function NewContractModal({ onClose, onSave, saving }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
