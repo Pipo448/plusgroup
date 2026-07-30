@@ -6,13 +6,29 @@ const BONUS_DAYS = { 3: 2, 6: 5, 9: 10, 12: 15, 24: 20 }
 const ALLOWED_DURATIONS = Object.keys(BONUS_DAYS).map(Number)
 const DAYS_PER_CYCLE = 30
 
-// ── Dat Ayiti (san lè), fòma 'YYYY-MM-DD', pou konparezon kalandriye
+// ── Dat Ayiti (san lè), fòma 'YYYY-MM-DD' — SÈLMAN pou yon vrè moman/lè
+// (tankou "kounye a"). Sèvi ak sa a pou konvèti "now" an dat kalandriye Ayiti.
 const haitiDateStr = (d = new Date()) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit'
   }).formatToParts(d)
   const g = (t) => parts.find(p => p.type === t).value
   return `${g('year')}-${g('month')}-${g('day')}`
+}
+
+// ⚠️ KORIJE — `startDate` se yon kolòn `@db.Date` (pa gen lè ladan l).
+// Prisma retounen l kòm minwit UTC pou dat la. Si nou pase l nan
+// haitiDateStr() (ki konvèti pou fizo Ayiti, UTC-4/-5), minwit UTC la
+// "kapote" nan aswè VÈY LA nan fizo Ayiti — sa fè sistèm nan kwè kontra
+// a kòmanse yon jou pi bonè pase reyalite a, e sa te lakòz bonis pèdi
+// imedyatman menm sou yon kontra tou nèf. Pou yon dat pi (san lè), sèvi
+// ak eleman UTC li yo dirèkteman, jamè re-lokalize l nan yon fizo.
+const dateOnlyStr = (d) => {
+  const dt = new Date(d)
+  const y = dt.getUTCFullYear()
+  const m = String(dt.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(dt.getUTCDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 // Konbyen jou kalandriye ki fin pase ANTRE startDate ak referenceDate (san konte jodi a)
@@ -36,7 +52,7 @@ const checkAndApplyMissedDays = async (contract) => {
   if (contract.status !== 'active' || !contract.bonusStillEligible) return contract
 
   const todayStr = haitiDateStr()
-  const startStr = haitiDateStr(contract.startDate)
+  const startStr = dateOnlyStr(contract.startDate)
   const expectedCompleted = Math.min(
     daysFullyElapsedSince(startStr, todayStr),
     contract.totalDaysPlanned
@@ -81,7 +97,7 @@ const generateContractNumber = async (tenantId) => {
 // chak sik gen 30 kazye ak estati 'paid' | 'missed' | 'pending'
 const buildCalendarGrid = (contract) => {
   const todayStr = haitiDateStr()
-  const startStr = haitiDateStr(contract.startDate)
+  const startStr = dateOnlyStr(contract.startDate)
   const expectedCompleted = Math.min(
     daysFullyElapsedSince(startStr, todayStr),
     contract.totalDaysPlanned
@@ -237,7 +253,7 @@ const recordPayment = async (tenantId, id, userId, data) => {
   //     dwe fèt sèlman lè rete MIN_RENEWAL_DAYS jou oswa mwens nan davans
   //     aktyèl la — "ranpli twò bonè" (pandan gen 3+ jou ki rete) anile bonis
   //     la menm si total la ta rete anba 10 jou.
-  const startStr        = haitiDateStr(contract.startDate)
+  const startStr        = dateOnlyStr(contract.startDate)
   const todayStr         = haitiDateStr()
   const dueStrict        = daysDueStrict(startStr, todayStr, contract.totalDaysPlanned)
   const bufferBefore     = contract.daysPaid - dueStrict          // davans ki rete anvan depo sa a

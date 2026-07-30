@@ -74,7 +74,6 @@ const MIKWO_KREDI_ITEMS = [
 ]
 
 const ENTERPRISE_ITEMS = [
-  { to:'/app/kane',     icon:CreditCard, label:'Ti Kanè Kès',      pageKey:'kane'      },
   { to:'/app/sabotay',  icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
   { to:'/app/mobilpay', icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
 ]
