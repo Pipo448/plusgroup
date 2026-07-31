@@ -30,17 +30,17 @@ const STATUS_STYLE = {
 
 // ── Palèt paj prensipal la (fon BLAN — separe de C ki sèvi pou modal fonse yo) ──
 const L = {
-  cardBg: '#FFFFFF', border: '#ECE4D3', text: '#1E2433', muted: '#7B8394', softBg: '#FAF8F2',
-  orange: '#F5680C', gold: '#C9A84C', navy: '#0F172A', green: '#16A34A', red: '#DC2626',
+  cardBg: '#FFFFFF', border: '#ECE4D3', text: '#1E2433', muted: '#4B5565', softBg: '#FAF8F2',
+  orange: '#F5680C', gold: '#8A5A00', navy: '#0F172A', green: '#16A34A', red: '#DC2626',
   gradGold:   'linear-gradient(135deg, #F5680C 0%, #E4A730 100%)',
   gradGreen:  'linear-gradient(135deg, #16A34A 0%, #4ADE80 100%)',
   gradNavy:   'linear-gradient(135deg, #0F172A 0%, #334155 100%)',
   shadow: '0 2px 12px rgba(15,23,42,0.06)',
-  // ⚠️ NOUVO — parite konplè ak C, pou modal yo ka itilize L dirèkteman
+  // ⚠️ NOUVO — pi fonse pou pi bon kontras sou blan (te twò pal/jòn/gri anvan)
   modalBg: '#FFFFFF', modalBorder: '#ECE4D3', overlay: 'rgba(15,23,42,0.6)',
-  input: '#FFFFFF', inputBorder: '#E2D9C3',
+  input: '#FFFFFF', inputBorder: '#D8CBAE',
   secBg: '#FBF9F3', secBorder: '#ECE4D3',
-  label: '#B8590C', goldBtn: 'linear-gradient(135deg, #F5680C 0%, #E4A730 100%)',
+  label: '#1E2433', goldBtn: 'linear-gradient(135deg, #F5680C 0%, #E4A730 100%)',
   card: '#FFFFFF', cardBorder: '#ECE4D3',
 }
 const LIST_STATUS = {
@@ -64,7 +64,7 @@ const useIsMobile = () => {
 
 const baseInput = {
   padding: '10px 13px', borderRadius: 8, fontSize: 13, fontFamily: 'inherit',
-  background: C.input, border: `1px solid ${C.inputBorder}`, color: C.text,
+  background: L.input, border: `1.5px solid ${L.inputBorder}`, color: L.text,
   outline: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s',
 }
 
@@ -160,8 +160,8 @@ function CycleGrid({ cycle, compact }) {
     background: status === 'paid' ? 'rgba(39,174,96,0.85)'
               : status === 'missed' ? 'rgba(192,57,43,0.85)'
               : '#F1F5F9',
-    border: status === 'pending' ? `1.5px dashed #D8DEE8` : 'none',
-    color: '#fff',
+    border: status === 'pending' ? `1.5px dashed #B8C0CC` : 'none',
+    color: status === 'pending' ? '#334155' : '#fff',
   })
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${compact ? 30 : 10}, 1fr)`, gap: compact ? 2 : 4 }}>
@@ -284,7 +284,7 @@ function ContractDetailModal({ contractId, onClose }) {
       <div className="ej-modal" style={{ background: L.modalBg, border: `1px solid ${L.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${L.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{data.clientFirstName} {data.clientLastName}</div>
+            <div style={{ color: L.text, fontWeight: 700, fontSize: 16 }}>{data.clientFirstName} {data.clientLastName}</div>
             <div style={{ color: L.muted, fontSize: 12 }}>#{data.contractNumber} · {data.durationMonths} mwa · {fmt(data.dailyAmount)} {data.currency}/jou</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -345,7 +345,7 @@ function ContractDetailModal({ contractId, onClose }) {
               { label: 'Objektif', val: `${fmt(data.totalObjective)} ${data.currency}` },
             ].map(s => (
               <div key={s.label} style={{ background: L.card, border: `1px solid ${L.cardBorder}`, borderRadius: 10, padding: 12, textAlign: 'center' }}>
-                <div style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>{s.val}</div>
+                <div style={{ color: L.navy, fontWeight: 800, fontSize: 15 }}>{s.val}</div>
                 <div style={{ color: L.muted, fontSize: 10, marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
@@ -505,7 +505,7 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
             <div style={{ width: 36, height: 36, borderRadius: 10, background: L.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Wallet size={17} color="#0a1222" />
             </div>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{isEdit ? 'Modifye Kontra' : 'Nouvo Kontra Epay Jounalye'}</span>
+            <span style={{ color: L.text, fontWeight: 700, fontSize: 16 }}>{isEdit ? 'Modifye Kontra' : 'Nouvo Kontra Epay Jounalye'}</span>
           </div>
           <button onClick={onClose} className="ej-close-btn" style={{ background: '#F1F0EB', border: 'none', color: L.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
         </div>
