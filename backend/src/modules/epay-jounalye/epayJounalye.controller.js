@@ -30,6 +30,16 @@ const cancel = asyncHandler(async (req, res) => {
   res.json({ success: true, contract })
 })
 
+const update = asyncHandler(async (req, res) => {
+  const contract = await svc.update(req.tenant.id, req.params.id, req.body)
+  res.json({ success: true, contract })
+})
+
+const remove = asyncHandler(async (req, res) => {
+  await svc.remove(req.tenant.id, req.params.id)
+  res.json({ success: true, message: 'Kontra siprime.' })
+})
+
 const getConfig = asyncHandler(async (req, res) => {
   res.json({
     success: true, bonusDays: svc.BONUS_DAYS, allowedDurations: svc.ALLOWED_DURATIONS,
@@ -37,4 +47,4 @@ const getConfig = asyncHandler(async (req, res) => {
   })
 })
 
-module.exports = { getAll, getOne, create, recordPayment, cancel, getConfig }
+module.exports = { getAll, getOne, create, recordPayment, cancel, update, remove, getConfig }

@@ -297,4 +297,61 @@ const cancel = async (tenantId, id) => {
   return prisma.epayJounalyeContract.update({ where: { id }, data: { status: 'cancelled' } })
 }
 
-module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, MAX_ADVANCE_DAYS, MIN_RENEWAL_DAYS, getAll, getOne, create, recordPayment, cancel }
+// ── MODIFYE — si POKO gen okenn peman (daysPaid===0), tout chan ka chanje
+// (montan, dire, dat kòmanse) e sistèm nan rekalkile objektif/bonis yo.
+// Si kontra a deja gen peman, sèlman enfòmasyon kliyan an ka korije, pou
+// pa "kraze" kalandriye/bonis ki deja an kou.
+const update = async (tenantId, id, data) => {
+  const contract = await prisma.epayJounalyeContract.findFirst({ where: { id, tenantId } })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+
+  const clientFields = {
+    ...(data.clientFirstName !== undefined && { clientFirstName: data.clientFirstName.trim() }),
+    ...(data.clientLastName  !== undefined && { clientLastName:  data.clientLastName.trim() }),
+    ...(data.clientPhone     !== undefined && { clientPhone:     data.clientPhone || null }),
+    ...(data.clientNifCin    !== undefined && { clientNifCin:    data.clientNifCin || null }),
+    ...(data.clientAddress   !== undefined && { clientAddress:   data.clientAddress || null }),
+    ...(data.notes           !== undefined && { notes:           data.notes || null }),
+  }
+
+  if (contract.daysPaid > 0) {
+    // Kontra a deja gen peman — sèlman enfòmasyon kliyan an ka chanje
+    return prisma.epayJounalyeContract.update({ where: { id }, data: clientFields })
+  }
+
+  // Poko gen peman — ka chanje montan/dire/dat tou, epi rekalkile
+  const durationMonths = data.durationMonths != null ? Number(data.durationMonths) : contract.durationMonths
+  if (!ALLOWED_DURATIONS.includes(durationMonths)) {
+    throw Object.assign(new Error(`Dire kontra dwe youn nan: ${ALLOWED_DURATIONS.join(', ')} mwa.`), { statusCode: 400 })
+  }
+  const dailyAmount = data.dailyAmount != null ? Number(data.dailyAmount) : Number(contract.dailyAmount)
+  if (!dailyAmount || dailyAmount <= 0) {
+    throw Object.assign(new Error('Montan chak jou obligatwa.'), { statusCode: 400 })
+  }
+  const totalDaysPlanned = durationMonths * DAYS_PER_CYCLE
+
+  return prisma.epayJounalyeContract.update({
+    where: { id },
+    data: {
+      ...clientFields,
+      dailyAmount,
+      durationMonths,
+      totalDaysPlanned,
+      totalObjective: dailyAmount * totalDaysPlanned,
+      bonusDaysEligible: BONUS_DAYS[durationMonths],
+      ...(data.startDate && { startDate: new Date(data.startDate) }),
+      ...(data.currency && { currency: data.currency }),
+    }
+  })
+}
+
+// ── SIPRIME — siprime nèt kontra a ansanm ak tout istwa peman li yo
+// (cascade deja defini nan schema a). Aksyon sa a IREVERSIB.
+const remove = async (tenantId, id) => {
+  const contract = await prisma.epayJounalyeContract.findFirst({ where: { id, tenantId } })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+  await prisma.epayJounalyeContract.delete({ where: { id } })
+  return { deleted: true }
+}
+
+module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, MAX_ADVANCE_DAYS, MIN_RENEWAL_DAYS, getAll, getOne, create, recordPayment, cancel, update, remove }

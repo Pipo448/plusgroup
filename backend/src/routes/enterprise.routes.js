@@ -25,7 +25,9 @@ kaneRouter.get('/',              ejCtrl.getAll)
 kaneRouter.post('/',             ejCtrl.create)
 kaneRouter.get('/:id',           ejCtrl.getOne)
 kaneRouter.post('/:id/pay',      ejCtrl.recordPayment)
+kaneRouter.put('/:id',           ejCtrl.update)
 kaneRouter.patch('/:id/cancel',  ejCtrl.cancel)
+kaneRouter.delete('/:id',        ejCtrl.remove)
 
 // ═══════════════════════════════════════════════════════
 // SABOTAY

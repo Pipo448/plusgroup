@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Wallet, Plus, Search, RefreshCw, X, Trophy, Ban, CheckCircle2, Sparkles } from 'lucide-react'
+import { Wallet, Plus, Search, RefreshCw, X, Trophy, Ban, CheckCircle2, Sparkles, Edit2, Trash2, AlertTriangle } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
@@ -26,6 +26,21 @@ const STATUS_STYLE = {
   active:    { bg: 'rgba(201,168,76,0.15)', color: C.gold, label: 'Aktif' },
   completed: { bg: 'rgba(39,174,96,0.15)',  color: C.green, label: 'Fini' },
   cancelled: { bg: 'rgba(192,57,43,0.15)',  color: C.red, label: 'Anile' },
+}
+
+// ── Palèt paj prensipal la (fon BLAN — separe de C ki sèvi pou modal fonse yo) ──
+const L = {
+  cardBg: '#FFFFFF', border: '#ECE4D3', text: '#1E2433', muted: '#7B8394', softBg: '#FAF8F2',
+  orange: '#F5680C', gold: '#C9A84C', navy: '#0F172A', green: '#16A34A', red: '#DC2626',
+  gradGold:   'linear-gradient(135deg, #F5680C 0%, #E4A730 100%)',
+  gradGreen:  'linear-gradient(135deg, #16A34A 0%, #4ADE80 100%)',
+  gradNavy:   'linear-gradient(135deg, #0F172A 0%, #334155 100%)',
+  shadow: '0 2px 12px rgba(15,23,42,0.06)',
+}
+const LIST_STATUS = {
+  active:    { pill: '#FEF3E2', pillText: '#B45309', accent: L.orange, label: 'Aktif' },
+  completed: { pill: '#DCFCE7', pillText: '#15803D', accent: L.green,  label: 'Fini' },
+  cancelled: { pill: '#FEE2E2', pillText: '#B91C1C', accent: '#94A3B8', label: 'Anile' },
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT')
@@ -67,9 +82,9 @@ function GlobalStyles() {
 
       .ej-page { animation: ejFadeUp 0.4s ease both; }
       .ej-card { transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease; animation: ejFadeUp 0.35s ease both; }
-      .ej-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(0,0,0,0.35); border-color: rgba(201,168,76,0.4) !important; }
+      .ej-card:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(15,23,42,0.12); border-color: rgba(201,168,76,0.5) !important; }
       .ej-card:active { transform: translateY(0px) scale(0.995); }
-      .ej-stat:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,0.3); }
+      .ej-stat:hover { transform: translateY(-3px); box-shadow: 0 10px 26px rgba(15,23,42,0.18); }
       .ej-stat { transition: transform 0.18s ease, box-shadow 0.18s ease; }
       .ej-btn { transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease; }
       .ej-btn:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 6px 18px rgba(201,168,76,0.25); }
@@ -108,10 +123,9 @@ function GlobalStyles() {
         .ej-header { flex-direction: column !important; align-items: stretch !important; }
         .ej-header-actions { justify-content: flex-end; }
         .ej-list-item { flex-wrap: wrap !important; }
-        .ej-list-item .ej-li-num { order: 1; }
-        .ej-list-item .ej-li-name { order: 2; flex-basis: 100% !important; }
-        .ej-list-item .ej-li-pct { order: 3; }
-        .ej-list-item .ej-li-badge { order: 4; }
+        .ej-list-item .ej-li-name { order: 1; flex-basis: 100% !important; }
+        .ej-list-item .ej-li-pct { order: 2; }
+        .ej-list-item .ej-li-badge { order: 3; }
         .ej-modal-outer { padding: 0 !important; align-items: flex-end !important; }
         .ej-modal { max-width: 100% !important; width: 100% !important; border-radius: 20px 20px 0 0 !important; max-height: 94vh !important; }
         .ej-detail-stats { grid-template-columns: 1fr 1fr !important; }
@@ -159,6 +173,8 @@ function ContractDetailModal({ contractId, onClose }) {
   const isMobile = useIsMobile()
   const [openCycles, setOpenCycles] = useState({})
   const [payDays, setPayDays] = useState(1)
+  const [showEdit, setShowEdit] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const { data: config } = useQuery({
     queryKey: ['epay-jounalye-config'],
@@ -171,6 +187,27 @@ function ContractDetailModal({ contractId, onClose }) {
   const { data, isLoading } = useQuery({
     queryKey: ['epay-jounalye', contractId],
     queryFn: () => api.get(`/kane/${contractId}`).then(r => r.data.contract),
+  })
+
+  const editMutation = useMutation({
+    mutationFn: (form) => api.put(`/kane/${contractId}`, form),
+    onSuccess: () => {
+      toast.success('Kontra modifye!')
+      setShowEdit(false)
+      qc.invalidateQueries({ queryKey: ['epay-jounalye', contractId] })
+      qc.invalidateQueries({ queryKey: ['epay-jounalye-list'] })
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Erè modifikasyon.'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete(`/kane/${contractId}`),
+    onSuccess: () => {
+      toast.success('Kontra siprime.')
+      qc.invalidateQueries({ queryKey: ['epay-jounalye-list'] })
+      onClose()
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Erè siprime kontra.'),
   })
 
   const payMutation = useMutation({
@@ -214,7 +251,9 @@ function ContractDetailModal({ contractId, onClose }) {
   const activeCycleIdx = Math.min(Math.floor(data.daysPaid / 30), data.calendar.length - 1)
   const pct = Math.round((data.daysPaid / data.totalDaysPlanned) * 100)
 
-  return createPortal(
+  return (
+    <>
+    {createPortal(
     <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
       <div className="ej-modal" style={{ background: C.modalBg, border: `1px solid ${C.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -222,8 +261,31 @@ function ContractDetailModal({ contractId, onClose }) {
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{data.clientFirstName} {data.clientLastName}</div>
             <div style={{ color: C.muted, fontSize: 12 }}>#{data.contractNumber} · {data.durationMonths} mwa · {fmt(data.dailyAmount)} {data.currency}/jou</div>
           </div>
-          <button onClick={onClose} className="ej-close-btn" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => setShowEdit(true)} className="ej-icon-btn" title="Modifye kontra"
+              style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Edit2 size={14} />
+            </button>
+            <button onClick={() => setConfirmDelete(true)} className="ej-icon-btn" title="Siprime kontra"
+              style={{ background: 'rgba(192,57,43,0.12)', border: 'none', color: C.red, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={14} />
+            </button>
+            <button onClick={onClose} className="ej-close-btn" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
+          </div>
         </div>
+
+        {confirmDelete && (
+          <div style={{ padding: '14px 22px', background: 'rgba(192,57,43,0.1)', borderBottom: `1px solid rgba(192,57,43,0.25)`, display: 'flex', alignItems: 'center', gap: 10, animation: 'ejFadeUp 0.2s ease both' }}>
+            <AlertTriangle size={18} color={C.red} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, fontSize: 12.5, color: C.text }}>
+              Siprime kontra sa a defenitivman, ansanm ak tout istwa peman li yo? Aksyon sa a <strong>pa ka anile</strong>.
+            </div>
+            <button onClick={() => setConfirmDelete(false)} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid rgba(255,255,255,0.15)`, background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Anile</button>
+            <button onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: C.red, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {deleteMutation.isPending && <RefreshCw className="ej-spin" size={12} />} Wi, Siprime
+            </button>
+          </div>
+        )}
 
         <div style={{ overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           {/* Bonis banner */}
@@ -330,14 +392,28 @@ function ContractDetailModal({ contractId, onClose }) {
       </div>
     </div>,
     document.body
+    )}
+    {showEdit && (
+      <NewContractModal
+        onClose={() => setShowEdit(false)}
+        saving={editMutation.isPending}
+        onSave={(form) => editMutation.mutate(form)}
+        initialData={data}
+        isEdit
+        lockAmountFields={data.daysPaid > 0}
+      />
+    )}
+    </>
   )
 }
 
 /* ─── MODAL NOUVO KONTRA ─── */
-function NewContractModal({ onClose, onSave, saving }) {
+function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit = false, lockAmountFields = false }) {
   const [form, setForm] = useState({
-    clientFirstName: '', clientLastName: '', clientPhone: '', clientNifCin: '', clientAddress: '',
-    dailyAmount: '', durationMonths: 3, currency: 'HTG', notes: '',
+    clientFirstName: initialData?.clientFirstName || '', clientLastName: initialData?.clientLastName || '',
+    clientPhone: initialData?.clientPhone || '', clientNifCin: initialData?.clientNifCin || '', clientAddress: initialData?.clientAddress || '',
+    dailyAmount: initialData?.dailyAmount != null ? String(initialData.dailyAmount) : '',
+    durationMonths: initialData?.durationMonths || 3, currency: initialData?.currency || 'HTG', notes: initialData?.notes || '',
   })
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -360,12 +436,17 @@ function NewContractModal({ onClose, onSave, saving }) {
             <div style={{ width: 36, height: 36, borderRadius: 10, background: C.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Wallet size={17} color="#0a1222" />
             </div>
-            <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>Nouvo Kontra Epay Jounalye</span>
+            <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{isEdit ? 'Modifye Kontra' : 'Nouvo Kontra Epay Jounalye'}</span>
           </div>
           <button onClick={onClose} className="ej-close-btn" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {isEdit && lockAmountFields && (
+            <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: C.gold }}>
+              ℹ️ Kontra a deja gen peman — sèlman enfòmasyon kliyan an ka korije.
+            </div>
+          )}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <Field label="PRENON *" half><input className="ej-input" value={form.clientFirstName} onChange={e => set('clientFirstName', e.target.value)} style={baseInput} placeholder="Fredelyn" /></Field>
             <Field label="NON *" half><input className="ej-input" value={form.clientLastName} onChange={e => set('clientLastName', e.target.value)} style={baseInput} placeholder="Jean" /></Field>
@@ -374,12 +455,12 @@ function NewContractModal({ onClose, onSave, saving }) {
             <Field label="ADRÈS"><input className="ej-input" value={form.clientAddress} onChange={e => set('clientAddress', e.target.value)} style={baseInput} placeholder="Vil, Depatman..." /></Field>
           </div>
 
-          <div style={{ borderTop: `1px solid ${C.secBorder}`, paddingTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ borderTop: `1px solid ${C.secBorder}`, paddingTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10, opacity: lockAmountFields ? 0.5 : 1, pointerEvents: lockAmountFields ? 'none' : 'auto' }}>
             <Field label="MONTAN CHAK JOU *" half>
-              <input className="ej-input" type="number" value={form.dailyAmount} onChange={e => set('dailyAmount', e.target.value)} style={{ ...baseInput, color: C.gold, fontWeight: 700 }} placeholder="100" />
+              <input className="ej-input" type="number" value={form.dailyAmount} onChange={e => set('dailyAmount', e.target.value)} style={{ ...baseInput, color: C.gold, fontWeight: 700 }} placeholder="100" disabled={lockAmountFields} />
             </Field>
             <Field label="MONÈ" half>
-              <select className="ej-input" value={form.currency} onChange={e => set('currency', e.target.value)} style={{ ...baseInput, cursor: 'pointer' }}>
+              <select className="ej-input" value={form.currency} onChange={e => set('currency', e.target.value)} style={{ ...baseInput, cursor: 'pointer' }} disabled={lockAmountFields}>
                 <option value="HTG">HTG</option>
                 <option value="USD">USD</option>
               </select>
@@ -387,8 +468,8 @@ function NewContractModal({ onClose, onSave, saving }) {
             <Field label="DIRE KONTRA">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {DURATIONS.map(d => (
-                  <button key={d} onClick={() => set('durationMonths', d)} className="ej-duration-btn" style={{
-                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                  <button key={d} onClick={() => !lockAmountFields && set('durationMonths', d)} className="ej-duration-btn" style={{
+                    padding: '8px 12px', borderRadius: 8, cursor: lockAmountFields ? 'default' : 'pointer', fontSize: 12, fontWeight: 700,
                     border: `1px solid ${form.durationMonths === d ? C.gold : C.inputBorder}`,
                     background: form.durationMonths === d ? 'rgba(201,168,76,0.12)' : 'transparent',
                     color: form.durationMonths === d ? C.gold : C.muted,
@@ -409,7 +490,7 @@ function NewContractModal({ onClose, onSave, saving }) {
         <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, display: 'flex', gap: 10, background: 'rgba(0,0,0,0.2)' }}>
           <button onClick={onClose} className="ej-btn" style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid rgba(255,255,255,0.12)`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Anile</button>
           <button onClick={handleSave} disabled={saving} className="ej-btn" style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: C.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            {saving && <RefreshCw className="ej-spin" size={14} />} {saving ? 'Ap kreye...' : 'Kreye Kontra'}
+            {saving && <RefreshCw className="ej-spin" size={14} />} {saving ? (isEdit ? 'Ap sove...' : 'Ap kreye...') : (isEdit ? 'Sove Chanjman' : 'Kreye Kontra')}
           </button>
         </div>
       </div>
@@ -446,22 +527,23 @@ export default function KanePage() {
     onError: (err) => toast.error(err?.response?.data?.message || 'Erè kreye kontra.'),
   })
 
-  const cardStyle = { background: 'rgba(13,27,42,0.7)', border: `1px solid ${C.cardBorder}`, borderRadius: 10, padding: 16, textAlign: 'center' }
-
   return (
-    <div className="ej-page ej-container" style={{ padding: '24px', maxWidth: 900, margin: '0 auto', fontFamily: 'DM Sans, sans-serif' }}>
+    <div className="ej-page ej-container" style={{ padding: '24px', maxWidth: 940, margin: '0 auto', fontFamily: 'DM Sans, sans-serif' }}>
       <GlobalStyles />
 
-      <div className="ej-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ color: C.gold, margin: 0, fontSize: 22, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Wallet size={22} />Epay Jounalye
-          </h1>
-          <p style={{ color: C.muted, margin: '4px 0 0', fontSize: 13 }}>Kontra epay fòse chak jou, ak bonis fidelite</p>
+      <div className="ej-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 14, background: L.gradGold, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 16px rgba(245,104,12,0.28)', flexShrink: 0 }}>
+            <Wallet size={22} color="#fff" />
+          </div>
+          <div>
+            <h1 style={{ color: L.navy, margin: 0, fontSize: 21, fontWeight: 800 }}>Epay Jounalye</h1>
+            <p style={{ color: L.muted, margin: '2px 0 0', fontSize: 13 }}>Kontra epay fòse chak jou, ak bonis fidelite</p>
+          </div>
         </div>
         <div className="ej-header-actions" style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => refetch()} className="ej-icon-btn" style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.cardBorder}`, background: 'transparent', color: C.muted, cursor: 'pointer' }}><RefreshCw size={14} /></button>
-          <button onClick={() => setShowNew(true)} className="ej-btn" style={{ padding: '9px 18px', borderRadius: 10, border: 'none', cursor: 'pointer', background: C.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button onClick={() => refetch()} className="ej-icon-btn" style={{ padding: '8px 12px', borderRadius: 10, border: `1px solid ${L.border}`, background: L.cardBg, color: L.muted, cursor: 'pointer', boxShadow: L.shadow }}><RefreshCw size={14} /></button>
+          <button onClick={() => setShowNew(true)} className="ej-btn" style={{ padding: '10px 20px', borderRadius: 12, border: 'none', cursor: 'pointer', background: L.gradGold, color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 16px rgba(245,104,12,0.28)' }}>
             <Plus size={15} />Nouvo Kontra
           </button>
         </div>
@@ -469,70 +551,86 @@ export default function KanePage() {
 
       <div className="ej-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 14, marginBottom: 24 }}>
         {[
-          { label: 'Kontra Aktif', val: stats.activeContracts, color: C.gold },
-          { label: 'Kontra Fini', val: stats.completedContracts, color: C.green },
-          { label: 'Total Kolekte', val: `${fmt(stats.totalCollected)} HTG`, color: C.gold },
+          { label: 'Kontra Aktif', val: stats.activeContracts, grad: L.gradGold, icon: <Trophy size={18} color="#fff" /> },
+          { label: 'Kontra Fini', val: stats.completedContracts, grad: L.gradGreen, icon: <Sparkles size={18} color="#fff" /> },
+          { label: 'Total Kolekte', val: `${fmt(stats.totalCollected)} HTG`, grad: L.gradNavy, icon: <Wallet size={18} color="#fff" /> },
         ].map((s, i) => (
-          <div key={s.label} className="ej-stat" style={{ ...cardStyle, animation: 'ejFadeUp 0.4s ease both', animationDelay: `${i * 60}ms` }}>
-            <div style={{ color: s.color, fontWeight: 800, fontSize: 18 }}>{s.val}</div>
-            <div style={{ color: C.muted, fontSize: 11, marginTop: 4 }}>{s.label}</div>
+          <div key={s.label} className="ej-stat" style={{
+            background: s.grad, borderRadius: 16, padding: '18px 18px', position: 'relative', overflow: 'hidden',
+            boxShadow: '0 8px 20px rgba(15,23,42,0.12)', animation: 'ejFadeUp 0.4s ease both', animationDelay: `${i * 60}ms`,
+          }}>
+            <div style={{ position: 'absolute', top: -14, right: -14, width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.14)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ color: '#fff', fontWeight: 800, fontSize: 20 }}>{s.val}</div>
+              {s.icon}
+            </div>
+            <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11.5, marginTop: 6, fontWeight: 600 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: C.muted }} />
-          <input className="ej-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Chèche..." style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 8, fontSize: 13, background: 'rgba(13,27,42,0.7)', border: `1px solid ${C.cardBorder}`, color: '#fff', boxSizing: 'border-box', transition: 'border-color 0.15s, box-shadow 0.15s' }} />
+          <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: L.muted }} />
+          <input className="ej-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Chèche non, nimewo, telefòn..." style={{ width: '100%', padding: '10px 12px 10px 34px', borderRadius: 10, fontSize: 13, background: L.cardBg, border: `1px solid ${L.border}`, color: L.text, boxSizing: 'border-box', boxShadow: L.shadow, transition: 'border-color 0.15s, box-shadow 0.15s' }} />
         </div>
         {['all', 'active', 'completed', 'cancelled'].map(s => (
           <button key={s} onClick={() => setFilter(s)} className="ej-filter-btn" style={{
-            padding: '8px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: filter === s ? 700 : 400,
-            border: `1px solid ${filter === s ? C.gold : 'rgba(255,255,255,0.07)'}`,
-            background: filter === s ? 'rgba(201,168,76,0.1)' : 'transparent',
-            color: filter === s ? C.gold : C.muted,
+            padding: '9px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: filter === s ? 700 : 500,
+            border: `1px solid ${filter === s ? L.orange : L.border}`,
+            background: filter === s ? L.gradGold : L.cardBg,
+            color: filter === s ? '#fff' : L.muted,
+            boxShadow: filter === s ? '0 4px 12px rgba(245,104,12,0.25)' : L.shadow,
           }}>{{ all: 'Tout', active: 'Aktif', completed: 'Fini', cancelled: 'Anile' }[s]}</button>
         ))}
       </div>
 
       {isLoading ? (
-        <div style={{ textAlign: 'center', color: C.muted, padding: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
-          <RefreshCw className="ej-spin" size={20} color={C.gold} /> Chajman...
+        <div style={{ textAlign: 'center', color: L.muted, padding: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          <RefreshCw className="ej-spin" size={20} color={L.orange} /> Chajman...
         </div>
       ) : contracts.length === 0 ? (
-        <div style={{ textAlign: 'center', color: C.muted, padding: 60, background: 'rgba(13,27,42,0.5)', borderRadius: 12, border: `1px dashed ${C.cardBorder}`, animation: 'ejFadeUp 0.35s ease both' }}>
-          <Wallet size={40} color="#334155" style={{ marginBottom: 12 }} />
+        <div style={{ textAlign: 'center', color: L.muted, padding: 60, background: L.softBg, borderRadius: 16, border: `1.5px dashed ${L.border}`, animation: 'ejFadeUp 0.35s ease both' }}>
+          <Wallet size={40} color={L.orange} style={{ marginBottom: 12, opacity: 0.5 }} />
           <p style={{ margin: 0 }}>Pa gen kontra. Kreye premye kontra Epay Jounalye a!</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {contracts.map((c, i) => {
-            const ss = STATUS_STYLE[c.status] || STATUS_STYLE.active
+            const ls = LIST_STATUS[c.status] || LIST_STATUS.active
             const pct = Math.round((c.daysPaid / c.totalDaysPlanned) * 100)
+            const initials = `${c.clientFirstName?.[0] || ''}${c.clientLastName?.[0] || ''}`.toUpperCase()
             return (
               <div key={c.id} onClick={() => setSelectedId(c.id)} className="ej-card ej-row-item ej-list-item" style={{
-                background: 'rgba(13,27,42,0.7)', border: `1px solid ${C.cardBorder}`, borderRadius: 10,
-                padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', cursor: 'pointer',
+                background: L.cardBg, border: `1px solid ${L.border}`, borderRadius: 14, boxShadow: L.shadow,
+                borderLeft: `4px solid ${ls.accent}`, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', cursor: 'pointer',
                 animationDelay: `${Math.min(i * 45, 400)}ms`,
               }}>
-                <div className="ej-li-num" style={{ minWidth: 90 }}>
-                  <div style={{ color: C.muted, fontSize: 10 }}>Nimewo</div>
-                  <div style={{ color: C.gold, fontWeight: 700, fontFamily: 'monospace', fontSize: 13 }}>#{c.contractNumber}</div>
+                <div style={{
+                  width: 42, height: 42, borderRadius: '50%', background: L.gradGold, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, flexShrink: 0,
+                }}>{initials || '?'}</div>
+
+                <div className="ej-li-name" style={{ flex: 1, minWidth: 170 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{ color: L.text, fontWeight: 700, fontSize: 14.5 }}>{c.clientFirstName} {c.clientLastName}</span>
+                    <span style={{ color: L.gold, fontWeight: 700, fontFamily: 'monospace', fontSize: 11.5 }}>#{c.contractNumber}</span>
+                  </div>
+                  <div style={{ color: L.muted, fontSize: 12, margin: '3px 0 7px' }}>{c.daysPaid}/{c.totalDaysPlanned} jou · {fmt(c.dailyAmount)} {c.currency}/jou</div>
+                  <ProgressBar pct={pct} color={c.status === 'completed' ? L.gradGreen : L.gradGold} />
                 </div>
-                <div className="ej-li-name" style={{ flex: 1, minWidth: 160 }}>
-                  <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{c.clientFirstName} {c.clientLastName}</div>
-                  <div style={{ color: '#94a3b8', fontSize: 12, marginBottom: 6 }}>{c.daysPaid}/{c.totalDaysPlanned} jou · {fmt(c.dailyAmount)} {c.currency}/jou</div>
-                  <ProgressBar pct={pct} color={ss.color === C.green ? C.green : C.goldBtn} />
+
+                <div className="ej-li-pct" style={{ minWidth: 46, textAlign: 'right' }}>
+                  <div style={{ color: L.navy, fontWeight: 800, fontSize: 16 }}>{pct}%</div>
+                  <div style={{ color: L.muted, fontSize: 10 }}>fèt</div>
                 </div>
-                <div className="ej-li-pct" style={{ minWidth: 50, textAlign: 'right' }}>
-                  <div style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>{pct}%</div>
-                  <div style={{ color: C.muted, fontSize: 10 }}>fèt</div>
-                </div>
+
                 {c.bonusStillEligible
-                  ? <Trophy size={16} color={C.gold} title="Bonis aktif" />
-                  : <Ban size={16} color={C.red} title="Bonis pèdi" />}
-                <span className="ej-li-badge" style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.color, minWidth: 60, textAlign: 'center' }}>
-                  {ss.label}
+                  ? <Trophy size={17} color={L.gold} title="Bonis aktif" />
+                  : <Ban size={17} color={L.red} title="Bonis pèdi" />}
+
+                <span className="ej-li-badge" style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: ls.pill, color: ls.pillText, minWidth: 60, textAlign: 'center' }}>
+                  {ls.label}
                 </span>
               </div>
             )
