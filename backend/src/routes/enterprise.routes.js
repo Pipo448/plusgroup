@@ -2,7 +2,7 @@
 // ✅ PLUS GROUP — Enterprise Routes — Aliye ak Frontend
 
 const express = require('express')
-const { identifyTenant, authenticate, requireEnterprise } = require('../middleware/auth')
+const { identifyTenant, authenticate, requireEnterprise, authorize } = require('../middleware/auth')
 
 // ✅ KORIJE — identifyTenant AJOUTE nan chenn middleware
 // Sa ki te kase: authenticate ap rele req.tenant.id men identifyTenant pa t la
@@ -21,12 +21,15 @@ const kaneRouter = express.Router()
 kaneRouter.use(baseMiddleware)
 
 kaneRouter.get('/config',        ejCtrl.getConfig)
+kaneRouter.get('/settings',      ejCtrl.getSettings)
+kaneRouter.put('/settings',      authorize('admin'), ejCtrl.updateSettings)
 kaneRouter.get('/',              ejCtrl.getAll)
 kaneRouter.post('/',             ejCtrl.create)
 kaneRouter.get('/:id',           ejCtrl.getOne)
 kaneRouter.post('/:id/pay',      ejCtrl.recordPayment)
 kaneRouter.put('/:id',           ejCtrl.update)
 kaneRouter.patch('/:id/cancel',  ejCtrl.cancel)
+kaneRouter.post('/:id/break',    ejCtrl.breakContract)
 kaneRouter.delete('/:id',        ejCtrl.remove)
 
 // ═══════════════════════════════════════════════════════

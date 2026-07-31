@@ -118,6 +118,23 @@ enum EpayJounalyeStatus {
   active
   completed
   cancelled
+  // ⚠️ NOUVO — kliyan chwazi retire kòb li anvan tout jou yo fin peye,
+  // ak yon penalite (kontrèman ak "cancelled" ki se yon anilasyon
+  // administratif san okenn kalkil peman)
+  broken
+}
+
+// ⚠️ NOUVO — Paramèt Epay Jounalye pou chak tenant (kounye a admin ka
+// pèsonalize pousantaj penalite "Kase Kontra" a olye de valè fiks kòde).
+// Si pa gen liy pou yon tenant, backend la itilize valè default yo.
+model EpayJounalyeSettings {
+  tenantId          String   @id @map("tenant_id")
+  // Tablo [{ maxPct: 0.25, rate: 0.15 }, ...] — menm fòma ak BREAK_PENALTY_TIERS
+  breakPenaltyTiers Json     @map("break_penalty_tiers")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_settings_tenant_fk")
+
+  @@map("epay_jounalye_settings")
 }
 
 model EpayJounalyeContract {
@@ -149,6 +166,12 @@ model EpayJounalyeContract {
   // totalPaid + (bonusStillEligible ? bonusDaysEligible×dailyAmount : 0), ranpli lè status=completed
   finalPayoutAmount  Decimal?              @map("final_payout_amount") @db.Decimal(14, 2)
   completedAt        DateTime?             @map("completed_at") @db.Timestamptz(6)
+  // ⚠️ NOUVO — ranpli lè status=broken (kase kontra anvan li fini)
+  // Pousantaj penalite a diminye selon % jou ki deja peye (pi bonè = pi cho)
+  breakPenaltyRate   Decimal?              @map("break_penalty_rate") @db.Decimal(5, 4)
+  breakPenaltyAmount Decimal?              @map("break_penalty_amount") @db.Decimal(14, 2)
+  breakRefundAmount  Decimal?              @map("break_refund_amount") @db.Decimal(14, 2)
+  brokenAt           DateTime?             @map("broken_at") @db.Timestamptz(6)
   notes              String?
   createdBy          String?               @map("created_by")
   createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)

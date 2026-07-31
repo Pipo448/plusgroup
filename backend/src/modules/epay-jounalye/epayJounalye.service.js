@@ -41,6 +41,71 @@ const daysFullyElapsedSince = (startDateStr, referenceDateStr) => {
 // Konbyen jou ki "dwe" deja peye jiska JODI A enkli (jodi a konte kòm yon jou
 // ki gen dwa peye) — SAN okenn davans. Baz pou de règ bonis yo pi ba a.
 const MAX_ADVANCE_DAYS  = 10  // limit total davans ki tolere
+// ⚠️ NOUVO — Penalite pou "Kase Kontra" (retrè anvan tan): pousantaj la
+// DIMINYE selon konbyen jou kliyan an deja peye — pi bonè li kase l,
+// pi cho penalite a; pi pre l fini, pi ba li ye. Sa yo se valè DEFAULT —
+// chak tenant ka pèsonalize pwòp valè pa yo (gade EpayJounalyeSettings).
+const DEFAULT_BREAK_PENALTY_TIERS = [
+  { maxPct: 0.25, rate: 0.15 },  // mwens pase 25% fèt → 15%
+  { maxPct: 0.50, rate: 0.10 },  // 25–50% fèt        → 10%
+  { maxPct: 0.75, rate: 0.06 },  // 50–75% fèt        → 6%
+  { maxPct: 1.01, rate: 0.03 },  // plis pase 75% fèt  → 3%
+]
+
+// ── Jwenn tab penalite tenant lan itilize reyèlman (pwòp li si l defini, sinon default)
+const getEffectiveBreakTiers = async (tenantId) => {
+  const settings = await prisma.epayJounalyeSettings.findUnique({ where: { tenantId } })
+  return settings?.breakPenaltyTiers || DEFAULT_BREAK_PENALTY_TIERS
+}
+
+const getBreakPenaltyRate = (pctComplete, tiers = DEFAULT_BREAK_PENALTY_TIERS) => {
+  for (const tier of tiers) {
+    if (pctComplete < tier.maxPct) return tier.rate
+  }
+  return tiers[tiers.length - 1].rate
+}
+
+// ── Valide yon tablo tyè penalite anvan sove l (fòma, valè kwasan, ranje limit)
+const validateBreakTiers = (tiers) => {
+  if (!Array.isArray(tiers) || tiers.length === 0) {
+    throw Object.assign(new Error('Ba w omwen yon ranje penalite.'), { statusCode: 400 })
+  }
+  let prevMaxPct = 0
+  for (const t of tiers) {
+    const maxPct = Number(t.maxPct)
+    const rate = Number(t.rate)
+    if (!(maxPct > prevMaxPct) || maxPct > 1.5) {
+      throw Object.assign(new Error('Chak ranje % dwe pi gwo pase sa anvan l, e rezonab (≤150%).'), { statusCode: 400 })
+    }
+    if (!(rate >= 0) || rate > 1) {
+      throw Object.assign(new Error('Chak pousantaj penalite dwe ant 0% ak 100%.'), { statusCode: 400 })
+    }
+    prevMaxPct = maxPct
+  }
+  if (tiers[tiers.length - 1].maxPct < 1) {
+    throw Object.assign(new Error('Dènye ranje a dwe kouvri jiska omwen 100% (egzanp maxPct: 1.01).'), { statusCode: 400 })
+  }
+  return tiers.map(t => ({ maxPct: Number(t.maxPct), rate: Number(t.rate) }))
+}
+
+const getSettings = async (tenantId) => {
+  const settings = await prisma.epayJounalyeSettings.findUnique({ where: { tenantId } })
+  return {
+    breakPenaltyTiers: settings?.breakPenaltyTiers || DEFAULT_BREAK_PENALTY_TIERS,
+    isCustom: !!settings,
+  }
+}
+
+const updateSettings = async (tenantId, data) => {
+  const tiers = validateBreakTiers(data.breakPenaltyTiers)
+  await prisma.epayJounalyeSettings.upsert({
+    where: { tenantId },
+    create: { tenantId, breakPenaltyTiers: tiers },
+    update: { breakPenaltyTiers: tiers },
+  })
+  return { breakPenaltyTiers: tiers, isCustom: true }
+}
+
 const MIN_RENEWAL_DAYS  = 2   // ka "ranpli" sèlman lè rete sa a jou oswa mwens
 const daysDueStrict = (startDateStr, referenceDateStr, cap) =>
   Math.min(daysFullyElapsedSince(startDateStr, referenceDateStr) + 1, cap)
@@ -354,4 +419,41 @@ const remove = async (tenantId, id) => {
   return { deleted: true }
 }
 
-module.exports = { BONUS_DAYS, ALLOWED_DURATIONS, MAX_ADVANCE_DAYS, MIN_RENEWAL_DAYS, getAll, getOne, create, recordPayment, cancel, update, remove }
+// ── KASE KONTRA — kliyan retire kòb li anvan tout jou yo fin peye.
+// Bonis toujou pèdi (menm si l te toujou aktif), e yon penalite tire sou
+// total peye a selon tab BREAK_PENALTY_TIERS pi wo a.
+const breakContract = async (tenantId, id) => {
+  const contract = await prisma.epayJounalyeContract.findFirst({ where: { id, tenantId } })
+  if (!contract) throw Object.assign(new Error('Kontra pa jwenn.'), { statusCode: 404 })
+  if (contract.status !== 'active') {
+    throw Object.assign(new Error('Sèl kontra aktif ka kase.'), { statusCode: 400 })
+  }
+  if (contract.daysPaid <= 0) {
+    throw Object.assign(new Error('Pa gen kòb ki peye ankò sou kontra sa a.'), { statusCode: 400 })
+  }
+
+  const pctComplete   = contract.daysPaid / contract.totalDaysPlanned
+  const tiers         = await getEffectiveBreakTiers(tenantId)
+  const rate          = getBreakPenaltyRate(pctComplete, tiers)
+  const totalPaid     = Number(contract.totalPaid)
+  const penaltyAmount = Math.round(totalPaid * rate * 100) / 100
+  const refundAmount  = totalPaid - penaltyAmount
+
+  return prisma.epayJounalyeContract.update({
+    where: { id },
+    data: {
+      status: 'broken',
+      bonusStillEligible: false,
+      breakPenaltyRate: rate,
+      breakPenaltyAmount: penaltyAmount,
+      breakRefundAmount: refundAmount,
+      brokenAt: new Date(),
+    }
+  })
+}
+
+module.exports = {
+  BONUS_DAYS, ALLOWED_DURATIONS, MAX_ADVANCE_DAYS, MIN_RENEWAL_DAYS, DEFAULT_BREAK_PENALTY_TIERS,
+  getAll, getOne, create, recordPayment, cancel, update, remove, breakContract,
+  getSettings, updateSettings,
+}

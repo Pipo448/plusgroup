@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Wallet, Plus, Search, RefreshCw, X, Trophy, Ban, CheckCircle2, Sparkles, Edit2, Trash2, AlertTriangle } from 'lucide-react'
+import { Wallet, Plus, Search, RefreshCw, X, Trophy, Ban, CheckCircle2, Sparkles, Edit2, Trash2, AlertTriangle, Settings, RotateCcw } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 
@@ -36,11 +36,18 @@ const L = {
   gradGreen:  'linear-gradient(135deg, #16A34A 0%, #4ADE80 100%)',
   gradNavy:   'linear-gradient(135deg, #0F172A 0%, #334155 100%)',
   shadow: '0 2px 12px rgba(15,23,42,0.06)',
+  // ⚠️ NOUVO — parite konplè ak C, pou modal yo ka itilize L dirèkteman
+  modalBg: '#FFFFFF', modalBorder: '#ECE4D3', overlay: 'rgba(15,23,42,0.6)',
+  input: '#FFFFFF', inputBorder: '#E2D9C3',
+  secBg: '#FBF9F3', secBorder: '#ECE4D3',
+  label: '#B8590C', goldBtn: 'linear-gradient(135deg, #F5680C 0%, #E4A730 100%)',
+  card: '#FFFFFF', cardBorder: '#ECE4D3',
 }
 const LIST_STATUS = {
   active:    { pill: '#FEF3E2', pillText: '#B45309', accent: L.orange, label: 'Aktif' },
   completed: { pill: '#DCFCE7', pillText: '#15803D', accent: L.green,  label: 'Fini' },
   cancelled: { pill: '#FEE2E2', pillText: '#B91C1C', accent: '#94A3B8', label: 'Anile' },
+  broken:    { pill: '#FEF3C7', pillText: '#B45309', accent: '#F59E0B', label: 'Kase' },
 }
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT')
@@ -99,7 +106,7 @@ function GlobalStyles() {
       .ej-modal-backdrop { animation: ejFadeUp 0.2s ease both; }
       .ej-modal { animation: ejScaleIn 0.28s cubic-bezier(0.16,1,0.3,1) both; }
       .ej-cell-pop { animation: ejPop 0.28s ease both; }
-      .ej-progress-track { background: rgba(255,255,255,0.06); border-radius: 20px; overflow: hidden; position: relative; }
+      .ej-progress-track { background: #EEF0F3; border-radius: 20px; overflow: hidden; position: relative; }
       .ej-progress-fill {
         height: 100%; border-radius: 20px; transition: width 0.6s cubic-bezier(0.16,1,0.3,1);
         background-image: linear-gradient(90deg, rgba(255,255,255,0.15) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.15) 75%, transparent 75%);
@@ -113,7 +120,7 @@ function GlobalStyles() {
         animation: ejShimmer 2.6s linear infinite;
       }
       .ej-close-btn { transition: background 0.15s ease, transform 0.15s ease; }
-      .ej-close-btn:hover { background: rgba(255,255,255,0.14) !important; transform: rotate(90deg); }
+      .ej-close-btn:hover { background: rgba(15,23,42,0.08) !important; transform: rotate(90deg); }
       .ej-row-item { animation: ejFadeUp 0.3s ease both; }
 
       @media (max-width: 720px) {
@@ -152,8 +159,8 @@ function CycleGrid({ cycle, compact }) {
     fontSize: compact ? 0 : 9, fontWeight: 700,
     background: status === 'paid' ? 'rgba(39,174,96,0.85)'
               : status === 'missed' ? 'rgba(192,57,43,0.85)'
-              : 'rgba(255,255,255,0.05)',
-    border: status === 'pending' ? `1px dashed ${C.cardBorder}` : 'none',
+              : '#F1F5F9',
+    border: status === 'pending' ? `1.5px dashed #D8DEE8` : 'none',
     color: '#fff',
   })
   return (
@@ -175,6 +182,7 @@ function ContractDetailModal({ contractId, onClose }) {
   const [payDays, setPayDays] = useState(1)
   const [showEdit, setShowEdit] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmBreak, setConfirmBreak] = useState(false)
 
   const { data: config } = useQuery({
     queryKey: ['epay-jounalye-config'],
@@ -183,6 +191,13 @@ function ContractDetailModal({ contractId, onClose }) {
   })
   const maxAdvanceDays = config?.maxAdvanceDays ?? 10
   const minRenewalDays = config?.minRenewalDays ?? 2
+  const breakPenaltyTiers = config?.breakPenaltyTiers ?? [
+    { maxPct: 0.25, rate: 0.15 }, { maxPct: 0.50, rate: 0.10 }, { maxPct: 0.75, rate: 0.06 }, { maxPct: 1.01, rate: 0.03 },
+  ]
+  const getBreakRate = (pct) => {
+    for (const tier of breakPenaltyTiers) if (pct < tier.maxPct) return tier.rate
+    return breakPenaltyTiers[breakPenaltyTiers.length - 1].rate
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['epay-jounalye', contractId],
@@ -210,6 +225,17 @@ function ContractDetailModal({ contractId, onClose }) {
     onError: (err) => toast.error(err?.response?.data?.message || 'Erè siprime kontra.'),
   })
 
+  const breakMutation = useMutation({
+    mutationFn: () => api.post(`/kane/${contractId}/break`),
+    onSuccess: () => {
+      toast.success('Kontra kase — kliyan an ranbouse ak penalite.')
+      setConfirmBreak(false)
+      qc.invalidateQueries({ queryKey: ['epay-jounalye', contractId] })
+      qc.invalidateQueries({ queryKey: ['epay-jounalye-list'] })
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Erè kase kontra.'),
+  })
+
   const payMutation = useMutation({
     mutationFn: (daysCount) => api.post(`/kane/${contractId}/pay`, { daysCount }),
     onSuccess: (res) => {
@@ -231,8 +257,8 @@ function ContractDetailModal({ contractId, onClose }) {
 
   if (isLoading || !data) {
     return createPortal(
-      <div className="ej-modal-backdrop" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-        <RefreshCw className="ej-spin" size={22} color={C.gold} />
+      <div className="ej-modal-backdrop" style={{ position: 'fixed', inset: 0, background: L.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+        <RefreshCw className="ej-spin" size={22} color={L.gold} />
       </div>,
       document.body
     )
@@ -254,34 +280,34 @@ function ContractDetailModal({ contractId, onClose }) {
   return (
     <>
     {createPortal(
-    <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
-      <div className="ej-modal" style={{ background: C.modalBg, border: `1px solid ${C.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: L.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
+      <div className="ej-modal" style={{ background: L.modalBg, border: `1px solid ${L.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 620, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${L.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{data.clientFirstName} {data.clientLastName}</div>
-            <div style={{ color: C.muted, fontSize: 12 }}>#{data.contractNumber} · {data.durationMonths} mwa · {fmt(data.dailyAmount)} {data.currency}/jou</div>
+            <div style={{ color: L.muted, fontSize: 12 }}>#{data.contractNumber} · {data.durationMonths} mwa · {fmt(data.dailyAmount)} {data.currency}/jou</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button onClick={() => setShowEdit(true)} className="ej-icon-btn" title="Modifye kontra"
-              style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ background: '#F1F0EB', border: 'none', color: L.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Edit2 size={14} />
             </button>
             <button onClick={() => setConfirmDelete(true)} className="ej-icon-btn" title="Siprime kontra"
-              style={{ background: 'rgba(192,57,43,0.12)', border: 'none', color: C.red, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ background: 'rgba(192,57,43,0.12)', border: 'none', color: L.red, cursor: 'pointer', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Trash2 size={14} />
             </button>
-            <button onClick={onClose} className="ej-close-btn" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
+            <button onClick={onClose} className="ej-close-btn" style={{ background: '#F1F0EB', border: 'none', color: L.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
           </div>
         </div>
 
         {confirmDelete && (
-          <div style={{ padding: '14px 22px', background: 'rgba(192,57,43,0.1)', borderBottom: `1px solid rgba(192,57,43,0.25)`, display: 'flex', alignItems: 'center', gap: 10, animation: 'ejFadeUp 0.2s ease both' }}>
-            <AlertTriangle size={18} color={C.red} style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, fontSize: 12.5, color: C.text }}>
+          <div style={{ padding: '14px 22px', background: '#FEE2E2', borderBottom: `1px solid #FCA5A5`, display: 'flex', alignItems: 'center', gap: 10, animation: 'ejFadeUp 0.2s ease both' }}>
+            <AlertTriangle size={18} color={L.red} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, fontSize: 12.5, color: L.text }}>
               Siprime kontra sa a defenitivman, ansanm ak tout istwa peman li yo? Aksyon sa a <strong>pa ka anile</strong>.
             </div>
-            <button onClick={() => setConfirmDelete(false)} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid rgba(255,255,255,0.15)`, background: 'transparent', color: C.muted, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Anile</button>
-            <button onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: C.red, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => setConfirmDelete(false)} style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${L.border}`, background: 'transparent', color: L.muted, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Anile</button>
+            <button onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: L.red, color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
               {deleteMutation.isPending && <RefreshCw className="ej-spin" size={12} />} Wi, Siprime
             </button>
           </div>
@@ -291,24 +317,24 @@ function ContractDetailModal({ contractId, onClose }) {
           {/* Bonis banner */}
           <div className={data.bonusStillEligible ? 'ej-bonus-active' : ''} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderRadius: 10,
-            background: data.bonusStillEligible ? 'rgba(201,168,76,0.1)' : 'rgba(192,57,43,0.08)',
-            border: `1px solid ${data.bonusStillEligible ? 'rgba(201,168,76,0.3)' : 'rgba(192,57,43,0.25)'}`,
+            background: data.bonusStillEligible ? '#FEF3E2' : '#FEE2E2',
+            border: `1px solid ${data.bonusStillEligible ? '#FBD9A5' : '#FCA5A5'}`,
           }}>
-            {data.bonusStillEligible ? <Trophy size={18} color={C.gold} /> : <Ban size={18} color={C.red} />}
+            {data.bonusStillEligible ? <Trophy size={18} color={L.gold} /> : <Ban size={18} color={L.red} />}
             <div style={{ fontSize: 13 }}>
               {data.bonusStillEligible
-                ? <span style={{ color: C.gold }}>Bonis fidelite toujou aktif — <strong>+{data.bonusDaysEligible} jou</strong> ({fmt(data.bonusDaysEligible * data.dailyAmount)} {data.currency}) si li kontinye san rate.</span>
-                : <span style={{ color: C.red }}>Bonis fidelite pèdi — kliyan an rate omwen yon jou. Li ap resevwa kòb li san bonis.</span>}
+                ? <span style={{ color: L.gold }}>Bonis fidelite toujou aktif — <strong>+{data.bonusDaysEligible} jou</strong> ({fmt(data.bonusDaysEligible * data.dailyAmount)} {data.currency}) si li kontinye san rate.</span>
+                : <span style={{ color: L.red }}>Bonis fidelite pèdi — kliyan an rate omwen yon jou. Li ap resevwa kòb li san bonis.</span>}
             </div>
           </div>
 
           {/* Ba pwogrè */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: C.muted }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11, color: L.muted }}>
               <span>{data.daysPaid}/{data.totalDaysPlanned} jou peye</span>
-              <span style={{ color: C.gold, fontWeight: 700 }}>{pct}%</span>
+              <span style={{ color: L.gold, fontWeight: 700 }}>{pct}%</span>
             </div>
-            <ProgressBar pct={pct} color={C.goldBtn} />
+            <ProgressBar pct={pct} color={L.goldBtn} />
           </div>
 
           {/* Estatistik */}
@@ -318,9 +344,9 @@ function ContractDetailModal({ contractId, onClose }) {
               { label: 'Total Peye', val: `${fmt(data.totalPaid)} ${data.currency}` },
               { label: 'Objektif', val: `${fmt(data.totalObjective)} ${data.currency}` },
             ].map(s => (
-              <div key={s.label} style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 10, padding: 12, textAlign: 'center' }}>
+              <div key={s.label} style={{ background: L.card, border: `1px solid ${L.cardBorder}`, borderRadius: 10, padding: 12, textAlign: 'center' }}>
                 <div style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>{s.val}</div>
-                <div style={{ color: C.muted, fontSize: 10, marginTop: 4 }}>{s.label}</div>
+                <div style={{ color: L.muted, fontSize: 10, marginTop: 4 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -333,13 +359,13 @@ function ContractDetailModal({ contractId, onClose }) {
               const paidCount = cycle.cells.filter(c => c.status === 'paid').length
               const missedCount = cycle.cells.filter(c => c.status === 'missed').length
               return (
-                <div key={cycle.cycleNumber} style={{ background: C.secBg, border: `1px solid ${C.secBorder}`, borderRadius: 10, padding: 12 }}>
+                <div key={cycle.cycleNumber} style={{ background: L.secBg, border: `1px solid ${L.secBorder}`, borderRadius: 10, padding: 12 }}>
                   <div
                     onClick={() => setOpenCycles(o => ({ ...o, [idx]: !isOpen }))}
                     style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: isOpen ? 10 : 0 }}
                   >
-                    <span style={{ color: C.gold, fontWeight: 700, fontSize: 12 }}>Sik {cycle.cycleNumber}</span>
-                    <span style={{ color: C.muted, fontSize: 11 }}>
+                    <span style={{ color: L.gold, fontWeight: 700, fontSize: 12 }}>Sik {cycle.cycleNumber}</span>
+                    <span style={{ color: L.muted, fontSize: 11 }}>
                       {paidCount}/{cycle.cells.length} peye {missedCount > 0 && `· ${missedCount} rate`}
                     </span>
                   </div>
@@ -351,9 +377,9 @@ function ContractDetailModal({ contractId, onClose }) {
         </div>
 
         {data.status === 'active' && (
-          <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ padding: '14px 22px', borderTop: `1px solid ${L.modalBorder}`, background: '#FBF9F3', display: 'flex', flexDirection: 'column', gap: 10 }}>
             {wouldForfeitBonus && (
-              <div style={{ fontSize: 11.5, color: C.red, background: 'rgba(192,57,43,0.1)', border: '1px solid rgba(192,57,43,0.3)', borderRadius: 8, padding: '8px 10px', animation: 'ejFadeUp 0.25s ease both' }}>
+              <div style={{ fontSize: 11.5, color: '#B91C1C', background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '8px 10px', animation: 'ejFadeUp 0.25s ease both' }}>
                 ⚠️ {tooEarlyRenewal
                   ? `Ou gen tan ap ranpli twò bonè — rete ${bufferBefore} jou nan sa w deja peye. Tann jiskaske li rive ${minRenewalDays} jou oswa mwens.`
                   : `${payDays} jou sa a depase limit ${maxAdvanceDays} jou davans lan.`} Bonis fidelite a ap pèdi si w kontinye.
@@ -361,7 +387,7 @@ function ContractDetailModal({ contractId, onClose }) {
             )}
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 90 }}>
-                <label style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: C.label }}>KONBYEN JOU</label>
+                <label style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', color: L.label }}>KONBYEN JOU</label>
                 <input
                   className="ej-input"
                   type="number" min={1} max={data.totalDaysPlanned - data.daysPaid}
@@ -372,7 +398,7 @@ function ContractDetailModal({ contractId, onClose }) {
               </div>
               <button onClick={() => payMutation.mutate(payDays)} disabled={payMutation.isPending} className="ej-btn" style={{
                 flex: 1, padding: '13px', borderRadius: 10, border: 'none',
-                background: wouldForfeitBonus ? 'linear-gradient(135deg,#C0392B,#8B2318)' : C.goldBtn,
+                background: wouldForfeitBonus ? 'linear-gradient(135deg,#C0392B,#8B2318)' : L.goldBtn,
                 color: wouldForfeitBonus ? '#fff' : '#0a1222', fontWeight: 800, fontSize: 14, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}>
@@ -380,12 +406,55 @@ function ContractDetailModal({ contractId, onClose }) {
                 {payMutation.isPending ? 'Ap anrejistre...' : `Peye ${payDays} jou — ${fmt(payDays * data.dailyAmount)} ${data.currency}`}
               </button>
             </div>
+
+            {data.daysPaid > 0 && !confirmBreak && (
+              <button onClick={() => setConfirmBreak(true)} style={{
+                alignSelf: 'center', background: 'none', border: 'none', color: '#B45309', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', textDecoration: 'underline', padding: 4,
+              }}>
+                Kliyan vle retire kòb li anvan tan — Kase Kontra
+              </button>
+            )}
+
+            {confirmBreak && (() => {
+              const pctComplete = data.daysPaid / data.totalDaysPlanned
+              const rate = getBreakRate(pctComplete)
+              const totalPaid = Number(data.totalPaid)
+              const penalty = Math.round(totalPaid * rate * 100) / 100
+              const refund = totalPaid - penalty
+              return (
+                <div style={{ background: '#FEF3E2', border: '1px solid #FBD9A5', borderRadius: 10, padding: '12px 14px', animation: 'ejFadeUp 0.2s ease both' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <AlertTriangle size={16} color="#B45309" />
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#B45309' }}>Kase Kontra — {Math.round(pctComplete * 100)}% fèt</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: L.text, lineHeight: 1.7, marginBottom: 10 }}>
+                    Total peye: <strong>{fmt(totalPaid)} {data.currency}</strong><br />
+                    Penalite ({Math.round(rate * 100)}%): <strong style={{ color: '#B91C1C' }}>-{fmt(penalty)} {data.currency}</strong><br />
+                    Kliyan ap resevwa: <strong style={{ color: L.green, fontSize: 14 }}>{fmt(refund)} {data.currency}</strong>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => setConfirmBreak(false)} style={{ flex: 1, padding: '9px', borderRadius: 8, border: `1px solid ${L.border}`, background: 'transparent', color: L.muted, cursor: 'pointer', fontSize: 12.5, fontWeight: 600 }}>Anile</button>
+                    <button onClick={() => breakMutation.mutate()} disabled={breakMutation.isPending} style={{ flex: 2, padding: '9px', borderRadius: 8, border: 'none', background: '#B45309', color: '#fff', cursor: 'pointer', fontSize: 12.5, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      {breakMutation.isPending && <RefreshCw className="ej-spin" size={12} />} Konfime Kase Kontra
+                    </button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
         {data.status === 'completed' && (
-          <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, background: 'rgba(39,174,96,0.06)', textAlign: 'center' }}>
-            <div style={{ color: C.green, fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <div style={{ padding: '14px 22px', borderTop: `1px solid ${L.modalBorder}`, background: '#F0FDF4', textAlign: 'center' }}>
+            <div style={{ color: L.green, fontWeight: 800, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <Sparkles size={17} /> Kontra fini — {fmt(data.finalPayoutAmount)} {data.currency}
+            </div>
+          </div>
+        )}
+        {data.status === 'broken' && (
+          <div style={{ padding: '14px 22px', borderTop: `1px solid ${L.modalBorder}`, background: '#FEF3E2', textAlign: 'center' }}>
+            <div style={{ color: '#B45309', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <AlertTriangle size={16} /> Kontra kase — {fmt(data.breakRefundAmount)} {data.currency} remèt (penalite {fmt(data.breakPenaltyAmount)} {data.currency})
             </div>
           </div>
         )}
@@ -429,21 +498,21 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
   }
 
   return createPortal(
-    <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: C.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
-      <div className="ej-modal" style={{ background: C.modalBg, border: `1px solid ${C.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: L.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
+      <div className="ej-modal" style={{ background: L.modalBg, border: `1px solid ${L.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${L.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: C.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: L.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Wallet size={17} color="#0a1222" />
             </div>
             <span style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>{isEdit ? 'Modifye Kontra' : 'Nouvo Kontra Epay Jounalye'}</span>
           </div>
-          <button onClick={onClose} className="ej-close-btn" style={{ background: 'rgba(255,255,255,0.06)', border: 'none', color: C.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
+          <button onClick={onClose} className="ej-close-btn" style={{ background: '#F1F0EB', border: 'none', color: L.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
         </div>
 
         <div style={{ overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {isEdit && lockAmountFields && (
-            <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: C.gold }}>
+            <div style={{ background: '#FEF3E2', border: '1px solid #FBD9A5', borderRadius: 8, padding: '9px 12px', fontSize: 12, color: '#B8590C' }}>
               ℹ️ Kontra a deja gen peman — sèlman enfòmasyon kliyan an ka korije.
             </div>
           )}
@@ -455,9 +524,9 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
             <Field label="ADRÈS"><input className="ej-input" value={form.clientAddress} onChange={e => set('clientAddress', e.target.value)} style={baseInput} placeholder="Vil, Depatman..." /></Field>
           </div>
 
-          <div style={{ borderTop: `1px solid ${C.secBorder}`, paddingTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10, opacity: lockAmountFields ? 0.5 : 1, pointerEvents: lockAmountFields ? 'none' : 'auto' }}>
+          <div style={{ borderTop: `1px solid ${L.secBorder}`, paddingTop: 14, display: 'flex', flexWrap: 'wrap', gap: 10, opacity: lockAmountFields ? 0.5 : 1, pointerEvents: lockAmountFields ? 'none' : 'auto' }}>
             <Field label="MONTAN CHAK JOU *" half>
-              <input className="ej-input" type="number" value={form.dailyAmount} onChange={e => set('dailyAmount', e.target.value)} style={{ ...baseInput, color: C.gold, fontWeight: 700 }} placeholder="100" disabled={lockAmountFields} />
+              <input className="ej-input" type="number" value={form.dailyAmount} onChange={e => set('dailyAmount', e.target.value)} style={{ ...baseInput, color: L.gold, fontWeight: 700 }} placeholder="100" disabled={lockAmountFields} />
             </Field>
             <Field label="MONÈ" half>
               <select className="ej-input" value={form.currency} onChange={e => set('currency', e.target.value)} style={{ ...baseInput, cursor: 'pointer' }} disabled={lockAmountFields}>
@@ -470,9 +539,9 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
                 {DURATIONS.map(d => (
                   <button key={d} onClick={() => !lockAmountFields && set('durationMonths', d)} className="ej-duration-btn" style={{
                     padding: '8px 12px', borderRadius: 8, cursor: lockAmountFields ? 'default' : 'pointer', fontSize: 12, fontWeight: 700,
-                    border: `1px solid ${form.durationMonths === d ? C.gold : C.inputBorder}`,
-                    background: form.durationMonths === d ? 'rgba(201,168,76,0.12)' : 'transparent',
-                    color: form.durationMonths === d ? C.gold : C.muted,
+                    border: `1px solid ${form.durationMonths === d ? L.gold : L.inputBorder}`,
+                    background: form.durationMonths === d ? '#FEF3E2' : 'transparent',
+                    color: form.durationMonths === d ? L.gold : L.muted,
                   }}>{d} mwa (+{BONUS_DAYS[d]}j)</button>
                 ))}
               </div>
@@ -480,16 +549,16 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
           </div>
 
           {dailyNum > 0 && (
-            <div style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.25)', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: C.text, lineHeight: 1.7, animation: 'ejFadeUp 0.25s ease both' }}>
-              🎯 Objektif total: <strong style={{ color: C.gold }}>{fmt(totalObjective)} {form.currency}</strong> sou {form.durationMonths * 30} jou<br />
-              🏆 Bonis si san rate: <strong style={{ color: C.gold }}>+{bonusDays} jou</strong> = <strong style={{ color: C.gold }}>{fmt(bonusValue)} {form.currency}</strong> anplis
+            <div style={{ background: '#FEF3E2', border: '1px solid #FBD9A5', borderRadius: 10, padding: '12px 14px', fontSize: 12.5, color: L.text, lineHeight: 1.7, animation: 'ejFadeUp 0.25s ease both' }}>
+              🎯 Objektif total: <strong style={{ color: L.gold }}>{fmt(totalObjective)} {form.currency}</strong> sou {form.durationMonths * 30} jou<br />
+              🏆 Bonis si san rate: <strong style={{ color: L.gold }}>+{bonusDays} jou</strong> = <strong style={{ color: L.gold }}>{fmt(bonusValue)} {form.currency}</strong> anplis
             </div>
           )}
         </div>
 
-        <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.modalBorder}`, display: 'flex', gap: 10, background: 'rgba(0,0,0,0.2)' }}>
-          <button onClick={onClose} className="ej-btn" style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid rgba(255,255,255,0.12)`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Anile</button>
-          <button onClick={handleSave} disabled={saving} className="ej-btn" style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: C.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <div style={{ padding: '14px 22px', borderTop: `1px solid ${L.modalBorder}`, display: 'flex', gap: 10, background: '#FBF9F3' }}>
+          <button onClick={onClose} className="ej-btn" style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${L.border}`, background: 'transparent', color: '#64748B', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Anile</button>
+          <button onClick={handleSave} disabled={saving} className="ej-btn" style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: L.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             {saving && <RefreshCw className="ej-spin" size={14} />} {saving ? (isEdit ? 'Ap sove...' : 'Ap kreye...') : (isEdit ? 'Sove Chanjman' : 'Kreye Kontra')}
           </button>
         </div>
@@ -500,10 +569,121 @@ function NewContractModal({ onClose, onSave, saving, initialData = null, isEdit 
 }
 
 /* ─── PAJ PRENSIPAL ─── */
+/* ─── MODAL PARAMÈT PENALITE "KASE KONTRA" ─── */
+function BreakSettingsModal({ onClose }) {
+  const qc = useQueryClient()
+  const [rows, setRows] = useState(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['epay-jounalye-settings'],
+    queryFn: () => api.get('/kane/settings').then(r => r.data),
+  })
+
+  useEffect(() => {
+    if (data && !rows) {
+      setRows(data.breakPenaltyTiers.map(t => ({ maxPct: String(Math.round(t.maxPct * 100)), rate: String(Math.round(t.rate * 100)) })))
+    }
+  }, [data])
+
+  const saveMutation = useMutation({
+    mutationFn: (tiers) => api.put('/kane/settings', { breakPenaltyTiers: tiers }),
+    onSuccess: () => {
+      toast.success('Paramèt penalite sove!')
+      qc.invalidateQueries({ queryKey: ['epay-jounalye-settings'] })
+      qc.invalidateQueries({ queryKey: ['epay-jounalye-config'] })
+      onClose()
+    },
+    onError: (err) => toast.error(err?.response?.data?.message || 'Erè sove paramèt yo.'),
+  })
+
+  const updateRow = (i, key, val) => setRows(rs => rs.map((r, idx) => idx === i ? { ...r, [key]: val } : r))
+  const addRow = () => setRows(rs => [...rs, { maxPct: '', rate: '' }])
+  const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i))
+  const resetToDefault = () => {
+    if (!data?.defaultBreakPenaltyTiers) return
+    setRows(data.defaultBreakPenaltyTiers.map(t => ({ maxPct: String(Math.round(t.maxPct * 100)), rate: String(Math.round(t.rate * 100)) })))
+  }
+
+  const handleSave = () => {
+    const tiers = rows
+      .filter(r => r.maxPct !== '' && r.rate !== '')
+      .map(r => ({ maxPct: Number(r.maxPct) / 100, rate: Number(r.rate) / 100 }))
+      .sort((a, b) => a.maxPct - b.maxPct)
+    if (tiers.length === 0) return toast.error('Ajoute omwen yon ranje.')
+    saveMutation.mutate(tiers)
+  }
+
+  return createPortal(
+    <div className="ej-modal-backdrop ej-modal-outer" style={{ position: 'fixed', inset: 0, background: L.overlay, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(4px)' }}>
+      <div className="ej-modal" style={{ background: L.modalBg, border: `1px solid ${L.modalBorder}`, borderRadius: 16, width: '100%', maxWidth: 480, maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${L.modalBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: L.gradGold, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Settings size={17} color="#fff" />
+            </div>
+            <span style={{ color: L.text, fontWeight: 700, fontSize: 16 }}>Paramèt Penalite "Kase Kontra"</span>
+          </div>
+          <button onClick={onClose} className="ej-close-btn" style={{ background: '#F1F0EB', border: 'none', color: L.muted, cursor: 'pointer', width: 32, height: 32, borderRadius: 8 }}><X size={15} /></button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <p style={{ fontSize: 12.5, color: L.muted, margin: 0, lineHeight: 1.6 }}>
+            Defini pousantaj penalite ki tire lè yon kliyan chwazi retire kòb li anvan tout jou kontra a fin peye. Chak ranje di: "si ..% jou fèt, penalite a se ..%". Ranje yo dwe kwasan, e dènye a dwe kouvri jiska 100%+ pou tout ka.
+          </p>
+
+          {isLoading || !rows ? (
+            <div style={{ textAlign: 'center', color: L.muted, padding: 30 }}><RefreshCw className="ej-spin" size={18} color={L.orange} /></div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8, fontSize: 10, fontWeight: 800, color: L.label, letterSpacing: '0.06em' }}>
+                <span style={{ flex: 1 }}>JISKA % JOU FÈT</span>
+                <span style={{ flex: 1 }}>PENALITE %</span>
+                <span style={{ width: 28 }} />
+              </div>
+              {rows.map((r, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <input className="ej-input" type="number" value={r.maxPct} onChange={e => updateRow(i, 'maxPct', e.target.value)}
+                      style={{ ...baseInput, paddingRight: 24 }} placeholder="25" />
+                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: L.muted, fontSize: 12 }}>%</span>
+                  </div>
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <input className="ej-input" type="number" value={r.rate} onChange={e => updateRow(i, 'rate', e.target.value)}
+                      style={{ ...baseInput, paddingRight: 24, color: '#B45309', fontWeight: 700 }} placeholder="15" />
+                    <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: L.muted, fontSize: 12 }}>%</span>
+                  </div>
+                  <button onClick={() => removeRow(i)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${L.border}`, background: 'transparent', color: '#DC2626', cursor: 'pointer', flexShrink: 0 }}>
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={addRow} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: L.orange, fontSize: 12.5, fontWeight: 700, cursor: 'pointer', padding: '6px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Plus size={14} /> Ajoute yon ranje
+              </button>
+              <button onClick={resetToDefault} style={{ alignSelf: 'flex-start', background: 'none', border: 'none', color: L.muted, fontSize: 12, cursor: 'pointer', padding: '4px 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <RotateCcw size={12} /> Remèt valè default yo
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: '14px 22px', borderTop: `1px solid ${L.modalBorder}`, display: 'flex', gap: 10, background: '#FBF9F3' }}>
+          <button onClick={onClose} className="ej-btn" style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${L.border}`, background: 'transparent', color: L.muted, cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Anile</button>
+          <button onClick={handleSave} disabled={saveMutation.isPending || !rows} className="ej-btn" style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: L.goldBtn, color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            {saveMutation.isPending && <RefreshCw className="ej-spin" size={14} />} {saveMutation.isPending ? 'Ap sove...' : 'Sove Paramèt'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
 export default function KanePage() {
   const { tenant } = useAuthStore()
   const qc = useQueryClient()
   const [showNew, setShowNew] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -543,6 +723,7 @@ export default function KanePage() {
         </div>
         <div className="ej-header-actions" style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => refetch()} className="ej-icon-btn" style={{ padding: '8px 12px', borderRadius: 10, border: `1px solid ${L.border}`, background: L.cardBg, color: L.muted, cursor: 'pointer', boxShadow: L.shadow }}><RefreshCw size={14} /></button>
+          <button onClick={() => setShowSettings(true)} className="ej-icon-btn" title="Paramèt penalite kase kontra" style={{ padding: '8px 12px', borderRadius: 10, border: `1px solid ${L.border}`, background: L.cardBg, color: L.muted, cursor: 'pointer', boxShadow: L.shadow }}><Settings size={14} /></button>
           <button onClick={() => setShowNew(true)} className="ej-btn" style={{ padding: '10px 20px', borderRadius: 12, border: 'none', cursor: 'pointer', background: L.gradGold, color: '#fff', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 6px 16px rgba(245,104,12,0.28)' }}>
             <Plus size={15} />Nouvo Kontra
           </button>
@@ -574,14 +755,14 @@ export default function KanePage() {
           <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: L.muted }} />
           <input className="ej-input" value={search} onChange={e => setSearch(e.target.value)} placeholder="Chèche non, nimewo, telefòn..." style={{ width: '100%', padding: '10px 12px 10px 34px', borderRadius: 10, fontSize: 13, background: L.cardBg, border: `1px solid ${L.border}`, color: L.text, boxSizing: 'border-box', boxShadow: L.shadow, transition: 'border-color 0.15s, box-shadow 0.15s' }} />
         </div>
-        {['all', 'active', 'completed', 'cancelled'].map(s => (
+        {['all', 'active', 'completed', 'broken', 'cancelled'].map(s => (
           <button key={s} onClick={() => setFilter(s)} className="ej-filter-btn" style={{
             padding: '9px 16px', borderRadius: 10, cursor: 'pointer', fontSize: 12.5, fontWeight: filter === s ? 700 : 500,
             border: `1px solid ${filter === s ? L.orange : L.border}`,
             background: filter === s ? L.gradGold : L.cardBg,
             color: filter === s ? '#fff' : L.muted,
             boxShadow: filter === s ? '0 4px 12px rgba(245,104,12,0.25)' : L.shadow,
-          }}>{{ all: 'Tout', active: 'Aktif', completed: 'Fini', cancelled: 'Anile' }[s]}</button>
+          }}>{{ all: 'Tout', active: 'Aktif', completed: 'Fini', broken: 'Kase', cancelled: 'Anile' }[s]}</button>
         ))}
       </div>
 
@@ -643,6 +824,9 @@ export default function KanePage() {
       )}
       {selectedId && (
         <ContractDetailModal contractId={selectedId} onClose={() => setSelectedId(null)} />
+      )}
+      {showSettings && (
+        <BreakSettingsModal onClose={() => setShowSettings(false)} />
       )}
     </div>
   )

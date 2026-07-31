@@ -237,6 +237,7 @@ model Tenant {
   prePaiements         PrePaiement[]
   epayJounalyeContracts EpayJounalyeContract[]
   epayJounalyePayments  EpayJounalyePayment[]
+  epayJounalyeSettings  EpayJounalyeSettings?
 
   // Sabotay / Sol
   sabotayPlans         SabotayPlan[]
