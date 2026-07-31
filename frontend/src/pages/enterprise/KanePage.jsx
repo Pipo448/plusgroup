@@ -393,6 +393,7 @@ function ContractDetailModal({ contractId, onClose }) {
                   type="number" min={1} max={data.totalDaysPlanned - data.daysPaid}
                   value={payDays}
                   onChange={e => setPayDays(Math.max(1, Math.min(Number(e.target.value) || 1, data.totalDaysPlanned - data.daysPaid)))}
+                  onFocus={e => e.target.select()}
                   style={{ ...baseInput, padding: '9px 10px', textAlign: 'center', fontWeight: 700 }}
                 />
               </div>
