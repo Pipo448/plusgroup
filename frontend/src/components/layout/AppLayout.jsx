@@ -726,15 +726,14 @@ export default function AppLayout() {
           </p>
 
           {NAV.map(({ to, icon:Icon, labelKey, pageKey, label }) => {
-            const locked = !isPageAllowed(pageKey)
+            if (!isPageAllowed(pageKey)) return null
             return (
-              <NavLink key={to} to={locked ? '#' : to}
-                onClick={(e) => { if (locked) { e.preventDefault(); return } }}
-                style={({ isActive }) => ({ ...navLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
+              <NavLink key={to} to={to}
+                style={({ isActive }) => navLinkStyle(isActive)}>
                 {({ isActive }) => (<>
-                  <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.gold : C.mutedMd }}/>
+                  <Icon size={15} style={{ flexShrink:0, color: isActive ? C.gold : C.mutedMd }}/>
                   <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
-                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
+                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
             )
@@ -757,53 +756,51 @@ export default function AppLayout() {
             <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
           </div>
 
-          <NavLink to={!isPageAllowed('kane') ? '#' : '/app/kane'}
-            onClick={(e) => { if (!isPageAllowed('kane')) e.preventDefault() }}
-            style={({ isActive }) => ({ ...enterpriseLinkStyle(!isPageAllowed('kane') ? false : isActive), opacity: !isPageAllowed('kane') ? 0.4 : 1, cursor: !isPageAllowed('kane') ? 'not-allowed' : 'pointer' })}>
-            {({ isActive }) => (<>
-              <CreditCard size={15} style={{ flexShrink:0, color: !isPageAllowed('kane') ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
-              <span style={{ flex:1 }}>Ti Kanè Kès</span>
-              {!isPageAllowed('kane') ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
-            </>)}
-          </NavLink>
+          {isPageAllowed('kane') && (
+            <NavLink to="/app/kane"
+              style={({ isActive }) => enterpriseLinkStyle(isActive)}>
+              {({ isActive }) => (<>
+                <CreditCard size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
+                <span style={{ flex:1 }}>Ti Kanè Kès</span>
+                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
+              </>)}
+            </NavLink>
+          )}
 
           {/* Mikwo Kredi collapse */}
           {(() => {
             const kaneAllowed = isPageAllowed('kane-epay')
             const preAllowed  = isPageAllowed('pre')
-            const locked      = !kaneAllowed && !preAllowed
+            if (!kaneAllowed && !preAllowed) return null
             return (
               <div>
-                <button onClick={() => { if (!locked) setMikwoOpen(v => !v) }}
-                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, background: isMikwoActive ? C.entDim : 'transparent', color: isMikwoActive ? '#ffffff' : C.muted, borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent', fontWeight: isMikwoActive ? 700 : 500, fontSize:13, border:'none', cursor: locked ? 'not-allowed' : 'pointer', opacity: locked ? 0.4 : 1, textAlign:'left' }}>
-                  <Wallet size={15} style={{ flexShrink:0, color: locked ? '#475569' : isMikwoActive ? C.enterprise : C.mutedMd }}/>
+                <button onClick={() => setMikwoOpen(v => !v)}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, background: isMikwoActive ? C.entDim : 'transparent', color: isMikwoActive ? '#ffffff' : C.muted, borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent', fontWeight: isMikwoActive ? 700 : 500, fontSize:13, border:'none', cursor:'pointer', textAlign:'left' }}>
+                  <Wallet size={15} style={{ flexShrink:0, color: isMikwoActive ? C.enterprise : C.mutedMd }}/>
                   <span style={{ flex:1 }}>Mikwo Kredi</span>
-                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/>
-                    : mikwoOpen ? <ChevronUp size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
+                  {mikwoOpen ? <ChevronUp size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
                     : <ChevronDown size={13} style={{ color:C.muted, flexShrink:0 }}/>}
                 </button>
-                {mikwoOpen && !locked && (
+                {mikwoOpen && (
                   <div style={{ marginLeft:14, paddingLeft:12, borderLeft:`2px solid rgba(201,168,76,0.25)`, marginBottom:4 }}>
                     {MIKWO_KREDI_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
-                      const subLocked = !isPageAllowed(pageKey)
-                      const isGid     = to === '/app/mikwo-kredi-gid'
+                      if (!isPageAllowed(pageKey)) return null
+                      const isGid = to === '/app/mikwo-kredi-gid'
                       return (
-                        <NavLink key={to} to={subLocked ? '#' : to}
-                          onClick={(e) => { if (subLocked) e.preventDefault() }}
+                        <NavLink key={to} to={to}
                           style={({ isActive }) => ({
                             display:'flex', alignItems:'center', gap:9,
                             padding:'8px 12px', borderRadius:9, marginBottom:2,
                             textDecoration:'none',
-                            background: (!subLocked && isActive) ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)') : 'transparent',
-                            color: (!subLocked && isActive) ? '#ffffff' : isGid ? 'rgba(147,187,239,0.65)' : C.muted,
-                            borderLeft: (!subLocked && isActive) ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}` : '2px solid transparent',
-                            fontWeight: (!subLocked && isActive) ? 700 : 400, fontSize:12,
-                            opacity: subLocked ? 0.4 : 1, cursor: subLocked ? 'not-allowed' : 'pointer',
+                            background: isActive ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)') : 'transparent',
+                            color: isActive ? '#ffffff' : isGid ? 'rgba(147,187,239,0.65)' : C.muted,
+                            borderLeft: isActive ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}` : '2px solid transparent',
+                            fontWeight: isActive ? 700 : 400, fontSize:12, cursor:'pointer',
                           })}>
                           {({ isActive }) => (<>
-                            <Icon size={13} style={{ flexShrink:0, color: subLocked ? '#475569' : isActive ? (isGid ? '#3B82F6' : C.enterprise) : isGid ? 'rgba(147,187,239,0.5)' : C.mutedMd }}/>
+                            <Icon size={13} style={{ flexShrink:0, color: isActive ? (isGid ? '#3B82F6' : C.enterprise) : isGid ? 'rgba(147,187,239,0.5)' : C.mutedMd }}/>
                             <span style={{ flex:1 }}>{label}</span>
-                            {subLocked ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
+                            {isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
                           </>)}
                         </NavLink>
                       )
@@ -815,125 +812,110 @@ export default function AppLayout() {
           })()}
 
           {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
-            const locked = !isPageAllowed(pageKey)
+            if (!isPageAllowed(pageKey)) return null
             return (
-              <NavLink key={to} to={locked ? '#' : to}
-                onClick={(e) => { if (locked) e.preventDefault() }}
-                style={({ isActive }) => ({ ...enterpriseLinkStyle(locked ? false : isActive), opacity: locked ? 0.4 : 1, cursor: locked ? 'not-allowed' : 'pointer' })}>
+              <NavLink key={to} to={to}
+                style={({ isActive }) => enterpriseLinkStyle(isActive)}>
                 {({ isActive }) => (<>
-                  <Icon size={15} style={{ flexShrink:0, color: locked ? '#475569' : isActive ? C.enterprise : C.mutedMd }}/>
+                  <Icon size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
                   <span style={{ flex:1 }}>{label}</span>
-                  {locked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
+                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
                 </>)}
               </NavLink>
             )
           })}
 
           {/* ═══ HOTEL ═══ */}
-          {(() => {
-            const hotelLocked = !isPageAllowed('hotel')
-            return (
-              <>
-                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: hotelLocked ? 0.4 : 1 }}>
-                  <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏨 Hotel</span>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
-                </div>
-                {HOTEL_ITEMS.map(({ to, icon:Icon, label, end }) => (
-                  <NavLink key={to} to={hotelLocked ? '#' : to} end={end}
-                    onClick={(e) => { if (hotelLocked) e.preventDefault() }}
-                    style={({ isActive }) => ({ ...hotelLinkStyle(hotelLocked ? false : isActive), opacity: hotelLocked ? 0.4 : 1, cursor: hotelLocked ? 'not-allowed' : 'pointer' })}>
-                    {({ isActive }) => (<>
-                      <Icon size={15} style={{ flexShrink:0, color: hotelLocked ? '#475569' : isActive ? C.hotel : C.mutedMd }}/>
-                      <span style={{ flex:1 }}>{label}</span>
-                      {hotelLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>}
-                    </>)}
-                  </NavLink>
-                ))}
-              </>
-            )
-          })()}
+          {isPageAllowed('hotel') && (
+            <>
+              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏨 Hotel</span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
+              </div>
+              {HOTEL_ITEMS.map(({ to, icon:Icon, label, end }) => (
+                <NavLink key={to} to={to} end={end}
+                  style={({ isActive }) => hotelLinkStyle(isActive)}>
+                  {({ isActive }) => (<>
+                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.hotel : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>{label}</span>
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
+              ))}
+            </>
+          )}
 
           {/* ═══ RESTORAN ═══ */}
-          {(() => {
-            const restaurantLocked = !isPageAllowed('restaurant')
-            return (
-              <>
-                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(220,38,38,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: restaurantLocked ? 0.4 : 1 }}>
-                  <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ {t('nav.restaurant')}</span>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
-                </div>
-                {RESTAURANT_ITEMS.map(({ to, icon:Icon, labelKey, label, end }) => (
-                  <NavLink key={to} to={restaurantLocked ? '#' : to} end={end}
-                    onClick={(e) => { if (restaurantLocked) e.preventDefault() }}
-                    style={({ isActive }) => ({ ...restaurantLinkStyle(restaurantLocked ? false : isActive), opacity: restaurantLocked ? 0.4 : 1, cursor: restaurantLocked ? 'not-allowed' : 'pointer' })}>
-                    {({ isActive }) => (<>
-                      <Icon size={15} style={{ flexShrink:0, color: restaurantLocked ? '#475569' : isActive ? C.restaurant : C.mutedMd }}/>
-                      <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
-                      {restaurantLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
-                    </>)}
-                  </NavLink>
-                ))}
-              </>
-            )
-          })()}
+          {isPageAllowed('restaurant') && (
+            <>
+              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(220,38,38,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ {t('nav.restaurant')}</span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
+              </div>
+              {RESTAURANT_ITEMS.map(({ to, icon:Icon, labelKey, label, end }) => (
+                <NavLink key={to} to={to} end={end}
+                  style={({ isActive }) => restaurantLinkStyle(isActive)}>
+                  {({ isActive }) => (<>
+                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.restaurant : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
+              ))}
+            </>
+          )}
 
           {/* ═══ PRESE ═══ */}
-          {(() => {
-            const dryLocked = !isPageAllowed('dry')
-            return (
-              <>
-                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8, opacity: dryLocked ? 0.4 : 1 }}>
-                  <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
-                </div>
-                <NavLink to={dryLocked ? '#' : '/app/dry'}
-                  onClick={(e) => { if (dryLocked) e.preventDefault() }}
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!dryLocked && isActive) ? C.dryDim : 'transparent', color: (!dryLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!dryLocked && isActive) ? `3px solid ${C.dry}` : '3px solid transparent', fontWeight: (!dryLocked && isActive) ? 700 : 500, fontSize:13, opacity: dryLocked ? 0.4 : 1, cursor: dryLocked ? 'not-allowed' : 'pointer' })}>
-                  {({ isActive }) => (<>
-                    <Scissors size={15} style={{ flexShrink:0, color: dryLocked ? '#475569' : isActive ? C.dry : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Jestyon Prese</span>
-                    {dryLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              </>
-            )
-          })()}
+          {isPageAllowed('dry') && (
+            <>
+              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
+              </div>
+              <NavLink to="/app/dry"
+                style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? C.dryDim : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? `3px solid ${C.dry}` : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
+                {({ isActive }) => (<>
+                  <Scissors size={15} style={{ flexShrink:0, color: isActive ? C.dry : C.mutedMd }}/>
+                  <span style={{ flex:1 }}>Jestyon Prese</span>
+                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>}
+                </>)}
+              </NavLink>
+            </>
+          )}
 
           {/* ═══ RH & FINANS ═══ */}
-          {(() => {
-            const empLocked = !isPageAllowed('employees')
-            const expLocked = !isPageAllowed('expenses')
-            return (
-              <>
-                <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(16,185,129,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                  <span style={{ color:C.rh, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💼 RH & Finans</span>
-                  <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh }}/>
-                </div>
+          {(isPageAllowed('employees') || isPageAllowed('expenses')) && (
+            <>
+              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(16,185,129,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:C.rh, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💼 RH & Finans</span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh }}/>
+              </div>
 
-                {/* Anplwaye */}
-                <NavLink to={empLocked ? '#' : '/app/employees'}
-                  onClick={(e) => { if (empLocked) e.preventDefault() }}
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!empLocked && isActive) ? C.rhDim : 'transparent', color: (!empLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!empLocked && isActive) ? `3px solid ${C.rh}` : '3px solid transparent', fontWeight: (!empLocked && isActive) ? 700 : 500, fontSize:13, opacity: empLocked ? 0.4 : 1, cursor: empLocked ? 'not-allowed' : 'pointer' })}>
+              {/* Anplwaye */}
+              {isPageAllowed('employees') && (
+                <NavLink to="/app/employees"
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? C.rhDim : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? `3px solid ${C.rh}` : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
                   {({ isActive }) => (<>
-                    <UserCog size={15} style={{ flexShrink:0, color: empLocked ? '#475569' : isActive ? C.rh : C.mutedMd }}/>
+                    <UserCog size={15} style={{ flexShrink:0, color: isActive ? C.rh : C.mutedMd }}/>
                     <span style={{ flex:1 }}>Anplwaye</span>
-                    {empLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh, flexShrink:0 }}/>}
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
+              )}
 
-                {/* Depans */}
-                <NavLink to={expLocked ? '#' : '/app/expenses'}
-                  onClick={(e) => { if (expLocked) e.preventDefault() }}
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: (!expLocked && isActive) ? 'rgba(239,68,68,0.12)' : 'transparent', color: (!expLocked && isActive) ? '#ffffff' : C.muted, borderLeft: (!expLocked && isActive) ? '3px solid #EF4444' : '3px solid transparent', fontWeight: (!expLocked && isActive) ? 700 : 500, fontSize:13, opacity: expLocked ? 0.4 : 1, cursor: expLocked ? 'not-allowed' : 'pointer' })}>
+              {/* Depans */}
+              {isPageAllowed('expenses') && (
+                <NavLink to="/app/expenses"
+                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? 'rgba(239,68,68,0.12)' : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? '3px solid #EF4444' : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
                   {({ isActive }) => (<>
-                    <TrendingDown size={15} style={{ flexShrink:0, color: expLocked ? '#475569' : isActive ? '#EF4444' : C.mutedMd }}/>
+                    <TrendingDown size={15} style={{ flexShrink:0, color: isActive ? '#EF4444' : C.mutedMd }}/>
                     <span style={{ flex:1 }}>Depans</span>
-                    {expLocked ? <Lock size={11} style={{ color:'#475569', flexShrink:0 }}/> : isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#EF4444', flexShrink:0 }}/>}
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#EF4444', flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
-              </>
-            )
-          })()}
+              )}
+            </>
+          )}
 
         </nav>
 
