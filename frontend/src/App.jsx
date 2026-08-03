@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { lazy, Suspense } from 'react'
 import { useAuthStore } from './stores/authStore'
 import AppLayout from './components/layout/AppLayout'
+// ⚠️ NOUVO — Ekran chajman branded (animasyon siy "+") pou tout app la
+import LoadingScreen from './components/common/LoadingScreen'
 
 import LoginPage      from './pages/auth/LoginPage'
 import WelcomePage    from './pages/WelcomePage'
@@ -65,12 +67,7 @@ const PublicDirectQuote = lazy(() => import('./pages/public/PublicDirectQuote'))
 // ✅ NOUVO — Fakti pataje
 const PublicInvoice = lazy(() => import('./pages/public/PublicInvoice'))
 
-const Spinner = () => (
-  <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#070a0f' }}>
-    <div style={{ width:40, height:40, border:'3px solid rgba(255,107,0,0.2)', borderTop:'3px solid #FF6B00', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-  </div>
-)
+const Spinner = LoadingScreen
 
 const PrivateRoute = ({ children }) => {
   const token   = useAuthStore(s => s.token)
