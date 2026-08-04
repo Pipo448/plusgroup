@@ -227,6 +227,40 @@ export default function LoginPage() {
   const ghostFocus = focusGold
   const ghostBlur  = blurGold
 
+  // ⚠️ NOUVO — Chanjman lang, kounye a mare sou kat/imaj la (pa sou tout vyewport
+  // la), pou l pa "flote" lwen kat la sou gwo ekran e li rete pwofesyonèl.
+  const LangSwitcher = ({ top, right, compact }) => (
+    <div id="login-lang" style={{ position:'absolute', top, right, zIndex:50 }}>
+      <button onClick={() => setShowLang(!showLang)} style={{
+        display:'flex', alignItems:'center', gap:6, padding: compact ? '5px 10px' : '7px 14px', borderRadius:10,
+        border:'1px solid rgba(255,255,255,0.18)', background:'rgba(10,10,18,0.55)', backdropFilter:'blur(6px)',
+        color:'rgba(255,255,255,0.9)', cursor:'pointer', fontSize:11, fontWeight:700,
+      }}>
+        <Globe size={12}/>
+        <span style={{ fontSize:13 }}>{currentLang.flag}</span>
+        {!compact && <span style={{ fontSize:10 }}>{currentLang.code.toUpperCase()}</span>}
+        <ChevronDown size={10} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+      </button>
+      {showLang && (
+        <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, background:'rgba(10,10,40,0.97)', borderRadius:12, minWidth:160, boxShadow:'0 16px 48px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.15)', overflow:'hidden' }}>
+          {LANGS.map(lang => (
+            <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
+              width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer',
+              background: i18n.language === lang.code ? 'rgba(232,196,104,0.15)' : 'transparent',
+              color: i18n.language === lang.code ? '#E8C468' : 'rgba(255,255,255,0.75)',
+              fontWeight: i18n.language === lang.code ? 700 : 400, fontSize:12.5,
+              borderBottom:'1px solid rgba(255,255,255,0.06)',
+            }}>
+              <span style={{ fontSize:16 }}>{lang.flag}</span>
+              <span style={{ flex:1, textAlign:'left' }}>{lang.name}</span>
+              {i18n.language === lang.code && <span style={{ color:'#E8C468' }}>✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <div className="pg-login-shell" style={{ minHeight:'100vh', position:'relative', fontFamily:'DM Sans, sans-serif', background:'#0A0A12' }}>
 
@@ -236,36 +270,6 @@ export default function LoginPage() {
           <span style={{ fontSize:12, color:'#fff', fontWeight:700 }}>Mòd Offline — Login lokal (dènye sesyon konekte)</span>
         </div>
       )}
-
-      <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
-        <button onClick={() => setShowLang(!showLang)} style={{
-          display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:12,
-          border:'1px solid rgba(255,255,255,0.3)', background:'rgba(255,255,255,0.1)',
-          color:'rgba(255,255,255,0.9)', cursor:'pointer', fontSize:12, fontWeight:700,
-        }}>
-          <Globe size={14}/>
-          <span style={{ fontSize:15 }}>{currentLang.flag}</span>
-          <span style={{ fontSize:11 }}>{currentLang.code.toUpperCase()}</span>
-          <ChevronDown size={12} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
-        </button>
-        {showLang && (
-          <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, background:'rgba(10,10,40,0.97)', borderRadius:12, minWidth:170, boxShadow:'0 16px 48px rgba(0,0,0,0.6)', border:'1px solid rgba(255,255,255,0.15)', overflow:'hidden' }}>
-            {LANGS.map(lang => (
-              <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{
-                width:'100%', display:'flex', alignItems:'center', gap:12, padding:'11px 16px', border:'none', cursor:'pointer',
-                background: i18n.language === lang.code ? 'rgba(255,102,0,0.2)' : 'transparent',
-                color: i18n.language === lang.code ? '#FF6600' : 'rgba(255,255,255,0.75)',
-                fontWeight: i18n.language === lang.code ? 700 : 400, fontSize:13,
-                borderBottom:'1px solid rgba(255,255,255,0.06)',
-              }}>
-                <span style={{ fontSize:18 }}>{lang.flag}</span>
-                <span style={{ flex:1 }}>{lang.name}</span>
-                {i18n.language === lang.code && <span style={{ color:'#FF6600' }}>✓</span>}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       {mode === 'login' ? (
         <>
@@ -289,6 +293,7 @@ export default function LoginPage() {
           {/* ═══ VÈSYON DESKTOP — imaj antye + chan fòm reyèl pozisyone sou li ═══ */}
           <div className="pg-bg-desktop" style={{ position:'relative', width:'100%', maxWidth:1402, margin:'0 auto', paddingTop: hasRememberedSlug ? 0 : 12 }}>
             <img src={bgDesktop} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
+            <LangSwitcher top={16} right={16}/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
               <Mail size={16} style={{ position:'absolute', left:'61%', top:'51.2%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
               <input type="email" placeholder={tx.email}
@@ -325,6 +330,7 @@ export default function LoginPage() {
           {/* ═══ VÈSYON MOBIL — menm apwòch la, koòdone diferan ═══ */}
           <div className="pg-bg-mobile" style={{ position:'relative', width:'100%', maxWidth:480, margin:'0 auto' }}>
             <img src={bgMobile} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
+            <LangSwitcher top={10} right={10} compact/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
               <Mail size={16} style={{ position:'absolute', left:'11.5%', top:'60.35%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
               <input type="email" placeholder={tx.email}
@@ -363,6 +369,7 @@ export default function LoginPage() {
             backgroundImage:`url(${bannerImg})`, backgroundSize:'cover', backgroundPosition:'center', filter:'brightness(0.38)',
           }}/>
           <div style={{ position:'absolute', inset:0, zIndex:-1, background:'linear-gradient(115deg, rgba(6,8,20,0.92) 0%, rgba(20,12,10,0.75) 55%, rgba(60,25,5,0.55) 100%)' }}/>
+          <LangSwitcher top={16} right={16}/>
 
           <div style={{ width:'100%', maxWidth:420 }}>
             <div style={{
