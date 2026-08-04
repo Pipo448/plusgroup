@@ -16,6 +16,8 @@ import { saveOfflineCredentials, tryOfflineLogin } from '../../services/offlineA
 // Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
 const bannerImg = '/assets/banner.webp'
 const logoImg   = '/assets/logo.webp'
+// ⚠️ NOUVO — Foto pwodwi pou panèl makèting Login la (dekoupe pou retire tèks fransè ki te grave sou li)
+const heroProductImg = '/assets/login-hero-product.png'
 
 // ✅ NOUVO — Sonje slug/email (PA modpas, pou rezon sekirite) pou fasilite relogin
 // sou POS ki gen tandans efase sesyon apre yo fèmen (batri/memwa optimizasyon)
@@ -267,7 +269,12 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="pg-hero-features" style={{ display:'flex', flexDirection:'column', gap:14, marginTop:44 }}>
+        <img src={heroProductImg} alt="Plus Group — sistèm POS"
+          className="pg-hero-photo"
+          style={{ width:'100%', maxWidth:400, borderRadius:18, marginTop:26, border:'1px solid rgba(232,196,104,0.25)', boxShadow:'0 20px 50px rgba(0,0,0,0.5)', objectFit:'cover', display:'block' }}
+        />
+
+        <div className="pg-hero-features" style={{ display:'flex', flexDirection:'column', gap:14, marginTop:32 }}>
           {[
             { icon:<Lightbulb size={16}/>, label:'Inovasyon' },
             { icon:<Cpu size={16}/>,        label:'Teknoloji' },
@@ -550,6 +557,7 @@ export default function LoginPage() {
           .pg-login-shell { flex-direction: column; overflow-y: auto; }
           .pg-hero { padding: 32px 24px 20px !important; flex: none !important; }
           .pg-hero-headline { font-size: 26px !important; }
+          .pg-hero-photo { max-width: 280px !important; margin-top: 16px !important; }
           .pg-hero-features { flex-direction: row !important; flex-wrap: wrap; gap: 16px !important; margin-top: 24px !important; }
           .pg-hero-badge { display: none !important; }
           .pg-form-outer { flex: none !important; padding: 20px 20px 40px !important; }
