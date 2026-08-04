@@ -16,8 +16,10 @@ import { saveOfflineCredentials, tryOfflineLogin } from '../../services/offlineA
 // Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
 const bannerImg = '/assets/banner.webp'
 // ⚠️ NOUVO — Imaj antye (san koupe) pou vèsyon desktop ak mobil paj Login la
-const bgDesktop = '/assets/login-bg-desktop.png'
-const bgMobile  = '/assets/login-bg-mobile.png'
+// -v2 nan non an FÒSE navigatè a telechaje yon nouvo kopi (evite vye imaj ki
+// te rete "kolan" nan cache — menm pwoblèm nou te gen ak fichye JS anvan)
+const bgDesktop = '/assets/login-bg-desktop-v2.png'
+const bgMobile  = '/assets/login-bg-mobile-v2.png'
 
 // ✅ NOUVO — Sonje slug/email (PA modpas, pou rezon sekirite) pou fasilite relogin
 // sou POS ki gen tandans efase sesyon apre yo fèmen (batri/memwa optimizasyon)
