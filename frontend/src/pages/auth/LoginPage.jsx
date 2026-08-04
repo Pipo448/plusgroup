@@ -15,9 +15,9 @@ import { saveOfflineCredentials, tryOfflineLogin } from '../../services/offlineA
 // ✅ KOREKSYON: fichye yo nan /public/assets/ — pa itilize import
 // Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
 const bannerImg = '/assets/banner.webp'
-const logoImg   = '/assets/logo.webp'
-// ⚠️ NOUVO — Foto pwodwi pou panèl makèting Login la (dekoupe pou retire tèks fransè ki te grave sou li)
-const heroProductImg = '/assets/login-hero-product.png'
+// ⚠️ NOUVO — Imaj antye (san koupe) pou vèsyon desktop ak mobil paj Login la
+const bgDesktop = '/assets/login-bg-desktop.png'
+const bgMobile  = '/assets/login-bg-mobile.png'
 
 // ✅ NOUVO — Sonje slug/email (PA modpas, pou rezon sekirite) pou fasilite relogin
 // sou POS ki gen tandans efase sesyon apre yo fèmen (batri/memwa optimizasyon)
@@ -212,20 +212,29 @@ export default function LoginPage() {
   const focusGold = e => { e.target.style.borderColor='#E8C468'; e.target.style.boxShadow='0 0 0 3px rgba(232,196,104,0.15)' }
   const blurGold  = e => { e.target.style.borderColor='rgba(255,255,255,0.12)'; e.target.style.boxShadow='none' }
 
-  return (
-    <div className="pg-login-shell" style={{ minHeight:'100vh', display:'flex', position:'relative', overflow:'hidden', fontFamily:'DM Sans, sans-serif', background:'#0A0A12' }}>
+  // ⚠️ NOUVO — Si slug deja sonje (localStorage), pa montre chan slug la ditou
+  // (pou match egzat ak mokèt la, ki gen sèl 2 chan: imèl + modpas)
+  const [hasRememberedSlug] = useState(() => !!localStorage.getItem(REMEMBER_SLUG_KEY) || !!searchParams.get('slug'))
 
-      <div style={{
-        position:'absolute', inset:0, zIndex:0,
-        backgroundImage:`url(${bannerImg})`,
-        backgroundSize:'cover', backgroundPosition:'center',
-        filter:'brightness(0.38)',
-      }}/>
-      <div style={{
-        position:'absolute', inset:0, zIndex:0,
-        background:'linear-gradient(115deg, rgba(6,8,20,0.92) 0%, rgba(20,12,10,0.75) 55%, rgba(60,25,5,0.55) 100%)',
-      }}/>
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:4, zIndex:3, background:'linear-gradient(90deg,transparent,#F5680C,#E8C468,#F5680C,transparent)' }}/>
+  // Estil chan "fantom" — transparan, li kole sou pil ki deja desine sou imaj la
+  const ghostInp = {
+    position:'absolute', boxSizing:'border-box', outline:'none', border:'1.5px solid transparent',
+    background:'transparent', color:'#fff', WebkitTextFillColor:'#fff',
+    fontFamily:'DM Sans, sans-serif', borderRadius:12, transition:'border-color 0.15s, background 0.15s',
+    padding:'0 14px',
+  }
+  const ghostFocus = e => { e.target.style.borderColor='rgba(232,196,104,0.6)'; e.target.style.background='rgba(0,0,0,0.15)' }
+  const ghostBlur  = e => { e.target.style.borderColor='transparent'; e.target.style.background='transparent' }
+
+  return (
+    <div className="pg-login-shell" style={{ minHeight:'100vh', position:'relative', fontFamily:'DM Sans, sans-serif', background:'#0A0A12' }}>
+
+      {!isOnline && (
+        <div style={{ position:'fixed', top:0, left:0, right:0, zIndex:60, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'8px 14px', background:'rgba(217,119,6,0.95)' }}>
+          <WifiOff size={14} color="#fff"/>
+          <span style={{ fontSize:12, color:'#fff', fontWeight:700 }}>Mòd Offline — Login lokal (dènye sesyon konekte)</span>
+        </div>
+      )}
 
       <div id="login-lang" style={{ position:'fixed', top:16, right:16, zIndex:50 }}>
         <button onClick={() => setShowLang(!showLang)} style={{
@@ -257,188 +266,115 @@ export default function LoginPage() {
         )}
       </div>
 
-      {/* ═══ PANÈL MAKÈTING (gòch sou desktop, anlè sou mobil) ═══ */}
-      <div className="pg-hero" style={{ position:'relative', zIndex:5, flex:1, display:'flex', flexDirection:'column', justifyContent:'center', padding:'48px 56px' }}>
-        <div>
-          <h2 className="pg-hero-headline" style={{ color:'#fff', fontSize:38, fontWeight:900, lineHeight:1.15, margin:'0 0 4px', textShadow:'0 2px 16px rgba(0,0,0,0.5)' }}>JERE.</h2>
-          <h2 className="pg-hero-headline" style={{ color:'#fff', fontSize:38, fontWeight:900, lineHeight:1.15, margin:'0 0 4px', textShadow:'0 2px 16px rgba(0,0,0,0.5)' }}>SWIV.</h2>
-          <h2 className="pg-hero-headline" style={{ color:'#E8C468', fontSize:38, fontWeight:900, lineHeight:1.15, margin:'0 0 14px', textShadow:'0 2px 16px rgba(0,0,0,0.5)' }}>DEVLOPE.</h2>
-          <div style={{ width:56, height:3, background:'linear-gradient(90deg,#F5680C,#E8C468)', borderRadius:2, marginBottom:16 }}/>
-          <p style={{ color:'rgba(255,255,255,0.65)', fontSize:14.5, lineHeight:1.6, maxWidth:340, margin:0 }}>
-            Yon sistèm konplè pou jere antrepriz ou epi fè l grandi chak jou.
-          </p>
-        </div>
-
-        <img src={heroProductImg} alt="Plus Group — sistèm POS"
-          className="pg-hero-photo"
-          style={{ width:'100%', maxWidth:400, borderRadius:18, marginTop:26, border:'1px solid rgba(232,196,104,0.25)', boxShadow:'0 20px 50px rgba(0,0,0,0.5)', objectFit:'cover', display:'block' }}
-        />
-
-        <div className="pg-hero-features" style={{ display:'flex', flexDirection:'column', gap:14, marginTop:32 }}>
-          {[
-            { icon:<Lightbulb size={16}/>, label:'Inovasyon' },
-            { icon:<Cpu size={16}/>,        label:'Teknoloji' },
-            { icon:<ShoppingCart size={16}/>, label:'Komès' },
-            { icon:<Headphones size={16}/>, label:'Sèvis' },
-          ].map(f => (
-            <div key={f.label} style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:30, height:30, borderRadius:9, background:'rgba(232,196,104,0.14)', border:'1px solid rgba(232,196,104,0.3)', display:'flex', alignItems:'center', justifyContent:'center', color:'#E8C468', flexShrink:0 }}>{f.icon}</div>
-              <span style={{ color:'rgba(255,255,255,0.8)', fontSize:13, fontWeight:600 }}>{f.label}.</span>
+      {mode === 'login' ? (
+        <>
+          {!hasRememberedSlug && (
+            <div style={{ position:'relative', zIndex:10, maxWidth:1402, margin:'0 auto', padding:'70px 24px 0' }}>
+              <div style={{ maxWidth:340, marginLeft:'auto', background:'rgba(10,10,18,0.85)', border:'1px solid rgba(232,196,104,0.3)', borderRadius:12, padding:'12px 16px' }}>
+                <label style={{ display:'block', color:'#E8C468', fontSize:11, fontWeight:800, marginBottom:6, letterSpacing:'0.04em' }}>NON ANTREPRIZ (SLUG)</label>
+                <div style={{ position:'relative' }}>
+                  <Building2 size={15} style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none' }}/>
+                  <input type="text" placeholder="plus-store"
+                    {...register('slug', { required: tx.slugRequired })}
+                    style={{ ...inp, paddingLeft:36, padding:'9px 12px 9px 36px', fontSize:13 }}
+                    onFocus={focusGold} onBlur={blurGold}
+                  />
+                </div>
+                {errors.slug && <p style={{ color:'#FFB347', fontSize:10.5, margin:'4px 0 0' }}>{errors.slug.message}</p>}
+              </div>
             </div>
-          ))}
-        </div>
+          )}
 
-        <div className="pg-hero-badge" style={{ marginTop:44, display:'flex', alignItems:'center', gap:12, padding:'14px 18px', borderRadius:14, background:'rgba(10,10,18,0.55)', border:'1px solid rgba(255,255,255,0.1)', backdropFilter:'blur(8px)', maxWidth:400 }}>
-          <div style={{ width:34, height:34, borderRadius:10, background:'rgba(232,196,104,0.15)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <ShieldCheck size={16} color="#E8C468"/>
+          {/* ═══ VÈSYON DESKTOP — imaj antye + chan fòm reyèl pozisyone sou li ═══ */}
+          <div className="pg-bg-desktop" style={{ position:'relative', width:'100%', maxWidth:1402, margin:'0 auto', paddingTop: hasRememberedSlug ? 0 : 12 }}>
+            <img src={bgDesktop} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
+            <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
+              <input type="email" placeholder=""
+                {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
+                style={{ ...ghostInp, left:'59.8%', top:'48.9%', width:'33.6%', height:'4.7%', fontSize:'1.1vw', paddingLeft:38 }}
+                onFocus={ghostFocus} onBlur={ghostBlur}
+              />
+              <div style={{ position:'relative' }}>
+                <input type={show ? 'text' : 'password'} placeholder=""
+                  {...register('password', { required: tx.passRequired })}
+                  style={{ ...ghostInp, left:'59.8%', top:'56.3%', width:'33.6%', height:'4.9%', fontSize:'1.1vw', paddingLeft:38, paddingRight:34 }}
+                  onFocus={ghostFocus} onBlur={ghostBlur}
+                />
+                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89.5%', top:'58.7%', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.01)', padding:0 }} aria-label="toggle password"/>
+              </div>
+              <label style={{ position:'absolute', left:'59.7%', top:'64.1%', width:'1.6%', height:'1.8%', cursor:'pointer' }}>
+                <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
+              </label>
+              <button type="button" style={{ position:'absolute', left:'81.6%', top:'63.6%', width:'12%', height:'2.6%', background:'none', border:'none', cursor:'pointer' }} aria-label={tx.forgot}/>
+              <button type="submit" disabled={loading} style={{
+                position:'absolute', left:'59.7%', top:'68.9%', width:'33.9%', height:'5.4%',
+                background: loading ? 'rgba(0,0,0,0.25)' : 'transparent', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                {loading && <div style={{ width:16, height:16, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              </button>
+              <button type="button" onClick={() => setMode('signup')} style={{ position:'absolute', left:'79.5%', top:'77.6%', width:'19%', height:'2.8%', background:'none', border:'none', cursor:'pointer' }} aria-label="Kreye kont"/>
+            </form>
           </div>
-          <div>
-            <p style={{ color:'#fff', fontSize:13, fontWeight:800, margin:0 }}>Byenvini sou Plus Group</p>
-            <p style={{ color:'rgba(255,255,255,0.55)', fontSize:11.5, margin:'2px 0 0' }}>Platfòm tout-an-yon pou jere antrepriz ou.</p>
+
+          {/* ═══ VÈSYON MOBIL — menm apwòch la, koòdone diferan ═══ */}
+          <div className="pg-bg-mobile" style={{ position:'relative', width:'100%', maxWidth:480, margin:'0 auto' }}>
+            <img src={bgMobile} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
+            <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
+              <input type="email" placeholder=""
+                {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
+                style={{ ...ghostInp, left:'9.1%', top:'58.2%', width:'81.7%', height:'4.3%', fontSize:14, paddingLeft:38 }}
+                onFocus={ghostFocus} onBlur={ghostBlur}
+              />
+              <input type={show ? 'text' : 'password'} placeholder=""
+                {...register('password', { required: tx.passRequired })}
+                style={{ ...ghostInp, left:'9.1%', top:'66.0%', width:'81.7%', height:'4.3%', fontSize:14, paddingLeft:38, paddingRight:34 }}
+                onFocus={ghostFocus} onBlur={ghostBlur}
+              />
+              <label style={{ position:'absolute', left:'9.1%', top:'74.2%', width:'5%', height:'1.7%', cursor:'pointer' }}>
+                <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
+              </label>
+              <button type="button" style={{ position:'absolute', left:'62.2%', top:'73.6%', width:'28.6%', height:'2.6%', background:'none', border:'none', cursor:'pointer' }} aria-label={tx.forgot}/>
+              <button type="submit" disabled={loading} style={{
+                position:'absolute', left:'9.1%', top:'79.1%', width:'81.7%', height:'5.0%',
+                background: loading ? 'rgba(0,0,0,0.25)' : 'transparent', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                display:'flex', alignItems:'center', justifyContent:'center',
+              }}>
+                {loading && <div style={{ width:16, height:16, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+              </button>
+              <button type="button" onClick={() => setMode('signup')} style={{ position:'absolute', left:'57.5%', top:'87.0%', width:'31%', height:'2.5%', background:'none', border:'none', cursor:'pointer' }} aria-label="Kreye kont"/>
+            </form>
           </div>
-        </div>
-      </div>
+        </>
+      ) : (
+        <div style={{ position:'relative', zIndex:5, minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
+          <div style={{
+            position:'absolute', inset:0, zIndex:-1,
+            backgroundImage:`url(${bannerImg})`, backgroundSize:'cover', backgroundPosition:'center', filter:'brightness(0.38)',
+          }}/>
+          <div style={{ position:'absolute', inset:0, zIndex:-1, background:'linear-gradient(115deg, rgba(6,8,20,0.92) 0%, rgba(20,12,10,0.75) 55%, rgba(60,25,5,0.55) 100%)' }}/>
 
-      {/* ═══ PANÈL FÒM (dwat sou desktop, anba sou mobil) ═══ */}
-      <div className="pg-form-outer" style={{ position:'relative', zIndex:5, flex:1, display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
-      <div style={{ width:'100%', maxWidth:420 }}>
-
-        <div style={{
-          borderRadius:24, padding:32,
-          background:'linear-gradient(180deg, rgba(16,16,26,0.92), rgba(10,10,16,0.96))',
-          backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
-          border:'1.5px solid rgba(232,196,104,0.35)',
-          boxShadow:'0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
-        }}>
-          <div style={{ textAlign:'center', marginBottom:20 }}>
-            <div style={{ display:'inline-flex', alignItems:'baseline', fontSize:26, fontWeight:900, letterSpacing:'-0.01em' }}>
-              <span style={{ color:'#3B5FCC' }}>PLUS</span>
-              <span style={{ color:'#E8C468', margin:'0 3px', fontSize:22 }}>✛</span>
-              <span style={{ color:'#F5680C' }}>GROUP</span>
-            </div>
-          </div>
-
-          <h2 style={{ color:'#E8C468', fontSize:21, fontWeight:900, margin:'0 0 4px', textAlign:'center' }}>
-            {mode === 'login' ? 'Byenvini ankò!' : 'Enskri Antrepriz Ou'}
-          </h2>
-          <p style={{ color:'rgba(255,255,255,0.5)', fontSize:12.5, margin:'0 0 22px', textAlign:'center' }}>
-            {mode === 'login' ? tx.title : 'Kòmanse ak antrepriz ou jodi a'}
-          </p>
-
-          {mode === 'login' ? (
-            <>
-              {/* ✅ NOUVO — Endikatè Mòd Offline (login lokal disponib) */}
-              {!isOnline && (
-                <div style={{
-                  display:'flex', alignItems:'center', gap:8, justifyContent:'center',
-                  padding:'8px 14px', marginBottom:16, borderRadius:10,
-                  background:'rgba(217,119,6,0.15)', border:'1px solid rgba(217,119,6,0.4)',
-                }}>
-                  <WifiOff size={14} color="#FBBF24"/>
-                  <span style={{ fontSize:11, color:'#FBBF24', fontWeight:700 }}>
-                    Mòd Offline — Login lokal (dènye sesyon konekte)
-                  </span>
+          <div style={{ width:'100%', maxWidth:420 }}>
+            <div style={{
+              borderRadius:24, padding:32,
+              background:'linear-gradient(180deg, rgba(16,16,26,0.92), rgba(10,10,16,0.96))',
+              backdropFilter:'blur(24px)', WebkitBackdropFilter:'blur(24px)',
+              border:'1.5px solid rgba(232,196,104,0.35)',
+              boxShadow:'0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+            }}>
+              <div style={{ textAlign:'center', marginBottom:20 }}>
+                <div style={{ display:'inline-flex', alignItems:'baseline', fontSize:26, fontWeight:900, letterSpacing:'-0.01em' }}>
+                  <span style={{ color:'#3B5FCC' }}>PLUS</span>
+                  <span style={{ color:'#E8C468', margin:'0 3px', fontSize:22 }}>✛</span>
+                  <span style={{ color:'#F5680C' }}>GROUP</span>
                 </div>
-              )}
-
-              <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-
-                <div>
-                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7, letterSpacing:'0.03em' }}>{tx.slug}</label>
-                  <div style={{ position:'relative' }}>
-                    <Building2 size={16} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none' }}/>
-                    <input type="text" placeholder="plus-store"
-                      {...register('slug', { required: tx.slugRequired })}
-                      style={{ ...inp, paddingLeft:40 }}
-                      onFocus={focusGold}
-                      onBlur={blurGold}
-                    />
-                  </div>
-                  {errors.slug && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.slug.message}</p>}
-                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>
-                    {tx.example}: <span style={{ color:'#E8C468', fontFamily:'monospace' }}>plus-store</span>
-                  </p>
-                </div>
-
-                <div>
-                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.email}</label>
-                  <div style={{ position:'relative' }}>
-                    <Mail size={16} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none' }}/>
-                    <input type="email" placeholder="ou@entreprise.ht"
-                      {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
-                      style={{ ...inp, paddingLeft:40 }}
-                      onFocus={focusGold}
-                      onBlur={blurGold}
-                    />
-                  </div>
-                  {errors.email && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.email.message}</p>}
-                </div>
-
-                <div>
-                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:7 }}>{tx.password}</label>
-                  <div style={{ position:'relative' }}>
-                    <Lock size={16} style={{ position:'absolute', left:13, top:'50%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none' }}/>
-                    <input type={show ? 'text' : 'password'} placeholder="••••••••"
-                      {...register('password', { required: tx.passRequired })}
-                      style={{ ...inp, paddingLeft:40, paddingRight:44 }}
-                      onFocus={focusGold}
-                      onBlur={blurGold}
-                    />
-                    <button type="button" onClick={() => setShow(!show)} style={{
-                      position:'absolute', right:12, top:'50%', transform:'translateY(-50%)',
-                      background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', display:'flex', padding:0,
-                    }}>
-                      {show ? <EyeOff size={16}/> : <Eye size={16}/>}
-                    </button>
-                  </div>
-                  {errors.password && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>{errors.password.message}</p>}
-                </div>
-
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', margin:'-2px 0 2px' }}>
-                  <label style={{ display:'flex', alignItems:'center', gap:7, color:'rgba(255,255,255,0.6)', fontSize:12, cursor:'pointer' }}>
-                    <input type="checkbox" style={{ accentColor:'#E8C468', width:14, height:14, cursor:'pointer' }}/>
-                    Sonje mwen
-                  </label>
-                  <button type="button" style={{ background:'none', border:'none', cursor:'pointer', color:'#E8C468', fontSize:12, padding:0 }}>
-                    {tx.forgot}
-                  </button>
-                </div>
-
-                <button type="submit" disabled={loading} style={{
-                  width:'100%', padding:'13px', borderRadius:12, marginTop:2,
-                  background: loading ? 'rgba(255,255,255,0.15)' : 'linear-gradient(135deg,#F5D889,#E8A94A)',
-                  color: loading ? '#fff' : '#1A1408', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
-                  fontWeight:900, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                  boxShadow: loading ? 'none' : '0 8px 26px rgba(232,169,74,0.35)',
-                }}>
-                  {loading
-                    ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>{tx.loading}</>
-                    : <>{tx.submit}<ChevronRight size={18}/></>
-                  }
-                </button>
-              </form>
-
-              <div style={{ marginTop:18, padding:'10px 14px', borderRadius:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)' }}>
-                <p style={{ color:'rgba(255,255,255,0.45)', fontSize:11, textAlign:'center', margin:0, fontFamily:'monospace', lineHeight:1.7 }}>
-                  {tx.demo} → slug: <span style={{ color:'#E8C468' }}>plus-store</span>{' · '}
-                  email: <span style={{ color:'#E8C468' }}>admin@plusstore.ht</span>{' · '}
-                  mdp: <span style={{ color:'#E8C468' }}>PlusStore2024!</span>
-                </p>
               </div>
 
-              <p style={{ textAlign:'center', fontSize:12.5, color:'rgba(255,255,255,0.5)', margin:'18px 0 0', paddingTop:16, borderTop:'1px solid rgba(255,255,255,0.1)' }}>
-                Poko gen kont?{' '}
-                <button onClick={() => setMode('signup')} style={{ background:'none', border:'none', cursor:'pointer', color:'#F5680C', fontWeight:700, fontSize:12.5, padding:0, display:'inline-flex', alignItems:'center', gap:4 }}>
-                  <UserPlus size={13}/> Kreye youn
-                </button>
-              </p>
-            </>
-          ) : (
-            <>
               <button onClick={() => setMode('login')} style={{ display:'flex', alignItems:'center', gap:6, background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.6)', fontSize:12, fontWeight:600, marginBottom:16, padding:0 }}>
                 <ArrowLeft size={14}/> Tounen sou koneksyon
               </button>
 
+              <h2 style={{ color:'#E8C468', fontSize:19, fontWeight:900, margin:'0 0 10px', textAlign:'center' }}>Enskri Antrepriz Ou</h2>
               <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12, textAlign:'center', margin:'0 0 18px', lineHeight:1.6 }}>
                 Ou gen yon mwa pou itilize sistèm nan. Apre yon mwa itilizasyon, ou dwe peye pou kontinye itilize l.
               </p>
@@ -530,15 +466,10 @@ export default function LoginPage() {
                   }
                 </button>
               </form>
-            </>
-          )}
+            </div>
+          </div>
         </div>
-
-        <p style={{ textAlign:'center', fontSize:11, color:'rgba(255,255,255,0.35)', margin:'18px 0 0', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
-          <ShieldCheck size={12}/> Sekirize pa Plus Group
-        </p>
-      </div>
-      </div>
+      )}
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
@@ -553,14 +484,10 @@ export default function LoginPage() {
         }
         input { color: #FFFFFF !important; }
 
-        @media (max-width: 960px) {
-          .pg-login-shell { flex-direction: column; overflow-y: auto; }
-          .pg-hero { padding: 32px 24px 20px !important; flex: none !important; }
-          .pg-hero-headline { font-size: 26px !important; }
-          .pg-hero-photo { max-width: 280px !important; margin-top: 16px !important; }
-          .pg-hero-features { flex-direction: row !important; flex-wrap: wrap; gap: 16px !important; margin-top: 24px !important; }
-          .pg-hero-badge { display: none !important; }
-          .pg-form-outer { flex: none !important; padding: 20px 20px 40px !important; }
+        .pg-bg-mobile { display: none; }
+        @media (max-width: 900px) {
+          .pg-bg-desktop { display: none; }
+          .pg-bg-mobile { display: block; }
         }
       `}</style>
     </div>
