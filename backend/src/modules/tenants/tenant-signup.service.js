@@ -29,7 +29,7 @@ const LOCKED_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboa
  * @param {'self'|'agent'} source
  */
 const createPendingTenant = async (data, source) => {
-  const { name, slug, email, phone, address, promoCode, adminEmail, adminPassword, adminName, planId } = data
+  const { name, slug, email, phone, address, promoCode, adminEmail, adminPassword, adminName, planId, monthlyPrice } = data
 
   if (!name || !slug) {
     throw Object.assign(new Error('Non antrepriz ak slug obligatwa.'), { statusCode: 400 })
@@ -42,6 +42,16 @@ const createPendingTenant = async (data, source) => {
   }
   if (adminPassword.length < 6) {
     throw Object.assign(new Error('Modpas la dwe gen omwen 6 karaktè.'), { statusCode: 400 })
+  }
+  // ⚠️ NOUVO — Montan mansyèl la antre MANYÈLMAN pa ajan an oswa antrepriz
+  // la (pa gen pri fiks). Sèl règ la: li pa ka pi piti pase planche Plus
+  // Group la (PLUS_GROUP_BASE_MONTHLY).
+  const cleanMonthlyPrice = Math.round(Number(monthlyPrice))
+  if (!cleanMonthlyPrice || cleanMonthlyPrice < PLUS_GROUP_BASE_MONTHLY) {
+    throw Object.assign(
+      new Error(`Montan mansyèl la obligatwa e li pa ka pi piti pase ${PLUS_GROUP_BASE_MONTHLY} HTG.`),
+      { statusCode: 400 }
+    )
   }
 
   const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '')
@@ -67,8 +77,8 @@ const createPendingTenant = async (data, source) => {
     throw Object.assign(new Error('Yon kont deja egziste ak imèl sa a.'), { statusCode: 409 })
   }
 
-  // ⚠️ NOUVO — Plan chwazi a. Si klyan an pa chwazi youn, sèvi ak plan ki pi bon
-  // mache a (default rezonab) pou pa bloke enskripsyon an.
+  // ⚠️ Plan chwazi a sèvi SÈLMAN pou detèmine kategori/karakteristik
+  // (maxUsers, maxBranches...) — pa pou pri a, ki antre manyèlman kounye a.
   let plan
   if (planId) {
     plan = await prisma.subscriptionPlan.findFirst({ where: { id: planId, isActive: true } })
@@ -92,7 +102,7 @@ const createPendingTenant = async (data, source) => {
       subscriptionEndsAt,
       agentId: agent.id,
       planId: plan?.id || null,
-      monthlyPrice: plan?.priceMonthly || PLUS_GROUP_BASE_MONTHLY,
+      monthlyPrice: cleanMonthlyPrice,
       pendingApproval: true,
       signupSource: source,
       allowedPages: LOCKED_PAGES,

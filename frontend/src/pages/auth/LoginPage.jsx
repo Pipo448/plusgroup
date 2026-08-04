@@ -59,7 +59,9 @@ export default function LoginPage() {
         const list = res.data.plans || []
         setPlans(list)
         if (list.length && !selectedPlanId) setSelectedPlanId(list[0].id)
-      }).catch(() => {})
+      }).catch(() => {
+        toast.error('Pa t ka chaje lis plan yo. Verifye koneksyon w epi eseye ankò.')
+      })
     }
   }, [mode])
   const {
@@ -202,6 +204,7 @@ export default function LoginPage() {
         address: data.address || null,
         promoCode: data.promoCode.trim(),
         planId: selectedPlanId,
+        monthlyPrice: Number(data.monthlyPrice),
         adminName: data.adminName || null,
         adminEmail: data.adminEmail.trim(),
         adminPassword: data.adminPassword,
@@ -502,12 +505,23 @@ export default function LoginPage() {
                             background: active ? 'rgba(232,196,104,0.12)' : 'rgba(255,255,255,0.03)',
                           }}>
                             <div style={{ color: active ? '#E8C468' : '#fff', fontWeight:800, fontSize:13 }}>{p.name}</div>
-                            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginTop:2 }}>{Number(p.priceMonthly).toLocaleString()} HTG/mwa</div>
                           </button>
                         )
                       })}
                     </div>
                   )}
+                </div>
+
+                <div>
+                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:6 }}>MONTAN MANSYÈL (HTG) *</label>
+                  <input type="number" min={2500} placeholder="Egzanp: 3500"
+                    {...registerS('monthlyPrice', { required: true, min: 2500 })}
+                    style={inp}
+                    onFocus={focusGold}
+                    onBlur={blurGold}
+                  />
+                  {errorsS.monthlyPrice && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>Montan an obligatwa, minimòm 2,500 HTG</p>}
+                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>Montan negosye ant ou/ajan an ak antrepriz la</p>
                 </div>
 
                 <div style={{ borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:12, marginTop:2 }}>

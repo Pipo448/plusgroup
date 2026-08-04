@@ -204,7 +204,7 @@ export default function AgentDashboardPage() {
 function CreateTenantModal({ agent, onClose }) {
   const [form, setForm] = useState({
     name: '', slug: '', email: '', phone: '', address: '',
-    adminName: '', adminEmail: '', adminPassword: '', planId: null,
+    adminName: '', adminEmail: '', adminPassword: '', planId: null, monthlyPrice: '',
   })
   const [saving, setSaving] = useState(false)
   const [plans, setPlans] = useState([])
@@ -215,7 +215,7 @@ function CreateTenantModal({ agent, onClose }) {
       const list = res.data.plans || []
       setPlans(list)
       if (list.length) set('planId', list[0].id)
-    }).catch(() => {})
+    }).catch(() => toast.error('Pa t ka chaje lis plan yo.'))
   }, [])
 
   const suggestSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -225,11 +225,13 @@ function CreateTenantModal({ agent, onClose }) {
     if (!form.adminEmail.trim() || !form.adminPassword.trim()) return toast.error('Imèl ak modpas administratè a obligatwa.')
     if (form.adminPassword.length < 6) return toast.error('Modpas la dwe gen omwen 6 karaktè.')
     if (!form.planId) return toast.error('Chwazi yon plan.')
+    if (!form.monthlyPrice || Number(form.monthlyPrice) < 2500) return toast.error('Montan mansyèl la obligatwa, minimòm 2,500 HTG.')
 
     setSaving(true)
     try {
       const res = await agentApi.post('/agents/tenant-requests', {
         ...form,
+        monthlyPrice: Number(form.monthlyPrice),
         slug: form.slug.trim() || suggestSlug(form.name),
       })
       toast.success(res.data.message || 'Demann voye avèk siksè!')
@@ -303,12 +305,17 @@ function CreateTenantModal({ agent, onClose }) {
                       background: active ? '#FFF7ED' : C.white,
                     }}>
                       <div style={{ color: active ? C.orangeDark : C.navy, fontWeight: 800, fontSize: 13 }}>{p.name}</div>
-                      <div style={{ color: C.textMuted, fontSize: 11, marginTop: 2 }}>{Number(p.priceMonthly).toLocaleString()} HTG/mwa</div>
                     </button>
                   )
                 })}
               </div>
             )}
+          </div>
+
+          <div>
+            <label style={labelStyle}>MONTAN MANSYÈL (HTG) *</label>
+            <input type="number" min={2500} value={form.monthlyPrice} onChange={e => set('monthlyPrice', e.target.value)} style={inputStyle} placeholder="Egzanp: 3500" />
+            <p style={{ color: C.textMuted, fontSize: 10.5, margin: '4px 0 0' }}>Montan ou negosye ak kliyan an (minimòm 2,500 HTG)</p>
           </div>
 
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>
