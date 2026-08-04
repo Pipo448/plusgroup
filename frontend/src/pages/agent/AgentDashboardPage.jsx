@@ -243,7 +243,7 @@ function CreateTenantModal({ agent, onClose }) {
         <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.navy }}>Kreye Antrepriz</h3>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: C.textMuted }}>Esè yon mwa kòmanse imedyatman — Plus Group ap konfime kont lan talè</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: C.textMuted }}>Ou gen yon mwa pou itilize sistèm nan. Apre yon mwa itilizasyon, kliyan an dwe peye pou kontinye.</p>
           </div>
           <button onClick={onClose} style={{ background: C.bg, border: 'none', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', color: C.textMuted }}><X size={15} /></button>
         </div>
@@ -257,6 +257,11 @@ function CreateTenantModal({ agent, onClose }) {
           <div>
             <label style={labelStyle}>NON ANTREPRIZ *</label>
             <input value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle} placeholder="Boutik Marie" />
+          </div>
+          <div>
+            <label style={labelStyle}>SLUG (adrès kout)</label>
+            <input value={form.slug} onChange={e => set('slug', e.target.value)} style={inputStyle}
+              placeholder={form.name ? suggestSlug(form.name) : 'boutik-marie'} />
           </div>
           <div>
             <label style={labelStyle}>IMÈL ANTREPRIZ</label>
