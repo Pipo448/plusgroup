@@ -216,15 +216,16 @@ export default function LoginPage() {
   // (pou match egzat ak mokèt la, ki gen sèl 2 chan: imèl + modpas)
   const [hasRememberedSlug] = useState(() => !!localStorage.getItem(REMEMBER_SLUG_KEY) || !!searchParams.get('slug'))
 
-  // Estil chan "fantom" — transparan, li kole sou pil ki deja desine sou imaj la
+  // Estil chan reyèl — fon SOLID (opak) pou kouvri konplètman tèks/plasholder
+  // ki te deja "grave" sou imaj la (sinon ekriti kliyan an ta monte sou li)
   const ghostInp = {
-    position:'absolute', boxSizing:'border-box', outline:'none', border:'1.5px solid transparent',
-    background:'transparent', color:'#fff', WebkitTextFillColor:'#fff',
-    fontFamily:'DM Sans, sans-serif', borderRadius:12, transition:'border-color 0.15s, background 0.15s',
-    padding:'0 14px',
+    position:'absolute', boxSizing:'border-box', outline:'none', border:'1.5px solid rgba(255,255,255,0.12)',
+    background:'#15151d', color:'#fff', WebkitTextFillColor:'#fff',
+    fontFamily:'DM Sans, sans-serif', borderRadius:12,
+    padding:'0 14px', transition:'border-color 0.15s',
   }
-  const ghostFocus = e => { e.target.style.borderColor='rgba(232,196,104,0.6)'; e.target.style.background='rgba(0,0,0,0.15)' }
-  const ghostBlur  = e => { e.target.style.borderColor='transparent'; e.target.style.background='transparent' }
+  const ghostFocus = focusGold
+  const ghostBlur  = blurGold
 
   return (
     <div className="pg-login-shell" style={{ minHeight:'100vh', position:'relative', fontFamily:'DM Sans, sans-serif', background:'#0A0A12' }}>
@@ -289,18 +290,22 @@ export default function LoginPage() {
           <div className="pg-bg-desktop" style={{ position:'relative', width:'100%', maxWidth:1402, margin:'0 auto', paddingTop: hasRememberedSlug ? 0 : 12 }}>
             <img src={bgDesktop} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
-              <input type="email" placeholder=""
+              <Mail size={16} style={{ position:'absolute', left:'61%', top:'51.2%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="email" placeholder={tx.email}
                 {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
-                style={{ ...ghostInp, left:'59.8%', top:'48.9%', width:'33.6%', height:'4.7%', fontSize:'1.1vw', paddingLeft:38 }}
+                style={{ ...ghostInp, left:'59.8%', top:'48.9%', width:'33.6%', height:'4.7%', fontSize:14, paddingLeft:38 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
               <div style={{ position:'relative' }}>
-                <input type={show ? 'text' : 'password'} placeholder=""
+                <Lock size={16} style={{ position:'absolute', left:'61%', top:'58.65%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+                <input type={show ? 'text' : 'password'} placeholder={tx.password}
                   {...register('password', { required: tx.passRequired })}
-                  style={{ ...ghostInp, left:'59.8%', top:'56.3%', width:'33.6%', height:'4.9%', fontSize:'1.1vw', paddingLeft:38, paddingRight:34 }}
+                  style={{ ...ghostInp, left:'59.8%', top:'56.3%', width:'33.6%', height:'4.9%', fontSize:14, paddingLeft:38, paddingRight:34 }}
                   onFocus={ghostFocus} onBlur={ghostBlur}
                 />
-                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89.5%', top:'58.7%', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.01)', padding:0 }} aria-label="toggle password"/>
+                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89.7%', top:'58.65%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+                  {show ? <EyeOff size={15}/> : <Eye size={15}/>}
+                </button>
               </div>
               <label style={{ position:'absolute', left:'59.7%', top:'64.1%', width:'1.6%', height:'1.8%', cursor:'pointer' }}>
                 <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
@@ -321,16 +326,21 @@ export default function LoginPage() {
           <div className="pg-bg-mobile" style={{ position:'relative', width:'100%', maxWidth:480, margin:'0 auto' }}>
             <img src={bgMobile} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
-              <input type="email" placeholder=""
+              <Mail size={16} style={{ position:'absolute', left:'11.5%', top:'60.35%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="email" placeholder={tx.email}
                 {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
                 style={{ ...ghostInp, left:'9.1%', top:'58.2%', width:'81.7%', height:'4.3%', fontSize:14, paddingLeft:38 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <input type={show ? 'text' : 'password'} placeholder=""
+              <Lock size={16} style={{ position:'absolute', left:'11.5%', top:'68.15%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type={show ? 'text' : 'password'} placeholder={tx.password}
                 {...register('password', { required: tx.passRequired })}
                 style={{ ...ghostInp, left:'9.1%', top:'66.0%', width:'81.7%', height:'4.3%', fontSize:14, paddingLeft:38, paddingRight:34 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
+              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'88%', top:'68.15%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+                {show ? <EyeOff size={15}/> : <Eye size={15}/>}
+              </button>
               <label style={{ position:'absolute', left:'9.1%', top:'74.2%', width:'5%', height:'1.7%', cursor:'pointer' }}>
                 <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
               </label>
