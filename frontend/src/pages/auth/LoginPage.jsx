@@ -593,7 +593,7 @@ export default function LoginPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
         * { box-sizing: border-box }
-        ::placeholder { color: rgba(255,255,255,0.35) !important }
+        ::placeholder { color: rgba(255,255,255,0.35) !important; -webkit-text-fill-color: rgba(255,255,255,0.35) !important; opacity: 1 !important; }
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
         input:-webkit-autofill:focus {

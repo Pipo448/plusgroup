@@ -51,6 +51,8 @@ const internetRoutes      = require('./modules/internet/internet.routes')
 const adminFinRoutes      = require('./routes/admin-finances.routes')
 // ⚠️ NOUVO — Pòtal Ajan (kandidati piblik, login, dashboard ajan)
 const agentRoutes         = require('./modules/agents/agent.routes')
+// ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik + lis plan)
+const publicSignupRoutes  = require('./modules/tenants/public-signup.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -185,6 +187,8 @@ app.use(`${API}/internet`,   internetRoutes);
 app.use(`${API}/admin-finances`, adminFinRoutes);
 // ⚠️ NOUVO — Pòtal Ajan
 app.use(`${API}/agents`, agentRoutes);
+// ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik)
+app.use(`${API}/public`, publicSignupRoutes);
 
 // ✅ SABOTAY
 app.use(`${API}/sabotay`,       sabotayRoutes);
