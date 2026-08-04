@@ -271,89 +271,123 @@ export default function LoginPage() {
 
       {mode === 'login' ? (
         <>
-          {/* ═══ VÈSYON DESKTOP — imaj antye + 3 chan fòm reyèl (slug, imèl, modpas) toujou vizib ═══ */}
+          {/* ═══ VÈSYON DESKTOP — imaj ak espas vid, fòm konplè ak lejand ═══ */}
           <div className="pg-bg-desktop" style={{ position:'relative', width:'100%', maxWidth:1402, margin:'0 auto' }}>
             <img src={bgDesktop} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <LangSwitcher top={16} right={16}/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
-              <Building2 size={15} style={{ position:'absolute', left:'61%', top:'49.1%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-              <input type="text" placeholder={tx.slug}
+              <label style={{ position:'absolute', left:'59.8%', top:'48.3%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.slug.toUpperCase()}</label>
+              <Building2 size={15} style={{ position:'absolute', left:'61%', top:'53.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="text" placeholder="plus-store"
                 {...register('slug', { required: tx.slugRequired })}
-                style={{ ...ghostInp, left:'59.8%', top:'47.3%', width:'33.6%', height:'3.6%', fontSize:13, paddingLeft:36 }}
+                style={{ ...ghostInp, left:'59.8%', top:'51%', width:'33%', height:'4.5%', fontSize:13.5, paddingLeft:36 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <Mail size={15} style={{ position:'absolute', left:'61%', top:'54.2%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-              <input type="email" placeholder={tx.email}
+              {errors.slug && <p style={{ position:'absolute', left:'59.8%', top:'55.7%', color:'#FFB347', fontSize:10, margin:0 }}>{errors.slug.message}</p>}
+
+              <label style={{ position:'absolute', left:'59.8%', top:'58.3%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.email.toUpperCase()}</label>
+              <Mail size={15} style={{ position:'absolute', left:'61%', top:'63.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="email" placeholder="ou@antrepriz.ht"
                 {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
-                style={{ ...ghostInp, left:'59.8%', top:'52.4%', width:'33.6%', height:'3.6%', fontSize:13, paddingLeft:36 }}
+                style={{ ...ghostInp, left:'59.8%', top:'61%', width:'33%', height:'4.5%', fontSize:13.5, paddingLeft:36 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
+
+              <label style={{ position:'absolute', left:'59.8%', top:'68.3%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.password.toUpperCase()}</label>
               <div style={{ position:'relative' }}>
-                <Lock size={15} style={{ position:'absolute', left:'61%', top:'59.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-                <input type={show ? 'text' : 'password'} placeholder={tx.password}
+                <Lock size={15} style={{ position:'absolute', left:'61%', top:'73.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+                <input type={show ? 'text' : 'password'} placeholder="••••••••"
                   {...register('password', { required: tx.passRequired })}
-                  style={{ ...ghostInp, left:'59.8%', top:'57.5%', width:'33.6%', height:'3.6%', fontSize:13, paddingLeft:36, paddingRight:34 }}
+                  style={{ ...ghostInp, left:'59.8%', top:'71%', width:'33%', height:'4.5%', fontSize:13.5, paddingLeft:36, paddingRight:34 }}
                   onFocus={ghostFocus} onBlur={ghostBlur}
                 />
-                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89.7%', top:'59.3%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89%', top:'73.3%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
                   {show ? <EyeOff size={15}/> : <Eye size={15}/>}
                 </button>
               </div>
-              <label style={{ position:'absolute', left:'59.7%', top:'64.1%', width:'1.6%', height:'1.8%', cursor:'pointer' }}>
-                <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
+
+              <label style={{ position:'absolute', left:'59.8%', top:'77.5%', display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.65)', fontSize:11.5, cursor:'pointer' }}>
+                <input type="checkbox" style={{ width:13, height:13, margin:0, accentColor:'#E8C468', cursor:'pointer' }}/>
+                Sonje mwen
               </label>
-              <button type="button" style={{ position:'absolute', left:'81.6%', top:'63.6%', width:'12%', height:'2.6%', background:'none', border:'none', cursor:'pointer' }} aria-label={tx.forgot}/>
-              {errors.slug && <p style={{ position:'absolute', left:'59.8%', top:'50.9%', color:'#FFB347', fontSize:9.5, margin:0 }}>{errors.slug.message}</p>}
+              <button type="button" style={{ position:'absolute', left:'80%', top:'77.5%', width:'12.5%', background:'none', border:'none', color:'#E8C468', fontSize:11.5, cursor:'pointer', textAlign:'right', padding:0 }}>{tx.forgot}</button>
+
               <button type="submit" disabled={loading} style={{
-                position:'absolute', left:'59.7%', top:'68.9%', width:'33.9%', height:'5.4%',
-                background: loading ? 'rgba(0,0,0,0.25)' : 'transparent', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center',
+                position:'absolute', left:'59.8%', top:'81.5%', width:'33%', height:'6%', borderRadius:10,
+                background: loading ? 'rgba(255,255,255,0.15)' : 'linear-gradient(135deg,#F5D889,#E8A94A)',
+                color: loading ? '#fff' : '#1A1408', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                boxShadow: loading ? 'none' : '0 8px 20px rgba(232,169,74,0.3)',
               }}>
-                {loading && <div style={{ width:16, height:16, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+                {loading
+                  ? <div style={{ width:16, height:16, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                  : <>{tx.submit}<ChevronRight size={16}/></>
+                }
               </button>
-              <button type="button" onClick={() => setMode('signup')} style={{ position:'absolute', left:'79.5%', top:'77.6%', width:'19%', height:'2.8%', background:'none', border:'none', cursor:'pointer' }} aria-label="Kreye kont"/>
+
+              <p style={{ position:'absolute', left:'59.8%', top:'89.5%', width:'33%', textAlign:'center', color:'rgba(255,255,255,0.5)', fontSize:12, margin:0 }}>
+                Poko gen kont?{' '}
+                <button type="button" onClick={() => setMode('signup')} style={{ background:'none', border:'none', color:'#F5680C', fontWeight:700, fontSize:12, cursor:'pointer', padding:0 }}>Kreye youn</button>
+              </p>
             </form>
           </div>
 
-          {/* ═══ VÈSYON MOBIL — menm apwòch la, koòdone diferan ═══ */}
+          {/* ═══ VÈSYON MOBIL — imaj ak espas vid, fòm konplè ak lejand ═══ */}
           <div className="pg-bg-mobile" style={{ position:'relative', width:'100%', maxWidth:480, margin:'0 auto' }}>
             <img src={bgMobile} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <LangSwitcher top={10} right={10} compact/>
             <form onSubmit={handleSubmit(onSubmit)} style={{ position:'absolute', inset:0 }}>
-              <Building2 size={15} style={{ position:'absolute', left:'11.5%', top:'54.9%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-              <input type="text" placeholder={tx.slug}
+              <label style={{ position:'absolute', left:'9.1%', top:'56.5%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.slug.toUpperCase()}</label>
+              <Building2 size={15} style={{ position:'absolute', left:'11.5%', top:'60.7%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="text" placeholder="plus-store"
                 {...register('slug', { required: tx.slugRequired })}
-                style={{ ...ghostInp, left:'9.1%', top:'53%', width:'81.7%', height:'4.0%', fontSize:13.5, paddingLeft:36 }}
+                style={{ ...ghostInp, left:'9.1%', top:'58.7%', width:'81.7%', height:'4.0%', fontSize:14, paddingLeft:36 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <Mail size={15} style={{ position:'absolute', left:'11.5%', top:'60.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-              <input type="email" placeholder={tx.email}
+              {errors.slug && <p style={{ position:'absolute', left:'9.1%', top:'63%', color:'#FFB347', fontSize:10, margin:0 }}>{errors.slug.message}</p>}
+
+              <label style={{ position:'absolute', left:'9.1%', top:'65.5%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.email.toUpperCase()}</label>
+              <Mail size={15} style={{ position:'absolute', left:'11.5%', top:'69.7%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type="email" placeholder="ou@antrepriz.ht"
                 {...register('email', { required: tx.emailRequired, pattern:{ value:/^\S+@\S+$/, message: tx.emailInvalid } })}
-                style={{ ...ghostInp, left:'9.1%', top:'58.3%', width:'81.7%', height:'4.0%', fontSize:13.5, paddingLeft:36 }}
+                style={{ ...ghostInp, left:'9.1%', top:'67.7%', width:'81.7%', height:'4.0%', fontSize:14, paddingLeft:36 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <Lock size={15} style={{ position:'absolute', left:'11.5%', top:'65.6%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-              <input type={show ? 'text' : 'password'} placeholder={tx.password}
+
+              <label style={{ position:'absolute', left:'9.1%', top:'74.5%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.password.toUpperCase()}</label>
+              <Lock size={15} style={{ position:'absolute', left:'11.5%', top:'78.7%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type={show ? 'text' : 'password'} placeholder="••••••••"
                 {...register('password', { required: tx.passRequired })}
-                style={{ ...ghostInp, left:'9.1%', top:'63.6%', width:'81.7%', height:'4.0%', fontSize:13.5, paddingLeft:36, paddingRight:34 }}
+                style={{ ...ghostInp, left:'9.1%', top:'76.7%', width:'81.7%', height:'4.0%', fontSize:14, paddingLeft:36, paddingRight:34 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'88%', top:'65.6%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'88%', top:'78.7%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
                 {show ? <EyeOff size={15}/> : <Eye size={15}/>}
               </button>
-              {errors.slug && <p style={{ position:'absolute', left:'9.1%', top:'57.2%', color:'#FFB347', fontSize:9, margin:0 }}>{errors.slug.message}</p>}
-              <label style={{ position:'absolute', left:'9.1%', top:'74.2%', width:'5%', height:'1.7%', cursor:'pointer' }}>
-                <input type="checkbox" style={{ width:'100%', height:'100%', margin:0, accentColor:'#E8C468', cursor:'pointer', opacity:0.85 }}/>
+
+              <label style={{ position:'absolute', left:'9.1%', top:'83.3%', display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.65)', fontSize:12, cursor:'pointer' }}>
+                <input type="checkbox" style={{ width:14, height:14, margin:0, accentColor:'#E8C468', cursor:'pointer' }}/>
+                Sonje mwen
               </label>
-              <button type="button" style={{ position:'absolute', left:'62.2%', top:'73.6%', width:'28.6%', height:'2.6%', background:'none', border:'none', cursor:'pointer' }} aria-label={tx.forgot}/>
+              <button type="button" style={{ position:'absolute', left:'62%', top:'83.3%', width:'29%', background:'none', border:'none', color:'#E8C468', fontSize:12, cursor:'pointer', textAlign:'right', padding:0 }}>{tx.forgot}</button>
+
               <button type="submit" disabled={loading} style={{
-                position:'absolute', left:'9.1%', top:'79.1%', width:'81.7%', height:'5.0%',
-                background: loading ? 'rgba(0,0,0,0.25)' : 'transparent', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
-                display:'flex', alignItems:'center', justifyContent:'center',
+                position:'absolute', left:'9.1%', top:'87%', width:'81.7%', height:'5.5%', borderRadius:10,
+                background: loading ? 'rgba(255,255,255,0.15)' : 'linear-gradient(135deg,#F5D889,#E8A94A)',
+                color: loading ? '#fff' : '#1A1408', border:'none', cursor: loading ? 'not-allowed' : 'pointer',
+                fontWeight:800, fontSize:15, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                boxShadow: loading ? 'none' : '0 8px 20px rgba(232,169,74,0.3)',
               }}>
-                {loading && <div style={{ width:16, height:16, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>}
+                {loading
+                  ? <div style={{ width:18, height:18, border:'2px solid rgba(0,0,0,0.25)', borderTopColor:'#1A1408', borderRadius:'50%', animation:'spin 0.7s linear infinite' }}/>
+                  : <>{tx.submit}<ChevronRight size={17}/></>
+                }
               </button>
-              <button type="button" onClick={() => setMode('signup')} style={{ position:'absolute', left:'57.5%', top:'87.0%', width:'31%', height:'2.5%', background:'none', border:'none', cursor:'pointer' }} aria-label="Kreye kont"/>
+
+              <p style={{ position:'absolute', left:'9.1%', top:'93.5%', width:'81.7%', textAlign:'center', color:'rgba(255,255,255,0.5)', fontSize:13, margin:0 }}>
+                Poko gen kont?{' '}
+                <button type="button" onClick={() => setMode('signup')} style={{ background:'none', border:'none', color:'#F5680C', fontWeight:700, fontSize:13, cursor:'pointer', padding:0 }}>Kreye youn</button>
+              </p>
             </form>
           </div>
         </>
