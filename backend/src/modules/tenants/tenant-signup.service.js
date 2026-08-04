@@ -14,6 +14,16 @@ const bcrypt = require('bcryptjs')
 // Dwe rete SENKRONIZE ak PLUS_GROUP_BASE_MONTHLY nan admin.routes.js
 const PLUS_GROUP_BASE_MONTHLY = 2500
 
+// ⚠️ NOUVO — Chak plan gen pwòp entèval pri mansyèl akseptab. `max: null`
+// vle di pa gen limit anlè (egzanp: "5000 HTG ou plis" pou Antepriz).
+const PLAN_PRICE_RULES = {
+  'Estanda':  { min: 3000, max: null },
+  'Biznis':   { min: 3500, max: 4500 },
+  'Premyum':  { min: 4000, max: null },
+  'Antepriz': { min: 5000, max: null },
+}
+const DEFAULT_PRICE_RULE = { min: PLUS_GROUP_BASE_MONTHLY, max: null }
+
 // Dwe rete SENKRONIZE ak ALL_PAGES nan admin.routes.js
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
@@ -43,16 +53,6 @@ const createPendingTenant = async (data, source) => {
   if (adminPassword.length < 6) {
     throw Object.assign(new Error('Modpas la dwe gen omwen 6 karaktè.'), { statusCode: 400 })
   }
-  // ⚠️ NOUVO — Montan mansyèl la antre MANYÈLMAN pa ajan an oswa antrepriz
-  // la (pa gen pri fiks). Sèl règ la: li pa ka pi piti pase planche Plus
-  // Group la (PLUS_GROUP_BASE_MONTHLY).
-  const cleanMonthlyPrice = Math.round(Number(monthlyPrice))
-  if (!cleanMonthlyPrice || cleanMonthlyPrice < PLUS_GROUP_BASE_MONTHLY) {
-    throw Object.assign(
-      new Error(`Montan mansyèl la obligatwa e li pa ka pi piti pase ${PLUS_GROUP_BASE_MONTHLY} HTG.`),
-      { statusCode: 400 }
-    )
-  }
 
   const cleanSlug = slug.toLowerCase().trim().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '')
   if (!cleanSlug) {
@@ -77,14 +77,27 @@ const createPendingTenant = async (data, source) => {
     throw Object.assign(new Error('Yon kont deja egziste ak imèl sa a.'), { statusCode: 409 })
   }
 
-  // ⚠️ Plan chwazi a sèvi SÈLMAN pou detèmine kategori/karakteristik
-  // (maxUsers, maxBranches...) — pa pou pri a, ki antre manyèlman kounye a.
+  // ⚠️ Plan chwazi a — dwe konnen l ANVAN nou valide pri a, paske chak
+  // plan gen pwòp entèval pri (min/max) pa li.
   let plan
   if (planId) {
     plan = await prisma.subscriptionPlan.findFirst({ where: { id: planId, isActive: true } })
     if (!plan) throw Object.assign(new Error('Plan chwazi a pa valid.'), { statusCode: 400 })
   } else {
     plan = await prisma.subscriptionPlan.findFirst({ where: { isActive: true }, orderBy: { priceMonthly: 'asc' } })
+  }
+
+  // ⚠️ NOUVO — Montan mansyèl la antre MANYÈLMAN, men li dwe respekte
+  // entèval pri PWÒP PLAN chwazi a (Estanda ≥3000, Biznis 3500-4500,
+  // Premyum ≥4000, Antepriz ≥5000).
+  const rule = PLAN_PRICE_RULES[plan?.name] || DEFAULT_PRICE_RULE
+  const cleanMonthlyPrice = Math.round(Number(monthlyPrice))
+  if (!cleanMonthlyPrice || cleanMonthlyPrice < rule.min || (rule.max && cleanMonthlyPrice > rule.max)) {
+    const rangeMsg = rule.max ? `ant ${rule.min} ak ${rule.max} HTG` : `omwen ${rule.min} HTG`
+    throw Object.assign(
+      new Error(`Pou plan "${plan?.name}", montan mansyèl la dwe ${rangeMsg}.`),
+      { statusCode: 400 }
+    )
   }
 
   // ⚠️ Esè: YON MWA (pa 8 jou) — apre sa, tenant lan bloke si li pa peye

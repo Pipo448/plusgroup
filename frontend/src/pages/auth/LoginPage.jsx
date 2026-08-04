@@ -15,6 +15,13 @@ import { saveOfflineCredentials, tryOfflineLogin } from '../../services/offlineA
 // ✅ KOREKSYON: fichye yo nan /public/assets/ — pa itilize import
 // Vite pa konpile fichye public — yo aksesib dirèkteman kòm URL string
 const bannerImg = '/assets/banner.webp'
+// ⚠️ Dwe rete SENKRONIZE ak PLAN_PRICE_RULES nan tenant-signup.service.js
+const PLAN_PRICE_RULES = {
+  'Estanda':  { min: 3000, max: null },
+  'Biznis':   { min: 3500, max: 4500 },
+  'Premyum':  { min: 4000, max: null },
+  'Antepriz': { min: 5000, max: null },
+}
 // ⚠️ NOUVO — Imaj antye (san koupe) pou vèsyon desktop ak mobil paj Login la
 // -v2 nan non an FÒSE navigatè a telechaje yon nouvo kopi (evite vye imaj ki
 // te rete "kolan" nan cache — menm pwoblèm nou te gen ak fichye JS anvan)
@@ -193,6 +200,13 @@ export default function LoginPage() {
   // ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik, mande kòd pwomo ajan valid)
   const onSignupSubmit = async (data) => {
     if (!selectedPlanId) return toast.error('Chwazi yon plan.')
+    const selectedPlan = plans.find(p => p.id === selectedPlanId)
+    const rule = PLAN_PRICE_RULES[selectedPlan?.name] || { min: 2500, max: null }
+    const priceNum = Number(data.monthlyPrice)
+    if (!priceNum || priceNum < rule.min || (rule.max && priceNum > rule.max)) {
+      const rangeMsg = rule.max ? `ant ${rule.min} ak ${rule.max} HTG` : `omwen ${rule.min} HTG`
+      return toast.error(`Pou plan "${selectedPlan?.name}", montan an dwe ${rangeMsg}.`)
+    }
     setSignupLoading(true)
     try {
       const cleanSlug = (data.slug || data.name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -512,17 +526,24 @@ export default function LoginPage() {
                   )}
                 </div>
 
-                <div>
-                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:6 }}>MONTAN MANSYÈL (HTG) *</label>
-                  <input type="number" min={2500} placeholder="Egzanp: 3500"
-                    {...registerS('monthlyPrice', { required: true, min: 2500 })}
-                    style={inp}
-                    onFocus={focusGold}
-                    onBlur={blurGold}
-                  />
-                  {errorsS.monthlyPrice && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>Montan an obligatwa, minimòm 2,500 HTG</p>}
-                  <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>Montan negosye ant ou/ajan an ak antrepriz la</p>
-                </div>
+                {(() => {
+                  const selectedPlan = plans.find(p => p.id === selectedPlanId)
+                  const rule = PLAN_PRICE_RULES[selectedPlan?.name] || { min: 2500, max: null }
+                  const rangeText = rule.max ? `ant ${rule.min.toLocaleString()} ak ${rule.max.toLocaleString()} HTG` : `omwen ${rule.min.toLocaleString()} HTG`
+                  return (
+                    <div>
+                      <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:6 }}>MONTAN MANSYÈL (HTG) *</label>
+                      <input type="number" min={rule.min} max={rule.max || undefined} placeholder={`Egzanp: ${rule.min}`}
+                        {...registerS('monthlyPrice', { required: true, min: rule.min, max: rule.max || undefined })}
+                        style={inp}
+                        onFocus={focusGold}
+                        onBlur={blurGold}
+                      />
+                      {errorsS.monthlyPrice && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>Montan an obligatwa, {rangeText}</p>}
+                      <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>Pou plan "{selectedPlan?.name || '...'}" — {rangeText}</p>
+                    </div>
+                  )
+                })()}
 
                 <div style={{ borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:12, marginTop:2 }}>
                   <p style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.55)', margin:'0 0 10px', textTransform:'uppercase', letterSpacing:'0.06em' }}>Kont Administratè</p>

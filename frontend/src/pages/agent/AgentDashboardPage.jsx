@@ -8,6 +8,14 @@ import PromoCarousel from '../../components/agent/PromoCarousel'
 
 const LOGO_URL = '/assets/logo.webp'
 
+// ⚠️ Dwe rete SENKRONIZE ak PLAN_PRICE_RULES nan tenant-signup.service.js
+const PLAN_PRICE_RULES = {
+  'Estanda':  { min: 3000, max: null },
+  'Biznis':   { min: 3500, max: 4500 },
+  'Premyum':  { min: 4000, max: null },
+  'Antepriz': { min: 5000, max: null },
+}
+
 const C = {
   navy: '#0F172A', orange: '#F97316', orangeDark: '#EA580C', orangeLight: '#FDBA74',
   white: '#FFFFFF', bg: '#F1F5F9', blue: '#2563EB', green: '#16A34A', danger: '#EF4444',
@@ -225,7 +233,13 @@ function CreateTenantModal({ agent, onClose }) {
     if (!form.adminEmail.trim() || !form.adminPassword.trim()) return toast.error('Imèl ak modpas administratè a obligatwa.')
     if (form.adminPassword.length < 6) return toast.error('Modpas la dwe gen omwen 6 karaktè.')
     if (!form.planId) return toast.error('Chwazi yon plan.')
-    if (!form.monthlyPrice || Number(form.monthlyPrice) < 2500) return toast.error('Montan mansyèl la obligatwa, minimòm 2,500 HTG.')
+    const selectedPlan = plans.find(p => p.id === form.planId)
+    const rule = PLAN_PRICE_RULES[selectedPlan?.name] || { min: 2500, max: null }
+    const priceNum = Number(form.monthlyPrice)
+    if (!priceNum || priceNum < rule.min || (rule.max && priceNum > rule.max)) {
+      const rangeMsg = rule.max ? `ant ${rule.min} ak ${rule.max} HTG` : `omwen ${rule.min} HTG`
+      return toast.error(`Pou plan "${selectedPlan?.name}", montan an dwe ${rangeMsg}.`)
+    }
 
     setSaving(true)
     try {
@@ -312,11 +326,18 @@ function CreateTenantModal({ agent, onClose }) {
             )}
           </div>
 
-          <div>
-            <label style={labelStyle}>MONTAN MANSYÈL (HTG) *</label>
-            <input type="number" min={2500} value={form.monthlyPrice} onChange={e => set('monthlyPrice', e.target.value)} style={inputStyle} placeholder="Egzanp: 3500" />
-            <p style={{ color: C.textMuted, fontSize: 10.5, margin: '4px 0 0' }}>Montan ou negosye ak kliyan an (minimòm 2,500 HTG)</p>
-          </div>
+          {(() => {
+            const selectedPlan = plans.find(p => p.id === form.planId)
+            const rule = PLAN_PRICE_RULES[selectedPlan?.name] || { min: 2500, max: null }
+            const rangeText = rule.max ? `ant ${rule.min.toLocaleString()} ak ${rule.max.toLocaleString()} HTG` : `omwen ${rule.min.toLocaleString()} HTG`
+            return (
+              <div>
+                <label style={labelStyle}>MONTAN MANSYÈL (HTG) *</label>
+                <input type="number" min={rule.min} max={rule.max || undefined} value={form.monthlyPrice} onChange={e => set('monthlyPrice', e.target.value)} style={inputStyle} placeholder={`Egzanp: ${rule.min}`} />
+                <p style={{ color: C.textMuted, fontSize: 10.5, margin: '4px 0 0' }}>Pou plan "{selectedPlan?.name || '...'}" — {rangeText}</p>
+              </div>
+            )
+          })()}
 
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Kont Administratè Kliyan An</p>
