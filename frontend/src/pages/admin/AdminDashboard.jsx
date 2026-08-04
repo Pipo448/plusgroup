@@ -1562,11 +1562,19 @@ const SolManagerModal = ({ tenant, onClose }) => {
 // ══════════════════════════════════════════════
 // TENANT CARD — MOBIL
 // ══════════════════════════════════════════════
-const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onResetPwd, onBranch, onPages, onAudit, onSavePrice, onSol, monthlyPrice }) => {
+const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onResetPwd, onBranch, onPages, onAudit, onSavePrice, onSol, onApprove, onReject, monthlyPrice }) => {
   const { label, isExpired, isWarning, daysLeft } = getSubscriptionStatus(t.subscriptionEndsAt)
   const ss = STATUS_STYLES[t.status] || STATUS_STYLES.pending
   return (
-    <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:16, padding:16, marginBottom:10 }}>
+    <div style={{ background: t.pendingApproval ? 'rgba(245,158,11,0.05)' : 'rgba(255,255,255,0.03)', border: t.pendingApproval ? '1.5px solid rgba(245,158,11,0.35)' : '1px solid rgba(201,168,76,0.1)', borderRadius:16, padding:16, marginBottom:10 }}>
+      {t.pendingApproval && (
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:10, padding:'6px 10px', borderRadius:8, background:'rgba(245,158,11,0.12)' }}>
+          <Clock size={12} style={{ color:'#f59e0b' }}/>
+          <span style={{ color:'#f59e0b', fontSize:11, fontWeight:800 }}>
+            AN ATANT APWOBASYON {t.signupSource === 'agent' ? '· pa yon ajan' : t.signupSource === 'self' ? '· enskripsyon otonòm' : ''}
+          </span>
+        </div>
+      )}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
           <div style={{ width:40, height:40, borderRadius:12, background:'linear-gradient(135deg, #8B0000, #C9A84C)', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:16, fontWeight:800, flexShrink:0 }}>{t.name.charAt(0).toUpperCase()}</div>
@@ -1595,6 +1603,12 @@ const TenantCard = ({ t, onRenew, onChangePlan, onToggleStatus, onDelete, onRese
         <PriceEditor tenantId={t.id} currentPrice={monthlyPrice} onSave={onSavePrice} small/>
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:6 }}>
+        {t.pendingApproval && (
+          <>
+            <button onClick={() => onApprove(t.id)} style={{ gridColumn:'1/-1', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:8, background:'linear-gradient(135deg,#27ae60,#1e8449)', border:'none', color:'#fff', cursor:'pointer', fontSize:12.5, fontWeight:800 }}><CheckCircle size={13}/> Apwouve Antrepriz Sa a</button>
+            <button onClick={() => onReject(t.id)} style={{ gridColumn:'1/-1', display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'8px', borderRadius:8, background:'transparent', border:'1px solid rgba(192,57,43,0.3)', color:'rgba(192,57,43,0.85)', cursor:'pointer', fontSize:11.5, fontWeight:700 }}><XCircle size={12}/> Rejte e Siprime</button>
+          </>
+        )}
         <button onClick={() => onRenew(t)}
           style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(39,174,96,0.1)', border:'1px solid rgba(39,174,96,0.25)', color:'#27ae60', cursor:'pointer', fontSize:12, fontWeight:700 }}>↻ Ekspirasyon</button>
         <button onClick={() => onChangePlan(t)} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, padding:'9px', borderRadius:8, background:'rgba(201,168,76,0.1)', border:'1px solid rgba(201,168,76,0.25)', color:'#C9A84C', cursor:'pointer', fontSize:12, fontWeight:700 }}><Crown size={12}/> Plan</button>
@@ -1700,6 +1714,17 @@ export default function AdminDashboard() {
     mutationFn: ({id, days}) => adminApi.post(`/admin/tenants/${id}/extend-grace`, { days }),
     onSuccess: (res) => { toast.success(res.data.message); invalidateAll(); setRenewModalTenant(null) },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.')
+  })
+  // ⚠️ NOUVO — Apwobasyon tenant ki enskri tèt yo (piblik oswa pa ajan)
+  const approveMutation = useMutation({
+    mutationFn: ({id, monthlyPrice}) => adminApi.post(`/admin/tenants/${id}/approve`, { monthlyPrice }),
+    onSuccess: (res) => { toast.success(res.data.message); invalidateAll() },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè apwobasyon.')
+  })
+  const rejectMutation = useMutation({
+    mutationFn: (id) => adminApi.post(`/admin/tenants/${id}/reject`),
+    onSuccess: (res) => { toast.success(res.data.message); invalidateAll() },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè rejè.')
   })
   const [renewModalTenant, setRenewModalTenant] = useState(null) // ⚠️ NOUVO
 
@@ -1907,6 +1932,8 @@ export default function AdminDashboard() {
                       onPages={(t) => loadPages(t)}
                       onAudit={(t) => setAuditViewT(t)}
                       onSol={(t) => setSolViewT(t)}
+                      onApprove={(id) => approveMutation.mutate({ id })}
+                      onReject={(id) => { if (window.confirm('Rejte e siprime demann sa a nèt?')) rejectMutation.mutate(id) }}
                       onSavePrice={saveMonthlyPrice}/>
                   ))
               }

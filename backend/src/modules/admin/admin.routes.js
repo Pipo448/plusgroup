@@ -246,6 +246,8 @@ router.get('/tenants', asyncHandler(async (req, res) => {
         status: true, subscriptionEndsAt: true, createdAt: true, updatedAt: true,
         defaultCurrency: true, defaultLanguage: true,
         monthlyPrice: true,
+        // ⚠️ NOUVO — enskripsyon otonòm an atant apwobasyon
+        pendingApproval: true, signupSource: true, approvedAt: true, agentId: true,
         plan: { select: { id: true, name: true, features: true, priceMonthly: true, maxBranches: true } },
         branches: { select: { id: true, name: true, slug: true, isActive: true, createdAt: true } },
         _count: { select: { users: true, products: true, invoices: true, branches: true } }
@@ -474,6 +476,34 @@ router.patch('/tenants/:id/plan', asyncHandler(async (req, res) => {
   })
 
   res.json({ success: true, tenant, message: `Plan "${planExists.name}" asiye bay ${tenant.name}.` })
+}))
+
+// ⚠️ NOUVO — POST /api/v1/admin/tenants/:id/approve
+// Apwouve yon tenant ki enskri tèt li (piblik oswa pa yon ajan). Super
+// Admin ka ajiste pri mansyèl la an menm tan (sa ki detèmine komisyon ajan an).
+router.post('/tenants/:id/approve', asyncHandler(async (req, res) => {
+  const { approveTenant } = require('../tenants/tenant-signup.service')
+  try {
+    const tenant = await approveTenant(req.params.id, { monthlyPrice: req.body.monthlyPrice })
+    await logAudit(req.params.id, 'TENANT_APPROVED', null, tenant.name, { monthlyPrice: tenant.monthlyPrice })
+    res.json({ success: true, tenant, message: `"${tenant.name}" apwouve — kliyan an ka itilize sistèm nan kounye a.` })
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ success: false, message: e.message })
+  }
+}))
+
+// ⚠️ NOUVO — POST /api/v1/admin/tenants/:id/reject
+// Rejte yon tenant an atant — siprime l nèt (li pa t janm reyèlman aktif).
+router.post('/tenants/:id/reject', asyncHandler(async (req, res) => {
+  const { rejectTenant } = require('../tenants/tenant-signup.service')
+  try {
+    const tenantBefore = await prisma.tenant.findUnique({ where: { id: req.params.id }, select: { name: true } })
+    await rejectTenant(req.params.id)
+    await logAudit(req.params.id, 'TENANT_REJECTED', null, tenantBefore?.name, {})
+    res.json({ success: true, message: 'Demann lan rejte e siprime.' })
+  } catch (e) {
+    res.status(e.statusCode || 500).json({ success: false, message: e.message })
+  }
 }))
 
 // ── POST /api/v1/admin/tenants/:id/renew

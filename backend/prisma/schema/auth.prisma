@@ -201,6 +201,11 @@ model Tenant {
   allowedPages         Json?                 @default("{}") @map("allowed_pages")
   monthlyPrice         Int                   @default(0) @map("monthly_price")
   agentId              String?               @map("agent_id")
+  // ⚠️ NOUVO — Enskripsyon otonòm (piblik oswa pa yon ajan), an atant apwobasyon Super Admin
+  pendingApproval      Boolean               @default(false) @map("pending_approval")
+  signupSource         String?               @map("signup_source") @db.VarChar(20) // 'self' | 'agent' | null (kreye pa admin)
+  approvedAt           DateTime?             @map("approved_at")
+  approvedBy           String?               @map("approved_by")
 
   // ─── Relations ───────────────────────────────────────────────
   creator              SuperAdmin?           @relation(fields: [createdBy], references: [id])

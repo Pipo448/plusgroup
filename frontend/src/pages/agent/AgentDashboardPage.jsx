@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Trophy, Copy, LogOut, Building2, Wallet, Clock, TrendingUp } from 'lucide-react'
+import { Trophy, Copy, LogOut, Building2, Wallet, Clock, TrendingUp, Plus, X } from 'lucide-react'
 import { agentApi, clearAgent } from '../../services/agentApi'
 import PromoCarousel from '../../components/agent/PromoCarousel'
 
@@ -28,6 +28,7 @@ export default function AgentDashboardPage() {
   const navigate = useNavigate()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showCreateTenant, setShowCreateTenant] = useState(false)
 
   useEffect(() => {
     agentApi.get('/agents/dashboard')
@@ -72,9 +73,14 @@ export default function AgentDashboardPage() {
             <p style={{ color: C.textMuted, fontSize: 11, margin: '2px 0 0' }}>{agent.city}</p>
           </div>
         </div>
-        <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 14px', color: C.textMuted, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
-          <LogOut size={14} /> Dekonekte
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setShowCreateTenant(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: `linear-gradient(135deg, ${C.orange}, ${C.orangeDark})`, border: 'none', borderRadius: 8, padding: '8px 14px', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+            <Plus size={14} /> Kreye Antrepriz
+          </button>
+          <button onClick={handleLogout} style={{ display: 'flex', alignItems: 'center', gap: 6, background: C.bg, border: `1px solid ${C.border}`, borderRadius: 8, padding: '8px 14px', color: C.textMuted, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
+            <LogOut size={14} /> Dekonekte
+          </button>
+        </div>
       </header>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -185,6 +191,112 @@ export default function AgentDashboardPage() {
               ))}
             </div>
           )}
+        </div>
+      </div>
+      {showCreateTenant && (
+        <CreateTenantModal agent={agent} onClose={() => setShowCreateTenant(false)} />
+      )}
+    </div>
+  )
+}
+
+/* ─── MODAL KREYE ANTREPRIZ (pou kliyan ajan an mennen) ─── */
+function CreateTenantModal({ agent, onClose }) {
+  const [form, setForm] = useState({
+    name: '', slug: '', email: '', phone: '', address: '',
+    adminName: '', adminEmail: '', adminPassword: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const suggestSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+  const handleSave = async () => {
+    if (!form.name.trim()) return toast.error('Non antrepriz la obligatwa.')
+    if (!form.adminEmail.trim() || !form.adminPassword.trim()) return toast.error('Imèl ak modpas administratè a obligatwa.')
+    if (form.adminPassword.length < 6) return toast.error('Modpas la dwe gen omwen 6 karaktè.')
+
+    setSaving(true)
+    try {
+      const res = await agentApi.post('/agents/tenant-requests', {
+        ...form,
+        slug: form.slug.trim() || suggestSlug(form.name),
+      })
+      toast.success(res.data.message || 'Demann voye avèk siksè!')
+      onClose()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erè kreye antrepriz la.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', borderRadius: 8, boxSizing: 'border-box',
+    background: C.white, border: `1.5px solid ${C.border}`, color: C.navy, fontSize: 13, outline: 'none', fontFamily: 'inherit',
+  }
+  const labelStyle = { display: 'block', fontSize: 11, fontWeight: 700, color: C.navy, marginBottom: 5 }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16, backdropFilter: 'blur(3px)' }}>
+      <div style={{ background: C.white, borderRadius: 18, width: '100%', maxWidth: 460, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+        <div style={{ padding: '18px 22px', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.navy }}>Kreye Antrepriz</h3>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: C.textMuted }}>Esè yon mwa kòmanse imedyatman — Plus Group ap konfime kont lan talè</p>
+          </div>
+          <button onClick={onClose} style={{ background: C.bg, border: 'none', width: 30, height: 30, borderRadius: 8, cursor: 'pointer', color: C.textMuted }}><X size={15} /></button>
+        </div>
+
+        <div style={{ overflowY: 'auto', padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: '#FFF7ED', border: `1px solid ${C.orangeLight}`, borderRadius: 10, padding: '9px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, color: C.textMuted, fontWeight: 600 }}>KÒD PWOMO OU</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 800, color: C.orangeDark, fontSize: 13 }}>{agent.promoCode}</span>
+          </div>
+
+          <div>
+            <label style={labelStyle}>NON ANTREPRIZ *</label>
+            <input value={form.name} onChange={e => set('name', e.target.value)} style={inputStyle} placeholder="Boutik Marie" />
+          </div>
+          <div>
+            <label style={labelStyle}>IMÈL ANTREPRIZ</label>
+            <input value={form.email} onChange={e => set('email', e.target.value)} style={inputStyle} placeholder="kontak@antrepriz.com" />
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>TELEFÒN</label>
+              <input value={form.phone} onChange={e => set('phone', e.target.value)} style={inputStyle} placeholder="+509 XXXX XXXX" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>ADRÈS</label>
+              <input value={form.address} onChange={e => set('address', e.target.value)} style={inputStyle} placeholder="Vil, Depatman" />
+            </div>
+          </div>
+
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Kont Administratè Kliyan An</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <label style={labelStyle}>NON ADMINISTRATÈ</label>
+                <input value={form.adminName} onChange={e => set('adminName', e.target.value)} style={inputStyle} placeholder="Marie Jean" />
+              </div>
+              <div>
+                <label style={labelStyle}>IMÈL KONEKSYON *</label>
+                <input value={form.adminEmail} onChange={e => set('adminEmail', e.target.value)} style={inputStyle} placeholder="marie@antrepriz.com" />
+              </div>
+              <div>
+                <label style={labelStyle}>MODPAS *</label>
+                <input type="password" value={form.adminPassword} onChange={e => set('adminPassword', e.target.value)} style={inputStyle} placeholder="Omwen 6 karaktè" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '14px 22px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.textMuted, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>Anile</button>
+          <button onClick={handleSave} disabled={saving} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: `linear-gradient(135deg, ${C.orange}, ${C.orangeDark})`, color: '#fff', cursor: 'pointer', fontWeight: 800, fontSize: 13 }}>
+            {saving ? 'Ap voye...' : 'Kreye Antrepriz'}
+          </button>
         </div>
       </div>
     </div>

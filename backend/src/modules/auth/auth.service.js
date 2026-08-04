@@ -45,6 +45,7 @@ const login = async (tenantId, email, password) => {
         visibleCurrencies: true, showExchangeRate: true, showQrCode: true,
         taxRate: true, receiptSize: true, subscriptionEndsAt: true,
         allowedPages: true, // ✅ KRITIK — pou sidebar fonksyone
+        pendingApproval: true, // ⚠️ NOUVO — bloke koneksyon si an atant apwobasyon
         plan: {
           select: {
             id: true, name: true, features: true,
@@ -65,6 +66,16 @@ const login = async (tenantId, email, password) => {
       }
     })
   ]);
+
+  // ⚠️ NOUVO — Tenant ki soti nan yon enskripsyon otonòm (piblik oswa pa
+  // yon ajan) rete BLOKE jiskaske Super Admin apwouve l, menm si idantifyan
+  // yo kòrèk e esè a deja kòmanse ap konte.
+  if (tenant?.pendingApproval) {
+    throw Object.assign(
+      new Error('Kont antrepriz ou a an atant apwobasyon Plus Group. Y ap konfime l talè — eseye ankò nan kèk minit.'),
+      { statusCode: 403 }
+    );
+  }
 
   const token = generateToken(user.id, tenantId, user.role);
 

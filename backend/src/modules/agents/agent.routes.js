@@ -277,6 +277,23 @@ router.get('/me', asyncHandler(async (req, res) => {
   res.json({ success: true, agent: req.agent })
 }))
 
+// ⚠️ NOUVO — POST /agents/tenant-requests — Ajan kreye yon antrepriz pou
+// yon kliyan li mennen. Menm règ ak enskripsyon piblik la (esè yon mwa,
+// an atant apwobasyon Super Admin), men kòd pwomo a se OTOMATIKMAN pa
+// ajan konekte a — pa gen dwa antre yon lòt kòd.
+router.post('/tenant-requests', asyncHandler(async (req, res) => {
+  const { createPendingTenant } = require('../tenants/tenant-signup.service')
+  const tenant = await createPendingTenant(
+    { ...req.body, promoCode: req.agent.promoCode },
+    'agent'
+  )
+  res.status(201).json({
+    success: true,
+    message: `Demann kreye pou "${tenant.name}"! Esè yon mwa a kòmanse. Super Admin ap konfime l talè.`,
+    tenantId: tenant.id,
+  })
+}))
+
 // ── GET /agents/dashboard — pwofi konplè: tenant yo mennen, komisyon, klasman
 router.get('/dashboard', asyncHandler(async (req, res) => {
   const [tenants, commissions] = await Promise.all([
