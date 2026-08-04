@@ -358,10 +358,10 @@ export default function LoginPage() {
               <Lock size={15} style={{ position:'absolute', left:'11.5%', top:'78.7%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
               <input type={show ? 'text' : 'password'} placeholder="••••••••"
                 {...register('password', { required: tx.passRequired })}
-                style={{ ...ghostInp, left:'9.1%', top:'76.7%', width:'81.7%', height:'4.0%', fontSize:14, paddingLeft:36, paddingRight:34 }}
+                style={{ ...ghostInp, left:'9.1%', top:'76.7%', width:'81.7%', height:'4.0%', fontSize:14, paddingLeft:36, paddingRight:40 }}
                 onFocus={ghostFocus} onBlur={ghostBlur}
               />
-              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'88%', top:'78.7%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'85%', top:'78.7%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
                 {show ? <EyeOff size={15}/> : <Eye size={15}/>}
               </button>
 
