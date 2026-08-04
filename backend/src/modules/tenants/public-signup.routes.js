@@ -1,8 +1,20 @@
 // src/modules/tenants/public-signup.routes.js
 const express = require('express')
 const router  = express.Router()
+const prisma  = require('../../config/prisma')
 const { asyncHandler } = require('../../middleware/errorHandler')
 const { createPendingTenant } = require('./tenant-signup.service')
+
+// ── GET /api/v1/public/plans — lis plan aktif yo (piblik, san auth,
+// pou fòm enskripsyon otonòm lan ka montre chwa plan)
+router.get('/plans', asyncHandler(async (req, res) => {
+  const plans = await prisma.subscriptionPlan.findMany({
+    where: { isActive: true },
+    orderBy: { priceMonthly: 'asc' },
+    select: { id: true, name: true, priceMonthly: true, maxUsers: true, maxProducts: true, maxBranches: true, features: true }
+  })
+  res.json({ success: true, plans })
+}))
 
 // ── POST /api/v1/public/tenant-signup — Antrepriz enskri tèt li
 // Piblik (san otantifikasyon), men mande yon kòd pwomo ajan valid.

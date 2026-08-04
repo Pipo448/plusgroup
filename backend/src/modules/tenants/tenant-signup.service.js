@@ -29,7 +29,7 @@ const LOCKED_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboa
  * @param {'self'|'agent'} source
  */
 const createPendingTenant = async (data, source) => {
-  const { name, slug, email, phone, address, promoCode, adminEmail, adminPassword, adminName } = data
+  const { name, slug, email, phone, address, promoCode, adminEmail, adminPassword, adminName, planId } = data
 
   if (!name || !slug) {
     throw Object.assign(new Error('Non antrepriz ak slug obligatwa.'), { statusCode: 400 })
@@ -67,6 +67,16 @@ const createPendingTenant = async (data, source) => {
     throw Object.assign(new Error('Yon kont deja egziste ak imèl sa a.'), { statusCode: 409 })
   }
 
+  // ⚠️ NOUVO — Plan chwazi a. Si klyan an pa chwazi youn, sèvi ak plan ki pi bon
+  // mache a (default rezonab) pou pa bloke enskripsyon an.
+  let plan
+  if (planId) {
+    plan = await prisma.subscriptionPlan.findFirst({ where: { id: planId, isActive: true } })
+    if (!plan) throw Object.assign(new Error('Plan chwazi a pa valid.'), { statusCode: 400 })
+  } else {
+    plan = await prisma.subscriptionPlan.findFirst({ where: { isActive: true }, orderBy: { priceMonthly: 'asc' } })
+  }
+
   // ⚠️ Esè: YON MWA (pa 8 jou) — apre sa, tenant lan bloke si li pa peye
   const subscriptionEndsAt = new Date()
   subscriptionEndsAt.setMonth(subscriptionEndsAt.getMonth() + 1)
@@ -81,7 +91,8 @@ const createPendingTenant = async (data, source) => {
       status: 'trial',
       subscriptionEndsAt,
       agentId: agent.id,
-      monthlyPrice: PLUS_GROUP_BASE_MONTHLY,
+      planId: plan?.id || null,
+      monthlyPrice: plan?.priceMonthly || PLUS_GROUP_BASE_MONTHLY,
       pendingApproval: true,
       signupSource: source,
       allowedPages: LOCKED_PAGES,

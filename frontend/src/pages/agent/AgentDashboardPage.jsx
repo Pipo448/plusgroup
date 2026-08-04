@@ -204,10 +204,19 @@ export default function AgentDashboardPage() {
 function CreateTenantModal({ agent, onClose }) {
   const [form, setForm] = useState({
     name: '', slug: '', email: '', phone: '', address: '',
-    adminName: '', adminEmail: '', adminPassword: '',
+    adminName: '', adminEmail: '', adminPassword: '', planId: null,
   })
   const [saving, setSaving] = useState(false)
+  const [plans, setPlans] = useState([])
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    agentApi.get('/public/plans').then(res => {
+      const list = res.data.plans || []
+      setPlans(list)
+      if (list.length) set('planId', list[0].id)
+    }).catch(() => {})
+  }, [])
 
   const suggestSlug = (name) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
 
@@ -215,6 +224,7 @@ function CreateTenantModal({ agent, onClose }) {
     if (!form.name.trim()) return toast.error('Non antrepriz la obligatwa.')
     if (!form.adminEmail.trim() || !form.adminPassword.trim()) return toast.error('Imèl ak modpas administratè a obligatwa.')
     if (form.adminPassword.length < 6) return toast.error('Modpas la dwe gen omwen 6 karaktè.')
+    if (!form.planId) return toast.error('Chwazi yon plan.')
 
     setSaving(true)
     try {
@@ -276,6 +286,29 @@ function CreateTenantModal({ agent, onClose }) {
               <label style={labelStyle}>ADRÈS</label>
               <input value={form.address} onChange={e => set('address', e.target.value)} style={inputStyle} placeholder="Vil, Depatman" />
             </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>CHWAZI YON PLAN *</label>
+            {plans.length === 0 ? (
+              <p style={{ color: C.textMuted, fontSize: 12 }}>Ap chaje plan yo...</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {plans.map(p => {
+                  const active = p.id === form.planId
+                  return (
+                    <button key={p.id} type="button" onClick={() => set('planId', p.id)} style={{
+                      textAlign: 'left', padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                      border: active ? `1.5px solid ${C.orange}` : `1.5px solid ${C.border}`,
+                      background: active ? '#FFF7ED' : C.white,
+                    }}>
+                      <div style={{ color: active ? C.orangeDark : C.navy, fontWeight: 800, fontSize: 13 }}>{p.name}</div>
+                      <div style={{ color: C.textMuted, fontSize: 11, marginTop: 2 }}>{Number(p.priceMonthly).toLocaleString()} HTG/mwa</div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
 
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12, marginTop: 4 }}>

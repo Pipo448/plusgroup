@@ -49,6 +49,19 @@ export default function LoginPage() {
   // ⚠️ NOUVO — Enskripsyon otonòm (antrepriz ka enskri tèt yo, mande kòd pwomo ajan)
   const [mode, setMode]           = useState('login') // 'login' | 'signup'
   const [signupLoading, setSignupLoading] = useState(false)
+  // ⚠️ NOUVO — Lis plan disponib yo, ak plan chwazi a nan fòm enskripsyon an
+  const [plans, setPlans] = useState([])
+  const [selectedPlanId, setSelectedPlanId] = useState(null)
+
+  useEffect(() => {
+    if (mode === 'signup' && plans.length === 0) {
+      api.get('/public/plans').then(res => {
+        const list = res.data.plans || []
+        setPlans(list)
+        if (list.length && !selectedPlanId) setSelectedPlanId(list[0].id)
+      }).catch(() => {})
+    }
+  }, [mode])
   const {
     register: registerS, handleSubmit: handleSubmitS,
     formState: { errors: errorsS }, watch: watchS, reset: resetS,
@@ -177,6 +190,7 @@ export default function LoginPage() {
 
   // ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik, mande kòd pwomo ajan valid)
   const onSignupSubmit = async (data) => {
+    if (!selectedPlanId) return toast.error('Chwazi yon plan.')
     setSignupLoading(true)
     try {
       const cleanSlug = (data.slug || data.name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
@@ -187,6 +201,7 @@ export default function LoginPage() {
         phone: data.phone || null,
         address: data.address || null,
         promoCode: data.promoCode.trim(),
+        planId: selectedPlanId,
         adminName: data.adminName || null,
         adminEmail: data.adminEmail.trim(),
         adminPassword: data.adminPassword,
@@ -470,6 +485,29 @@ export default function LoginPage() {
                   />
                   {errorsS.promoCode && <p style={{ color:'#FFB347', fontSize:11, margin:'4px 0 0' }}>Kòd pwomo yon ajan obligatwa</p>}
                   <p style={{ color:'rgba(255,255,255,0.4)', fontSize:11, margin:'4px 0 0' }}>Mande kòd sa a nan men ajan ki envite w la</p>
+                </div>
+
+                <div>
+                  <label style={{ display:'block', color:'rgba(255,255,255,0.8)', fontSize:12, fontWeight:700, marginBottom:8 }}>CHWAZI YON PLAN *</label>
+                  {plans.length === 0 ? (
+                    <p style={{ color:'rgba(255,255,255,0.4)', fontSize:12 }}>Ap chaje plan yo...</p>
+                  ) : (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                      {plans.map(p => {
+                        const active = p.id === selectedPlanId
+                        return (
+                          <button key={p.id} type="button" onClick={() => setSelectedPlanId(p.id)} style={{
+                            textAlign:'left', padding:'10px 12px', borderRadius:10, cursor:'pointer',
+                            border: active ? '1.5px solid #E8C468' : '1.5px solid rgba(255,255,255,0.12)',
+                            background: active ? 'rgba(232,196,104,0.12)' : 'rgba(255,255,255,0.03)',
+                          }}>
+                            <div style={{ color: active ? '#E8C468' : '#fff', fontWeight:800, fontSize:13 }}>{p.name}</div>
+                            <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, marginTop:2 }}>{Number(p.priceMonthly).toLocaleString()} HTG/mwa</div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ borderTop:'1px solid rgba(255,255,255,0.12)', paddingTop:12, marginTop:2 }}>
