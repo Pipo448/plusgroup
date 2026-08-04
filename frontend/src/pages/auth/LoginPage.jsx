@@ -296,17 +296,15 @@ export default function LoginPage() {
               />
 
               <label style={{ position:'absolute', left:'59.8%', top:'68.3%', color:'rgba(255,255,255,0.6)', fontSize:11, fontWeight:700, letterSpacing:'0.04em' }}>{tx.password.toUpperCase()}</label>
-              <div style={{ position:'relative' }}>
-                <Lock size={15} style={{ position:'absolute', left:'61%', top:'73.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
-                <input type={show ? 'text' : 'password'} placeholder="••••••••"
-                  {...register('password', { required: tx.passRequired })}
-                  style={{ ...ghostInp, left:'59.8%', top:'71%', width:'33%', height:'4.5%', fontSize:13.5, paddingLeft:36, paddingRight:34 }}
-                  onFocus={ghostFocus} onBlur={ghostBlur}
-                />
-                <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89%', top:'73.3%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
-                  {show ? <EyeOff size={15}/> : <Eye size={15}/>}
-                </button>
-              </div>
+              <Lock size={15} style={{ position:'absolute', left:'61%', top:'73.3%', transform:'translateY(-50%)', color:'#E8C468', pointerEvents:'none', zIndex:1 }}/>
+              <input type={show ? 'text' : 'password'} placeholder="••••••••"
+                {...register('password', { required: tx.passRequired })}
+                style={{ ...ghostInp, left:'59.8%', top:'71%', width:'33%', height:'4.5%', fontSize:13.5, paddingLeft:36, paddingRight:34 }}
+                onFocus={ghostFocus} onBlur={ghostBlur}
+              />
+              <button type="button" onClick={() => setShow(!show)} style={{ position:'absolute', left:'89%', top:'73.3%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', color:'rgba(255,255,255,0.5)', padding:0, zIndex:1, display:'flex' }}>
+                {show ? <EyeOff size={15}/> : <Eye size={15}/>}
+              </button>
 
               <label style={{ position:'absolute', left:'59.8%', top:'77.5%', display:'flex', alignItems:'center', gap:6, color:'rgba(255,255,255,0.65)', fontSize:11.5, cursor:'pointer' }}>
                 <input type="checkbox" style={{ width:13, height:13, margin:0, accentColor:'#E8C468', cursor:'pointer' }}/>
