@@ -57,7 +57,7 @@ const publicSignupRoutes  = require('./modules/tenants/public-signup.routes')
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
 
-// ✅ Enterprise routes (Plan Antepriz sèlman)
+// ✅ Enterprise routes (Plan Antrepriz sèlman)
 const { kaneRouter, moncashRouter, natcashRouter } = require('./routes/enterprise.routes');
 
 const app  = require('express')();

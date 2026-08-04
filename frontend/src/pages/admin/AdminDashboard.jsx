@@ -52,12 +52,12 @@ function formatDate(date) {
 }
 
 const WHATSAPP_NUMBER = '50942449024'
-const PLAN_ORDER  = ['Estanda', 'Biznis', 'Premyum', 'Antepriz']
+const PLAN_ORDER  = ['Estanda', 'Biznis', 'Premyum', 'Antrepriz']
 const FIXED_PLANS = [
   { id:'5ec2d3ed-2613-4692-bc02-fa884ba861b3', name:'Estanda',  priceMonthly:2500, icon:<Zap size={16}/>,    color:'#8B0000', maxProducts:'10,000',   features:['Jesyon Stòk','Fakti & Devis','Jiska 5 itilizatè'] },
   { id:'e13de13b-5638-43fa-9fc3-3c2da8b50d82', name:'Biznis',   priceMonthly:3000, icon:<Star size={16}/>,   color:'#1B3A6B', maxProducts:'50,000',   features:['Tout nan Estanda','Rapò avanse','Jiska 15 itilizatè','Sèvis'] },
   { id:'613e0786-43cd-487e-aa2c-000158b508db', name:'Premyum',  priceMonthly:4000, icon:<Crown size={16}/>,  color:'#9E9E9E', maxProducts:'100,000',  features:['Tout nan Biznis','Sipò priorite','Itilizatè entelimite','Sèvis'] },
-  { id:'96ff3a9d-2b6a-4ef5-9d89-4d7077382d46', name:'Antepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', maxProducts:'Ilimite ∞', features:['Tout nan Premyum','Paj Sabotay MonCash','Sipò VIP 24/7','Sèvis'] },
+  { id:'96ff3a9d-2b6a-4ef5-9d89-4d7077382d46', name:'Antrepriz', priceMonthly:5000, icon:<Shield size={16}/>, color:'#C9A84C', maxProducts:'Ilimite ∞', features:['Tout nan Premyum','Paj Sabotay MonCash','Sipò VIP 24/7','Sèvis'] },
 ]
 
 const STATUS_STYLES = {

@@ -850,7 +850,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       priceMonthly: 4000, features: JSON.stringify(['Tout nan Biznis', 'Sipò priorite', 'Itilizatè entelimite', '10 Branch', 'Sèvis'])
     },
     {
-      name: 'Antepriz', nameFr: 'Entreprise', maxUsers: 999, maxProducts: 999999999, maxBranches: 50,
+      name: 'Antrepriz', nameFr: 'Entreprise', maxUsers: 999, maxProducts: 999999999, maxBranches: 50,
       priceMonthly: 5000, features: JSON.stringify(['Tout nan Premyum', 'Paj Sabotay MonCash/NatCash', 'Ti Kanè Kès', '50 Branch', 'Sipò VIP 24/7', 'Sèvis'])
     },
   ]

@@ -15,12 +15,12 @@ const bcrypt = require('bcryptjs')
 const PLUS_GROUP_BASE_MONTHLY = 2500
 
 // ⚠️ NOUVO — Chak plan gen pwòp entèval pri mansyèl akseptab. `max: null`
-// vle di pa gen limit anlè (egzanp: "5000 HTG ou plis" pou Antepriz).
+// vle di pa gen limit anlè (egzanp: "5000 HTG ou plis" pou Antrepriz).
 const PLAN_PRICE_RULES = {
   'Estanda':  { min: 3000, max: null },
   'Biznis':   { min: 3500, max: 4500 },
   'Premyum':  { min: 4000, max: null },
-  'Antepriz': { min: 5000, max: null },
+  'Antrepriz': { min: 5000, max: null },
 }
 const DEFAULT_PRICE_RULE = { min: PLUS_GROUP_BASE_MONTHLY, max: null }
 
@@ -89,7 +89,7 @@ const createPendingTenant = async (data, source) => {
 
   // ⚠️ NOUVO — Montan mansyèl la antre MANYÈLMAN, men li dwe respekte
   // entèval pri PWÒP PLAN chwazi a (Estanda ≥3000, Biznis 3500-4500,
-  // Premyum ≥4000, Antepriz ≥5000).
+  // Premyum ≥4000, Antrepriz ≥5000).
   const rule = PLAN_PRICE_RULES[plan?.name] || DEFAULT_PRICE_RULE
   const cleanMonthlyPrice = Math.round(Number(monthlyPrice))
   if (!cleanMonthlyPrice || cleanMonthlyPrice < rule.min || (rule.max && cleanMonthlyPrice > rule.max)) {

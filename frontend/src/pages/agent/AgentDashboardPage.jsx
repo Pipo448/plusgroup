@@ -13,7 +13,7 @@ const PLAN_PRICE_RULES = {
   'Estanda':  { min: 3000, max: null },
   'Biznis':   { min: 3500, max: 4500 },
   'Premyum':  { min: 4000, max: null },
-  'Antepriz': { min: 5000, max: null },
+  'Antrepriz': { min: 5000, max: null },
 }
 
 const C = {
