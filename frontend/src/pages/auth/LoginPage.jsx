@@ -386,7 +386,7 @@ export default function LoginPage() {
               </button>
 
               <p style={{ color:'rgba(255,255,255,0.55)', fontSize:12, textAlign:'center', margin:'0 0 18px', lineHeight:1.6 }}>
-                Esè GRATIS yon mwa kòmanse imedyatman. Apre sa, w ap dwe peye pou kontinye itilize sistèm nan.
+                Ou gen yon mwa pou itilize sistèm nan. Apre yon mwa itilizasyon, ou dwe peye pou kontinye itilize l.
               </p>
 
               <form onSubmit={handleSubmitS(onSignupSubmit)} style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -426,7 +426,7 @@ export default function LoginPage() {
 
                 <div>
                   <label style={{ display:'block', color:'#FFB347', fontSize:12, fontWeight:800, marginBottom:6 }}>KÒD PWOMO AJAN *</label>
-                  <input type="text" placeholder="Egzanp: JEANQU387"
+                  <input type="text" placeholder="Antre kòd la isit"
                     {...registerS('promoCode', { required: true })}
                     style={{ ...inp, borderColor:'rgba(255,179,71,0.4)', textTransform:'uppercase' }}
                     onFocus={e => e.target.style.borderColor='#FF6600'}
@@ -472,7 +472,7 @@ export default function LoginPage() {
                 }}>
                   {signupLoading
                     ? <><div style={{ width:18, height:18, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'white', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>Ap enskri...</>
-                    : <><UserPlus size={18}/>Kòmanse Esè Gratis</>
+                    : <><UserPlus size={18}/>Kreye Kont Lan</>
                   }
                 </button>
               </form>
