@@ -3,17 +3,20 @@ const prisma = require('../../config/prisma')
 
 const ALL_PAGES = [
   // ── Prensipal ──────────────────────────────────────────────
-  'dashboard', 'products', 'clients', 'quotes', 'invoices',
+  'dashboard', 'products', 'clients', 'quotes', 'direct-quotes', 'invoices',
   'stock', 'reports', 'branches', 'settings', 'users',
   // ── Antrepriz ──────────────────────────────────────────────
   'kane', 'kane-epay', 'pre', 'sabotay', 'mobilpay',
   // ── Modil ──────────────────────────────────────────────────
-  'hotel', 'dry',
+  'hotel', 'restaurant', 'dry',
+  // ── RH & Finans ────────────────────────────────────────────
+  'employees', 'expenses',
   // ── Klinik ─────────────────────────────────────────────────
   'klinik',
 ]
 
-const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
+// ⚠️ KORIJE — default LOK pou tout paj (eksepte dashboard)
+const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboard' }), {})
 
 // GET /api/v1/admin/tenants/:id/pages
 exports.getPages = async (req, res) => {
@@ -46,7 +49,7 @@ exports.updatePages = async (req, res) => {
     // Filtre sèlman paj valid + dashboard toujou ON
     const sanitized = {}
     ALL_PAGES.forEach(p => {
-      sanitized[p] = pages[p] !== false
+      sanitized[p] = pages[p] === true
     })
     sanitized['dashboard'] = true
 

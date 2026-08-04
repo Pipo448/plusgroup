@@ -355,7 +355,10 @@ router.post('/tenants', asyncHandler(async (req, res) => {
       status: 'active',
       subscriptionEndsAt,
       agentId: referringAgent?.id || null, // ⚠️ NOUVO
-      monthlyPrice: cleanMonthlyPrice // ⚠️ NOUVO — pri espesifik si defini
+      monthlyPrice: cleanMonthlyPrice, // ⚠️ NOUVO — pri espesifik si defini
+      // ⚠️ NOUVO — tout paj kòmanse lòk (eksepte dashboard); Super Admin
+      // ouvri manyèlman sèlman sa kliyan an bezwen apre kreyasyon an
+      allowedPages: ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboard' }), {})
     }
   })
 
@@ -684,11 +687,14 @@ router.post('/tenants/:id/branches', asyncHandler(async (req, res) => {
 // ══════════════════════════════════════════════
 
 const ALL_PAGES = [
-  'dashboard','products','clients','quotes','invoices','stock','reports',
-  'branches','settings','users','kane','kane-epay','sabotay','mobilpay'
+  'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
+  'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
+  'hotel','restaurant','dry','employees','expenses'
 ]
 
-const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: true }), {})
+// ⚠️ KORIJE — default LOK pou tout paj (eksepte dashboard) — nouvo tenant
+// dwe kòmanse san okenn modil aktive, Super Admin ouvri sa kliyan an bezwen
+const DEFAULT_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboard' }), {})
 
 // ── GET /api/v1/admin/tenants/:id/pages
 router.get('/tenants/:id/pages', asyncHandler(async (req, res) => {
@@ -722,7 +728,7 @@ router.patch('/tenants/:id/pages', asyncHandler(async (req, res) => {
   // Sanktifye — sèlman paj ki nan ALL_PAGES, dashboard toujou true
   const sanitized = {}
   ALL_PAGES.forEach(key => {
-    sanitized[key] = key === 'dashboard' ? true : (pages[key] !== false)
+    sanitized[key] = key === 'dashboard' ? true : (pages[key] === true)
   })
 
   try {

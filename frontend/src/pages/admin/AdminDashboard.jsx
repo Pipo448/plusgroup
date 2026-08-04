@@ -13,7 +13,7 @@ import {
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
   TrendingUp, Settings, Smartphone, Phone, Wallet,
    History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
-  Scissors, Stethoscope,
+  Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark,
 } from 'lucide-react'
 
 import InternetTab from './InternetTab'
@@ -73,6 +73,7 @@ const PAGE_DEFINITIONS = [
   { key:'products',   label:'Pwodui',            icon:<Package size={14}/>,         group:'Prensipal' },
   { key:'clients',    label:'Kliyan',            icon:<Users size={14}/>,           group:'Prensipal' },
   { key:'quotes',     label:'Devi',              icon:<FileText size={14}/>,        group:'Prensipal' },
+  { key:'direct-quotes', label:'Devi Dirèk',     icon:<Bookmark size={14}/>,        group:'Prensipal' },
   { key:'invoices',   label:'Fakti',             icon:<Receipt size={14}/>,         group:'Prensipal' },
   { key:'stock',      label:'Estòk',             icon:<Warehouse size={14}/>,       group:'Prensipal' },
   { key:'reports',    label:'Rapò',              icon:<TrendingUp size={14}/>,      group:'Prensipal' },
@@ -84,12 +85,17 @@ const PAGE_DEFINITIONS = [
   { key:'sabotay',    label:'Sabotay',           icon:<Smartphone size={14}/>,      group:'Antrepriz' },
   { key:'mobilpay',   label:'MonCash / NatCash', icon:<Phone size={14}/>,           group:'Antrepriz' },
   { key:'hotel',  label:'Otèl (Rezèvasyon & Dashboard)', icon:<Building2 size={14}/>,   group:'Antrepriz' },
+  { key:'restaurant', label:'Meni Restoran',                icon:<UtensilsCrossed size={14}/>, group:'Antrepriz' },
   { key:'pre',    label:'Prè Mikwo Kredi',               icon:<Wallet size={14}/>,      group:'Antrepriz' },
   { key:'dry',    label:'Prese (Teinturerie)',            icon:<Scissors size={14}/>,    group:'Modil'     },
   { key:'klinik', label:'Klinik Medikal',                 icon:<Stethoscope size={14}/>, group:'Modil'     },
+  { key:'employees', label:'Anplwaye (RH)',                icon:<UserCog size={14}/>,     group:'RH & Finans' },
+  { key:'expenses',   label:'Depans',                      icon:<TrendingDown size={14}/>,group:'RH & Finans' },
 ]
 
-const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: true }), {})
+// ⚠️ KORIJE — default LOK pou tout paj (eksepte Tablo Bò) — Super Admin
+// dwe ouvri manyèlman sèlman sa yon kliyan bezwen, olye tout bagay kòmanse louvri
+const DEFAULT_PAGES = PAGE_DEFINITIONS.reduce((acc, p) => ({ ...acc, [p.key]: p.key === 'dashboard' }), {})
 
 // ══════════════════════════════════════════════
 // AXIOS
