@@ -1175,6 +1175,31 @@ router.get('/famasi', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ── DELETE /klinik/products/:id ── Siprime pwodui pou toujou ──
+router.delete('/products/:id', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    // Verifye pwodui a ekziste + appartient au tenant
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id, name FROM products WHERE id=$1 AND tenant_id=$2 AND is_active=true LIMIT 1`,
+      req.params.id, tenantId
+    )
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Pwodui pa jwenn' })
+    }
+    // Soft delete — mete is_active=false (pa efase vre pou kenbe istwa vant yo)
+    await prisma.$executeRawUnsafe(
+      `UPDATE products SET is_active=false, updated_at=NOW() WHERE id=$1 AND tenant_id=$2`,
+      req.params.id, tenantId
+    )
+    console.log(`[DELETE /products] ${existing[0].name} (${req.params.id}) soft-deleted`)
+    res.json({ ok: true, message: `Pwodui "${existing[0].name}" efase` })
+  } catch(e) {
+    console.error('[DELETE /products] erè:', e.message)
+    res.status(500).json({ message: e.message })
+  }
+})
+
 // ═══════════════════════════════════════════════════════════════
 // LÒT DEPANS (manje, dlo, kouran, mentnans, eks.)
 // ─── Kole seksyon sa a nan klinik.routes.js ANVAN module.exports ───
