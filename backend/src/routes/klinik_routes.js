@@ -1175,8 +1175,8 @@ router.get('/famasi', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
-// ── DELETE /klinik/products/:id ── Siprime pwodui pou toujou ──
-router.delete('/products/:id', async (req, res) => {
+// ── DELETE /klinik/famasi/:id ── Siprime pwodui (soft delete) ──
+router.delete('/famasi/:id', async (req, res) => {
   try {
     const tenantId = tid(req)
     // Verifye pwodui a ekziste + appartient au tenant
