@@ -60,6 +60,26 @@ export default function LoginPage() {
   const [plans, setPlans] = useState([])
   const [selectedPlanId, setSelectedPlanId] = useState(null)
 
+  // ✅ KOREKSYON — deside vèsyon (desktop/mobil) ak JS, PA sèlman ak CSS.
+  // AVAN: toude fòm yo (desktop + mobil) te rann an menm tan nan DOM lan,
+  // CSS te sèlman KACHE youn ak display:none. Men toude t ap itilize
+  // register('slug')/('email')/('password') SOU MENM non yo — kidonk
+  // react-hook-form te sèlman "swiv" DÈNYE input ki mont lan (mobil la,
+  // paske li vini an dezyèm nan kòd la). Rezilta: lè lajè ekran an te fè
+  // CSS montre vèsyon desktop la, itilizatè a te tape nan you input ki pa
+  // t "konekte" ak RHF ditou — chan an te parèt vid/pa soumèt lè w klike
+  // Connexion. Kounye a nou rann SÈLMAN YON fòm alafwa, kidonk pa gen
+  // konfli non ankò.
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= 900
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 900px)')
+    const onChange = (e) => setIsMobile(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
   useEffect(() => {
     if (mode === 'signup' && plans.length === 0) {
       api.get('/public/plans').then(res => {
@@ -312,6 +332,8 @@ export default function LoginPage() {
       {mode === 'login' ? (
         <>
           {/* ═══ VÈSYON DESKTOP — imaj ak espas vid, fòm konplè ak lejand ═══ */}
+          {/* ✅ KOREKSYON: rann SÈLMAN si !isMobile — pa gen 2yèm <input name="slug"> etc. nan DOM lan an menm tan */}
+          {!isMobile && (
           <div className="pg-bg-desktop" style={{ position:'relative', width:'100%', maxWidth:1402, margin:'0 auto' }}>
             <img src={bgDesktop} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <LangSwitcher top={16} right={16}/>
@@ -369,8 +391,11 @@ export default function LoginPage() {
               </p>
             </form>
           </div>
+          )}
 
           {/* ═══ VÈSYON MOBIL — imaj ak espas vid, fòm konplè ak lejand ═══ */}
+          {/* ✅ KOREKSYON: rann SÈLMAN si isMobile */}
+          {isMobile && (
           <div className="pg-bg-mobile" style={{ position:'relative', width:'100%', maxWidth:480, margin:'0 auto' }}>
             <img src={bgMobile} alt="Plus Group" style={{ width:'100%', height:'auto', display:'block' }} draggable={false}/>
             <LangSwitcher top={10} right={10} compact/>
@@ -428,6 +453,7 @@ export default function LoginPage() {
               </p>
             </form>
           </div>
+          )}
         </>
       ) : (
         <div style={{ position:'relative', zIndex:5, minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24 }}>
