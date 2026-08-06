@@ -1421,4 +1421,25 @@ router.put('/settings', async (req, res) => {
   }
 })
 
+// ── DELETE /klinik/famasi/:id ── Siprime pwodui (soft delete) ──
+router.delete('/famasi/:id', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id, name FROM products WHERE id=$1 AND tenant_id=$2 AND is_active=true LIMIT 1`,
+      req.params.id, tenantId
+    )
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Pwodui pa jwenn' })
+    }
+    await prisma.$executeRawUnsafe(
+      `UPDATE products SET is_active=false, updated_at=NOW() WHERE id=$1 AND tenant_id=$2`,
+      req.params.id, tenantId
+    )
+    res.json({ ok: true, message: `Pwodui "${existing[0].name}" efase` })
+  } catch(e) {
+    console.error('[DELETE /famasi] erè:', e.message)
+    res.status(500).json({ message: e.message })
+  }
+})
 module.exports = router
