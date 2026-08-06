@@ -439,84 +439,114 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 }
 
 // ── Kart mobil pou yon pwodui
-const ProductCard = ({ p, t, onEdit, onDelete, onAddToCart, onZoom }) => {
+// ✅ NOUVO — Palèt gradyan koulè vif (menm lespri ak kat Tablo Bò a) pou
+// bay chak kat pwodwi yon "idantite" vizyèl. Si pwodwi a gen yon kategori
+// ak yon koulè, nou jenere gradyan an AK koulè kategori a; sinon nou
+// woule sou palèt la selon endèks pwodwi a pou chak kat gen yon lòt koulè.
+const CARD_GRADIENTS = [
+  ['#2D3FBF', '#1B2A8F'], ['#FF6B00', '#FF8C33'], ['#27ae60', '#16a085'],
+  ['#8e44ad', '#C0392B'], ['#C9A84C', '#8B6914'], ['#2980b9', '#1B2A8F'],
+  ['#d35400', '#C0392B'], ['#16a085', '#2980b9'],
+]
+const shadeColor = (hex, amt) => {
+  try {
+    const c = hex.replace('#', '')
+    const n = parseInt(c.length === 3 ? c.split('').map(x => x + x).join('') : c, 16)
+    const r = Math.min(255, Math.max(0, (n >> 16) + amt))
+    const g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + amt))
+    const b = Math.min(255, Math.max(0, (n & 0xff) + amt))
+    return `rgb(${r},${g},${b})`
+  } catch { return hex }
+}
+
+const ProductCard = ({ p, t, index = 0, onEdit, onDelete, onAddToCart, onZoom }) => {
   const lowStock = !p.isService && Number(p.quantity) <= Number(p.alertThreshold)
+  const [g1, g2] = p.category?.color
+    ? [p.category.color, shadeColor(p.category.color, -35)]
+    : CARD_GRADIENTS[index % CARD_GRADIENTS.length]
+
   return (
-    <div style={{
-      background: D.white, borderRadius: 16, padding: '14px 16px',
-      border: `1px solid ${lowStock ? 'rgba(255,107,0,0.25)' : D.border}`,
-      boxShadow: D.shadow, display: 'flex', flexDirection: 'column', gap: 10,
-    }}>
-      {/* Liy 1: Foto + Non + Aksyon */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display:'flex', gap:10, flex: 1, minWidth: 0 }}>
-          {/* ✅ Vinyèt foto pwodwi — pi gwo (64px), klikab pou zoom */}
-          <div onClick={() => p.imageUrl && onZoom(p)} style={{
-            width:64, height:64, borderRadius:12, flexShrink:0,
-            background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            border: `1px solid ${D.border}`,
-            cursor: p.imageUrl ? 'zoom-in' : 'default',
-          }}>
-            {!p.imageUrl && <Package size={26} color={D.blue}/>}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 14, fontWeight: 800, color: D.text, lineHeight: 1.3 }}>{p.name}</span>
-              {p.isService && (
-                <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: D.blueDim, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {t('products.service')}
-                </span>
+    <div className="pcard" style={{ animationDelay: `${Math.min(index, 12) * 45}ms` }}>
+      <div className="pcard-inner" style={{
+        background: D.white, borderRadius: 20, padding: '16px 16px 14px',
+        border: `1px solid ${lowStock ? 'rgba(255,107,0,0.3)' : D.border}`,
+        display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        {/* Liy 1: Foto ak kad gradyan koulè + Aksyon */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0, alignItems: 'center' }}>
+            {/* ✅ Kad koulè gradyan otou foto a — "ring" style ak ti animasyon glowing lè hover (.pcard-photo-ring nan CSS anba a) */}
+            <div className="pcard-photo-ring" onClick={() => p.imageUrl && onZoom(p)} style={{
+              width: 68, height: 68, borderRadius: 18, flexShrink: 0, padding: 3,
+              background: `linear-gradient(135deg, ${g1}, ${g2})`,
+              cursor: p.imageUrl ? 'zoom-in' : 'default',
+            }}>
+              <div className="pcard-photo" style={{
+                width: '100%', height: '100%', borderRadius: 15,
+                background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : `linear-gradient(135deg, ${g1}22, ${g2}22)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {!p.imageUrl && <Package size={26} color={g1}/>}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 14.5, fontWeight: 800, color: D.text, lineHeight: 1.3 }}>{p.name}</span>
+                {p.isService && (
+                  <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 99, background: D.blueDim, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {t('products.service')}
+                  </span>
+                )}
+              </div>
+              {p.code && (
+                <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.muted }}>{p.code}</span>
               )}
             </div>
-            {p.code && (
-              <span style={{ fontSize: 11, fontFamily: 'monospace', color: D.muted }}>{p.code}</span>
-            )}
+          </div>
+          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+            <button onClick={() => onAddToCart(p)} title={t('products.addToCart') || 'Ajoute nan Panye'} className="pcard-btn" style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', color: D.orange }}>
+              <ShoppingCart size={14}/>
+            </button>
+            <button onClick={() => onEdit(p)} className="pcard-btn" style={{ background: D.blueDim, border: `1px solid ${D.border}`, color: D.blue }}>
+              <Edit2 size={14}/>
+            </button>
+            <button onClick={() => onDelete(p)} className="pcard-btn" style={{ background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', color: D.red }}>
+              <Trash2 size={14}/>
+            </button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <button onClick={() => onAddToCart(p)} title={t('products.addToCart') || 'Ajoute nan Panye'} style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.25)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.orange }}>
-            <ShoppingCart size={14}/>
-          </button>
-          <button onClick={() => onEdit(p)} style={{ width: 34, height: 34, borderRadius: 10, background: D.blueDim, border: `1px solid ${D.border}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.blue }}>
-            <Edit2 size={14}/>
-          </button>
-          <button onClick={() => onDelete(p)} style={{ width: 34, height: 34, borderRadius: 10, background: D.redDim, border: '1px solid rgba(192,57,43,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: D.red }}>
-            <Trash2 size={14}/>
-          </button>
-        </div>
-      </div>
 
-      {/* Liy 2: Kategori + Stati */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {p.category && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: `${p.category.color}18`, color: p.category.color, border: `1px solid ${p.category.color}30` }}>
-            {p.category.name}
+        {/* Liy 2: Kategori + Stati */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {p.category && (
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: `${p.category.color}18`, color: p.category.color, border: `1px solid ${p.category.color}30` }}>
+              {p.category.name}
+            </span>
+          )}
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: p.isActive ? D.successBg : 'rgba(100,100,100,0.08)', color: p.isActive ? D.success : D.muted }}>
+            {p.isActive ? t('products.active') : t('products.inactive')}
           </span>
-        )}
-        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: p.isActive ? D.successBg : 'rgba(100,100,100,0.08)', color: p.isActive ? D.success : D.muted }}>
-          {p.isActive ? t('products.active') : t('products.inactive')}
-        </span>
-      </div>
+        </div>
 
-      {/* Liy 3: Pri ak Stòk */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-        <div style={{ background: D.bg, borderRadius: 10, padding: '8px 10px' }}>
-          <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>HTG</p>
-          <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: D.blue, margin: 0 }}>{fmt(p.priceHtg)}</p>
-        </div>
-        <div style={{ background: D.bg, borderRadius: 10, padding: '8px 10px' }}>
-          <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>USD</p>
-          <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: D.muted, margin: 0 }}>{fmt(p.priceUsd)}</p>
-        </div>
-        <div style={{ background: lowStock ? D.warningBg : D.bg, borderRadius: 10, padding: '8px 10px', border: lowStock ? '1px solid rgba(217,119,6,0.2)' : 'none' }}>
-          <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 3 }}>
-            {t('products.stock')}
-            {lowStock && <AlertTriangle size={9} color={D.warning}/>}
-          </p>
-          <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: lowStock ? D.warning : D.text, margin: 0 }}>
-            {Number(p.quantity).toLocaleString()} <span style={{ fontSize: 10, fontWeight: 600 }}>{p.unit}</span>
-          </p>
+        {/* Liy 3: Pri ak Stòk */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <div style={{ background: D.bg, borderRadius: 10, padding: '8px 10px' }}>
+            <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>HTG</p>
+            <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: D.blue, margin: 0 }}>{fmt(p.priceHtg)}</p>
+          </div>
+          <div style={{ background: D.bg, borderRadius: 10, padding: '8px 10px' }}>
+            <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px' }}>USD</p>
+            <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: D.muted, margin: 0 }}>{fmt(p.priceUsd)}</p>
+          </div>
+          <div style={{ background: lowStock ? D.warningBg : D.bg, borderRadius: 10, padding: '8px 10px', border: lowStock ? '1px solid rgba(217,119,6,0.2)' : 'none' }}>
+            <p style={{ fontSize: 9, fontWeight: 800, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 2px', display: 'flex', alignItems: 'center', gap: 3 }}>
+              {t('products.stock')}
+              {lowStock && <AlertTriangle size={9} color={D.warning}/>}
+            </p>
+            <p style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 800, color: lowStock ? D.warning : D.text, margin: 0 }}>
+              {Number(p.quantity).toLocaleString()} <span style={{ fontSize: 10, fontWeight: 600 }}>{p.unit}</span>
+            </p>
+          </div>
         </div>
       </div>
     </div>
@@ -617,12 +647,49 @@ const deleteMutation = useMutation({
     <div style={{ fontFamily: 'DM Sans, sans-serif' }}>
 
       <style>{`
-        .prod-table-wrap { display: block; }
-        .prod-cards-wrap  { display: none; }
+        /* ✅ NOUVO — Kat pwodwi yo rann kòm yon GRID responsiv sou TOUT gwosè
+           ekran (pa sèlman mobil ankò); tablo a retire nèt. */
+        .prod-cards-wrap {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 16px;
+        }
+
+        /* Antre pwogresif — chak kat "monte" youn apre lòt (stagger via animationDelay inline) */
+        @keyframes pcardIn {
+          from { opacity: 0; transform: translateY(14px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .pcard {
+          animation: pcardIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+        .pcard-inner {
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease, border-color 0.25s ease;
+          box-shadow: 0 4px 20px rgba(27,42,143,0.10);
+        }
+        .pcard:hover .pcard-inner {
+          transform: translateY(-6px);
+          box-shadow: 0 18px 36px rgba(27,42,143,0.18);
+        }
+        .pcard-photo-ring {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+        }
+        .pcard:hover .pcard-photo-ring {
+          transform: scale(1.06) rotate(-2deg);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.22);
+        }
+        .pcard-photo { transition: transform 0.3s ease; overflow: hidden; }
+        .pcard:hover .pcard-photo { transform: scale(1.08); }
+        .pcard-btn {
+          width: 34px; height: 34px; border-radius: 10px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: transform 0.15s ease, filter 0.15s ease;
+        }
+        .pcard-btn:hover { transform: translateY(-2px); filter: brightness(0.96); }
 
         @media (max-width: 768px) {
-          .prod-table-wrap { display: none; }
-          .prod-cards-wrap  { display: flex; flex-direction: column; gap: 12px; }
+          .prod-cards-wrap  { grid-template-columns: 1fr; }
           .prod-filters     { flex-direction: column !important; }
           .prod-filters .search-box { max-width: 100% !important; }
           .prod-filters select { width: 100% !important; }
@@ -680,108 +747,20 @@ const deleteMutation = useMutation({
         </select>
       </div>
 
-      {/* ── VUE DESKTOP: Tablo ── */}
-      <div className="prod-table-wrap table-container">
-        <table className="table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>{t('products.code')}</th>
-              <th>{t('products.name')}</th>
-              <th>{t('products.category')}</th>
-              <th>{t('products.priceHtg')}</th>
-              <th>{t('products.priceUsd')}</th>
-              <th>{t('products.stock')}</th>
-              <th>{t('products.status')}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading
-              ? Array(5).fill(0).map((_, i) => (
-                  <tr key={i}><td colSpan={9}><div className="h-4 bg-slate-100 rounded animate-pulse"/></td></tr>
-                ))
-              : !products.length
-              ? <tr><td colSpan={9}>
-                  <div className="empty-state py-12">
-                    <Package size={40} className="text-slate-300 mb-2"/>
-                    <p className="text-slate-500">{t('products.noProducts')}</p>
-                  </div>
-                </td></tr>
-              : products.map(p => (
-                  <tr key={p.id}>
-                    <td style={{ width: 84 }}>
-                      {/* ✅ Vinyèt foto pwodwi — pi gwo pou kliyan wè l klè, klikab pou zoom */}
-                      <div onClick={() => p.imageUrl && setZoomProduct(p)} style={{
-                        width: 64, height: 64, borderRadius: 12,
-                        background: p.imageUrl ? `url(${p.imageUrl}) center/cover no-repeat` : D.blueDim,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: `1px solid ${D.border}`,
-                        cursor: p.imageUrl ? 'zoom-in' : 'default',
-                      }}>
-                        {!p.imageUrl && <Package size={26} color={D.blue}/>}
-                      </div>
-                    </td>
-                    <td className="font-mono text-xs text-slate-500">{p.code || '—'}</td>
-                    <td>
-                      <div>
-                        <p className="font-medium text-slate-800">{p.name}</p>
-                        {p.isService && <span className="badge-blue text-[10px] px-1.5 py-0">{t('products.service')}</span>}
-                      </div>
-                    </td>
-                    <td>
-                      {p.category && (
-                        <span className="badge-blue" style={{ color: p.category.color }}>{p.category.name}</span>
-                      )}
-                    </td>
-                    <td className="font-mono font-medium">{fmt(p.priceHtg)} HTG</td>
-                    <td className="font-mono text-slate-500">{fmt(p.priceUsd)} USD</td>
-                    <td>
-                      <span className={`font-mono font-bold text-sm ${Number(p.quantity) <= Number(p.alertThreshold) ? 'text-orange-600' : 'text-slate-700'}`}>
-                        {Number(p.quantity).toLocaleString()} {p.unit}
-                      </span>
-                      {Number(p.quantity) <= Number(p.alertThreshold) && !p.isService && (
-                        <AlertTriangle size={13} className="inline ml-1.5 text-orange-500"/>
-                      )}
-                    </td>
-                    <td>
-                      <span className={p.isActive ? 'badge-green' : 'badge-gray'}>
-                        {p.isActive ? t('products.active') : t('products.inactive')}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => addToCart(p)}
-                          title={t('products.addToCart') || 'Ajoute nan Panye'}
-                          className="btn-ghost btn-sm p-2"
-                          style={{ color: D.orange }}
-                        ><ShoppingCart size={14}/></button>
-                        <button onClick={() => setModal({ type: 'edit', product: p })} className="btn-ghost btn-sm p-2"><Edit2 size={14}/></button>
-                        <button onClick={() => handleDelete(p)} className="btn-ghost btn-sm p-2 hover:text-red-600"><Trash2 size={14}/></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-            }
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── VUE MOBIL: Kart ── */}
+      {/* ── Grid Kat Pwodwi (rann sou tout gwosè ekran) ── */}
       <div className="prod-cards-wrap">
         {isLoading
-          ? Array(4).fill(0).map((_, i) => (
-              <div key={i} style={{ height: 130, borderRadius: 16, background: '#f1f5f9', animation: 'pulse 1.5s infinite' }}/>
+          ? Array(8).fill(0).map((_, i) => (
+              <div key={i} style={{ height: 172, borderRadius: 20, background: '#f1f5f9', animation: 'pulse 1.5s infinite' }}/>
             ))
           : !products.length
-          ? <div style={{ textAlign: 'center', padding: '48px 20px' }}>
+          ? <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px 20px' }}>
               <Package size={48} style={{ color: D.muted, opacity: 0.3, display: 'block', margin: '0 auto 12px' }}/>
               <p style={{ fontWeight: 700, color: D.muted, fontSize: 14 }}>{t('products.noProducts')}</p>
             </div>
-          : products.map(p => (
+          : products.map((p, i) => (
               <ProductCard
-                key={p.id} p={p} t={t}
+                key={p.id} p={p} t={t} index={i}
                 onEdit={(p) => setModal({ type: 'edit', product: p })}
                 onDelete={handleDelete}
                 onAddToCart={addToCart}
