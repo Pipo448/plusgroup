@@ -294,12 +294,12 @@ router.delete('/kapital/:id', async (req, res) => {
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
     const rows = await prisma.$queryRaw`
       SELECT id, type FROM pre_kapital
-      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
+      WHERE id = ${req.params.id} AND tenant_id = ${tenantId}
       LIMIT 1
     `
     if (!rows[0]) return res.status(404).json({ message: 'Transaksyon pa jwenn.' })
     await prisma.$executeRaw`
-      DELETE FROM pre_kapital WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
+      DELETE FROM pre_kapital WHERE id = ${req.params.id} AND tenant_id = ${tenantId}
     `
     return res.json({ success: true, message: 'Transaksyon efase.' })
   } catch (err) { return res.status(500).json({ message: 'Erè sèvè.' }) }
@@ -319,7 +319,7 @@ router.put('/kapital/:id', async (req, res) => {
 
     const rows = await prisma.$queryRaw`
       SELECT id, montant, notes, created_at FROM pre_kapital
-      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId} AND type = 'enjeksyon'
+      WHERE id = ${req.params.id} AND tenant_id = ${tenantId} AND type = 'enjeksyon'
       LIMIT 1
     `
     if (!rows[0]) return res.status(404).json({ message: 'Enjeksyon pa jwenn.' })
@@ -341,7 +341,7 @@ router.put('/kapital/:id', async (req, res) => {
 
     await prisma.$executeRaw`
       UPDATE pre_kapital SET montant = ${Number(montant)}, notes = ${notes||null}
-      WHERE id = ${req.params.id}::uuid AND tenant_id = ${tenantId}
+      WHERE id = ${req.params.id} AND tenant_id = ${tenantId}
     `
 
     const sekonRete = Math.max(0, 300 - Math.round((now - createdAt) / 1000))
