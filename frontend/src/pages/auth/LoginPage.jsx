@@ -108,7 +108,13 @@ export default function LoginPage() {
 
     if (emailParam)            setValue('email', emailParam)
     else if (rememberedEmail)  setValue('email', rememberedEmail)
-  }, [searchParams, setValue])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // ✅ KOREKSYON — kouri SÈLMAN yon fwa lè paj la monte.
+  // AVAN: [searchParams, setValue] te lakòz effect la re-egzekite chak fwa
+  // paj la re-render (useSearchParams() bay yon NOUVO referans chak render,
+  // menm si URL la pa chanje). Rezilta: chan email/slug yo t ap tounen
+  // ekraze ak ansyen kont "sonje" a pandan w ap tape — kèk fwa jis anvan
+  // ou klike "Konekte", ki fè se ansyen kont lan ki soumèt olye nouvo a.
 
   const onSubmit = async (data) => {
     setLoading(true)
