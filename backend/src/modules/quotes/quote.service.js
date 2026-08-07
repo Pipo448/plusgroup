@@ -2,6 +2,38 @@
 const prisma = require('../../config/prisma');
 const crypto = require('crypto'); // ✅ NOUVO — pou jenere token sekrè
 
+// ✅ NOUVO — Sekirite Pri: sèlman 'admin' ka soumèt yon pri lib pou yon
+// atik. Lòt wòl yo (egz. 'cashier') dwe soumèt YON SÈL nan de pri ki
+// anrejistre pou pwodwi a (Detay OSWA Gwo, si Gwo konfigire) — kèlkeswa
+// kantite a (frontend kite kesye a chwazi youn nan de a alamen). Sa
+// anpeche yon kesye (oswa yon rekèt API dirèk ki kontounen frontend lan)
+// soumèt yon pri envante pou fè antrepriz la pèdi kòb.
+const PRICE_EPSILON = 0.01;
+const priceMatches = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) <= PRICE_EPSILON;
+
+const validateItemPrice = (item, product, isAdmin) => {
+  if (isAdmin) return; // Admin ka mete nenpòt pri
+
+  if (!item.productId || !product) {
+    // ⚠️ Atik san pwodwi lye (tèks lib + pri manyèl) — rezève pou admin sèlman
+    throw Object.assign(
+      new Error('Sèlman admin ka ajoute yon atik san pwodwi ki soti nan katalòg la.'),
+      { statusCode: 403 }
+    );
+  }
+
+  const retailOk = priceMatches(item.unitPriceHtg, product.priceHtg);
+  const wholesaleOk = product.wholesaleMinQty != null && product.wholesalePriceHtg != null
+    && priceMatches(item.unitPriceHtg, product.wholesalePriceHtg);
+
+  if (!retailOk && !wholesaleOk) {
+    throw Object.assign(
+      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG) oswa Gwo yo aksepte pou wòl ou.`),
+      { statusCode: 403 }
+    );
+  }
+};
+
 const generateQuoteNumber = async (tenantId) => {
   const year = new Date().getFullYear();
   const seq = await prisma.documentSequence.upsert({
@@ -115,10 +147,12 @@ const getOne = async (tenantId, id) => {
 
 // ── CREATE
 // ⚠️ KORIJE — ajoute branchId nan quote
-const create = async (tenantId, userId, data) => {
+// ✅ NOUVO — resevwa userRole pou validasyon pri sèvè-side
+const create = async (tenantId, userId, data, userRole) => {
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   const quoteNumber = await generateQuoteNumber(tenantId);
   const exchangeRate = data.exchangeRate || Number(tenant.exchangeRate);
+  const isAdmin = userRole === 'admin';
 
   let clientSnapshot = data.clientSnapshot || {};
   if (data.clientId) {
@@ -134,6 +168,10 @@ const create = async (tenantId, userId, data) => {
   const items = [];
   for (const item of data.items || []) {
     const product = await prisma.product.findFirst({ where: { id: item.productId, tenantId } });
+
+    // ✅ NOUVO — Validasyon pri sèvè-side (pa fè konfyans a sa frontend voye pou non-admin)
+    validateItemPrice(item, product, isAdmin);
+
     const snapshot = product
       ? { id: product.id, name: product.name, code: product.code, unit: product.unit }
       : (item.productSnapshot || {});
@@ -195,7 +233,8 @@ const create = async (tenantId, userId, data) => {
 };
 
 // ── UPDATE
-const update = async (tenantId, id, userId, data) => {
+// ✅ NOUVO — resevwa userRole pou validasyon pri sèvè-side
+const update = async (tenantId, id, userId, data, userRole) => {
   const quote = await prisma.quote.findFirst({ where: { id, tenantId } });
   if (!quote) throw Object.assign(new Error('Devis pa jwenn.'), { statusCode: 404 });
 
@@ -205,6 +244,7 @@ const update = async (tenantId, id, userId, data) => {
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
   const exchangeRate = data.exchangeRate || Number(quote.exchangeRate);
+  const isAdmin = userRole === 'admin';
 
   let items = [];
   if (data.items) {
@@ -212,6 +252,10 @@ const update = async (tenantId, id, userId, data) => {
       const product = item.productId
         ? await prisma.product.findFirst({ where: { id: item.productId, tenantId } })
         : null;
+
+      // ✅ NOUVO — Validasyon pri sèvè-side
+      validateItemPrice(item, product, isAdmin);
+
       const snapshot = product
         ? { id: product.id, name: product.name, code: product.code, unit: product.unit }
         : (item.productSnapshot || {});

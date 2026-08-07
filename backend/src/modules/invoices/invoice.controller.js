@@ -62,7 +62,7 @@ const createDirect = asyncHandler(async (req, res) => {
   const data = await svc.createDirect(req.tenant.id, req.user.id, {
     ...req.body,
     branchId
-  });
+  }, req.user.role);
   res.status(201).json({ success: true, invoice: data, message: 'Fakti kreye avèk siksè.' });
 });
 

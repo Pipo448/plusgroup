@@ -15,6 +15,35 @@ const haitiRange = (dateFrom, dateTo) => {
   return { gte, lte };
 };
 
+// ✅ NOUVO — Sekirite Pri (menm règ ak quote.service.js): non-admin dwe
+// soumèt YON SÈL nan pri Detay/Gwo anrejistre pou pwodwi a. Aplike isit
+// tou paske Fakti dirèk mache SWA an dirèk (kesye tape POS) SWA via
+// senkwonizasyon vant offline — de ka yo dwe respekte menm règ la.
+const PRICE_EPSILON = 0.01;
+const priceMatches = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) <= PRICE_EPSILON;
+
+const validateItemPrice = (item, product, isAdmin) => {
+  if (isAdmin) return;
+
+  if (!item.productId || !product) {
+    throw Object.assign(
+      new Error('Sèlman admin ka ajoute yon atik san pwodwi ki soti nan katalòg la.'),
+      { statusCode: 403 }
+    );
+  }
+
+  const retailOk = priceMatches(item.unitPriceHtg, product.priceHtg);
+  const wholesaleOk = product.wholesaleMinQty != null && product.wholesalePriceHtg != null
+    && priceMatches(item.unitPriceHtg, product.wholesalePriceHtg);
+
+  if (!retailOk && !wholesaleOk) {
+    throw Object.assign(
+      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG) oswa Gwo yo aksepte pou wòl ou.`),
+      { statusCode: 403 }
+    );
+  }
+};
+
 // ── Jwenn nimewo fakti nextval
 const getNextInvoiceNumber = async (tenantId) => {
   const year = new Date().getFullYear();
@@ -90,7 +119,7 @@ const getOne = async (tenantId, id) => {
 };
 
 // ── CREATE DIRECT
-const createDirect = async (tenantId, userId, data) => {
+const createDirect = async (tenantId, userId, data, userRole) => {
   const {
     clientId, clientSnapshot, currency, exchangeRate,
     subtotalHtg, subtotalUsd,
@@ -109,6 +138,18 @@ const createDirect = async (tenantId, userId, data) => {
   } = data;
 
   if (!items.length) throw Object.assign(new Error('Fakti dwe gen omwen yon pwodui.'), { statusCode: 400 });
+
+  const isAdmin = userRole === 'admin';
+  // ✅ NOUVO — Validasyon pri AVAN transaksyon an menm kòmanse (fail-fast,
+  // pa kite estòk ka touche si yon pri pa valab pou wòl la)
+  if (!isAdmin) {
+    for (const item of items) {
+      const product = item.productId
+        ? await prisma.product.findFirst({ where: { id: item.productId, tenantId } })
+        : null;
+      validateItemPrice(item, product, isAdmin);
+    }
+  }
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },

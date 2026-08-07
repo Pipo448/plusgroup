@@ -255,10 +255,14 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
     defaultValues: product
-      ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg) }
-      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '' }
+      ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg),
+          wholesaleMinQty: product.wholesaleMinQty || '', wholesalePriceHtg: product.wholesalePriceHtg ? Number(product.wholesalePriceHtg) : '', wholesalePriceUsd: product.wholesalePriceUsd ? Number(product.wholesalePriceUsd) : '' }
+      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', wholesaleMinQty: '', wholesalePriceHtg: '', wholesalePriceUsd: '' }
   })
   const qc = useQueryClient()
+  // ✅ NOUVO — Pri An Gwo (opsyonèl): checkbox ki montre/kache chan yo.
+  // Aktive otomatikman nan edisyon si pwodwi a deja gen yon sèy konfigire.
+  const [showWholesale, setShowWholesale] = useState(!!(product?.wholesaleMinQty))
 
   const handlePriceHtgChange = (e) => {
     const htg = Number(e.target.value)
@@ -270,11 +274,27 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     setValue('priceUsd', e.target.value)
     if (usd > 0) setValue('priceHtg', (usd * rate).toFixed(2))
   }
+  // ✅ NOUVO — Menm konvèsyon otomatik la, men pou pri AN GWO a
+  const handleWholesaleHtgChange = (e) => {
+    const htg = Number(e.target.value)
+    setValue('wholesalePriceHtg', e.target.value)
+    if (htg > 0) setValue('wholesalePriceUsd', (htg / rate).toFixed(2))
+  }
+  const handleWholesaleUsdChange = (e) => {
+    const usd = Number(e.target.value)
+    setValue('wholesalePriceUsd', e.target.value)
+    if (usd > 0) setValue('wholesalePriceHtg', (usd * rate).toFixed(2))
+  }
 
   const mutation = useMutation({
     mutationFn: (data) => {
       // ✅ NOUVO — Enkli foto a SÈLMAN si l chanje (evite re-voye menm imaj la chak fwa)
-      const payload = imageChanged ? { ...data, imageUrl: imagePreview } : data
+      let payload = imageChanged ? { ...data, imageUrl: imagePreview } : data
+      // ✅ NOUVO — si "Pri An Gwo" pa aktive (checkbox dekoche), voye null pou
+      // efase/pa kreye okenn sèy gwo pou pwodwi sa a, menm si te gen valè avan
+      if (!showWholesale) {
+        payload = { ...payload, wholesaleMinQty: null, wholesalePriceHtg: null, wholesalePriceUsd: null }
+      }
       return isEdit ? productAPI.update(product.id, payload) : productAPI.create(payload)
     },
     onSuccess: () => { toast.success(isEdit ? t('products.productUpdated') : t('products.productCreated')); qc.invalidateQueries(['products']); onSaved?.() },
@@ -392,6 +412,41 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
               </div>
             </div>
           </div>
+
+          {/* ✅ NOUVO — Pri An Gwo (opsyonèl): checkbox pou aktive + sèy kantite + pri */}
+          <div style={{ border: '1px dashed #E2E8F0', borderRadius: 12, padding: '12px 14px' }}>
+            <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: showWholesale ? 12 : 0 }}>
+              <input type="checkbox" checked={showWholesale} onChange={e => setShowWholesale(e.target.checked)} className="w-4 h-4 rounded text-brand-600"/>
+              <span className="text-sm font-semibold text-slate-700">Aktive Pri An Gwo</span>
+              <span className="text-xs text-slate-400">— pri diferan si kliyan achte an kantite</span>
+            </label>
+            {showWholesale && (
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="label">Sèy Kantite (Gwo si &ge;)</label>
+                  <input type="number" step="1" min="1" className="input" placeholder="12"
+                    {...register('wholesaleMinQty', { required: showWholesale, min: 1 })} onFocus={e => e.target.select()}/>
+                </div>
+                <div>
+                  <label className="label">Pri Gwo (HTG)</label>
+                  <div className="relative">
+                    <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
+                      {...register('wholesalePriceHtg', { required: showWholesale, min: 0 })} onChange={handleWholesaleHtgChange} onFocus={e => e.target.select()}/>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Pri Gwo (USD) <span className="text-xs text-brand-500 font-normal ml-1">{t('products.automatic')}</span></label>
+                  <div className="relative">
+                    <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
+                      {...register('wholesalePriceUsd', { min: 0 })} onChange={handleWholesaleUsdChange} onFocus={e => e.target.select()}/>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">USD</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">{t('products.stockQuantity')}</label>

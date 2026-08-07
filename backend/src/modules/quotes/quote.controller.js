@@ -31,12 +31,12 @@ const create = asyncHandler(async (req, res) => {
     branchId = branch.id;
   }
 
-  const data = await svc.create(req.tenant.id, req.user.id, { ...req.body, branchId });
+  const data = await svc.create(req.tenant.id, req.user.id, { ...req.body, branchId }, req.user.role);
   res.status(201).json({ success: true, quote: data });
 });
 
 const update = asyncHandler(async (req, res) => {
-  const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body);
+  const data = await svc.update(req.tenant.id, req.params.id, req.user.id, req.body, req.user.role);
   res.json({ success: true, quote: data });
 });
 

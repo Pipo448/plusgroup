@@ -197,7 +197,7 @@ const ProductDropdown = memo(function ProductDropdown({ value, onSelect, onClear
 })
 
 // ✅ ItemCard — memo, reutilize ProductDropdown
-const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
+const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOverridePrice }) {
   const { t } = useTranslation()
 
   // ✅ KORIJE — kalkile total ak discountAmt (HTG), pa discountPct
@@ -209,11 +209,65 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
   )
 
   const update = useCallback((field, val) => {
+    if (field === 'unitPriceHtg') {
+      // ✅ NOUVO — si itilizatè a tape yon pri alamen, koupe auto-switch la
+      // (pa fòse detay/gwo sou li ankò pou liy sa a). Sa a sèlman rive si
+      // canOverridePrice=true, paske chan an disabled pou lòt wòl yo.
+      onChange(index, { ...item, unitPriceHtg: val, _priceMode: 'manual' })
+      return
+    }
+    if (field === 'quantity') {
+      const next = { ...item, quantity: val }
+      // ✅ NOUVO — Pri "An Gwo" pa sèy kantite: si pwodwi a gen yon sèy
+      // (wholesaleMinQty) epi kesye a poko chanje pri a alamen pou liy sa
+      // a, chanje pri a otomatikman selon kantite a.
+      if (item._wholesaleMinQty && item._priceMode !== 'manual') {
+        const qty = Number(val) || 0
+        if (qty >= item._wholesaleMinQty) {
+          next.unitPriceHtg = item._wholesalePriceHtg
+          next.unitPriceUsd = item._wholesalePriceUsd
+          next._priceMode   = 'auto-gwo'
+        } else {
+          next.unitPriceHtg = item._retailPriceHtg
+          next.unitPriceUsd = item._retailPriceUsd
+          next._priceMode   = 'auto-detay'
+        }
+      }
+      onChange(index, next)
+      return
+    }
     onChange(index, { ...item, [field]: val })
   }, [index, item, onChange])
 
+  // ✅ NOUVO — Pou KESYE (pa admin): switch ki bloke ant Detay/Gwo sèlman —
+  // PA tape lib. Sa bay flèksibilite biznis (kesye ka toujou vann an gwo
+  // menm si kantite a pa rive nan sèy la) san yo pa ka envante yon pri.
+  const forcePriceMode = useCallback((mode) => {
+    if (mode === 'auto-gwo' && item._wholesaleMinQty) {
+      onChange(index, { ...item, unitPriceHtg: item._wholesalePriceHtg, unitPriceUsd: item._wholesalePriceUsd, _priceMode: 'auto-gwo' })
+    } else {
+      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'auto-detay' })
+    }
+  }, [index, item, onChange])
+
   const handleProductSelect = useCallback((p) => {
-    onChange(index, { ...item, productId: p.id, productName: p.name, productCode: p.code, unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd) })
+    const qty = Number(item.quantity) || 1
+    // ✅ NOUVO — sonje pri detay/gwo pwodwi a sou liy la, pou nou ka
+    // otomatikman chwazi bon pri a selon kantite a pandan kesye a ap tape
+    const hasWholesale = !!(p.wholesaleMinQty && p.wholesalePriceHtg)
+    const useGwo = hasWholesale && qty >= p.wholesaleMinQty
+    onChange(index, {
+      ...item,
+      productId: p.id, productName: p.name, productCode: p.code, unit: p.unit,
+      unitPriceHtg: useGwo ? Number(p.wholesalePriceHtg) : Number(p.priceHtg),
+      unitPriceUsd: useGwo ? Number(p.wholesalePriceUsd || 0) : Number(p.priceUsd),
+      _retailPriceHtg:    Number(p.priceHtg),
+      _retailPriceUsd:    Number(p.priceUsd),
+      _wholesaleMinQty:   hasWholesale ? p.wholesaleMinQty : null,
+      _wholesalePriceHtg: hasWholesale ? Number(p.wholesalePriceHtg) : null,
+      _wholesalePriceUsd: hasWholesale ? Number(p.wholesalePriceUsd || 0) : null,
+      _priceMode: hasWholesale ? (useGwo ? 'auto-gwo' : 'auto-detay') : 'manual',
+    })
   }, [index, item, onChange])
 
   const handleProductClear = useCallback(() => {
@@ -253,7 +307,35 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
           <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-            value={item.unitPriceHtg} onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
+            value={item.unitPriceHtg} disabled={!canOverridePrice}
+            style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
+            onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
+          {/* ✅ NOUVO — Admin: badge enfòmatif. Kesye (pa canOverridePrice): switch Detay/Gwo aktif */}
+          {item._wholesaleMinQty && canOverridePrice && (
+            <span style={{
+              display:'inline-block', marginTop:4, fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:99,
+              background: item._priceMode === 'auto-gwo' ? 'rgba(255,107,0,0.12)' : 'rgba(100,100,100,0.08)',
+              color: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#6B7AAB',
+            }}>
+              {item._priceMode === 'auto-gwo' ? `PRI GWO (${item._wholesaleMinQty}+)` : item._priceMode === 'manual' ? 'PRI MANYÈL' : `PRI DETAY (gwo nan ${item._wholesaleMinQty}+)`}
+            </span>
+          )}
+          {item._wholesaleMinQty && !canOverridePrice && (
+            <div style={{ display:'flex', gap:4, marginTop:5 }}>
+              <button type="button" onClick={() => forcePriceMode('auto-detay')} style={{
+                flex:1, fontSize:9, fontWeight:800, padding:'4px 0', borderRadius:6, border:'1px solid',
+                borderColor: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#E2E8F0',
+                background: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#fff',
+                color: item._priceMode !== 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+              }}>DETAY</button>
+              <button type="button" onClick={() => forcePriceMode('auto-gwo')} style={{
+                flex:1, fontSize:9, fontWeight:800, padding:'4px 0', borderRadius:6, border:'1px solid',
+                borderColor: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#E2E8F0',
+                background: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#fff',
+                color: item._priceMode === 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+              }}>GWO ({item._wholesaleMinQty}+)</button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -276,7 +358,7 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove }) {
 })
 
 // ✅ ItemRow — memo, reutilize ProductDropdown
-const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
+const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOverridePrice }) {
   const { t } = useTranslation()
 
   // ✅ KORIJE — kalkile total ak discountAmt (HTG)
@@ -288,11 +370,55 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
   )
 
   const update = useCallback((field, val) => {
+    if (field === 'unitPriceHtg') {
+      onChange(index, { ...item, unitPriceHtg: val, _priceMode: 'manual' })
+      return
+    }
+    if (field === 'quantity') {
+      const next = { ...item, quantity: val }
+      if (item._wholesaleMinQty && item._priceMode !== 'manual') {
+        const qty = Number(val) || 0
+        if (qty >= item._wholesaleMinQty) {
+          next.unitPriceHtg = item._wholesalePriceHtg
+          next.unitPriceUsd = item._wholesalePriceUsd
+          next._priceMode   = 'auto-gwo'
+        } else {
+          next.unitPriceHtg = item._retailPriceHtg
+          next.unitPriceUsd = item._retailPriceUsd
+          next._priceMode   = 'auto-detay'
+        }
+      }
+      onChange(index, next)
+      return
+    }
     onChange(index, { ...item, [field]: val })
   }, [index, item, onChange])
 
+  // ✅ NOUVO — menm switch bloke Detay/Gwo la, vèsyon tablo
+  const forcePriceMode = useCallback((mode) => {
+    if (mode === 'auto-gwo' && item._wholesaleMinQty) {
+      onChange(index, { ...item, unitPriceHtg: item._wholesalePriceHtg, unitPriceUsd: item._wholesalePriceUsd, _priceMode: 'auto-gwo' })
+    } else {
+      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'auto-detay' })
+    }
+  }, [index, item, onChange])
+
   const handleProductSelect = useCallback((p) => {
-    onChange(index, { ...item, productId: p.id, productName: p.name, productCode: p.code, unit: p.unit, unitPriceHtg: Number(p.priceHtg), unitPriceUsd: Number(p.priceUsd) })
+    const qty = Number(item.quantity) || 1
+    const hasWholesale = !!(p.wholesaleMinQty && p.wholesalePriceHtg)
+    const useGwo = hasWholesale && qty >= p.wholesaleMinQty
+    onChange(index, {
+      ...item,
+      productId: p.id, productName: p.name, productCode: p.code, unit: p.unit,
+      unitPriceHtg: useGwo ? Number(p.wholesalePriceHtg) : Number(p.priceHtg),
+      unitPriceUsd: useGwo ? Number(p.wholesalePriceUsd || 0) : Number(p.priceUsd),
+      _retailPriceHtg:    Number(p.priceHtg),
+      _retailPriceUsd:    Number(p.priceUsd),
+      _wholesaleMinQty:   hasWholesale ? p.wholesaleMinQty : null,
+      _wholesalePriceHtg: hasWholesale ? Number(p.wholesalePriceHtg) : null,
+      _wholesalePriceUsd: hasWholesale ? Number(p.wholesalePriceUsd || 0) : null,
+      _priceMode: hasWholesale ? (useGwo ? 'auto-gwo' : 'auto-detay') : 'manual',
+    })
   }, [index, item, onChange])
 
   const handleProductClear = useCallback(() => {
@@ -321,7 +447,33 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove }) {
       </td>
       <td className="p-2 w-32">
         <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-          value={item.unitPriceHtg} onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
+          value={item.unitPriceHtg} disabled={!canOverridePrice}
+          style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
+          onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
+        {item._wholesaleMinQty && canOverridePrice && (
+          <span style={{
+            display:'block', marginTop:3, fontSize:9, fontWeight:800, textAlign:'right',
+            color: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#6B7AAB',
+          }}>
+            {item._priceMode === 'auto-gwo' ? `GWO (${item._wholesaleMinQty}+)` : item._priceMode === 'manual' ? 'MANYÈL' : `DETAY`}
+          </span>
+        )}
+        {item._wholesaleMinQty && !canOverridePrice && (
+          <div style={{ display:'flex', gap:3, marginTop:4 }}>
+            <button type="button" onClick={() => forcePriceMode('auto-detay')} style={{
+              flex:1, fontSize:8, fontWeight:800, padding:'3px 0', borderRadius:5, border:'1px solid',
+              borderColor: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#E2E8F0',
+              background: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#fff',
+              color: item._priceMode !== 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+            }}>DETAY</button>
+            <button type="button" onClick={() => forcePriceMode('auto-gwo')} style={{
+              flex:1, fontSize:8, fontWeight:800, padding:'3px 0', borderRadius:5, border:'1px solid',
+              borderColor: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#E2E8F0',
+              background: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#fff',
+              color: item._priceMode === 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+            }}>GWO</button>
+          </div>
+        )}
       </td>
       <td className="p-2 w-28">
         {/* ✅ KORIJE — Rabè HTG (kantite), pa pousantaj */}
@@ -436,7 +588,13 @@ export default function QuoteForm() {
   const navigate  = useNavigate()
   const { id }    = useParams()
   const isEdit    = !!id
-  const { tenant } = useAuthStore()
+  const { tenant, user } = useAuthStore()
+  // ✅ NOUVO — Sèlman admin/manajè ka tape yon pri alamen (override lib).
+  // Kesye jwenn sèlman aksè pou CHWAZI ant "Detay" ak "Gwo" (pri konfigire
+  // deja sou pwodwi a) — pa ka envante yon lòt pri. Ajiste lis wòl la si
+  // gen lòt wòl (egz. 'manager') nan sistèm nan.
+  const PRICE_OVERRIDE_ROLES = ['admin']
+  const canOverridePrice = PRICE_OVERRIDE_ROLES.includes(user?.role)
   const isMobile  = useIsMobile()
 
   // ✅ NOUVO — Panye santral (pataje ak paj Pwodui a ak Fakti a). Sèlman pou
@@ -657,7 +815,7 @@ export default function QuoteForm() {
               <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
                 {items.map((item, idx) => (
                   // ✅ key={item._id} — stab
-                  <ItemCard key={item._id} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
+                  <ItemCard key={item._id} item={item} index={idx} onChange={updateItem} onRemove={removeItem} canOverridePrice={canOverridePrice}/>
                 ))}
               </div>
             ) : (
@@ -676,7 +834,7 @@ export default function QuoteForm() {
                   <tbody>
                     {items.map((item, idx) => (
                       // ✅ key={item._id}
-                      <ItemRow key={item._id} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
+                      <ItemRow key={item._id} item={item} index={idx} onChange={updateItem} onRemove={removeItem} canOverridePrice={canOverridePrice}/>
                     ))}
                   </tbody>
                 </table>

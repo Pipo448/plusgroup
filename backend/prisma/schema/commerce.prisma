@@ -43,6 +43,15 @@ model Product {
   packLabel      String?          @map("pack_label")
   packSize       Int?             @map("pack_size")
   packPriceHtg   Decimal?         @map("pack_price_htg") @db.Decimal(12, 2)
+  // ✅ NOUVO — Pri "AN GWO" pa sèy kantite (menm inite a ak priceHtg/priceUsd,
+  // men pri a bese si kliyan achte pi plis pase wholesaleMinQty). Sa se KA #1
+  // (sèy kantite). Pou KA #2 (lòt inite, egz. yon kès), sèvi ak packLabel/
+  // packSize/packPriceHtg ki anwo a. Yon pwodwi ka gen youn, lòt la, tou de,
+  // oswa okenn — tout chan yo optyonèl (nullable), pa gen enpak sou pwodwi
+  // ki pa itilize fonksyonalite sa a.
+  wholesaleMinQty   Int?     @map("wholesale_min_qty")
+  wholesalePriceHtg Decimal? @map("wholesale_price_htg") @db.Decimal(12, 2)
+  wholesalePriceUsd Decimal? @map("wholesale_price_usd") @db.Decimal(12, 2)
   imageUrl       String?          @map("image_url")
   isActive       Boolean          @default(true) @map("is_active")
   isService      Boolean          @default(false) @map("is_service")
