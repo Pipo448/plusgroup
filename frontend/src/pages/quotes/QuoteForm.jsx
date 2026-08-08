@@ -12,6 +12,17 @@ import {
 } from 'lucide-react'
 import { useDraftCartStore } from '../../stores/draftCartStore'
 
+// ✅ NOUVO — Pri An Gwo (plizyè nivo): chwazi pi bon nivo pou yon kantite
+// bay. `tiers` triye pa minQty krwasan; nou pran DÈNYE nivo ki gen minQty
+// <= qty (sa vle di pi gwo sèy kantite kliyan an rive ladan l).
+const pickBestTier = (tiers, qty) => {
+  if (!tiers || !tiers.length) return null
+  const q = Number(qty) || 0
+  const eligible = tiers.filter(tr => q >= Number(tr.minQty))
+  if (!eligible.length) return null
+  return eligible.reduce((best, tr) => Number(tr.minQty) > Number(best.minQty) ? tr : best)
+}
+
 // ✅ useDebounce — evite API call chak lèt
 function useDebounce(value, delay = 400) {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -211,26 +222,26 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
   const update = useCallback((field, val) => {
     if (field === 'unitPriceHtg') {
       // ✅ NOUVO — si itilizatè a tape yon pri alamen, koupe auto-switch la
-      // (pa fòse detay/gwo sou li ankò pou liy sa a). Sa a sèlman rive si
+      // (pa fòse nivo sou li ankò pou liy sa a). Sa a sèlman rive si
       // canOverridePrice=true, paske chan an disabled pou lòt wòl yo.
       onChange(index, { ...item, unitPriceHtg: val, _priceMode: 'manual' })
       return
     }
     if (field === 'quantity') {
       const next = { ...item, quantity: val }
-      // ✅ NOUVO — Pri "An Gwo" pa sèy kantite: si pwodwi a gen yon sèy
-      // (wholesaleMinQty) epi kesye a poko chanje pri a alamen pou liy sa
-      // a, chanje pri a otomatikman selon kantite a.
-      if (item._wholesaleMinQty && item._priceMode !== 'manual') {
-        const qty = Number(val) || 0
-        if (qty >= item._wholesaleMinQty) {
-          next.unitPriceHtg = item._wholesalePriceHtg
-          next.unitPriceUsd = item._wholesalePriceUsd
-          next._priceMode   = 'auto-gwo'
+      // ✅ NOUVO — Pri "An Gwo" (plizyè nivo): si pwodwi a gen nivo epi
+      // kesye a poko chanje pri a alamen pou liy sa a, chanje pri a
+      // otomatikman selon pi bon nivo ki matche kantite a.
+      if (item._priceTiers?.length && item._priceMode !== 'manual') {
+        const bestTier = pickBestTier(item._priceTiers, val)
+        if (bestTier) {
+          next.unitPriceHtg = Number(bestTier.priceHtg)
+          next.unitPriceUsd = bestTier.priceUsd != null ? Number(bestTier.priceUsd) : 0
+          next._priceMode   = `tier-${bestTier.id || bestTier.minQty}`
         } else {
           next.unitPriceHtg = item._retailPriceHtg
           next.unitPriceUsd = item._retailPriceUsd
-          next._priceMode   = 'auto-detay'
+          next._priceMode   = 'retail'
         }
       }
       onChange(index, next)
@@ -239,34 +250,39 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
     onChange(index, { ...item, [field]: val })
   }, [index, item, onChange])
 
-  // ✅ NOUVO — Pou KESYE (pa admin): switch ki bloke ant Detay/Gwo sèlman —
-  // PA tape lib. Sa bay flèksibilite biznis (kesye ka toujou vann an gwo
-  // menm si kantite a pa rive nan sèy la) san yo pa ka envante yon pri.
-  const forcePriceMode = useCallback((mode) => {
-    if (mode === 'auto-gwo' && item._wholesaleMinQty) {
-      onChange(index, { ...item, unitPriceHtg: item._wholesalePriceHtg, unitPriceUsd: item._wholesalePriceUsd, _priceMode: 'auto-gwo' })
+  // ✅ NOUVO — Pou KESYE (pa admin): switch ki bloke ant Detay ak nivo yo
+  // — PA tape lib. Sa bay flèksibilite biznis (kesye ka toujou vann an
+  // gwo menm si kantite a pa rive nan sèy la) san yo pa ka envante yon pri.
+  // `tier` se null pou Detay, oswa youn nan objè `item._priceTiers`.
+  const forcePriceMode = useCallback((tier) => {
+    if (tier) {
+      onChange(index, {
+        ...item,
+        quantity: Math.max(Number(item.quantity) || 0, Number(tier.minQty)),
+        unitPriceHtg: Number(tier.priceHtg),
+        unitPriceUsd: tier.priceUsd != null ? Number(tier.priceUsd) : 0,
+        _priceMode: `tier-${tier.id || tier.minQty}`,
+      })
     } else {
-      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'auto-detay' })
+      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
     }
   }, [index, item, onChange])
 
   const handleProductSelect = useCallback((p) => {
     const qty = Number(item.quantity) || 1
-    // ✅ NOUVO — sonje pri detay/gwo pwodwi a sou liy la, pou nou ka
-    // otomatikman chwazi bon pri a selon kantite a pandan kesye a ap tape
-    const hasWholesale = !!(p.wholesaleMinQty && p.wholesalePriceHtg)
-    const useGwo = hasWholesale && qty >= p.wholesaleMinQty
+    // ✅ NOUVO — sonje pri detay + lis nivo pri an gwo pwodwi a sou liy
+    // la, pou nou ka otomatikman chwazi bon pri a selon kantite a
+    const tiers = (p.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty)
+    const bestTier = pickBestTier(tiers, qty)
     onChange(index, {
       ...item,
       productId: p.id, productName: p.name, productCode: p.code, unit: p.unit,
-      unitPriceHtg: useGwo ? Number(p.wholesalePriceHtg) : Number(p.priceHtg),
-      unitPriceUsd: useGwo ? Number(p.wholesalePriceUsd || 0) : Number(p.priceUsd),
-      _retailPriceHtg:    Number(p.priceHtg),
-      _retailPriceUsd:    Number(p.priceUsd),
-      _wholesaleMinQty:   hasWholesale ? p.wholesaleMinQty : null,
-      _wholesalePriceHtg: hasWholesale ? Number(p.wholesalePriceHtg) : null,
-      _wholesalePriceUsd: hasWholesale ? Number(p.wholesalePriceUsd || 0) : null,
-      _priceMode: hasWholesale ? (useGwo ? 'auto-gwo' : 'auto-detay') : 'manual',
+      unitPriceHtg: bestTier ? Number(bestTier.priceHtg) : Number(p.priceHtg),
+      unitPriceUsd: bestTier ? (bestTier.priceUsd != null ? Number(bestTier.priceUsd) : 0) : Number(p.priceUsd),
+      _retailPriceHtg: Number(p.priceHtg),
+      _retailPriceUsd: Number(p.priceUsd),
+      _priceTiers: tiers,
+      _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
     })
   }, [index, item, onChange])
 
@@ -310,30 +326,34 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
             value={item.unitPriceHtg} disabled={!canOverridePrice}
             style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
             onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
-          {/* ✅ NOUVO — Admin: badge enfòmatif. Kesye (pa canOverridePrice): switch Detay/Gwo aktif */}
-          {item._wholesaleMinQty && canOverridePrice && (
+          {/* ✅ NOUVO — Admin: badge enfòmatif. Kesye (pa canOverridePrice): bouton pou chak nivo */}
+          {item._priceTiers?.length > 0 && canOverridePrice && (
             <span style={{
               display:'inline-block', marginTop:4, fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:99,
-              background: item._priceMode === 'auto-gwo' ? 'rgba(255,107,0,0.12)' : 'rgba(100,100,100,0.08)',
-              color: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#6B7AAB',
+              background: item._priceMode?.startsWith('tier-') ? 'rgba(255,107,0,0.12)' : 'rgba(100,100,100,0.08)',
+              color: item._priceMode?.startsWith('tier-') ? '#FF6B00' : '#6B7AAB',
             }}>
-              {item._priceMode === 'auto-gwo' ? `PRI GWO (${item._wholesaleMinQty}+)` : item._priceMode === 'manual' ? 'PRI MANYÈL' : `PRI DETAY (gwo nan ${item._wholesaleMinQty}+)`}
+              {item._priceMode === 'manual' ? 'PRI MANYÈL' : item._priceMode?.startsWith('tier-')
+                ? (item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)?.label || 'GWO')
+                : 'PRI DETAY'}
             </span>
           )}
-          {item._wholesaleMinQty && !canOverridePrice && (
-            <div style={{ display:'flex', gap:4, marginTop:5 }}>
-              <button type="button" onClick={() => forcePriceMode('auto-detay')} style={{
-                flex:1, fontSize:9, fontWeight:800, padding:'4px 0', borderRadius:6, border:'1px solid',
-                borderColor: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#E2E8F0',
-                background: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#fff',
-                color: item._priceMode !== 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+          {item._priceTiers?.length > 0 && !canOverridePrice && (
+            <div style={{ display:'flex', gap:4, marginTop:5, flexWrap:'wrap' }}>
+              <button type="button" onClick={() => forcePriceMode(null)} style={{
+                fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px solid',
+                borderColor: item._priceMode === 'retail' ? '#1B2A8F' : '#E2E8F0',
+                background: item._priceMode === 'retail' ? '#1B2A8F' : '#fff',
+                color: item._priceMode === 'retail' ? '#fff' : '#6B7AAB', cursor:'pointer',
               }}>DETAY</button>
-              <button type="button" onClick={() => forcePriceMode('auto-gwo')} style={{
-                flex:1, fontSize:9, fontWeight:800, padding:'4px 0', borderRadius:6, border:'1px solid',
-                borderColor: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#E2E8F0',
-                background: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#fff',
-                color: item._priceMode === 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
-              }}>GWO ({item._wholesaleMinQty}+)</button>
+              {item._priceTiers.map(tr => (
+                <button key={tr.id || tr.minQty} type="button" onClick={() => forcePriceMode(tr)} style={{
+                  fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px solid',
+                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#E2E8F0',
+                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
+                }}>{tr.label || `${tr.minQty}+`}</button>
+              ))}
             </div>
           )}
         </div>
@@ -376,16 +396,16 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
     }
     if (field === 'quantity') {
       const next = { ...item, quantity: val }
-      if (item._wholesaleMinQty && item._priceMode !== 'manual') {
-        const qty = Number(val) || 0
-        if (qty >= item._wholesaleMinQty) {
-          next.unitPriceHtg = item._wholesalePriceHtg
-          next.unitPriceUsd = item._wholesalePriceUsd
-          next._priceMode   = 'auto-gwo'
+      if (item._priceTiers?.length && item._priceMode !== 'manual') {
+        const bestTier = pickBestTier(item._priceTiers, val)
+        if (bestTier) {
+          next.unitPriceHtg = Number(bestTier.priceHtg)
+          next.unitPriceUsd = bestTier.priceUsd != null ? Number(bestTier.priceUsd) : 0
+          next._priceMode   = `tier-${bestTier.id || bestTier.minQty}`
         } else {
           next.unitPriceHtg = item._retailPriceHtg
           next.unitPriceUsd = item._retailPriceUsd
-          next._priceMode   = 'auto-detay'
+          next._priceMode   = 'retail'
         }
       }
       onChange(index, next)
@@ -394,30 +414,34 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
     onChange(index, { ...item, [field]: val })
   }, [index, item, onChange])
 
-  // ✅ NOUVO — menm switch bloke Detay/Gwo la, vèsyon tablo
-  const forcePriceMode = useCallback((mode) => {
-    if (mode === 'auto-gwo' && item._wholesaleMinQty) {
-      onChange(index, { ...item, unitPriceHtg: item._wholesalePriceHtg, unitPriceUsd: item._wholesalePriceUsd, _priceMode: 'auto-gwo' })
+  // ✅ NOUVO — menm switch bloke Detay/nivo yo, vèsyon tablo
+  const forcePriceMode = useCallback((tier) => {
+    if (tier) {
+      onChange(index, {
+        ...item,
+        quantity: Math.max(Number(item.quantity) || 0, Number(tier.minQty)),
+        unitPriceHtg: Number(tier.priceHtg),
+        unitPriceUsd: tier.priceUsd != null ? Number(tier.priceUsd) : 0,
+        _priceMode: `tier-${tier.id || tier.minQty}`,
+      })
     } else {
-      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'auto-detay' })
+      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
     }
   }, [index, item, onChange])
 
   const handleProductSelect = useCallback((p) => {
     const qty = Number(item.quantity) || 1
-    const hasWholesale = !!(p.wholesaleMinQty && p.wholesalePriceHtg)
-    const useGwo = hasWholesale && qty >= p.wholesaleMinQty
+    const tiers = (p.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty)
+    const bestTier = pickBestTier(tiers, qty)
     onChange(index, {
       ...item,
       productId: p.id, productName: p.name, productCode: p.code, unit: p.unit,
-      unitPriceHtg: useGwo ? Number(p.wholesalePriceHtg) : Number(p.priceHtg),
-      unitPriceUsd: useGwo ? Number(p.wholesalePriceUsd || 0) : Number(p.priceUsd),
-      _retailPriceHtg:    Number(p.priceHtg),
-      _retailPriceUsd:    Number(p.priceUsd),
-      _wholesaleMinQty:   hasWholesale ? p.wholesaleMinQty : null,
-      _wholesalePriceHtg: hasWholesale ? Number(p.wholesalePriceHtg) : null,
-      _wholesalePriceUsd: hasWholesale ? Number(p.wholesalePriceUsd || 0) : null,
-      _priceMode: hasWholesale ? (useGwo ? 'auto-gwo' : 'auto-detay') : 'manual',
+      unitPriceHtg: bestTier ? Number(bestTier.priceHtg) : Number(p.priceHtg),
+      unitPriceUsd: bestTier ? (bestTier.priceUsd != null ? Number(bestTier.priceUsd) : 0) : Number(p.priceUsd),
+      _retailPriceHtg: Number(p.priceHtg),
+      _retailPriceUsd: Number(p.priceUsd),
+      _priceTiers: tiers,
+      _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
     })
   }, [index, item, onChange])
 
@@ -450,28 +474,32 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
           value={item.unitPriceHtg} disabled={!canOverridePrice}
           style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
           onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
-        {item._wholesaleMinQty && canOverridePrice && (
+        {item._priceTiers?.length > 0 && canOverridePrice && (
           <span style={{
             display:'block', marginTop:3, fontSize:9, fontWeight:800, textAlign:'right',
-            color: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#6B7AAB',
+            color: item._priceMode?.startsWith('tier-') ? '#FF6B00' : '#6B7AAB',
           }}>
-            {item._priceMode === 'auto-gwo' ? `GWO (${item._wholesaleMinQty}+)` : item._priceMode === 'manual' ? 'MANYÈL' : `DETAY`}
+            {item._priceMode === 'manual' ? 'MANYÈL' : item._priceMode?.startsWith('tier-')
+              ? (item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)?.label || 'GWO')
+              : 'DETAY'}
           </span>
         )}
-        {item._wholesaleMinQty && !canOverridePrice && (
-          <div style={{ display:'flex', gap:3, marginTop:4 }}>
-            <button type="button" onClick={() => forcePriceMode('auto-detay')} style={{
-              flex:1, fontSize:8, fontWeight:800, padding:'3px 0', borderRadius:5, border:'1px solid',
-              borderColor: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#E2E8F0',
-              background: item._priceMode !== 'auto-gwo' ? '#1B2A8F' : '#fff',
-              color: item._priceMode !== 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
+        {item._priceTiers?.length > 0 && !canOverridePrice && (
+          <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
+            <button type="button" onClick={() => forcePriceMode(null)} style={{
+              fontSize:8, fontWeight:800, padding:'3px 6px', borderRadius:5, border:'1px solid',
+              borderColor: item._priceMode === 'retail' ? '#1B2A8F' : '#E2E8F0',
+              background: item._priceMode === 'retail' ? '#1B2A8F' : '#fff',
+              color: item._priceMode === 'retail' ? '#fff' : '#6B7AAB', cursor:'pointer',
             }}>DETAY</button>
-            <button type="button" onClick={() => forcePriceMode('auto-gwo')} style={{
-              flex:1, fontSize:8, fontWeight:800, padding:'3px 0', borderRadius:5, border:'1px solid',
-              borderColor: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#E2E8F0',
-              background: item._priceMode === 'auto-gwo' ? '#FF6B00' : '#fff',
-              color: item._priceMode === 'auto-gwo' ? '#fff' : '#6B7AAB', cursor:'pointer',
-            }}>GWO</button>
+            {item._priceTiers.map(tr => (
+              <button key={tr.id || tr.minQty} type="button" onClick={() => forcePriceMode(tr)} style={{
+                fontSize:8, fontWeight:800, padding:'3px 6px', borderRadius:5, border:'1px solid',
+                borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#E2E8F0',
+                background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
+              }}>{tr.label || `${tr.minQty}+`}</button>
+            ))}
           </div>
         )}
       </td>
