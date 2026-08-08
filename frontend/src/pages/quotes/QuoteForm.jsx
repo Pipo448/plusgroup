@@ -779,7 +779,7 @@ export default function QuoteForm() {
         const discPct  = gross > 0 ? (discAmt / gross) * 100 : 0
         return {
           productId:       i.productId || null,
-          productSnapshot: { name: i.productName || i.description, code: i.productCode, unit: i.unit },
+          productSnapshot: { name: i.productName || i.description, code: i.productCode, unit: i.unit, tierLabel: i._priceMode?.startsWith('tier-') ? (i._priceTiers?.find(tr => `tier-${tr.id || tr.minQty}` === i._priceMode)?.label || 'Gwo') : (i.productId ? 'Detay' : null) },
           quantity:        Number(i.quantity),
           unitPriceHtg:    Number(i.unitPriceHtg),
           unitPriceUsd:    Number(i.unitPriceUsd || 0),

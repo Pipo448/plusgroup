@@ -114,7 +114,12 @@ const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20
       include: {
         client: { select: { id: true, name: true, phone: true } },
         creator: { select: { fullName: true } },
-        _count: { select: { items: true } }
+        _count: { select: { items: true } },
+        // ✅ NOUVO — atik yo (limite) pou badj nivo pri nan lis la
+        items: {
+          select: { id: true, quantity: true, productSnapshot: true, product: { select: { name: true } } },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,
@@ -172,8 +177,12 @@ const create = async (tenantId, userId, data, userRole) => {
     // ✅ NOUVO — Validasyon pri sèvè-side (pa fè konfyans a sa frontend voye pou non-admin)
     validateItemPrice(item, product, isAdmin);
 
+    // ✅ NOUVO — kalkile tierLabel SÈVÈ-SIDE (pi serye pase fè konfyans
+    // frontend lan), pa konpare pri soumèt la ak pri detay/nivo pwodwi a
+    const matchedTier = product ? (product.priceTiers || []).find(tr => priceMatches(item.unitPriceHtg, tr.priceHtg)) : null
+    const tierLabel = product ? (matchedTier ? (matchedTier.label || 'Gwo') : 'Detay') : null
     const snapshot = product
-      ? { id: product.id, name: product.name, code: product.code, unit: product.unit }
+      ? { id: product.id, name: product.name, code: product.code, unit: product.unit, tierLabel }
       : (item.productSnapshot || {});
 
     items.push({
@@ -256,8 +265,11 @@ const update = async (tenantId, id, userId, data, userRole) => {
       // ✅ NOUVO — Validasyon pri sèvè-side
       validateItemPrice(item, product, isAdmin);
 
+      // ✅ NOUVO — kalkile tierLabel sèvè-side, menm jan ak create()
+      const matchedTier = product ? (product.priceTiers || []).find(tr => priceMatches(item.unitPriceHtg, tr.priceHtg)) : null
+      const tierLabel = product ? (matchedTier ? (matchedTier.label || 'Gwo') : 'Detay') : null
       const snapshot = product
-        ? { id: product.id, name: product.name, code: product.code, unit: product.unit }
+        ? { id: product.id, name: product.name, code: product.code, unit: product.unit, tierLabel }
         : (item.productSnapshot || {});
 
       items.push({

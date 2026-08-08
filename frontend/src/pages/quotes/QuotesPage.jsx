@@ -349,6 +349,28 @@ const QuoteCard = memo(function QuoteCard({ q, D, fmt, t, showRate, exchangeRate
         </span>
         <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{dateStr}</span>
       </div>
+      {/* ✅ NOUVO — Badj atik yo (non nivo pri: Detay, Gwo, Bwat...) */}
+      {q.items?.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:-6, flexWrap:'wrap' }}>
+          {q.items.slice(0, 2).map(it => {
+            const tierLabel = it.productSnapshot?.tierLabel
+            const name = it.product?.name || it.productSnapshot?.name || 'Atik'
+            return (
+              <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
+                {name}
+                {tierLabel && (
+                  <span style={{
+                    fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
+                    background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
+                    color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
+                  }}>{tierLabel}</span>
+                )}
+              </span>
+            )
+          })}
+          {q.items.length > 2 && <span style={{ fontSize:10, color:D.muted }}>+{q.items.length - 2} lòt</span>}
+        </div>
+      )}
 
       <div style={{ height:1, background:D.border }}/>
 
@@ -411,9 +433,33 @@ const QuoteRow = memo(function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeR
       style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1.2fr 100px 90px 90px 100px', padding:'12px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
 
       <span style={{ fontFamily:'monospace', fontWeight:800, color:D.gold, fontSize:12 }}>{q.quoteNumber}</span>
-      <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-        {q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}
-      </span>
+      <div style={{ minWidth: 0 }}>
+        <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
+          {q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}
+        </span>
+        {/* ✅ NOUVO — Badj atik yo, menm lojik ak QuoteCard */}
+        {q.items?.length > 0 && (
+          <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
+            {q.items.slice(0, 2).map(it => {
+              const tierLabel = it.productSnapshot?.tierLabel
+              const name = it.product?.name || it.productSnapshot?.name || 'Atik'
+              return (
+                <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
+                  {name}
+                  {tierLabel && (
+                    <span style={{
+                      fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
+                      background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
+                      color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
+                    }}>{tierLabel}</span>
+                  )}
+                </span>
+              )
+            })}
+            {q.items.length > 2 && <span style={{ fontSize:10, color:D.muted }}>+{q.items.length - 2} lòt</span>}
+          </div>
+        )}
+      </div>
 
       <div style={{ textAlign:'center' }}>
         <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(q.totalHtg)} HTG</span>
