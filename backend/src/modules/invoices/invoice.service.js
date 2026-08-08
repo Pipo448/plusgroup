@@ -83,7 +83,14 @@ const getAll = async (tenantId, { status, clientId, search, page = 1, limit = 20
       include: {
         client:  { select: { id: true, name: true, phone: true } },
         creator: { select: { fullName: true } },
-        _count:  { select: { items: true, payments: true } }
+        _count:  { select: { items: true, payments: true } },
+        // ✅ NOUVO — atik yo (limite, sèlman sa nou bezwen pou badj nan
+        // lis la) — pa chaje tout done atik yo (pri, rabè, elatriye),
+        // sa ta fè lis la lan pou anyen
+        items: {
+          select: { id: true, quantity: true, productSnapshot: true, product: { select: { name: true } } },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
       skip: (page - 1) * limit,

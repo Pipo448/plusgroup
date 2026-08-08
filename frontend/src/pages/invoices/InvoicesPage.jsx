@@ -402,6 +402,9 @@ const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRat
 
   // ✅ Fallback non kliyan
   const clientName = inv.client?.name || inv.clientSnapshot?.name || 'Vant kontwa'
+  // ✅ NOUVO — Badj atik yo, menm lojik ak vèsyon dezktòp la
+  const itemBadges = (inv.items || []).slice(0, 2)
+  const extraItemCount = (inv.items?.length || 0) - itemBadges.length
 
   return (
     <div style={{
@@ -431,6 +434,27 @@ const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRat
         </span>
         <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', flexShrink: 0 }}>{dateStr}</span>
       </div>
+      {itemBadges.length > 0 && (
+        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:-4, flexWrap:'wrap' }}>
+          {itemBadges.map(it => {
+            const tierLabel = it.productSnapshot?.tierLabel
+            const name = it.product?.name || it.productSnapshot?.name || 'Atik'
+            return (
+              <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
+                {name}
+                {tierLabel && (
+                  <span style={{
+                    fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
+                    background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
+                    color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
+                  }}>{tierLabel}</span>
+                )}
+              </span>
+            )
+          })}
+          {extraItemCount > 0 && <span style={{ fontSize:10, color:D.muted }}>+{extraItemCount} lòt</span>}
+        </div>
+      )}
 
       <div style={{ height:1, background:D.border }}/>
 
@@ -513,20 +537,49 @@ const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRat
   const clientName = inv.client?.name || inv.clientSnapshot?.name || 'Vant kontwa'
   const isWalkIn   = !inv.client?.name && !inv.clientSnapshot?.name
 
+  // ✅ NOUVO — Badj atik yo (non nivo pri: Detay, Gwo, Bwat...), pou wè
+  // rapid ki jan pwodwi yo te vann san bezwen ouvri detay Fakti a
+  const itemBadges = (inv.items || []).slice(0, 2)
+  const extraItemCount = (inv.items?.length || 0) - itemBadges.length
+
   return (
     <div className="inv-row"
       style={{ display:'grid', gridTemplateColumns:'1.3fr 1.5fr 1.1fr 1.1fr 1.3fr 90px 80px 50px', padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx % 2 === 0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
 
       <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{inv.invoiceNumber}</span>
 
-      <span style={{
-        fontSize:13, fontWeight:600,
-        color: isWalkIn ? D.muted : D.text,
-        fontStyle: isWalkIn ? 'italic' : 'normal',
-        overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'
-      }}>
-        {clientName}
-      </span>
+      <div style={{ minWidth: 0 }}>
+        <span style={{
+          fontSize:13, fontWeight:600,
+          color: isWalkIn ? D.muted : D.text,
+          fontStyle: isWalkIn ? 'italic' : 'normal',
+          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+          display: 'block',
+        }}>
+          {clientName}
+        </span>
+        {itemBadges.length > 0 && (
+          <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
+            {itemBadges.map(it => {
+              const tierLabel = it.productSnapshot?.tierLabel
+              const name = it.product?.name || it.productSnapshot?.name || 'Atik'
+              return (
+                <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
+                  {name}
+                  {tierLabel && (
+                    <span style={{
+                      fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
+                      background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
+                      color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
+                    }}>{tierLabel}</span>
+                  )}
+                </span>
+              )
+            })}
+            {extraItemCount > 0 && <span style={{ fontSize:10, color:D.muted }}>+{extraItemCount} lòt</span>}
+          </div>
+        )}
+      </div>
 
       <div style={{ textAlign:'center' }}>
         <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
