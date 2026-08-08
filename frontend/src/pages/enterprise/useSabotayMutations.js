@@ -190,6 +190,17 @@ export function useSabotayMutations({
     onError: (e) => toast.error(e.message),
   })
 
+  // ─── Toggle Kache Pozisyon nan Kont Sol ───────────────────
+  const toggleHidePosition = useMutation({
+    mutationFn: (planId) =>
+      apiFetch(`/sabotay/plans/${planId}/toggle-hide-position`, { method: 'PATCH' }),
+    onSuccess: (r) => {
+      qc.invalidateQueries(['sabotay-plans'])
+      toast.success(r.message || '✅ Chanjman sove!')
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   // ─── Rekalile Pozisyon Manyèlman ─────────────────────────
   const recalculate = useMutation({
     mutationFn: (planId) =>
@@ -216,7 +227,7 @@ export function useSabotayMutations({
   return {
     createPlan, updatePlan, closePlan,
     addMember, markPayment, memberAction, blindDraw,
-    toggleDynamic, toggleManualTime, recalculate,
+    toggleDynamic, toggleManualTime, toggleHidePosition, recalculate,
     adjustPosition,
   }
 }

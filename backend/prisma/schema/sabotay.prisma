@@ -28,6 +28,7 @@ model SabotayPlan {
   stopPenaltyPct      Float?                @default(0)
   dynamicPositions    Boolean               @default(false) @map("dynamicPositions") // ✅ NOUVO: Sistèm Pozisyon Dinamik
   manualPaymentTime   Boolean               @default(false) @map("manual_payment_time") // ✅ NOUVO: Kesye ka antre lè reyèl peman an
+  hidePositionInSol   Boolean               @default(false) @map("hide_position_in_sol") // ✅ NOUVO: Kache pozisyon nan kont sol manm yo
   members             SabotayMember[]
   payments            SabotayPayment[]
   branch              Branch?               @relation(fields: [branchId], references: [id], onUpdate: NoAction)

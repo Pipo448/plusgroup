@@ -205,6 +205,8 @@ async function buildPlanData(account, memberId) {
       totalMemberCount,
       // ✅ FIX 2: Ajoute dynamicPositioning pou frontend ka konnen si aktive
       dynamicPositioning: plan.dynamicPositioning ?? false,
+      // ✅ NOUVO: si aktive, fwontenn kont sol la pa dwe afiche "Pozisyon #X"
+      hidePositionInSol: plan.hidePositionInSol ?? false,
       createdAt: plan.startDate.toISOString().split('T')[0],
       dueTime: plan.dueTime || account.planDueTime || '08:00',
       dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00',

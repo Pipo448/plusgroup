@@ -335,6 +335,7 @@ export default function SabotayPage() {
           onClosePlan={() => setClosePlan(true)}
           onToggleDynamic={(planId) => mutations.toggleDynamic.mutate(planId)}
           onToggleManualTime={(planId) => mutations.toggleManualTime.mutate(planId)}
+          onToggleHidePosition={(planId) => mutations.toggleHidePosition.mutate(planId)}
           onRecalculate={(planId) => mutations.recalculate.mutate(planId)}
           onMemberAction={(memberId, action, reason, payoutDate) =>
             mutations.memberAction.mutate({ planId: activePlan.id, memberId, action, reason, payoutDate })

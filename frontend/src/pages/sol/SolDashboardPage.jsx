@@ -264,9 +264,11 @@ export default function SolDashboardPage() {
 
   const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
-  const posStr     = allSlots.length > 1
+  // ✅ NOUVO: si admin aktive "Kache Pozisyon", manm nan pa dwe wè "Pozisyon #X"
+  const hidePos    = !!plan.hidePositionInSol
+  const posStr     = hidePos ? '' : (allSlots.length > 1
     ? allSlots.map(s => `#${s.position}`).join(' • ')
-    : `Pozisyon #${member.position}`
+    : `Pozisyon #${member.position}`)
 
   // ─── PLAN SELECTOR (mobil) ──────────────────────────────────
   const planSelectorJSX = plans.length > 1 && (
@@ -506,7 +508,7 @@ export default function SolDashboardPage() {
                 </h1>
                 <div style={{ fontSize: 12, color: D.muted, marginBottom: 6 }}>{member.phone}</div>
                 <div style={{ fontSize: 11, color: D.mutedLt, marginBottom: plan.dueTime ? 10 : 0 }}>
-                  {posStr} • {plan.name}
+                  {posStr ? `${posStr} • ${plan.name}` : plan.name}
                 </div>
                 {plan.dueTime && (
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 8, padding: '4px 10px', fontSize: 11, color: D.gold, fontWeight: 600 }}>
@@ -573,7 +575,7 @@ export default function SolDashboardPage() {
                       <Trophy size={14} style={{ color: D.gold }} />
                     </div>
                     <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      Men #{slot.position}
+                      {hidePos ? 'Men' : `Men #${slot.position}`}
                     </span>
                   </div>
                   <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.gold }}>

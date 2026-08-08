@@ -416,7 +416,7 @@ function PosBadge({ member, plan, dynamic }) {
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
   plan, onBack, onAddMember, onPaymentSaved, onBlindDraw,
-  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onToggleManualTime, onRecalculate, printer, onAdjustPosition,
+  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onToggleManualTime, onToggleHidePosition, onRecalculate, printer, onAdjustPosition,
 }) {
   const [viewMember,       setView]             = useState(null)
   const [viewMemberSlots,  setSlots]            = useState(null)
@@ -457,6 +457,7 @@ export default function PlanDetail({
   const payoutMap = useMemo(() => getPayoutDateMap(plan), [plan])
   const isDynamic = !!plan.dynamicPositions
   const manualTimeOn = !!plan.manualPaymentTime
+  const hidePosOn = !!plan.hidePositionInSol
 
   const todayWinPos = Object.entries(payoutMap).find(([, d]) => d === today)
   const todayWinner = todayWinPos ? plan.members?.find(m => m.position === Number(todayWinPos[0])) : null
@@ -571,6 +572,24 @@ export default function PlanDetail({
         <button onClick={() => onToggleManualTime(plan.id)}
           style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: manualTimeOn ? D.blue : 'rgba(255,255,255,0.1)', transition: 'background 0.2s', flexShrink: 0 }}>
           <span style={{ position: 'absolute', top: 3, left: manualTimeOn ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+        </button>
+      </div>
+
+      {/* ─── BANN KACHE POZISYON (kont sol manm yo) ─── */}
+      <div style={{ background: hidePosOn ? 'rgba(231,76,60,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${hidePosOn ? 'rgba(231,76,60,0.3)' : D.borderSub}`, borderRadius: 12, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: hidePosOn ? D.red : D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            🙈 Kache Pozisyon
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: D.muted }}>
+            {hidePosOn
+              ? 'Manm yo PA wè "Pozisyon #X" nan kont sol yo — pwen ak dat pwomès toujou vizib.'
+              : 'Aktive pou kache "Pozisyon #X" nan kont sol manm yo (rete envizib pou yo).'}
+          </p>
+        </div>
+        <button onClick={() => onToggleHidePosition(plan.id)}
+          style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: hidePosOn ? D.red : 'rgba(255,255,255,0.1)', transition: 'background 0.2s', flexShrink: 0 }}>
+          <span style={{ position: 'absolute', top: 3, left: hidePosOn ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
         </button>
       </div>
 
