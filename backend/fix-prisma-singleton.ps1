@@ -46,7 +46,9 @@ function Fix-PrismaFile {
   $content = $content -replace "(?m)^\s*const\s*\{\s*PrismaClient\s*\}\s*=\s*require\(\s*['""]@prisma/client['""]\s*\)\s*;?\s*\r?\n", ""
 
   # Ranplase "const prisma = new PrismaClient(...)" ak require() singleton an
-  $content = $content -replace "const\s+prisma\s*=\s*new\s+PrismaClient\([^)]*\)\s*;?", "const prisma = require('$RequirePath')"
+  # ⭐ [ \t]* (pa \s*) anvan pwen vigil la — evite manje newline ki vin apre a
+  #    lè pa gen pwen vigil, sa ki t ap fè liy k ap vini apre a kole sou menm liy la
+  $content = $content -replace "const\s+prisma\s*=\s*new\s+PrismaClient\([^)]*\)[ \t]*;?", "const prisma = require('$RequirePath')"
 
   if ($content -ne $original) {
     Set-Content -Path $full -Value $content -NoNewline

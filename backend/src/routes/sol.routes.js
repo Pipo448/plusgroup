@@ -3,7 +3,8 @@ const express = require('express')
 const bcrypt  = require('bcryptjs')
 const jwt     = require('jsonwebtoken')
 const router   = express.Router()
-const prisma = require('../config/prisma')const solPushSvc  = require('../modules/sabotay/sol-push.service')
+const prisma = require('../config/prisma')
+const solPushSvc  = require('../modules/sabotay/sol-push.service')
 const exchangeSvc = require('../modules/sabotay/sol-exchange.service')
 
 const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me'

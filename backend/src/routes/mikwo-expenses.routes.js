@@ -4,7 +4,8 @@ const express = require('express')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 
 const router = express.Router()
-const prisma = require('../config/prisma')router.use(identifyTenant, authenticate)
+const prisma = require('../config/prisma')
+router.use(identifyTenant, authenticate)
 
 const tid = (req) => req.tenant.id
 const isAdmin = (req) => req.user?.role === 'admin'

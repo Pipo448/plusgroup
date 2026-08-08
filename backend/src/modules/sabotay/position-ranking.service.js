@@ -5,7 +5,8 @@
 // ✅ FIX: Respekte dueTimeEnd — jodi a pa konte kòm "missing"
 //         anvan fenèt peman fini.
 // ══════════════════════════════════════════════════════════════
-const prisma = require('../../config/prisma')const POINTS = {
+const prisma = require('../../config/prisma')
+const POINTS = {
   earlyDepo:   7,
   earlyDay:    5,
   early:       3,

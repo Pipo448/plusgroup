@@ -5,7 +5,8 @@ const {
 } = require('./pre.engine')
 
 const router = express.Router()
-const prisma = require('../config/prisma')const { identifyTenant, authenticate } = require('../middleware/auth')
+const prisma = require('../config/prisma')
+const { identifyTenant, authenticate } = require('../middleware/auth')
 const { extractBranch }                = require('../middleware/branch')
 
 router.use(identifyTenant, authenticate, extractBranch)
