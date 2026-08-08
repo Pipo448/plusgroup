@@ -145,6 +145,9 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
       _retailPrice: p.priceHtg || 0,
       _priceTiers: tiers,
       _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+      // ✅ NOUVO — sonje kòd ak inite pwodwi a pou anrejistre nan productSnapshot
+      _productCode: p.code || null,
+      _unit: p.unit || null,
     })
   }, [idx, onUpdate])
 
@@ -323,6 +326,9 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
       _retailPrice: p.priceHtg || 0,
       _priceTiers: tiers,
       _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+      // ✅ NOUVO — sonje kòd ak inite pwodwi a pou anrejistre nan productSnapshot
+      _productCode: p.code || null,
+      _unit: p.unit || null,
     })
   }, [idx, onUpdate])
 
@@ -727,6 +733,10 @@ export default function NewInvoicePage() {
       const lineTotal = Math.max(0, gross - Math.min(discAmt, gross))
       // Konvèti montan rabè → pousantaj pou backend
       const discPct   = gross > 0 ? Math.min(100, (discAmt / gross) * 100) : 0
+      // ✅ NOUVO — non nivo pri a ki te aktif pou liy sa a (pou badj afichaj)
+      const tierLabel = it._priceMode?.startsWith('tier-')
+        ? (it._priceTiers?.find(tr => `tier-${tr.id || tr.minQty}` === it._priceMode)?.label || 'Gwo')
+        : (it.productId ? 'Detay' : null)
 
       return {
         description:     it.description,
@@ -737,7 +747,7 @@ export default function NewInvoicePage() {
         discountPct:     Number(discPct.toFixed(4)),
         totalHtg:        lineTotal,
         totalUsd:        0,
-        productSnapshot: {},
+        productSnapshot: { name: it.description, code: it._productCode || null, unit: it._unit || null, tierLabel },
       }
     })
 

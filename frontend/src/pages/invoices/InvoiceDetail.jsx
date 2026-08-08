@@ -863,13 +863,30 @@ export default function InvoiceDetail() {
                 <tr><th>Pwodui</th><th className="text-center">Qte</th><th className="text-right">Pri U.</th><th className="text-right">Rabè</th><th className="text-right">Total</th></tr>
               </thead>
               <tbody>
-                {invoice.items?.map((item, i) => (
+                {invoice.items?.map((item, i) => {
+                  const tierLabel = item.productSnapshot?.tierLabel
+                  const unit = item.product?.unit || item.productSnapshot?.unit
+                  return (
                   <tr key={i}>
                     <td>
-                      <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
+                        {/* ✅ NOUVO — Badj ki montre non nivo pri a (Detay, Gwo, Bwat, elatriye) */}
+                        {tierLabel && (
+                          <span style={{
+                            fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99,
+                            background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
+                            color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
+                          }}>{tierLabel}</span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 font-mono">{item.product?.code || item.productSnapshot?.code}</p>
                     </td>
-                    <td className="text-center font-mono">{Number(item.quantity)}</td>
+                    <td className="text-center font-mono">
+                      {Number(item.quantity)}
+                      {/* ✅ NOUVO — Montre inite a (pyès, galon, elatriye) sitou lè se pri Detay */}
+                      {unit && <span className="text-xs text-slate-400 font-sans ml-1">{unit}</span>}
+                    </td>
                     <td className="text-right font-mono">{fmt(item.unitPriceHtg)}</td>
                   <td className="text-right text-slate-500 font-mono">
   {Number(item.discountPct) > 0
@@ -878,7 +895,8 @@ export default function InvoiceDetail() {
 </td>
                     <td className="text-right font-mono font-semibold">{fmt(item.totalHtg)}</td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
