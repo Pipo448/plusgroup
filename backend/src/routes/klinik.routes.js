@@ -20,18 +20,17 @@ async function genNumeroDossier(tenantId) {
   return `DOS-${ane}-${String(count + 1).padStart(5, '0')}`
 }
 
-// ⭐ Menm lojik ak paidDemands nan LabPage.jsx: demand [DEMANN] ki peye, ki gen rapò ak lab
-//    (mo kle sa yo pèmèt filtre bilan/tès menm lè yo pa gen tag [DEMANN] la ekri egzakteman
-//    tankou nan lis TESTS/LAB_BILANS lan — se yon apwoksimasyon, pa yon match egzat 100%)
-const LAB_DEMAND_KEYWORDS_RE = /lab|examen|bilan|hemogr|urine|nfs|glyc|cholest|test/i
+// ⭐ Konte demand lab peye (nan lis "Demandes payées en attente" LabPage a)
+//    itilize kolòn service_type='lab' — verifye ak done reyèl, plis presi pase
+//    yon rechèch mo kle sou tèks notes lan (ki ta rate tès non kout tankou RPR).
 async function countLabPaidDemands(tenantId) {
   const rows = await prisma.$queryRaw`
-    SELECT notes FROM klinik_services
+    SELECT COUNT(*)::int AS count FROM klinik_services
     WHERE tenant_id::text = ${tenantId}::text
       AND status = 'peye'
-      AND notes LIKE '%[DEMANN]%'
+      AND service_type = 'lab'
   `
-  return rows.filter(r => LAB_DEMAND_KEYWORDS_RE.test(r.notes || '')).length
+  return rows[0]?.count || 0
 }
 
 // ═══════════════════════════════════════════════════════════════
