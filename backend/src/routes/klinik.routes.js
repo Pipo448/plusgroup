@@ -599,7 +599,7 @@ router.post('/lab-orders', async (req, res) => {
     const { items = [], id, createdAt, updatedAt, patient, consultation, doctorName, consultationId, ...rest } = req.body
     const mappedItems = items.map(it => ({
       testNom:       it.testNom       || it.nomTest       || '',
-      testCode:      it.testCode      || it.code          || null,
+      testCode:      it.testCode      || it.code || it.testKey || null,
       valeurNormale: it.valeurNormale || null,
       valeur:        it.valeur        || null,
       unite:         it.unite         || null,
@@ -630,7 +630,7 @@ router.put('/lab-orders/:id', async (req, res) => {
     const { items = [], id, tenantId, createdAt, updatedAt, patient, consultation, doctorName, consultationId, ...rest } = req.body
     const mappedItems = items.map(it => ({
       testNom:       it.testNom       || it.nomTest       || '',
-      testCode:      it.testCode      || it.code          || null,
+      testCode:      it.testCode      || it.code || it.testKey || null,
       valeurNormale: it.valeurNormale || null,
       valeur:        it.valeur        || null,
       unite:         it.unite         || null,
