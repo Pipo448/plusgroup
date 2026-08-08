@@ -290,6 +290,9 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     mutationFn: (data) => {
       // ✅ NOUVO — Enkli foto a SÈLMAN si l chanje (evite re-voye menm imaj la chak fwa)
       let payload = imageChanged ? { ...data, imageUrl: imagePreview } : data
+      // 🐛 Kategori OBLIGATWA — dapre chwa Dasner, pa gen fason yon pwodwi
+      // kreye san kategori, kidonk validation `required` nan <select> la
+      // (anba a) anpeche sitiyasyon "" (chèn vid) la rive ditou.
       // ✅ NOUVO — si "Pri An Gwo" pa aktive (checkbox dekoche), voye null pou
       // efase/pa kreye okenn sèy gwo pou pwodwi sa a, menm si te gen valè avan
       if (!showWholesale) {
@@ -368,11 +371,12 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">{t('products.category')}</label>
-              <select className="input" {...register('categoryId')}>
+              <label className="label">{t('products.category')} <span className="text-red-500">*</span></label>
+              <select className="input" {...register('categoryId', { required: t('products.categoryRequired') || 'Kategori obligatwa.' })}>
                 <option value="">{t('products.selectCategory')}</option>
                 {categories?.length > 0 ? categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>) : <option disabled>{t('products.noCategory')}</option>}
               </select>
+              {errors.categoryId && <p className="text-xs text-red-500 mt-1">{errors.categoryId.message}</p>}
               {(!categories || categories.length === 0) && <p className="text-xs text-amber-500 mt-1">{t('products.createCategoryFirst')}</p>}
             </div>
             <div>
