@@ -1,14 +1,11 @@
 // src/routes/pre.routes.js  — V6
 const express  = require('express')
-const { PrismaClient } = require('@prisma/client')
 const {
   genereEcheances, calcNbrPeman, calcInteretKouru, alokePaiement,
 } = require('./pre.engine')
 
 const router = express.Router()
-const prisma = new PrismaClient()
-
-const { identifyTenant, authenticate } = require('../middleware/auth')
+const prisma = require('../config/prisma')const { identifyTenant, authenticate } = require('../middleware/auth')
 const { extractBranch }                = require('../middleware/branch')
 
 router.use(identifyTenant, authenticate, extractBranch)

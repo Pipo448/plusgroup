@@ -1,9 +1,6 @@
 // backend/src/modules/kane-epay/kane-epay.controller.js
 const svc = require('./kane-epay.service')
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-
-const getTenantAndBranch = (req) => ({
+const prisma = require('../../config/prisma')const getTenantAndBranch = (req) => ({
   tenantId: req.tenant.id,
   branchId: req.branchId || null,
   userId:   req.user.id,

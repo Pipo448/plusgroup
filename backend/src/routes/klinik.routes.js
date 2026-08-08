@@ -2,13 +2,12 @@
 'use strict'
 
 const express  = require('express')
-const { PrismaClient } = require('@prisma/client')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 const { extractBranch }                = require('../middleware/branch')
 const { enforceSubscription }          = require('../middleware/subscription')
 
 const router = express.Router()
-const prisma  = new PrismaClient()
+const prisma  = require('../config/prisma')
 
 router.use(identifyTenant, authenticate, enforceSubscription, extractBranch)
 

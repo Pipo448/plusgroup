@@ -1,12 +1,10 @@
 // backend/src/routes/mikwo-expenses.routes.js
 'use strict'
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 
 const router = express.Router()
-const prisma  = new PrismaClient()
-router.use(identifyTenant, authenticate)
+const prisma = require('../config/prisma')router.use(identifyTenant, authenticate)
 
 const tid = (req) => req.tenant.id
 const isAdmin = (req) => req.user?.role === 'admin'

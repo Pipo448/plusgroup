@@ -85,9 +85,7 @@ router.delete('/manager/clients/:id', managerAuth, deleteManagerClient);
 // MANAGER — Mikrotik estati (li sèlman)
 // ══════════════════════════════════════════════════════════
 router.get('/manager/mikrotik-config', managerAuth, async (req, res) => {
-  const { PrismaClient } = require('@prisma/client')
-  const prisma = new PrismaClient()
-  try {
+  const prisma = require('../../config/prisma')try {
     const config = await prisma.mikrotik_config.findFirst({
       where: { internet_tenant_id: req.manager.isp_id }
     })

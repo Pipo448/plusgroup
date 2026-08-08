@@ -2,11 +2,8 @@ const express = require('express')
 const router  = express.Router()
 const ctrl    = require('./sabotay.controller')
 const { identifyTenant, authenticate } = require('../../middleware/auth')
-const { PrismaClient } = require('@prisma/client')
 const jwt = require('jsonwebtoken')
-const prisma = new PrismaClient()
-
-// ✅ FIX: Chemen relatif kòrèk — menm dosye a
+const prisma = require('../../config/prisma')// ✅ FIX: Chemen relatif kòrèk — menm dosye a
 const rankingSvc = require('./position-ranking.service')
 const svc = require('./sabotay.service')
 

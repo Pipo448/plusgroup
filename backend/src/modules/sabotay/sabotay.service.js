@@ -1,11 +1,7 @@
 // backend/src/modules/sabotay/sabotay.service.js
 // ✅ FIX: `isLate` nan getMemberAccount respekte `dueTimeEnd`
 //        konsistan ak fix nan position-ranking.service.js
-
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-
-// ✅ Import rankingSvc pou timing granulè + helpers
+const prisma = require('../../config/prisma')// ✅ Import rankingSvc pou timing granulè + helpers
 const rankingSvc = require('./position-ranking.service')
 
 function computePaymentDate(startDate, frequency, position, interval = 1) {

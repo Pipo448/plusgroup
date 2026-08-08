@@ -1,8 +1,5 @@
 // backend/src/modules/kane-epay/kane-epay.service.js
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-
-// ── Haiti = UTC-5 — minwi Haiti = 05:00 UTC ──────────────────
+const prisma = require('../../config/prisma')// ── Haiti = UTC-5 — minwi Haiti = 05:00 UTC ──────────────────
 function haitiTodayStart() {
   const now  = new Date()
   const yyyy = now.toLocaleString('en-US', { timeZone: 'America/Port-au-Prince', year:  'numeric' })

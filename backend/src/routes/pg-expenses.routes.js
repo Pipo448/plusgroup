@@ -1,12 +1,10 @@
 // src/routes/pg-expenses.routes.js
 'use strict'
 const express = require('express')
-const { PrismaClient } = require('@prisma/client')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 
 const router = express.Router()
-const prisma = new PrismaClient()
-router.use(identifyTenant, authenticate)
+const prisma = require('../config/prisma')router.use(identifyTenant, authenticate)
 const tid = (req) => req.tenant.id
 
 const CATEGORIES = ['Loye','Elektrisite','Dlo','Salè','Founisè','Transpò','Manje','Ekipman','Maketing','Lòt']

@@ -1,5 +1,4 @@
 // src/modules/internet/internet.controller.js
-const { PrismaClient } = require('@prisma/client');
 const jwt = require('jsonwebtoken');
 const {
   getHotspotUser,
@@ -7,7 +6,7 @@ const {
   renewClient,
 } = require('./mikrotikService');
 
-const prisma = new PrismaClient();
+const prisma = require('../../config/prisma')
 
 // ══════════════════════════════════════════════════════════
 // MIDDLEWARE: otantifikasyon kliyan internet (app kliyan)
