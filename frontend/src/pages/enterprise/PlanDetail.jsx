@@ -6,7 +6,7 @@ import {
   Users, Plus, Eye, CheckCircle, ArrowLeft, Search,
   Trophy, AlertTriangle, Edit3, Lock, Unlock, UserCheck,
   FileText, Shuffle, StopCircle, RefreshCw, Zap, ZapOff,
-  TrendingUp, TrendingDown, Minus, Info,
+  TrendingUp, TrendingDown, Minus, Info, Calendar, Clock4,
 } from 'lucide-react'
 
 import {
@@ -22,7 +22,7 @@ import {
 import {
   PrinterBtn, ReceiptSizeBtn, PlanStatusBadge,
   Modal,
-  ModalMarkPayment, ModalMemberAction,
+  ModalMarkPayment, ModalMemberAction, ModalDeclarePayout,
   PlanCalendar, MemberVirtualAccount,
   ExchangeTab, AdminCashTab,
 } from './sabotayComponents'
@@ -416,13 +416,14 @@ function PosBadge({ member, plan, dynamic }) {
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
   plan, onBack, onAddMember, onPaymentSaved, onBlindDraw,
-  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onRecalculate, printer, onAdjustPosition,
+  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onToggleManualTime, onRecalculate, printer, onAdjustPosition,
 }) {
   const [viewMember,       setView]             = useState(null)
   const [viewMemberSlots,  setSlots]            = useState(null)
   const [payMember,        setPay]              = useState(null)
   const [actionModal,      setAction]           = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
+  const [declaringPayout,  setDeclaringPayout]  = useState(null) // ✅ NOUVO: Deklare Dat Peman
   const [tab,              setTab]              = useState('members')
   const [memberSearch,     setMemberSearch]     = useState('')
   const [adjustPos, setAdjustPos] = useState(null)  // ✅ NOUVO
@@ -455,6 +456,7 @@ export default function PlanDetail({
   const allDates  = useMemo(() => getAllPaymentDates(plan), [plan])
   const payoutMap = useMemo(() => getPayoutDateMap(plan), [plan])
   const isDynamic = !!plan.dynamicPositions
+  const manualTimeOn = !!plan.manualPaymentTime
 
   const todayWinPos = Object.entries(payoutMap).find(([, d]) => d === today)
   const todayWinner = todayWinPos ? plan.members?.find(m => m.position === Number(todayWinPos[0])) : null
@@ -552,6 +554,24 @@ export default function PlanDetail({
             <span style={{ position: 'absolute', top: 3, left: isDynamic ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
           </button>
         </div>
+      </div>
+
+      {/* ─── BANN LÈ MANYÈL ─── */}
+      <div style={{ background: manualTimeOn ? 'rgba(96,165,250,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${manualTimeOn ? `${D.blue}30` : D.borderSub}`, borderRadius: 12, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: manualTimeOn ? D.blue : D.muted, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Clock4 size={13} /> Lè Manyèl
+          </p>
+          <p style={{ margin: '2px 0 0', fontSize: 10, color: D.muted }}>
+            {manualTimeOn
+              ? 'Kesye a ka antre lè kliyan an reyèlman peye a lè l ap make peman an.'
+              : 'Aktive pou kesye ka antre lè egzat kliyan an peye a (si li peye avan kesye a gen tan make l).'}
+          </p>
+        </div>
+        <button onClick={() => onToggleManualTime(plan.id)}
+          style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', background: manualTimeOn ? D.blue : 'rgba(255,255,255,0.1)', transition: 'background 0.2s', flexShrink: 0 }}>
+          <span style={{ position: 'absolute', top: 3, left: manualTimeOn ? 23 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+        </button>
       </div>
 
       {/* ─── AVÈTISMAN ─── */}
@@ -742,6 +762,11 @@ export default function PlanDetail({
                         {payoutDate && !isStopped && (
                           <span style={{ fontSize: 9, color: D.blue }}>🏆 {payoutDate.split('-').reverse().join('/')}</span>
                         )}
+                        {m.declaredPayoutDate && !isStopped && !m.hasWon && (
+                          <span style={{ fontSize: 9, background: 'rgba(96,165,250,0.15)', color: D.blue, padding: '1px 6px', borderRadius: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Calendar size={8} /> Pwomès: {String(m.declaredPayoutDate).split('T')[0].split('-').reverse().join('/')}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -793,6 +818,11 @@ export default function PlanDetail({
                       {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
                         <button onClick={() => setConfirmingPayout(m)} title="Konfime Touche" aria-label="Konfime Touche" className="pd-action-btn" style={{ background: 'rgba(201,168,76,0.2)', color: D.gold }}>
                           <Trophy size={13} />
+                        </button>
+                      )}
+                      {!isStopped && !m.hasWon && (
+                        <button onClick={() => setDeclaringPayout(m)} title="Deklare Dat Peman" aria-label="Deklare Dat Peman" className="pd-action-btn" style={{ background: D.blueBg, color: D.blue }}>
+                          <Calendar size={13} />
                         </button>
                       )}
 
@@ -939,7 +969,7 @@ export default function PlanDetail({
       {payMember && (
         <ModalMarkPayment member={payMember} plan={plan} printer={printer}
           onClose={() => setPay(null)}
-          onSave={(memberId, dates, timings, fines) => { onPaymentSaved(memberId, dates, timings, fines); setPay(null) }} />
+          onSave={(memberId, dates, timings, fines, paidAt) => { onPaymentSaved(memberId, dates, timings, fines, paidAt); setPay(null) }} />
       )}
 
       {viewMember && (
@@ -953,6 +983,12 @@ export default function PlanDetail({
           printer={printer} loading={false}
           onClose={() => setAction(null)}
           onConfirm={(action, reason) => { onMemberAction(actionModal.member.id, action, reason); setAction(null) }} />
+      )}
+
+      {declaringPayout && (
+        <ModalDeclarePayout member={declaringPayout} plan={plan} loading={false}
+          onClose={() => setDeclaringPayout(null)}
+          onConfirm={(payoutDate) => { onMemberAction(declaringPayout.id, 'schedule_payout', '', payoutDate); setDeclaringPayout(null) }} />
       )}
 
       {confirmingPayout && (

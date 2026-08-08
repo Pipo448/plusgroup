@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import {
   Clock, CheckCircle, Settings, Trophy, AlertCircle, Printer,
   Key, Star, UserCheck, Loader, Shuffle, Info, AlertTriangle,
-  Lock, Unlock, UserMinus, StopCircle, Plus, TrendingUp,
+  Lock, Unlock, UserMinus, StopCircle, Plus, TrendingUp, Calendar,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { Modal, Sec, TimePicker12h, format24ToDisplay12 } from './sabotayAtoms'
@@ -313,6 +313,17 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const [applyFine, setFine] = useState(false)
   const [pdfReady, setPdfReady] = useState(false)
 
+  // ✅ NOUVO: Lè Manyèl — si plan a aktive `manualPaymentTime`, kesye a ka
+  // antre lè kliyan an REYÈLMAN peye a (pa lè kesye a ap make peman an).
+  // Sa itil lè kliyan peye bonè men kesye a make peman an pita.
+  const manualTimeOn = !!plan.manualPaymentTime
+  const nowHaiti = new Date(new Date().getTime() - 5 * 60 * 60 * 1000)
+  const [useManualTime, setUseManualTime] = useState(false)
+  const [manualDate, setManualDate] = useState(today)
+  const [manualHour, setManualHour] = useState(
+    `${String(nowHaiti.getUTCHours()).padStart(2, '0')}:${String(nowHaiti.getUTCMinutes()).padStart(2, '0')}`
+  )
+
   const toggle = (d) => setSel(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d])
 
   const samePhoneMembers = useMemo(() =>
@@ -342,12 +353,14 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
     const timings = {}; sel.forEach(d => { timings[d] = getPaymentTiming(plan, d) })
     const fines = {}
     if (applyFine && hasPenalty) lateDates.forEach(d => { fines[d] = Number(plan.penalty) })
-    onSave(member.id, sel, timings, fines)
+    // ✅ NOUVO: si Lè Manyèl aktive epi kesye a chwazi bay lè reyèl la
+    const paidAt = (manualTimeOn && useManualTime) ? `${manualDate}T${manualHour}:00` : null
+    onSave(member.id, sel, timings, fines, paidAt)
     for (const other of samePhoneMembers) {
       const otherUnpaid = sel.filter(d => !other.payments?.[d])
       if (otherUnpaid.length > 0) {
         const otherTimings = {}; otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
-        onSave(other.id, otherUnpaid, otherTimings, {})
+        onSave(other.id, otherUnpaid, otherTimings, {}, paidAt)
       }
     }
     await printer.print(plan, member, sel, tenant, 'peman', allPayingSlots)
@@ -368,6 +381,27 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
           <div style={{ background: D.orangeBg, border: `1px solid ${D.orange}40`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
             <Lock size={14} style={{ color: D.orange, flexShrink: 0 }} />
             <span style={{ color: D.orange, fontWeight: 700 }}>Kont sa a bloke. Peman an ap debloke l otomatikman.</span>
+          </div>
+        )}
+
+        {/* ✅ NOUVO: Lè Manyèl — antre lè kliyan an REYÈLMAN peye a */}
+        {manualTimeOn && unpaid.length > 0 && (
+          <div style={{ background: 'rgba(96,165,250,0.06)', border: `1px solid ${D.blue}30`, borderRadius: 10, padding: '10px 13px' }}>
+            <div onClick={() => setUseManualTime(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
+              <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: `2px solid ${useManualTime ? D.blue : D.borderSub}`, background: useManualTime ? D.blue : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {useManualTime && <CheckCircle size={11} color="#fff" />}
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: useManualTime ? D.blue : D.muted, flex: 1 }}>
+                Antre lè kliyan an te REYÈLMAN peye a
+              </span>
+            </div>
+            {useManualTime && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)}
+                  style={{ ...inp, padding: '8px 10px', fontSize: 12, flex: 1 }} />
+                <TimePicker12h value={manualHour} onChange={setManualHour} color={D.blue} />
+              </div>
+            )}
           </div>
         )}
 
@@ -527,6 +561,46 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
           <button onClick={() => onConfirm(action, reason)} disabled={loading} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer', background: loading ? 'rgba(201,168,76,0.3)' : cfg.btnColor, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
             {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : null}
             {loading ? 'Ap trete...' : cfg.btnLabel}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: DEKLARE DAT PEMAN (pwomès — SEPARE de "Konfime Touche")
+// ─────────────────────────────────────────────────────────────
+export function ModalDeclarePayout({ member, plan, onClose, onConfirm, loading }) {
+  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const [date, setDate] = useState(member.declaredPayoutDate
+    ? String(member.declaredPayoutDate).split('T')[0]
+    : today)
+
+  return (
+    <Modal onClose={onClose} title={`📅 Deklare Dat Peman — ${member.name}`} width={420}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ background: D.blueBg, border: `1px solid ${D.blue}30`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <Calendar size={22} style={{ color: D.blue, flexShrink: 0 }} />
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 800, color: D.blue, margin: '0 0 4px' }}>{member.name}</p>
+            <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{member.phone}</p>
+          </div>
+        </div>
+        <p style={{ fontSize: 12, color: D.muted, margin: 0, lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px' }}>
+          Sa a se yon <strong style={{ color: D.text }}>pwomès dat</strong> — li PA mache manm nan kòm touche.
+          Manm nan ap wè dat sa a nan kont sol li. Lè peman an fèt tout bon, itilize <strong style={{ color: D.gold }}>Konfime Touche</strong>.
+        </p>
+        <div>
+          <label style={lbl}>Dat li pral touche</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
+          <button onClick={() => onConfirm(date)} disabled={loading || !date}
+            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer', background: loading ? 'rgba(96,165,250,0.3)' : `linear-gradient(135deg,${D.blue},#1A3A8B)`, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Calendar size={14} />}
+            {loading ? 'Ap sove...' : 'Deklare Dat la'}
           </button>
         </div>
       </div>

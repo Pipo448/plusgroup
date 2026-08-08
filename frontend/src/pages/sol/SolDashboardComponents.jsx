@@ -2,7 +2,7 @@
 // ─── Tout komponan prensipal tableau de bord Sol ──────────────
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { CheckCircle, Clock, Bell, ChevronLeft, ChevronRight, Shield, RefreshCw } from 'lucide-react'
+import { CheckCircle, Clock, Bell, ChevronLeft, ChevronRight, Shield, RefreshCw, Calendar } from 'lucide-react'
 import { D, SOL_API, fmt } from './solDashboardUtils'
 
 // ══════════════════════════════════════════════════════════════
@@ -204,6 +204,32 @@ export function BlockingCountdown({ nextUnpaidDate, plan, lastPaidDate }) {
         <p style={{ fontSize: 10, color: D.red, fontWeight: 700, margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tan avan blokaj:</p>
         <p style={{ fontFamily: 'DM Mono, monospace', fontSize: 32, fontWeight: 900, color: D.red, margin: 0, letterSpacing: '0.05em' }}>{timeLeft}</p>
         <p style={{ fontSize: 11, color: D.muted, margin: '6px 0 0' }}>Peye imedyatman pou evite blokaj kont ou!</p>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO: BANNYÈ DAT PEMAN DEKLARE (pwomès admin, san pozisyon)
+// ══════════════════════════════════════════════════════════════
+export function DeclaredPayoutBanner({ declaredPayoutDate }) {
+  const [visible, setVisible] = useState(true)
+  if (!declaredPayoutDate || !visible) return null
+  const dateStr = String(declaredPayoutDate).split('T')[0]
+  const display = dateStr.split('-').reverse().join('/')
+
+  return (
+    <div style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.12), rgba(201,168,76,0.08))', border: `1px solid ${D.blue}40`, borderRadius: 20, padding: '18px 20px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
+      <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 56, opacity: 0.08, userSelect: 'none' }}>📅</div>
+      <button onClick={() => setVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: D.blue, cursor: 'pointer', fontSize: 16, opacity: 0.6 }}>×</button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 13, background: 'rgba(96,165,250,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Calendar size={20} style={{ color: D.blue }} />
+        </div>
+        <div>
+          <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 15, fontWeight: 900, color: D.blue, margin: '0 0 3px' }}>📅 Dat Peman Ou Deklare</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>Ou ap touche sol ou a nan dat <strong style={{ color: '#fff' }}>{display}</strong>.</p>
+        </div>
       </div>
     </div>
   )

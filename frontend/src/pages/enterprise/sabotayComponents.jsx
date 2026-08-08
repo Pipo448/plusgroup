@@ -28,6 +28,7 @@ export {
   ModalBlindDraw,
   ModalMarkPayment,
   ModalMemberAction,
+  ModalDeclarePayout,
   ModalClosePlan,
   ModalMemberCredentials,
   MemberVirtualAccount,

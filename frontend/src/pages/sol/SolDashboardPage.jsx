@@ -22,7 +22,7 @@ import {
 import {
   PayBadge, ScoreBadge, timingBadge,
   SolCalendar, PaymentCountdown, BlockingCountdown,
-  PerformanceMessage, PerformanceSection, SolChat,
+  PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner,
 } from './SolDashboardComponents'
 
 import { ModalChangePassword, ModalPayMobile } from './SolDashboardModals'
@@ -658,6 +658,7 @@ export default function SolDashboardPage() {
 
           <PerformanceSection scoreData={scoreData} />
           <PerformanceMessage scoreData={scoreData} />
+          <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />
 
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: 'clamp(14px, 4vw, 20px)', marginBottom: 16 }}>

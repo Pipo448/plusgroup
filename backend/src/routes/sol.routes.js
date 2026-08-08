@@ -185,6 +185,8 @@ async function buildPlanData(account, memberId) {
       balance: Number(account.balance || 0),
       // ✅ FIX 2: Ajoute performanceScore pou afichaj pwen dinamik
       performanceScore: sabotayMember.performanceScore ?? 0,
+      // ✅ NOUVO: Dat pwomès peman admin lan deklare (san afiche pozisyon/klasman)
+      declaredPayoutDate: sabotayMember.declaredPayoutDate || null,
       payments,
       paymentTimings,
       allSlots: allSlots.map(s => {

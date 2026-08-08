@@ -136,16 +136,17 @@ export function useSabotayMutations({
 
   // ─── Aksyon Manm ──────────────────────────────────────────
   const memberAction = useMutation({
-    mutationFn: ({ planId, memberId, action, reason }) =>
+    mutationFn: ({ planId, memberId, action, reason, payoutDate }) =>
       apiFetch(
         `/sabotay/plans/${planId}/members/${memberId}/action`,
-        { method: 'POST', body: JSON.stringify({ action, reason }) }
+        { method: 'POST', body: JSON.stringify({ action, reason, payoutDate }) }
       ),
     onSuccess: (r, vars) => {
       qc.invalidateQueries(['sabotay-plans'])
       const labels = {
         block: '🔒 Bloke!', unblock: '🔓 Debloke!',
         stop: '⏸️ Kanpe!', resume: '▶️ Reprann!', payout: '🏆 Touche konfime!',
+        schedule_payout: '📅 Dat peman deklare!', cancel_scheduled_payout: '✖️ Dat pwomès anile.',
       }
       toast.success(labels[vars.action] || '✅ Fèt!')
     },
@@ -171,6 +172,17 @@ export function useSabotayMutations({
   const toggleDynamic = useMutation({
     mutationFn: (planId) =>
       apiFetch(`/sabotay/plans/${planId}/toggle-dynamic`, { method: 'PATCH' }),
+    onSuccess: (r) => {
+      qc.invalidateQueries(['sabotay-plans'])
+      toast.success(r.message || '✅ Chanjman sove!')
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  // ─── Toggle Lè Manyèl (kesye ka antre lè reyèl peman an) ──
+  const toggleManualTime = useMutation({
+    mutationFn: (planId) =>
+      apiFetch(`/sabotay/plans/${planId}/toggle-manual-time`, { method: 'PATCH' }),
     onSuccess: (r) => {
       qc.invalidateQueries(['sabotay-plans'])
       toast.success(r.message || '✅ Chanjman sove!')
@@ -204,7 +216,7 @@ export function useSabotayMutations({
   return {
     createPlan, updatePlan, closePlan,
     addMember, markPayment, memberAction, blindDraw,
-    toggleDynamic, recalculate,
+    toggleDynamic, toggleManualTime, recalculate,
     adjustPosition,
   }
 }

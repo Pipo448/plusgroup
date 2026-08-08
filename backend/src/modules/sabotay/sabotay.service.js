@@ -459,7 +459,7 @@ async function getPayments(tenantId, planId, params = {}) {
 // MARK PAID — Kalkile timing granulè otomatikman (server-side)
 // ─────────────────────────────────────────────────────────────
 async function markPaid(tenantId, planId, memberId, userId, data) {
-  const { dates, timings, fines, method, notes } = data
+  const { dates, timings, fines, method, notes, paidAt } = data
   const datesToProcess = dates || (data.dueDate ? [data.dueDate] : [])
   if (!datesToProcess.length) throw new Error('Omwen yon dat peman obligatwa.')
 
@@ -467,6 +467,15 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
   if (!plan) throw new Error('Plan pa jwenn.')
   const member = await prisma.sabotayMember.findFirst({ where: { id: memberId, planId, isActive: true } })
   if (!member) throw new Error('Manm pa jwenn oswa inaktif.')
+
+  // ✅ NOUVO: Lè Manyèl — si plan a aktive `manualPaymentTime` epi kesye a
+  // bay yon `paidAt` (lè kliyan an REYÈLMAN peye a), itilize l pou kalkile
+  // timing olye lè sistèm nan kounye a (`new Date()`). Sa rezoud ka a kote
+  // kliyan peye bonè men kesye a pa gentan make peman an avan rezilta soti.
+  const paidMoment = (plan.manualPaymentTime && paidAt) ? new Date(paidAt) : new Date()
+  if (plan.manualPaymentTime && paidAt && isNaN(paidMoment.getTime())) {
+    throw new Error('Lè peman an pa valid.')
+  }
 
   const createdPayments = []
   const updatedFines    = { ...(member.fines || {}) }
@@ -477,7 +486,7 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
 
     const timing = rankingSvc.computeDetailedTiming(
       dueDate,
-      new Date(),
+      paidMoment,
       plan.dueTime    || '08:00',
       plan.dueTimeEnd || '15:00',
     )
@@ -487,6 +496,7 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
       data: {
         planId, memberId, amount: Number(plan.amount),
         dueDate: new Date(dueDate), paidDate: new Date(),
+        paid_at: paidMoment, // ✅ NOUVO: lè reyèl peman an (manyèl si aktive, sinon lè kesye a make l)
         method: method || 'cash', notes: notes || null, createdBy: userId,
         fineAmt: Number(fineAmt),
         timing,
@@ -601,8 +611,8 @@ async function getMemberAccount(tenantId, planId, memberId) {
   })
 
   return {
-    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || '15:00', regleman: plan.regleman || null },
-    member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {} },
+    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || '15:00', regleman: plan.regleman || null, manualPaymentTime: plan.manualPaymentTime || false },
+    member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {}, declaredPayoutDate: member.declaredPayoutDate || null },
     summary: { totalExpected, totalPaid, remaining: Math.max(0, totalExpected - totalPaid), toCollect, progressPct, paidCount: member.payments.length, totalRounds: totalMembers, totalFines },
     paymentHistory,
   }
@@ -756,9 +766,9 @@ async function getAdminCash(tenantId, planId) {
 }
 
 async function memberAction(tenantId, planId, memberId, userId, data) {
-  const { action, reason } = data
+  const { action, reason, payoutDate } = data
 
-  if (!['block','unblock','stop','resume','payout'].includes(action))
+  if (!['block','unblock','stop','resume','payout','schedule_payout','cancel_scheduled_payout'].includes(action))
     throw new Error(`Aksyon invalide: ${action}`)
 
   const member = await prisma.sabotayMember.findFirst({
@@ -773,8 +783,43 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   const statusMap = { block:'blocked', unblock:'active', stop:'stopped', resume:'active', payout:'active' }
   const newStatus = statusMap[action]
 
+  // ─────────────────────────────────────────────────────────────
+  // ✅ NOUVO: Deklare Dat Peman (pwomès) — SEPARE de "payout" (touche
+  // imedya). Isit la manm nan PA mache "hasWon", li senpman wè yon
+  // dat nan kont sol li ki di ki lè l ap touche.
+  // ─────────────────────────────────────────────────────────────
+  if (action === 'schedule_payout') {
+    if (!payoutDate) throw new Error('Dat peman an obligatwa.')
+    const updatedMember = await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data: { declaredPayoutDate: new Date(payoutDate) },
+    })
+    try {
+      const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId }, include: { account: true } })
+      if (solPos?.account) {
+        await prisma.solNotification.create({
+          data: {
+            accountId: solPos.account.id, type: 'payout_scheduled',
+            titleHt: '📅 Dat Peman Ou Deklare!',
+            messageHt: `${plan.name}: ou ap touche sol ou a nan dat ${new Date(payoutDate).toLocaleDateString('fr-HT')}.`,
+          }
+        }).catch(() => {})
+      }
+    } catch(_) {}
+    return { member: updatedMember, action, declaredPayoutDate: updatedMember.declaredPayoutDate }
+  }
+
+  if (action === 'cancel_scheduled_payout') {
+    const updatedMember = await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data: { declaredPayoutDate: null },
+    })
+    return { member: updatedMember, action, declaredPayoutDate: null }
+  }
+
   if (action === 'payout') {
-    const updatedMember = await prisma.sabotayMember.update({ where: { id: memberId }, data: { hasWon: true } })
+    // ✅ Lè yon touche konfime pou tout bon, efase nenpòt dat pwomès ki te la
+    const updatedMember = await prisma.sabotayMember.update({ where: { id: memberId }, data: { hasWon: true, declaredPayoutDate: null } })
     try {
       const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId }, include: { account: true } })
       if (solPos?.account) {

@@ -160,6 +160,27 @@ router.patch('/plans/:planId/toggle-dynamic', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Toggle Lè Manyèl (kesye ka antre lè reyèl peman an)
+// ─────────────────────────────────────────────────────────────
+router.patch('/plans/:planId/toggle-manual-time', async (req, res) => {
+  try {
+    const { planId } = req.params
+    const tenantId   = req.tenant?.id || req.user?.tenantId
+    const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+    if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
+    const newValue = !plan.manualPaymentTime
+    await prisma.sabotayPlan.update({ where: { id: planId }, data: { manualPaymentTime: newValue } })
+    return res.json({
+      message: newValue ? '✅ Lè Manyèl aktive!' : '⏹️ Lè Manyèl dezaktive',
+      manualPaymentTime: newValue,
+    })
+  } catch (err) {
+    console.error('[TOGGLE MANUAL TIME]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
 // ✅ Rekalile Pozisyon Manyèlman
 // ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/recalculate', async (req, res) => {
