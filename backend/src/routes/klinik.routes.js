@@ -536,7 +536,7 @@ router.get('/lab-orders', async (req, res) => {
 
 router.post('/lab-orders', async (req, res) => {
   try {
-    const { items = [], id, createdAt, updatedAt, patient, consultation, ...rest } = req.body
+    const { items = [], id, createdAt, updatedAt, patient, consultation, doctorName, consultationId, ...rest } = req.body
     const mappedItems = items.map(it => ({
       testNom:       it.testNom       || it.nomTest       || '',
       testCode:      it.testCode      || it.code          || null,
@@ -545,8 +545,20 @@ router.post('/lab-orders', async (req, res) => {
       unite:         it.unite         || null,
       estAnormal:    it.estAnormal    || false,
     }))
+
+    // ⭐ Si lab order a lye ak yon konsiltasyon, non doktè a TOUJOU soti nan
+    // konsiltasyon an — pa fè konfyans a chan tèks lib la (anpeche autofill navigatè
+    // oswa lòt erè antre mete move non doktè sou demand yon lòt doktè te fè).
+    let finalDoctorName = doctorName
+    if (consultationId) {
+      const consult = await prisma.klinikConsultation.findUnique({
+        where: { id: consultationId }, select: { doctorName: true },
+      })
+      if (consult?.doctorName) finalDoctorName = consult.doctorName
+    }
+
     const labOrder = await prisma.klinikLabOrder.create({
-      data: { ...rest, tenantId: tid(req), items: { create: mappedItems } },
+      data: { ...rest, consultationId: consultationId || null, doctorName: finalDoctorName, tenantId: tid(req), items: { create: mappedItems } },
       include: { items:true, patient:{select:{nom:true,prenom:true}} },
     })
     res.status(201).json({ labOrder })
@@ -555,7 +567,7 @@ router.post('/lab-orders', async (req, res) => {
 
 router.put('/lab-orders/:id', async (req, res) => {
   try {
-    const { items = [], id, tenantId, createdAt, updatedAt, patient, consultation, ...rest } = req.body
+    const { items = [], id, tenantId, createdAt, updatedAt, patient, consultation, doctorName, consultationId, ...rest } = req.body
     const mappedItems = items.map(it => ({
       testNom:       it.testNom       || it.nomTest       || '',
       testCode:      it.testCode      || it.code          || null,
@@ -564,10 +576,25 @@ router.put('/lab-orders/:id', async (req, res) => {
       unite:         it.unite         || null,
       estAnormal:    it.estAnormal    || false,
     }))
+
+    // ⭐ Menm règ la pou modifikasyon — konsève oswa itilize consultationId ki egziste
+    // deja a si fòm nan pa voye youn, epi resenkwonize doctorName ak konsiltasyon an
+    const existing = await prisma.klinikLabOrder.findUnique({
+      where: { id: req.params.id }, select: { consultationId: true },
+    })
+    const finalConsultationId = consultationId !== undefined ? (consultationId || null) : existing?.consultationId
+    let finalDoctorName = doctorName
+    if (finalConsultationId) {
+      const consult = await prisma.klinikConsultation.findUnique({
+        where: { id: finalConsultationId }, select: { doctorName: true },
+      })
+      if (consult?.doctorName) finalDoctorName = consult.doctorName
+    }
+
     await prisma.klinikLabItem.deleteMany({ where: { labOrderId: req.params.id } })
     const labOrder = await prisma.klinikLabOrder.update({
       where: { id: req.params.id },
-      data: { ...rest, items: { create: mappedItems } },
+      data: { ...rest, consultationId: finalConsultationId, doctorName: finalDoctorName, items: { create: mappedItems } },
       include: { items:true, patient:{select:{nom:true,prenom:true}} },
     })
     res.json({ labOrder })
