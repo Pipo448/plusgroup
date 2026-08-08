@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { compressImage } from '../../utils/imageCompression'
 import {
@@ -253,16 +253,19 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     setImageChanged(true)
   }
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, control, formState: { errors } } = useForm({
     defaultValues: product
       ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg),
-          wholesaleMinQty: product.wholesaleMinQty || '', wholesalePriceHtg: product.wholesalePriceHtg ? Number(product.wholesalePriceHtg) : '', wholesalePriceUsd: product.wholesalePriceUsd ? Number(product.wholesalePriceUsd) : '' }
-      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', wholesaleMinQty: '', wholesalePriceHtg: '', wholesalePriceUsd: '' }
+          // ✅ NOUVO — priceTiers soti nan product.priceTiers (relasyon Prisma), triye pa minQty
+          priceTiers: (product.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty).map(t => ({
+            minQty: t.minQty, priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd != null ? Number(t.priceUsd) : '', label: t.label || ''
+          })) }
+      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', priceTiers: [] }
   })
   const qc = useQueryClient()
-  // ✅ NOUVO — Pri An Gwo (opsyonèl): checkbox ki montre/kache chan yo.
-  // Aktive otomatikman nan edisyon si pwodwi a deja gen yon sèy konfigire.
-  const [showWholesale, setShowWholesale] = useState(!!(product?.wholesaleMinQty))
+  // ✅ NOUVO — Lis dinamik nivo pri "an gwo" — ajoute/retire otan nivo
+  // wè (3+, 12+, Kès 24, elatriye) ke tenant lan bezwen pou pwodwi a.
+  const { fields: tierFields, append: appendTier, remove: removeTier } = useFieldArray({ control, name: 'priceTiers' })
 
   const handlePriceHtgChange = (e) => {
     const htg = Number(e.target.value)
@@ -274,16 +277,16 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     setValue('priceUsd', e.target.value)
     if (usd > 0) setValue('priceHtg', (usd * rate).toFixed(2))
   }
-  // ✅ NOUVO — Menm konvèsyon otomatik la, men pou pri AN GWO a
-  const handleWholesaleHtgChange = (e) => {
+  // ✅ NOUVO — Menm konvèsyon otomatik la, men pou yon nivo pri an gwo espesifik (index i)
+  const handleTierHtgChange = (i, e) => {
     const htg = Number(e.target.value)
-    setValue('wholesalePriceHtg', e.target.value)
-    if (htg > 0) setValue('wholesalePriceUsd', (htg / rate).toFixed(2))
+    setValue(`priceTiers.${i}.priceHtg`, e.target.value)
+    if (htg > 0) setValue(`priceTiers.${i}.priceUsd`, (htg / rate).toFixed(2))
   }
-  const handleWholesaleUsdChange = (e) => {
+  const handleTierUsdChange = (i, e) => {
     const usd = Number(e.target.value)
-    setValue('wholesalePriceUsd', e.target.value)
-    if (usd > 0) setValue('wholesalePriceHtg', (usd * rate).toFixed(2))
+    setValue(`priceTiers.${i}.priceUsd`, e.target.value)
+    if (usd > 0) setValue(`priceTiers.${i}.priceHtg`, (usd * rate).toFixed(2))
   }
 
   const mutation = useMutation({
@@ -293,10 +296,12 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
       // 🐛 Kategori OBLIGATWA — dapre chwa Dasner, pa gen fason yon pwodwi
       // kreye san kategori, kidonk validation `required` nan <select> la
       // (anba a) anpeche sitiyasyon "" (chèn vid) la rive ditou.
-      // ✅ NOUVO — si "Pri An Gwo" pa aktive (checkbox dekoche), voye null pou
-      // efase/pa kreye okenn sèy gwo pou pwodwi sa a, menm si te gen valè avan
-      if (!showWholesale) {
-        payload = { ...payload, wholesaleMinQty: null, wholesalePriceHtg: null, wholesalePriceUsd: null }
+      // ✅ NOUVO — netwaye lis nivo yo: retire liy vid, konvèti an nonb
+      payload = {
+        ...payload,
+        priceTiers: (payload.priceTiers || [])
+          .filter(t => t.minQty && t.priceHtg)
+          .map(t => ({ minQty: Number(t.minQty), priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd ? Number(t.priceUsd) : null, label: t.label?.trim() || null }))
       }
       return isEdit ? productAPI.update(product.id, payload) : productAPI.create(payload)
     },
@@ -417,37 +422,46 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             </div>
           </div>
 
-          {/* ✅ NOUVO — Pri An Gwo (opsyonèl): checkbox pou aktive + sèy kantite + pri */}
+          {/* ✅ NOUVO — Pri An Gwo: lis dinamik, plizyè nivo (3+, 12+, Kès 24, elatriye) */}
           <div style={{ border: '1px dashed #E2E8F0', borderRadius: 12, padding: '12px 14px' }}>
-            <label className="flex items-center gap-2 cursor-pointer" style={{ marginBottom: showWholesale ? 12 : 0 }}>
-              <input type="checkbox" checked={showWholesale} onChange={e => setShowWholesale(e.target.checked)} className="w-4 h-4 rounded text-brand-600"/>
-              <span className="text-sm font-semibold text-slate-700">Aktive Pri An Gwo</span>
-              <span className="text-xs text-slate-400">— pri diferan si kliyan achte an kantite</span>
-            </label>
-            {showWholesale && (
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="label">Sèy Kantite (Gwo si &ge;)</label>
-                  <input type="number" step="1" min="1" className="input" placeholder="12"
-                    {...register('wholesaleMinQty', { required: showWholesale, min: 1 })} onFocus={e => e.target.select()}/>
-                </div>
-                <div>
-                  <label className="label">Pri Gwo (HTG)</label>
-                  <div className="relative">
-                    <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
-                      {...register('wholesalePriceHtg', { required: showWholesale, min: 0 })} onChange={handleWholesaleHtgChange} onFocus={e => e.target.select()}/>
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">HTG</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Pri Gwo (USD) <span className="text-xs text-brand-500 font-normal ml-1">{t('products.automatic')}</span></label>
-                  <div className="relative">
-                    <input type="number" step="0.01" min="0" className="input pr-12" placeholder="0.00"
-                      {...register('wholesalePriceUsd', { min: 0 })} onChange={handleWholesaleUsdChange} onFocus={e => e.target.select()}/>
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">USD</span>
-                  </div>
-                </div>
+            <div className="flex items-center justify-between" style={{ marginBottom: tierFields.length ? 12 : 0 }}>
+              <div>
+                <span className="text-sm font-semibold text-slate-700">Nivo Pri An Gwo</span>
+                <span className="text-xs text-slate-400 ml-1">— optyonèl, otan nivo ou vle</span>
               </div>
+              <button type="button" onClick={() => appendTier({ minQty: '', priceHtg: '', priceUsd: '', label: '' })}
+                className="text-xs font-bold text-brand-600 flex items-center gap-1" style={{ cursor: 'pointer' }}>
+                <Plus size={14}/> Ajoute Nivo
+              </button>
+            </div>
+            {tierFields.map((f, i) => (
+              <div key={f.id} className="grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr auto', marginBottom: 8, alignItems: 'end' }}>
+                <div>
+                  <label className="label text-xs">Non (opsyonèl)</label>
+                  <input className="input" placeholder="Gwo, Kès 24..." {...register(`priceTiers.${i}.label`)}/>
+                </div>
+                <div>
+                  <label className="label text-xs">Sèy Kantite (&ge;)</label>
+                  <input type="number" step="1" min="1" className="input" placeholder="12"
+                    {...register(`priceTiers.${i}.minQty`, { required: true, min: 1 })} onFocus={e => e.target.select()}/>
+                </div>
+                <div>
+                  <label className="label text-xs">Pri (HTG)</label>
+                  <input type="number" step="0.01" min="0" className="input" placeholder="0.00"
+                    {...register(`priceTiers.${i}.priceHtg`, { required: true, min: 0 })} onChange={e => handleTierHtgChange(i, e)} onFocus={e => e.target.select()}/>
+                </div>
+                <div>
+                  <label className="label text-xs">Pri (USD) <span className="text-brand-500">{t('products.automatic')}</span></label>
+                  <input type="number" step="0.01" min="0" className="input" placeholder="0.00"
+                    {...register(`priceTiers.${i}.priceUsd`, { min: 0 })} onChange={e => handleTierUsdChange(i, e)} onFocus={e => e.target.select()}/>
+                </div>
+                <button type="button" onClick={() => removeTier(i)} className="btn-ghost p-2" style={{ color: '#C0392B' }}>
+                  <Trash2 size={16}/>
+                </button>
+              </div>
+            ))}
+            {tierFields.length === 0 && (
+              <p className="text-xs text-slate-400">Pa gen nivo pri an gwo pou pwodwi sa a. Klike "Ajoute Nivo" si w vle ofri pri diferan selon kantite.</p>
             )}
           </div>
 
