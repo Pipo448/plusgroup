@@ -75,8 +75,19 @@ const calcLineTotal = (qty, unitPrice, discountAmt) => {
   return Math.max(0, gross - disc)
 }
 
+// ✅ NOUVO — Pri An Gwo (plizyè nivo): chwazi pi bon nivo pou yon kantite
+// bay. `tiers` triye pa minQty krwasan; nou pran DÈNYE nivo ki gen minQty
+// <= qty (sa vle di pi gwo sèy kantite kliyan an rive ladan l).
+const pickBestTier = (tiers, qty) => {
+  if (!tiers || !tiers.length) return null
+  const q = Number(qty) || 0
+  const eligible = tiers.filter(tr => q >= Number(tr.minQty))
+  if (!eligible.length) return null
+  return eligible.reduce((best, tr) => Number(tr.minQty) > Number(best.minQty) ? tr : best)
+}
+
 // ✅ memo — evite re-render si props pa chanje
-const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRemove, t, isOnline }) {
+const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRemove, t, isOnline, canOverridePrice }) {
   const [search, setSearch] = useState(item.description || '')
   const [open, setOpen]     = useState(false)
 
@@ -122,7 +133,19 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
     }
     setSearch(p.name)
     setOpen(false)
-    onUpdate(idx, { description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 })
+    // ✅ NOUVO — sonje pri detay + lis nivo pri an gwo pwodwi a sou liy la,
+    // pou nou ka otomatikman chwazi bon pri a selon kantite a pandan kesye
+    // a ap tape (menm lè kantite a chanje apè)
+    const tiers = (p.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty)
+    const bestTier = pickBestTier(tiers, 1)
+    onUpdate(idx, {
+      description: p.name, productId: p.id,
+      unitPrice: bestTier ? Number(bestTier.priceHtg) : (p.priceHtg || 0),
+      qty: 1, discount: 0,
+      _retailPrice: p.priceHtg || 0,
+      _priceTiers: tiers,
+      _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+    })
   }, [idx, onUpdate])
 
   return (
@@ -180,17 +203,54 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
       </div>
 
       <input type="number" min="1" value={item.qty}
-        onChange={e => onUpdate(idx, { qty: Number(e.target.value) })}
+        onChange={e => {
+          const qty = Number(e.target.value)
+          // ✅ NOUVO — chanje pri a otomatikman selon kantite a, si liy la
+          // gen nivo pri an gwo epi kesye a poko chanje pri a alamen
+          if (item._priceTiers?.length && item._priceMode !== 'manual') {
+            const bestTier = pickBestTier(item._priceTiers, qty)
+            onUpdate(idx, {
+              qty,
+              unitPrice: bestTier ? Number(bestTier.priceHtg) : item._retailPrice,
+              _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+            })
+          } else {
+            onUpdate(idx, { qty })
+          }
+        }}
         style={{ ...inp, fontSize:12, textAlign:'center' }}
         onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
         onBlur={e => e.target.style.borderColor = D.border}
       />
-      <input type="number" min="0" step="0.01" value={item.unitPrice}
-        onChange={e => onUpdate(idx, { unitPrice: e.target.value })}
-        style={{ ...inp, fontSize:12, fontFamily:'monospace' }}
-        onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
-        onBlur={e => e.target.style.borderColor = D.border}
-      />
+      <div>
+        <input type="number" min="0" step="0.01" value={item.unitPrice} disabled={!canOverridePrice}
+          onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
+          style={{ ...inp, fontSize:12, fontFamily:'monospace', ...(!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
+          onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
+          onBlur={e => e.target.style.borderColor = D.border}
+        />
+        {/* ✅ NOUVO — Kesye (pa canOverridePrice): bouton pou chwazi nivo pri a alamen */}
+        {!canOverridePrice && item._priceTiers?.length > 0 && (
+          <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
+            <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
+              fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
+              borderColor: item._priceMode === 'retail' ? D.blue : D.border,
+              background: item._priceMode === 'retail' ? D.blue : '#fff',
+              color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
+            }}>Detay</button>
+            {item._priceTiers.map(tr => (
+              <button key={tr.id || tr.minQty} type="button"
+                onClick={() => onUpdate(idx, { unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+                style={{
+                  fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
+                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
+                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
+                }}>{tr.label || `${tr.minQty}+`}</button>
+            ))}
+          </div>
+        )}
+      </div>
       {/* ✅ KORIJE — Rabè HTG (montan), pa pousantaj */}
       <input type="number" min="0" step="0.01" value={item.discount}
         onChange={e => onUpdate(idx, { discount: e.target.value })}
@@ -211,7 +271,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
 })
 
 // ✅ memo sou mobile row tou
-const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemove, t, count, isOnline }) {
+const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemove, t, count, isOnline, canOverridePrice }) {
   const [search, setSearch] = useState(item.description || '')
   const [open, setOpen]     = useState(false)
 
@@ -254,7 +314,16 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
     }
     setSearch(p.name)
     setOpen(false)
-    onUpdate(idx, { description: p.name, productId: p.id, unitPrice: p.priceHtg || 0, qty: 1, discount: 0 })
+    const tiers = (p.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty)
+    const bestTier = pickBestTier(tiers, 1)
+    onUpdate(idx, {
+      description: p.name, productId: p.id,
+      unitPrice: bestTier ? Number(bestTier.priceHtg) : (p.priceHtg || 0),
+      qty: 1, discount: 0,
+      _retailPrice: p.priceHtg || 0,
+      _priceTiers: tiers,
+      _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+    })
   }, [idx, onUpdate])
 
   return (
@@ -334,7 +403,19 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         <div>
           {label(t('invoice.qty') || 'Qte')}
           <input type="number" min="1" value={item.qty}
-            onChange={e => onUpdate(idx, { qty: Number(e.target.value) })}
+            onChange={e => {
+              const qty = Number(e.target.value)
+              if (item._priceTiers?.length && item._priceMode !== 'manual') {
+                const bestTier = pickBestTier(item._priceTiers, qty)
+                onUpdate(idx, {
+                  qty,
+                  unitPrice: bestTier ? Number(bestTier.priceHtg) : item._retailPrice,
+                  _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+                })
+              } else {
+                onUpdate(idx, { qty })
+              }
+            }}
             style={{ ...inp, textAlign:'center', fontSize:14 }}
             onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
@@ -342,12 +423,33 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         </div>
         <div>
           {label('Pri U. HTG')}
-          <input type="number" min="0" step="0.01" value={item.unitPrice}
-            onChange={e => onUpdate(idx, { unitPrice: e.target.value })}
-            style={{ ...inp, fontFamily:'monospace', fontSize:13 }}
+          <input type="number" min="0" step="0.01" value={item.unitPrice} disabled={!canOverridePrice}
+            onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
+            style={{ ...inp, fontFamily:'monospace', fontSize:13, ...(!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
             onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
+          {/* ✅ NOUVO — Kesye: bouton pou chwazi nivo pri a alamen */}
+          {!canOverridePrice && item._priceTiers?.length > 0 && (
+            <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
+              <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
+                fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
+                borderColor: item._priceMode === 'retail' ? D.blue : D.border,
+                background: item._priceMode === 'retail' ? D.blue : '#fff',
+                color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
+              }}>Detay</button>
+              {item._priceTiers.map(tr => (
+                <button key={tr.id || tr.minQty} type="button"
+                  onClick={() => onUpdate(idx, { unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+                  style={{
+                    fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
+                    borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
+                    background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                    color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
+                  }}>{tr.label || `${tr.minQty}+`}</button>
+              ))}
+            </div>
+          )}
         </div>
         <div>
           {/* ✅ KORIJE — Rabè HTG */}
@@ -374,6 +476,11 @@ export default function NewInvoicePage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { tenant, user } = useAuthStore()
+  // ✅ NOUVO — Sèlman admin ka tape yon pri alamen. Kesye jwenn sèlman
+  // aksè pou CHWAZI ant Detay ak nivo Gwo yo (konfigire deja sou pwodwi
+  // a) — pa ka envante yon lòt pri.
+  const PRICE_OVERRIDE_ROLES = ['admin']
+  const canOverridePrice = PRICE_OVERRIDE_ROLES.includes(user?.role)
   const isMobile = useIsMobile()
 
   // ✅ NOUVO — Offline mode
@@ -902,7 +1009,7 @@ export default function NewInvoicePage() {
 
           {isMobile ? (
             items.map((item, idx) => (
-              <ItemRowMobile key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} count={items.length} isOnline={isOnline}/>
+              <ItemRowMobile key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} count={items.length} isOnline={isOnline} canOverridePrice={canOverridePrice}/>
             ))
           ) : (
             <>
@@ -913,7 +1020,7 @@ export default function NewInvoicePage() {
                 ))}
               </div>
               {items.map((item, idx) => (
-                <ItemRowDesktop key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} isOnline={isOnline}/>
+                <ItemRowDesktop key={item.id} item={item} idx={idx} onUpdate={updateItem} onRemove={removeItem} t={t} isOnline={isOnline} canOverridePrice={canOverridePrice}/>
               ))}
             </>
           )}
