@@ -20,6 +20,20 @@ async function genNumeroDossier(tenantId) {
   return `DOS-${ane}-${String(count + 1).padStart(5, '0')}`
 }
 
+// ⭐ Menm lojik ak paidDemands nan LabPage.jsx: demand [DEMANN] ki peye, ki gen rapò ak lab
+//    (mo kle sa yo pèmèt filtre bilan/tès menm lè yo pa gen tag [DEMANN] la ekri egzakteman
+//    tankou nan lis TESTS/LAB_BILANS lan — se yon apwoksimasyon, pa yon match egzat 100%)
+const LAB_DEMAND_KEYWORDS_RE = /lab|examen|bilan|hemogr|urine|nfs|glyc|cholest|test/i
+async function countLabPaidDemands(tenantId) {
+  const rows = await prisma.$queryRaw`
+    SELECT notes FROM klinik_services
+    WHERE tenant_id::text = ${tenantId}::text
+      AND status = 'peye'
+      AND notes LIKE '%[DEMANN]%'
+  `
+  return rows.filter(r => LAB_DEMAND_KEYWORDS_RE.test(r.notes || '')).length
+}
+
 // ═══════════════════════════════════════════════════════════════
 // STATS DASHBOARD
 // ═══════════════════════════════════════════════════════════════
@@ -36,7 +50,7 @@ router.get('/stats', async (req, res) => {
       prisma.klinikAppointment.count({ where: { tenantId, statut: 'en_attente', dateHeure: { gte: jodi } } }),
       prisma.klinikConsultation.count({ where: { tenantId, date: { gte: debutMwa } } }),
       prisma.klinikHospitalization.count({ where: { tenantId, statut: { in: ['admis', 'en_soin'] } } }),
-      prisma.klinikLabOrder.count({ where: { tenantId, statut: { in: ['en_attente', 'en_cours'] } } }),
+      countLabPaidDemands(tenantId),
     ])
     res.json({ stats: { totalPasyan, nouvoMwa, rdvJodi, rdvAtant, konsultMwa, hospActif, labAtant } })
   } catch (e) { res.status(500).json({ message: e.message }) }
@@ -225,49 +239,97 @@ router.delete('/patients/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/appointments', async (req, res) => {
   try {
-    const { date, statut, patientId, page = 1, limit = 50 } = req.query
+    const { date, dateFrom, dateTo, statut, patientId, page = 1, limit = 50 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
+
     if (date) {
       const d = new Date(date); d.setHours(0,0,0,0)
       const next = new Date(d); next.setDate(next.getDate()+1)
       where.dateHeure = { gte: d, lt: next }
+    } else if (dateFrom || dateTo) {
+      where.dateHeure = {}
+      if (dateFrom) { const d=new Date(dateFrom); d.setHours(0,0,0,0); where.dateHeure.gte=d }
+      if (dateTo)   { const d=new Date(dateTo);   d.setHours(23,59,59,999); where.dateHeure.lte=d }
     }
+
     if (statut)    where.statut    = statut
     if (patientId) where.patientId = patientId
+
     const [appointments, total] = await Promise.all([
       prisma.klinikAppointment.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{dateHeure:'asc'},
-        include:{patient:{select:{nom:true,prenom:true,telephone:true,numeroDossier:true}}},
+        include:{patient:{select:{nom:true,prenom:true,telephone:true,numeroDossier:true,numero_dossier:true}}},
       }),
       prisma.klinikAppointment.count({ where }),
     ])
     res.json({ appointments, total })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[GET /appointments]', e.message)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.post('/appointments', async (req, res) => {
   try {
-    const { id, createdAt, updatedAt, patient, consultation, ...data } = req.body
-    if (data.dateHeure) data.dateHeure = new Date(data.dateHeure)
+    const {
+      patientId, doctorName, dateHeure, dureeMin, motif, notes,
+      prix, recurrence, recurEnd, statut,
+    } = req.body
+    if (!patientId || !doctorName || !dateHeure || !motif) {
+      return res.status(400).json({ message: 'patientId, doctorName, dateHeure, motif obligatwa' })
+    }
     const appointment = await prisma.klinikAppointment.create({
-      data: { ...data, tenantId: tid(req), createdBy: req.user.id },
+      data: {
+        tenantId:   tid(req),
+        patientId,
+        doctorName,
+        dateHeure:  new Date(dateHeure),
+        dureeMin:   Number(dureeMin || 30),
+        motif,
+        notes:      notes || null,
+        prix:       prix != null ? Number(prix) : null,
+        recurrence: recurrence || 'none',
+        recurEnd:   recurEnd ? new Date(recurEnd) : null,
+        statut:     statut || 'en_attente',
+        createdBy:  req.user?.id || null,
+      },
       include: { patient: { select: { nom:true, prenom:true, telephone:true } } },
     })
     res.status(201).json({ appointment })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[POST /appointments]', e.message)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.put('/appointments/:id', async (req, res) => {
   try {
-    const { id, tenantId, createdAt, updatedAt, patient, consultation, ...data } = req.body
-    if (data.dateHeure) data.dateHeure = new Date(data.dateHeure)
+    const {
+      patientId, doctorName, dateHeure, dureeMin, motif, notes,
+      prix, recurrence, recurEnd, statut,
+    } = req.body
     const appointment = await prisma.klinikAppointment.update({
-      where: { id: req.params.id }, data,
+      where: { id: req.params.id },
+      data: {
+        ...(patientId  && { patientId }),
+        ...(doctorName && { doctorName }),
+        ...(dateHeure  && { dateHeure: new Date(dateHeure) }),
+        ...(dureeMin   && { dureeMin: Number(dureeMin) }),
+        ...(motif      && { motif }),
+        notes:      notes ?? null,
+        prix:       prix != null ? Number(prix) : null,
+        recurrence: recurrence || 'none',
+        recurEnd:   recurEnd ? new Date(recurEnd) : null,
+        ...(statut  && { statut }),
+      },
       include: { patient: { select: { nom:true, prenom:true } } },
     })
     res.json({ appointment })
-  } catch (e) { res.status(500).json({ message: e.message }) }
+  } catch (e) {
+    console.error('[PUT /appointments]', e.message)
+    res.status(500).json({ message: e.message })
+  }
 })
 
 router.patch('/appointments/:id/statut', async (req, res) => {
@@ -1154,6 +1216,31 @@ router.get('/famasi', async (req, res) => {
   } catch (e) { res.status(500).json({ message: e.message }) }
 })
 
+// ── DELETE /klinik/famasi/:id ── Siprime pwodui (soft delete) ──
+router.delete('/famasi/:id', async (req, res) => {
+  try {
+    const tenantId = tid(req)
+    // Verifye pwodui a ekziste + appartient au tenant
+    const existing = await prisma.$queryRawUnsafe(
+      `SELECT id, name FROM products WHERE id=$1 AND tenant_id=$2 AND is_active=true LIMIT 1`,
+      req.params.id, tenantId
+    )
+    if (!existing || existing.length === 0) {
+      return res.status(404).json({ message: 'Pwodui pa jwenn' })
+    }
+    // Soft delete — mete is_active=false (pa efase vre pou kenbe istwa vant yo)
+    await prisma.$executeRawUnsafe(
+      `UPDATE products SET is_active=false, updated_at=NOW() WHERE id=$1 AND tenant_id=$2`,
+      req.params.id, tenantId
+    )
+    console.log(`[DELETE /products] ${existing[0].name} (${req.params.id}) soft-deleted`)
+    res.json({ ok: true, message: `Pwodui "${existing[0].name}" efase` })
+  } catch(e) {
+    console.error('[DELETE /products] erè:', e.message)
+    res.status(500).json({ message: e.message })
+  }
+})
+
 // ═══════════════════════════════════════════════════════════════
 // LÒT DEPANS (manje, dlo, kouran, mentnans, eks.)
 // ─── Kole seksyon sa a nan klinik.routes.js ANVAN module.exports ───
@@ -1448,25 +1535,4 @@ router.put('/settings', async (req, res) => {
   }
 })
 
-// ── DELETE /klinik/famasi/:id ── Siprime pwodui (soft delete) ──
-router.delete('/famasi/:id', async (req, res) => {
-  try {
-    const tenantId = tid(req)
-    const existing = await prisma.$queryRawUnsafe(
-      `SELECT id, name FROM products WHERE id=$1 AND tenant_id=$2 AND is_active=true LIMIT 1`,
-      req.params.id, tenantId
-    )
-    if (!existing || existing.length === 0) {
-      return res.status(404).json({ message: 'Pwodui pa jwenn' })
-    }
-    await prisma.$executeRawUnsafe(
-      `UPDATE products SET is_active=false, updated_at=NOW() WHERE id=$1 AND tenant_id=$2`,
-      req.params.id, tenantId
-    )
-    res.json({ ok: true, message: `Pwodui "${existing[0].name}" efase` })
-  } catch(e) {
-    console.error('[DELETE /famasi] erè:', e.message)
-    res.status(500).json({ message: e.message })
-  }
-})
 module.exports = router
