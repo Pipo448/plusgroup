@@ -28,6 +28,7 @@ async function countLabPaidDemands(tenantId) {
     WHERE tenant_id::text = ${tenantId}::text
       AND status = 'peye'
       AND service_type = 'lab'
+      AND notes LIKE '%[DEMANN]%'
   `
   return rows[0]?.count || 0
 }
