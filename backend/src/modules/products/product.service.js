@@ -25,7 +25,11 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
   const [products, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      include: { category: { select: { id: true, name: true, nameFr: true, color: true } } },
+      include: {
+        category: { select: { id: true, name: true, nameFr: true, color: true } },
+        // ✅ NOUVO — nivo pri an gwo, triye pa sèy kantite pou frontend afiche yo nan lòd
+        priceTiers: { orderBy: { minQty: 'asc' } },
+      },
       orderBy: { [sortBy]: sortOrder },
       skip: (page - 1) * limit,
       take: Number(limit)
@@ -42,6 +46,8 @@ const getOne = async (tenantId, id) => {
     where: { id, tenantId },
     include: {
       category: true,
+      // ✅ NOUVO
+      priceTiers: { orderBy: { minQty: 'asc' } },
       stockMovements: {
         orderBy: { createdAt: 'desc' },
         take: 10,
@@ -111,8 +117,22 @@ const create = async (tenantId, userId, data) => {
       packLabel:      data.packLabel || null,
       packSize:       (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null,
       packPriceHtg:   (data.packPriceHtg != null && data.packPriceHtg !== '') ? Number(data.packPriceHtg) : null,
+      // ✅ NOUVO — Nivo pri an gwo (plizyè): kreye chak nivo an menm tan
+      // ak pwodwi a. Filtre liy ki manke minQty/priceHtg (pwoteksyon si
+      // frontend voye yon liy vid pa erè).
+      priceTiers: {
+        create: (data.priceTiers || [])
+          .filter(t => t.minQty && t.priceHtg)
+          .map(t => ({
+            tenantId,
+            minQty:   Number(t.minQty),
+            priceHtg: Number(t.priceHtg),
+            priceUsd: (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
+            label:    t.label?.trim() || null,
+          }))
+      },
     },
-    include: { category: { select: { id: true, name: true } } }
+    include: { category: { select: { id: true, name: true } }, priceTiers: true }
   });
 
   if (Number(data.quantity) > 0) {
@@ -162,8 +182,26 @@ const update = async (tenantId, id, userId, data) => {
       ...(('packLabel' in data)    && { packLabel: data.packLabel || null }),
       ...(('packSize' in data)     && { packSize: (data.packSize != null && data.packSize !== '') ? Number(data.packSize) : null }),
       ...(('packPriceHtg' in data) && { packPriceHtg: (data.packPriceHtg != null && data.packPriceHtg !== '') ? Number(data.packPriceHtg) : null }),
+      // ✅ NOUVO — Nivo pri an gwo: sèlman si 'priceTiers' prezan nan body
+      // la. Estrateji "ranplase tout" — efase ansyen nivo yo, kreye nouvo
+      // lis la. Pi senp e san danje paske frontend voye TOUT lis la chak
+      // fwa (pa yon "diff" pasyèl), kidonk pa gen risk pèdi yon nivo.
+      ...(('priceTiers' in data) && {
+        priceTiers: {
+          deleteMany: {},
+          create: (data.priceTiers || [])
+            .filter(t => t.minQty && t.priceHtg)
+            .map(t => ({
+              tenantId,
+              minQty:   Number(t.minQty),
+              priceHtg: Number(t.priceHtg),
+              priceUsd: (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
+              label:    t.label?.trim() || null,
+            }))
+        }
+      }),
     },
-    include: { category: { select: { id: true, name: true } } }
+    include: { category: { select: { id: true, name: true } }, priceTiers: true }
   });
 };
 

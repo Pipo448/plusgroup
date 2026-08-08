@@ -43,12 +43,10 @@ model Product {
   packLabel      String?          @map("pack_label")
   packSize       Int?             @map("pack_size")
   packPriceHtg   Decimal?         @map("pack_price_htg") @db.Decimal(12, 2)
-  // ✅ NOUVO — Pri "AN GWO" pa sèy kantite (menm inite a ak priceHtg/priceUsd,
-  // men pri a bese si kliyan achte pi plis pase wholesaleMinQty). Sa se KA #1
-  // (sèy kantite). Pou KA #2 (lòt inite, egz. yon kès), sèvi ak packLabel/
-  // packSize/packPriceHtg ki anwo a. Yon pwodwi ka gen youn, lòt la, tou de,
-  // oswa okenn — tout chan yo optyonèl (nullable), pa gen enpak sou pwodwi
-  // ki pa itilize fonksyonalite sa a.
+  // ⚠️ DEPRESYE — ranplase pa modèl ProductPriceTier anba a, ki sipòte
+  // PLIZYÈ nivo pri (3+ yon pri, 12+ yon lòt, Kès 24 yon lòt ankò).
+  // Kenbe chan sa yo pou konpatibilite ak done ki deja egziste — done yo
+  // migre nan product_price_tiers, kòd la sispann li chan sa yo apre.
   wholesaleMinQty   Int?     @map("wholesale_min_qty")
   wholesalePriceHtg Decimal? @map("wholesale_price_htg") @db.Decimal(12, 2)
   wholesalePriceUsd Decimal? @map("wholesale_price_usd") @db.Decimal(12, 2)
@@ -71,11 +69,35 @@ model Product {
   invoiceItems   InvoiceItem[]
   quoteItems     QuoteItem[]
   stockMovements StockMovement[]
+  // ✅ NOUVO — plizyè nivo pri an gwo pou menm pwodwi a
+  priceTiers     ProductPriceTier[]
 
   @@unique([tenantId, code])
   @@index([branchId])
   @@index([module])
   @@map("products")
+}
+
+// ✅ NOUVO — Yon pwodwi ka gen 0, 1, oswa plizyè nivo pri "an gwo", chak
+// youn ak pwòp sèy kantite li (egzanp: 3+ pyès = 20 HTG, 12+ pyès = 18
+// HTG, Kès 24 = 400 HTG). Nan moman kalkil pri a, kòd la chwazi nivo ki
+// gen `minQty` PI WO a pami sa ki kantite a rive ladan yo — konsa kliyan
+// an jwenn pi bon pri li merite a otomatikman.
+model ProductPriceTier {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  productId String   @map("product_id")
+  minQty    Int      @map("min_qty")
+  priceHtg  Decimal  @map("price_htg") @db.Decimal(12, 2)
+  priceUsd  Decimal? @map("price_usd") @db.Decimal(12, 2)
+  // Non ki parèt nan POS pou kesye a: "Gwo", "Kès 24", elatriye
+  label     String?  @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, minQty])
+  @@map("product_price_tiers")
 }
 
 model Client {

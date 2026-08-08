@@ -16,9 +16,9 @@ const haitiRange = (dateFrom, dateTo) => {
 };
 
 // ✅ NOUVO — Sekirite Pri (menm règ ak quote.service.js): non-admin dwe
-// soumèt YON SÈL nan pri Detay/Gwo anrejistre pou pwodwi a. Aplike isit
-// tou paske Fakti dirèk mache SWA an dirèk (kesye tape POS) SWA via
-// senkwonizasyon vant offline — de ka yo dwe respekte menm règ la.
+// soumèt YON SÈL nan pri Detay OSWA youn nan nivo `priceTiers` pwodwi a.
+// Aplike isit tou paske Fakti dirèk mache SWA an dirèk (kesye tape POS)
+// SWA via senkwonizasyon vant offline — de ka yo dwe respekte menm règ la.
 const PRICE_EPSILON = 0.01;
 const priceMatches = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) <= PRICE_EPSILON;
 
@@ -33,12 +33,12 @@ const validateItemPrice = (item, product, isAdmin) => {
   }
 
   const retailOk = priceMatches(item.unitPriceHtg, product.priceHtg);
-  const wholesaleOk = product.wholesaleMinQty != null && product.wholesalePriceHtg != null
-    && priceMatches(item.unitPriceHtg, product.wholesalePriceHtg);
+  const tierOk = (product.priceTiers || []).some(tier => priceMatches(item.unitPriceHtg, tier.priceHtg));
 
-  if (!retailOk && !wholesaleOk) {
+  if (!retailOk && !tierOk) {
+    const tierList = (product.priceTiers || []).map(t => `${t.label || 'Gwo'} (${Number(t.priceHtg).toFixed(2)} HTG)`).join(', ');
     throw Object.assign(
-      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG) oswa Gwo yo aksepte pou wòl ou.`),
+      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG)${tierList ? ' oswa ' + tierList : ''} aksepte pou wòl ou.`),
       { statusCode: 403 }
     );
   }
@@ -145,7 +145,7 @@ const createDirect = async (tenantId, userId, data, userRole) => {
   if (!isAdmin) {
     for (const item of items) {
       const product = item.productId
-        ? await prisma.product.findFirst({ where: { id: item.productId, tenantId } })
+        ? await prisma.product.findFirst({ where: { id: item.productId, tenantId }, include: { priceTiers: true } })
         : null;
       validateItemPrice(item, product, isAdmin);
     }

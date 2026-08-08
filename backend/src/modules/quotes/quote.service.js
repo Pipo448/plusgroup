@@ -3,11 +3,10 @@ const prisma = require('../../config/prisma');
 const crypto = require('crypto'); // ✅ NOUVO — pou jenere token sekrè
 
 // ✅ NOUVO — Sekirite Pri: sèlman 'admin' ka soumèt yon pri lib pou yon
-// atik. Lòt wòl yo (egz. 'cashier') dwe soumèt YON SÈL nan de pri ki
-// anrejistre pou pwodwi a (Detay OSWA Gwo, si Gwo konfigire) — kèlkeswa
-// kantite a (frontend kite kesye a chwazi youn nan de a alamen). Sa
-// anpeche yon kesye (oswa yon rekèt API dirèk ki kontounen frontend lan)
-// soumèt yon pri envante pou fè antrepriz la pèdi kòb.
+// atik. Lòt wòl yo (egz. 'cashier') dwe soumèt YON SÈL nan pri Detay OSWA
+// youn nan nivo `priceTiers` pwodwi a (kèlkeswa kantite a — frontend kite
+// kesye a chwazi nivo a alamen). Sa anpeche yon kesye (oswa yon rekèt API
+// dirèk ki kontounen frontend lan) soumèt yon pri envante.
 const PRICE_EPSILON = 0.01;
 const priceMatches = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) <= PRICE_EPSILON;
 
@@ -23,12 +22,13 @@ const validateItemPrice = (item, product, isAdmin) => {
   }
 
   const retailOk = priceMatches(item.unitPriceHtg, product.priceHtg);
-  const wholesaleOk = product.wholesaleMinQty != null && product.wholesalePriceHtg != null
-    && priceMatches(item.unitPriceHtg, product.wholesalePriceHtg);
+  // ✅ NOUVO — pri a valid si li matche ak NENPÒT nan nivo priceTiers yo
+  const tierOk = (product.priceTiers || []).some(tier => priceMatches(item.unitPriceHtg, tier.priceHtg));
 
-  if (!retailOk && !wholesaleOk) {
+  if (!retailOk && !tierOk) {
+    const tierList = (product.priceTiers || []).map(t => `${t.label || 'Gwo'} (${Number(t.priceHtg).toFixed(2)} HTG)`).join(', ');
     throw Object.assign(
-      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG) oswa Gwo yo aksepte pou wòl ou.`),
+      new Error(`Pri "${product.name}" pa valid. Sèlman pri Detay (${Number(product.priceHtg).toFixed(2)} HTG)${tierList ? ' oswa ' + tierList : ''} aksepte pou wòl ou.`),
       { statusCode: 403 }
     );
   }
@@ -167,7 +167,7 @@ const create = async (tenantId, userId, data, userRole) => {
 
   const items = [];
   for (const item of data.items || []) {
-    const product = await prisma.product.findFirst({ where: { id: item.productId, tenantId } });
+    const product = await prisma.product.findFirst({ where: { id: item.productId, tenantId }, include: { priceTiers: true } });
 
     // ✅ NOUVO — Validasyon pri sèvè-side (pa fè konfyans a sa frontend voye pou non-admin)
     validateItemPrice(item, product, isAdmin);
@@ -250,7 +250,7 @@ const update = async (tenantId, id, userId, data, userRole) => {
   if (data.items) {
     for (const item of data.items) {
       const product = item.productId
-        ? await prisma.product.findFirst({ where: { id: item.productId, tenantId } })
+        ? await prisma.product.findFirst({ where: { id: item.productId, tenantId }, include: { priceTiers: true } })
         : null;
 
       // ✅ NOUVO — Validasyon pri sèvè-side
