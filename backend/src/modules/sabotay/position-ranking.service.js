@@ -478,6 +478,41 @@ async function _bulkUpdateSolMemberPositions(tx, planId, rows) {
   } catch (_) {}
 }
 
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: REKALKILE SÈLMAN SKÒ (performanceScore) — SAN pozisyon
+//   Itil lè "Pozisyon Dinamik" dezaktive: manm yo dwe TOUJOU wè
+//   pwen yo monte selon lè/timing peman yo, menm si klasman
+//   (position #) pa deplase. Pa gen lock, pa gen reòdone —
+//   sèlman yon UPDATE annmas sou performanceScore.
+// ─────────────────────────────────────────────────────────────
+async function recalculateScoresOnly(planId) {
+  const plan = await prisma.sabotayPlan.findUnique({
+    where:   { id: planId },
+    include: { members: { include: { payments: true } } },
+  })
+  if (!plan) throw new Error('Plan pa jwenn')
+
+  const { today, currentTime } = getHaitiNow()
+  const dueTimeEnd = plan.dueTimeEnd || '17:00'
+  const allDates   = getAllPaymentDates(plan)
+
+  const activeMembers = plan.members.filter(m => m.isActive && m.status !== 'stopped')
+  if (activeMembers.length === 0) return { recalculated: 0, message: 'Pa gen manm aktif' }
+
+  const rows = activeMembers.map(m => {
+    const { payments, paymentTimings } = buildPaymentMap(m.payments)
+    const score = calcScore(
+      { ...m, payments, paymentTimings },
+      allDates, today, currentTime, dueTimeEnd,
+    )
+    return { id: m.id, score }
+  })
+
+  await _bulkUpdateMemberScores(prisma, rows)
+
+  return { recalculated: rows.length, scoresOnly: true }
+}
+
 async function recalculatePositions(planId) {
   // ═══════════════════════════════════════════════════════════════
   // TOUT NAN YON SÈL TRANSACTION + ADVISORY LOCK
@@ -693,6 +728,7 @@ async function getRankingSnapshot(planId) {
 
 module.exports = {
   recalculatePositions,
+  recalculateScoresOnly,
   generatePermanentId,
   getRankingSnapshot,
   calcScore,

@@ -789,6 +789,13 @@ export default function PlanDetail({
                             <Calendar size={8} /> Pwomès: {String(m.declaredPayoutDate).split('T')[0].split('-').reverse().join('/')}
                           </span>
                         )}
+                        {!isStopped && (
+                          <span title="Pwen pèfòmans" style={{ fontSize: 9, fontWeight: 800, padding: '1px 7px', borderRadius: 10,
+                            background: (m.performanceScore ?? 0) >= 80 ? 'rgba(34,197,94,0.15)' : (m.performanceScore ?? 0) >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                            color: (m.performanceScore ?? 0) >= 80 ? D.green : (m.performanceScore ?? 0) >= 50 ? D.orange || '#f59e0b' : D.red }}>
+                            ⭐ {m.performanceScore ?? 0} pwen
+                          </span>
+                        )}
                       </div>
                     </div>
 

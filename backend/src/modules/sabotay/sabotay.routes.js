@@ -279,6 +279,11 @@ router.post('/plans/:planId/members/:memberId/pay',
     res.json = function (data) {
       origJson(data)
       if (data && data.success !== false && !data.error) {
+        // ✅ FIX: pwen yo dwe TOUJOU rekalkile (menm si Pozisyon Dinamik
+        // dezaktive) — se sèlman reòdone pozisyon/klasman ki depann de toggle a.
+        rankingSvc.recalculateScoresOnly(planId).catch(e =>
+          console.warn('[AUTO SCORES AFTER PAY]', e.message)
+        )
         rankingSvc.recalculatePositions(planId).catch(e =>
           console.warn('[AUTO RECALC AFTER PAY]', e.message)
         )
