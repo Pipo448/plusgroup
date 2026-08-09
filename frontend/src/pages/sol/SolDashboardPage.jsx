@@ -262,7 +262,11 @@ export default function SolDashboardPage() {
   const totalToPayForSol = totalSlotCount * plan.amount * allSlots.length
   const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
 
-  const isWinner   = allSlots.some(slot => dates[slot.position - 1] === today)
+  // ✅ FIX: pa gen okenn "touche" otomatik ki soti nan kalkil pozisyon an —
+  // sèlman lè ADMIN deklare yon dat (declaredPayoutDate) oswa konfime
+  // touche a pou tout bon (hasWon), manm nan ka wè yon endikasyon.
+  const declaredStr = member.declaredPayoutDate ? String(member.declaredPayoutDate).split('T')[0] : null
+  const isWinner   = !!member.hasWon || declaredStr === today
   const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
   // ✅ NOUVO: si admin aktive "Kache Pozisyon", manm nan pa dwe wè "Pozisyon #X"
   const hidePos    = !!plan.hidePositionInSol
@@ -660,7 +664,8 @@ export default function SolDashboardPage() {
 
           <PerformanceSection scoreData={scoreData} />
           <PerformanceMessage scoreData={scoreData} />
-          <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />
+          {/* ✅ FIX: pa doub-afiche si dat deklare a se jodi a — bannyè "Se Jou Ou Jodi a!" anwo a deja kouvri sa */}
+          {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
 
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: 'clamp(14px, 4vw, 20px)', marginBottom: 16 }}>
@@ -732,7 +737,9 @@ export default function SolDashboardPage() {
                   const paid     = !!member.payments?.[d]
                   const timing   = member.paymentTimings?.[d]
                   const isPast   = isDateOverdue(d) // ✅ FIX: respekte dueTimeEnd
-                  const isWin    = allSlots.some(slot => i === slot.position - 1)
+                  // ✅ FIX: badge "Touche" a sèlman lè ADMIN deklare dat sa a
+                  // (declaredPayoutDate) — pa yon devinèt otomatik ki soti nan pozisyon.
+                  const isWin    = declaredStr === d
                   const montanDat = plan.amount * allSlots.length
                   return (
                     <div
