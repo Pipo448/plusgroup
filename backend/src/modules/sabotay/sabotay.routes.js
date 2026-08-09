@@ -181,6 +181,27 @@ router.patch('/plans/:planId/toggle-manual-time', async (req, res) => {
 })
 
 // ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Toggle Kache Pozisyon (manm kont sol pa dwe wè pozisyon)
+// ─────────────────────────────────────────────────────────────
+router.patch('/plans/:planId/toggle-hide-position', async (req, res) => {
+  try {
+    const { planId } = req.params
+    const tenantId   = req.tenant?.id || req.user?.tenantId
+    const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+    if (!plan) return res.status(404).json({ message: 'Plan pa jwenn' })
+    const newValue = !plan.hidePositionInSol
+    await prisma.sabotayPlan.update({ where: { id: planId }, data: { hidePositionInSol: newValue } })
+    return res.json({
+      message: newValue ? '🙈 Pozisyon kache pou manm yo!' : '👁️ Pozisyon vizib pou manm yo',
+      hidePositionInSol: newValue,
+    })
+  } catch (err) {
+    console.error('[TOGGLE HIDE POSITION]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+// ─────────────────────────────────────────────────────────────
 // ✅ Rekalile Pozisyon Manyèlman
 // ─────────────────────────────────────────────────────────────
 router.post('/plans/:planId/recalculate', async (req, res) => {
