@@ -130,13 +130,17 @@ export function hasOwnerSlot(plan) {
 }
 
 export function memberPayout(plan) {
-  const slots = totalActiveSlots(plan)
-  return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
+  const slots    = totalActiveSlots(plan)
+  const interval = Math.max(1, Math.floor(Number(plan.interval) || 1))
+  // ✅ NOUVO: "Touche Chak Konbyen Sik" — lè entèval la >1, plizyè sik
+  // konbine nan YON SÈL peman final, donk montan an miltipliye pa entèval la.
+  return Math.max(0, (Number(plan.amount) * slots - Number(plan.feePerMember || 0)) * interval)
 }
 
 export function ownerPayout(plan) {
-  const slots = totalActiveSlots(plan)
-  return Math.max(0, Number(plan.amount) * slots - Number(plan.feePerMember || 0))
+  const slots    = totalActiveSlots(plan)
+  const interval = Math.max(1, Math.floor(Number(plan.interval) || 1))
+  return Math.max(0, (Number(plan.amount) * slots - Number(plan.feePerMember || 0)) * interval)
 }
 
 export function totalActiveSlots(plan) {

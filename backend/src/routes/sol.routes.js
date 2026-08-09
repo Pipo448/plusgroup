@@ -191,7 +191,9 @@ async function buildPlanData(account, memberId) {
       paymentTimings,
       allSlots: allSlots.map(s => {
         const { payments: sp, paymentTimings: st } = buildPaymentMaps(s.payments)
-        return { id: s.id, position: s.position, payments: sp, paymentTimings: st }
+        // ✅ NOUVO: chak "men" (eskl) gen pwòp dat pwomès pa li — manm nan
+        // pa dwe wè ki "men" li ye SOF si admin deklare yon dat pou eskl sa a.
+        return { id: s.id, position: s.position, payments: sp, paymentTimings: st, declaredPayoutDate: s.declaredPayoutDate || null }
       })
     },
     plan: {

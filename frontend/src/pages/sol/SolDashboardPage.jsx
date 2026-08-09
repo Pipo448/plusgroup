@@ -150,10 +150,11 @@ export default function SolDashboardPage() {
   const allSlots = useMemo(() => {
     if (!member) return []
     return member.allSlots || [{
-      id:             member.id,
-      position:       member.position,
-      payments:       member.payments,
-      paymentTimings: member.paymentTimings,
+      id:                 member.id,
+      position:           member.position,
+      payments:           member.payments,
+      paymentTimings:     member.paymentTimings,
+      declaredPayoutDate: member.declaredPayoutDate || null,
     }]
   }, [member])
 
@@ -255,7 +256,9 @@ export default function SolDashboardPage() {
   const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length
   const amountDue         = totalDue      * plan.amount * allSlots.length
 
-  const payoutDebaz      = (plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)
+  // ✅ NOUVO: "Touche Chak Konbyen Sik" — montan final la miltipliye pa entèval la
+  const planInterval     = Math.max(1, Math.floor(Number(plan.interval) || 1))
+  const payoutDebaz      = ((plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
   const payoutAjiste     = payoutDebaz + memberBalance
   const progress         = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
@@ -568,26 +571,33 @@ export default function SolDashboardPage() {
             {allSlots.map(slot => {
               const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
               const slotPayout      = isExchangedSlot ? payoutAjiste : payoutDebaz
+              // ✅ NOUVO: "Men #X" ak dat li PA JANM afiche otomatikman —
+              // sèlman lè ADMIN deklare yon dat pwomès pou eskl SA A espesifikman.
+              const slotDeclared = slot.declaredPayoutDate ? String(slot.declaredPayoutDate).split('T')[0] : null
               return (
                 <div
                   key={slot.position}
                   className="sol-stat-card"
-                  style={{ borderColor: 'rgba(201,168,76,0.25)', background: 'rgba(201,168,76,0.05)' }}
+                  style={{ borderColor: slotDeclared ? `${D.blue}40` : 'rgba(201,168,76,0.25)', background: slotDeclared ? 'rgba(96,165,250,0.06)' : 'rgba(201,168,76,0.05)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trophy size={14} style={{ color: D.gold }} />
                     </div>
                     <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      {hidePos ? 'Men' : `Men #${slot.position}`}
+                      {slotDeclared ? `Men #${slot.position}` : 'Men'}
                     </span>
                   </div>
                   <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.gold }}>
                     {fmt(slotPayout)}
                   </div>
-                  <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>
-                    HTG • {dates[slot.position - 1]?.split('-').reverse().join('/') || '—'}
-                  </div>
+                  {slotDeclared ? (
+                    <div style={{ fontSize: 10, color: D.blue, marginTop: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      📅 W ap touche {slotDeclared.split('-').reverse().join('/')}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>HTG</div>
+                  )}
                   {isExchangedSlot && memberBalance !== 0 && (
                     <>
                       <div style={{ marginTop: 7, padding: '4px 7px', borderRadius: 7, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
