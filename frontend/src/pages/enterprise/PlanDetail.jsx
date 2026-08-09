@@ -738,9 +738,6 @@ export default function PlanDetail({
               const mStatus    = computeMemberStatus(m, plan, today, currentTime) // ✅ pase currentTime
               const isStopped  = m.status === 'stopped'
               // ✅ NOUVO: pozisyon enchanjab si touche/pre touche/hasWon
-              const lockWindowDays = Number(plan.lockWindowDays ?? 2)
-              const posLocked  = isDynamic && isPositionLocked(m, plan, today, lockWindowDays)
-
               // ✅ FIX KRITIK: rekalkile breakdown LOKALMAN pou respekte dueTimeEnd.
               // Backend an ka ap voye `missing: -7` pou jodi a anvan fenèt peman fini —
               // sa kòrèk sa.
@@ -855,7 +852,7 @@ export default function PlanDetail({
                         </button>
                       )}
 
-                      {!isStopped && !m.hasWon && !isOwn && !posLocked && (
+                      {!isStopped && !m.hasWon && !isOwn && (
                         <button
                           onClick={() => { setAdjustPos(m); setAdjustSteps(1) }}
                           title="Desann Pozisyon"
@@ -864,12 +861,6 @@ export default function PlanDetail({
                           style={{ background: 'rgba(59,130,246,0.12)', color: D.blue }}>
                           <TrendingDown size={13} />
                         </button>
-                      )}
-                      {!m.hasWon && !isOwn && posLocked && (
-                        <span title="Pozisyon enchanjab — manm nan ap touche byento (skò ap toujou kalkile)"
-                          style={{ fontSize: 9, background: 'rgba(34,197,94,0.12)', color: D.green, padding: '4px 8px', borderRadius: 10, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 3, whiteSpace: 'nowrap' }}>
-                          <Lock size={9} /> Enchanjab
-                        </span>
                       )}
                       {m.hasWon && (
                         <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '4px 8px', borderRadius: 10, fontWeight: 800, display: 'flex', alignItems: 'center' }}>

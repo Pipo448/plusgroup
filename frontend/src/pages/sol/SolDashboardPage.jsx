@@ -639,8 +639,8 @@ export default function SolDashboardPage() {
               </div>
             </div>
 
-            {plan.dynamicPositioning && (
-              <div className="sol-stat-card">
+            {/* ✅ FIX: pwen yo afiche toutan, kèlkeswa si Pozisyon Dinamik aktive */}
+            <div className="sol-stat-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(155,89,182,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Star size={14} style={{ color: D.purple }} />
@@ -657,9 +657,8 @@ export default function SolDashboardPage() {
                 }}>
                   {member.performanceScore ?? 0}
                 </div>
-                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>pts • Dinamik</div>
+                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>pts</div>
               </div>
-            )}
           </div>
 
           <PerformanceSection scoreData={scoreData} />

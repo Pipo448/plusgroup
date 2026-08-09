@@ -162,15 +162,11 @@ function getPayoutDateForPosition(plan, position) {
  */
 function isPositionLocked(member, plan, today, lockWindowDays = 2) {
   if (!member) return false
-  if (member.hasWon) return true
-  if (!plan) return false
-
-  const payoutDate = getPayoutDateForPosition(plan, member.position)
-  if (!payoutDate) return false
-
-  const daysUntilCollect = daysBetween(today, payoutDate)
-  // SÈLMAN jodi a (0) jiska +lockWindowDays jou.
-  return daysUntilCollect >= 0 && daysUntilCollect <= lockWindowDays
+  // ✅ FIX: retire lock ANTISIPATIF ki te baze sou dat kalkile otomatikman
+  // ("ap touche byento"). Se ADMIN sèl ki deside/deklare ki moun k ap touche
+  // (declaredPayoutDate/hasWon) — pa gen okenn prediksyon otomatik ankò.
+  // Sèl bagay ki rete lock se yon manm ki DEJA touche pou tout bon.
+  return !!member.hasWon
 }
 
 // ─────────────────────────────────────────────────────────────
