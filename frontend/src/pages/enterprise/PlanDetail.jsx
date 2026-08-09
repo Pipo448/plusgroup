@@ -459,8 +459,11 @@ export default function PlanDetail({
   const manualTimeOn = !!plan.manualPaymentTime
   const hidePosOn = !!plan.hidePositionInSol
 
-  const todayWinPos = Object.entries(payoutMap).find(([, d]) => d === today)
-  const todayWinner = todayWinPos ? plan.members?.find(m => m.position === Number(todayWinPos[0])) : null
+  // ✅ FIX: bannyè "ap touche jodi a" pa depann de kalkil pozisyon otomatik la
+  // ankò — li reflete sèlman manm ke ADMIN deklare pou jodi a (declaredPayoutDate).
+  const todayWinner = plan.members?.find(m =>
+    String(m.declaredPayoutDate || '').split('T')[0] === today
+  ) || null
 
   const activeMembers  = (plan.members || []).filter(m => m.status !== 'stopped')
   const totColl        = activeMembers.reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d]).length * plan.amount, 0) || 0
