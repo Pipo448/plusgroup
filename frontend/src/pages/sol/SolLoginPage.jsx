@@ -102,12 +102,15 @@ export default function SolLoginPage() {
              align-items:flex-start + margin:auto sou kad la santre l san l pa janm
              koupe tèt li lè li pa antre nan wotè ekran an. */
           overflow-y: auto;
+          overflow-x: hidden;
         }
         .sabotay-login-card { margin: auto 0; }
 
-        /* Sou selil laj (desktop/tablèt), fòm nan pran plas nan pano vid a dwat la */
+        /* Sou selil laj (desktop/tablèt), fòm nan pran plas nan pano vid a dwat la —
+           yon ti distans anlè pou l pa monte sou tèks "KONT SOL & SABOTAY" a */
         @media (min-width: 861px) {
-          .sabotay-login-root { justify-content: flex-end; padding-right: 9%; }
+          .sabotay-login-root { justify-content: flex-end; padding-right: 9%; align-items: flex-start; }
+          .sabotay-login-card { margin: 14vh 0 40px; }
         }
 
         /* Sou mobil, itilize imaj vètikal (pòtrè) ki fèt SPESYALMAN pou telefòn,
@@ -122,7 +125,7 @@ export default function SolLoginPage() {
             background-size: cover;
             padding: 20px 18px 32px;
           }
-          .sabotay-login-card { width: 100%; max-width: 420px; margin: 58vh auto 20px; }
+          .sabotay-login-card { width: 100%; max-width: 420px; margin: 55vh auto 20px; }
         }
 
         /* Sou ti ekran byen etwat, kad la ka bezwen pi plis espas anwo pou
