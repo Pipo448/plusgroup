@@ -175,6 +175,12 @@ async function buildPlanData(account, memberId) {
     where: { planId: plan.id }
   }).catch(() => 0)
 
+  // ✅ NOUVO: konte EGZAKTEMAN ak menm kritè panel admin lan itilize pou jenere
+  // dat yo (status !== 'stopped') — pou skò "Chanpyon/Bon" a matche pafètman.
+  const nonStoppedMemberCount = await prisma.sabotayMember.count({
+    where: { planId: plan.id, status: { not: 'stopped' } }
+  }).catch(() => activeMemberCount)
+
   return {
     member: {
       id: sabotayMember.id,
@@ -209,6 +215,9 @@ async function buildPlanData(account, memberId) {
       maxMembers: plan.maxMembers,
       activeMemberCount,
       totalMemberCount,
+      // ✅ NOUVO: kantite manm ki pa 'stopped' — menm kritè ak sabotayUtils.js
+      // (getAllPaymentDates) itilize bò panel admin la, pou skò yo matche.
+      nonStoppedMemberCount,
       // ✅ FIX 2: Ajoute dynamicPositioning pou frontend ka konnen si aktive
       dynamicPositioning: plan.dynamicPositioning ?? false,
       // ✅ NOUVO: si aktive, fwontenn kont sol la pa dwe afiche "Pozisyon #X"

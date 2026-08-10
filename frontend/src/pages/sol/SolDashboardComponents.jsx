@@ -13,9 +13,10 @@ import { computeLocalBreakdown } from '../enterprise/sabotayUtils'
 // ══════════════════════════════════════════════════════════════
 export function MemberScoreDisplay({ member, plan, today, currentTime }) {
   // ✅ FIX: `plan` isit la (kont sol) pa gen `plan.members` tankou nan panel
-  // admin la — konstwi yon "shim" ak kantite manm REYÈL la pou getAllPaymentDates
-  // kalkile menm kantite sik/dat ak panel admin la.
-  const slotCount = plan.activeMemberCount || plan.totalMemberCount || 1
+  // admin la — konstwi yon "shim" ak kantite manm REYÈL la (menm kritè
+  // status!=='stopped' admin lan itilize) pou getAllPaymentDates kalkile
+  // EGZAKTEMAN menm kantite sik/dat ak panel admin la.
+  const slotCount = plan.nonStoppedMemberCount || plan.activeMemberCount || plan.totalMemberCount || 1
   const planShim = { ...plan, members: Array.from({ length: slotCount }, () => ({ status: 'active' })) }
   const breakdown = computeLocalBreakdown(member, planShim, today, currentTime)
   if (!breakdown || breakdown.count === 0) return null
