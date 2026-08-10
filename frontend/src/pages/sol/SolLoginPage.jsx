@@ -88,7 +88,7 @@ export default function SolLoginPage() {
 
         .sabotay-login-root {
           min-height: 100vh;
-          display: flex; align-items: center; justify-content: flex-end;
+          display: flex; align-items: flex-start; justify-content: flex-end;
           font-family: 'DM Sans', sans-serif;
           background-image:
             linear-gradient(90deg, rgba(2,6,15,0.15) 0%, rgba(2,6,15,0.05) 45%, rgba(2,6,15,0.35) 100%),
@@ -98,23 +98,35 @@ export default function SolLoginPage() {
           background-repeat: no-repeat;
           padding: 24px 8vw;
           box-sizing: border-box;
+          /* ✅ FIX: pèmèt paj la defile (web AK mobil) si kontni pi wo pase ekran an —
+             align-items:flex-start + margin:auto sou kad la santre l san l pa janm
+             koupe tèt li lè li pa antre nan wotè ekran an. */
+          overflow-y: auto;
         }
+        .sabotay-login-card { margin: auto 0; }
 
         /* Sou selil laj (desktop/tablèt), fòm nan pran plas nan pano vid a dwat la */
         @media (min-width: 861px) {
           .sabotay-login-root { justify-content: flex-end; padding-right: 9%; }
-          .sabotay-login-card { margin-top: 8vh; }
         }
 
         /* Sou mobil, imaj la ret vizib men kad nan fòm nan pran tout laj la,
-           santre, epi background la mete aksan sou pano/logo a (dwat) */
+           santre vètikalman AK yon espas anlè/anba pou defilman posib,
+           epi background la mete aksan sou pano/logo a (dwat) */
         @media (max-width: 860px) {
           .sabotay-login-root {
-            justify-content: center; align-items: flex-end;
+            justify-content: center;
             background-position: 78% center;
-            padding: 20px 18px 28px;
+            background-size: cover;
+            padding: 32px 18px 40px;
           }
           .sabotay-login-card { width: 100%; max-width: 420px; }
+        }
+
+        /* Sou ti ekran byen etwat, kad la ka bezwen pi plis espas anwo pou
+           kontni an pa kole tèt anba tèks logo/tit la */
+        @media (max-width: 420px) {
+          .sabotay-login-root { padding-top: 24px; }
         }
 
         @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
