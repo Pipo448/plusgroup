@@ -35,7 +35,7 @@ import {
 import {
   PayBadge, ScoreBadge, timingBadge,
   SolCalendar, PaymentCountdown, BlockingCountdown,
-  PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner,
+  PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner, MemberScoreDisplay,
 } from './SolDashboardComponents'
 
 import { ModalChangePassword, ModalPayMobile } from './SolDashboardModals'
@@ -662,7 +662,7 @@ export default function SolDashboardPage() {
               </div>
             </div>
 
-            {/* ✅ FIX: pwen yo afiche toutan, kèlkeswa si Pozisyon Dinamik aktive */}
+            {/* ✅ FIX: menm kalkil/afichaj "Chanpyon/Bon/Mwayen" ki nan panel Sabotay admin la */}
             <div className="sol-stat-card">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(155,89,182,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -672,15 +672,7 @@ export default function SolDashboardPage() {
                     Pwen Pèfòmans
                   </span>
                 </div>
-                <div style={{
-                  fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)',
-                  color: (member.performanceScore ?? 0) >= 80 ? D.green
-                       : (member.performanceScore ?? 0) >= 50 ? D.orange
-                       : D.red,
-                }}>
-                  {member.performanceScore ?? 0}
-                </div>
-                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>pts</div>
+                <MemberScoreDisplay member={member} plan={plan} today={today} currentTime={currentTime} />
               </div>
           </div>
 

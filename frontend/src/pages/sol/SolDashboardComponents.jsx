@@ -2,8 +2,44 @@
 // ─── Tout komponan prensipal tableau de bord Sol ──────────────
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { CheckCircle, Clock, Bell, ChevronLeft, ChevronRight, Shield, RefreshCw, Calendar } from 'lucide-react'
+import { CheckCircle, Clock, Bell, ChevronLeft, ChevronRight, Shield, RefreshCw, Calendar, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { D, SOL_API, fmt } from './solDashboardUtils'
+// ✅ NOUVO: menm fonksyon kalkil "Chanpyon/Bon/Mwayen" ki nan panel Sabotay la
+import { computeLocalBreakdown } from '../enterprise/sabotayUtils'
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO: SKÒ CHANPYON/BON/MWAYEN — menm kalkil ak menm afichaj
+// ki nan panel Sabotay admin (PlanDetail.jsx ScoreDisplay)
+// ══════════════════════════════════════════════════════════════
+export function MemberScoreDisplay({ member, plan, today, currentTime }) {
+  // ✅ FIX: `plan` isit la (kont sol) pa gen `plan.members` tankou nan panel
+  // admin la — konstwi yon "shim" ak kantite manm REYÈL la pou getAllPaymentDates
+  // kalkile menm kantite sik/dat ak panel admin la.
+  const slotCount = plan.activeMemberCount || plan.totalMemberCount || 1
+  const planShim = { ...plan, members: Array.from({ length: slotCount }, () => ({ status: 'active' })) }
+  const breakdown = computeLocalBreakdown(member, planShim, today, currentTime)
+  if (!breakdown || breakdown.count === 0) return null
+  const score = breakdown.total
+
+  let color, bg, label, Icon
+  if      (score >= 15) { color = '#00d084'; bg = 'rgba(0,208,132,0.14)'; label = 'Chanpyon'; Icon = TrendingUp }
+  else if (score >= 6)  { color = D.green;   bg = D.greenBg;             label = 'Bon';      Icon = TrendingUp }
+  else if (score >= 0)  { color = D.orange || '#f59e0b'; bg = D.orangeBg; label = 'Mwayen';  Icon = Minus }
+  else if (score >= -8) { color = D.red;     bg = D.redBg;               label = 'Fèb';      Icon = TrendingDown }
+  else                  { color = '#dc2626'; bg = 'rgba(220,38,38,0.15)'; label = 'Kritik';   Icon = TrendingDown }
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      background: bg, border: `1.5px solid ${color}40`,
+      borderRadius: 12, padding: '7px 12px',
+    }}>
+      <Icon size={14} color={color} />
+      <span style={{ fontWeight: 800, fontSize: 14, color }}>{score >= 0 ? `+${score}` : score}</span>
+      <span style={{ fontWeight: 700, fontSize: 11, color, opacity: 0.9 }}>{label}</span>
+    </div>
+  )
+}
 
 // ══════════════════════════════════════════════════════════════
 // BADGES
