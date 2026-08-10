@@ -110,17 +110,19 @@ export default function SolLoginPage() {
           .sabotay-login-root { justify-content: flex-end; padding-right: 9%; }
         }
 
-        /* Sou mobil, imaj la ret vizib men kad nan fòm nan pran tout laj la,
-           santre vètikalman AK yon espas anlè/anba pou defilman posib,
-           epi background la mete aksan sou pano/logo a (dwat) */
+        /* Sou mobil, itilize imaj vètikal (pòtrè) ki fèt SPESYALMAN pou telefòn,
+           kad fòm nan poze nan espas vid anba "KONT SOL & SABOTAY" a */
         @media (max-width: 860px) {
           .sabotay-login-root {
             justify-content: center;
-            background-position: 78% center;
+            background-image:
+              linear-gradient(180deg, rgba(2,6,15,0.05) 60%, rgba(2,6,15,0.25) 100%),
+              url('/images/sabotay-login-bg-mobile.png');
+            background-position: top center;
             background-size: cover;
-            padding: 32px 18px 40px;
+            padding: 20px 18px 32px;
           }
-          .sabotay-login-card { width: 100%; max-width: 420px; }
+          .sabotay-login-card { width: 100%; max-width: 420px; margin: 58vh auto 20px; }
         }
 
         /* Sou ti ekran byen etwat, kad la ka bezwen pi plis espas anwo pou
