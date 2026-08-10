@@ -62,7 +62,7 @@ export function ModalChangePassword({ onClose, token }) {
           ))}
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
             <button onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: 12, cursor: 'pointer', border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, fontWeight: 600, fontSize: 14, fontFamily: 'inherit' }}>Anile</button>
-            <button onClick={handleSubmit} disabled={loading} style={{ flex: 2, padding: '14px', borderRadius: 12, border: 'none', background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn, color: '#0a0a00', fontWeight: 800, fontSize: 14, cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
+            <button onClick={handleSubmit} disabled={loading} style={{ flex: 2, padding: '14px', borderRadius: 12, border: 'none', background: loading ? 'rgba(37,99,235,0.32)' : D.goldBtn, color: '#0a0a00', fontWeight: 800, fontSize: 14, cursor: loading ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit' }}>
               {loading
                 ? <span style={{ width: 16, height: 16, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a0a00', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
                 : <Key size={15} />}

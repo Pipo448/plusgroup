@@ -219,7 +219,7 @@ export function DeclaredPayoutBanner({ declaredPayoutDate }) {
   const display = dateStr.split('-').reverse().join('/')
 
   return (
-    <div style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.12), rgba(201,168,76,0.08))', border: `1px solid ${D.blue}40`, borderRadius: 20, padding: '18px 20px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
+    <div style={{ background: 'linear-gradient(135deg, rgba(96,165,250,0.12), rgba(37,99,235,0.12))', border: `1px solid ${D.blue}40`, borderRadius: 20, padding: '18px 20px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
       <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 56, opacity: 0.08, userSelect: 'none' }}>📅</div>
       <button onClick={() => setVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: D.blue, cursor: 'pointer', fontSize: 16, opacity: 0.6 }}>×</button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -246,7 +246,7 @@ export function PerformanceMessage({ scoreData }) {
   if (!isChampion && !isLate) return null
 
   if (isChampion) return (
-    <div style={{ background: 'linear-gradient(135deg, rgba(0,208,132,0.12), rgba(201,168,76,0.10))', border: '1px solid rgba(0,208,132,0.35)', borderRadius: 20, padding: '20px 22px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
+    <div style={{ background: 'linear-gradient(135deg, rgba(0,208,132,0.12), rgba(37,99,235,0.14))', border: '1px solid rgba(0,208,132,0.35)', borderRadius: 20, padding: '20px 22px', marginBottom: 20, position: 'relative', overflow: 'hidden', animation: 'fadeUp 0.5s ease' }}>
       <div style={{ position: 'absolute', top: -10, right: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌸</div>
       <div style={{ position: 'absolute', bottom: -10, left: -10, fontSize: 60, opacity: 0.08, userSelect: 'none' }}>🌺</div>
       <button onClick={() => setVisible(false)} style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: '#00d084', cursor: 'pointer', fontSize: 16, opacity: 0.6 }}>×</button>
@@ -258,7 +258,7 @@ export function PerformanceMessage({ scoreData }) {
         </div>
       </div>
       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', margin: 0, lineHeight: 1.8, fontStyle: 'italic' }}>
-        🌺 <strong style={{ color: '#00d084' }}>Felisitasyon!</strong> Ou bay nou kè kontan anpil — ou peye <strong style={{ color: '#E8C87A' }}>{scoreData.early} fwa bonè</strong> deja! 🌸 <strong style={{ color: '#00d084' }}>Kontinye konsa</strong> — plis ou peye bonè, plis ou bati konfyans ou. Nou fyè de ou! 🌟
+        🌺 <strong style={{ color: '#00d084' }}>Felisitasyon!</strong> Ou bay nou kè kontan anpil — ou peye <strong style={{ color: '#F97316' }}>{scoreData.early} fwa bonè</strong> deja! 🌸 <strong style={{ color: '#00d084' }}>Kontinye konsa</strong> — plis ou peye bonè, plis ou bati konfyans ou. Nou fyè de ou! 🌟
       </p>
       <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {['⚡ Disiplin', '🌟 Fyète', '💪 Responsabilite'].map(tag => (
@@ -280,7 +280,7 @@ export function PerformanceMessage({ scoreData }) {
         </div>
       </div>
       <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.8 }}>
-        ⏰ Nou remake ou gen <strong style={{ color: D.orange }}>{scoreData.late} pèman reta</strong>. Pèman reta ka <strong style={{ color: D.red }}>bloke kont ou</strong>. 💡 <strong style={{ color: D.orange }}>Chak pèman bonè</strong> ba ou pwen. Fè efò — <strong style={{ color: '#E8C87A' }}>ou kapab!</strong> 🙏
+        ⏰ Nou remake ou gen <strong style={{ color: D.orange }}>{scoreData.late} pèman reta</strong>. Pèman reta ka <strong style={{ color: D.red }}>bloke kont ou</strong>. 💡 <strong style={{ color: D.orange }}>Chak pèman bonè</strong> ba ou pwen. Fè efò — <strong style={{ color: '#F97316' }}>ou kapab!</strong> 🙏
       </p>
       <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {['📅 Peye Bonè', '⬆️ Amelyore Pèfòmans', '🔓 Evite Blokaj'].map(tag => (
@@ -382,7 +382,7 @@ export function SolChat({ token, plan, member, onNewMessage }) {
                 </div>
                 <div style={{ maxWidth: '72%', display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', gap: 3 }}>
                   {!isMe && <span style={{ fontSize: 9, color: isAdmin ? D.gold : D.muted, fontWeight: 700, marginLeft: 4 }}>{msg.authorName}</span>}
-                  <div style={{ padding: '9px 13px', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: isAdmin ? 'linear-gradient(135deg,rgba(201,168,76,0.2),rgba(201,168,76,0.08))' : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.06)', border: `1px solid ${isAdmin ? D.gold+'40' : isMe ? 'transparent' : D.borderSub}` }}>
+                  <div style={{ padding: '9px 13px', borderRadius: isMe ? '16px 16px 4px 16px' : '16px 16px 16px 4px', background: isAdmin ? 'linear-gradient(135deg,rgba(37,99,235,0.2),rgba(249,115,22,0.12))' : isMe ? 'linear-gradient(135deg,#3B82F6,#1d4ed8)' : 'rgba(255,255,255,0.06)', border: `1px solid ${isAdmin ? D.gold+'40' : isMe ? 'transparent' : D.borderSub}` }}>
                     <p style={{ fontSize: 13, color: isMe ? '#fff' : D.text, margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>{msg.message}</p>
                   </div>
                   <span style={{ fontSize: 9, color: D.muted, marginLeft: 4, marginRight: 4 }}>{fmtTime(msg.createdAt)}</span>

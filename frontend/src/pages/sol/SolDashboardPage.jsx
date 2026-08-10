@@ -14,6 +14,19 @@ import {
 } from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
+// ✅ NOUVO: badge "Sabotay Inove" (menm grafik + flèch ak paj login la)
+function BrandIcon({ size = 22 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <rect x="4"  y="20" width="5" height="12" rx="1.4" fill="#2563EB" />
+      <rect x="12" y="13" width="5" height="19" rx="1.4" fill="#60A5FA" />
+      <rect x="20" y="7"  width="5" height="25" rx="1.4" fill="#93C5FD" />
+      <path d="M5 23 L15 16 L23 10 L31 4" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <path d="M23 4 L31 4 L31 12" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
 import {
   SOL_API, fmt, THEMES, getD, FREQ_LABELS,
   getPaymentDates, GLOBAL_STYLES,
@@ -242,7 +255,7 @@ export default function SolDashboardPage() {
       <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         <div style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ width: 44, height: 44, border: `3px solid rgba(201,168,76,0.15)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+          <div style={{ width: 44, height: 44, border: `3px solid rgba(37,99,235,0.20)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
           <p style={{ color: D.muted, fontSize: 13, fontWeight: 500 }}>Ap chaje kont ou...</p>
         </div>
       </div>
@@ -338,7 +351,7 @@ export default function SolDashboardPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 28 }}>
         {tenant?.logoUrl
           ? <img src={tenant.logoUrl} style={{ height: 36, borderRadius: 9, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
-          : <div style={{ width: 36, height: 36, borderRadius: 9, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16 }}>🏦</div>}
+          : <div style={{ width: 36, height: 36, borderRadius: 9, background: 'radial-gradient(circle at 35% 30%, rgba(37,99,235,0.22) 0%, #0B1526 72%)', boxShadow: '0 0 0 1px rgba(37,99,235,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BrandIcon size={20} /></div>}
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 13, color: D.text, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
           <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>Kont Sabotay</div>
@@ -435,7 +448,7 @@ export default function SolDashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
           {tenant?.logoUrl
             ? <img src={tenant.logoUrl} style={{ height: 26, borderRadius: 6, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
-            : <div style={{ width: 26, height: 26, borderRadius: 6, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>🏦</div>}
+            : <div style={{ width: 26, height: 26, borderRadius: 6, background: 'radial-gradient(circle at 35% 30%, rgba(37,99,235,0.22) 0%, #0B1526 72%)', boxShadow: '0 0 0 1px rgba(37,99,235,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BrandIcon size={15} /></div>}
           <div style={{ minWidth: 0 }}>
             <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 12, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
             <div style={{ fontSize: 9, color: D.muted }}>Kont Sabotay</div>
@@ -467,8 +480,8 @@ export default function SolDashboardPage() {
 
           {/* ─── ALERTS ─── */}
           {isWinner && (
-            <div className="sol-alert" style={{ background: 'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(201,168,76,0.09))', border: `1px solid ${D.green}40` }}>
-              <div style={{ width: 46, height: 46, minWidth: 46, borderRadius: 14, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(201,168,76,0.3)' }}>
+            <div className="sol-alert" style={{ background: 'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(37,99,235,0.12))', border: `1px solid ${D.green}40` }}>
+              <div style={{ width: 46, height: 46, minWidth: 46, borderRadius: 14, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(37,99,235,0.32)' }}>
                 <Trophy size={22} color="#0a0a00" />
               </div>
               <div style={{ minWidth: 0 }}>
@@ -578,10 +591,10 @@ export default function SolDashboardPage() {
                 <div
                   key={slot.position}
                   className="sol-stat-card"
-                  style={{ borderColor: slotDeclared ? `${D.blue}40` : 'rgba(201,168,76,0.25)', background: slotDeclared ? 'rgba(96,165,250,0.06)' : 'rgba(201,168,76,0.05)' }}
+                  style={{ borderColor: slotDeclared ? `${D.blue}40` : 'rgba(37,99,235,0.28)', background: slotDeclared ? 'rgba(96,165,250,0.06)' : 'rgba(37,99,235,0.08)' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(201,168,76,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(37,99,235,0.20)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trophy size={14} style={{ color: D.gold }} />
                     </div>
                     <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
@@ -754,7 +767,7 @@ export default function SolDashboardPage() {
                     <div
                       key={d}
                       className="sol-pay-row"
-                      style={{ background: isWin ? 'rgba(201,168,76,0.06)' : d === today ? 'rgba(201,168,76,0.03)' : 'transparent' }}
+                      style={{ background: isWin ? 'rgba(37,99,235,0.10)' : d === today ? 'rgba(37,99,235,0.05)' : 'transparent' }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
                         <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: isPast ? D.text : D.muted, flexShrink: 0, fontWeight: 500 }}>
