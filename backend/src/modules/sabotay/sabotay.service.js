@@ -878,9 +878,38 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     where: { id: memberId },
     // ✅ FIX: pa mete isActive:false lè kanpe — sa te fè manm nan disparèt nèt
     // nan lis admin lan. `status:'stopped'` sifi (deja itilize toupatou pou filtre).
-    data: { status: newStatus, ...(reason && { notes: reason }) },
+    data: {
+      status: newStatus,
+      // ✅ NOUVO: 'isBlocked' se chan REYÈL login la verifye — konekte l ak aksyon an
+      ...(action === 'block'   && { isBlocked: true }),
+      ...(action === 'unblock' && { isBlocked: false }),
+      ...(reason && { notes: reason }),
+    },
     include: { payments: true }
   })
+
+  // ✅ NOUVO: yon moun ka gen plizyè "men" (SabotayMember separe) ki pataje menm
+  // telefòn — bloke/kanpe yon sèl men dwe kaskad sou TOUT lòt men moun sa a genyen.
+  if (['block', 'unblock', 'stop', 'resume'].includes(action) && member.phone) {
+    const siblingIds = (await prisma.sabotayMember.findMany({
+      where: { planId, phone: member.phone, id: { not: memberId }, isActive: true },
+      select: { id: true },
+    })).map(s => s.id)
+
+    if (siblingIds.length) {
+      await prisma.sabotayMember.updateMany({
+        where: { id: { in: siblingIds } },
+        data: {
+          status: newStatus,
+          ...(action === 'block'   && { isBlocked: true }),
+          ...(action === 'unblock' && { isBlocked: false }),
+        },
+      })
+      await prisma.solMemberPosition.updateMany({
+        where: { memberId: { in: siblingIds }, planId }, data: { status: newStatus },
+      }).catch(() => {})
+    }
+  }
 
   try {
     await prisma.solMemberPosition.updateMany({ where: { memberId, planId }, data: { status: newStatus } })

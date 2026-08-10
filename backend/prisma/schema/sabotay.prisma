@@ -53,6 +53,7 @@ model SabotayMember {
   collectDate      DateTime?        @map("collect_date") @db.Date
   notes            String?
   isActive         Boolean          @default(true) @map("is_active")
+  isBlocked        Boolean          @default(false) @map("is_blocked") // ✅ NOUVO: vre blokaj — anpeche konekte nan kont sol
   createdBy        String?          @map("created_by")
   createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
