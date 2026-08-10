@@ -689,6 +689,43 @@ export default function SolDashboardPage() {
           {/* ✅ FIX: pa doub-afiche si dat deklare a se jodi a — bannyè "Se Jou Ou Jodi a!" anwo a deja kouvri sa */}
           {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
 
+          {/* ✅ NOUVO: Si manm nan kanpe, montre estati ranbousman "penalite kanpe" a */}
+          {member.status === 'stopped' && Number(member.stopRefundAmount || 0) > 0 && (
+            <div style={{
+              background: member.stopRefundPaid ? 'rgba(34,197,94,0.08)' : 'rgba(243,156,18,0.08)',
+              border: `1px solid ${member.stopRefundPaid ? 'rgba(34,197,94,0.3)' : 'rgba(243,156,18,0.3)'}`,
+              borderRadius: 18, padding: '16px 18px', marginBottom: 20,
+              display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <span style={{ fontSize: 24 }}>{member.stopRefundPaid ? '✅' : '⏸️'}</span>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 800, color: member.stopRefundPaid ? '#22c55e' : '#f59e0b', margin: '0 0 3px' }}>
+                  {member.stopRefundPaid ? 'Ranbousman Peye' : 'Ou Kanpe Patisipasyon'}
+                </p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
+                  {member.stopRefundPaid
+                    ? `Ou resevwa ${fmt(member.stopRefundAmount)} HTG.`
+                    : `Ou ap resevwa ${fmt(member.stopRefundAmount)} HTG lè plan sa a fèmen.`}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ NOUVO: Avètisman jeneral sou penalite si manm nan ta kanpe */}
+          {member.status !== 'stopped' && plan.stopPenaltyAmount > 0 && (
+            <div style={{
+              background: 'rgba(243,156,18,0.06)', border: '1px solid rgba(243,156,18,0.2)',
+              borderRadius: 14, padding: '12px 16px', marginBottom: 20,
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+            }}>
+              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0, lineHeight: 1.6 }}>
+                Si w kanpe patisipasyon w nan sòl la, <strong style={{ color: '#f59e0b' }}>{fmt(plan.stopPenaltyAmount)} HTG</strong> nan
+                kòb ou te DEJA peye a ap dedwi kòm penalite. Rès la ap tann ou lè plan an fèmen.
+              </p>
+            </div>
+          )}
+
           {plan.regleman && (
             <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: 'clamp(14px, 4vw, 20px)', marginBottom: 16 }}>
               <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>

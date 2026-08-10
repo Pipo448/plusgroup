@@ -793,6 +793,13 @@ export default function PlanDetail({
                             ⭐ {m.performanceScore ?? 0} pwen
                           </span>
                         )}
+                        {isStopped && Number(m.stopRefundAmount || 0) > 0 && (
+                          <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 7px', borderRadius: 10,
+                            background: m.stopRefundPaid ? D.greenBg : 'rgba(243,156,18,0.15)',
+                            color: m.stopRefundPaid ? D.green : D.orange }}>
+                            {m.stopRefundPaid ? '✅ Ranbousman peye' : `⏸️ Rete pou peye: ${fmt(m.stopRefundAmount)} HTG`}
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -831,7 +838,7 @@ export default function PlanDetail({
                       {!m.hasWon && (
                         <button
                           onClick={() => setAction({ member: m, action: mStatus === 'blocked' ? 'unblock' : isStopped ? 'resume' : 'block' })}
-                          title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke/Kanpe'}
+                          title={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke'}
                           aria-label={mStatus === 'blocked' ? 'Debloke' : isStopped ? 'Reprann' : 'Bloke'}
                           className="pd-action-btn"
                           style={{
@@ -839,6 +846,28 @@ export default function PlanDetail({
                             color: mStatus === 'blocked' ? D.green : isStopped ? D.blue : D.red,
                           }}>
                           {mStatus === 'blocked' ? <Unlock size={13} /> : isStopped ? <UserCheck size={13} /> : <Lock size={13} />}
+                        </button>
+                      )}
+                      {isStopped && Number(m.stopRefundAmount || 0) > 0 && !m.stopRefundPaid && (
+                        <button
+                          onClick={() => onMemberAction(m.id, 'mark_refund_paid', '')}
+                          title="Marke Ranbousman Peye"
+                          aria-label="Marke Ranbousman Peye"
+                          className="pd-action-btn"
+                          style={{ background: D.greenBg, color: D.green }}>
+                          <CheckCircle size={13} />
+                        </button>
+                      )}
+                      {/* ✅ NOUVO: Kanpe — separe de Bloke. Deklanche penalite +
+                          ranbousman otomatik selon "Pousantaj Penalite Kanpe" plan an. */}
+                      {!m.hasWon && !isStopped && mStatus !== 'blocked' && !isOwn && (
+                        <button
+                          onClick={() => setAction({ member: m, action: 'stop' })}
+                          title="Kanpe Patisipasyon"
+                          aria-label="Kanpe Patisipasyon"
+                          className="pd-action-btn"
+                          style={{ background: 'rgba(243,156,18,0.15)', color: D.orange }}>
+                          <StopCircle size={13} />
                         </button>
                       )}
                       {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (

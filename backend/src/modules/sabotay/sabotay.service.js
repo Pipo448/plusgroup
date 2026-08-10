@@ -156,7 +156,7 @@ async function getPlanById(tenantId, planId) {
 }
 
 async function createPlan(tenantId, branchId, userId, data) {
- const { name, frequency, amount, maxMembers, fee, startDate, notes, feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman, stopPenaltyPct } = data
+ const { name, frequency, amount, maxMembers, fee, startDate, notes, feePerMember, penalty, interval, dueTime, dueTimeEnd, regleman, stopPenaltyAmount } = data
   if (!name)      throw new Error('Non plan obligatwa.')
   if (!frequency) throw new Error('Frekans obligatwa.')
   if (!amount || Number(amount) <= 0) throw new Error('Montan dwe plis ke 0.')
@@ -171,7 +171,7 @@ async function createPlan(tenantId, branchId, userId, data) {
       feePerMember: Number(feePerMember || 0), penalty: Number(penalty || 0),
       interval: Number(interval || 1), dueTime: dueTime || '08:00',
       dueTimeEnd: dueTimeEnd || '15:00', regleman: regleman || null,
-      stopPenaltyPct: Number(stopPenaltyPct || 0),
+      stopPenaltyAmount: Number(stopPenaltyAmount || 0),
     },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
@@ -196,7 +196,7 @@ async function updatePlan(tenantId, planId, userId, data) {
       ...(data.dueTime      !== undefined && { dueTime: data.dueTime }),
       ...(data.dueTimeEnd   !== undefined && { dueTimeEnd: data.dueTimeEnd }),
       ...(data.regleman     !== undefined && { regleman: data.regleman }),
-      ...(data.stopPenaltyPct !== undefined && { stopPenaltyPct: Number(data.stopPenaltyPct) }),
+      ...(data.stopPenaltyAmount !== undefined && { stopPenaltyAmount: Number(data.stopPenaltyAmount) }),
     },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
@@ -611,8 +611,8 @@ async function getMemberAccount(tenantId, planId, memberId) {
   })
 
   return {
-    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || '15:00', regleman: plan.regleman || null, manualPaymentTime: plan.manualPaymentTime || false },
-    member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {}, declaredPayoutDate: member.declaredPayoutDate || null },
+    plan: { id: plan.id, name: plan.name, frequency: plan.frequency, amount, fee: Number(plan.fee || 0), maxMembers: plan.maxMembers, startDate: plan.startDate, feePerMember, penalty: penaltyRate, interval: planInterval, dueTime: plan.dueTime || '08:00', dueTimeEnd: plan.dueTimeEnd || '15:00', regleman: plan.regleman || null, manualPaymentTime: plan.manualPaymentTime || false, stopPenaltyAmount: Number(plan.stopPenaltyAmount || 0) },
+    member: { id: member.id, name: member.name, phone: member.phone, position: member.position, dueDate: member.dueDate, collectDate: member.collectDate, joinedAt: member.createdAt, isOwnerSlot: member.isOwnerSlot || false, hasWon: member.hasWon || false, fines: member.fines || {}, declaredPayoutDate: member.declaredPayoutDate || null, status: member.status, stopRefundAmount: member.stopRefundAmount ? Number(member.stopRefundAmount) : null, stopRefundPaid: member.stopRefundPaid || false },
     summary: { totalExpected, totalPaid, remaining: Math.max(0, totalExpected - totalPaid), toCollect, progressPct, paidCount: member.payments.length, totalRounds: totalMembers, totalFines },
     paymentHistory,
   }
@@ -720,11 +720,17 @@ async function closePlan(tenantId, planId, userId) {
     newPosition++
   }
 
+  // ✅ NOUVO: lis manm ki te kanpe yo ak ki poko touche ranbousman yo —
+  // pou admin ka wè klè ki moun ki rete pou peye lè plan an fèmen.
+  const pendingRefunds = plan.members
+    .filter(m => m.status === 'stopped' && Number(m.stopRefundAmount || 0) > 0 && !m.stopRefundPaid)
+    .map(m => ({ memberId: m.id, name: m.name, phone: m.phone, amount: Number(m.stopRefundAmount) }))
+
   const updated = await prisma.sabotayPlan.update({
     where: { id: planId }, data: { status: 'closed' },
     include: { creator: { select: { fullName: true } }, _count: { select: { members: true } } }
   })
-  return updated
+  return { ...updated, pendingRefunds }
 }
 
 async function addToAdminCash(tenantId, planId, planName, type, amount, memberId, memberName, description) {
@@ -768,7 +774,7 @@ async function getAdminCash(tenantId, planId) {
 async function memberAction(tenantId, planId, memberId, userId, data) {
   const { action, reason, payoutDate } = data
 
-  if (!['block','unblock','stop','resume','payout','schedule_payout','cancel_scheduled_payout'].includes(action))
+  if (!['block','unblock','stop','resume','payout','schedule_payout','cancel_scheduled_payout','mark_refund_paid'].includes(action))
     throw new Error(`Aksyon invalide: ${action}`)
 
   const member = await prisma.sabotayMember.findFirst({
@@ -817,6 +823,15 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
     return { member: updatedMember, action, declaredPayoutDate: null }
   }
 
+  // ✅ NOUVO: Admin make ranbousman "kanpe" a kòm peye (kach, men-a-men)
+  if (action === 'mark_refund_paid') {
+    const updatedMember = await prisma.sabotayMember.update({
+      where: { id: memberId },
+      data: { stopRefundPaid: true },
+    })
+    return { member: updatedMember, action }
+  }
+
   if (action === 'payout') {
     // ✅ Lè yon touche konfime pou tout bon, efase nenpòt dat pwomès ki te la
     const updatedMember = await prisma.sabotayMember.update({ where: { id: memberId }, data: { hasWon: true, declaredPayoutDate: null } })
@@ -832,21 +847,26 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   }
 
   if (action === 'stop') {
-    const stopPenaltyPct = Number(plan.stopPenaltyPct || 0)
+    const stopPenaltyAmount = Number(plan.stopPenaltyAmount || 0)
     const totalPaid = member.payments.reduce((s, p) => s + Number(p.amount), 0)
-    const penaltyAmt = stopPenaltyPct > 0 ? Math.round(totalPaid * (stopPenaltyPct / 100)) : 0
+    // ✅ FIX: penalite kounye a se yon MONTAN FIKS (pa pousantaj) — plafonnen
+    // pou l pa janm depase kòb manm nan reyèlman peye.
+    const penaltyAmt = Math.min(stopPenaltyAmount, totalPaid)
+    // ✅ FIX: montan ki rete a (totalPaid - penalite) kounye a ANREJISTRE sou
+    // manm nan — pa jis nan yon mesaj tèks — pou closePlan() ka konte l tout bon.
+    const netPayout = totalPaid - penaltyAmt
     if (penaltyAmt > 0) {
-      await addToAdminCash(tenantId, planId, plan.name, 'stop_penalty', penaltyAmt, memberId, member.name, `Penalite kanpe ${stopPenaltyPct}% de ${totalPaid} HTG kontribye`)
+      await addToAdminCash(tenantId, planId, plan.name, 'stop_penalty', penaltyAmt, memberId, member.name, `Penalite kanpe: ${penaltyAmt} HTG (montan fiks) sou ${totalPaid} HTG kontribye`)
     }
+    await prisma.sabotayMember.update({ where: { id: memberId }, data: { stopRefundAmount: netPayout, stopRefundPaid: false } })
     try {
       const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId }, include: { account: true } })
       if (solPos?.account) {
-        const netPayout = totalPaid - penaltyAmt
         await prisma.solNotification.create({
           data: {
             accountId: solPos.account.id, type: 'stop_penalty', titleHt: '⏸️ Ou kanpe nan Sol la',
             messageHt: penaltyAmt > 0
-              ? `Ou kanpe patisipasyon ou. Penalite: ${penaltyAmt} HTG (${stopPenaltyPct}%). Ou ap resevwa ${netPayout} HTG le sol la fini.`
+              ? `Ou kanpe patisipasyon ou. Penalite: ${penaltyAmt} HTG. Ou ap resevwa ${netPayout} HTG le sol la fini.`
               : `Ou kanpe patisipasyon ou nan ${plan.name}. Ou ap resevwa ${totalPaid} HTG le sol la fini.`,
           }
         }).catch(() => {})
@@ -856,7 +876,9 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
 
   const updated = await prisma.sabotayMember.update({
     where: { id: memberId },
-    data: { status: newStatus, isActive: action === 'stop' ? false : true, ...(reason && { notes: reason }) },
+    // ✅ FIX: pa mete isActive:false lè kanpe — sa te fè manm nan disparèt nèt
+    // nan lis admin lan. `status:'stopped'` sifi (deja itilize toupatou pou filtre).
+    data: { status: newStatus, ...(reason && { notes: reason }) },
     include: { payments: true }
   })
 

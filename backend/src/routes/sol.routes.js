@@ -187,6 +187,10 @@ async function buildPlanData(account, memberId) {
       performanceScore: sabotayMember.performanceScore ?? 0,
       // ✅ NOUVO: Dat pwomès peman admin lan deklare (san afiche pozisyon/klasman)
       declaredPayoutDate: sabotayMember.declaredPayoutDate || null,
+      // ✅ NOUVO: estati manm nan (pou l wè si li kanpe) ak montan ranbousman "kanpe" a
+      status: sabotayMember.status || 'active',
+      stopRefundAmount: sabotayMember.stopRefundAmount ? Number(sabotayMember.stopRefundAmount) : null,
+      stopRefundPaid: sabotayMember.stopRefundPaid || false,
       payments,
       paymentTimings,
       allSlots: allSlots.map(s => {
@@ -209,6 +213,8 @@ async function buildPlanData(account, memberId) {
       dynamicPositioning: plan.dynamicPositioning ?? false,
       // ✅ NOUVO: si aktive, fwontenn kont sol la pa dwe afiche "Pozisyon #X"
       hidePositionInSol: plan.hidePositionInSol ?? false,
+      // ✅ NOUVO: montan fiks penalite "kanpe" a — pou avèti manm nan davans
+      stopPenaltyAmount: Number(plan.stopPenaltyAmount || 0),
       createdAt: plan.startDate.toISOString().split('T')[0],
       dueTime: plan.dueTime || account.planDueTime || '08:00',
       dueTimeEnd: plan.dueTimeEnd || account.planDueTimeEnd || '15:00',

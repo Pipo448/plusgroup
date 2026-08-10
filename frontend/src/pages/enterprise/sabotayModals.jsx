@@ -26,7 +26,7 @@ import {
 export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }) {
   const isEdit = !!initialData
   const [form, setForm] = useState({
-    name: '', amount: '', feePerMember: '', penalty: '', warningDelayDays: 3,
+    name: '', amount: '', feePerMember: '', penalty: '', warningDelayDays: 3, stopPenaltyAmount: 0,
     frequency: 'daily', interval: 1, maxMembers: '', dueTime: '08:00',
     dueTimeEnd: '15:00', regleman: '', startDate: '',
     ...(initialData || {}),
@@ -148,6 +148,23 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
           </div>
         </Sec>
 
+        {/* ✅ NOUVO: Penalite Kanpe — montan fiks (HTG) sou kòb manm nan deja peye */}
+        <Sec icon="⏸️" title="Penalite Kanpe" col="243,156,18">
+          <div style={{ marginBottom: 10, fontSize: 11, color: D.muted, lineHeight: 1.6 }}>
+            Si w <strong style={{ color: D.text }}>kanpe</strong> yon manm ki pa peye pou lontan,
+            yon <strong style={{ color: D.text }}>montan fiks</strong> ap dedwi kòm penalite sou kòb li DEJA peye a.
+            Rès la ap tann li jiskaske plan an fèmen.
+          </div>
+          <label style={lbl}>Montan Penalite (HTG)</label>
+          <input type="number" min="0" style={{ ...inp, color: D.orange }}
+            value={form.stopPenaltyAmount}
+            onChange={e => set('stopPenaltyAmount', Number(e.target.value) || 0)} placeholder="0" />
+          <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>
+            0 = pa gen penalite — manm nan ap resevwa tout kòb li te peye a lè plan an fèmen.
+            (Si kòb li peye a pi piti pase montan sa a, se sèlman sa l peye a ki dedwi.)
+          </p>
+        </Sec>
+
         <Sec icon="🗓" title="Frekans Peman">
           <div className="freq-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
             {Object.entries(FREQ_LABELS).map(([val, labels]) => (
@@ -193,7 +210,7 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
             if (form.dueTime >= form.dueTimeEnd) return toast.error('⚠️ Lè kòmansman fenèt peman dwe pi piti pase lè fen.')
             onSave({
               ...form, amount: Number(form.amount), feePerMember: Number(form.feePerMember || 0),
-              penalty: Number(form.penalty || 0), warningDelayDays: Number(form.warningDelayDays || 0),
+              penalty: Number(form.penalty || 0), warningDelayDays: Number(form.warningDelayDays || 0), stopPenaltyAmount: Number(form.stopPenaltyAmount || 0),
               maxMembers: Number(form.maxMembers || 0), dueTime: form.dueTime || '08:00',
               dueTimeEnd: form.dueTimeEnd || '15:00', interval: intervalN,
               startDate: form.startDate || new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0],
