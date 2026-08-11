@@ -597,12 +597,63 @@ export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'p
   </div>`
 }
 
+// ─── PRINT: modal DIREK nan paj la (pa yon window.open) ────────
+// ⚠️ FIX APK/Capacitor: window.open('', '_blank') + window.print() te
+// pran TOUT ekran WebView a san bouton fèmen ni jesyon bouton "bak"
+// Android — itilizatè a te kole. Kounye a resi a afiche kòm yon overlay
+// DOM nòmal (fèmab), epi enprime a fèt sou paj aktyèl la (@media print
+// kache tout rès la, montre sèlman resi a) — pa gen popup ditou.
 export function printReceiptBrowser(html) {
-  const w = window.open('', '_blank', 'width=340,height=620')
-  if (!w) { return }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resi</title>
-    <style>*{box-sizing:border-box}body{margin:0;padding:0;background:#fff;font-family:'Courier New',monospace;font-size:10px}
-    @media print{@page{margin:0;size:80mm auto}body{margin:0}}</style></head><body>${html}</body></html>`)
-  w.document.close()
-  setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2000) }, 300)
+  // Netwaye ansyen overlay si li te rete la pou yon rezon
+  document.getElementById('sabotay-receipt-overlay')?.remove()
+  document.getElementById('sabotay-receipt-print-style')?.remove()
+
+  const style = document.createElement('style')
+  style.id = 'sabotay-receipt-print-style'
+  style.textContent = `
+    @media print {
+      body * { visibility: hidden !important; }
+      #sabotay-receipt-print, #sabotay-receipt-print * { visibility: visible !important; }
+      #sabotay-receipt-print { position: absolute; top: 0; left: 0; width: 100%; }
+      #sabotay-receipt-overlay { position: absolute !important; background: none !important; }
+    }
+  `
+  document.head.appendChild(style)
+
+  const overlay = document.createElement('div')
+  overlay.id = 'sabotay-receipt-overlay'
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 99999; background: rgba(0,0,0,0.85);
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: flex-start; padding: 16px; overflow-y: auto;
+  `
+
+  const btnBar = document.createElement('div')
+  btnBar.style.cssText = 'display:flex; gap:10px; margin-bottom:14px; width:100%; max-width:340px;'
+
+  const closeBtn = document.createElement('button')
+  closeBtn.textContent = '✕ Fèmen'
+  closeBtn.style.cssText = 'flex:1; padding:12px; border-radius:10px; border:none; background:rgba(255,255,255,0.12); color:#fff; font-weight:700; font-size:14px;'
+  closeBtn.onclick = () => { overlay.remove(); style.remove(); document.removeEventListener('backbutton', onBack) }
+
+  const printBtn = document.createElement('button')
+  printBtn.textContent = '🖨️ Enprime'
+  printBtn.style.cssText = 'flex:2; padding:12px; border-radius:10px; border:none; background:#C9A84C; color:#0a1222; font-weight:800; font-size:14px;'
+  printBtn.onclick = () => window.print()
+
+  btnBar.appendChild(closeBtn)
+  btnBar.appendChild(printBtn)
+
+  const receiptBox = document.createElement('div')
+  receiptBox.id = 'sabotay-receipt-print'
+  receiptBox.style.cssText = 'background:#fff; border-radius:8px; overflow:hidden; width:100%; max-width:340px;'
+  receiptBox.innerHTML = html
+
+  overlay.appendChild(btnBar)
+  overlay.appendChild(receiptBox)
+  document.body.appendChild(overlay)
+
+  // ✅ Bouton "bak" Android (Capacitor) fèmen modal la olye kite l kole
+  const onBack = (e) => { e?.preventDefault?.(); closeBtn.onclick() }
+  document.addEventListener('backbutton', onBack)
 }
