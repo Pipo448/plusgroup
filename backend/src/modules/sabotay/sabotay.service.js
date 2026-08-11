@@ -296,6 +296,12 @@ async function addMember(tenantId, planId, userId, data) {
         notes: notes || null, isActive: true, createdBy: userId,
         isOwnerSlot: isOwnerSlot || false, hasWon: hasWon || false, fines: fines || {},
         permanentId: permanentId || null,
+        // ✅ NOUVO: kont sol la BLOKE pa default lè l fèk kreye — admin dwe
+        // deblokel manyèlman anvan manm nan ka konekte pou tout bon.
+        // `status:'blocked'` rete koheran ak `isBlocked` pou badge/bouton
+        // nan panel admin lan afiche kòrèkteman depi kòmansman an.
+        isBlocked: true,
+        status: 'blocked',
       },
       include: { payments: true, creator: { select: { fullName: true } } }
     })
