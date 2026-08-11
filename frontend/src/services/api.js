@@ -15,7 +15,18 @@ api.interceptors.request.use((config) => {
     const slug     = localStorage.getItem('plusgroup-slug')
     const branchId = localStorage.getItem('plusgroup-branch-id')
 
-    if (token)    config.headers.Authorization  = `Bearer ${token}`
+    // ✅ FIX: rekèt /admin/... yo dwe itilize TOKEN ADMIN (pg-admin), pa token tenant la —
+    // se de sesyon konplètman apa. San sa, tout rekèt admin echwe ak 401.
+    const isAdminRequest = config.url?.startsWith('/admin') && !config.url?.includes('/admin/login')
+    if (isAdminRequest) {
+      try {
+        const adminSession = JSON.parse(localStorage.getItem('pg-admin') || 'null')
+        if (adminSession?.token) config.headers.Authorization = `Bearer ${adminSession.token}`
+      } catch {}
+    } else {
+      if (token) config.headers.Authorization = `Bearer ${token}`
+    }
+
     if (!config.headers['X-Tenant-Slug'] && slug) {
       config.headers['X-Tenant-Slug'] = slug
     }
@@ -32,11 +43,24 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const status  = err.response?.status
-    const isLogin = err.config?.url?.includes('/auth/login')
+    const url     = err.config?.url || ''
+    const isLogin = url.includes('/auth/login') || url.includes('/admin/login')
+    // ✅ FIX: yon rekèt /admin/... ki echwe se yon pwoblèm SESYON ADMIN — li pa
+    // dwe janm efase done tenant yo ni redirije bay '/login' (tenant).
+    const isAdminRequest = url.startsWith('/admin')
 
     if (isLogin) return Promise.reject(err)
 
     if (status === 401) {
+      if (isAdminRequest) {
+        // ✅ Sesyon admin ekspire/envalid — retire SÈLMAN sesyon admin lan,
+        // redirije bay login ADMIN lan, pa touche done tenant yo.
+        localStorage.removeItem('pg-admin')
+        if (!window.location.pathname.startsWith('/admin/login')) {
+          window.location.href = '/admin/login'
+        }
+        return Promise.reject(err)
+      }
       ['plusgroup-token','plusgroup-user','plusgroup-tenant','plusgroup-slug','plusgroup-lang',
        'plusgroup-branch-id','plusgroup-branch-name']
         .forEach(k => localStorage.removeItem(k))
