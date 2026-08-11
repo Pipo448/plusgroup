@@ -5,6 +5,12 @@
 export const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 export const API_URL = import.meta.env.VITE_API_URL     || 'https://plusgroup-backend.onrender.com/api/v1'
 
+// ✅ NOUVO: netwaye nimewo telefòn pou konparezon "menm moun" (menm lojik
+// ak backend la) — retire tout sa ki pa chif.
+export function normalizePhone(phone) {
+  return String(phone || '').replace(/\D/g, '')
+}
+
 // ─── LABELS ──────────────────────────────────────────────────
 export const FREQ_LABELS = {
   daily:           { ht: 'Chak Jou',       fr: 'Chaque jour',    en: 'Daily'          },

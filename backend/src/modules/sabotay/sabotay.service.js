@@ -4,6 +4,13 @@
 const prisma = require('../../config/prisma')// ✅ Import rankingSvc pou timing granulè + helpers
 const rankingSvc = require('./position-ranking.service')
 
+// ✅ NOUVO: netwaye nimewo telefòn pou konparezon "menm moun" — retire tout
+// sa ki pa chif (espas, tirè, parantèz, +) pou "509 4365-6947" ak "50943656947"
+// konsidere kòm MENM nimewo.
+function normalizePhone(phone) {
+  return String(phone || '').replace(/\D/g, '')
+}
+
 function computePaymentDate(startDate, frequency, position, interval = 1) {
   const start = new Date(startDate)
   const pos   = position - 1
@@ -890,11 +897,15 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
 
   // ✅ NOUVO: yon moun ka gen plizyè "men" (SabotayMember separe) ki pataje menm
   // telefòn — bloke/kanpe yon sèl men dwe kaskad sou TOUT lòt men moun sa a genyen.
+  // ✅ FIX: konpare nimewo yo NÒMALIZE (san espas/tirè/parantèz) pou pa rate
+  // "men" ki gen menm moun men fòma telefòn diferan.
   if (['block', 'unblock', 'stop', 'resume'].includes(action) && member.phone) {
-    const siblings = await prisma.sabotayMember.findMany({
-      where: { planId, phone: member.phone, id: { not: memberId }, isActive: true },
+    const normTarget = normalizePhone(member.phone)
+    const candidates = await prisma.sabotayMember.findMany({
+      where: { planId, id: { not: memberId }, isActive: true },
       include: { payments: true },
     })
+    const siblings = candidates.filter(c => normalizePhone(c.phone) === normTarget && normTarget)
     const siblingIds = siblings.map(s => s.id)
 
     if (siblingIds.length) {

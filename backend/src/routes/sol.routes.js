@@ -9,6 +9,12 @@ const exchangeSvc = require('../modules/sabotay/sol-exchange.service')
 
 const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me'
 
+// ✅ NOUVO: netwaye nimewo telefòn pou konparezon "menm moun" (menm lojik ak
+// sabotay.service.js) — retire tout sa ki pa chif.
+function normalizePhone(phone) {
+  return String(phone || '').replace(/\D/g, '')
+}
+
 function computeTiming(dueDate, paidAt) {
   if (!paidAt) return 'onTime'
   const toHaitiDate = (d) => {
@@ -162,15 +168,20 @@ async function buildPlanData(account, memberId) {
   const { payments, paymentTimings } = buildPaymentMaps(sabotayMember.payments)
 
   const isClosed = plan.status === 'closed' || plan.status === 'finished'
-  const allSlots = await prisma.sabotayMember.findMany({
+  // ✅ FIX: konpare nimewo yo NÒMALIZE (san espas/tirè/parantèz) pou pa rate
+  // "men" ki gen menm moun men fòma telefòn diferan.
+  const normTarget = normalizePhone(sabotayMember.phone)
+  const planCandidates = await prisma.sabotayMember.findMany({
     where: {
-      phone: sabotayMember.phone,
       planId: sabotayMember.planId,
       ...(isClosed ? {} : { isActive: true })
     },
     include: { payments: { orderBy: { dueDate: 'asc' } } },
     orderBy: { position: 'asc' }
   })
+  const allSlots = normTarget
+    ? planCandidates.filter(m => normalizePhone(m.phone) === normTarget)
+    : [sabotayMember]
 
   const activeMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) }

@@ -17,7 +17,7 @@ import {
   getAllPaymentDates, getPayoutDate, computeMemberStatus,
   memberPayout, ownerPayout, getMemberScore, getPaymentTiming,
   calcMemberDepoRezev, buildReceiptHTML, printReceiptBrowser,
-  freqFullLabel, apiFetch, API_URL, calcDepoRezev,
+  freqFullLabel, apiFetch, API_URL, calcDepoRezev, normalizePhone,
 } from './sabotayUtils'
 
 // ─────────────────────────────────────────────────────────────
@@ -344,7 +344,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const toggle = (d) => setSel(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d])
 
   const samePhoneMembers = useMemo(() =>
-    (plan.members || []).filter(m => m.phone === member.phone && m.id !== member.id && m.status !== 'stopped'),
+    (plan.members || []).filter(m => normalizePhone(m.phone) === normalizePhone(member.phone) && normalizePhone(member.phone) && m.id !== member.id && m.status !== 'stopped'),
     [plan.members, member])
   const allPayingSlots = useMemo(() => [member, ...samePhoneMembers], [member, samePhoneMembers])
   const slotCount = allPayingSlots.length
