@@ -70,9 +70,16 @@ export function ScoreBadge({ score }) {
 }
 
 export function timingBadge(t) {
-  if (t === 'early')  return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Bonè</span>
-  if (t === 'onTime') return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ A lè</span>
-  if (t === 'late')   return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚠️ Reta</span>
+  // ✅ FIX: rekonèt TOUT 6 kategori "Lè Manyèl"/computeDetailedTiming lan itilize,
+  // pa sèlman 3 — anvan sa, peman ki peye byen bonè (earlyDepo/earlyDay) oswa vrèman
+  // an reta (lateWindow/veryLate) pa t gen okenn badge ditou.
+  if (t === 'earlyDepo') return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>🔒 Depo Rezèv</span>
+  if (t === 'earlyDay')  return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Jou Avan</span>
+  if (t === 'early')     return <span style={{ fontSize: 9, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚡ Bonè</span>
+  if (t === 'onTime')    return <span style={{ fontSize: 9, background: D.greenBg, color: D.green, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>✅ A lè</span>
+  if (t === 'lateWindow') return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>🟠 Apre Lè</span>
+  if (t === 'late')      return <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>⚠️ Reta</span>
+  if (t === 'veryLate')  return <span style={{ fontSize: 9, background: D.redBg, color: D.red, padding: '2px 7px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>🔴 Anpil Reta</span>
   return null
 }
 
