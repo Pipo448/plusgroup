@@ -891,10 +891,11 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   // ✅ NOUVO: yon moun ka gen plizyè "men" (SabotayMember separe) ki pataje menm
   // telefòn — bloke/kanpe yon sèl men dwe kaskad sou TOUT lòt men moun sa a genyen.
   if (['block', 'unblock', 'stop', 'resume'].includes(action) && member.phone) {
-    const siblingIds = (await prisma.sabotayMember.findMany({
+    const siblings = await prisma.sabotayMember.findMany({
       where: { planId, phone: member.phone, id: { not: memberId }, isActive: true },
-      select: { id: true },
-    })).map(s => s.id)
+      include: { payments: true },
+    })
+    const siblingIds = siblings.map(s => s.id)
 
     if (siblingIds.length) {
       await prisma.sabotayMember.updateMany({
@@ -905,6 +906,19 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
           ...(action === 'unblock' && { isBlocked: false }),
         },
       })
+      // ✅ FIX: lè kanpe, chak "men" (sibling) dwe gen PWÒP ranbousman pa li,
+      // kalkile ak pwòp total peye pa li (pa jis premye a).
+      if (action === 'stop') {
+        const stopPenaltyAmount = Number(plan.stopPenaltyAmount || 0)
+        for (const sib of siblings) {
+          const sibTotalPaid = sib.payments.reduce((s, p) => s + Number(p.amount), 0)
+          const sibPenalty   = Math.min(stopPenaltyAmount, sibTotalPaid)
+          await prisma.sabotayMember.update({
+            where: { id: sib.id },
+            data: { stopRefundAmount: sibTotalPaid - sibPenalty, stopRefundPaid: false },
+          })
+        }
+      }
       await prisma.solMemberPosition.updateMany({
         where: { memberId: { in: siblingIds }, planId }, data: { status: newStatus },
       }).catch(() => {})

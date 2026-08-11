@@ -566,6 +566,27 @@ export default function SolDashboardPage() {
 
           {/* ─── STATS ─── */}
           <div className="sol-stats-grid">
+            {member.status === 'stopped' ? (
+              // ✅ NOUVO: manm kanpe a pa nan wotasyon touche ankò — montre SÈLMAN
+              // enfòmasyon ranbousman an (totalPaid - penalite), pa ansyen estimasyon an.
+              <div className="sol-stat-card" style={{ gridColumn: '1 / -1', borderColor: member.stopRefundPaid ? 'rgba(34,197,94,0.3)' : 'rgba(243,156,18,0.3)', background: member.stopRefundPaid ? 'rgba(34,197,94,0.06)' : 'rgba(243,156,18,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 9, background: member.stopRefundPaid ? D.greenBg : 'rgba(243,156,18,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 15 }}>{member.stopRefundPaid ? '✅' : '⏸️'}</span>
+                  </div>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {member.stopRefundPaid ? 'Ranbousman Peye' : 'Kanpe — Ranbousman ki rete'}
+                  </span>
+                </div>
+                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(18px, 5vw, 24px)', color: member.stopRefundPaid ? D.green : D.orange }}>
+                  {fmt(member.stopRefundAmount || 0)}
+                </div>
+                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
+                  {member.stopRefundPaid ? 'HTG resevwa' : 'HTG — ap peye lè plan an fèmen'}
+                </div>
+              </div>
+            ) : (
+              <>
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -644,6 +665,8 @@ export default function SolDashboardPage() {
                 <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>HTG total — {allSlots.length} men</div>
               </div>
             )}
+              </>
+            )}
 
             <div className="sol-stat-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -680,28 +703,6 @@ export default function SolDashboardPage() {
           <PerformanceMessage scoreData={scoreData} />
           {/* ✅ FIX: pa doub-afiche si dat deklare a se jodi a — bannyè "Se Jou Ou Jodi a!" anwo a deja kouvri sa */}
           {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
-
-          {/* ✅ NOUVO: Si manm nan kanpe, montre estati ranbousman "penalite kanpe" a */}
-          {member.status === 'stopped' && Number(member.stopRefundAmount || 0) > 0 && (
-            <div style={{
-              background: member.stopRefundPaid ? 'rgba(34,197,94,0.08)' : 'rgba(243,156,18,0.08)',
-              border: `1px solid ${member.stopRefundPaid ? 'rgba(34,197,94,0.3)' : 'rgba(243,156,18,0.3)'}`,
-              borderRadius: 18, padding: '16px 18px', marginBottom: 20,
-              display: 'flex', alignItems: 'center', gap: 12,
-            }}>
-              <span style={{ fontSize: 24 }}>{member.stopRefundPaid ? '✅' : '⏸️'}</span>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 800, color: member.stopRefundPaid ? '#22c55e' : '#f59e0b', margin: '0 0 3px' }}>
-                  {member.stopRefundPaid ? 'Ranbousman Peye' : 'Ou Kanpe Patisipasyon'}
-                </p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
-                  {member.stopRefundPaid
-                    ? `Ou resevwa ${fmt(member.stopRefundAmount)} HTG.`
-                    : `Ou ap resevwa ${fmt(member.stopRefundAmount)} HTG lè plan sa a fèmen.`}
-                </p>
-              </div>
-            </div>
-          )}
 
           {/* ✅ NOUVO: Avètisman jeneral sou penalite si manm nan ta kanpe */}
           {member.status !== 'stopped' && plan.stopPenaltyAmount > 0 && (
