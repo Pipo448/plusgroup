@@ -29,7 +29,12 @@ function buildPaymentMaps(sabotayPayments) {
     try {
       const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
       payments[dateKey] = true
-      paymentTimings[dateKey] = computeTiming(p.dueDate, p.paidDate || p.paidAt || p.dueDate)
+      // ✅ FIX: itilize `timing` ki DEJA anrejistre sou peman an (menm sistèm
+      // kategori — earlyDepo/earlyDay/early/onTime/lateWindow/late/veryLate —
+      // ki panel admin lan itilize a). Rekalkile ak yon fonksyon lokal senplifye
+      // te bay move kategori ki pa t matche SCORE_POINTS, donk peman yo te
+      // disparèt san yo pa konte nan skò a.
+      paymentTimings[dateKey] = p.timing || computeTiming(p.dueDate, p.paidDate || p.paidAt || p.dueDate)
     } catch(_) {}
   }
   return { payments, paymentTimings }
