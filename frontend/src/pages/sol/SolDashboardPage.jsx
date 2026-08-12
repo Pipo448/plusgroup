@@ -278,8 +278,8 @@ export default function SolDashboardPage() {
   const payoutDebaz      = ((plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
   const payoutAjiste     = payoutDebaz + memberBalance
-  const progress         = totalSlotCount > 0 ? (totalPaid / totalSlotCount) * 100 : 0
-  const totalToPayForSol = totalSlotCount * plan.amount * allSlots.length
+  const progress         = dates.length > 0 ? (totalPaid / dates.length) * 100 : 0
+  const totalToPayForSol = dates.length * plan.amount * allSlots.length
   const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
 
   // ✅ FIX: pa gen okenn "touche" otomatik ki soti nan kalkil pozisyon an —
@@ -547,7 +547,7 @@ export default function SolDashboardPage() {
                 <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(24px, 7vw, 40px)', color: D.gold, lineHeight: 1, marginBottom: 4 }}>
                   {fmt(amountContributed)}
                 </div>
-                <div style={{ fontSize: 12, color: D.muted }}>HTG • {totalPaid}/{totalSlotCount} peman</div>
+                <div style={{ fontSize: 12, color: D.muted }}>HTG • {totalPaid}/{dates.length} peman</div>
               </div>
             </div>
 
@@ -563,7 +563,7 @@ export default function SolDashboardPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: D.muted }}>
                 <span>{totalPaid} peman fèt</span>
-                <span>{totalSlotCount - totalPaid} rès</span>
+                <span>{dates.length - totalPaid} rès</span>
               </div>
             </div>
           </div>
