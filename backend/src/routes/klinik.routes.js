@@ -851,7 +851,7 @@ router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
 router.get('/services', async (req, res) => {
   try {
     const tenantId = tid(req)
-    const { serviceType, search, patientId, hospId, date, status, page = 1, limit = 20 } = req.query
+    const { serviceType, search, patientId, hospId, date, dateFrom, dateTo, status, page = 1, limit = 20 } = req.query
     const offset = (Number(page) - 1) * Number(limit)
     // ⭐ Defansif — kast tou de bò an TEKS pou evite konfli tip
     let where = `WHERE ks.tenant_id::text = $1::text`
@@ -863,13 +863,24 @@ router.get('/services', async (req, res) => {
     if (hospId)      { where += ` AND ks.notes LIKE $${idx++}`;         params.push(`%[HOSP:${hospId}]%`) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
 
-    // ⭐ Filtre dat (today / week / month) — itil pou paj Kes (Istorik + Stats)
+    // ⭐ Filtre dat (today / week / month / dat egzat / plaj dat) — itil pou paj Kes (Istorik + Stats)
+    const isValidDateStr = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''))
     if (date === 'today') {
       where += ` AND ks.created_at >= CURRENT_DATE AND ks.created_at < CURRENT_DATE + INTERVAL '1 day'`
     } else if (date === 'week') {
       where += ` AND ks.created_at >= CURRENT_DATE - INTERVAL '7 days'`
     } else if (date === 'month') {
       where += ` AND ks.created_at >= DATE_TRUNC('month', CURRENT_DATE)`
+    } else if (date === 'all') {
+      // Pa gen filtè dat — tout istorik
+    } else if (isValidDateStr(date)) {
+      // ⭐ Dat egzat (YYYY-MM-DD) — pou kasye reenprime fakti yon jou ki pase
+      where += ` AND ks.created_at >= $${idx}::date AND ks.created_at < $${idx}::date + INTERVAL '1 day'`
+      params.push(date); idx++
+    } else if (isValidDateStr(dateFrom) || isValidDateStr(dateTo)) {
+      // ⭐ Plaj dat (opsyonèl) — dateFrom / dateTo
+      if (isValidDateStr(dateFrom)) { where += ` AND ks.created_at >= $${idx}::date`; params.push(dateFrom); idx++ }
+      if (isValidDateStr(dateTo))   { where += ` AND ks.created_at < $${idx}::date + INTERVAL '1 day'`; params.push(dateTo); idx++ }
     }
 
     const [rows, countRow] = await Promise.all([
