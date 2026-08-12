@@ -183,10 +183,11 @@ export default function SolDashboardPage() {
 
   const dates = useMemo(() => {
     if (!plan || !totalSlotCount) return []
-    // ✅ FIX: "Touche Chak Konbyen Sik" — dat Istwa Peman yo dwe respekte
-    // entèval la tou (chak 2 jou olye chak jou si entèval=2), pa jenere
-    // yon dat pou chak sèl jou san gade konbyen sik yo touche a.
-    return getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalSlotCount, plan.interval || 1)
+    // ✅ FIX: manm yo PEYE chak jou san manke — se sèlman TOUCHE a ki chak
+    // "entèval" jou. Donk Istwa Peman an dwe gen PLIS jou total (jiska dat
+    // dènye pozisyon an touche a), pa dat ki sote/espase.
+    const totalDays = totalSlotCount * Math.max(1, Math.floor(plan.interval || 1))
+    return getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalDays)
   }, [plan, totalSlotCount])
 
   const totalPaid = useMemo(

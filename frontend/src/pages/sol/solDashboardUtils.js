@@ -65,7 +65,7 @@ export const FREQ_LABELS = {
   saturday: 'Chak Samdi', weekly: 'Chak Lendi',
 }
 
-export function getPaymentDates(frequency, startDate, count, interval = 1) {
+export function getPaymentDates(frequency, startDate, count) {
   const dates = []
   const parseDateLocal = (ds) => {
     if (!ds) return new Date()
@@ -79,23 +79,18 @@ export function getPaymentDates(frequency, startDate, count, interval = 1) {
     return `${y}-${m}-${day}`
   }
   const cur = parseDateLocal(startDate)
-  // ✅ NOUVO: "Touche Chak Konbyen Sik" — si entèval la >1, chak etap ант
-  // dat yo miltipliye pa entèval la (egzanp: chak 2 jou olye chak jou).
-  const iv = Math.max(1, Math.floor(Number(interval) || 1))
   const advance = () => {
-    for (let n = 0; n < iv; n++) {
-      switch (frequency) {
-        case 'daily': cur.setDate(cur.getDate() + 1); break
-        case 'weekly_saturday': case 'saturday':
-          cur.setDate(cur.getDate() + ((6 - cur.getDay() + 7) % 7 || 7)); break
-        case 'weekly_monday': case 'weekly':
-          cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7 || 7)); break
-        case 'biweekly': cur.setDate(cur.getDate() + 14); break
-        case 'monthly': cur.setMonth(cur.getMonth() + 1); break
-        case 'weekdays':
-          do { cur.setDate(cur.getDate() + 1) } while ([0, 6].includes(cur.getDay())); break
-        default: cur.setDate(cur.getDate() + 1)
-      }
+    switch (frequency) {
+      case 'daily': cur.setDate(cur.getDate() + 1); break
+      case 'weekly_saturday': case 'saturday':
+        cur.setDate(cur.getDate() + ((6 - cur.getDay() + 7) % 7 || 7)); break
+      case 'weekly_monday': case 'weekly':
+        cur.setDate(cur.getDate() + ((1 - cur.getDay() + 7) % 7 || 7)); break
+      case 'biweekly': cur.setDate(cur.getDate() + 14); break
+      case 'monthly': cur.setMonth(cur.getMonth() + 1); break
+      case 'weekdays':
+        do { cur.setDate(cur.getDate() + 1) } while ([0, 6].includes(cur.getDay())); break
+      default: cur.setDate(cur.getDate() + 1)
     }
   }
   dates.push(toKey(cur))
