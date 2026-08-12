@@ -14,9 +14,26 @@ router.use(identifyTenant, authenticate, enforceSubscription, extractBranch)
 const tid = (req) => req.tenant.id
 
 async function genNumeroDossier(tenantId) {
-  const ane   = new Date().getFullYear()
-  const count = await prisma.klinikPatient.count({ where: { tenantId } })
-  return `DOS-${ane}-${String(count + 1).padStart(5, '0')}`
+  const ane = new Date().getFullYear()
+  const prefix = `DOS-${ane}-`
+  // ⭐ Baze sou pi gwo nimewo ki EGZISTE (pa COUNT) — COUNT te bay menm
+  //   nimewo a ankò apre yo siprime yon pasyan (COUNT desann, men nimewo
+  //   pi wo yo rete pran), sa ki te lakòz "Unique constraint failed on
+  //   numero_dossier". MAX toujou monte, li pa janm rekile.
+  const rows = await prisma.$queryRaw`
+    SELECT numero_dossier FROM klinik_patients
+    WHERE tenant_id::text = ${tenantId}::text
+      AND numero_dossier LIKE ${prefix + '%'}
+    ORDER BY numero_dossier DESC
+    LIMIT 1
+  `
+  let next = 1
+  const last = rows[0]?.numero_dossier
+  if (last) {
+    const m = String(last).match(/(\d+)$/)
+    if (m) next = parseInt(m[1], 10) + 1
+  }
+  return `${prefix}${String(next).padStart(5, '0')}`
 }
 
 // ⭐ Konte demand lab peye (nan lis "Demandes payées en attente" LabPage a)
@@ -104,7 +121,6 @@ router.get('/patients/:id', async (req, res) => {
 router.post('/patients', async (req, res) => {
   try {
     const tenantId      = tid(req)
-    const numeroDossier = await genNumeroDossier(tenantId)
     const {
       prenom, nom, dateNesans, age, sexe, telephone, adresse,
       groupeSangin, email, notes,
@@ -124,27 +140,46 @@ router.post('/patients', async (req, res) => {
 
     console.log('[POST /patients] data:', { prenom, nom, sexe, source, personneResponsable })
 
-    // ⭐ Apre `npx prisma generate` ak schema mete jou, sa a mache pwòp
-    const patient = await prisma.klinikPatient.create({
-      data: {
-        tenantId,
-        numeroDossier,
-        prenom:        prenom.trim(),
-        nom:           nom.trim(),
-        dateNaissance: dateNesans ? new Date(dateNesans) : null,
-        age:           age ? parseInt(age) : null,
-        sexe:          sexe || null,
-        telephone:     telephone || null,
-        adresse:       adresse || null,
-        groupeSanguin: groupeSangin || 'INCONNU',
-        email:         email || null,
-        notes:         notes || null,
-        source:        source || null,
-        prisEnChargePar:     prisEnChargePar     || null,
-        personneResponsable: personneResponsable || null,
-        isActive:      true,
-      },
-    })
+    // ⭐ Rezèv — si de anrejistreman rive an menm tan (2 tablèt/kasye) epi
+    //   yo jenere menm numeroDossier a, reesèye ak pwochen nimewo a olye
+    //   voye erè 500 bay itilizatè a.
+    let patient
+    let attempts = 0
+    const maxAttempts = 5
+    while (attempts < maxAttempts) {
+      const numeroDossier = await genNumeroDossier(tenantId)
+      try {
+        patient = await prisma.klinikPatient.create({
+          data: {
+            tenantId,
+            numeroDossier,
+            prenom:        prenom.trim(),
+            nom:           nom.trim(),
+            dateNaissance: dateNesans ? new Date(dateNesans) : null,
+            age:           age ? parseInt(age) : null,
+            sexe:          sexe || null,
+            telephone:     telephone || null,
+            adresse:       adresse || null,
+            groupeSanguin: groupeSangin || 'INCONNU',
+            email:         email || null,
+            notes:         notes || null,
+            source:        source || null,
+            prisEnChargePar:     prisEnChargePar     || null,
+            personneResponsable: personneResponsable || null,
+            isActive:      true,
+          },
+        })
+        break
+      } catch (err) {
+        const isDossierCollision = err.code === 'P2002' && String(err.meta?.target || '').includes('numero_dossier')
+        attempts++
+        if (isDossierCollision && attempts < maxAttempts) {
+          console.warn('[POST /patients] kolizyon numeroDossier, reesèye', attempts)
+          continue
+        }
+        throw err
+      }
+    }
 
     res.status(201).json({ patient })
   } catch (e) {
