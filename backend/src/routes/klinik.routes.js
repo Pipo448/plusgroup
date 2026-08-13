@@ -862,14 +862,17 @@ router.patch('/hospitalizations/:id/decharge', async (req, res) => {
 })
 
 // ── PATCH /klinik/hospitalizations/:id/sign-vito ─────────────
-// Sove tout lis Siy Vito (JSONB array) pou yon ospitalizasyon
+// ⚠️ ENDPOINT SA A DEPRESYE — li ranplase TOUT lis la, sa ka pèdi done
+//    lè 2 moun (2 enfimyè) ap travay sou menm dosye a an menm tan.
+//    Kenbe l sèlman pou konpatibilite ak vye kliyan; itilize
+//    POST .../sign-vito/add ak DELETE .../sign-vito/:entryId pito.
 router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
   try {
     const { signVito } = req.body
     if (!Array.isArray(signVito)) {
       return res.status(400).json({ message: 'signVito dwe yon array' })
     }
-    const hosp = await prisma.$executeRawUnsafe(
+    await prisma.$executeRawUnsafe(
       `UPDATE "klinik_hospitalizations"
        SET "signe_vitaux" = $1::jsonb, "updated_at" = NOW()
        WHERE id = $2`,
@@ -878,6 +881,56 @@ router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
     )
     res.json({ ok: true, count: signVito.length })
   } catch (e) { res.status(500).json({ message: e.message }) }
+})
+
+// ⭐ POST /klinik/hospitalizations/:id/sign-vito/add ───────────
+// Ajoute YON SÈL antre siy vito ATOMIKMAN via operatè jsonb `||`
+// Postgres — pa gen risk pèdi done menm si 2 enfimyè sove an menm
+// tan, paske Postgres jere konkirans nan UPDATE a li menm (pa gen
+// etap "li tout lis la anvan" nan kliyan an ki ka vin demode).
+router.post('/hospitalizations/:id/sign-vito/add', async (req, res) => {
+  try {
+    const entry = req.body?.entry
+    if (!entry || typeof entry !== 'object') {
+      return res.status(400).json({ message: 'entry obligatwa' })
+    }
+    const nouvoEntry = { ...entry, id: entry.id || Date.now() }
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE "klinik_hospitalizations"
+       SET "signe_vitaux" = COALESCE("signe_vitaux", '[]'::jsonb) || $1::jsonb,
+           "updated_at"   = NOW()
+       WHERE id = $2 AND tenant_id::text = $3::text
+       RETURNING "signe_vitaux"`,
+      JSON.stringify([nouvoEntry]),
+      req.params.id,
+      tid(req)
+    )
+    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
+    res.json({ ok: true, signVito: rows[0].signe_vitaux, entry: nouvoEntry })
+  } catch (e) { console.error('[POST sign-vito/add]', e.message); res.status(500).json({ message: e.message }) }
+})
+
+// ⭐ DELETE /klinik/hospitalizations/:id/sign-vito/:entryId ────
+// Retire YON SÈL antre siy vito atomikman, san touche rès lis la.
+router.delete('/hospitalizations/:id/sign-vito/:entryId', async (req, res) => {
+  try {
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE "klinik_hospitalizations"
+       SET "signe_vitaux" = (
+             SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+             FROM jsonb_array_elements(COALESCE("signe_vitaux", '[]'::jsonb)) elem
+             WHERE elem->>'id' != $1
+           ),
+           "updated_at" = NOW()
+       WHERE id = $2 AND tenant_id::text = $3::text
+       RETURNING "signe_vitaux"`,
+      String(req.params.entryId),
+      req.params.id,
+      tid(req)
+    )
+    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
+    res.json({ ok: true, signVito: rows[0].signe_vitaux })
+  } catch (e) { console.error('[DELETE sign-vito]', e.message); res.status(500).json({ message: e.message }) }
 })
 
 // ═══════════════════════════════════════════════════════════════
