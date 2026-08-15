@@ -557,6 +557,34 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
     await _checkAndNotifyCollection(tenantId, plan, datesToProcess[datesToProcess.length - 1])
   }
 
+  // ✅ NOUVO: apre chak peman konfime, si ADMIN te DEJA deklare yon dat
+  // pwomès (bouton 📅) pou manm sa a, voye yon notifikasyon ki repete
+  // MENM dat pwomès sa a. Si pa gen okenn dat deklare, PA VOYE anyen —
+  // pa gen okenn estimasyon/devinèt otomatik.
+  if (createdPayments.length > 0) {
+    try {
+      const freshMember = await prisma.sabotayMember.findUnique({ where: { id: memberId } })
+      const payoutDateStr = freshMember?.declaredPayoutDate
+        ? String(freshMember.declaredPayoutDate).split('T')[0]
+        : null
+      if (payoutDateStr) {
+        const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId }, include: { account: true } })
+        if (solPos?.account) {
+          const displayDate = new Date(payoutDateStr).toLocaleDateString('fr-HT')
+          await prisma.solNotification.create({
+            data: {
+              accountId: solPos.account.id, type: 'payment_confirmed',
+              titleHt: '✅ Peman Konfime!',
+              messageHt: `${plan.name}: peman ou konfime. Ou ap touche sol ou a nan dat ${displayDate}.`,
+            }
+          }).catch(() => {})
+        }
+      }
+    } catch (err) {
+      console.warn('[sabotay] Notifikasyon peman echwe:', err.message)
+    }
+  }
+
   return { payments: createdPayments, count: createdPayments.length }
 }
 
