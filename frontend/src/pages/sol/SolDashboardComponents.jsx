@@ -94,7 +94,12 @@ export function SolCalendar({ dates, member, plan, today, allSlots }) {
   const firstDay = new Date(year, month, 1).getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const dateSet = new Set(dates)
-  const winDatesSet = new Set(allSlots.map(s => dates[s.position - 1]).filter(Boolean))
+  // ✅ FIX: "Dat Touche" (🏆) pa dwe kalkile otomatikman selon pozisyon —
+  // se sèlman lè ADMIN deklare yon dat pou yon eskl espesifik (declaredPayoutDate)
+  // ke dat sa a dwe make kòm "touche" nan kalandriye a.
+  const winDatesSet = new Set(
+    allSlots.map(s => s.declaredPayoutDate ? String(s.declaredPayoutDate).split('T')[0] : null).filter(Boolean)
+  )
 
   const btnSt = { width: 38, height: 38, borderRadius: 10, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s' }
 

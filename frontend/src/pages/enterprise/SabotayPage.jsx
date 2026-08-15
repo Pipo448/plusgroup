@@ -451,9 +451,12 @@ export default function SabotayPage() {
                 const activeMbrs = (plan.members || []).filter(m => m.status !== 'stopped')
                 const allD       = getAllPaymentDates(plan)
                 const coll       = activeMbrs.reduce((a, m) => a + allD.filter(d => m.payments?.[d] && d <= today).length * plan.amount, 0) || 0
-                const payMap     = getPayoutDateMap(plan)
-                const todayWinE  = Object.entries(payMap).find(([, d]) => d === today)
-                const winner     = todayWinE ? plan.members?.find(m => m.position === Number(todayWinE[0])) : null
+                // ✅ FIX: pa kalkile "k ap touche jodi a" otomatikman selon pozisyon
+                // kalandriye a — se sèlman lè ADMIN deklare (declaredPayoutDate === jodi)
+                // ke bannyè sa a dwe parèt.
+                const winner     = plan.members?.find(m =>
+                  String(m.declaredPayoutDate || '').split('T')[0] === today
+                ) || null
                 const payout     = memberPayout(plan)
                 const planDepo   = calcDepoRezev(plan, today)
                 const warnings   = (plan.members || []).filter(m => {
