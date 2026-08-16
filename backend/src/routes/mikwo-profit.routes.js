@@ -27,6 +27,7 @@ router.get('/', async (req, res) => {
       freKane,
       depans,
       kapitalEnjekte,
+      kapitalEnjekteTout,
       nbrPreActif,
       nbrKaneActif,
       totalPortfeuye,
@@ -37,31 +38,48 @@ router.get('/', async (req, res) => {
       previzyonDeyo,
     ] = await Promise.all([
 
-      // ✅ Enterè sèlman — statut='paye' + dat_paye nan peryòd
+      // ✅ Enterè — enkli echeans 'paye' AK 'partiel', pwopòsyone selon
+      // ki pòsantaj echeans lan reyèlman peye (te sèlman 'paye' anvan,
+      // sa te fè peman pasyèl yo pa konte ditou nan revni a)
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(montant_interet), 0) as total
+        SELECT COALESCE(SUM(
+          CASE WHEN (montant_total + interet_kouru) > 0
+            THEN montant_interet * LEAST(1, montant_paye / (montant_total + interet_kouru))
+            ELSE 0
+          END
+        ), 0) as total
         FROM pre_echeances
         WHERE tenant_id = ${tenantId}
-          AND statut = 'paye'
+          AND statut IN ('paye','partiel')
           AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
       `,
 
-      // ✅ Penalite — enterè kouru pou jou reta
+      // ✅ Penalite — menm pwopòsyon, aplike sou interet_kouru
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(interet_kouru), 0) as total
+        SELECT COALESCE(SUM(
+          CASE WHEN (montant_total + interet_kouru) > 0
+            THEN interet_kouru * LEAST(1, montant_paye / (montant_total + interet_kouru))
+            ELSE 0
+          END
+        ), 0) as total
         FROM pre_echeances
         WHERE tenant_id = ${tenantId}
-          AND statut = 'paye'
+          AND statut IN ('paye','partiel')
           AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
           AND jou_reta > 0
       `,
 
-      // Kapital retounen
+      // ✅ Kapital retounen — menm pwopòsyon, aplike sou montant_capital
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(montant_capital), 0) as total
+        SELECT COALESCE(SUM(
+          CASE WHEN (montant_total + interet_kouru) > 0
+            THEN montant_capital * LEAST(1, montant_paye / (montant_total + interet_kouru))
+            ELSE 0
+          END
+        ), 0) as total
         FROM pre_echeances
         WHERE tenant_id = ${tenantId}
-          AND statut = 'paye'
+          AND statut IN ('paye','partiel')
           AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
       `,
 
@@ -81,7 +99,18 @@ router.get('/', async (req, res) => {
           AND date_depans BETWEEN ${debutDate}::date AND ${finDate}::date
       `,
 
-      // Kapital enjekte total (tout tan)
+      // ✅ Kapital enjekte PANDAN PERYÒD LA — menm baz tan ak "retounen"
+      // (anvan sa a te "tout tan" pandan "retounen" te filtre pa peryòd,
+      // sa te fè "nèt" la parèt fo negatif pou nenpòt peryòd kout)
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant), 0) as total
+        FROM pre_kapital
+        WHERE tenant_id = ${tenantId}
+          AND type = 'enjeksyon'
+          AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
+
+      // ✅ Kapital enjekte TOUT TAN — gade pou referans (pa antre nan "nèt")
       prisma.$queryRaw`
         SELECT COALESCE(SUM(montant), 0) as total
         FROM pre_kapital
@@ -169,6 +198,7 @@ router.get('/', async (req, res) => {
     const totalPenalite  = Number(penaliteData[0]?.total     || 0)
     const totalDepans    = Number(depans[0]?.total           || 0)
     const totalEnjekte   = Number(kapitalEnjekte[0]?.total   || 0)
+    const totalEnjekteTout = Number(kapitalEnjekteTout[0]?.total || 0)
     const totalRetouKap  = Number(kapitalRetouData[0]?.total || 0)
     const nbrKont        = Number(freKane[0]?.total_kont     || 0)
     const totalFreKane   = nbrKont * 250
@@ -202,9 +232,10 @@ router.get('/', async (req, res) => {
         total:  totalDepans,
       },
       kapital: {
-        enjekte:  totalEnjekte,
-        retounen: totalRetouKap,
-        nèt:      totalRetouKap - totalEnjekte,
+        enjekte:     totalEnjekte,
+        enjekteTout: totalEnjekteTout,
+        retounen:    totalRetouKap,
+        nèt:         totalRetouKap - totalEnjekte,
       },
       pwofiNèt: vrèPwofi,
       isFans:   vrèPwofi >= 0,
