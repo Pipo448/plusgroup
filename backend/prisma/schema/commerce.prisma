@@ -1,6 +1,3 @@
-// prisma/schema/commerce.prisma
-// ─── Komès: Pwodwi, Kliyan, Fakti, Peman, Estòk ─────────────
-
 model ProductCategory {
   id          String    @id @default(uuid())
   tenantId    String    @map("tenant_id")
@@ -10,67 +7,56 @@ model ProductCategory {
   description String?
   color       String?   @db.VarChar(7)
   isActive    Boolean   @default(true) @map("is_active")
-  // ✅ NOUVO — menm konvansyon ak Product.module, pou kategori Restoran
-  // (egzanp "Antre", "Pla Prensipal", "Bwason") rete separe de kategori magazen jeneral
-  module      String    @default("general") @map("module") @db.VarChar(20)
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
   branchId    String?   @map("branch_id")
+  module      String    @default("general") @map("module") @db.VarChar(20)
   branch      Branch?   @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   products    Product[]
 
   @@unique([tenantId, branchId, name])
-  @@unique([tenantId, name])
   @@map("product_categories")
 }
 
 model Product {
-  id             String           @id @default(uuid())
-  tenantId       String           @map("tenant_id")
-  categoryId     String?          @map("category_id")
-  code           String?          @db.VarChar(100)
-  name           String           @db.VarChar(200)
-  nameFr         String?          @map("name_fr") @db.VarChar(200)
-  nameEn         String?          @map("name_en") @db.VarChar(200)
-  description    String?
-  unit           String           @default("unité") @db.VarChar(50)
-  priceHtg       Decimal          @default(0) @map("price_htg") @db.Decimal(12, 2)
-  priceUsd       Decimal          @default(0) @map("price_usd") @db.Decimal(12, 2)
-  costPriceHtg   Decimal          @default(0) @map("cost_price_htg") @db.Decimal(12, 2)
-  quantity       Decimal          @default(0) @db.Decimal(12, 3)
-  alertThreshold Decimal          @default(5) @map("alert_threshold") @db.Decimal(12, 3)
-  packLabel      String?          @map("pack_label")
-  packSize       Int?             @map("pack_size")
-  packPriceHtg   Decimal?         @map("pack_price_htg") @db.Decimal(12, 2)
-  // ⚠️ DEPRESYE — ranplase pa modèl ProductPriceTier anba a, ki sipòte
-  // PLIZYÈ nivo pri (3+ yon pri, 12+ yon lòt, Kès 24 yon lòt ankò).
-  // Kenbe chan sa yo pou konpatibilite ak done ki deja egziste — done yo
-  // migre nan product_price_tiers, kòd la sispann li chan sa yo apre.
-  wholesaleMinQty   Int?     @map("wholesale_min_qty")
-  wholesalePriceHtg Decimal? @map("wholesale_price_htg") @db.Decimal(12, 2)
-  wholesalePriceUsd Decimal? @map("wholesale_price_usd") @db.Decimal(12, 2)
-  imageUrl       String?          @map("image_url")
-  isActive       Boolean          @default(true) @map("is_active")
-  isService      Boolean          @default(false) @map("is_service")
-  // ✅ NOUVO — Distenge Pwodui jeneral (magazen) de Meni Restoran.
-  // "general" = pwodui nòmal, "restaurant" = manje/bwason nan Meni Restoran.
-  // Menm modèl, menm mouvman estòk, menm entegrasyon Fakti/Devi — jis yon tag.
-  module         String           @default("general") @map("module") @db.VarChar(20)
-  createdBy      String?          @map("created_by")
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  branchId       String?          @map("branch_id")
-  branch         Branch?          @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  category       ProductCategory? @relation(fields: [categoryId], references: [id])
-  creator        User?            @relation(fields: [createdBy], references: [id])
-  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  hotelServices  HotelService[]
-  invoiceItems   InvoiceItem[]
-  quoteItems     QuoteItem[]
-  stockMovements StockMovement[]
-  // ✅ NOUVO — plizyè nivo pri an gwo pou menm pwodwi a
-  priceTiers     ProductPriceTier[]
+  id                String             @id @default(uuid())
+  tenantId          String             @map("tenant_id")
+  categoryId        String?            @map("category_id")
+  code              String?            @db.VarChar(100)
+  name              String             @db.VarChar(200)
+  nameFr            String?            @map("name_fr") @db.VarChar(200)
+  nameEn            String?            @map("name_en") @db.VarChar(200)
+  description       String?
+  unit              String             @default("unité") @db.VarChar(50)
+  priceHtg          Decimal            @default(0) @map("price_htg") @db.Decimal(12, 2)
+  priceUsd          Decimal            @default(0) @map("price_usd") @db.Decimal(12, 2)
+  costPriceHtg      Decimal            @default(0) @map("cost_price_htg") @db.Decimal(12, 2)
+  quantity          Decimal            @default(0) @db.Decimal(12, 3)
+  alertThreshold    Decimal            @default(5) @map("alert_threshold") @db.Decimal(12, 3)
+  imageUrl          String?            @map("image_url")
+  isActive          Boolean            @default(true) @map("is_active")
+  isService         Boolean            @default(false) @map("is_service")
+  createdBy         String?            @map("created_by")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  branchId          String?            @map("branch_id")
+  packLabel         String?            @map("pack_label")
+  packSize          Int?               @map("pack_size")
+  packPriceHtg      Decimal?           @map("pack_price_htg") @db.Decimal(12, 2)
+  module            String             @default("general") @map("module") @db.VarChar(20)
+  wholesaleMinQty   Int?               @map("wholesale_min_qty")
+  wholesalePriceHtg Decimal?           @map("wholesale_price_htg") @db.Decimal(12, 2)
+  wholesalePriceUsd Decimal?           @map("wholesale_price_usd") @db.Decimal(12, 2)
+  hotelServices     HotelService[]
+  invoiceItems      InvoiceItem[]
+  priceTiers        ProductPriceTier[]
+  branch            Branch?            @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  category          ProductCategory?   @relation(fields: [categoryId], references: [id])
+  creator           User?              @relation(fields: [createdBy], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quoteItems        QuoteItem[]
+  stockMovements    StockMovement[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -78,25 +64,18 @@ model Product {
   @@map("products")
 }
 
-// ✅ NOUVO — Yon pwodwi ka gen 0, 1, oswa plizyè nivo pri "an gwo", chak
-// youn ak pwòp sèy kantite li (egzanp: 3+ pyès = 20 HTG, 12+ pyès = 18
-// HTG, Kès 24 = 400 HTG). Nan moman kalkil pri a, kòd la chwazi nivo ki
-// gen `minQty` PI WO a pami sa ki kantite a rive ladan yo — konsa kliyan
-// an jwenn pi bon pri li merite a otomatikman.
 model ProductPriceTier {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId  String   @map("tenant_id")
   productId String   @map("product_id")
   minQty    Int      @map("min_qty")
   priceHtg  Decimal  @map("price_htg") @db.Decimal(12, 2)
   priceUsd  Decimal? @map("price_usd") @db.Decimal(12, 2)
-  // Non ki parèt nan POS pou kesye a: "Gwo", "Kès 24", elatriye
   label     String?  @db.VarChar(50)
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@index([productId, minQty])
+  @@index([productId, minQty], map: "idx_price_tiers_product")
   @@map("product_price_tiers")
 }
 
@@ -124,10 +103,9 @@ model Client {
   branch            Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   creator           User?           @relation(fields: [createdBy], references: [id])
   tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  directQuotes      DirectQuote[]
   invoices          Invoice[]
   quotes            Quote[]
-  // ✅ NOUVO — Devi Dirèk pou kliyan sa a
-  directQuotes      DirectQuote[]
   reservations      Reservation[]
 
   @@index([branchId])
@@ -164,11 +142,11 @@ model Quote {
   createdAt            DateTime        @default(now()) @map("created_at")
   updatedAt            DateTime        @updatedAt @map("updated_at")
   branchId             String?         @map("branch_id")
-  // ✅ NOUVO — Pataje pwoforma piblik (lyen + kòd akse 4 chif)
   publicToken          String?         @unique @map("public_token") @db.VarChar(64)
-  accessCode           String?         @map("access_code") @db.VarChar(4)
+  public_expires_at    DateTime?       @db.Timestamptz(6)
   publicViewedAt       DateTime?       @map("public_viewed_at") @db.Timestamptz(6)
   publicViewCount      Int             @default(0) @map("public_view_count")
+  accessCode           String?         @map("access_code") @db.VarChar(4)
   invoice              Invoice?
   items                QuoteItem[]
   branch               Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
@@ -178,7 +156,7 @@ model Quote {
 
   @@unique([tenantId, quoteNumber])
   @@index([branchId])
-  @@index([publicToken])
+  @@index([publicToken], map: "idx_quotes_public_token")
   @@map("quotes")
 }
 
@@ -241,7 +219,6 @@ model Invoice {
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   branchId         String?         @map("branch_id")
-  // ✅ NOUVO — Pataje piblik pa WhatsApp (dirèk, san kòd — menm mekanis ak Devi)
   publicToken      String?         @unique @map("public_token") @db.VarChar(64)
   publicViewedAt   DateTime?       @map("public_viewed_at") @db.Timestamptz(6)
   publicViewCount  Int             @default(0) @map("public_view_count")

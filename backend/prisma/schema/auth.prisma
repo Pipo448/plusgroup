@@ -1,6 +1,3 @@
-// prisma/schema/auth.prisma
-// ─── Otantifikasyon, Tenant, Branch, Itilizatè ───────────────
-
 model SuperAdmin {
   id           String   @id @default(uuid())
   name         String   @db.VarChar(100)
@@ -14,137 +11,94 @@ model SuperAdmin {
   @@map("super_admins")
 }
 
-// ⚠️ ELAJI (Faz 5) — Fòm ofisyèl rekritman ajan konplè: idantite, dokiman,
-// edikasyon, sitiyasyon pwofesyonèl, eksperyans, konpetans, domèn ak
-// evalyasyon espesifik, motivasyon, referans, deklarasyon, ak sistèm nòt
-// 100 pwen (pati objektif kalkile otomatik, pati subjektif SuperAdmin
-// antre apre entèvyou).
 model Agent {
-  id         String  @id @default(uuid())
-  // Nimewo dosye ofisyèl, jenere otomatik: PG-2026-000123
-  dossierNumber String @unique @map("dossier_number") @db.VarChar(20)
+  id                       String            @id @default(dbgenerated("(gen_random_uuid())::text"))
+  fullName                 String            @map("full_name") @db.VarChar(150)
+  email                    String            @unique @db.VarChar(150)
+  phone                    String            @db.VarChar(50)
+  city                     String            @db.VarChar(100)
+  passwordHash             String?           @map("password_hash")
+  promoCode                String            @unique @map("promo_code") @db.VarChar(20)
+  status                   String            @default("pending") @db.VarChar(20)
+  commissionPerTenant      Int               @default(500) @map("commission_per_tenant")
+  message                  String?
+  createdAt                DateTime          @default(now()) @map("created_at") @db.Timestamp(6)
+  approvedAt               DateTime?         @map("approved_at") @db.Timestamp(6)
+  dossierNumber            String?           @unique @map("dossier_number") @db.VarChar(20)
+  lastName                 String?           @map("last_name") @db.VarChar(100)
+  dateOfBirth              DateTime?         @map("date_of_birth") @db.Timestamp(6)
+  gender                   String?           @db.VarChar(20)
+  maritalStatus            String?           @map("marital_status") @db.VarChar(30)
+  addressFull              String?           @map("address_full")
+  department               String?           @map("department") @db.VarChar(100)
+  country                  String?           @default("Ayiti") @db.VarChar(100)
+  photoBase64              String?           @map("photo_base64")
+  idDocumentType           String?           @map("id_document_type") @db.VarChar(30)
+  idDocumentBase64         String?           @map("id_document_base64")
+  educationLevel           String?           @map("education_level") @db.VarChar(30)
+  fieldOfStudy             String?           @map("field_of_study") @db.VarChar(150)
+  schoolName               String?           @map("school_name") @db.VarChar(200)
+  otherCertifications      String?           @map("other_certifications")
+  currentProfession        String?           @map("current_profession") @db.VarChar(150)
+  currentlyEmployed        Boolean?          @map("currently_employed")
+  companyName              String?           @map("company_name") @db.VarChar(150)
+  jobTitle                 String?           @map("job_title") @db.VarChar(150)
+  yearsExperience          String?           @map("years_experience") @db.VarChar(20)
+  experienceDomain         String?           @map("experience_domain") @db.VarChar(200)
+  skills                   Json?
+  languages                Json?
+  domains                  Json?
+  commercialEval           Json?             @map("commercial_eval")
+  systemEval               Json?             @map("system_eval")
+  whyAgent                 String?           @map("why_agent")
+  goals12Months            String?           @map("goals_12_months")
+  threeTraits              String?           @map("three_traits") @db.VarChar(300)
+  weakness                 String?
+  references               Json?
+  declareInfoAccurate      Boolean?          @default(false) @map("declare_info_accurate")
+  agreeRules               Boolean?          @default(false) @map("agree_rules")
+  agreeVerification        Boolean?          @default(false) @map("agree_verification")
+  scorePersonal            Int?              @map("score_personal")
+  scoreEducation           Int?              @map("score_education")
+  scoreExperience          Int?              @map("score_experience")
+  scoreDigitalSkills       Int?              @map("score_digital_skills")
+  scoreCommercial          Int?              @map("score_commercial")
+  scoreSystem              Int?              @map("score_system")
+  scoreBonus               Int?              @map("score_bonus")
+  scoreTotal               Int?              @map("score_total")
+  scoreDecision            String?           @map("score_decision") @db.VarChar(50)
+  payoutMethod             String?           @map("payout_method") @db.VarChar(20)
+  natcashNumber            String?           @map("natcash_number") @db.VarChar(50)
+  commercialCommissionRate Decimal?          @map("commercial_commission_rate") @db.Decimal(5, 2)
+  commissions              AgentCommission[]
+  tenants                  Tenant[]          @relation("AgentReferrals")
 
-  // ── Idantite ──────────────────────────────────────────
-  fullName    String    @map("full_name") @db.VarChar(150) // Non
-  lastName    String?   @map("last_name") @db.VarChar(100) // Siyati
-  dateOfBirth DateTime? @map("date_of_birth")
-  gender      String?   @db.VarChar(20)
-  maritalStatus String? @map("marital_status") @db.VarChar(30)
-  email       String    @unique @db.VarChar(150)
-  phone       String    @db.VarChar(50) // Sèvi kòm Nimewo WhatsApp tou
-  addressFull String?   @map("address_full")
-  city        String    @db.VarChar(100) // Vil/Komin
-  department  String?   @map("department") @db.VarChar(100)
-  country     String    @default("Ayiti") @db.VarChar(100)
-
-  // ── Dokiman (base64, menm apwòch ak foto pwodui, limit 2MB) ──
-  photoBase64       String? @map("photo_base64") @db.Text
-  idDocumentType    String? @map("id_document_type") @db.VarChar(30) // kat_nasyonal | paspò | permi
-  idDocumentBase64  String? @map("id_document_base64") @db.Text
-
-  // ── Edikasyon ─────────────────────────────────────────
-  educationLevel String? @map("education_level") @db.VarChar(30) // primè|segondè|teknik|inivèsite
-  fieldOfStudy   String? @map("field_of_study") @db.VarChar(150)
-  schoolName     String? @map("school_name") @db.VarChar(200)
-  otherCertifications String? @map("other_certifications") @db.Text
-
-  // ── Sitiyasyon pwofesyonèl ────────────────────────────
-  currentProfession String?  @map("current_profession") @db.VarChar(150)
-  currentlyEmployed Boolean? @map("currently_employed")
-  companyName       String?  @map("company_name") @db.VarChar(150)
-  jobTitle          String?  @map("job_title") @db.VarChar(150)
-
-  // ── Eksperyans ────────────────────────────────────────
-  yearsExperience   String? @map("years_experience") @db.VarChar(20) // pa_genyen|mwens_1|1-3|3-5|5+
-  experienceDomain  String? @map("experience_domain") @db.VarChar(200)
-
-  // ── Konpetans & Lang (Json — chwa miltip) ─────────────
-  skills    Json? // { smartphone, laptop, internetHome, transport }
-  languages Json? // ["Kreyòl","Fransè",...]
-
-  // ── Domèn kandida a chwazi ──────────────────────────
-  domains Json? // ["commercial","system"] — ka gen toude
-
-  // ── Evalyasyon espesifik domèn (Json, ranpli si aplikab) ──
-  commercialEval Json? @map("commercial_eval")
-  // { hasExperience:[], clientTypes:[], socialMedia:[], convinceApproach, monthlyClientsEstimate, workZone }
-  systemEval     Json? @map("system_eval")
-  // { systemTypes:[], toolsKnown:[], hasDemoedSoftware, businessContacts:[], whyNeedSystem, plusGroupAdvantage }
-
-  // ── Motivasyon ────────────────────────────────────────
-  whyAgent      String? @map("why_agent") @db.Text
-  goals12Months String? @map("goals_12_months") @db.Text
-  threeTraits   String? @map("three_traits") @db.VarChar(300)
-  weakness      String? @db.Text
-
-  // ── Referans (Json — [{name,phone,relation}, {...}]) ─
-  references Json?
-
-  // ── Peman komisyon (fòm rekritman) ────────────────────
-  payoutMethod   String? @map("payout_method") @db.VarChar(20) // natcash | office
-  natcashNumber  String? @map("natcash_number") @db.VarChar(50)
-
-  // ── Deklarasyon ───────────────────────────────────────
-  declareInfoAccurate  Boolean @default(false) @map("declare_info_accurate")
-  agreeRules           Boolean @default(false) @map("agree_rules")
-  agreeVerification    Boolean @default(false) @map("agree_verification")
-
-  // ── Nòt (sou 100) ─────────────────────────────────────
-  // Objektif — kalkile otomatik pandan soumisyon fòm lan
-  scorePersonal     Int? @map("score_personal")      // /10
-  scoreEducation    Int? @map("score_education")     // /15
-  scoreExperience   Int? @map("score_experience")    // /20
-  scoreDigitalSkills Int? @map("score_digital_skills") // /15
-  // Subjektif — SuperAdmin antre apre entèvyou
-  scoreCommercial Int? @map("score_commercial") // /20
-  scoreSystem     Int? @map("score_system")     // /20
-  scoreBonus      Int? @map("score_bonus")      // /10
-  scoreTotal      Int? @map("score_total")      // total final
-  scoreDecision   String? @map("score_decision") @db.VarChar(50) // rekrite|entèvyou|atant|fòmasyon|refize
-
-  // ── Kont/Aksè (menm jan ak avan) ──────────────────────
-  passwordHash        String?  @map("password_hash")
-  promoCode            String   @unique @map("promo_code") @db.VarChar(20)
-  status                String   @default("pending") @db.VarChar(20) // pending | approved | rejected | suspended
-  commissionPerTenant Int      @default(500) @map("commission_per_tenant") // Ajan Sistèm — pa itilize ankò dirèkteman (kalkil la baze sou monthlyPrice), konsève pou istorik
-  // ⚠️ NOUVO — Pousantaj komisyon pou Ajan Komèsyal (sou acha pwodui), SuperAdmin
-  // antre l manyèlman pou chak ajan. NULL = poko defini.
-  commercialCommissionRate Decimal? @map("commercial_commission_rate") @db.Decimal(5, 2)
-  message               String? // konsève pou konpatibilite Faz 1
-  createdAt             DateTime  @default(now()) @map("created_at")
-  approvedAt             DateTime? @map("approved_at")
-
-  tenants     Tenant[]          @relation("AgentReferrals")
-  commissions AgentCommission[]
-
-  @@index([status])
-  @@index([scoreTotal])
+  @@index([scoreTotal], map: "idx_agents_score_total")
+  @@index([status], map: "idx_agents_status")
   @@map("agents")
 }
 
-// ⚠️ NOUVO — Konte chak fwa paj kandidati a (/agent/apply) chaje, pou mezire
-// konvèsyon (vizit vs vrè kandidati soumèt).
 model AgentApplyVisit {
-  id        String   @id @default(uuid())
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
-  @@index([createdAt])
+  @@index([createdAt], map: "idx_agent_apply_visits_date")
   @@map("agent_apply_visits")
 }
 
 model AgentCommission {
-  id        String   @id @default(uuid())
+  id        String   @id @default(dbgenerated("(gen_random_uuid())::text"))
   agentId   String   @map("agent_id")
-  agent     Agent    @relation(fields: [agentId], references: [id])
   tenantId  String   @map("tenant_id")
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
   months    Int
   amountHtg Int      @map("amount_htg")
   status    String   @default("pending") @db.VarChar(20)
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([agentId])
-  @@index([tenantId])
+  @@index([agentId], map: "idx_agent_commissions_agent")
+  @@index([tenantId], map: "idx_agent_commissions_tenant")
   @@map("agent_commissions")
 }
 
@@ -169,105 +123,96 @@ model SubscriptionPlan {
 }
 
 model Tenant {
-  id                   String                @id @default(uuid())
-  name                 String                @db.VarChar(200)
-  slug                 String                @unique @db.VarChar(100)
-  logoUrl              String?               @map("logo_url")
-  bannerUrl            String?               @map("banner_url")
-  primaryColor         String?               @default("#1E40AF") @map("primary_color") @db.VarChar(7)
-  address              String?
-  phone                String?               @db.VarChar(50)
-  email                String?               @db.VarChar(150)
-  website              String?               @db.VarChar(200)
-  defaultCurrency      DefaultCurrency       @default(HTG) @map("default_currency")
-  defaultLanguage      DefaultLanguage       @default(ht) @map("default_language")
-  exchangeRate         Decimal               @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
-  taxRate              Decimal               @default(0) @map("tax_rate") @db.Decimal(5, 2)
-  planId               String?               @map("plan_id")
-  status               TenantStatus          @default(pending)
-  trialEndsAt          DateTime?             @map("trial_ends_at")
-  subscriptionEndsAt   DateTime?             @map("subscription_ends_at")
-  createdBy            String?               @map("created_by")
-  createdAt            DateTime              @default(now()) @map("created_at")
-  updatedAt            DateTime              @updatedAt @map("updated_at")
-  receiptSize          String                @default("80mm") @map("receipt_size") @db.VarChar(10)
-  printerConnection    String                @default("usb") @map("printer_connection") @db.VarChar(20)
-  exchangeRates        String?               @default("{}")
-  showExchangeRate     Boolean               @default(false)
-  visibleCurrencies    String?               @default("[\"USD\"]")
-  showQrCode           Boolean               @default(true) @map("show_qr_code")
-  requireQuote         Boolean               @default(false) @map("require_quote")
-  receiptFooterNote    String?               @map("receipt_footer_note")
-  allowedPages         Json?                 @default("{}") @map("allowed_pages")
-  monthlyPrice         Int                   @default(0) @map("monthly_price")
-  agentId              String?               @map("agent_id")
-  // ⚠️ NOUVO — Enskripsyon otonòm (piblik oswa pa yon ajan), an atant apwobasyon Super Admin
-  pendingApproval      Boolean               @default(false) @map("pending_approval")
-  signupSource         String?               @map("signup_source") @db.VarChar(20) // 'self' | 'agent' | null (kreye pa admin)
-  approvedAt           DateTime?             @map("approved_at")
-  approvedBy           String?               @map("approved_by")
-
-  // ─── Relations ───────────────────────────────────────────────
-  creator              SuperAdmin?           @relation(fields: [createdBy], references: [id])
-  plan                 SubscriptionPlan?     @relation(fields: [planId], references: [id])
-  agent                Agent?                @relation("AgentReferrals", fields: [agentId], references: [id])
-
-  // Auth
-  users                User[]
-  branches             Branch[]
-  subscriptions        TenantSubscription[]
-  agentCommissions     AgentCommission[]
-
-  // Commerce
-  activityLogs         ActivityLog[]
-  clients              Client[]
-  documentSequences    DocumentSequence[]
-  directQuotes         DirectQuote[]
-  directQuoteItems     DirectQuoteItem[]
-  invoiceItems         InvoiceItem[]
-  invoices             Invoice[]
-  notifications        Notification[]
-  payments             Payment[]
-  productCategories    ProductCategory[]
-  products             Product[]
-  push_subscriptions   PushSubscription[]
-  quoteItems           QuoteItem[]
-  quotes               Quote[]
-  stockMovements       StockMovement[]
-
-  // Mikwo Kredi
-  kaneAccounts         KaneEpay[]
-  kaneTransactions     KaneTransaction[]
-  prets                Pre[]
-  prePaiements         PrePaiement[]
-  epayJounalyeContracts EpayJounalyeContract[]
-  epayJounalyePayments  EpayJounalyePayment[]
-  epayJounalyeSettings  EpayJounalyeSettings?
-
-  // Sabotay / Sol
-  sabotayPlans         SabotayPlan[]
-  solExchanges         SolPositionExchange[]
-  solPushSubscriptions SolPushSubscription[]
-
-  // Hotel
-  hotelPayments        HotelPayment[]
-  hotelServices        HotelService[]
-  reservations         Reservation[]
-  roomTypes            RoomType[]
-  rooms                Room[]
-
-  // Dry
-  dryOrders            DryOrder[]
-  dryItems             DryOrderItem[]
-  dryPayments          DryPayment[]
-
-  // Klinik
-  klinikPatients       KlinikPatient[]
-  klinikAppointments   KlinikAppointment[]
-  klinikConsultations  KlinikConsultation[]
-  klinikPrescriptions  KlinikPrescription[]
-  klinikLabOrders      KlinikLabOrder[]
+  id                     String                  @id @default(uuid())
+  name                   String                  @db.VarChar(200)
+  slug                   String                  @unique @db.VarChar(100)
+  logoUrl                String?                 @map("logo_url")
+  primaryColor           String?                 @default("#1E40AF") @map("primary_color") @db.VarChar(7)
+  address                String?
+  phone                  String?                 @db.VarChar(50)
+  email                  String?                 @db.VarChar(150)
+  website                String?                 @db.VarChar(200)
+  defaultCurrency        DefaultCurrency         @default(HTG) @map("default_currency")
+  defaultLanguage        DefaultLanguage         @default(ht) @map("default_language")
+  exchangeRate           Decimal                 @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
+  taxRate                Decimal                 @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  planId                 String?                 @map("plan_id")
+  status                 TenantStatus            @default(pending)
+  trialEndsAt            DateTime?               @map("trial_ends_at")
+  subscriptionEndsAt     DateTime?               @map("subscription_ends_at")
+  createdBy              String?                 @map("created_by")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  updatedAt              DateTime                @updatedAt @map("updated_at")
+  receiptSize            String                  @default("80mm") @map("receipt_size") @db.VarChar(10)
+  printerConnection      String                  @default("usb") @map("printer_connection") @db.VarChar(20)
+  exchangeRates          String?                 @default("{}")
+  showExchangeRate       Boolean                 @default(false)
+  visibleCurrencies      String?                 @default("[\"USD\"]")
+  showQrCode             Boolean                 @default(true) @map("show_qr_code")
+  requireQuote           Boolean                 @default(false) @map("require_quote")
+  allowedPages           Json?                   @default("{}") @map("allowed_pages")
+  monthlyPrice           Int                     @default(0) @map("monthly_price")
+  bannerUrl              String?                 @map("banner_url")
+  receiptFooterNote      String?                 @map("receipt_footer_note")
+  agentId                String?                 @map("agent_id")
+  pendingApproval        Boolean                 @default(false) @map("pending_approval")
+  signupSource           String?                 @map("signup_source") @db.VarChar(20)
+  approvedAt             DateTime?               @map("approved_at") @db.Timestamptz(6)
+  approvedBy             String?                 @map("approved_by")
+  activityLogs           ActivityLog[]
+  agentCommissions       AgentCommission[]
+  branches               Branch[]
+  clients                Client[]
+  directQuoteItems       DirectQuoteItem[]
+  directQuotes           DirectQuote[]
+  documentSequences      DocumentSequence[]
+  dryItems               DryOrderItem[]
+  dryOrders              DryOrder[]
+  dryPayments            DryPayment[]
+  epayJounalyeContracts  EpayJounalyeContract[]
+  epayJounalyePayments   EpayJounalyePayment[]
+  epayJounalyeSettings   EpayJounalyeSettings?
+  hotelPayments          HotelPayment[]
+  hotelServices          HotelService[]
+  invoiceItems           InvoiceItem[]
+  invoices               Invoice[]
+  kaneAccounts           KaneEpay[]
+  kaneTransactions       KaneTransaction[]
+  klinikAppointments     KlinikAppointment[]
+  klinikConsultations    KlinikConsultation[]
+  klinik_employees       klinik_employees[]
   klinikHospitalizations KlinikHospitalization[]
+  klinikLabOrders        KlinikLabOrder[]
+  klinikPatients         KlinikPatient[]
+  klinik_payroll         klinik_payroll[]
+  klinikPrescriptions    KlinikPrescription[]
+  klinik_services        klinik_services[]
+  notifications          Notification[]
+  payments               Payment[]
+  pg_employees           pg_employees[]
+  pg_expenses            pg_expenses[]
+  pre_echeances          pre_echeances[]
+  pre_kapital            pre_kapital[]
+  prePaiements           PrePaiement[]
+  pre_rapo_kesye         pre_rapo_kesye[]
+  prets                  Pre[]
+  productCategories      ProductCategory[]
+  products               Product[]
+  push_subscriptions     PushSubscription[]
+  quoteItems             QuoteItem[]
+  quotes                 Quote[]
+  reservations           Reservation[]
+  roomTypes              RoomType[]
+  rooms                  Room[]
+  sabotayPlans           SabotayPlan[]
+  solExchanges           SolPositionExchange[]
+  solPushSubscriptions   SolPushSubscription[]
+  stockMovements         StockMovement[]
+  subscriptions          TenantSubscription[]
+  agent                  Agent?                  @relation("AgentReferrals", fields: [agentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  creator                SuperAdmin?             @relation(fields: [createdBy], references: [id])
+  plan                   SubscriptionPlan?       @relation(fields: [planId], references: [id])
+  users                  User[]
 
   @@map("tenants")
 }
@@ -291,36 +236,34 @@ model TenantSubscription {
 }
 
 model Branch {
-  id                String            @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId          String            @map("tenant_id")
-  name              String            @db.VarChar(200)
-  slug              String            @db.VarChar(100)
-  description       String?
-  address           String?
-  phone             String?           @db.VarChar(50)
-  email             String?           @db.VarChar(150)
-  isActive          Boolean           @default(false) @map("is_active")
-  unlockedAt        DateTime?         @map("unlocked_at") @db.Timestamptz(6)
-  createdAt         DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime          @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  tenant            Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  // Relations
-  branchUsers       BranchUser[]
-  clients           Client[]
-  directQuotes      DirectQuote[]
-  invoices          Invoice[]
-  kaneAccounts      KaneEpay[]
-  prets             Pre[]
+  id                    String                 @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId              String                 @map("tenant_id")
+  name                  String                 @db.VarChar(200)
+  slug                  String                 @db.VarChar(100)
+  description           String?
+  address               String?
+  phone                 String?                @db.VarChar(50)
+  email                 String?                @db.VarChar(150)
+  isActive              Boolean                @default(false) @map("is_active")
+  unlockedAt            DateTime?              @map("unlocked_at") @db.Timestamptz(6)
+  createdAt             DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  branchUsers           BranchUser[]
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  clients               Client[]
+  directQuotes          DirectQuote[]
+  dryOrders             DryOrder[]
   epayJounalyeContracts EpayJounalyeContract[]
-  productCategories ProductCategory[]
-  products          Product[]
-  quotes            Quote[]
-  reservations      Reservation[]
-  dryOrders         DryOrder[]
-  rooms             Room[]
-  sabotayPlans      SabotayPlan[]
-  stockMovements    StockMovement[]
+  invoices              Invoice[]
+  kaneAccounts          KaneEpay[]
+  prets                 Pre[]
+  productCategories     ProductCategory[]
+  products              Product[]
+  quotes                Quote[]
+  reservations          Reservation[]
+  rooms                 Room[]
+  sabotayPlans          SabotayPlan[]
+  stockMovements        StockMovement[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -344,63 +287,59 @@ model BranchUser {
 }
 
 model User {
-  id                   String             @id @default(uuid())
-  tenantId             String             @map("tenant_id")
-  fullName             String             @map("full_name") @db.VarChar(150)
-  email                String             @db.VarChar(150)
-  passwordHash         String             @map("password_hash")
-  phone                String?            @db.VarChar(50)
-  avatarUrl            String?            @map("avatar_url")
-  role                 UserRole           @default(cashier)
-  permissions          Json               @default("{}")
-  preferredLang        DefaultLanguage    @default(ht) @map("preferred_lang")
-  isActive             Boolean            @default(true) @map("is_active")
-  lastLoginAt          DateTime?          @map("last_login_at")
-  passwordResetToken   String?            @map("password_reset_token")
-  passwordResetExpires DateTime?          @map("password_reset_expires")
-  createdBy            String?            @map("created_by")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
-  passwordChangedAt    DateTime?          @map("password_changed_at") @db.Timestamptz(6)
-  directQuotePin       String?            @map("direct_quote_pin") @db.VarChar(4)
-  tenant               Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
-  // Commerce
-  activityLogs            ActivityLog[]
-  branchUsers             BranchUser[]
-  clients                 Client[]
-  invoicesCancelled       Invoice[]          @relation("InvoiceCancelledBy")
-  invoicesCreated         Invoice[]          @relation("InvoiceCreatedBy")
-  payments                Payment[]
-  products                Product[]
-  push_subscriptions      PushSubscription[]
-  quotesCreated           Quote[]            @relation("QuoteCreatedBy")
-  directQuotesCreated     DirectQuote[]      @relation("DirectQuoteCreatedBy")
-  directQuotesAuthorized  DirectQuote[]      @relation("DirectQuoteAuthorizedBy")
-  stockMovements          StockMovement[]
-  notifications           Notification[]
-
-  // Mikwo Kredi
-  kaneAccountsCreated     KaneEpay[]         @relation("KaneCreatedBy")
-  kaneTransactionsCreated KaneTransaction[]  @relation("KaneTxCreatedBy")
-  pretsCreated            Pre[]              @relation("PreCreatedBy")
-  prePaiementsCreated     PrePaiement[]      @relation("PrePaiementCreatedBy")
+  id                           String                 @id @default(uuid())
+  tenantId                     String                 @map("tenant_id")
+  fullName                     String                 @map("full_name") @db.VarChar(150)
+  email                        String                 @db.VarChar(150)
+  passwordHash                 String                 @map("password_hash")
+  phone                        String?                @db.VarChar(50)
+  avatarUrl                    String?                @map("avatar_url")
+  role                         UserRole               @default(cashier)
+  permissions                  Json                   @default("{}")
+  preferredLang                DefaultLanguage        @default(ht) @map("preferred_lang")
+  isActive                     Boolean                @default(true) @map("is_active")
+  lastLoginAt                  DateTime?              @map("last_login_at")
+  passwordResetToken           String?                @map("password_reset_token")
+  passwordResetExpires         DateTime?              @map("password_reset_expires")
+  createdBy                    String?                @map("created_by")
+  createdAt                    DateTime               @default(now()) @map("created_at")
+  updatedAt                    DateTime               @updatedAt @map("updated_at")
+  passwordChangedAt            DateTime?              @map("password_changed_at") @db.Timestamptz(6)
+  directQuotePin               String?                @map("direct_quote_pin") @db.VarChar(4)
+  action_pin_hash              String?
+  action_pin_attempts          Int?                   @default(0)
+  action_pin_locked_until      DateTime?              @db.Timestamptz(6)
+  activityLogs                 ActivityLog[]
+  branchUsers                  BranchUser[]
+  clients                      Client[]
+  directQuotesAuthorized       DirectQuote[]          @relation("DirectQuoteAuthorizedBy")
+  directQuotesCreated          DirectQuote[]          @relation("DirectQuoteCreatedBy")
+  dryOrdersCreated             DryOrder[]             @relation("DryOrderCreatedBy")
+  dryPaymentsCreated           DryPayment[]           @relation("DryPaymentCreatedBy")
   epayJounalyeContractsCreated EpayJounalyeContract[] @relation("EpayJounalyeCreatedBy")
   epayJounalyePaymentsCreated  EpayJounalyePayment[]  @relation("EpayJounalyePaymentCreatedBy")
-
-  // Hotel
-  hotelPaymentsCreated    HotelPayment[]     @relation("HotelPaymentCreatedBy")
-  hotelServicesCreated    HotelService[]     @relation("HotelServiceCreatedBy")
-  reservationsCreated     Reservation[]      @relation("ReservationCreatedBy")
-
-  // Dry
-  dryOrdersCreated        DryOrder[]         @relation("DryOrderCreatedBy")
-  dryPaymentsCreated      DryPayment[]       @relation("DryPaymentCreatedBy")
-
-  // Sabotay
-  sabotayMembersCreated   SabotayMember[]    @relation("SabotayMemberCreatedBy")
-  sabotayPaymentsCreated  SabotayPayment[]   @relation("SabotayPaymentCreatedBy")
-  sabotayPlansCreated     SabotayPlan[]      @relation("SabotayPlanCreatedBy")
+  hotelPaymentsCreated         HotelPayment[]         @relation("HotelPaymentCreatedBy")
+  hotelServicesCreated         HotelService[]         @relation("HotelServiceCreatedBy")
+  invoicesCancelled            Invoice[]              @relation("InvoiceCancelledBy")
+  invoicesCreated              Invoice[]              @relation("InvoiceCreatedBy")
+  kaneAccountsCreated          KaneEpay[]             @relation("KaneCreatedBy")
+  kaneTransactionsCreated      KaneTransaction[]      @relation("KaneTxCreatedBy")
+  klinik_services              klinik_services[]
+  notifications                Notification[]
+  payments                     Payment[]
+  pre_kapital                  pre_kapital[]
+  prePaiementsCreated          PrePaiement[]          @relation("PrePaiementCreatedBy")
+  pre_rapo_kesye               pre_rapo_kesye[]
+  pretsCreated                 Pre[]                  @relation("PreCreatedBy")
+  products                     Product[]
+  push_subscriptions           PushSubscription[]
+  quotesCreated                Quote[]                @relation("QuoteCreatedBy")
+  reservationsCreated          Reservation[]          @relation("ReservationCreatedBy")
+  sabotayMembersCreated        SabotayMember[]        @relation("SabotayMemberCreatedBy")
+  sabotayPaymentsCreated       SabotayPayment[]       @relation("SabotayPaymentCreatedBy")
+  sabotayPlansCreated          SabotayPlan[]          @relation("SabotayPlanCreatedBy")
+  stockMovements               StockMovement[]
+  tenant                       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@map("users")

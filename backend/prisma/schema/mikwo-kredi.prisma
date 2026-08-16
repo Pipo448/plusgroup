@@ -1,6 +1,3 @@
-// prisma/schema/mikwo-kredi.prisma
-// ─── Kanè Epay + Prè Mikwo Kredi ─────────────────────────────
-
 model KaneEpay {
   id             String            @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId       String            @map("tenant_id")
@@ -60,76 +57,63 @@ model KaneTransaction {
 }
 
 model Pre {
-  id                String      @id @default(dbgenerated("(gen_random_uuid())::text"))
-  tenantId          String      @map("tenant_id")
-  branchId          String?     @map("branch_id")
-  numeroPre         String      @map("numero_pre") @db.VarChar(30)
-  clientNom         String      @map("client_nom") @db.VarChar(200)
-  clientPhone       String?     @map("client_phone") @db.VarChar(50)
-  clientNifCin      String?     @map("client_nif_cin") @db.VarChar(50)
-  clientAdres       String?     @map("client_adres")
-  kontKaneEpayId    String?     @map("kont_kane_epay_id")
-  montant           Decimal     @db.Decimal(14, 2)
-  tauxInteret       Decimal     @map("taux_interet") @db.Decimal(6, 3)
-  dureeEnMois       Int         @map("duree_en_mois")
-  totalDu           Decimal     @default(0) @map("total_du") @db.Decimal(14, 2)
-  totalPaye         Decimal     @default(0) @map("total_paye") @db.Decimal(14, 2)
-  interetKouruTotal Decimal     @default(0) @map("interet_kouru_total") @db.Decimal(14, 2)
-  totalDuAjou       Decimal     @default(0) @map("total_du_ajou") @db.Decimal(14, 2)
-  montantBloke      Decimal     @default(0) @map("montant_bloke") @db.Decimal(14, 2)
-  datDebut          DateTime    @map("dat_debut") @db.Timestamptz(6)
-  datFin            DateTime?   @map("dat_fin") @db.Timestamptz(6)
-  periode           String      @default("mois") @db.VarChar(20)
-  methodDeseman     String      @default("cash") @map("method_deseman") @db.VarChar(20)
-  referenceDeseman  String?     @map("reference_deseman") @db.VarChar(200)
-  statut            PreStatut   @default(actif)
+  id                String          @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId          String          @map("tenant_id")
+  branchId          String?         @map("branch_id")
+  clientNom         String          @map("client_nom") @db.VarChar(200)
+  clientPhone       String?         @map("client_phone") @db.VarChar(50)
+  clientNifCin      String?         @map("client_nif_cin") @db.VarChar(50)
+  clientAdres       String?         @map("client_adres")
+  numeroPre         String          @map("numero_pre") @db.VarChar(30)
+  montant           Decimal         @db.Decimal(14, 2)
+  tauxInteret       Decimal         @map("taux_interet") @db.Decimal(6, 3)
+  dureeEnMois       Int             @map("duree_en_mois")
+  totalDu           Decimal         @default(0) @map("total_du") @db.Decimal(14, 2)
+  totalPaye         Decimal         @default(0) @map("total_paye") @db.Decimal(14, 2)
+  datDebut          DateTime        @default(now()) @map("dat_debut") @db.Timestamptz(6)
+  datFin            DateTime?       @map("dat_fin") @db.Timestamptz(6)
+  periode           String          @default("mois") @db.VarChar(20)
+  methodDeseman     String          @default("cash") @map("method_deseman") @db.VarChar(20)
+  referenceDeseman  String?         @map("reference_deseman") @db.VarChar(200)
+  statut            PreStatut       @default(actif)
   notes             String?
-  tipKalkil         String      @default("declining") @map("tip_kalkil") @db.VarChar(20)
-  avalize1Nom       String?     @map("avalize1_nom") @db.VarChar(200)
-  avalize1Phone     String?     @map("avalize1_phone") @db.VarChar(50)
-  avalize2Nom       String?     @map("avalize2_nom") @db.VarChar(200)
-  avalize2Phone     String?     @map("avalize2_phone") @db.VarChar(50)
-  garantiByens      String?     @map("garanti_byens")
-  createdBy         String?     @map("created_by")
-  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
-  branch            Branch?     @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  creator           User?       @relation("PreCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  kaneEpay          KaneEpay?   @relation(fields: [kontKaneEpayId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  createdBy         String?         @map("created_by")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  montantBloke      Decimal         @default(0) @map("montant_bloke") @db.Decimal(14, 2)
+  kontKaneEpayId    String?         @map("kont_kane_epay_id")
+  kapital_disponib  Decimal         @default(0) @db.Decimal(14, 2)
+  interetKouruTotal Decimal         @default(0) @map("interet_kouru_total") @db.Decimal(14, 2)
+  totalDuAjou       Decimal         @default(0) @map("total_du_ajou") @db.Decimal(14, 2)
+  avalize1Nom       String?         @map("avalize1_nom") @db.VarChar(200)
+  avalize1Phone     String?         @map("avalize1_phone") @db.VarChar(50)
+  avalize2Nom       String?         @map("avalize2_nom") @db.VarChar(200)
+  avalize2Phone     String?         @map("avalize2_phone") @db.VarChar(50)
+  garantiByens      String?         @map("garanti_byens")
+  tipKalkil         String          @default("declining") @map("tip_kalkil") @db.VarChar(20)
+  approved_by       String?
+  approved_at       DateTime?       @db.Timestamptz(6)
+  rejected_by       String?
+  rejected_at       DateTime?       @db.Timestamptz(6)
+  rejection_reason  String?
+  pre_echeances     pre_echeances[]
+  pre_kapital       pre_kapital[]
   paiements         PrePaiement[]
+  branch            Branch?         @relation(fields: [branchId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "prets_branch_fk")
+  creator           User?           @relation("PreCreatedBy", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "prets_creator_fk")
+  kaneEpay          KaneEpay?       @relation(fields: [kontKaneEpayId], references: [id], onUpdate: NoAction, map: "prets_kane_epay_fk")
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "prets_tenant_fk")
 
-  @@unique([tenantId, numeroPre])
-  @@index([tenantId])
-  @@index([tenantId, statut])
-  @@index([branchId])
-  @@index([createdAt])
+  @@unique([tenantId, numeroPre], map: "prets_tenant_numero_key")
+  @@index([branchId], map: "prets_branch_idx")
+  @@index([createdAt], map: "prets_created_idx")
+  @@index([tenantId, statut], map: "prets_statut_idx")
+  @@index([tenantId], map: "prets_tenant_idx")
   @@map("prets")
 }
 
-// ─── Epay Jounalye — Kontra Epay Fòse Chak Jou (ak Bonis Fidelite) ──
-// Kliyan angaje l peye yon montan fiks chak jou pandan yon peryòd
-// detèmine (3/6/9/12/24 mwa). Kalandriye a gen 30 kazye pou 30 "jou"
-// pou chak sik/mwa (pa mansyone dat/mwa reyèl). Si kliyan pa janm rate
-// yon jou pandan tout dire kontra a, li resevwa jou bonus anplis
-// (valè = jou bonus × montan chak jou) lè kontra a fini. Yon sèl jou
-// rate anile bonis la pou tout rès kontra a — pa gen "rekiperasyon".
-enum EpayJounalyeStatus {
-  active
-  completed
-  cancelled
-  // ⚠️ NOUVO — kliyan chwazi retire kòb li anvan tout jou yo fin peye,
-  // ak yon penalite (kontrèman ak "cancelled" ki se yon anilasyon
-  // administratif san okenn kalkil peman)
-  broken
-}
-
-// ⚠️ NOUVO — Paramèt Epay Jounalye pou chak tenant (kounye a admin ka
-// pèsonalize pousantaj penalite "Kase Kontra" a olye de valè fiks kòde).
-// Si pa gen liy pou yon tenant, backend la itilize valè default yo.
 model EpayJounalyeSettings {
   tenantId          String   @id @map("tenant_id")
-  // Tablo [{ maxPct: 0.25, rate: 0.15 }, ...] — menm fòma ak BREAK_PENALTY_TIERS
   breakPenaltyTiers Json     @map("break_penalty_tiers")
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_settings_tenant_fk")
@@ -149,33 +133,25 @@ model EpayJounalyeContract {
   clientAddress      String?               @map("client_address")
   dailyAmount        Decimal               @map("daily_amount") @db.Decimal(14, 2)
   currency           String                @default("HTG") @db.VarChar(10)
-  // Youn nan: 3, 6, 9, 12, 24 (mwa)
   durationMonths     Int                   @map("duration_months")
-  // durationMonths × 30 — total kazye/jou nan tout kontra a
   totalDaysPlanned   Int                   @map("total_days_planned")
-  // dailyAmount × totalDaysPlanned
   totalObjective     Decimal               @map("total_objective") @db.Decimal(14, 2)
-  // 3mo→2, 6mo→5, 9mo→10, 12mo→15, 24mo→20
   bonusDaysEligible  Int                   @map("bonus_days_eligible")
-  // Vin false pou tout rès kontra a depi kliyan rate yon jou (pa reversib)
   bonusStillEligible Boolean               @default(true) @map("bonus_still_eligible")
   daysPaid           Int                   @default(0) @map("days_paid")
   totalPaid          Decimal               @default(0) @map("total_paid") @db.Decimal(14, 2)
   startDate          DateTime              @map("start_date") @db.Date
   status             EpayJounalyeStatus    @default(active)
-  // totalPaid + (bonusStillEligible ? bonusDaysEligible×dailyAmount : 0), ranpli lè status=completed
   finalPayoutAmount  Decimal?              @map("final_payout_amount") @db.Decimal(14, 2)
   completedAt        DateTime?             @map("completed_at") @db.Timestamptz(6)
-  // ⚠️ NOUVO — ranpli lè status=broken (kase kontra anvan li fini)
-  // Pousantaj penalite a diminye selon % jou ki deja peye (pi bonè = pi cho)
-  breakPenaltyRate   Decimal?              @map("break_penalty_rate") @db.Decimal(5, 4)
-  breakPenaltyAmount Decimal?              @map("break_penalty_amount") @db.Decimal(14, 2)
-  breakRefundAmount  Decimal?              @map("break_refund_amount") @db.Decimal(14, 2)
-  brokenAt           DateTime?             @map("broken_at") @db.Timestamptz(6)
   notes              String?
   createdBy          String?               @map("created_by")
   createdAt          DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  breakPenaltyRate   Decimal?              @map("break_penalty_rate") @db.Decimal(5, 4)
+  breakPenaltyAmount Decimal?              @map("break_penalty_amount") @db.Decimal(14, 2)
+  breakRefundAmount  Decimal?              @map("break_refund_amount") @db.Decimal(14, 2)
+  brokenAt           DateTime?             @map("broken_at") @db.Timestamptz(6)
   branch             Branch?               @relation(fields: [branchId], references: [id], onUpdate: NoAction, map: "epay_jounalye_branch_fk")
   creator            User?                 @relation("EpayJounalyeCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction, map: "epay_jounalye_creator_fk")
   tenant             Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "epay_jounalye_tenant_fk")
@@ -191,9 +167,7 @@ model EpayJounalyePayment {
   id          String               @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId    String               @map("tenant_id")
   contractId  String               @map("contract_id")
-  // Sik/mwa nimewo (1, 2, 3...) nan dire kontra a
   cycleNumber Int                  @map("cycle_number")
-  // Pozisyon kazye a nan sik la (1-30)
   dayNumber   Int                  @map("day_number")
   amount      Decimal              @db.Decimal(14, 2)
   method      PaymentMethod        @default(cash)
@@ -223,12 +197,19 @@ model PrePaiement {
   notes        String?
   createdBy    String?       @map("created_by")
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  pre          Pre           @relation(fields: [preId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator      User?         @relation("PrePaiementCreatedBy", fields: [createdBy], references: [id], onUpdate: NoAction)
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  creator      User?         @relation("PrePaiementCreatedBy", fields: [createdBy], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pre_paiements_creator_fk")
+  pre          Pre           @relation(fields: [preId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_paiements_pre_fk")
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_paiements_tenant_fk")
 
-  @@index([preId])
-  @@index([tenantId])
-  @@index([createdAt])
+  @@index([createdAt], map: "pre_paiements_created_idx")
+  @@index([preId], map: "pre_paiements_pre_idx")
+  @@index([tenantId], map: "pre_paiements_tenant_idx")
   @@map("pre_paiements")
+}
+
+enum EpayJounalyeStatus {
+  active
+  completed
+  cancelled
+  broken
 }

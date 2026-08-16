@@ -1,68 +1,60 @@
-// prisma/schema/klinik.prisma
-// ─── Plus Klinik — Modèl Medikal ─────────────────────────────
-
 model KlinikPatient {
-  id               String        @id @default(uuid())
-  tenantId         String        @map("tenant_id")
-  numeroDossier    String        @unique @map("numero_dossier")
-  nom              String
-  prenom           String
-  dateNaissance    DateTime?     @map("date_naissance")
-  age              Int?
-  sexe             Sexe?         @default(AUTRE)  // ⭐ Opsyonèl pou Kes walk-in
-  adresse          String?
-  telephone        String?
-  email            String?
-  groupeSanguin    GroupeSanguin @default(INCONNU) @map("groupe_sanguin")
-  allergies        String?
-  antecedentsMed   String?       @map("antecedents_med")
-  antecedentsChir  String?       @map("antecedents_chir")
-  antecedentsFam   String?       @map("antecedents_fam")
-  photoUrl         String?       @map("photo_url")
-  assurance        String?
-  numAssurance     String?       @map("num_assurance")
-  // ⭐ Chan Kes — soti nan migration 001_kes_walk_in.sql
-  source           String?       // 'kes_walk_in' | 'appointment' | 'standard' | NULL
-  prisEnChargePar  String?       @map("pris_en_charge_par")  // non enfimyè/cashier
-  // ⭐ Chan responsab — soti nan migration 002
-  personneResponsable String?    @map("personne_responsable")  // paran/gadyen/akonpayan
-  isActive         Boolean       @default(true) @map("is_active")
-  notes            String?
-  createdAt        DateTime      @default(now()) @map("created_at")
-  updatedAt        DateTime      @updatedAt @map("updated_at")
-
-  tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  appointments     KlinikAppointment[]
-  consultations    KlinikConsultation[]
-  prescriptions    KlinikPrescription[]
-  labOrders        KlinikLabOrder[]
-  hospitalizations KlinikHospitalization[]
+  id                  String                  @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId            String                  @map("tenant_id")
+  numeroDossier       String                  @unique @map("numero_dossier")
+  nom                 String
+  prenom              String
+  dateNaissance       DateTime?               @map("date_naissance") @db.Timestamptz(6)
+  sexe                Sexe?                   @default(AUTRE)
+  adresse             String?
+  telephone           String?
+  email               String?
+  groupeSanguin       GroupeSanguin           @default(INCONNU) @map("groupe_sanguin")
+  allergies           String?
+  antecedentsMed      String?                 @map("antecedents_med")
+  antecedentsChir     String?                 @map("antecedents_chir")
+  antecedentsFam      String?                 @map("antecedents_fam")
+  photoUrl            String?                 @map("photo_url")
+  assurance           String?
+  numAssurance        String?                 @map("num_assurance")
+  isActive            Boolean                 @default(true) @map("is_active")
+  notes               String?
+  createdAt           DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime                @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  source              String?
+  prisEnChargePar     String?                 @map("pris_en_charge_par")
+  personneResponsable String?                 @map("personne_responsable")
+  age                 Int?
+  appointments        KlinikAppointment[]
+  consultations       KlinikConsultation[]
+  hospitalizations    KlinikHospitalization[]
+  labOrders           KlinikLabOrder[]
+  tenant              Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  prescriptions       KlinikPrescription[]
+  klinik_services     klinik_services[]
 
   @@index([tenantId])
-  @@index([numeroDossier])
-  @@index([tenantId, source])  // ⭐ Pou rapò Kes pi rapid
   @@map("klinik_patients")
 }
 
 model KlinikAppointment {
-  id           String             @id @default(uuid())
-  tenantId     String             @map("tenant_id")
-  patientId    String             @map("patient_id")
-  doctorName   String             @map("doctor_name")
-  dateHeure    DateTime           @map("date_heure")
-  dureeMin     Int                @default(30) @map("duree_min")
+  id           String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId     String              @map("tenant_id")
+  patientId    String              @map("patient_id")
+  doctorName   String              @map("doctor_name")
+  dateHeure    DateTime            @map("date_heure") @db.Timestamptz(6)
+  dureeMin     Int                 @default(30) @map("duree_min")
   motif        String
-  statut       AppointmentStatut  @default(en_attente)
+  statut       AppointmentStatut   @default(en_attente)
   notes        String?
-  prix         Float?             // ⭐ Pri randevou (HTG)
-  recurrence   String?            @default("none") // none | weekly | biweekly | monthly
-  recurEnd     DateTime?          @map("recur_end") // Dat fen si rekiran
-  createdBy    String?            @map("created_by")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  updatedAt    DateTime           @updatedAt @map("updated_at")
-
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
+  createdBy    String?             @map("created_by")
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  prix         Float?
+  recurrence   String?             @default("none")
+  recurEnd     DateTime?           @map("recur_end") @db.Timestamp(6)
+  patient      KlinikPatient       @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   consultation KlinikConsultation?
 
   @@index([tenantId])
@@ -72,50 +64,42 @@ model KlinikAppointment {
 }
 
 model KlinikConsultation {
-  id             String             @id @default(uuid())
-  tenantId       String             @map("tenant_id")
-  patientId      String             @map("patient_id")
-  appointmentId  String?            @unique @map("appointment_id")
-  doctorName     String             @map("doctor_name")
-  date           DateTime           @default(now())
-  statut         ConsultationStatut @default(brouillon)
-
-  // Siy vital
-  poidsKg        Float?  @map("poids_kg")
-  tailleCm       Float?  @map("taille_cm")
-  tensionSys     Int?    @map("tension_sys")
-  tensionDia     Int?    @map("tension_dia")
-  temperature    Float?
-  pouls          Int?
-  spo2           Int?
-  glycemie       Float?
-  // ⭐ Nouvo siy vital (Enfimyè)
-  fc             Int?
-  fr             Int?
-  saO2           Int?    @map("sa_o2")
-
-  // Klinik
+  id                 String               @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId           String               @map("tenant_id")
+  patientId          String               @map("patient_id")
+  appointmentId      String?              @unique @map("appointment_id")
+  doctorName         String               @map("doctor_name")
+  date               DateTime             @default(now()) @db.Timestamptz(6)
+  statut             ConsultationStatut   @default(brouillon)
+  poidsKg            Float?               @map("poids_kg")
+  tailleCm           Float?               @map("taille_cm")
+  tensionSys         Int?                 @map("tension_sys")
+  tensionDia         Int?                 @map("tension_dia")
+  temperature        Float?
+  pouls              Int?
+  spo2               Int?
+  glycemie           Float?
   motif              String?
   anamnese           String?
-  examenClinique     String? @map("examen_clinique")
+  examenClinique     String?              @map("examen_clinique")
   diagnostic         String?
   traitement         String?
-  notesInternes      String? @map("notes_internes")
-  // ⭐ Nouvo chan klinik (Doktè)
+  notesInternes      String?              @map("notes_internes")
+  createdBy          String?              @map("created_by")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime             @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  fc                 Int?
+  fr                 Int?
+  saO2               Int?                 @map("sa_o2")
   antecedents        String?
   rfa                String?
-  impressionClinique String? @map("impression_clinique")
+  impressionClinique String?              @map("impression_clinique")
   paraclinique       String?
-
-  createdBy      String? @map("created_by")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  tenant        Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient       KlinikPatient       @relation(fields: [patientId], references: [id])
-  appointment   KlinikAppointment?  @relation(fields: [appointmentId], references: [id])
-  prescriptions KlinikPrescription[]
-  labOrders     KlinikLabOrder[]
+  appointment        KlinikAppointment?   @relation(fields: [appointmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  patient            KlinikPatient        @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant             Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  labOrders          KlinikLabOrder[]
+  prescriptions      KlinikPrescription[]
 
   @@index([tenantId])
   @@index([patientId])
@@ -123,21 +107,20 @@ model KlinikConsultation {
 }
 
 model KlinikPrescription {
-  id             String             @id @default(uuid())
-  tenantId       String             @map("tenant_id")
-  consultationId String?            @map("consultation_id")
-  patientId      String             @map("patient_id")
-  doctorName     String             @map("doctor_name")
-  date           DateTime           @default(now())
-  statut         PrescriptionStatut @default(active)
+  id             String                   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId       String                   @map("tenant_id")
+  consultationId String?                  @map("consultation_id")
+  patientId      String                   @map("patient_id")
+  doctorName     String                   @map("doctor_name")
+  date           DateTime                 @default(now()) @db.Timestamptz(6)
+  statut         PrescriptionStatut       @default(active)
   notes          String?
-  createdAt      DateTime           @default(now()) @map("created_at")
-  updatedAt      DateTime           @updatedAt @map("updated_at")
-
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
-  consultation KlinikConsultation? @relation(fields: [consultationId], references: [id])
-  items        KlinikPrescriptionItem[]
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  items          KlinikPrescriptionItem[]
+  consultation   KlinikConsultation?      @relation(fields: [consultationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  patient        KlinikPatient            @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant         Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenantId])
   @@index([patientId])
@@ -145,36 +128,34 @@ model KlinikPrescription {
 }
 
 model KlinikPrescriptionItem {
-  id             String   @id @default(uuid())
-  prescriptionId String   @map("prescription_id")
-  medicamentNom  String   @map("medicament_nom")
+  id             String             @id @default(dbgenerated("(gen_random_uuid())::text"))
+  prescriptionId String             @map("prescription_id")
+  medicamentNom  String             @map("medicament_nom")
   dosage         String
   frequence      String
   duree          String
   instructions   String?
-  quantite       Int      @default(1)
-
-  prescription KlinikPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  quantite       Int                @default(1)
+  prescription   KlinikPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("klinik_prescription_items")
 }
 
 model KlinikLabOrder {
-  id             String         @id @default(uuid())
-  tenantId       String         @map("tenant_id")
-  consultationId String?        @map("consultation_id")
-  patientId      String         @map("patient_id")
-  doctorName     String         @map("doctor_name")
-  dateCommande   DateTime       @default(now()) @map("date_commande")
-  statut         LabOrderStatut @default(en_attente)
+  id             String              @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenantId       String              @map("tenant_id")
+  consultationId String?             @map("consultation_id")
+  patientId      String              @map("patient_id")
+  doctorName     String              @map("doctor_name")
+  dateCommande   DateTime            @default(now()) @map("date_commande") @db.Timestamptz(6)
+  statut         LabOrderStatut      @default(en_attente)
   notes          String?
-  createdAt      DateTime       @default(now()) @map("created_at")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
-
-  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient      KlinikPatient       @relation(fields: [patientId], references: [id])
-  consultation KlinikConsultation? @relation(fields: [consultationId], references: [id])
-  items        KlinikLabItem[]
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  items          KlinikLabItem[]
+  consultation   KlinikConsultation? @relation(fields: [consultationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  patient        KlinikPatient       @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenantId])
   @@index([patientId])
@@ -182,45 +163,43 @@ model KlinikLabOrder {
 }
 
 model KlinikLabItem {
-  id            String    @id @default(uuid())
-  labOrderId    String    @map("lab_order_id")
-  testNom       String    @map("test_nom")
-  testCode      String?   @map("test_code")
-  valeurNormale String?   @map("valeur_normale")
+  id            String         @id @default(dbgenerated("(gen_random_uuid())::text"))
+  labOrderId    String         @map("lab_order_id")
+  testNom       String         @map("test_nom")
+  testCode      String?        @map("test_code")
+  valeurNormale String?        @map("valeur_normale")
   valeur        String?
   unite         String?
-  estAnormal    Boolean   @default(false) @map("est_anormal")
-  notesResultat String?   @map("notes_resultat")
-  dateResultat  DateTime? @map("date_resultat")
-
-  labOrder KlinikLabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  estAnormal    Boolean        @default(false) @map("est_anormal")
+  notesResultat String?        @map("notes_resultat")
+  dateResultat  DateTime?      @map("date_resultat") @db.Timestamptz(6)
+  labOrder      KlinikLabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("klinik_lab_items")
 }
 
 model KlinikHospitalization {
-  id              String                @id @default(uuid())
+  id              String                @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId        String                @map("tenant_id")
   patientId       String                @map("patient_id")
   doctorName      String                @map("doctor_name")
-  dateAdmission   DateTime              @default(now()) @map("date_admission")
-  dateDecharge    DateTime?             @map("date_decharge")
-  numeroChambre   String?               @map("numero_chambre")
+  dateAdmission   DateTime              @default(now()) @map("date_admission") @db.Timestamptz(6)
+  dateDecharge    DateTime?             @map("date_decharge") @db.Timestamptz(6)
   chambre         String?
   lit             String?
   motifAdmission  String                @map("motif_admission")
-  diagnostic      String?
   diagnosticFinal String?               @map("diagnostic_final")
-  traitement      String?
   statut          HospitalizationStatut @default(admis)
   notes           String?
-  signeVitaux     Json?                 @map("signe_vitaux") // ⭐ Array mesirman Siy Vito
-  protokol        Json?                 // ⭐ Protocole thérapeutique (I-VI)
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
-
-  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  patient KlinikPatient @relation(fields: [patientId], references: [id])
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  signeVitaux     Json?                 @default("[]") @map("signe_vitaux")
+  numeroChambre   String?               @map("numero_chambre")
+  diagnostic      String?
+  traitement      String?
+  protokol        Json?                 @default("{}")
+  patient         KlinikPatient         @relation(fields: [patientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant          Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([tenantId])
   @@index([patientId])

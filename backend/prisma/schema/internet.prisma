@@ -1,85 +1,86 @@
-// prisma/schema/internet.prisma
-
 model internet_tenants {
-  id               Int      @id @default(autoincrement())
+  id               Int                 @id @default(autoincrement())
   name             String
   owner_name       String?
   phone            String?
   email            String?
-  slug             String   @unique
-  active           Boolean  @default(true)
-  created_at       DateTime @default(now())
-  manager_name     String?
-  manager_email    String?  @unique
+  slug             String              @unique
+  active           Boolean?            @default(true)
+  created_at       DateTime?           @default(now()) @db.Timestamptz(6)
+  manager_email    String?
   manager_password String?
-  hotspot_message String?
-
-  clients  internet_clients[]
-  configs  mikrotik_config[]
-  payments internet_payments[]
-  plans    internet_plans[]
+  manager_name     String?
+  hotspot_message  String?
+  clients          internet_clients[]
+  payments         internet_payments[]
+  plans            internet_plans[]
+  configs          mikrotik_config[]
 }
 
 model internet_plans {
-  id                 Int      @id @default(autoincrement())
+  id                 Int                @id @default(autoincrement())
   internet_tenant_id Int?
   name               String
   mikrotik_profile   String
   speed_mbps         Int
   duration_days      Int
-  price_htg          Decimal? @db.Decimal(10, 2)
+  price_htg          Decimal?           @db.Decimal(10, 2)
   data_limit_gb      Int?
-  max_devices        Int      @default(1)
-  active             Boolean  @default(true)
-  created_at         DateTime @default(now())
+  max_devices        Int?               @default(1)
+  active             Boolean?           @default(true)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  clients            internet_clients[]
+  tenant             internet_tenants?  @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  tenant  internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
-  clients internet_clients[]
+  @@index([internet_tenant_id], map: "idx_inet_plans_tenant")
 }
 
 model internet_clients {
-  id                 Int       @id @default(autoincrement())
-  internet_tenant_id Int?
-  plan_id            Int?
+  id                 Int                 @id @default(autoincrement())
   full_name          String
-  phone              String?
+  phone              String
   email              String?
-  mikrotik_username  String    @unique
+  mikrotik_username  String              @unique
   mikrotik_password  String
   plan_name          String?
-  expires_at         DateTime?
-  activated_at       DateTime? @default(now())
-  created_at         DateTime  @default(now())
+  created_at         DateTime?           @default(now()) @db.Timestamptz(6)
+  internet_tenant_id Int?
+  plan_id            Int?
+  expires_at         DateTime?           @db.Timestamptz(6)
+  activated_at       DateTime?           @default(now()) @db.Timestamptz(6)
+  tenant             internet_tenants?   @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  plan               internet_plans?     @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payments           internet_payments[]
 
-  tenant   internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
-  plan     internet_plans?   @relation(fields: [plan_id], references: [id])
-  payments internet_payments[]
+  @@index([internet_tenant_id], map: "idx_inet_clients_tenant")
 }
 
 model mikrotik_config {
-  id                 Int      @id @default(autoincrement())
-  internet_tenant_id Int?
+  id                 Int               @id @default(autoincrement())
   host               String
-  port               Int      @default(8728)
+  port               Int?              @default(8728)
   username           String
   password           String
-  use_ssl            Boolean  @default(false)
-  created_at         DateTime @default(now())
+  use_ssl            Boolean?          @default(false)
+  created_at         DateTime?         @default(now()) @db.Timestamptz(6)
+  internet_tenant_id Int?
+  tenant             internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
-  tenant internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: Cascade)
+  @@index([internet_tenant_id], map: "idx_inet_config_tenant")
 }
 
 model internet_payments {
-  id                 Int      @id @default(autoincrement())
-  internet_tenant_id Int?
-  client_id          Int
-  amount             Decimal  @db.Decimal(10, 2)
-  currency           String   @default("HTG")
+  id                 Int               @id @default(autoincrement())
+  client_id          Int?
+  amount             Decimal?          @db.Decimal(10, 2)
+  currency           String?           @default("HTG")
   plan_name          String?
   duration_days      Int?
-  paid_at            DateTime @default(now())
+  paid_at            DateTime?         @default(now()) @db.Timestamptz(6)
   renewed_by         String?
+  internet_tenant_id Int?
+  client             internet_clients? @relation(fields: [client_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tenant             internet_tenants? @relation(fields: [internet_tenant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  tenant internet_tenants? @relation(fields: [internet_tenant_id], references: [id])
-  client internet_clients  @relation(fields: [client_id], references: [id])
+  @@index([internet_tenant_id], map: "idx_inet_payments_tenant")
 }

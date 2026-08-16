@@ -1,0 +1,289 @@
+model admin_finances {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id    String
+  type         String
+  category     String?
+  description  String
+  amount       Decimal   @default(0) @db.Decimal(14, 2)
+  cost_price   Decimal?  @db.Decimal(14, 2)
+  sell_price   Decimal?  @db.Decimal(14, 2)
+  profit       Decimal?  @db.Decimal(14, 2)
+  quantity     Int?      @default(1)
+  person_name  String?
+  person_phone String?
+  date         DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date     DateTime? @db.Date
+  is_paid      Boolean?  @default(false)
+  status       String?   @default("active")
+  notes        String?
+  created_by   String?
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id, date], map: "idx_admin_fin_date")
+  @@index([tenant_id], map: "idx_admin_fin_tenant")
+  @@index([tenant_id, type], map: "idx_admin_fin_type")
+}
+
+model admin_inventory {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String
+  name          String
+  description   String?
+  cost_price    Decimal   @default(0) @db.Decimal(14, 2)
+  sell_price    Decimal   @default(0) @db.Decimal(14, 2)
+  quantity      Int       @default(0)
+  quantity_sold Int       @default(0)
+  status        String?   @default("active")
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id], map: "idx_admin_inv_tenant")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model direct_quote_items_image_backup_20260723 {
+  id        String?
+  image_url String?
+
+  @@ignore
+}
+
+model klinik_employees {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String
+  nom            String           @db.VarChar(100)
+  prenom         String           @db.VarChar(100)
+  poste          String           @db.VarChar(50)
+  telephone      String?          @db.VarChar(20)
+  email          String?          @db.VarChar(100)
+  adresse        String?
+  date_embauche  DateTime?        @db.Date
+  salaire_base   Decimal?         @default(0) @db.Decimal(10, 2)
+  statut         String?          @default("actif") @db.VarChar(20)
+  notes          String?
+  created_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime?        @default(now()) @db.Timestamptz(6)
+  tenants        Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  klinik_payroll klinik_payroll[]
+
+  @@index([tenant_id], map: "idx_klinik_emp_tenant")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model klinik_lot_depans {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String   @db.Uuid
+  kategori    String
+  description String
+  montan      Decimal  @db.Decimal(12, 2)
+  dat         DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  created_by  String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([tenant_id], map: "idx_klinik_lot_depans_tenant")
+  @@index([tenant_id, dat(sort: Desc)], map: "idx_klinik_lot_depans_tenant_dat")
+  @@index([tenant_id, kategori], map: "idx_klinik_lot_depans_tenant_kategori")
+}
+
+model klinik_payroll {
+  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id        String
+  employee_id      String           @db.Uuid
+  mois             String           @db.VarChar(7)
+  salaire_base     Decimal?         @default(0) @db.Decimal(10, 2)
+  bonus            Decimal?         @default(0) @db.Decimal(10, 2)
+  deduction        Decimal?         @default(0) @db.Decimal(10, 2)
+  salaire_net      Decimal?         @default(0) @db.Decimal(10, 2)
+  statut           String?          @default("en_attente") @db.VarChar(20)
+  date_paiement    DateTime?        @db.Date
+  methode_paiement String?          @db.VarChar(30)
+  notes            String?
+  created_by       String?
+  created_at       DateTime?        @default(now()) @db.Timestamptz(6)
+  klinik_employees klinik_employees @relation(fields: [employee_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants          Tenant           @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([employee_id], map: "idx_klinik_pay_employee")
+  @@index([mois], map: "idx_klinik_pay_mois")
+}
+
+model klinik_services {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id       String
+  patient_id      String?
+  service_type    String         @db.VarChar(50)
+  price_htg       Decimal?       @default(0) @db.Decimal(10, 2)
+  status          String?        @default("peye") @db.VarChar(20)
+  notes           String?
+  performed_by    String?        @db.VarChar(100)
+  created_by      String?
+  created_at      DateTime?      @default(now()) @db.Timestamptz(6)
+  users           User?          @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  klinik_patients KlinikPatient? @relation(fields: [patient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tenants         Tenant         @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([patient_id], map: "idx_klinik_services_patient")
+  @@index([tenant_id], map: "idx_klinik_services_tenant")
+  @@index([service_type], map: "idx_klinik_services_type")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model klinik_settings {
+  tenant_id        String   @id @db.Uuid
+  profil           Json     @default("{}")
+  tarifs           Json     @default("{}")
+  modil            Json     @default("{}")
+  enpresyon        Json     @default("{}")
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+  custom_services  Json?    @default("[]")
+  custom_lab_tests Json?    @default("[]")
+}
+
+model klinik_ventes {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id      String   @db.Uuid
+  product_id     String?  @db.Uuid
+  product_name   String
+  quantite       Int      @default(1)
+  price_htg      Decimal  @default(0) @db.Decimal(12, 2)
+  cost_price_htg Decimal  @default(0) @db.Decimal(12, 2)
+  total_vant     Decimal  @default(0) @db.Decimal(12, 2)
+  total_cout     Decimal  @default(0) @db.Decimal(12, 2)
+  total_benefi   Decimal  @default(0) @db.Decimal(12, 2)
+  kliyan         String?
+  note           String?
+  created_by     String?  @db.Uuid
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([created_at(sort: Desc)], map: "idx_klinik_ventes_date")
+  @@index([product_id], map: "idx_klinik_ventes_product")
+  @@index([tenant_id], map: "idx_klinik_ventes_tenant")
+}
+
+model mikwo_expenses {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String
+  titre       String    @db.VarChar(150)
+  montant     Decimal   @db.Decimal(12, 2)
+  categorie   String?   @default("Lòt") @db.VarChar(50)
+  date_depans DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  created_by  String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([date_depans], map: "idx_mikwo_exp_date")
+  @@index([tenant_id], map: "idx_mikwo_exp_tenant")
+}
+
+model pg_employees {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id     String
+  nom           String    @db.VarChar(100)
+  prenom        String?   @db.VarChar(100)
+  titre         String    @db.VarChar(100)
+  telephone     String?   @db.VarChar(20)
+  email         String?   @db.VarChar(100)
+  salaire       Decimal?  @db.Decimal(10, 2)
+  date_embauche DateTime? @db.Date
+  statut        String?   @default("actif") @db.VarChar(20)
+  notes         String?
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+  tenants       Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([tenant_id], map: "idx_pg_emp_tenant")
+}
+
+model pg_expenses {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenant_id   String
+  titre       String    @db.VarChar(150)
+  montant     Decimal   @db.Decimal(10, 2)
+  categorie   String?   @db.VarChar(50)
+  date_depans DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes       String?
+  created_by  String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  tenants     Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([date_depans], map: "idx_pg_exp_date")
+  @@index([tenant_id], map: "idx_pg_exp_tenant")
+}
+
+model pre_echeances {
+  id              String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id       String
+  pre_id          String
+  numero          Int
+  dat_limit       DateTime  @db.Date
+  montant_capital Decimal   @default(0) @db.Decimal(14, 2)
+  montant_interet Decimal   @default(0) @db.Decimal(14, 2)
+  montant_total   Decimal   @default(0) @db.Decimal(14, 2)
+  balans_avant    Decimal   @default(0) @db.Decimal(14, 2)
+  balans_apre     Decimal   @default(0) @db.Decimal(14, 2)
+  statut          String    @default("attente") @db.VarChar(20)
+  montant_paye    Decimal   @default(0) @db.Decimal(14, 2)
+  dat_paye        DateTime? @db.Date
+  interet_kouru   Decimal   @default(0) @db.Decimal(14, 2)
+  jou_reta        Int       @default(0)
+  paiement_id     String?
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+  prets           Pre       @relation(fields: [pre_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_echeances_pre_fk")
+  tenants         Tenant    @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_echeances_tenant_fk")
+
+  @@index([dat_limit], map: "pre_echeances_dat_idx")
+  @@index([pre_id], map: "pre_echeances_pre_idx")
+  @@index([pre_id, statut], map: "pre_echeances_statut_idx")
+  @@index([tenant_id], map: "pre_echeances_tenant_idx")
+}
+
+model pre_kapital {
+  id         String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id  String
+  montant    Decimal  @db.Decimal(14, 2)
+  type       String   @default("enjeksyon") @db.VarChar(20)
+  pre_id     String?
+  notes      String?
+  created_by String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      User?    @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pre_kapital_creator_fk")
+  prets      Pre?     @relation(fields: [pre_id], references: [id], onUpdate: NoAction, map: "pre_kapital_pre_fk")
+  tenants    Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_kapital_tenant_fk")
+
+  @@index([created_at], map: "pre_kapital_created_idx")
+  @@index([tenant_id], map: "pre_kapital_tenant_idx")
+}
+
+model pre_rapo_kesye {
+  id              String   @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id       String
+  user_id         String
+  date_rapo       DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+  total_pre_kreye Int      @default(0)
+  montant_deseman Decimal  @default(0) @db.Decimal(14, 2)
+  total_koleksyon Decimal  @default(0) @db.Decimal(14, 2)
+  total_entere    Decimal  @default(0) @db.Decimal(14, 2)
+  nb_paieman      Int      @default(0)
+  notes           String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  tenants         Tenant   @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pre_rapo_tenant_fk")
+  users           User     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pre_rapo_user_fk")
+
+  @@index([date_rapo], map: "pre_rapo_date_idx")
+  @@index([tenant_id], map: "pre_rapo_tenant_idx")
+  @@index([user_id], map: "pre_rapo_user_idx")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model products_image_backup_20260723 {
+  id        String?
+  image_url String?
+
+  @@ignore
+}

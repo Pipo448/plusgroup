@@ -1,6 +1,3 @@
-// prisma/schema/main.prisma
-// ─── Generator + Datasource + Tout Enums ─────────────────────
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["prismaSchemaFolder"]
@@ -11,8 +8,6 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
-
-// ─── ENUMS ────────────────────────────────────────────────────
 
 enum TenantStatus {
   pending
@@ -124,8 +119,6 @@ enum PreStatut {
   cloture
   annule
 }
-
-// ─── Enums Klinik ─────────────────────────────────────────────
 
 enum Sexe {
   M
