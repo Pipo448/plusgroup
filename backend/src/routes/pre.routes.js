@@ -8,6 +8,7 @@ const router = express.Router()
 const prisma = require('../config/prisma')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 const { extractBranch }                = require('../middleware/branch')
+const { verifyPin }                    = require('../modules/security/pin.service')
 
 router.use(identifyTenant, authenticate, extractBranch)
 
@@ -67,6 +68,39 @@ async function getKapitalDisponib(tenantId) {
   return Math.max(0, disponib)
 }
 
+// ✅ PAR (Portfolio At Risk) — pòsantaj pòtfèy ki gen echeans an reta ≥30/60/90 jou
+async function getPAR(tenantId) {
+  const rows = await prisma.$queryRaw`
+    WITH loan_max_late AS (
+      SELECT p.id AS pre_id,
+             GREATEST(0, p.total_du + COALESCE(p.interet_kouru_total,0) - p.total_paye) AS outstanding,
+             COALESCE(MAX(e.jou_reta), 0) AS max_jou_reta
+      FROM prets p
+      LEFT JOIN pre_echeances e ON e.pre_id = p.id AND e.statut IN ('reta','partiel')
+      WHERE p.tenant_id = ${tenantId} AND p.statut IN ('actif','reta')
+      GROUP BY p.id, p.total_du, p.interet_kouru_total, p.total_paye
+    )
+    SELECT
+      COALESCE(SUM(outstanding), 0) AS total_outstanding,
+      COALESCE(SUM(outstanding) FILTER (WHERE max_jou_reta >= 1),  0) AS par_1,
+      COALESCE(SUM(outstanding) FILTER (WHERE max_jou_reta >= 30), 0) AS par_30,
+      COALESCE(SUM(outstanding) FILTER (WHERE max_jou_reta >= 60), 0) AS par_60,
+      COALESCE(SUM(outstanding) FILTER (WHERE max_jou_reta >= 90), 0) AS par_90
+    FROM loan_max_late
+  `
+  const r = rows[0] || {}
+  const total = Number(r.total_outstanding || 0)
+  const par1  = Number(r.par_1  || 0)
+  const par30 = Number(r.par_30 || 0)
+  const par60 = Number(r.par_60 || 0)
+  const par90 = Number(r.par_90 || 0)
+  const pct = (n) => total > 0 ? Math.round((n / total) * 10000) / 100 : 0
+  return {
+    total, par1, par30, par60, par90,
+    par1Ratio: pct(par1), par30Ratio: pct(par30), par60Ratio: pct(par60), par90Ratio: pct(par90),
+  }
+}
+
 async function majInteretKouru(tenantId) {
   const aujourdui = new Date()
   const ech = await prisma.$queryRaw`
@@ -105,17 +139,27 @@ router.get('/stats', async (req, res) => {
 
     await majInteretKouru(tenantId)
 
-    const [totalPrets, pretsActifs, pretsEnReta, portAgg, desMwaAgg, kolMwaAgg, desJodiAgg, kolJodiAgg] = await Promise.all([
+    const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, portAgg, kolMwaAgg, kolJodiAgg] = await Promise.all([
       prisma.pre.count({ where: { tenantId } }),
       prisma.pre.count({ where: { tenantId, statut: 'actif' } }),
       prisma.pre.count({ where: { tenantId, statut: 'reta'  } }),
-      prisma.pre.aggregate({ where: { tenantId, statut: { in: ['actif','reta','attente'] } }, _sum: { montant: true } }),
-      prisma.pre.aggregate({ where: { tenantId, statut: { not: 'annule' }, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
+      prisma.pre.count({ where: { tenantId, statut: 'attente' } }),
+      // ✅ Pòtfèy = lajan REYÈLMAN deyò (aktif + an reta) — pa gen 'attente', li poko dekèse
+      prisma.pre.aggregate({ where: { tenantId, statut: { in: ['actif','reta'] } }, _sum: { montant: true } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
-      // ✅ Dekèsman jodi a
-      prisma.pre.aggregate({ where: { tenantId, statut: { not: 'annule' }, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
-      // ✅ Koleksyon jodi a
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
+    ])
+
+    // ✅ Dekèsman = lè lajan REYÈLMAN soti, sa vle di lè admin APWOUVE (approved_at) — pa lè demand kreye
+    const [desMwaAgg, desJodiAgg] = await Promise.all([
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant),0) as total FROM prets
+        WHERE tenant_id = ${tenantId} AND approved_at >= ${debiMwa}
+      `,
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant),0) as total FROM prets
+        WHERE tenant_id = ${tenantId} AND approved_at >= ${debiJodi}
+      `,
     ])
 
     const interetKouruAgg = await prisma.$queryRaw`
@@ -123,16 +167,18 @@ router.get('/stats', async (req, res) => {
       FROM pre_echeances WHERE tenant_id = ${tenantId} AND statut IN ('reta','partiel')
     `
     const kapitalDisponib = await getKapitalDisponib(tenantId)
+    const par = await getPAR(tenantId)
 
     return res.json({ stats: {
-      totalPrets, pretsActifs, totalEnReta: pretsEnReta,
+      totalPrets, pretsActifs, totalEnReta: pretsEnReta, pretsAnAtant,
       totalPortfeuye:    Number(portAgg._sum.montant    || 0),
-      totalDesèmanMwa:   Number(desMwaAgg._sum.montant  || 0),
+      totalDesèmanMwa:   Number(desMwaAgg[0]?.total  || 0),
       totalPaiemanMwa:   Number(kolMwaAgg._sum.montant  || 0),
-      totalDesèmanJodi:  Number(desJodiAgg._sum.montant || 0),  // ✅
-      totalPaiemanJodi:  Number(kolJodiAgg._sum.montant || 0),  // ✅
+      totalDesèmanJodi:  Number(desJodiAgg[0]?.total || 0),
+      totalPaiemanJodi:  Number(kolJodiAgg._sum.montant || 0),
       enterèKouruTotal:  Number(interetKouruAgg[0]?.total || 0),
       kapitalDisponib,
+      par,
     }})
   } catch (err) {
     console.error('[PRE /stats]', err)
@@ -290,6 +336,8 @@ router.delete('/kapital/:id', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+    try { await verifyPin(req.user.id, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
     const rows = await prisma.$queryRaw`
       SELECT id, type FROM pre_kapital
       WHERE id = ${req.params.id} AND tenant_id = ${tenantId}
@@ -481,7 +529,7 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
           totalDu: totalDuRonde, totalPaye: 0, totalDuAjou: totalDuRonde,
           datDebut: debut, datFin, periode: periode||'mois',
           methodDeseman: method||'cash', referenceDeseman: reference||null,
-          notes: notes||null, statut: 'actif', createdBy: userId,
+          notes: notes||null, statut: 'attente', createdBy: userId,
           avalize1Nom:   req.body.avalize1Nom   || null,
           avalize1Phone: req.body.avalize1Phone || null,
           avalize2Nom:   req.body.avalize2Nom   || null,
@@ -505,11 +553,7 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
       return p
     }, { maxWait: 15000, timeout: 30000 })  // ✅ FIX timeout
 
-    // ✅ KÒRÈK — sèvi ak pre.numeroPre
-await prisma.$executeRaw`
-  INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
-  VALUES (${tenantId}, ${Number(montant)}, 'pre', ${pre.id}, ${`Dekèsman ${pre.numeroPre}`}, ${userId})
-`
+    // ✅ Dekèsman kapital rive sèlman lè admin APWOUVE prè a (wè /approve)
 
     const echCreye = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${pre.id} ORDER BY numero
@@ -552,6 +596,8 @@ router.delete('/:id', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+    try { await verifyPin(req.user.id, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
 
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
@@ -583,6 +629,8 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+    try { await verifyPin(req.user.id, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
 
     const paiement = await prisma.prePaiement.findFirst({
       where: { id: req.params.paiementId, tenantId, preId: req.params.id }
@@ -668,6 +716,7 @@ router.post('/:id/paiement', async (req, res) => {
     if (!pre)                     return res.status(404).json({ message: 'Prè pa jwenn.'     })
     if (pre.statut === 'cloture') return res.status(400).json({ message: 'Prè deja klotire.' })
     if (pre.statut === 'annule')  return res.status(400).json({ message: 'Prè sa anile.'     })
+    if (pre.statut === 'attente') return res.status(400).json({ message: 'Prè sa poko apwouve — pa gen lajan ki dekèse.' })
 
     await majInteretKouru(tenantId)
 
@@ -808,6 +857,70 @@ router.post('/:id/cloture', async (req, res) => {
     const preMajou = await prisma.pre.update({ where: { id }, data: { statut: 'cloture' } })
     return res.json({ pre: preMajou })
   } catch (err) { return res.status(500).json({ message: 'Erè sèvè.' }) }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ POST /pre/:id/approve — Admin apwouve + dekèse (+ PIN)
+// ═══════════════════════════════════════════════════════════════
+router.post('/:id/approve', async (req, res) => {
+  try {
+    const { tenantId, userId } = getTB(req)
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+    try { await verifyPin(userId, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
+
+    const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
+    if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
+    if (pre.statut !== 'attente') return res.status(400).json({ message: 'Prè sa deja trete (pa an atant ankò).' })
+
+    const kapitalDisponib = await getKapitalDisponib(tenantId)
+    if (Number(pre.montant) > kapitalDisponib) {
+      return res.status(400).json({ message: `Kapital pa sifi. Disponib: ${kapitalDisponib.toFixed(2)} HTG, Prè: ${Number(pre.montant).toFixed(2)} HTG.` })
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        UPDATE prets SET statut = 'actif'::"PreStatut", approved_by = ${userId}, approved_at = NOW(), updated_at = NOW()
+        WHERE id = ${req.params.id}
+      `
+      await tx.$executeRaw`
+        INSERT INTO pre_kapital (tenant_id, montant, type, pre_id, notes, created_by)
+        VALUES (${tenantId}, ${Number(pre.montant)}, 'pre', ${pre.id}, ${`Dekèsman ${pre.numeroPre} (apwouve)`}, ${userId})
+      `
+    }, { maxWait: 10000, timeout: 20000 })
+
+    const preAjou = await prisma.pre.findUnique({ where: { id: req.params.id } })
+    return res.json({ success: true, pre: preAjou, message: `Prè ${pre.numeroPre} apwouve epi dekèse.` })
+  } catch (err) {
+    console.error('[PRE POST /:id/approve]', err)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ POST /pre/:id/reject — Admin rejte (pa gen lajan ki soti)
+// ═══════════════════════════════════════════════════════════════
+router.post('/:id/reject', async (req, res) => {
+  try {
+    const { tenantId, userId } = getTB(req)
+    if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
+
+    const { reason } = req.body
+    const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
+    if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
+    if (pre.statut !== 'attente') return res.status(400).json({ message: 'Prè sa deja trete (pa an atant ankò).' })
+
+    await prisma.$executeRaw`
+      UPDATE prets SET statut = 'annule'::"PreStatut", rejected_by = ${userId}, rejected_at = NOW(),
+        rejection_reason = ${reason || null}, updated_at = NOW()
+      WHERE id = ${req.params.id}
+    `
+    const preAjou = await prisma.pre.findUnique({ where: { id: req.params.id } })
+    return res.json({ success: true, pre: preAjou, message: `Prè ${pre.numeroPre} rejte.` })
+  } catch (err) {
+    console.error('[PRE POST /:id/reject]', err)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
+  }
 })
 
 module.exports = router

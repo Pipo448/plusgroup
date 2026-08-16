@@ -13,6 +13,7 @@ import { fmt, fmtDate, getAccountPrefix } from './kaneEpayUtils'
 import { PAYMENT_METHODS, FAMILY_RELATIONS, TX_STYLES } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
 import { Spinner, Section, Modal, PhotoBox } from './KaneEpayComponents'
+import PinConfirmModal from '../../../components/PinConfirmModal'
 
 // ═══════════════════════════════════════════════════════════════
 // MODAL: KREYE KONT — ✅ Frè 250G otomatik (retire champ manyèl)
@@ -318,8 +319,11 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
     enabled:  !!accountId,
   })
 
+  const [showDeleteAcctConfirm, setShowDeleteAcctConfirm] = useState(false)
+  const [txDeleteTarget, setTxDeleteTarget] = useState(null)
+
   const mutDeleteAccount = useMutation({
-    mutationFn: () => kaneAPI.deleteAccount(accountId),
+    mutationFn: (pin) => kaneAPI.deleteAccount(accountId, pin),
     onSuccess: () => {
       toast.success('✅ Kont efase!')
       qc.invalidateQueries(['kane-accounts'])
@@ -329,16 +333,14 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
     onError: e => toast.error(e.response?.data?.message || 'Erè efase kont.'),
   })
 
-  const handleDeleteTx = (tx) => {
-    if (!window.confirm(`Efase tranzaksyon ${tx.type} ${Number(tx.amount).toLocaleString()} HTG?\n⚠️ Balans kont lan ap korije otomatikman.`)) return
-    kaneAPI.deleteTransaction(tx.id)
-      .then(() => {
-        toast.success('✅ Tranzaksyon efase!')
-        qc.invalidateQueries(['kane-account', accountId])
-        qc.invalidateQueries(['kane-accounts'])
-        qc.invalidateQueries(['kane-stats'])
-      })
-      .catch(err => toast.error(err.response?.data?.message || 'Erè efase.'))
+  const handleDeleteTx = (tx) => setTxDeleteTarget(tx)
+  const confirmDeleteTx = async (pin) => {
+    await kaneAPI.deleteTransaction(txDeleteTarget.id, pin)
+    toast.success('✅ Tranzaksyon efase!')
+    qc.invalidateQueries(['kane-account', accountId])
+    qc.invalidateQueries(['kane-accounts'])
+    qc.invalidateQueries(['kane-stats'])
+    setTxDeleteTarget(null)
   }
 
   if (isLoading || !account) return (
@@ -406,9 +408,7 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
         {isAdminUser && (
           <div style={{ borderTop:`1px solid ${D.red}25`, paddingTop:10 }}>
             <p style={{ fontSize:10, fontWeight:700, color:D.red, textTransform:'uppercase', margin:'0 0 8px' }}>⚠️ Zone Admin</p>
-            <button className="ke-btn" onClick={() => {
-              if (window.confirm(`Efase kont ${account.accountNumber}?\n⚠️ Tout tranzaksyon ap efase. IREVERSIB.`)) mutDeleteAccount.mutate()
-            }} disabled={mutDeleteAccount.isPending}
+            <button className="ke-btn" onClick={() => setShowDeleteAcctConfirm(true)} disabled={mutDeleteAccount.isPending}
               style={{ width:'100%', padding:'10px', borderRadius:10, border:`1px solid ${D.red}40`, background:D.redBg, color:D.red, cursor:'pointer', fontWeight:800, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
               {mutDeleteAccount.isPending ? <Spinner size={13} color={D.red}/> : <Trash2 size={14}/>}
               {mutDeleteAccount.isPending ? 'Ap efase...' : `Efase Kont ${account.accountNumber}`}
@@ -451,6 +451,27 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
           </div>
         </div>
       </div>
+
+      {/* ✅ PIN — efase kont */}
+      {showDeleteAcctConfirm && (
+        <PinConfirmModal
+          title="Efase Kont"
+          message={`Efase kont ${account.accountNumber}? Tout tranzaksyon ap efase. IREVERSIB.`}
+          loading={mutDeleteAccount.isPending}
+          onConfirm={(pin) => mutDeleteAccount.mutateAsync(pin)}
+          onClose={() => setShowDeleteAcctConfirm(false)}
+        />
+      )}
+
+      {/* ✅ PIN — efase tranzaksyon */}
+      {txDeleteTarget && (
+        <PinConfirmModal
+          title="Efase Tranzaksyon"
+          message={`Efase tranzaksyon ${txDeleteTarget.type} ${fmt(txDeleteTarget.amount)} HTG?`}
+          onConfirm={confirmDeleteTx}
+          onClose={() => setTxDeleteTarget(null)}
+        />
+      )}
     </Modal>
   )
 }

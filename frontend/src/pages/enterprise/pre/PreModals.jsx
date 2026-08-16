@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import {
   Plus, X, Printer, CheckCircle, Clock, AlertCircle, DollarSign,
   ShieldCheck, PiggyBank, FileText, Lock, ArrowDownCircle,
-  Home, UserPlus, Trash2,
+  Home, UserPlus, Trash2, XCircle,
 } from 'lucide-react'
 import { D, fmt, fmtDate, inputStyle, labelStyle, PAYMENT_METHODS } from '../kaneShared.jsx'
 import { STATUTS, PERIODES, TIP_KALKIL } from './preConstants'
@@ -18,6 +18,7 @@ import {
   Spinner, StatCard, Section, Modal, StatutBadge,
   KalandriyeSection, KaneEpaySearch, AvalizelSection,
 } from './PreComponents'
+import PinConfirmModal from '../../../components/PinConfirmModal'
 
 // ═══════════════════════════════════════════════════════════════
 // MODAL: KREYE PRÈ
@@ -56,9 +57,8 @@ export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
   const mutation = useMutation({
     mutationFn: (d) => preAPI.create(d),
     onSuccess: async (res) => {
-      toast.success(`✅ Prè ${res.data.pre.numeroPre} kreye!`)
+      toast.success(`✅ Demand prè ${res.data.pre.numeroPre} voye pou apwobasyon!`)
       onSuccess()
-      try { printer.printPre({ pre: res.data.pre, echeances: res.data.echeances || [], tenant, type: 'ouverture' }) } catch {}
       onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
@@ -257,7 +257,7 @@ export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
         <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
         <button className="ke-btn" onClick={handleSubmit} disabled={mutation.isPending}
           style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, opacity: mutation.isPending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-          {mutation.isPending ? <><Spinner color="#0a1222"/> Ap kreye...</> : <><Printer size={15}/> Kreye + Enprime Kontra</>}
+          {mutation.isPending ? <><Spinner color="#0a1222"/> Ap voye...</> : <><FileText size={15}/> Voye Demand pou Apwobasyon</>}
         </button>
       </div>
     </Modal>
@@ -703,9 +703,9 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     enabled:  !!preId,
   })
 
-  // ✅ Admin: efase prè
+  // ✅ Admin: efase prè — mande PIN
   const mutDeletePre = useMutation({
-    mutationFn: () => preAPI.deletePre(preId),
+    mutationFn: (pin) => preAPI.deletePre(preId, pin),
     onSuccess: () => {
       toast.success('✅ Prè efase avèk siksè.')
       qc.invalidateQueries(['pre-list'])
@@ -714,6 +714,32 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     },
     onError: e => toast.error(e.response?.data?.message || 'Erè efase prè.'),
   })
+  const [showDeletePreConfirm, setShowDeletePreConfirm] = useState(false)
+
+  // ✅ Apwobasyon
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false)
+  const mutApprove = useMutation({
+    mutationFn: (pin) => preAPI.approve(preId, pin),
+    onSuccess: () => {
+      toast.success('✅ Prè apwouve epi lajan dekèse!')
+      qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']); qc.invalidateQueries(['pre-one', preId])
+      setShowApproveConfirm(false)
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Erè apwobasyon.'),
+  })
+  const mutReject = useMutation({
+    mutationFn: (reason) => preAPI.reject(preId, reason),
+    onSuccess: () => {
+      toast.success('Prè rejte.')
+      qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']); qc.invalidateQueries(['pre-one', preId])
+    },
+    onError: e => toast.error(e.response?.data?.message || 'Erè rejè.'),
+  })
+  const handleReject = () => {
+    const reason = window.prompt('Rezon rejè a (opsyonèl):')
+    if (reason === null) return
+    mutReject.mutate(reason || undefined)
+  }
 
   const mutCloture = useMutation({
     mutationFn: () => preAPI.cloture(preId),
@@ -739,12 +765,14 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     catch { printer.printPre({ pre, echeances: [], tenant, type: 'ouverture' }) }
   }
 
-  // ✅ Admin: efase peman
-  const handleDeletePaiement = (px) => {
-    if (!window.confirm(`Efase peman ${Number(px.montant).toLocaleString()} HTG?\n⚠️ IREVERSIB — total_paye ap korije otomatikman.`)) return
-    preAPI.deletePaiement(pre.id, px.id)
-      .then(() => { toast.success('✅ Peman efase!'); qc.invalidateQueries(['pre-one', pre.id]); qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']) })
-      .catch(err => toast.error(err.response?.data?.message || 'Erè efase peman.'))
+  // ✅ Admin: efase peman — mande PIN
+  const [pixDeleteTarget, setPixDeleteTarget] = useState(null)
+  const handleDeletePaiement = (px) => setPixDeleteTarget(px)
+  const confirmDeletePaiement = async (pin) => {
+    await preAPI.deletePaiement(pre.id, pixDeleteTarget.id, pin)
+    toast.success('✅ Peman efase!')
+    qc.invalidateQueries(['pre-one', pre.id]); qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats'])
+    setPixDeleteTarget(null)
   }
 
   return (
@@ -816,8 +844,34 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           </div>
         )}
 
+        {/* ✅ Prè an atant apwobasyon */}
+        {pre.statut === 'attente' && isAdminUser && (
+          <div style={{ background:`${D.orange}10`, border:`1px solid ${D.orange}30`, borderRadius:12, padding:'12px 14px' }}>
+            <p style={{ fontSize:12, fontWeight:700, color:D.orange, margin:'0 0 10px', display:'flex', alignItems:'center', gap:6 }}>
+              <Clock size={14}/> Prè sa an atant apwobasyon — okenn lajan poko dekèse.
+            </p>
+            <div style={{ display:'flex', gap:8 }}>
+              <button className="ke-btn" onClick={() => setShowApproveConfirm(true)} disabled={mutApprove.isPending}
+                style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${D.green},${D.green}bb)`, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+                {mutApprove.isPending ? <Spinner size={13}/> : <CheckCircle size={14}/>} Apwouve + Dekèse
+              </button>
+              <button className="ke-btn" onClick={handleReject} disabled={mutReject.isPending}
+                style={{ flex:1, padding:'10px', borderRadius:10, border:`1px solid ${D.red}40`, background:D.redBg, color:D.red, fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
+                {mutReject.isPending ? <Spinner size={13} color={D.red}/> : <XCircle size={14}/>} Rejte
+              </button>
+            </div>
+          </div>
+        )}
+        {pre.statut === 'attente' && !isAdminUser && (
+          <div style={{ background:`${D.orange}10`, border:`1px solid ${D.orange}30`, borderRadius:12, padding:'12px 14px' }}>
+            <p style={{ fontSize:12, fontWeight:700, color:D.orange, margin:0, display:'flex', alignItems:'center', gap:6 }}>
+              <Clock size={14}/> Prè sa an atant apwobasyon yon admin.
+            </p>
+          </div>
+        )}
+
         {/* Boutons aksyon */}
-        {pre.statut !== 'cloture' && (
+        {pre.statut !== 'cloture' && pre.statut !== 'attente' && pre.statut !== 'annule' && (
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="ke-btn" onClick={onPaieman}
               style={{ flex:2, padding:'11px', borderRadius:10, border:`1px solid ${D.green}30`, background:D.greenBg, color:D.green, fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
@@ -840,10 +894,7 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
         {isAdminUser && (
           <div style={{ borderTop:`1px solid ${D.red}25`, paddingTop:10, marginTop:2 }}>
             <p style={{ fontSize:10, fontWeight:700, color:D.red, textTransform:'uppercase', margin:'0 0 8px', letterSpacing:'0.06em' }}>⚠️ Zone Admin — Aksyon Ireversib</p>
-            <button className="ke-btn" onClick={() => {
-              if (window.confirm(`Efase prè ${pre.numeroPre} — ${pre.clientNom}?\n⚠️ IREVERSIB — tout peman ak echeances ap efase.`))
-                mutDeletePre.mutate()
-            }} disabled={mutDeletePre.isPending}
+            <button className="ke-btn" onClick={() => setShowDeletePreConfirm(true)} disabled={mutDeletePre.isPending}
               style={{ width:'100%', padding:'10px', borderRadius:10, border:`1px solid ${D.red}40`, background:D.redBg, color:D.red, cursor:'pointer', fontWeight:800, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
               {mutDeletePre.isPending ? <Spinner size={13} color={D.red}/> : <Trash2 size={14}/>}
               {mutDeletePre.isPending ? 'Ap efase...' : `Efase Prè ${pre.numeroPre}`}
@@ -893,6 +944,38 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
           </div>
         </div>
       </div>
+
+      {/* ✅ PIN — apwouve prè */}
+      {showApproveConfirm && (
+        <PinConfirmModal
+          title="Apwouve Prè"
+          message={`Apwouve prè ${pre.numeroPre} — ${fmt(pre.montant)} HTG ap dekèse pou ${pre.clientNom}. Kontinye?`}
+          loading={mutApprove.isPending}
+          onConfirm={(pin) => mutApprove.mutateAsync(pin)}
+          onClose={() => setShowApproveConfirm(false)}
+        />
+      )}
+
+      {/* ✅ PIN — efase prè */}
+      {showDeletePreConfirm && (
+        <PinConfirmModal
+          title="Efase Prè"
+          message={`Efase prè ${pre.numeroPre} — ${pre.clientNom}? Aksyon sa IREVERSIB.`}
+          loading={mutDeletePre.isPending}
+          onConfirm={(pin) => mutDeletePre.mutateAsync(pin)}
+          onClose={() => setShowDeletePreConfirm(false)}
+        />
+      )}
+
+      {/* ✅ PIN — efase peman */}
+      {pixDeleteTarget && (
+        <PinConfirmModal
+          title="Efase Peman"
+          message={`Efase peman ${fmt(pixDeleteTarget.montant)} HTG? total_paye ap korije otomatikman.`}
+          onConfirm={confirmDeletePaiement}
+          onClose={() => setPixDeleteTarget(null)}
+        />
+      )}
     </Modal>
   )
 }

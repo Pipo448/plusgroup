@@ -3,10 +3,11 @@ import { CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react'
 import React from 'react'
 
 export const STATUTS = {
-  actif:   { label: 'Aktif',   color: '#27ae60', bg: 'rgba(39,174,96,0.12)',   icon: React.createElement(CheckCircle, {size:11}) },
-  reta:    { label: 'An Reta', color: '#e74c3c', bg: 'rgba(231,76,60,0.12)',   icon: React.createElement(AlertCircle, {size:11}) },
-  attente: { label: 'Antant',  color: '#f39c12', bg: 'rgba(243,156,18,0.12)',  icon: React.createElement(Clock, {size:11}) },
-  cloture: { label: 'Klotire', color: '#6b7a99', bg: 'rgba(107,122,153,0.1)',  icon: React.createElement(XCircle, {size:11}) },
+  actif:   { label: 'Aktif',               color: '#27ae60', bg: 'rgba(39,174,96,0.12)',   icon: React.createElement(CheckCircle, {size:11}) },
+  reta:    { label: 'An Reta',             color: '#e74c3c', bg: 'rgba(231,76,60,0.12)',   icon: React.createElement(AlertCircle, {size:11}) },
+  attente: { label: 'An Atant Apwobasyon', color: '#f39c12', bg: 'rgba(243,156,18,0.12)',  icon: React.createElement(Clock, {size:11}) },
+  cloture: { label: 'Klotire',             color: '#6b7a99', bg: 'rgba(107,122,153,0.1)',  icon: React.createElement(XCircle, {size:11}) },
+  annule:  { label: 'Rejte',               color: '#94a3b8', bg: 'rgba(148,163,184,0.12)', icon: React.createElement(XCircle, {size:11}) },
 }
 
 export const STATUT_ECH = {

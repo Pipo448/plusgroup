@@ -53,6 +53,8 @@ const adminFinRoutes      = require('./routes/admin-finances.routes')
 const agentRoutes         = require('./modules/agents/agent.routes')
 // ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik + lis plan)
 const publicSignupRoutes  = require('./modules/tenants/public-signup.routes')
+// ✅ NOUVO — Sekirite: PIN pou aksyon sansib (efasman finansye)
+const securityRoutes      = require('./modules/security/pin.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -155,6 +157,9 @@ app.use(`${API}/admin`, adminRoutes);
 
 // Auth
 app.use(`${API}/auth`, authLimiter, authRoutes);
+
+// ✅ NOUVO — Sekirite: PIN pou aksyon sansib (setup/status/change)
+app.use(`${API}/security`, securityRoutes);
 
 // Routes protégées
 app.use(`${API}/tenant`,        tenantRoutes);

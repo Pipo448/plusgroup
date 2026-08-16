@@ -1,6 +1,7 @@
 // backend/src/modules/kane-epay/kane-epay.controller.js
 const svc = require('./kane-epay.service')
 const prisma = require('../../config/prisma')
+const { verifyPin } = require('../security/pin.service')
 const getTenantAndBranch = (req) => ({
   tenantId: req.tenant.id,
   branchId: req.branchId || null,
@@ -63,8 +64,10 @@ exports.withdraw = async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 exports.deleteTransaction = async (req, res) => {
   try {
-    const { tenantId } = getTenantAndBranch(req)
+    const { tenantId, userId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
+    try { await verifyPin(userId, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ success: false, message: pinErr.message, pinRequired: true }) }
 
     // 1. Jwenn transaksyon an
     const tx = await prisma.kaneTransaction.findFirst({
@@ -109,8 +112,10 @@ exports.deleteTransaction = async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 exports.deleteAccount = async (req, res) => {
   try {
-    const { tenantId } = getTenantAndBranch(req)
+    const { tenantId, userId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
+    try { await verifyPin(userId, req.body?.pin) }
+    catch (pinErr) { return res.status(403).json({ success: false, message: pinErr.message, pinRequired: true }) }
 
     const account = await prisma.kaneEpay.findFirst({
       where: { id: req.params.id, tenantId },

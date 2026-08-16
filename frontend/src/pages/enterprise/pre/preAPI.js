@@ -15,8 +15,11 @@ export const preAPI = {
   checkKesFermen: ()           => api.get('/pre/rapo/kes-status'),
   // ✅ Admin edit kapital (5 minit)
   updateKapital:  (id, data)   => api.put(`/pre/kapital/${id}`, data),
-  // ✅ Admin delete
-  deletePre:      (id)         => api.delete(`/pre/${id}`),
-  deletePaiement: (preId, pId) => api.delete(`/pre/${preId}/paiement/${pId}`),
-  deleteKapital:  (id)         => api.delete(`/pre/kapital/${id}`),
+  // ✅ Admin delete — mande PIN
+  deletePre:      (id, pin)         => api.delete(`/pre/${id}`, { data: { pin } }),
+  deletePaiement: (preId, pId, pin) => api.delete(`/pre/${preId}/paiement/${pId}`, { data: { pin } }),
+  deleteKapital:  (id, pin)         => api.delete(`/pre/kapital/${id}`, { data: { pin } }),
+  // ✅ Workflow apwobasyon
+  approve:        (id, pin)         => api.post(`/pre/${id}/approve`, { pin }),
+  reject:         (id, reason)      => api.post(`/pre/${id}/reject`, { reason }),
 }

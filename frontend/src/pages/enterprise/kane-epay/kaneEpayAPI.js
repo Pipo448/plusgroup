@@ -10,7 +10,7 @@ export const kaneAPI = {
   withdraw:      (id, data) => api.post(`/kane-epay/${id}/withdraw`, data),
   checkKesFemen: ()         => api.get('/pre/rapo/kes-status'),
   femenKes:      (data)     => api.post('/pre/rapo/femen-kes', data),
-  // ✅ Admin delete
-  deleteTransaction: (txId) => api.delete(`/kane-epay/transactions/${txId}`),
-  deleteAccount:     (id)   => api.delete(`/kane-epay/${id}`),
+  // ✅ Admin delete — mande PIN
+  deleteTransaction: (txId, pin) => api.delete(`/kane-epay/transactions/${txId}`, { data: { pin } }),
+  deleteAccount:     (id, pin)   => api.delete(`/kane-epay/${id}`, { data: { pin } }),
 }

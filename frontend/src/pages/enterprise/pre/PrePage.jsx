@@ -15,6 +15,7 @@ import { preAPI } from './preAPI'
 import { usePrinter } from './preUtils'
 import { Spinner, StatCard, StatutBadge } from './PreComponents'
 import { ModalCreePre, ModalPaieman, ModalKapital, ModalRapoKesye, ModalDetailPre } from './PreModals'
+import PinConfirmModal from '../../../components/PinConfirmModal'
 
 export default function PrePage() {
   const qc      = useQueryClient()
@@ -28,6 +29,8 @@ export default function PrePage() {
   const [modal,           setModal]           = useState(null)
   const [selPre,          setSelPre]          = useState(null)
   const [filterStatut,    setFilterStatut]    = useState(null)
+  const [deleteTarget,    setDeleteTarget]    = useState(null) // ✅ prè k ap efase (PIN)
+  const [deleting,        setDeleting]        = useState(false)
   const searchTimeout = useRef(null)
 
   useEffect(() => {
@@ -70,13 +73,20 @@ export default function PrePage() {
     searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
   }
 
-  // ✅ Admin: efase prè dirèkteman nan lis
+  // ✅ Admin: efase prè — kounye a mande PIN
   const handleDeletePre = (e, pre) => {
     e.stopPropagation()
-    if (!window.confirm(`Efase prè ${pre.numeroPre}?\n⚠️ IREVERSIB — tout peman ak echeances ap efase.`)) return
-    preAPI.deletePre(pre.id)
-      .then(() => { toast.success('✅ Prè efase!'); refresh() })
-      .catch(err => toast.error(err.response?.data?.message || 'Erè.'))
+    setDeleteTarget(pre)
+  }
+
+  const confirmDeletePre = async (pin) => {
+    setDeleting(true)
+    try {
+      await preAPI.deletePre(deleteTarget.id, pin)
+      toast.success('✅ Prè efase!')
+      setDeleteTarget(null)
+      refresh()
+    } finally { setDeleting(false) }
   }
 
   return (
@@ -134,6 +144,7 @@ export default function PrePage() {
       {/* Stats */}
       <div className="ke-stats-grid">
         <StatCard label="Total Prè"  value={statsData?.totalPrets  || 0}              icon={<Users size={17}/>}       color={D.gold} />
+        <StatCard label="An Atant"   value={statsData?.pretsAnAtant || 0}             icon={<Lock size={17}/>}        color={D.orange}/>
         <StatCard label="Prè Aktif"  value={statsData?.pretsActifs || 0}              icon={<Activity size={17}/>}    color={D.green}/>
         <StatCard label="Pòtfèy"     value={`${fmt(statsData?.totalPortfeuye||0)} G`} icon={<Wallet size={17}/>}      color={D.blue} />
         <StatCard label="An Reta"    value={statsData?.totalEnReta || 0}              icon={<AlertCircle size={17}/>} color={D.red}  />
@@ -160,6 +171,28 @@ export default function PrePage() {
   </div>
 </div>
 
+      {/* ✅ PAR — Risk Pòtfèy */}
+      {statsData?.par && statsData.par.total > 0 && (
+        <div style={{ background:D.card, borderRadius:14, padding:'12px 14px', border:`1px solid ${D.cardBorder}` }}>
+          <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 10px', letterSpacing:'0.08em' }}>● Risk Pòtfèy (PAR)</p>
+          <div className="ke-today-grid">
+            {[
+              { label:'PAR 30', ratio: statsData.par.par30Ratio, amt: statsData.par.par30 },
+              { label:'PAR 60', ratio: statsData.par.par60Ratio, amt: statsData.par.par60 },
+              { label:'PAR 90', ratio: statsData.par.par90Ratio, amt: statsData.par.par90 },
+            ].map(item => {
+              const color = item.ratio >= 10 ? D.red : item.ratio >= 5 ? D.orange : D.green
+              return (
+                <StatCard key={item.label} label={item.label} value={`${item.ratio}%`} sub={`${fmt(item.amt)} G`} icon={<AlertCircle size={17}/>} color={color} highlight/>
+              )
+            })}
+          </div>
+          <p style={{ fontSize:10, color:D.muted, margin:'8px 0 0' }}>
+            PAR30 = pòsantaj pòtfèy ki gen omwen yon echeans an reta 30 jou oswa plis. Pòtfèy total ki an risk kalkile sou: {fmt(statsData.par.total)} HTG.
+          </p>
+        </div>
+      )}
+
       {/* Rechèch + Filtre */}
       <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
         <div style={{ position:'relative', flex:'1 1 200px', minWidth:160 }}>
@@ -168,7 +201,7 @@ export default function PrePage() {
             placeholder="Chèche non, nimewo prè..." value={search} onChange={handleSearch}/>
         </div>
         <div style={{ display:'flex', gap:6, flexShrink:0, flexWrap:'wrap' }}>
-          {[{val:null,label:'Tout'},{val:'actif',label:'✅ Aktif'},{val:'reta',label:'🔴 An Reta'},{val:'cloture',label:'⚫ Klotire'}].map(f => (
+          {[{val:null,label:'Tout'},{val:'attente',label:'🟠 An Atant'},{val:'actif',label:'✅ Aktif'},{val:'reta',label:'🔴 An Reta'},{val:'cloture',label:'⚫ Klotire'},{val:'annule',label:'⛔ Rejte'}].map(f => (
             <button key={String(f.val)} className="ke-btn"
               onClick={() => { setFilterStatut(f.val); setPage(1) }}
               style={{ padding:'8px 12px', borderRadius:8, fontSize:12, fontWeight:700, border:`1px solid ${filterStatut===f.val ? D.gold+'60' : D.cardBorder}`, background:filterStatut===f.val ? D.goldDim : 'transparent', color:filterStatut===f.val ? D.gold : D.muted, cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -236,7 +269,7 @@ export default function PrePage() {
                   </div>
 
                   <div style={{ display:'flex', gap:6, marginTop:10, paddingTop:10, borderTop:`1px solid rgba(201,168,76,0.1)` }}>
-                    {pre.statut !== 'cloture' && (
+                    {pre.statut !== 'cloture' && pre.statut !== 'attente' && pre.statut !== 'annule' && (
                       <button className="ke-btn" onClick={e => { e.stopPropagation(); openPaieman(pre) }}
                         style={{ flex:1, padding:'8px 6px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.greenBg, color:kesFemen?D.muted:D.green, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:12, display:'flex', alignItems:'center', justifyContent:'center', gap:4 }}>
                         {kesFemen ? <Lock size={12}/> : <ArrowDownCircle size={13}/>} Peman
@@ -289,6 +322,17 @@ export default function PrePage() {
       {modal==='rapo'    && <ModalRapoKesye onClose={() => setModal(null)} onKesFemen={() => qc.invalidateQueries(['kes-status'])}/>}
       {modal==='detail'  && selPre && <ModalDetailPre preId={selPre.id} onClose={() => setModal(null)} onPaieman={() => setModal('paieman')} printer={printer}/>}
       {modal==='paieman' && selPre && <ModalPaieman   pre={selPre} onClose={() => setModal(null)} onSuccess={refresh} printer={printer} kesFemen={kesFemen}/>}
+
+      {/* ✅ PIN pou efase prè */}
+      {deleteTarget && (
+        <PinConfirmModal
+          title="Efase Prè"
+          message={`Efase prè ${deleteTarget.numeroPre} — ${deleteTarget.clientNom}? Aksyon sa IREVERSIB.`}
+          loading={deleting}
+          onConfirm={confirmDeletePre}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }
