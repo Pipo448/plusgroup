@@ -1,69 +1,39 @@
 // backend/src/modules/security/pin.service.js
-const bcrypt = require('bcryptjs') // ranplase ak 'bcrypt' si se sa w deja itilize pou login
+// ✅ Reyitilize menm chan 'directQuotePin' (User model) ki deja itilize pou
+// otorizasyon Devi Dirèk yo — sa fè YON SÈL PIN admin pou tout aksyon sansib
+// (Devi Dirèk, Prè, Kanè Epay), menm konvansyon egzat ak direct-quote.service.js.
 const prisma = require('../../config/prisma')
 
-const MAX_ATTEMPTS = 5
-const LOCK_MINUTES = 15
-
-function isValidPinFormat(pin) {
-  return typeof pin === 'string' && /^\d{4,6}$/.test(pin)
-}
-
-async function getPinRow(userId) {
-  const rows = await prisma.$queryRaw`
-    SELECT action_pin_hash, action_pin_attempts, action_pin_locked_until
-    FROM users WHERE id = ${userId} LIMIT 1
-  `
-  return rows[0] || null
-}
-
-async function hasPinSet(userId) {
-  const row = await getPinRow(userId)
-  return !!row?.action_pin_hash
-}
-
-async function setPin(userId, newPin) {
-  if (!isValidPinFormat(newPin)) throw new Error('PIN dwe gen 4 a 6 chif.')
-  const hash = await bcrypt.hash(newPin, 10)
-  await prisma.$executeRaw`
-    UPDATE users SET action_pin_hash = ${hash}, action_pin_attempts = 0, action_pin_locked_until = NULL
-    WHERE id = ${userId}
-  `
-}
-
-async function changePin(userId, oldPin, newPin) {
-  await verifyPin(userId, oldPin)
-  await setPin(userId, newPin)
-}
-
-// ✅ Verifye PIN — jete Error si li mal, si li bloke, oswa si li poko konfigire
-async function verifyPin(userId, pin) {
-  if (!pin) throw new Error('PIN obligatwa pou aksyon sa a.')
-  const row = await getPinRow(userId)
-  if (!row?.action_pin_hash) throw new Error('Ou poko konfigire yon PIN sekirite. Ale nan Paramèt pou kreye youn.')
-
-  if (row.action_pin_locked_until && new Date(row.action_pin_locked_until) > new Date()) {
-    const minsLeft = Math.ceil((new Date(row.action_pin_locked_until) - new Date()) / 60000)
-    throw new Error(`Twòp tantativ. Tann ${minsLeft} minit anvan w eseye ankò.`)
+// ✅ Verifye PIN admin — jete Error si fòma pa bon, itilizatè pa admin,
+// PIN poko konfigire, oswa PIN pa kòrèk.
+async function verifyPin(tenantId, userId, pin) {
+  if (!pin || !/^\d{4}$/.test(String(pin).trim())) {
+    throw Object.assign(new Error('PIN dwe gen egzakteman 4 chif.'), { statusCode: 400 })
   }
 
-  const ok = await bcrypt.compare(String(pin), row.action_pin_hash)
-  if (!ok) {
-    const attempts = (row.action_pin_attempts || 0) + 1
-    if (attempts >= MAX_ATTEMPTS) {
-      const lockUntil = new Date(Date.now() + LOCK_MINUTES * 60000)
-      await prisma.$executeRaw`
-        UPDATE users SET action_pin_attempts = ${attempts}, action_pin_locked_until = ${lockUntil}
-        WHERE id = ${userId}
-      `
-      throw new Error(`PIN pa kòrèk. Kont bloke pou ${LOCK_MINUTES} minit apre ${MAX_ATTEMPTS} tantativ.`)
-    }
-    await prisma.$executeRaw`UPDATE users SET action_pin_attempts = ${attempts} WHERE id = ${userId}`
-    throw new Error(`PIN pa kòrèk. (${MAX_ATTEMPTS - attempts} tantativ rete)`)
+  const admin = await prisma.user.findFirst({
+    where: { id: userId, tenantId, role: 'admin', isActive: true },
+    select: { directQuotePin: true },
+  })
+  if (!admin) {
+    throw Object.assign(new Error('Itilizatè pa jwenn oswa pa gen wòl admin.'), { statusCode: 403 })
   }
-
-  // Siksè — reset konpteur
-  await prisma.$executeRaw`UPDATE users SET action_pin_attempts = 0, action_pin_locked_until = NULL WHERE id = ${userId}`
+  if (!admin.directQuotePin) {
+    throw Object.assign(new Error('Ou poko konfigire PIN otorizasyon ou. Ale nan paramèt pou kreye youn.'), { statusCode: 400 })
+  }
+  if (admin.directQuotePin !== String(pin).trim()) {
+    throw Object.assign(new Error('PIN pa kòrèk.'), { statusCode: 401 })
+  }
 }
 
-module.exports = { isValidPinFormat, hasPinSet, setPin, changePin, verifyPin }
+// ✅ Èske admin sa deja gen yon PIN konfigire — pou fwontal la ka gide l
+// al konfigire youn si li poko genyen, anvan li menm eseye yon aksyon sansib.
+async function hasPinSet(tenantId, userId) {
+  const admin = await prisma.user.findFirst({
+    where: { id: userId, tenantId },
+    select: { directQuotePin: true },
+  })
+  return !!admin?.directQuotePin
+}
+
+module.exports = { verifyPin, hasPinSet }

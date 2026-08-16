@@ -336,7 +336,7 @@ router.delete('/kapital/:id', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
-    try { await verifyPin(req.user.id, req.body?.pin) }
+    try { await verifyPin(tenantId, req.user.id, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
     const rows = await prisma.$queryRaw`
       SELECT id, type FROM pre_kapital
@@ -596,7 +596,7 @@ router.delete('/:id', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
-    try { await verifyPin(req.user.id, req.body?.pin) }
+    try { await verifyPin(tenantId, req.user.id, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
 
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
@@ -629,7 +629,7 @@ router.delete('/:id/paiement/:paiementId', async (req, res) => {
   try {
     const { tenantId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
-    try { await verifyPin(req.user.id, req.body?.pin) }
+    try { await verifyPin(tenantId, req.user.id, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
 
     const paiement = await prisma.prePaiement.findFirst({
@@ -866,7 +866,7 @@ router.post('/:id/approve', async (req, res) => {
   try {
     const { tenantId, userId } = getTB(req)
     if (req.user?.role !== 'admin') return res.status(403).json({ message: 'Admin sèlman.' })
-    try { await verifyPin(userId, req.body?.pin) }
+    try { await verifyPin(tenantId, userId, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ message: pinErr.message, pinRequired: true }) }
 
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })

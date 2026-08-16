@@ -66,7 +66,7 @@ exports.deleteTransaction = async (req, res) => {
   try {
     const { tenantId, userId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
-    try { await verifyPin(userId, req.body?.pin) }
+    try { await verifyPin(tenantId, userId, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ success: false, message: pinErr.message, pinRequired: true }) }
 
     // 1. Jwenn transaksyon an
@@ -114,7 +114,7 @@ exports.deleteAccount = async (req, res) => {
   try {
     const { tenantId, userId } = getTenantAndBranch(req)
     if (!isAdmin(req)) return res.status(403).json({ success: false, message: 'Admin sèlman.' })
-    try { await verifyPin(userId, req.body?.pin) }
+    try { await verifyPin(tenantId, userId, req.body?.pin) }
     catch (pinErr) { return res.status(403).json({ success: false, message: pinErr.message, pinRequired: true }) }
 
     const account = await prisma.kaneEpay.findFirst({
