@@ -1,5 +1,6 @@
 // src/pages/enterprise/pre/PrePage.jsx — Paj prensipal (slim)
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
 import toast from 'react-hot-toast'
@@ -22,6 +23,7 @@ export default function PrePage() {
   const printer = usePrinter()
   const { user } = useAuthStore()
   const isAdmin  = user?.role === 'admin'
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [search,          setSearch]          = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -38,6 +40,22 @@ export default function PrePage() {
     el.textContent = SHARED_STYLES + PRE_STYLES
     document.head.appendChild(el)
     return () => document.head.removeChild(el)
+  }, [])
+
+  // ✅ Lyen dirèk soti nan yon notifikasyon (/app/pre?preId=xxx) — louvri
+  // detay prè a otomatikman pou admin ka apwouve/rejte san chèche li nan lis la.
+  useEffect(() => {
+    const preIdFromUrl = searchParams.get('preId')
+    if (preIdFromUrl) {
+      setSelPre({ id: preIdFromUrl })
+      setModal('detail')
+      setSearchParams(prev => {
+        const p = new URLSearchParams(prev)
+        p.delete('preId')
+        return p
+      }, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const { data: kesData } = useQuery({

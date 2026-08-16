@@ -9,6 +9,7 @@ const prisma = require('../config/prisma')
 const { identifyTenant, authenticate } = require('../middleware/auth')
 const { extractBranch }                = require('../middleware/branch')
 const { verifyPin }                    = require('../modules/security/pin.service')
+const notifSvc                         = require('../modules/notifications/notification.service')
 
 router.use(identifyTenant, authenticate, extractBranch)
 
@@ -630,6 +631,27 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
     const echCreye = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${pre.id} ORDER BY numero
     `
+
+    // ✅ Avèti tout admin — pa dwe janm bloke/kraze kreyasyon prè a si li echwe
+    try {
+      const admins = await prisma.user.findMany({
+        where:  { tenantId, role: 'admin', isActive: true },
+        select: { id: true },
+      })
+      if (admins.length) {
+        await notifSvc.notifyPreApprovalRequest({
+          tenantId,
+          cashierName: req.user?.fullName || 'Kesye',
+          adminIds:    admins.map(a => a.id),
+          preId:       pre.id,
+          numeroPre:   pre.numeroPre,
+          montant:     pre.montant,
+        })
+      }
+    } catch (notifErr) {
+      console.warn('[PRE notifyPreApprovalRequest]', notifErr?.message)
+    }
+
     return res.status(201).json({ pre, echeances: echCreye })
   } catch (err) {
     console.error('[PRE POST /] DETAIL:', err?.message || err)

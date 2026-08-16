@@ -217,9 +217,39 @@ async function notifyDirectQuoteAuthRequest({ tenantId, cashierName, adminIds = 
   ])
 }
 
+// ─────────────────────────────────────────────
+// ✅ NOUVO — Avèti CHAK admin (endividyèlman) lè yon kesye kreye yon
+// demand prè ki bezwen apwobasyon (+ dekèsman ak PIN admin)
+// ─────────────────────────────────────────────
+async function notifyPreApprovalRequest({ tenantId, cashierName, adminIds = [], preId = null, numeroPre = '', montant = 0 }) {
+  const montantStr = Number(montant).toLocaleString('fr-HT')
+  const title = `Demand Prè — Apwobasyon mande 🔐`
+  const body  = `${cashierName} kreye prè ${numeroPre} — ${montantStr} HTG. Louvri l pou apwouve/rejte ak PIN ou.`
+
+  await Promise.all([
+    ...adminIds.map(adminId => createNotification({
+      tenantId, userId: adminId, type: 'pre_approval_request',
+      titleHt: title,
+      titleFr: `Demande de Prêt — Autorisation demandée 🔐`,
+      titleEn: `Loan Request — Authorization requested 🔐`,
+      messageHt: body,
+      messageFr: `${cashierName} — Prêt ${numeroPre} — ${montantStr} HTG. Ouvrez-le pour approuver/rejeter avec votre PIN.`,
+      messageEn: `${cashierName} — Loan ${numeroPre} — ${montantStr} HTG. Open it to approve/reject with your PIN.`,
+      entityType: 'pre',
+      entityId: preId,
+    })),
+    sendPushToAdmins(tenantId, {
+      title,
+      body,
+      tag: 'pre-approval',
+      url: preId ? `/app/pre?preId=${preId}` : '/app/pre',
+    }),
+  ])
+}
+
 module.exports = {
   createNotification, getNotifications, markAsRead, markAllAsRead,
   deleteNotification, getUnreadCount,
   notifyNewInvoice, notifyInvoicePaid, notifyLowStock, notifyPaymentReceived,
-  notifyDirectQuoteAuthRequest,
+  notifyDirectQuoteAuthRequest, notifyPreApprovalRequest,
 };

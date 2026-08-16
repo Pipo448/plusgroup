@@ -42,11 +42,13 @@ const CATEGORIES = [
   { key: 'stock',    ht: 'Stòk',     fr: 'Stock',    en: 'Stock'     },
   { key: 'sales',    ht: 'Vant',     fr: 'Ventes',   en: 'Sales'     },
   { key: 'employee', ht: 'Anplwaye', fr: 'Employés', en: 'Employees' },
+  { key: 'pre',      ht: 'Prè',      fr: 'Prêts',    en: 'Loans'     },
 ]
 const CATEGORY_TYPES = {
   stock:    ['low_stock', 'out_of_stock', 'stock_alert'],
   sales:    ['invoice_created', 'invoice_paid', 'payment_received'],
   employee: ['employee_sale', 'employee_action'],
+  pre:      ['pre_approval_request'],
 }
 
 // ── Konvèti VAPID public key nan Uint8Array ────────────────────
@@ -250,6 +252,8 @@ export default function NotificationBell({ lang = 'ht' }) {
     quote:        (n) => n.entityId ? `/app/quotes/${n.entityId}`        : '/app/quotes',
     product:      () => '/app/stock',
     payment:      (n) => n.entityId ? `/app/invoices/${n.entityId}`      : '/app/invoices',
+    // ✅ Demand prè an atant apwobasyon — louvri detay prè a dirèkteman
+    pre:          (n) => n.entityId ? `/app/pre?preId=${n.entityId}`     : '/app/pre',
   }
 
   const handleNotifClick = async (n) => {
