@@ -108,7 +108,7 @@ async function majInteretKouru(tenantId) {
     FROM pre_echeances e
     JOIN prets p ON p.id = e.pre_id
     WHERE e.tenant_id = ${tenantId}
-      AND e.statut IN ('attente','partiel')
+      AND e.statut IN ('attente','partiel','reta')
       AND e.dat_limit < CURRENT_DATE
   `
   for (const e of ech) {
