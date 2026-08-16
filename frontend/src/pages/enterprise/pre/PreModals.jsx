@@ -747,6 +747,9 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     onError:   (e) => toast.error(e.response?.data?.message || 'Erè klotire.'),
   })
 
+  // ✅ Admin: efase peman — mande PIN (hook la dwe rete anvan early return anba a)
+  const [pixDeleteTarget, setPixDeleteTarget] = useState(null)
+
   if (isLoading || !preData?.pre) return (
     <Modal onClose={onClose} title="Detay Prè" width={600}>
       <div style={{ textAlign: 'center', padding: 40, color: D.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
@@ -765,8 +768,6 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
     catch { printer.printPre({ pre, echeances: [], tenant, type: 'ouverture' }) }
   }
 
-  // ✅ Admin: efase peman — mande PIN
-  const [pixDeleteTarget, setPixDeleteTarget] = useState(null)
   const handleDeletePaiement = (px) => setPixDeleteTarget(px)
   const confirmDeletePaiement = async (pin) => {
     await preAPI.deletePaiement(pre.id, pixDeleteTarget.id, pin)
