@@ -250,6 +250,85 @@ router.get('/rapo/kesye', async (req, res) => {
 })
 
 // ═══════════════════════════════════════════════════════════════
+// ✅ GET /pre/cash-flow — Kòb Antre/Soti pou Prè + Kanè Epay,
+// separe pa modil AK global, sou nenpòt peryòd dat-a-dat.
+// ⚠️ DWE rete anvan GET /:id — otreman Express kapte "cash-flow"
+// kòm si li te yon :id.
+// ═══════════════════════════════════════════════════════════════
+const isValidDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
+
+router.get('/cash-flow', async (req, res) => {
+  try {
+    const { tenantId } = getTB(req)
+    const now = new Date()
+    const defaultDebut = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+    const defaultFin   = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0]
+    const debutDate = isValidDate(req.query.debutDate) ? req.query.debutDate : defaultDebut
+    const finDate   = isValidDate(req.query.finDate)   ? req.query.finDate   : defaultFin
+
+    const [preAntre, preSoti, keAntre, keSoti] = await Promise.all([
+      // ✅ Prè — Antre = koleksyon (peman kliyan yo)
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant), 0) as total
+        FROM pre_paiements
+        WHERE tenant_id = ${tenantId}
+          AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
+      // ✅ Prè — Soti = dekèsman REYÈL, kidonk dat APWOBASYON an (pa dat kreyasyon demand lan)
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(montant), 0) as total
+        FROM prets
+        WHERE tenant_id = ${tenantId}
+          AND approved_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
+      // ✅ Kanè Epay — Antre = depo + ouvèti kont
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM kane_transactions
+        WHERE tenant_id = ${tenantId}
+          AND type IN ('depot','ouverture')
+          AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
+      // ✅ Kanè Epay — Soti = retrè
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM kane_transactions
+        WHERE tenant_id = ${tenantId}
+          AND type = 'retrait'
+          AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
+    ])
+
+    const preAntreNum = Number(preAntre[0]?.total || 0)
+    const preSotiNum  = Number(preSoti[0]?.total  || 0)
+    const keAntreNum  = Number(keAntre[0]?.total  || 0)
+    const keSotiNum   = Number(keSoti[0]?.total   || 0)
+
+    return res.json({
+      periode: { debutDate, finDate },
+      pre: {
+        antre: preAntreNum,
+        soti:  preSotiNum,
+        nèt:   preAntreNum - preSotiNum,
+      },
+      kaneEpay: {
+        antre: keAntreNum,
+        soti:  keSotiNum,
+        nèt:   keAntreNum - keSotiNum,
+      },
+      global: {
+        antre: preAntreNum + keAntreNum,
+        soti:  preSotiNum + keSotiNum,
+        nèt:   (preAntreNum + keAntreNum) - (preSotiNum + keSotiNum),
+      },
+    })
+  } catch (err) {
+    console.error('[PRE GET /cash-flow]', err)
+    return res.status(500).json({ message: err?.message || 'Erè sèvè.' })
+  }
+})
+
+// ═══════════════════════════════════════════════════════════════
 // GET /pre — lis prè
 // ═══════════════════════════════════════════════════════════════
 router.get('/', async (req, res) => {

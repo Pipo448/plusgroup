@@ -22,4 +22,6 @@ export const preAPI = {
   // ✅ Workflow apwobasyon
   approve:        (id, pin)         => api.post(`/pre/${id}/approve`, { pin }),
   reject:         (id, reason)      => api.post(`/pre/${id}/reject`, { reason }),
+  // ✅ Kòb Antre/Soti — Prè + Kanè Epay, separe ak global, dat-a-dat
+  cashFlow:       (params)          => api.get('/pre/cash-flow', { params }),
 }
