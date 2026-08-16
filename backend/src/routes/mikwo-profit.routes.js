@@ -8,13 +8,17 @@ const prisma = require('../config/prisma')
 router.use(identifyTenant, authenticate)
 
 const tid = (req) => req.tenant.id
+const isValidDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s)
 
 router.get('/', async (req, res) => {
   try {
     const tenantId  = tid(req)
     const now       = new Date()
-    const debutDate = req.query.debutDate || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
-    const finDate   = req.query.finDate   || new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0]
+    const defaultDebut = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`
+    const defaultFin    = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0]
+    // ✅ Verifye fòma dat yo (defans anplis, anplis de paramèt eskape otomatikman)
+    const debutDate = isValidDate(req.query.debutDate) ? req.query.debutDate : defaultDebut
+    const finDate   = isValidDate(req.query.finDate)   ? req.query.finDate   : defaultFin
 
     const [
       enteretData,
@@ -34,131 +38,131 @@ router.get('/', async (req, res) => {
     ] = await Promise.all([
 
       // ✅ Enterè sèlman — statut='paye' + dat_paye nan peryòd
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(montant_interet), 0) as total
         FROM pre_echeances
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND statut = 'paye'
-          AND dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
-      `),
+          AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
 
       // ✅ Penalite — enterè kouru pou jou reta
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(interet_kouru), 0) as total
         FROM pre_echeances
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND statut = 'paye'
-          AND dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
+          AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
           AND jou_reta > 0
-      `),
+      `,
 
       // Kapital retounen
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(montant_capital), 0) as total
         FROM pre_echeances
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND statut = 'paye'
-          AND dat_paye::date BETWEEN '${debutDate}' AND '${finDate}'
-      `),
+          AND dat_paye::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
 
       // Frè Kanè
-      prisma.$queryRawUnsafe(`
-  SELECT COUNT(*) as total_kont
-  FROM kane_epay_accounts
-  WHERE tenant_id = '${tenantId}'
-    AND created_at::date BETWEEN '${debutDate}' AND '${finDate}'
-`),
+      prisma.$queryRaw`
+        SELECT COUNT(*) as total_kont
+        FROM kane_epay_accounts
+        WHERE tenant_id = ${tenantId}
+          AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
 
       // Depans
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(montant), 0) as total
         FROM mikwo_expenses
-        WHERE tenant_id = '${tenantId}'
-          AND date_depans BETWEEN '${debutDate}' AND '${finDate}'
-      `),
+        WHERE tenant_id = ${tenantId}
+          AND date_depans BETWEEN ${debutDate}::date AND ${finDate}::date
+      `,
 
       // Kapital enjekte total (tout tan)
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(montant), 0) as total
         FROM pre_kapital
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND type = 'enjeksyon'
-      `),
+      `,
 
       // Prè aktif
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COUNT(*) as total FROM prets
-        WHERE tenant_id = '${tenantId}' AND statut IN ('actif','reta')
-      `),
+        WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta')
+      `,
 
       // Kanè aktif
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COUNT(*) as total FROM kane_epay_accounts
-        WHERE tenant_id = '${tenantId}' AND is_active = true
-      `),
+        WHERE tenant_id = ${tenantId} AND is_active = true
+      `,
 
       // Portfeuye prè
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(total_du - total_paye), 0) as total
         FROM prets
-        WHERE tenant_id = '${tenantId}' AND statut IN ('actif','reta','attente')
-      `),
+        WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta','attente')
+      `,
 
       // Grafik 7 jou
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT DATE(dat_paye) as dat,
                COALESCE(SUM(montant_interet), 0) as enteret,
                COALESCE(SUM(interet_kouru), 0)   as penalite,
                COALESCE(SUM(montant_capital), 0) as kapital
         FROM pre_echeances
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND statut = 'paye'
           AND dat_paye >= NOW() - INTERVAL '7 days'
         GROUP BY DATE(dat_paye)
         ORDER BY dat ASC
-      `),
+      `,
 
       // Depans 7 jou
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT date_depans as dat, COALESCE(SUM(montant),0) as total
         FROM mikwo_expenses
-        WHERE tenant_id = '${tenantId}'
+        WHERE tenant_id = ${tenantId}
           AND date_depans >= NOW() - INTERVAL '7 days'
         GROUP BY date_depans
         ORDER BY dat ASC
-      `),
+      `,
 
       // ✅ PREVIZYON — Total enterè prevwa sou tout prè aktif
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(e.montant_interet), 0) as total_interet,
                COALESCE(SUM(e.montant_capital), 0) as total_kapital,
                COALESCE(SUM(e.montant_total), 0)   as total_global
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
-        WHERE e.tenant_id = '${tenantId}'
+        WHERE e.tenant_id = ${tenantId}
           AND p.statut IN ('actif','reta','attente')
-      `),
+      `,
 
       // ✅ PREVIZYON — Enterè deja kolekte sou prè aktif (tout tan)
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(e.montant_interet), 0) as total_interet,
                COALESCE(SUM(e.montant_capital), 0) as total_kapital
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
-        WHERE e.tenant_id = '${tenantId}'
+        WHERE e.tenant_id = ${tenantId}
           AND p.statut IN ('actif','reta','attente')
           AND e.statut = 'paye'
-      `),
+      `,
 
       // ✅ PREVIZYON — Balans deyo (kapital + enterè ki rete pou kolekte)
-      prisma.$queryRawUnsafe(`
+      prisma.$queryRaw`
         SELECT COALESCE(SUM(GREATEST(0, p.total_du - p.total_paye)), 0) as balans_deyo,
                COALESCE(SUM(p.montant), 0) as total_prete,
                COUNT(*) as nbr_pre
         FROM prets p
-        WHERE p.tenant_id = '${tenantId}'
+        WHERE p.tenant_id = ${tenantId}
           AND p.statut IN ('actif','reta','attente')
-      `),
+      `,
     ])
 
     const totalEnteret   = Number(enteretData[0]?.total      || 0)
