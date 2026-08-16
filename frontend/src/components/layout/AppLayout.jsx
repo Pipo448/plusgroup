@@ -69,6 +69,7 @@ const NAV = [
 const MIKWO_KREDI_ITEMS = [
   { to:'/app/kane-epay',       icon:Wallet,     label:'Kanè Epay', pageKey:'kane-epay' },
   { to:'/app/pre',             icon:DollarSign, label:'Prè',       pageKey:'pre'       },
+  { to:'/app/pre/cash-flow',   icon:RefreshCw,  label:'Rapò Antre/Soti', pageKey:'pre' },
   { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        },
   { to:'/app/mikwo-profit',    icon:BarChart2,  label:'Pwofi/Pèt', pageKey:null        },
 ]
@@ -787,7 +788,7 @@ export default function AppLayout() {
                       if (!isPageAllowed(pageKey)) return null
                       const isGid = to === '/app/mikwo-kredi-gid'
                       return (
-                        <NavLink key={to} to={to}
+                        <NavLink key={to} to={to} end
                           style={({ isActive }) => ({
                             display:'flex', alignItems:'center', gap:9,
                             padding:'8px 12px', borderRadius:9, marginBottom:2,
