@@ -102,30 +102,23 @@ async function getPAR(tenantId) {
 }
 
 async function majInteretKouru(tenantId) {
-  const aujourdui = new Date()
-  const ech = await prisma.$queryRaw`
-    SELECT e.*, p.taux_interet, p.tenant_id
-    FROM pre_echeances e
-    JOIN prets p ON p.id = e.pre_id
-    WHERE e.tenant_id = ${tenantId}
+  // ✅ Yon SÈL demand UPDATE (olye yon bouk ki voye 1 demand pa echeans,
+  // youn apre lòt) — sa a evite paj la "kole" lè gen anpil echeans an
+  // reta akimile pou tenant lan (menm kalkil ak calcInteretKouru la,
+  // men fèt dirèkteman nan SQL pou tout ranje ki matche yo an yon sèl kou).
+  await prisma.$executeRaw`
+    UPDATE pre_echeances e
+    SET interet_kouru = ROUND((e.balans_avant * (p.taux_interet / 100.0 / 30) * GREATEST(0, (CURRENT_DATE - e.dat_limit)))::numeric, 2),
+        jou_reta       = GREATEST(0, (CURRENT_DATE - e.dat_limit))::int,
+        statut         = CASE WHEN e.statut = 'attente' THEN 'reta' ELSE e.statut END,
+        updated_at     = NOW()
+    FROM prets p
+    WHERE p.id = e.pre_id
+      AND e.tenant_id = ${tenantId}
       AND e.statut IN ('attente','partiel','reta')
       AND e.dat_limit < CURRENT_DATE
+      AND p.taux_interet > 0
   `
-  for (const e of ech) {
-    const tauxNum = Number(e.taux_interet || 0)
-    if (tauxNum === 0) continue
-    const { interetKouru, jouReta } = calcInteretKouru(
-      Number(e.balans_avant), tauxNum, e.dat_limit, aujourdui
-    )
-    await prisma.$executeRaw`
-      UPDATE pre_echeances
-      SET interet_kouru = ${interetKouru},
-          jou_reta      = ${jouReta},
-          statut        = CASE WHEN statut = 'attente' THEN 'reta' ELSE statut END,
-          updated_at    = NOW()
-      WHERE id = ${e.id}
-    `
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
