@@ -325,7 +325,7 @@ router.get('/appointments', async (req, res) => {
     const [appointments, total] = await Promise.all([
       prisma.klinikAppointment.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{dateHeure:'asc'},
-        include:{patient:{select:{nom:true,prenom:true,telephone:true,numeroDossier:true,numero_dossier:true}}},
+        include:{patient:{select:{nom:true,prenom:true,telephone:true,numeroDossier:true}}},
       }),
       prisma.klinikAppointment.count({ where }),
     ])
