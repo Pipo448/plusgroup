@@ -120,6 +120,33 @@ async function majInteretKouru(tenantId) {
       AND e.dat_limit < CURRENT_DATE
       AND p.taux_interet > 0
   `
+
+  // ✅ Senkronize estati NIVO PRÈ a (pa sèlman echeans lan) + total enterè
+  // kouru — anvan sa a "An Reta" sèlman chanje lè yon peman t ap antre
+  // sou prè sa a espesifikman, kidonk yon prè an reta san okenn nouvo
+  // peman te ka rete make "aktif" pou tout tan.
+  await prisma.$executeRaw`
+    UPDATE prets p
+    SET interet_kouru_total = COALESCE(sub.total_interet_kouru, 0),
+        total_du_ajou       = GREATEST(0, p.total_du + COALESCE(sub.total_interet_kouru, 0) - p.total_paye),
+        statut = CASE
+          WHEN sub.has_reta THEN 'reta'::"PreStatut"
+          WHEN p.statut = 'reta' AND NOT COALESCE(sub.has_reta, false) THEN 'actif'::"PreStatut"
+          ELSE p.statut
+        END,
+        updated_at = NOW()
+    FROM (
+      SELECT pre_id,
+             SUM(interet_kouru) as total_interet_kouru,
+             BOOL_OR(jou_reta > 0 AND statut != 'paye') as has_reta
+      FROM pre_echeances
+      WHERE tenant_id = ${tenantId}
+      GROUP BY pre_id
+    ) sub
+    WHERE p.id = sub.pre_id
+      AND p.tenant_id = ${tenantId}
+      AND p.statut IN ('actif','reta')
+  `
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -142,11 +169,11 @@ router.get('/stats', async (req, res) => {
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
     ])
 
-    // ✅ Pòtfèy = BALANS KI RETE POU PEYE (total_du - total_paye), pa montan orijinal la.
-    // Sa a fè pòtfèy la desann DOUSMAN ak chak peman (pasyèl kou konplè),
-    // olye rete fiks epi sote yon sèl kou lè yon prè klotire.
+    // ✅ Pòtfèy = BALANS KI RETE POU PEYE, ANKLI enterè kouru — menm fòmil
+    // ak getPAR() itilize, pou de chif yo toujou matche. Fè l desann
+    // DOUSMAN ak chak peman, olye rete fiks epi sote yon sèl kou.
     const portAgg = await prisma.$queryRaw`
-      SELECT COALESCE(SUM(GREATEST(0, total_du - total_paye)), 0) as total
+      SELECT COALESCE(SUM(GREATEST(0, total_du + COALESCE(interet_kouru_total,0) - total_paye)), 0) as total
       FROM prets
       WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta')
     `
