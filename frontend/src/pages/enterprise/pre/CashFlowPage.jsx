@@ -60,7 +60,7 @@ export default function CashFlowPage() {
           <h1 style={{ fontSize:19, fontWeight:900, color:D.gold, margin:'0 0 2px', display:'flex', alignItems:'center', gap:7 }}>
             <DollarSign size={19}/> Kòb Antre / Soti
           </h1>
-          <p style={{ fontSize:11, color:D.muted, margin:0 }}>Mikwo Kredi (Prè) + Kanè Epay — separe ak global</p>
+          <p style={{ fontSize:11, color:D.muted, margin:0 }}>Mikwo Kredi (Prè) + Kanè Epay + Ti Kanè Kès — separe ak global</p>
         </div>
       </div>
 
@@ -90,11 +90,12 @@ export default function CashFlowPage() {
         <>
           <FlowCard title="Mikwo Kredi (Prè)" icon={<Wallet size={14}/>} antre={data.pre.antre} soti={data.pre.soti} nèt={data.pre.nèt}/>
           <FlowCard title="Kanè Epay" icon={<Wallet size={14}/>} antre={data.kaneEpay.antre} soti={data.kaneEpay.soti} nèt={data.kaneEpay.nèt}/>
+          <FlowCard title="Ti Kanè Kès (Epay Jounalye)" icon={<Wallet size={14}/>} antre={data.tikaneKes.antre} soti={data.tikaneKes.soti} nèt={data.tikaneKes.nèt}/>
 
           {/* Global — mete aksan sou li */}
           <div style={{ background:D.goldBtn, borderRadius:14, padding:'18px 20px', color:'#0a1222' }}>
             <p style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', margin:'0 0 14px', letterSpacing:'0.06em', opacity:0.85 }}>
-              ● Global — Tou De Modil Ansanm
+              ● Global — Tou Twa Modil Ansanm
             </p>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
               <div>
@@ -116,6 +117,7 @@ export default function CashFlowPage() {
 
           <p style={{ fontSize:10, color:D.muted, margin:0, textAlign:'center' }}>
             Peryòd: {data.periode.debutDate} → {data.periode.finDate}. "Soti" pou Prè baze sou dat APWOBASYON an (lè lajan reyèlman dekèse), pa dat demand lan.
+            "Soti" pou Ti Kanè Kès enkli ranbousman kontra fini AK kontra kase (mwens penalite).
           </p>
         </>
       )}

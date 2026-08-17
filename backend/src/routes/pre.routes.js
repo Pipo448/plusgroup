@@ -301,7 +301,10 @@ router.get('/cash-flow', async (req, res) => {
     const debutDate = isValidDate(req.query.debutDate) ? req.query.debutDate : defaultDebut
     const finDate   = isValidDate(req.query.finDate)   ? req.query.finDate   : defaultFin
 
-    const [preAntre, preSoti, keAntre, keSoti] = await Promise.all([
+    const debutDateObj = new Date(`${debutDate}T00:00:00.000Z`)
+    const finDateObj   = new Date(`${finDate}T23:59:59.999Z`)
+
+    const [preAntre, preSoti, keAntre, keSoti, tikaneAntreAgg, tikaneCompletedAgg, tikaneBrokenAgg] = await Promise.all([
       // ✅ Prè — Antre = koleksyon (peman kliyan yo)
       prisma.$queryRaw`
         SELECT COALESCE(SUM(montant), 0) as total
@@ -332,12 +335,29 @@ router.get('/cash-flow', async (req, res) => {
           AND type = 'retrait'
           AND created_at::date BETWEEN ${debutDate}::date AND ${finDate}::date
       `,
+      // ✅ Ti Kanè Kès (Epay Jounalye) — Antre = depo chak jou kolekte
+      prisma.epayJounalyePayment.aggregate({
+        where: { tenantId, createdAt: { gte: debutDateObj, lte: finDateObj } },
+        _sum: { amount: true },
+      }),
+      // ✅ Ti Kanè Kès — Soti (1/2) = lajan retounen bay kliyan lè kontra FINI
+      prisma.epayJounalyeContract.aggregate({
+        where: { tenantId, status: 'completed', completedAt: { gte: debutDateObj, lte: finDateObj } },
+        _sum: { finalPayoutAmount: true },
+      }),
+      // ✅ Ti Kanè Kès — Soti (2/2) = ranbousman lè kontra KASE (mwens penalite)
+      prisma.epayJounalyeContract.aggregate({
+        where: { tenantId, status: 'broken', brokenAt: { gte: debutDateObj, lte: finDateObj } },
+        _sum: { breakRefundAmount: true },
+      }),
     ])
 
     const preAntreNum = Number(preAntre[0]?.total || 0)
     const preSotiNum  = Number(preSoti[0]?.total  || 0)
     const keAntreNum  = Number(keAntre[0]?.total  || 0)
     const keSotiNum   = Number(keSoti[0]?.total   || 0)
+    const tikaneAntreNum = Number(tikaneAntreAgg._sum.amount || 0)
+    const tikaneSotiNum  = Number(tikaneCompletedAgg._sum.finalPayoutAmount || 0) + Number(tikaneBrokenAgg._sum.breakRefundAmount || 0)
 
     return res.json({
       periode: { debutDate, finDate },
@@ -351,10 +371,15 @@ router.get('/cash-flow', async (req, res) => {
         soti:  keSotiNum,
         nèt:   keAntreNum - keSotiNum,
       },
+      tikaneKes: {
+        antre: tikaneAntreNum,
+        soti:  tikaneSotiNum,
+        nèt:   tikaneAntreNum - tikaneSotiNum,
+      },
       global: {
-        antre: preAntreNum + keAntreNum,
-        soti:  preSotiNum + keSotiNum,
-        nèt:   (preAntreNum + keAntreNum) - (preSotiNum + keSotiNum),
+        antre: preAntreNum + keAntreNum + tikaneAntreNum,
+        soti:  preSotiNum + keSotiNum + tikaneSotiNum,
+        nèt:   (preAntreNum + keAntreNum + tikaneAntreNum) - (preSotiNum + keSotiNum + tikaneSotiNum),
       },
     })
   } catch (err) {
