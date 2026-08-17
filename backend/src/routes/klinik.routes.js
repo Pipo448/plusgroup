@@ -289,7 +289,7 @@ router.delete('/patients/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/appointments', async (req, res) => {
   try {
-    const { date, dateFrom, dateTo, statut, patientId, page = 1, limit = 50 } = req.query
+    const { date, dateFrom, dateTo, statut, patientId, search, page = 1, limit = 50 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
 
@@ -304,6 +304,18 @@ router.get('/appointments', async (req, res) => {
 
     if (statut)    where.statut    = statut
     if (patientId) where.patientId = patientId
+
+    // ⭐ Rechèch pa non pasyan — itil pou verifye si yon randevou egziste
+    //   menm si li klase anba yon lòt dat pase sa itilizatè a atann
+    if (search && search.trim()) {
+      where.patient = {
+        OR: [
+          { prenom:        { contains: search.trim(), mode: 'insensitive' } },
+          { nom:           { contains: search.trim(), mode: 'insensitive' } },
+          { numeroDossier: { contains: search.trim(), mode: 'insensitive' } },
+        ],
+      }
+    }
 
     const [appointments, total] = await Promise.all([
       prisma.klinikAppointment.findMany({
