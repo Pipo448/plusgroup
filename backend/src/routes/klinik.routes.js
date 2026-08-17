@@ -928,6 +928,7 @@ router.get('/services', async (req, res) => {
     if (patientId)   { where += ` AND ks.patient_id::text = $${idx++}::text`; params.push(patientId) }
     if (status)      { where += ` AND ks.status = $${idx++}`;          params.push(status) }
     if (hospId)      { where += ` AND ks.notes LIKE $${idx++}`;         params.push(`%[HOSP:${hospId}]%`) }
+    if (req.query.rdvId) { where += ` AND ks.notes LIKE $${idx++}`;     params.push(`%[RDV:${req.query.rdvId}]%`) }
     if (search) { where += ` AND (kp.prenom ILIKE $${idx} OR kp.nom ILIKE $${idx})`; params.push(`%${search}%`); idx++ }
 
     // ⭐ Filtre dat (today / week / month / dat egzat / plaj dat) — itil pou paj Kes (Istorik + Stats)
@@ -973,6 +974,23 @@ router.post('/services', async (req, res) => {
             externalClientName, _isExternal } = req.body
 
     if (!serviceType) return res.status(400).json({ message: 'serviceType obligatwa.' })
+
+    // ⭐ Blokaj dòb-chaj — si se yon peman konsiltasyon randevou (tag [RDV:id]
+    //   nan notes), verifye pa gen youn ki DEJA peye pou menm randevou a anvan
+    //   nou kreye yon dezyèm (pwoteksyon si 2 klik rive an menm tan).
+    const rdvTagMatch = String(notes || '').match(/\[RDV:([^\]]+)\]/)
+    if (rdvTagMatch) {
+      const already = await prisma.$queryRaw`
+        SELECT id FROM klinik_services
+        WHERE tenant_id::text = ${tenantId}::text
+          AND status = 'peye'
+          AND notes LIKE ${'%[RDV:' + rdvTagMatch[1] + ']%'}
+        LIMIT 1
+      `
+      if (already[0]) {
+        return res.status(409).json({ message: 'Randevou sa a deja peye.', existingServiceId: already[0].id })
+      }
+    }
 
     // ⭐ Pou kliyan eksten — pa kreye pasyan, mete non nan notes ak yon prefiks
     const isExt = _isExternal || (externalClientName && !patientId)
