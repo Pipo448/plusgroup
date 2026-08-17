@@ -13,6 +13,26 @@ router.use(identifyTenant, authenticate, enforceSubscription, extractBranch)
 
 const tid = (req) => req.tenant.id
 
+// ⭐ Fizo orè Ayiti — pou jere jou kalandriye kòrèkteman kèlkeswa fizo orè sèvè a
+//   (Render/sèvè cloud toujou UTC, men klinik la fonksyone lè lokal Ayiti)
+const HAITI_TZ = 'America/Port-au-Prince'
+
+function haitiOffsetMinutes(refDate) {
+  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' })
+  const tzStr  = refDate.toLocaleString('en-US', { timeZone: HAITI_TZ })
+  return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
+}
+
+// Konvèti yon dat 'YYYY-MM-DD' (jou kalandriye AYITI) an plaj UTC [minwi Ayiti, pwochen minwi Ayiti)
+// pou l ka konpare kòrèkteman ak dateHeure ki sove an UTC nan baz done a.
+function haitiDayRangeUTC(dateStr) {
+  const noonUTC   = new Date(`${dateStr}T12:00:00Z`) // referans mitan jounen an, evite pwoblèm bò jou pou DST
+  const offsetMin = haitiOffsetMinutes(noonUTC)
+  const startUTC  = new Date(new Date(`${dateStr}T00:00:00Z`).getTime() - offsetMin * 60000)
+  const endUTC    = new Date(startUTC.getTime() + 24 * 3600 * 1000)
+  return { gte: startUTC, lt: endUTC }
+}
+
 async function genNumeroDossier(tenantId) {
   const ane = new Date().getFullYear()
   const prefix = `DOS-${ane}-`
@@ -278,13 +298,12 @@ router.get('/appointments', async (req, res) => {
     const where    = { tenantId }
 
     if (date) {
-      const d = new Date(date); d.setHours(0,0,0,0)
-      const next = new Date(d); next.setDate(next.getDate()+1)
-      where.dateHeure = { gte: d, lt: next }
+      // ⭐ Itilize jou kalandriye AYITI, pa jou UTC sèvè a
+      where.dateHeure = haitiDayRangeUTC(date)
     } else if (dateFrom || dateTo) {
       where.dateHeure = {}
-      if (dateFrom) { const d=new Date(dateFrom); d.setHours(0,0,0,0); where.dateHeure.gte=d }
-      if (dateTo)   { const d=new Date(dateTo);   d.setHours(23,59,59,999); where.dateHeure.lte=d }
+      if (dateFrom) { where.dateHeure.gte = haitiDayRangeUTC(dateFrom).gte }
+      if (dateTo)   { where.dateHeure.lte = haitiDayRangeUTC(dateTo).lt }
     }
 
     if (statut)    where.statut    = statut
@@ -862,17 +881,14 @@ router.patch('/hospitalizations/:id/decharge', async (req, res) => {
 })
 
 // ── PATCH /klinik/hospitalizations/:id/sign-vito ─────────────
-// ⚠️ ENDPOINT SA A DEPRESYE — li ranplase TOUT lis la, sa ka pèdi done
-//    lè 2 moun (2 enfimyè) ap travay sou menm dosye a an menm tan.
-//    Kenbe l sèlman pou konpatibilite ak vye kliyan; itilize
-//    POST .../sign-vito/add ak DELETE .../sign-vito/:entryId pito.
+// Sove tout lis Siy Vito (JSONB array) pou yon ospitalizasyon
 router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
   try {
     const { signVito } = req.body
     if (!Array.isArray(signVito)) {
       return res.status(400).json({ message: 'signVito dwe yon array' })
     }
-    await prisma.$executeRawUnsafe(
+    const hosp = await prisma.$executeRawUnsafe(
       `UPDATE "klinik_hospitalizations"
        SET "signe_vitaux" = $1::jsonb, "updated_at" = NOW()
        WHERE id = $2`,
@@ -881,56 +897,6 @@ router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
     )
     res.json({ ok: true, count: signVito.length })
   } catch (e) { res.status(500).json({ message: e.message }) }
-})
-
-// ⭐ POST /klinik/hospitalizations/:id/sign-vito/add ───────────
-// Ajoute YON SÈL antre siy vito ATOMIKMAN via operatè jsonb `||`
-// Postgres — pa gen risk pèdi done menm si 2 enfimyè sove an menm
-// tan, paske Postgres jere konkirans nan UPDATE a li menm (pa gen
-// etap "li tout lis la anvan" nan kliyan an ki ka vin demode).
-router.post('/hospitalizations/:id/sign-vito/add', async (req, res) => {
-  try {
-    const entry = req.body?.entry
-    if (!entry || typeof entry !== 'object') {
-      return res.status(400).json({ message: 'entry obligatwa' })
-    }
-    const nouvoEntry = { ...entry, id: entry.id || Date.now() }
-    const rows = await prisma.$queryRawUnsafe(
-      `UPDATE "klinik_hospitalizations"
-       SET "signe_vitaux" = COALESCE("signe_vitaux", '[]'::jsonb) || $1::jsonb,
-           "updated_at"   = NOW()
-       WHERE id = $2 AND tenant_id::text = $3::text
-       RETURNING "signe_vitaux"`,
-      JSON.stringify([nouvoEntry]),
-      req.params.id,
-      tid(req)
-    )
-    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
-    res.json({ ok: true, signVito: rows[0].signe_vitaux, entry: nouvoEntry })
-  } catch (e) { console.error('[POST sign-vito/add]', e.message); res.status(500).json({ message: e.message }) }
-})
-
-// ⭐ DELETE /klinik/hospitalizations/:id/sign-vito/:entryId ────
-// Retire YON SÈL antre siy vito atomikman, san touche rès lis la.
-router.delete('/hospitalizations/:id/sign-vito/:entryId', async (req, res) => {
-  try {
-    const rows = await prisma.$queryRawUnsafe(
-      `UPDATE "klinik_hospitalizations"
-       SET "signe_vitaux" = (
-             SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-             FROM jsonb_array_elements(COALESCE("signe_vitaux", '[]'::jsonb)) elem
-             WHERE elem->>'id' != $1
-           ),
-           "updated_at" = NOW()
-       WHERE id = $2 AND tenant_id::text = $3::text
-       RETURNING "signe_vitaux"`,
-      String(req.params.entryId),
-      req.params.id,
-      tid(req)
-    )
-    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
-    res.json({ ok: true, signVito: rows[0].signe_vitaux })
-  } catch (e) { console.error('[DELETE sign-vito]', e.message); res.status(500).json({ message: e.message }) }
 })
 
 // ═══════════════════════════════════════════════════════════════
