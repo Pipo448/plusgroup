@@ -133,16 +133,23 @@ router.get('/stats', async (req, res) => {
 
     await majInteretKouru(tenantId)
 
-    const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, portAgg, kolMwaAgg, kolJodiAgg] = await Promise.all([
+    const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, kolMwaAgg, kolJodiAgg] = await Promise.all([
       prisma.pre.count({ where: { tenantId } }),
       prisma.pre.count({ where: { tenantId, statut: 'actif' } }),
       prisma.pre.count({ where: { tenantId, statut: 'reta'  } }),
       prisma.pre.count({ where: { tenantId, statut: 'attente' } }),
-      // ✅ Pòtfèy = lajan REYÈLMAN deyò (aktif + an reta) — pa gen 'attente', li poko dekèse
-      prisma.pre.aggregate({ where: { tenantId, statut: { in: ['actif','reta'] } }, _sum: { montant: true } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
     ])
+
+    // ✅ Pòtfèy = BALANS KI RETE POU PEYE (total_du - total_paye), pa montan orijinal la.
+    // Sa a fè pòtfèy la desann DOUSMAN ak chak peman (pasyèl kou konplè),
+    // olye rete fiks epi sote yon sèl kou lè yon prè klotire.
+    const portAgg = await prisma.$queryRaw`
+      SELECT COALESCE(SUM(GREATEST(0, total_du - total_paye)), 0) as total
+      FROM prets
+      WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta')
+    `
 
     // ✅ Dekèsman = lè lajan REYÈLMAN soti, sa vle di lè admin APWOUVE (approved_at) — pa lè demand kreye
     const [desMwaAgg, desJodiAgg] = await Promise.all([
@@ -165,7 +172,7 @@ router.get('/stats', async (req, res) => {
 
     return res.json({ stats: {
       totalPrets, pretsActifs, totalEnReta: pretsEnReta, pretsAnAtant,
-      totalPortfeuye:    Number(portAgg._sum.montant    || 0),
+      totalPortfeuye:    Number(portAgg[0]?.total    || 0),
       totalDesèmanMwa:   Number(desMwaAgg[0]?.total  || 0),
       totalPaiemanMwa:   Number(kolMwaAgg._sum.montant  || 0),
       totalDesèmanJodi:  Number(desJodiAgg[0]?.total || 0),
