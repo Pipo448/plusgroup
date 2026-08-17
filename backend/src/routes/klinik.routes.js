@@ -307,13 +307,18 @@ router.get('/appointments', async (req, res) => {
 
     // ⭐ Rechèch pa non pasyan — itil pou verifye si yon randevou egziste
     //   menm si li klase anba yon lòt dat pase sa itilizatè a atann
+    //   Divize an mo separe pou jere "Victor Caseuss" menm si prenom=Caseuss
+    //   ak nom=Victor separeman (lòd pa gen enpòtans).
     if (search && search.trim()) {
+      const tokens = search.trim().split(/\s+/).filter(Boolean)
       where.patient = {
-        OR: [
-          { prenom:        { contains: search.trim(), mode: 'insensitive' } },
-          { nom:           { contains: search.trim(), mode: 'insensitive' } },
-          { numeroDossier: { contains: search.trim(), mode: 'insensitive' } },
-        ],
+        AND: tokens.map(tok => ({
+          OR: [
+            { prenom:        { contains: tok, mode: 'insensitive' } },
+            { nom:           { contains: tok, mode: 'insensitive' } },
+            { numeroDossier: { contains: tok, mode: 'insensitive' } },
+          ],
+        })),
       }
     }
 
