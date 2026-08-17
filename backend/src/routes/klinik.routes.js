@@ -15,23 +15,19 @@ const tid = (req) => req.tenant.id
 
 // ⭐ Fizo orè Ayiti — pou jere jou kalandriye kòrèkteman kèlkeswa fizo orè sèvè a
 //   (Render/sèvè cloud toujou UTC, men klinik la fonksyone lè lokal Ayiti)
-const HAITI_TZ = 'America/Port-au-Prince'
-
-function haitiOffsetMinutes(refDate) {
-  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' })
-  const tzStr  = refDate.toLocaleString('en-US', { timeZone: HAITI_TZ })
-  return (new Date(tzStr).getTime() - new Date(utcStr).getTime()) / 60000
+//
+//   ⚠️ Kalkil la fèt DIRÈKTEMAN nan Postgres (pa ak Intl/Node) — konsa li
+//   pa depann si sèvè Node lan gen done fizo orè (ICU) enstale oswa pa.
+//   Postgres toujou gen bon done fizo orè.
+async function haitiDayRangeUTC(dateStr) {
+  const rows = await prisma.$queryRaw`
+    SELECT
+      (${dateStr}::date::timestamp AT TIME ZONE 'America/Port-au-Prince')                    AS start_utc,
+      ((${dateStr}::date + INTERVAL '1 day')::timestamp AT TIME ZONE 'America/Port-au-Prince') AS end_utc
+  `
+  return { gte: rows[0].start_utc, lt: rows[0].end_utc }
 }
 
-// Konvèti yon dat 'YYYY-MM-DD' (jou kalandriye AYITI) an plaj UTC [minwi Ayiti, pwochen minwi Ayiti)
-// pou l ka konpare kòrèkteman ak dateHeure ki sove an UTC nan baz done a.
-function haitiDayRangeUTC(dateStr) {
-  const noonUTC   = new Date(`${dateStr}T12:00:00Z`) // referans mitan jounen an, evite pwoblèm bò jou pou DST
-  const offsetMin = haitiOffsetMinutes(noonUTC)
-  const startUTC  = new Date(new Date(`${dateStr}T00:00:00Z`).getTime() - offsetMin * 60000)
-  const endUTC    = new Date(startUTC.getTime() + 24 * 3600 * 1000)
-  return { gte: startUTC, lt: endUTC }
-}
 
 async function genNumeroDossier(tenantId) {
   const ane = new Date().getFullYear()
@@ -299,11 +295,11 @@ router.get('/appointments', async (req, res) => {
 
     if (date) {
       // ⭐ Itilize jou kalandriye AYITI, pa jou UTC sèvè a
-      where.dateHeure = haitiDayRangeUTC(date)
+      where.dateHeure = await haitiDayRangeUTC(date)
     } else if (dateFrom || dateTo) {
       where.dateHeure = {}
-      if (dateFrom) { where.dateHeure.gte = haitiDayRangeUTC(dateFrom).gte }
-      if (dateTo)   { where.dateHeure.lte = haitiDayRangeUTC(dateTo).lt }
+      if (dateFrom) { where.dateHeure.gte = (await haitiDayRangeUTC(dateFrom)).gte }
+      if (dateTo)   { where.dateHeure.lte = (await haitiDayRangeUTC(dateTo)).lt }
     }
 
     if (statut)    where.statut    = statut
