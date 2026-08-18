@@ -8,7 +8,7 @@ import {
   Plus, Search, Eye, Printer, ChevronLeft, ChevronRight,
   Users, Wallet, TrendingUp, Activity, AlertCircle, RefreshCw,
   DollarSign, Percent, ArrowDownCircle, PiggyBank, FileText, Lock,
-  Bluetooth, BluetoothOff, Trash2,
+  Bluetooth, BluetoothOff, Trash2, CheckCircle,
 } from 'lucide-react'
 import { D, fmt, fmtShort, SHARED_STYLES } from '../kaneShared.jsx'
 import { STATUTS, PERIODES, PRE_STYLES } from './preConstants'
@@ -172,6 +172,7 @@ export default function PrePage() {
         <StatCard label="Total Prè"  value={statsData?.totalPrets  || 0}              icon={<Users size={17}/>}       color={D.gold}   onClick={() => goToFilter(null)}/>
         <StatCard label="An Atant"   value={statsData?.pretsAnAtant || 0}             icon={<Lock size={17}/>}        color={D.orange} onClick={() => goToFilter('attente')}/>
         <StatCard label="Prè Aktif"  value={statsData?.pretsActifs || 0}              icon={<Activity size={17}/>}    color={D.green}  onClick={() => goToFilter('actif')}/>
+        <StatCard label="Prè Fini"   value={statsData?.pretsKlotire || 0}             icon={<CheckCircle size={17}/>} color={D.gold}   onClick={() => goToFilter('cloture')}/>
         <StatCard label="Pòtfèy"     value={`${fmt(statsData?.totalPortfeuye||0)} G`} icon={<Wallet size={17}/>}      color={D.blue} />
         <StatCard label="An Reta"    value={statsData?.totalEnReta || 0}              icon={<AlertCircle size={17}/>} color={D.red}    onClick={() => goToFilter('reta')}/>
       </div>

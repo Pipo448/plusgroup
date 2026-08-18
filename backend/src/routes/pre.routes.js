@@ -161,11 +161,12 @@ router.get('/stats', async (req, res) => {
 
     await majInteretKouru(tenantId)
 
-    const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, kolMwaAgg, kolJodiAgg] = await Promise.all([
+    const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, pretsKlotire, kolMwaAgg, kolJodiAgg] = await Promise.all([
       prisma.pre.count({ where: { tenantId } }),
       prisma.pre.count({ where: { tenantId, statut: 'actif' } }),
       prisma.pre.count({ where: { tenantId, statut: 'reta'  } }),
       prisma.pre.count({ where: { tenantId, statut: 'attente' } }),
+      prisma.pre.count({ where: { tenantId, statut: 'cloture' } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiMwa } }, _sum: { montant: true } }),
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
     ])
@@ -199,7 +200,7 @@ router.get('/stats', async (req, res) => {
     const par = await getPAR(tenantId)
 
     return res.json({ stats: {
-      totalPrets, pretsActifs, totalEnReta: pretsEnReta, pretsAnAtant,
+      totalPrets, pretsActifs, totalEnReta: pretsEnReta, pretsAnAtant, pretsKlotire,
       totalPortfeuye:    Number(portAgg[0]?.total    || 0),
       totalDesèmanMwa:   Number(desMwaAgg[0]?.total  || 0),
       totalPaiemanMwa:   Number(kolMwaAgg._sum.montant  || 0),
