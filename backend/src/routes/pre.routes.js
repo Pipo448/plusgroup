@@ -403,7 +403,7 @@ router.get('/', async (req, res) => {
     // ✅ Kondisyon yo PARAMETRIZE (Prisma.sql) — chak valè ki soti nan
     // req.query eskape otomatikman, olye konkatene nan tèks SQL bri.
     const conditions = [Prisma.sql`p.tenant_id = ${tenantId}`]
-    if (statut)   conditions.push(Prisma.sql`p.statut = ${statut}`)
+    if (statut)   conditions.push(Prisma.sql`p.statut = ${statut}::"PreStatut"`)
     if (branchId) conditions.push(Prisma.sql`p.branch_id = ${branchId}`)
     if (search && search.length > 1) {
       const s = `%${search}%`
