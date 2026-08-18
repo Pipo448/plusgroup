@@ -132,11 +132,13 @@ router.get('/', async (req, res) => {
         WHERE tenant_id = ${tenantId} AND is_active = true
       `,
 
-      // Portfeuye prè
+      // ✅ Portfeuye prè — ALIYE ak "Pòtfèy" (pre.routes.js): enkli penalite
+      // (interet_kouru_total), EKSKLI 'attente' (lajan poko dekèse pou prè
+      // ki poko apwouve yo, kidonk yo pa ta dwe konte nan pòtfèy "deyò" a).
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(total_du - total_paye), 0) as total
+        SELECT COALESCE(SUM(GREATEST(0, total_du + COALESCE(interet_kouru_total,0) - total_paye)), 0) as total
         FROM prets
-        WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta','attente')
+        WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta')
       `,
 
       // Grafik 7 jou
