@@ -170,11 +170,11 @@ router.get('/stats', async (req, res) => {
       prisma.prePaiement.aggregate({ where: { tenantId, createdAt: { gte: debiJodi } }, _sum: { montant: true } }),
     ])
 
-    // ✅ Pòtfèy = BALANS KI RETE POU PEYE, ANKLI enterè kouru — menm fòmil
-    // ak getPAR() itilize, pou de chif yo toujou matche. Fè l desann
-    // DOUSMAN ak chak peman, olye rete fiks epi sote yon sèl kou.
+    // ⚠️ REVÈSMAN — Pòtfèy = MONTAN ORIJINAL tout prè aktif/an reta (brit),
+    // pa balans ki rete. Li monte lè lajan dekèse, rete fiks pandan tout
+    // vi prè a, epi disparèt an antye sèlman lè prè a klotire nèt.
     const portAgg = await prisma.$queryRaw`
-      SELECT COALESCE(SUM(GREATEST(0, total_du + COALESCE(interet_kouru_total,0) - total_paye)), 0) as total
+      SELECT COALESCE(SUM(montant), 0) as total
       FROM prets
       WHERE tenant_id = ${tenantId} AND statut IN ('actif','reta')
     `
