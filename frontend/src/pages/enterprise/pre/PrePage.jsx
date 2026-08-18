@@ -34,6 +34,14 @@ export default function PrePage() {
   const [deleteTarget,    setDeleteTarget]    = useState(null) // ✅ prè k ap efase (PIN)
   const [deleting,        setDeleting]        = useState(false)
   const searchTimeout = useRef(null)
+  const listRef        = useRef(null) // ✅ pou defile desann lè yo klike sou yon kat estatistik
+
+  // ✅ Klike sou yon kat estatistik → aplike filtè a epi defile desann sou lis la
+  const goToFilter = (statut) => {
+    setFilterStatut(statut)
+    setPage(1)
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   useEffect(() => {
     const el = document.createElement('style')
@@ -161,11 +169,11 @@ export default function PrePage() {
 
       {/* Stats */}
       <div className="ke-stats-grid">
-        <StatCard label="Total Prè"  value={statsData?.totalPrets  || 0}              icon={<Users size={17}/>}       color={D.gold} />
-        <StatCard label="An Atant"   value={statsData?.pretsAnAtant || 0}             icon={<Lock size={17}/>}        color={D.orange}/>
-        <StatCard label="Prè Aktif"  value={statsData?.pretsActifs || 0}              icon={<Activity size={17}/>}    color={D.green}/>
+        <StatCard label="Total Prè"  value={statsData?.totalPrets  || 0}              icon={<Users size={17}/>}       color={D.gold}   onClick={() => goToFilter(null)}/>
+        <StatCard label="An Atant"   value={statsData?.pretsAnAtant || 0}             icon={<Lock size={17}/>}        color={D.orange} onClick={() => goToFilter('attente')}/>
+        <StatCard label="Prè Aktif"  value={statsData?.pretsActifs || 0}              icon={<Activity size={17}/>}    color={D.green}  onClick={() => goToFilter('actif')}/>
         <StatCard label="Pòtfèy"     value={`${fmt(statsData?.totalPortfeuye||0)} G`} icon={<Wallet size={17}/>}      color={D.blue} />
-        <StatCard label="An Reta"    value={statsData?.totalEnReta || 0}              icon={<AlertCircle size={17}/>} color={D.red}  />
+        <StatCard label="An Reta"    value={statsData?.totalEnReta || 0}              icon={<AlertCircle size={17}/>} color={D.red}    onClick={() => goToFilter('reta')}/>
       </div>
 
       {isAdmin && (
@@ -212,7 +220,7 @@ export default function PrePage() {
       )}
 
       {/* Rechèch + Filtre */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+      <div ref={listRef} style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', scrollMarginTop:16 }}>
         <div style={{ position:'relative', flex:'1 1 200px', minWidth:160 }}>
           <Search size={14} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted, pointerEvents:'none' }}/>
           <input className="ke-input" style={{ paddingLeft:36, width:'100%', background:D.card, border:`1px solid ${D.cardBorder}`, borderRadius:10, padding:'10px 36px', color:D.text, fontSize:13, outline:'none', boxSizing:'border-box' }}

@@ -15,9 +15,10 @@ export function Spinner({ size = 14, color = '#fff' }) {
 }
 
 // ─── StatCard ─────────────────────────────────────────────────
-export function StatCard({ label, value, sub, icon, color, highlight }) {
+export function StatCard({ label, value, sub, icon, color, highlight, onClick }) {
   return (
-    <div style={{ background: highlight ? `${color}15` : D.card, borderRadius: 12, padding: '12px 14px', border: `1px solid ${highlight ? color+'40' : D.cardBorder}`, boxShadow: D.shadow, display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div onClick={onClick} className={onClick ? 'ke-btn' : undefined}
+      style={{ background: highlight ? `${color}15` : D.card, borderRadius: 12, padding: '12px 14px', border: `1px solid ${highlight ? color+'40' : D.cardBorder}`, boxShadow: D.shadow, display: 'flex', alignItems: 'center', gap: 10, cursor: onClick ? 'pointer' : 'default' }}>
       <div style={{ width: 38, height: 38, borderRadius: 10, flexShrink: 0, background: `${color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>{icon}</div>
       <div style={{ minWidth: 0 }}>
         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: D.muted, margin: '0 0 2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</p>

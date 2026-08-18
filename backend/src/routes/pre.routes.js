@@ -1,5 +1,6 @@
 // src/routes/pre.routes.js  — V6
 const express  = require('express')
+const { Prisma } = require('@prisma/client')
 const {
   genereEcheances, calcNbrPeman, calcInteretKouru, alokePaiement,
 } = require('./pre.engine')
@@ -399,29 +400,42 @@ router.get('/', async (req, res) => {
     const limitNum = Number(limit)
     const offset   = (pageNum - 1) * limitNum
 
-    const tid = tenantId.replace(/'/g, "''")
-    const conditions = [`p.tenant_id = '${tid}'`]
-    if (statut)                 conditions.push(`p.statut = '${statut.replace(/'/g, "''")}'`)
-    if (branchId)               conditions.push(`p.branch_id = '${branchId.replace(/'/g, "''")}'`)
+    // ✅ Kondisyon yo PARAMETRIZE (Prisma.sql) — chak valè ki soti nan
+    // req.query eskape otomatikman, olye konkatene nan tèks SQL bri.
+    const conditions = [Prisma.sql`p.tenant_id = ${tenantId}`]
+    if (statut)   conditions.push(Prisma.sql`p.statut = ${statut}`)
+    if (branchId) conditions.push(Prisma.sql`p.branch_id = ${branchId}`)
     if (search && search.length > 1) {
-      const s = search.replace(/'/g, "''")
-      conditions.push(`(p.client_nom ILIKE '%${s}%' OR p.client_phone ILIKE '%${s}%' OR p.numero_pre ILIKE '%${s}%')`)
+      const s = `%${search}%`
+      conditions.push(Prisma.sql`(p.client_nom ILIKE ${s} OR p.client_phone ILIKE ${s} OR p.numero_pre ILIKE ${s})`)
     }
-    const whereClause = conditions.join(' AND ')
+    const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
 
     const [pretsRaw, countResult] = await Promise.all([
-      prisma.$queryRawUnsafe(`
+      // ✅ Triye pa DÈNYE AKTIVITE (dat dènye peman FÈT, oswa dat kreyasyon
+      // si pa gen okenn peman) — pa jis dat kreyasyon prè a. Konsa yon prè
+      // ki fèk resevwa yon peman monte anlè lis la, tankou yon konvèsasyon
+      // aktif.
+      prisma.$queryRaw`
         SELECT p.id, p.numero_pre, p.client_nom, p.client_phone,
           p.montant, p.taux_interet, p.duree_en_mois,
           p.total_du, p.total_paye, p.montant_bloke,
           p.dat_debut, p.dat_fin, p.periode,
           p.statut, p.created_at, p.branch_id, p.kont_kane_epay_id,
           COALESCE(p.interet_kouru_total, 0) AS interet_kouru_total,
-          COALESCE(p.total_du_ajou, GREATEST(0, p.total_du - p.total_paye)) AS total_du_ajou
-        FROM prets p WHERE ${whereClause}
-        ORDER BY p.created_at DESC LIMIT ${limitNum} OFFSET ${offset}
-      `),
-      prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM prets p WHERE ${whereClause}`),
+          COALESCE(p.total_du_ajou, GREATEST(0, p.total_du - p.total_paye)) AS total_du_ajou,
+          COALESCE(pay.last_payment_at, p.created_at) AS last_activity_at
+        FROM prets p
+        LEFT JOIN (
+          SELECT pre_id, MAX(created_at) as last_payment_at
+          FROM pre_paiements
+          GROUP BY pre_id
+        ) pay ON pay.pre_id = p.id
+        ${whereClause}
+        ORDER BY COALESCE(pay.last_payment_at, p.created_at) DESC
+        LIMIT ${limitNum} OFFSET ${offset}
+      `,
+      prisma.$queryRaw`SELECT COUNT(*) as total FROM prets p ${whereClause}`,
     ])
 
     const prets = pretsRaw.map(p => ({
@@ -433,6 +447,7 @@ router.get('/', async (req, res) => {
       branchId: p.branch_id, kontKaneEpayId: p.kont_kane_epay_id,
       interetKouruTotal: Number(p.interet_kouru_total || 0),
       totalDuAjou: Number(p.total_du_ajou || 0),
+      lastActivityAt: p.last_activity_at,
     }))
 
     return res.json({ prets, total: Number(countResult[0]?.total || 0), page: pageNum, limit: limitNum })
