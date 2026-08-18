@@ -36,6 +36,8 @@ router.get('/', async (req, res) => {
       previzyonTotal,
       previzyonKolekte,
       previzyonDeyo,
+      penaliteAkimileAgg,
+      penaliteKolekteAgg,
     ] = await Promise.all([
 
       // ✅ Enterè — enkli echeans 'paye' AK 'partiel', pwopòsyone selon
@@ -172,25 +174,65 @@ router.get('/', async (req, res) => {
           AND p.statut IN ('actif','reta','attente')
       `,
 
-      // ✅ PREVIZYON — Enterè deja kolekte sou prè aktif (tout tan)
+      // ✅ PREVIZYON — Enterè + kapital deja kolekte sou prè aktif (tout tan)
+      // Enkli echeans 'partiel' pwopòsyonèlman — anvan sa, 'e.statut = paye'
+      // sèlman te eskli tout peman pasyèl, ki te fè "Rete" a parèt pi wo
+      // pase reyalite a (menm bug ak Enterè Kolekte a te genyen anvan).
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(e.montant_interet), 0) as total_interet,
-               COALESCE(SUM(e.montant_capital), 0) as total_kapital
+        SELECT
+          COALESCE(SUM(
+            CASE WHEN (e.montant_total + e.interet_kouru) > 0
+              THEN e.montant_interet * LEAST(1, e.montant_paye / (e.montant_total + e.interet_kouru))
+              ELSE 0
+            END
+          ), 0) as total_interet,
+          COALESCE(SUM(
+            CASE WHEN (e.montant_total + e.interet_kouru) > 0
+              THEN e.montant_capital * LEAST(1, e.montant_paye / (e.montant_total + e.interet_kouru))
+              ELSE 0
+            END
+          ), 0) as total_kapital
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
         WHERE e.tenant_id = ${tenantId}
           AND p.statut IN ('actif','reta','attente')
-          AND e.statut = 'paye'
+          AND e.statut IN ('paye','partiel')
       `,
 
-      // ✅ PREVIZYON — Balans deyo (kapital + enterè ki rete pou kolekte)
+      // ✅ PREVIZYON — Balans deyo (kapital + enterè + PENALITE ki rete pou kolekte)
+      // Korije pou enkli interet_kouru_total — menm bug ki te nan "Pòtfèy"
+      // (pre.routes.js) te la isit tou, nan yon lòt fichye.
       prisma.$queryRaw`
-        SELECT COALESCE(SUM(GREATEST(0, p.total_du - p.total_paye)), 0) as balans_deyo,
+        SELECT COALESCE(SUM(GREATEST(0, p.total_du + COALESCE(p.interet_kouru_total,0) - p.total_paye)), 0) as balans_deyo,
                COALESCE(SUM(p.montant), 0) as total_prete,
                COUNT(*) as nbr_pre
         FROM prets p
         WHERE p.tenant_id = ${tenantId}
           AND p.statut IN ('actif','reta','attente')
+      `,
+
+      // ✅ PREVIZYON — Penalite akimile TOTAL (tout tan, sou prè aktif yo)
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(e.interet_kouru), 0) as total
+        FROM pre_echeances e
+        JOIN prets p ON p.id = e.pre_id
+        WHERE e.tenant_id = ${tenantId}
+          AND p.statut IN ('actif','reta','attente')
+      `,
+
+      // ✅ PREVIZYON — Penalite deja kolekte (pwopòsyonèl, menm jan ak kapital/enterè)
+      prisma.$queryRaw`
+        SELECT COALESCE(SUM(
+          CASE WHEN (e.montant_total + e.interet_kouru) > 0
+            THEN e.interet_kouru * LEAST(1, e.montant_paye / (e.montant_total + e.interet_kouru))
+            ELSE 0
+          END
+        ), 0) as total
+        FROM pre_echeances e
+        JOIN prets p ON p.id = e.pre_id
+        WHERE e.tenant_id = ${tenantId}
+          AND p.statut IN ('actif','reta','attente')
+          AND e.statut IN ('paye','partiel')
       `,
     ])
 
@@ -217,6 +259,9 @@ router.get('/', async (req, res) => {
     const balansDeyo        = Number(previzyonDeyo[0]?.balans_deyo  || 0)
     const totalPrete        = Number(previzyonDeyo[0]?.total_prete  || 0)
     const nbrPreDeyo        = Number(previzyonDeyo[0]?.nbr_pre      || 0)
+    const prevPenaliteAkimile = Number(penaliteAkimileAgg[0]?.total || 0)
+    const prevPenaliteKolekte = Number(penaliteKolekteAgg[0]?.total || 0)
+    const prevPenaliteRete    = Math.max(0, prevPenaliteAkimile - prevPenaliteKolekte)
 
     res.json({
       periode: { debutDate, finDate },
@@ -246,6 +291,11 @@ router.get('/', async (req, res) => {
         kapitalPrevwa:  prevKapitalPrevwa,
         kapitalKolekte: prevKapitalKolekte,
         kapitalRete:    prevKapitalRete,
+        // ✅ Penalite pa gen yon "prevwa" (li depann si peman fè reta, pa
+        // konnen davans) — men nou bay "akimile" (jodi a) ak "rete"
+        penaliteAkimile: prevPenaliteAkimile,
+        penaliteKolekte: prevPenaliteKolekte,
+        penaliteRete:    prevPenaliteRete,
         totalPrevwa:    prevTotalPrevwa,
         balansDeyo,
         totalPrete,

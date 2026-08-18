@@ -303,11 +303,12 @@ export default function MikwoKrediProfit() {
             </div>
 
             {/* Griy detay */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8 }}>
               {[
                 { label:'Kapital Prete',        val: prev.totalPrete || 0,      color: D.purple, desc:'Total lajan prete' },
                 { label:'Kapital ki Rete Deyo',  val: prev.kapitalRete || 0,     color: D.orange, desc:'Kapital poko retounen' },
-                { label:'Balans Total Deyo',     val: prev.balansDeyo || 0,      color: D.red,    desc:'Kapital + enterè ki rete' },
+                { label:'Penalite Rete',         val: prev.penaliteRete || 0,    color: D.red,    desc:'Penalite reta poko kolekte' },
+                { label:'Balans Total Deyo',     val: prev.balansDeyo || 0,      color: D.red,    desc:'Kapital + enterè + penalite ki rete' },
               ].map((item, i) => (
                 <div key={i} style={{ background:`${item.color}10`, borderRadius:10, padding:'10px 12px', border:`1px solid ${item.color}20` }}>
                   <p style={{ fontSize:10, color:D.muted, margin:'0 0 2px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
