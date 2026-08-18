@@ -293,7 +293,7 @@ export default function PrePage() {
 
                   <div style={{ marginTop:10 }}>
                     <div style={{ height:4, borderRadius:2, background:'rgba(255,255,255,0.06)', overflow:'hidden', marginBottom:4 }}>
-                      <div style={{ width:`${pctPaye}%`, background:barColor, borderRadius:2, transition:'width 0.3s' }}/>
+                      <div style={{ width:`${pctPaye}%`, height:'100%', background:barColor, borderRadius:2, transition:'width 0.3s' }}/>
                     </div>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:D.muted }}>
                       <span style={{ color:D.green }}>Peye: {fmt(pre.totalPaye||0)} HTG</span>
