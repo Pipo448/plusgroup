@@ -173,7 +173,7 @@ router.get('/', async (req, res) => {
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
         WHERE e.tenant_id = ${tenantId}
-          AND p.statut IN ('actif','reta','attente')
+          AND p.statut IN ('actif','reta')
       `,
 
       // ✅ PREVIZYON — Enterè + kapital deja kolekte sou prè aktif (tout tan)
@@ -197,20 +197,22 @@ router.get('/', async (req, res) => {
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
         WHERE e.tenant_id = ${tenantId}
-          AND p.statut IN ('actif','reta','attente')
+          AND p.statut IN ('actif','reta')
           AND e.statut IN ('paye','partiel')
       `,
 
       // ✅ PREVIZYON — Balans deyo (kapital + enterè + PENALITE ki rete pou kolekte)
-      // Korije pou enkli interet_kouru_total — menm bug ki te nan "Pòtfèy"
-      // (pre.routes.js) te la isit tou, nan yon lòt fichye.
+      // Aliyen ak "Pòtfèy" (pre.routes.js) — enkli penalite, EKSKLI 'attente'
+      // (prè an atant pa gen lajan ki dekèse, yo pa ta dwe konte kòm "deyò").
+      // Tout lòt demand nan seksyon Previzyon an aliyen menm jan pou rete
+      // koheran ak Balans Total Deyo.
       prisma.$queryRaw`
         SELECT COALESCE(SUM(GREATEST(0, p.total_du + COALESCE(p.interet_kouru_total,0) - p.total_paye)), 0) as balans_deyo,
                COALESCE(SUM(p.montant), 0) as total_prete,
                COUNT(*) as nbr_pre
         FROM prets p
         WHERE p.tenant_id = ${tenantId}
-          AND p.statut IN ('actif','reta','attente')
+          AND p.statut IN ('actif','reta')
       `,
 
       // ✅ PREVIZYON — Penalite akimile TOTAL (tout tan, sou prè aktif yo)
@@ -219,7 +221,7 @@ router.get('/', async (req, res) => {
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
         WHERE e.tenant_id = ${tenantId}
-          AND p.statut IN ('actif','reta','attente')
+          AND p.statut IN ('actif','reta')
       `,
 
       // ✅ PREVIZYON — Penalite deja kolekte (pwopòsyonèl, menm jan ak kapital/enterè)
@@ -233,7 +235,7 @@ router.get('/', async (req, res) => {
         FROM pre_echeances e
         JOIN prets p ON p.id = e.pre_id
         WHERE e.tenant_id = ${tenantId}
-          AND p.statut IN ('actif','reta','attente')
+          AND p.statut IN ('actif','reta')
           AND e.statut IN ('paye','partiel')
       `,
     ])
