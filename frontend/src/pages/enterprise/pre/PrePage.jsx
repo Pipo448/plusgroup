@@ -258,6 +258,13 @@ export default function PrePage() {
               const cfg            = STATUTS[pre.statut] || STATUTS.attente
               const interetKouruPre = Number(pre.interetKouruTotal || 0)
 
+              // ✅ Koulè bar pwogresyon: vèt (aktif/fini), jòn (an reta),
+              // wouj (an reta plis pase 30 jou — menm sèy ak PAR30)
+              const maxJouReta = Number(pre.maxJouReta || 0)
+              let barColor = D.muted
+              if (pre.statut === 'actif' || pre.statut === 'cloture') barColor = D.green
+              else if (pre.statut === 'reta') barColor = maxJouReta >= 30 ? D.red : D.orange
+
               return (
                 <div key={pre.id} className="pre-row" onClick={() => openDetail(pre)}
                   style={{ background:D.card, border:`1px solid ${pre.statut==='reta' ? D.red+'30' : D.cardBorder}`, borderRadius:14, padding:'12px 13px', cursor:'pointer', boxShadow:D.shadow, transition:'background 0.15s' }}>
@@ -286,7 +293,7 @@ export default function PrePage() {
 
                   <div style={{ marginTop:10 }}>
                     <div style={{ height:4, borderRadius:2, background:'rgba(255,255,255,0.06)', overflow:'hidden', marginBottom:4 }}>
-                      <div style={{ width:`${pctPaye}%`, background:pctPaye>=100 ? D.gold : cfg.color, borderRadius:2, transition:'width 0.3s' }}/>
+                      <div style={{ width:`${pctPaye}%`, background:barColor, borderRadius:2, transition:'width 0.3s' }}/>
                     </div>
                     <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, color:D.muted }}>
                       <span style={{ color:D.green }}>Peye: {fmt(pre.totalPaye||0)} HTG</span>

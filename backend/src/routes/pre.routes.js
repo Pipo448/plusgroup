@@ -425,13 +425,20 @@ router.get('/', async (req, res) => {
           p.statut, p.created_at, p.branch_id, p.kont_kane_epay_id,
           COALESCE(p.interet_kouru_total, 0) AS interet_kouru_total,
           COALESCE(p.total_du_ajou, GREATEST(0, p.total_du - p.total_paye)) AS total_du_ajou,
-          COALESCE(pay.last_payment_at, p.created_at) AS last_activity_at
+          COALESCE(pay.last_payment_at, p.created_at) AS last_activity_at,
+          COALESCE(ech.max_jou_reta, 0) AS max_jou_reta
         FROM prets p
         LEFT JOIN (
           SELECT pre_id, MAX(created_at) as last_payment_at
           FROM pre_paiements
           GROUP BY pre_id
         ) pay ON pay.pre_id = p.id
+        LEFT JOIN (
+          SELECT pre_id, MAX(jou_reta) as max_jou_reta
+          FROM pre_echeances
+          WHERE statut IN ('reta','partiel')
+          GROUP BY pre_id
+        ) ech ON ech.pre_id = p.id
         ${whereClause}
         ORDER BY COALESCE(pay.last_payment_at, p.created_at) DESC
         LIMIT ${limitNum} OFFSET ${offset}
@@ -449,6 +456,7 @@ router.get('/', async (req, res) => {
       interetKouruTotal: Number(p.interet_kouru_total || 0),
       totalDuAjou: Number(p.total_du_ajou || 0),
       lastActivityAt: p.last_activity_at,
+      maxJouReta: Number(p.max_jou_reta || 0),
     }))
 
     return res.json({ prets, total: Number(countResult[0]?.total || 0), page: pageNum, limit: limitNum })
