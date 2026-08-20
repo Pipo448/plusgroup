@@ -94,6 +94,27 @@ const FounisModal = ({ onClose, onSaved }) => {
   )
 }
 
+// ── Fòm Enjeksyon Kapital ────────────────────────────────────────────────
+const KapitalModal = ({ onClose, onSaved }) => {
+  const { register, handleSubmit } = useForm()
+  const mutation = useMutation({
+    mutationFn: (data) => founiseAPI.injectKapital({ ...data, montant: Number(data.montant) }),
+    onSuccess: () => { toast.success('Kapital enjekte.'); onSaved() },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan enjeksyon an.'),
+  })
+  return (
+    <Modal title="Enjekte Kapital" onClose={onClose}>
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+        <div>{label('Montan (HTG) *')}<input type="number" step="0.01" min="0.01" style={inpMoney} {...register('montant', { required: true, min: 0.01 })} placeholder="0.00" autoFocus/></div>
+        <div>{label('Nòt (opsyonèl)')}<input style={inp} {...register('notes')} placeholder="Egz. Kapital inisyal, ogmantasyon..."/></div>
+        <button type="submit" disabled={mutation.isPending} style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.gold, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
+          {mutation.isPending ? 'N ap sove...' : 'Konfime Enjeksyon'}
+        </button>
+      </form>
+    </Modal>
+  )
+}
+
 // ── Fòm Nouvo Achte ──────────────────────────────────────────────────────
 const AchteModal = ({ founiseList, onClose, onSaved }) => {
   const { register, handleSubmit, watch, setValue } = useForm({ defaultValues: { kantite: '', priKoutInite: '' } })
