@@ -45,8 +45,14 @@ const postAchte = asyncHandler(async (req, res) => {
   res.status(201).json({ success: true, achte: data });
 });
 
+// ✅ NOUVO — plizyè liy achte pou menm founisè a, an yon sèl fwa
+const postAchteBatch = asyncHandler(async (req, res) => {
+  const data = await svc.createAchteBatch(req.tenant.id, req.user.id, { ...req.body, branchId: req.branchId || undefined });
+  res.status(201).json({ success: true, ...data });
+});
+
 module.exports = {
   getKapital, getKapitalMouvman, postKapitalEnjeksyon,
   getFounise, postFounise, putFounise,
-  getAchte, postAchte,
+  getAchte, postAchte, postAchteBatch,
 };

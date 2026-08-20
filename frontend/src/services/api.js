@@ -273,6 +273,8 @@ export const founiseAPI = {
   // ── Achte ────────────────────────────────────────────
   getAchte:    (p)    => api.get('/founise/achte', { params: p }),
   createAchte: (data) => api.post('/founise/achte', data),
+  // ✅ NOUVO — plizyè liy achte pou menm founisè a, an yon sèl fwa
+  createAchteBatch: (data) => api.post('/founise/achte/batch', data),
 }
  
 

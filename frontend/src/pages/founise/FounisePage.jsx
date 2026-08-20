@@ -117,10 +117,12 @@ const KapitalModal = ({ onClose, onSaved }) => {
 
 // ── Fòm Nouvo Achte ──────────────────────────────────────────────────────
 const AchteModal = ({ founiseList, onClose, onSaved }) => {
-  const { register, handleSubmit, watch, setValue } = useForm({ defaultValues: { kantite: '', priKoutInite: '' } })
+  const [founiseId, setFouniseId] = useState('')
+  const [notes, setNotes] = useState('')
+  const [lines, setLines] = useState([]) // [{ id, productId, name, deskripsyon, kantite, priKoutInite }]
   const [search, setSearch] = useState('')
   const [showResults, setShowResults] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [manualDesc, setManualDesc] = useState('')
 
   const { data: productsData } = useQuery({
     queryKey: ['products-search-achte', search],
@@ -129,90 +131,133 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
   })
   const products = productsData?.data?.products || []
 
-  const kantite = Number(watch('kantite')) || 0
-  const priKout = Number(watch('priKoutInite')) || 0
-  const total = kantite * priKout
+  const addProductLine = (p) => {
+    setLines(ls => [...ls, {
+      id: `p-${p.id}-${Date.now()}`,
+      productId: p.id, name: p.name, deskripsyon: null,
+      kantite: 1, priKoutInite: Number(p.costPriceHtg || 0),
+    }])
+    setSearch(''); setShowResults(false)
+  }
+  const addManualLine = () => {
+    if (!manualDesc.trim()) return
+    setLines(ls => [...ls, {
+      id: `m-${Date.now()}`,
+      productId: null, name: manualDesc.trim(), deskripsyon: manualDesc.trim(),
+      kantite: 1, priKoutInite: 0,
+    }])
+    setManualDesc('')
+  }
+  const updateLine = (id, patch) => setLines(ls => ls.map(l => l.id === id ? { ...l, ...patch } : l))
+  const removeLine = (id) => setLines(ls => ls.filter(l => l.id !== id))
+
+  const grandTotal = lines.reduce((acc, l) => acc + (Number(l.kantite) || 0) * (Number(l.priKoutInite) || 0), 0)
 
   const mutation = useMutation({
-    mutationFn: (data) => founiseAPI.createAchte(data),
-    onSuccess: () => { toast.success('Achte anrejistre — estòk ak kapital ajou.'); onSaved() },
+    mutationFn: (data) => founiseAPI.createAchteBatch(data),
+    onSuccess: () => { toast.success(`${lines.length} atik anrejistre — estòk ak kapital ajou.`); onSaved() },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan achte a.'),
   })
 
-  const onSubmit = (d) => {
+  const handleSubmit = () => {
+    if (!founiseId) return toast.error('Chwazi yon founisè.')
+    if (!lines.length) return toast.error('Ajoute omwen yon atik.')
+    const bad = lines.find(l => !l.kantite || Number(l.kantite) <= 0 || l.priKoutInite === '' || Number(l.priKoutInite) < 0)
+    if (bad) return toast.error('Verifye kantite ak pri kout chak liy.')
     mutation.mutate({
-      founiseId: d.founiseId,
-      productId: selectedProduct?.id || null,
-      deskripsyon: selectedProduct ? undefined : d.deskripsyon,
-      kantite: Number(d.kantite),
-      priKoutInite: Number(d.priKoutInite),
-      notes: d.notes,
+      founiseId,
+      notes: notes.trim() || undefined,
+      lignes: lines.map(l => ({
+        productId: l.productId,
+        deskripsyon: l.deskripsyon,
+        kantite: Number(l.kantite),
+        priKoutInite: Number(l.priKoutInite),
+      })),
     })
   }
 
   return (
     <Modal title="Nouvo Achte" onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)} style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
         <div>
           {label('Founisè *')}
-          <select style={inp} {...register('founiseId', { required: true })}>
+          <select style={inp} value={founiseId} onChange={e => setFouniseId(e.target.value)}>
             <option value="">— Chwazi founisè —</option>
             {founiseList.map(f => <option key={f.id} value={f.id}>{f.non}</option>)}
           </select>
         </div>
 
+        {/* ✅ NOUVO — panye acha: ajoute plizyè pwodwi pou MENM founisè a
+            anvan w konfime, olye de refè fòm nan yon lòt fwa pou chak atik. */}
         <div style={{ position:'relative' }}>
-          {label('Pwodwi (opsyonèl — kite vid si se yon depans jeneral)')}
-          {selectedProduct ? (
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderRadius:10, background:D.blueDim, border:`1.5px solid ${D.blue}` }}>
-              <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{selectedProduct.name}</span>
-              <button type="button" onClick={() => { setSelectedProduct(null); setSearch('') }} style={{ background:'none', border:'none', color:D.blue, cursor:'pointer' }}><X size={15}/></button>
-            </div>
-          ) : (
-            <>
-              <div style={{ position:'relative' }}>
-                <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
-                <input style={{ ...inp, paddingLeft:34 }} value={search}
-                  onChange={e => { setSearch(e.target.value); setShowResults(true) }}
-                  onFocus={() => setShowResults(true)}
-                  placeholder="Chèche yon pwodwi nan estòk..."/>
-              </div>
-              {showResults && products.length > 0 && (
-                <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', borderRadius:10, border:`1px solid ${D.border}`, boxShadow:D.shadow, maxHeight:180, overflowY:'auto', marginTop:4 }}>
-                  {products.map(p => (
-                    <div key={p.id} onClick={() => { setSelectedProduct(p); setValue('priKoutInite', Number(p.costPriceHtg || 0)); setShowResults(false) }}
-                      style={{ padding:'10px 14px', cursor:'pointer', fontSize:13, borderBottom:`1px solid ${D.border}` }}
-                      onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      {p.name} <span style={{ color:D.muted, fontSize:11 }}>· stòk: {p.quantity}</span>
-                    </div>
-                  ))}
+          {label('Ajoute yon pwodwi nan estòk')}
+          <div style={{ position:'relative' }}>
+            <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
+            <input style={{ ...inp, paddingLeft:34 }} value={search}
+              onChange={e => { setSearch(e.target.value); setShowResults(true) }}
+              onFocus={() => setShowResults(true)}
+              placeholder="Chèche epi klike pou ajoute..."/>
+          </div>
+          {showResults && products.length > 0 && (
+            <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', borderRadius:10, border:`1px solid ${D.border}`, boxShadow:D.shadow, maxHeight:180, overflowY:'auto', marginTop:4 }}>
+              {products.map(p => (
+                <div key={p.id} onClick={() => addProductLine(p)}
+                  style={{ padding:'10px 14px', cursor:'pointer', fontSize:13, borderBottom:`1px solid ${D.border}` }}
+                  onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  {p.name} <span style={{ color:D.muted, fontSize:11 }}>· stòk: {p.quantity}</span>
                 </div>
-              )}
-            </>
+              ))}
+            </div>
           )}
         </div>
 
-        {!selectedProduct && (
-          <div>{label('Deskripsyon (si pa gen pwodwi)')}<input style={inp} {...register('deskripsyon')} placeholder="Egz. Materyèl anbalaj"/></div>
+        <div style={{ display:'flex', gap:8 }}>
+          <input style={inp} value={manualDesc} onChange={e => setManualDesc(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addManualLine())}
+            placeholder="...oswa yon atik ki pa nan katalòg la (Antre)"/>
+          <button type="button" onClick={addManualLine} style={{ padding:'0 16px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>
+            <Plus size={15}/>
+          </button>
+        </div>
+
+        {/* Lis liy yo */}
+        {lines.length > 0 && (
+          <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:220, overflowY:'auto', padding:2 }}>
+            {lines.map(l => (
+              <div key={l.id} style={{ padding:'10px 12px', borderRadius:10, border:`1px solid ${D.border}`, background:'#FAFBFF' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                  <span style={{ fontSize:12, fontWeight:700, color:D.text }}>{l.name}</span>
+                  <button type="button" onClick={() => removeLine(l.id)} style={{ background:'none', border:'none', color:D.red, cursor:'pointer', padding:0 }}><X size={14}/></button>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:8, alignItems:'center' }}>
+                  <input type="number" step="0.001" min="0.001" value={l.kantite}
+                    onChange={e => updateLine(l.id, { kantite: e.target.value })}
+                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder="Kantite"/>
+                  <input type="number" step="0.01" min="0" value={l.priKoutInite}
+                    onChange={e => updateLine(l.id, { priKoutInite: e.target.value })}
+                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder="Pri kout"/>
+                  <span style={{ fontSize:12, fontWeight:800, color:D.blueDk, fontFamily:'monospace', whiteSpace:'nowrap' }}>
+                    {fmt((Number(l.kantite)||0) * (Number(l.priKoutInite)||0))}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
 
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          <div>{label('Kantite *')}<input type="number" step="0.001" min="0.001" style={inpMoney} {...register('kantite', { required: true, min: 0.001 })} placeholder="0"/></div>
-          <div>{label('Pri Kout Inite (HTG) *')}<input type="number" step="0.01" min="0" style={inpMoney} {...register('priKoutInite', { required: true, min: 0 })} placeholder="0.00"/></div>
-        </div>
-
         <div style={{ padding:'12px 16px', borderRadius:12, background:D.blueDim, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Total Achte</span>
-          <span style={{ fontSize:18, fontWeight:900, color:D.blueDk, fontFamily:'monospace' }}>{fmt(total)} HTG</span>
+          <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Total ({lines.length} atik)</span>
+          <span style={{ fontSize:18, fontWeight:900, color:D.blueDk, fontFamily:'monospace' }}>{fmt(grandTotal)} HTG</span>
         </div>
 
-        <div>{label('Nòt (opsyonèl)')}<input style={inp} {...register('notes')}/></div>
+        <div>{label('Nòt (opsyonèl)')}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
 
-        <button type="submit" disabled={mutation.isPending} style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.orange, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
-          {mutation.isPending ? 'N ap sove...' : 'Konfime Achte'}
+        <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
+          style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.orange, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
+          {mutation.isPending ? 'N ap sove...' : `Konfime Achte (${lines.length} atik)`}
         </button>
-      </form>
+      </div>
     </Modal>
   )
 }
@@ -232,7 +277,7 @@ export default function FounisePage() {
   const { data: founiseData } = useQuery({ queryKey: ['founise-list'], queryFn: () => founiseAPI.getAll() })
   const { data: achteData }   = useQuery({ queryKey: ['founise-achte'], queryFn: () => founiseAPI.getAchte({ limit: 20 }) })
 
-  const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0 }
+  const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0, totalDepans: 0 }
   const founiseList = founiseData?.data?.founise || []
   const achteList = achteData?.data?.achte || []
 
@@ -302,6 +347,11 @@ export default function FounisePage() {
             <div>
               <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Achte</p>
               <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalAchte)}</p>
+            </div>
+            {/* ✅ NOUVO — Depans jeneral yo (transpò, lwaye...) soti nan menm kapital la */}
+            <div>
+              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Depans</p>
+              <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalDepans)}</p>
             </div>
           </div>
         </div>
@@ -374,3 +424,4 @@ export default function FounisePage() {
     </div>
   )
 }
+

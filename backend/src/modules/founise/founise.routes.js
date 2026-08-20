@@ -20,5 +20,7 @@ router.put('/founise/:id', ctrl.putFounise);
 // Achte
 router.get('/achte', ctrl.getAchte);
 router.post('/achte', ctrl.postAchte);
+// ✅ NOUVO — plizyè liy achte pou menm founisè a
+router.post('/achte/batch', ctrl.postAchteBatch);
 
 module.exports = router;

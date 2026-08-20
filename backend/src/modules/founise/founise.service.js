@@ -1,18 +1,25 @@
 // src/modules/founise/founise.service.js
 const prisma = require('../../config/prisma');
 
-// ── KAPITAL — balans disponib = SUM(enjeksyon) - SUM(achte)
+// ── KAPITAL — balans disponib = SUM(enjeksyon) - SUM(achte) - SUM(depans)
+// ✅ MODIFYE — Depans jeneral yo (transpò, lwaye, elatriye — `pg_expenses`,
+// paj "Depans" ki deja egziste) soti nan MENM pòch lajan an ak Achte kay
+// founisè yo. Kidonk balans disponib la kounye a konte toude kategori a,
+// san n pa bezwen touche fòm/fichye Depans lan ki deja mache.
 const getKapitalBalans = async (tenantId) => {
-  const [enjeksyon, achte] = await Promise.all([
+  const [enjeksyon, achte, depans] = await Promise.all([
     prisma.pg_kapital.aggregate({ where: { tenant_id: tenantId, type: 'enjeksyon' }, _sum: { montant: true } }),
     prisma.pg_kapital.aggregate({ where: { tenant_id: tenantId, type: 'achte' }, _sum: { montant: true } }),
+    prisma.pg_expenses.aggregate({ where: { tenant_id: tenantId }, _sum: { montant: true } }),
   ]);
   const totalEnjeksyon = Number(enjeksyon._sum.montant || 0);
   const totalAchte     = Number(achte._sum.montant || 0);
+  const totalDepans    = Number(depans._sum.montant || 0);
   return {
-    disponib: totalEnjeksyon - totalAchte,
+    disponib: totalEnjeksyon - totalAchte - totalDepans,
     totalEnjeksyon,
     totalAchte,
+    totalDepans,
   };
 };
 
@@ -158,6 +165,103 @@ const createAchte = async (tenantId, userId, data) => {
   });
 };
 
+// ✅ NOUVO — Plizyè liy achte (plizyè pwodwi) kay YON SÈL founisè, nan yon
+// sèl tranzaksyon: si yon liy echwe, TOUT bagay tounen an aryè (pa gen
+// risk kite estòk/kapital nan yon eta ki pa koherán).
+const createAchteBatch = async (tenantId, userId, data) => {
+  const { founiseId, branchId } = data;
+  const lignes = Array.isArray(data.lignes) ? data.lignes : [];
+
+  if (!founiseId) throw Object.assign(new Error('Founisè obligatwa.'), { statusCode: 400 });
+  if (!lignes.length) throw Object.assign(new Error('Ajoute omwen yon liy achte.'), { statusCode: 400 });
+
+  const founise = await prisma.pg_founise.findFirst({ where: { id: founiseId, tenant_id: tenantId } });
+  if (!founise) throw Object.assign(new Error('Founisè pa jwenn.'), { statusCode: 404 });
+
+  // Valide chak liy anvan n antre nan tranzaksyon an
+  const parsed = lignes.map((l, i) => {
+    const kantite = Number(l.kantite);
+    const priKoutInite = Number(l.priKoutInite);
+    if (!kantite || kantite <= 0) throw Object.assign(new Error(`Liy ${i + 1}: kantite envalid.`), { statusCode: 400 });
+    if (priKoutInite == null || priKoutInite < 0) throw Object.assign(new Error(`Liy ${i + 1}: pri kout envalid.`), { statusCode: 400 });
+    if (!l.productId && !l.deskripsyon?.trim()) throw Object.assign(new Error(`Liy ${i + 1}: chwazi yon pwodwi oswa ekri yon deskripsyon.`), { statusCode: 400 });
+    return {
+      productId: l.productId || null,
+      deskripsyon: l.deskripsyon?.trim() || null,
+      kantite,
+      priKoutInite,
+      totalHtg: Math.round(kantite * priKoutInite * 100) / 100,
+      notes: l.notes?.trim() || null,
+    };
+  });
+
+  const grandTotal = Math.round(parsed.reduce((acc, l) => acc + l.totalHtg, 0) * 100) / 100;
+
+  return prisma.$transaction(async (tx) => {
+    const achteCreated = [];
+
+    for (const l of parsed) {
+      const achte = await tx.pg_achte.create({
+        data: {
+          tenant_id: tenantId,
+          founise_id: founiseId,
+          product_id: l.productId,
+          deskripsyon: l.deskripsyon,
+          kantite: l.kantite,
+          pri_kout_inite: l.priKoutInite,
+          total_htg: l.totalHtg,
+          dat_acha: data.datAcha ? new Date(data.datAcha) : undefined,
+          notes: l.notes,
+          created_by: userId,
+        },
+      });
+      achteCreated.push(achte);
+
+      if (l.productId) {
+        const product = await tx.product.findFirst({ where: { id: l.productId, tenantId } });
+        if (!product) throw Object.assign(new Error('Pwodwi pa jwenn.'), { statusCode: 404 });
+
+        const qtyBefore = Number(product.quantity);
+        const qtyAfter  = qtyBefore + l.kantite;
+
+        await tx.product.update({
+          where: { id: l.productId },
+          data: { quantity: qtyAfter, costPriceHtg: l.priKoutInite },
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            tenantId,
+            branchId: branchId || product.branchId || null,
+            productId: l.productId,
+            movementType: 'purchase',
+            quantityBefore: qtyBefore,
+            quantityChange: l.kantite,
+            quantityAfter: qtyAfter,
+            notes: `Acha kay ${founise.non}`,
+            createdBy: userId,
+          },
+        });
+      }
+    }
+
+    // ✅ Yon SÈL liy kapital pou tout acha a (pa youn pa liy) — pi klè nan
+    // istorik kapital la: "Acha kay X — 4 atik"
+    await tx.pg_kapital.create({
+      data: {
+        tenant_id: tenantId,
+        montant: grandTotal,
+        type: 'achte',
+        achte_id: achteCreated[0]?.id || null,
+        notes: `Acha kay ${founise.non} — ${parsed.length} atik`,
+        created_by: userId,
+      },
+    });
+
+    return { achte: achteCreated, total: grandTotal };
+  });
+};
+
 const listAchte = (tenantId, { founiseId, limit = 50 } = {}) =>
   prisma.pg_achte.findMany({
     where: { tenant_id: tenantId, ...(founiseId && { founise_id: founiseId }) },
@@ -172,5 +276,5 @@ const listAchte = (tenantId, { founiseId, limit = 50 } = {}) =>
 module.exports = {
   getKapitalBalans, listKapitalMouvman, injectKapital,
   listFounise, createFounise, updateFounise,
-  createAchte, listAchte,
+  createAchte, createAchteBatch, listAchte,
 };
