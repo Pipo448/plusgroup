@@ -123,6 +123,10 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
   const [search, setSearch] = useState('')
   const [showResults, setShowResults] = useState(false)
   const [manualDesc, setManualDesc] = useState('')
+  // ✅ NOUVO — Lòt Frè (transpò, chaje/dechaje, elt.) mare ak menm achte a,
+  // soti nan Kapital tou, men kòm kategori apa (pa melanje ak pri machandiz)
+  const [fraAdisyonel, setFraAdisyonel] = useState('')
+  const [fraDeskripsyon, setFraDeskripsyon] = useState('')
 
   const { data: productsData } = useQuery({
     queryKey: ['products-search-achte', search],
@@ -151,7 +155,8 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
   const updateLine = (id, patch) => setLines(ls => ls.map(l => l.id === id ? { ...l, ...patch } : l))
   const removeLine = (id) => setLines(ls => ls.filter(l => l.id !== id))
 
-  const grandTotal = lines.reduce((acc, l) => acc + (Number(l.kantite) || 0) * (Number(l.priKoutInite) || 0), 0)
+  const machandizTotal = lines.reduce((acc, l) => acc + (Number(l.kantite) || 0) * (Number(l.priKoutInite) || 0), 0)
+  const grandTotal = machandizTotal + (Number(fraAdisyonel) || 0)
 
   const mutation = useMutation({
     mutationFn: (data) => founiseAPI.createAchteBatch(data),
@@ -167,6 +172,8 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
     mutation.mutate({
       founiseId,
       notes: notes.trim() || undefined,
+      fraAdisyonel: Number(fraAdisyonel) || 0,
+      fraDeskripsyon: fraDeskripsyon.trim() || undefined,
       lignes: lines.map(l => ({
         productId: l.productId,
         deskripsyon: l.deskripsyon,
@@ -246,9 +253,27 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
           </div>
         )}
 
-        <div style={{ padding:'12px 16px', borderRadius:12, background:D.blueDim, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-          <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Total ({lines.length} atik)</span>
-          <span style={{ fontSize:18, fontWeight:900, color:D.blueDk, fontFamily:'monospace' }}>{fmt(grandTotal)} HTG</span>
+        {/* ✅ NOUVO — Lòt Frè (transpò, chaje/dechaje...) mare ak menm achte sa a */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          <div>{label('Lòt Frè (Transpò, elt.)')}<input type="number" step="0.01" min="0" style={inpMoney} value={fraAdisyonel} onChange={e => setFraAdisyonel(e.target.value)} placeholder="0.00"/></div>
+          <div>{label('Deskripsyon Frè a')}<input style={inp} value={fraDeskripsyon} onChange={e => setFraDeskripsyon(e.target.value)} placeholder="Egz. Transpò"/></div>
+        </div>
+
+        <div style={{ padding:'12px 16px', borderRadius:12, background:D.blueDim, display:'flex', flexDirection:'column', gap:4 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:D.muted }}>
+            <span>Machandiz ({lines.length} atik)</span>
+            <span style={{ fontFamily:'monospace' }}>{fmt(machandizTotal)}</span>
+          </div>
+          {Number(fraAdisyonel) > 0 && (
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:D.muted }}>
+              <span>Lòt Frè</span>
+              <span style={{ fontFamily:'monospace' }}>{fmt(Number(fraAdisyonel))}</span>
+            </div>
+          )}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:6, marginTop:2, borderTop:`1px dashed ${D.border}` }}>
+            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Total ki soti nan Kapital</span>
+            <span style={{ fontSize:18, fontWeight:900, color:D.blueDk, fontFamily:'monospace' }}>{fmt(grandTotal)} HTG</span>
+          </div>
         </div>
 
         <div>{label('Nòt (opsyonèl)')}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
@@ -277,7 +302,7 @@ export default function FounisePage() {
   const { data: founiseData } = useQuery({ queryKey: ['founise-list'], queryFn: () => founiseAPI.getAll() })
   const { data: achteData }   = useQuery({ queryKey: ['founise-achte'], queryFn: () => founiseAPI.getAchte({ limit: 20 }) })
 
-  const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0, totalDepans: 0 }
+  const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0, totalFre: 0 }
   const founiseList = founiseData?.data?.founise || []
   const achteList = achteData?.data?.achte || []
 
@@ -348,10 +373,10 @@ export default function FounisePage() {
               <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Achte</p>
               <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalAchte)}</p>
             </div>
-            {/* ✅ NOUVO — Depans jeneral yo (transpò, lwaye...) soti nan menm kapital la */}
+            {/* ✅ KORIJE — Frè adisyonèl (transpò, elt.) mare ak Achte, pa Depans jeneral */}
             <div>
-              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Depans</p>
-              <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalDepans)}</p>
+              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Frè</p>
+              <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalFre)}</p>
             </div>
           </div>
         </div>

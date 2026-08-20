@@ -1,25 +1,26 @@
 // src/modules/founise/founise.service.js
 const prisma = require('../../config/prisma');
 
-// ── KAPITAL — balans disponib = SUM(enjeksyon) - SUM(achte) - SUM(depans)
-// ✅ MODIFYE — Depans jeneral yo (transpò, lwaye, elatriye — `pg_expenses`,
-// paj "Depans" ki deja egziste) soti nan MENM pòch lajan an ak Achte kay
-// founisè yo. Kidonk balans disponib la kounye a konte toude kategori a,
-// san n pa bezwen touche fòm/fichye Depans lan ki deja mache.
+// ── KAPITAL — balans disponib = SUM(enjeksyon) - SUM(achte) - SUM(fre)
+// ✅ KORIJE — Depans jeneral yo (pg_expenses, paj "Depans") rete SEPARE:
+// yo afekte Benefis (vant − depans) sou Tablo Bò a, men PA Kapital
+// Founisè a. Kapital Founisè a swiv sèlman lajan ki soti dirèkteman nan
+// aktivite Founisè: Achte machandiz + Frè adisyonèl ki mare ak yon achte
+// (transpò, elt. — antre nan menm fòm Achte a, pa nan paj Depans).
 const getKapitalBalans = async (tenantId) => {
-  const [enjeksyon, achte, depans] = await Promise.all([
+  const [enjeksyon, achte, fre] = await Promise.all([
     prisma.pg_kapital.aggregate({ where: { tenant_id: tenantId, type: 'enjeksyon' }, _sum: { montant: true } }),
     prisma.pg_kapital.aggregate({ where: { tenant_id: tenantId, type: 'achte' }, _sum: { montant: true } }),
-    prisma.pg_expenses.aggregate({ where: { tenant_id: tenantId }, _sum: { montant: true } }),
+    prisma.pg_kapital.aggregate({ where: { tenant_id: tenantId, type: 'fre' }, _sum: { montant: true } }),
   ]);
   const totalEnjeksyon = Number(enjeksyon._sum.montant || 0);
   const totalAchte     = Number(achte._sum.montant || 0);
-  const totalDepans    = Number(depans._sum.montant || 0);
+  const totalFre        = Number(fre._sum.montant || 0);
   return {
-    disponib: totalEnjeksyon - totalAchte - totalDepans,
+    disponib: totalEnjeksyon - totalAchte - totalFre,
     totalEnjeksyon,
     totalAchte,
-    totalDepans,
+    totalFre,
   };
 };
 
@@ -171,9 +172,15 @@ const createAchte = async (tenantId, userId, data) => {
 const createAchteBatch = async (tenantId, userId, data) => {
   const { founiseId, branchId } = data;
   const lignes = Array.isArray(data.lignes) ? data.lignes : [];
+  // ✅ NOUVO — Lòt Frè (transpò, chaje/dechaje, elt.) mare ak menm achte sa
+  // a — soti nan Kapital tou, men kòm yon kategori apa ('fre') pou l pa
+  // melanje ak pri machandiz yo.
+  const fraAdisyonel = Number(data.fraAdisyonel) || 0;
+  const fraDeskripsyon = data.fraDeskripsyon?.trim() || 'Lòt frè (transpò, elt.)';
 
   if (!founiseId) throw Object.assign(new Error('Founisè obligatwa.'), { statusCode: 400 });
   if (!lignes.length) throw Object.assign(new Error('Ajoute omwen yon liy achte.'), { statusCode: 400 });
+  if (fraAdisyonel < 0) throw Object.assign(new Error('Frè adisyonèl envalid.'), { statusCode: 400 });
 
   const founise = await prisma.pg_founise.findFirst({ where: { id: founiseId, tenant_id: tenantId } });
   if (!founise) throw Object.assign(new Error('Founisè pa jwenn.'), { statusCode: 404 });
@@ -258,7 +265,21 @@ const createAchteBatch = async (tenantId, userId, data) => {
       },
     });
 
-    return { achte: achteCreated, total: grandTotal };
+    // ✅ NOUVO — Frè adisyonèl (transpò, elt.), sèlman si li ranpli
+    if (fraAdisyonel > 0) {
+      await tx.pg_kapital.create({
+        data: {
+          tenant_id: tenantId,
+          montant: fraAdisyonel,
+          type: 'fre',
+          achte_id: achteCreated[0]?.id || null,
+          notes: `${fraDeskripsyon} — Acha kay ${founise.non}`,
+          created_by: userId,
+        },
+      });
+    }
+
+    return { achte: achteCreated, total: grandTotal, fraAdisyonel };
   });
 };
 
