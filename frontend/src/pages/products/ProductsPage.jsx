@@ -459,7 +459,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
               </button>
             </div>
             {tierFields.map((f, i) => (
-              <div key={f.id} className="grid gap-2" style={{ gridTemplateColumns: '0.9fr 0.7fr 1fr 1fr 1fr auto', marginBottom: 4, alignItems: 'end' }}>
+              <div key={f.id} className="tier-row" style={{ marginBottom: 10, paddingBottom: 10, borderBottom: i < tierFields.length - 1 ? '1px dashed #E2E8F0' : 'none' }}>
                 <div>
                   <label className="label text-xs">Non (opsyonèl)</label>
                   <input className="input" placeholder="Gwo, Kès 24..." {...register(`priceTiers.${i}.label`)}/>
@@ -484,8 +484,8 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                   <input type="number" step="0.01" min="0" className="input" placeholder="0.00"
                     {...register(`priceTiers.${i}.priceUsd`, { min: 0 })} onChange={e => handleTierUsdChange(i, e)} onFocus={e => e.target.select()}/>
                 </div>
-                <button type="button" onClick={() => removeTier(i)} className="btn-ghost p-2" style={{ color: '#C0392B' }}>
-                  <Trash2 size={16}/>
+                <button type="button" onClick={() => removeTier(i)} className="btn-ghost p-2 tier-remove-btn" style={{ color: '#C0392B' }}>
+                  <Trash2 size={16}/> <span className="tier-remove-label">Retire Nivo a</span>
                 </button>
               </div>
             ))}
@@ -803,6 +803,35 @@ const deleteMutation = useMutation({
           .prod-header      { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
           .prod-header-btns { width: 100%; display: flex; gap: 8px; }
           .prod-header-btns .btn-primary { flex: 1; justify-content: center; }
+        }
+
+        /* ✅ NOUVO — Nivo Pri An Gwo: 6 kolòn sou desktop, anpile sou mobil
+           (iPhone) pou chak chan gen kont plas pou li vin touche/li fasil. */
+        .tier-row {
+          display: grid;
+          grid-template-columns: 0.9fr 0.7fr 1fr 1fr 1fr auto;
+          gap: 8px;
+          align-items: end;
+        }
+        .tier-remove-btn {
+          display: flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .tier-remove-label { display: none; }
+        @media (max-width: 640px) {
+          .tier-row {
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          .tier-remove-btn {
+            grid-column: 1 / -1;
+            justify-content: center;
+            width: 100%;
+            padding: 10px 0;
+            border: 1px solid rgba(192,57,43,0.2);
+            border-radius: 10px;
+            background: rgba(192,57,43,0.06);
+          }
+          .tier-remove-label { display: inline; font-size: 12px; font-weight: 700; }
         }
       `}</style>
 

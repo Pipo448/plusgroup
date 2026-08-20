@@ -436,7 +436,10 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         )}
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:8, marginBottom:10 }}>
+      {/* ✅ KORIJE — Qte ak Rabè sou menm liy; Pri a ap gen tout lajè kat
+          la pi ba a, paske bouton nivo yo (Detay/3/Douzèn...) bezwen plas
+          pou yo rete gwo ase pou touche sou iPhone. */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:10 }}>
         <div>
           {label(t('invoice.qty') || 'Qte')}
           <input type="number" min="1" value={item.qty}
@@ -459,47 +462,6 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           />
         </div>
         <div>
-          {label('Pri U. HTG')}
-          <input type="number" min="0" step="0.01" value={item.unitPrice}
-            disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
-            onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
-            style={{ ...inp, fontFamily:'monospace', fontSize:13,
-              ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
-            onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
-            onBlur={e => e.target.style.borderColor = D.border}
-          />
-          {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye) */}
-          {item._priceTiers?.length > 0 && (
-            <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
-              <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
-                fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
-                borderColor: item._priceMode === 'retail' ? D.blue : D.border,
-                background: item._priceMode === 'retail' ? D.blue : '#fff',
-                color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
-              }}>Detay</button>
-              {item._priceTiers.map(tr => (
-                <button key={tr.id || tr.minQty} type="button"
-                  onClick={() => onUpdate(idx, { qty: Math.max(Number(item.qty)||0, Number(tr.minQty)), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
-                  style={{
-                    fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
-                    borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
-                    background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
-                    color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
-                  }}>{tr.label || `${tr.minQty}+`}</button>
-              ))}
-              {/* ✅ NOUVO — Admin sèlman: deloke pou tape yon pri espesyal */}
-              {canOverridePrice && (
-                <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
-                  fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px dashed',
-                  borderColor: item._priceMode === 'manual' ? D.orange : D.border,
-                  background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
-                  color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
-                }}>✏️ Manyèl</button>
-              )}
-            </div>
-          )}
-        </div>
-        <div>
           {/* ✅ KORIJE — Rabè HTG */}
           {label('Rabè HTG')}
           <input type="number" min="0" step="0.01" value={item.discount}
@@ -510,6 +472,50 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
             onBlur={e => e.target.style.borderColor = D.border}
           />
         </div>
+      </div>
+
+      <div style={{ marginBottom:10 }}>
+        {label('Pri U. HTG')}
+        <input type="number" min="0" step="0.01" value={item.unitPrice}
+          disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
+          onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
+          style={{ ...inp, fontFamily:'monospace', fontSize:13,
+            ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
+          onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
+          onBlur={e => e.target.style.borderColor = D.border}
+        />
+        {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye). Gwosè
+            touch ogmante (padding/fontSize pi gwo, minHeight 36) pou yo
+            fasil peze ak dwèt sou iPhone/mobil. */}
+        {item._priceTiers?.length > 0 && (
+          <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+            <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
+              fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
+              borderColor: item._priceMode === 'retail' ? D.blue : D.border,
+              background: item._priceMode === 'retail' ? D.blue : '#fff',
+              color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
+            }}>Detay</button>
+            {item._priceTiers.map(tr => (
+              <button key={tr.id || tr.minQty} type="button"
+                onClick={() => onUpdate(idx, { qty: Math.max(Number(item.qty)||0, Number(tr.minQty)), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+                style={{
+                  fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
+                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
+                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
+                }}>{tr.label || `${tr.minQty}+`}</button>
+            ))}
+            {/* ✅ NOUVO — Admin sèlman: deloke pou tape yon pri espesyal */}
+            {canOverridePrice && (
+              <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
+                fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px dashed', minHeight:36,
+                borderColor: item._priceMode === 'manual' ? D.orange : D.border,
+                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
+              }}>✏️ Manyèl</button>
+            )}
+          </div>
+        )}
       </div>
 
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', background:D.blueDim, borderRadius:9, padding:'8px 12px' }}>

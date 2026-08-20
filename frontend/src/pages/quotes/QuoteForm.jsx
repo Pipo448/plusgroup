@@ -330,6 +330,9 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
           value={item.description || ''} onChange={e => update('description', e.target.value)}/>
       )}
 
+      {/* ✅ KORIJE — Qte ak Rabè sou menm liy (2 kolòn); Pri a ap gen tout
+          lajè kat la pi ba a, paske bouton nivo yo (Detay/3/Douzèn...)
+          bezwen plas pou yo rete gwo ase pou touche sou iPhone. */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>{t('quotes.qty')}</label>
@@ -337,56 +340,56 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
             value={item.quantity} onFocus={e => e.target.select()} onChange={e => update('quantity', e.target.value)}/>
         </div>
         <div>
-          <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
-          <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-            value={item.unitPriceHtg}
-            disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
-            style={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
-            onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
-          {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl */}
-          {item._priceTiers?.length > 0 && (
-            <div style={{ display:'flex', gap:4, marginTop:5, flexWrap:'wrap' }}>
-              <button type="button" onClick={() => forcePriceMode(null)} style={{
-                fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px solid',
-                borderColor: item._priceMode === 'retail' ? '#1B2A8F' : '#E2E8F0',
-                background: item._priceMode === 'retail' ? '#1B2A8F' : '#fff',
-                color: item._priceMode === 'retail' ? '#fff' : '#6B7AAB', cursor:'pointer',
-              }}>DETAY</button>
-              {item._priceTiers.map(tr => (
-                <button key={tr.id || tr.minQty} type="button" onClick={() => forcePriceMode(tr)} style={{
-                  fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px solid',
-                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#E2E8F0',
-                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
-                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
-                }}>{tr.label || `${tr.minQty}+`}</button>
-              ))}
-              {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
-              {canOverridePrice && (
-                <button type="button" onClick={() => onChange(index, { ...item, _priceMode: 'manual' })} style={{
-                  fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px dashed',
-                  borderColor: item._priceMode === 'manual' ? '#FF6B00' : '#E2E8F0',
-                  background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
-                  color: item._priceMode === 'manual' ? '#FF6B00' : '#6B7AAB', cursor:'pointer',
-                }}>✏️ Manyèl</button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, alignItems:'center' }}>
-        <div>
           {/* ✅ KORIJE — Rabè HTG (kantite kòb), pa pousantaj */}
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Rabè (HTG)</label>
           <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
             value={item.discountAmt || 0} onFocus={e => e.target.select()} onChange={e => update('discountAmt', e.target.value)}/>
         </div>
-        <div style={{ textAlign:'right' }}>
-          <p style={{ fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 5px' }}>Total</p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, color:'#0F1A5C', fontSize:16, margin:0 }}>
-            {totalHtg.toLocaleString('fr-HT', { minimumFractionDigits:2 })} <span style={{ fontSize:11, color:'#6B7AAB' }}>HTG</span>
-          </p>
-        </div>
+      </div>
+
+      <div>
+        <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
+        <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
+          value={item.unitPriceHtg}
+          disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
+          style={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
+          onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
+        {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl.
+            Gwosè touch ogmante (padding/fontSize pi gwo) pou yo fasil peze ak dwèt sou iPhone. */}
+        {item._priceTiers?.length > 0 && (
+          <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
+            <button type="button" onClick={() => forcePriceMode(null)} style={{
+              fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
+              borderColor: item._priceMode === 'retail' ? '#1B2A8F' : '#E2E8F0',
+              background: item._priceMode === 'retail' ? '#1B2A8F' : '#fff',
+              color: item._priceMode === 'retail' ? '#fff' : '#6B7AAB', cursor:'pointer',
+            }}>DETAY</button>
+            {item._priceTiers.map(tr => (
+              <button key={tr.id || tr.minQty} type="button" onClick={() => forcePriceMode(tr)} style={{
+                fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
+                borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#E2E8F0',
+                background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
+                color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
+              }}>{tr.label || `${tr.minQty}+`}</button>
+            ))}
+            {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
+            {canOverridePrice && (
+              <button type="button" onClick={() => onChange(index, { ...item, _priceMode: 'manual' })} style={{
+                fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px dashed', minHeight:36,
+                borderColor: item._priceMode === 'manual' ? '#FF6B00' : '#E2E8F0',
+                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                color: item._priceMode === 'manual' ? '#FF6B00' : '#6B7AAB', cursor:'pointer',
+              }}>✏️ Manyèl</button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ textAlign:'right' }}>
+        <p style={{ fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 5px' }}>Total</p>
+        <p style={{ fontFamily:'monospace', fontWeight:800, color:'#0F1A5C', fontSize:16, margin:0 }}>
+          {totalHtg.toLocaleString('fr-HT', { minimumFractionDigits:2 })} <span style={{ fontSize:11, color:'#6B7AAB' }}>HTG</span>
+        </p>
       </div>
     </div>
   )
