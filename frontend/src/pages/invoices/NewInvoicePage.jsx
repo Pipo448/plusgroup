@@ -24,18 +24,23 @@ const D = {
   gold:'#C9A84C', goldDk:'#8B6914',
   orange:'#FF6B00', orangeLt:'#FF8C33',
   white:'#FFFFFF', bg:'#F4F6FF',
-  border:'rgba(27,42,143,0.10)',
+  border:'rgba(27,42,143,0.08)',
   text:'#0F1A5C', muted:'#6B7AAB',
   success:'#059669', successBg:'rgba(5,150,105,0.08)',
   red:'#C0392B',
-  shadow:'0 4px 20px rgba(27,42,143,0.10)',
+  shadow:'0 2px 14px rgba(27,42,143,0.06)',
+  // ✅ NOUVO — tokens pou nouvo banner ak bouton "plan" yo (nivo pri an gwo)
+  heroGrad:'linear-gradient(115deg,#0F1A5C 0%,#1B2A8F 55%,#2D3FBF 100%)',
+  shadowLift:'0 10px 24px rgba(27,42,143,0.16)',
+  shadowPress:'inset 0 2px 5px rgba(0,0,0,0.18)',
 }
 
 const inp = {
   width:'100%', padding:'10px 14px', borderRadius:10,
   border:`1.5px solid ${D.border}`, outline:'none',
-  fontSize:13, color:D.text, background:'#F8F9FF',
+  fontSize:13, color:D.text, background:'#FAFBFF',
   fontFamily:'DM Sans,sans-serif', boxSizing:'border-box',
+  transition:'border-color 0.15s ease, background 0.15s ease',
 }
 
 const label = (txt) => (
@@ -46,6 +51,21 @@ const label = (txt) => (
 )
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+
+// ✅ NOUVO — Estil "plan" pou bouton nivo pri (Detay/3/Douzèn...). Chwazi:
+// koulè plen + leve an lè (shadowLift) tankou yon bouton peze. Pa chwazi:
+// plat, blan, ti lonbraj diskrè.
+const planChipStyle = (active, accent) => ({
+  padding:'9px 14px', borderRadius:12,
+  border: active ? 'none' : `1.5px solid ${D.border}`,
+  background: active ? accent : '#fff',
+  color: active ? '#fff' : D.text,
+  fontSize:11, fontWeight:800, letterSpacing:'0.03em',
+  cursor:'pointer', textAlign:'left', minWidth:72,
+  boxShadow: active ? D.shadowLift : '0 1px 3px rgba(27,42,143,0.06)',
+  transform: active ? 'translateY(-1px)' : 'none',
+  transition:'all 0.15s ease', fontFamily:'DM Sans,sans-serif',
+})
 
 // ✅ Hook debounce — evite API call chak lèt
 function useDebounce(value, delay = 400) {
@@ -169,7 +189,8 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
   }, [idx, onUpdate])
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'2.2fr 60px 110px 110px 110px 36px', gap:8, alignItems:'start', padding:'12px 0', borderBottom:`1px solid ${D.border}` }}>
+    <div style={{ padding:'14px 0', borderBottom:`1px solid ${D.border}` }}>
+    <div style={{ display:'grid', gridTemplateColumns:'2.2fr 60px 110px 110px 110px 36px', gap:8, alignItems:'start' }}>
       <div style={{ position:'relative' }}>
         <input
           value={search}
@@ -245,7 +266,8 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
       <div>
         {/* ✅ KORIJE — chan an lok pa default pou TOUT moun ki gen nivo pri
             (evite tape total olye pri linite → total ki pa won). Admin ka
-            "deloke" li ak bouton "✏️ Manyèl" pi ba a si l vrèman bezwen l. */}
+            "deloke" li ak bouton "✏️ Manyèl" nan ranje "plan" anba a si l
+            vrèman bezwen l. */}
         <input type="number" min="0" step="0.01" value={item.unitPrice}
           disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
           onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
@@ -254,36 +276,6 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
           onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
           onBlur={e => e.target.style.borderColor = D.border}
         />
-        {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl */}
-        {item._priceTiers?.length > 0 && (
-          <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
-            <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
-              fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
-              borderColor: item._priceMode === 'retail' ? D.blue : D.border,
-              background: item._priceMode === 'retail' ? D.blue : '#fff',
-              color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
-            }}>Detay</button>
-            {item._priceTiers.map(tr => (
-              <button key={tr.id || tr.minQty} type="button"
-                onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
-                style={{
-                  fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
-                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
-                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
-                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
-                }}>{tr.label || `${tr.minQty}+`}</button>
-            ))}
-            {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
-            {canOverridePrice && (
-              <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
-                fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px dashed',
-                borderColor: item._priceMode === 'manual' ? D.orange : D.border,
-                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
-                color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
-              }}>✏️ Manyèl</button>
-            )}
-          </div>
-        )}
       </div>
       {/* ✅ KORIJE — Rabè HTG (montan), pa pousantaj */}
       <input type="number" min="0" step="0.01" value={item.discount}
@@ -300,6 +292,38 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         style={{ width:34, height:38, borderRadius:9, background:'rgba(192,57,43,0.08)', border:'1px solid rgba(192,57,43,0.15)', color:D.red, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
         <Trash2 size={13}/>
       </button>
+    </div>
+
+    {/* ✅ NOUVO — "Plan" pri an gwo: ranje separe, tout lajè liy lan, pou
+        chak nivo (Detay/3/Douzèn...) parèt tankou yon vrè chwa pri — non
+        an gra anlè, pri a an monospace anba, ak yon efè "an relyèf" (3D)
+        lè li chwazi. */}
+    {item._priceTiers?.length > 0 && (
+      <div style={{ display:'flex', gap:8, marginTop:10, flexWrap:'wrap', paddingLeft:2 }}>
+        <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })}
+          style={planChipStyle(item._priceMode === 'retail', D.blue)}>
+          <span style={{ display:'block' }}>DETAY</span>
+          <span style={{ display:'block', fontFamily:'monospace', fontWeight:700, fontSize:10, opacity:0.85, marginTop:2 }}>{fmt(item._retailPrice)} HTG</span>
+        </button>
+        {item._priceTiers.map(tr => (
+          <button key={tr.id || tr.minQty} type="button"
+            onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+            style={planChipStyle(item._priceMode === `tier-${tr.id || tr.minQty}`, D.orange)}>
+            <span style={{ display:'block' }}>{(tr.label || `${tr.minQty}+`).toUpperCase()}</span>
+            <span style={{ display:'block', fontFamily:'monospace', fontWeight:700, fontSize:10, opacity:0.85, marginTop:2 }}>
+              {tr.totalPriceHtg ? `${fmt(tr.totalPriceHtg)} / ${tr.minQty}` : fmt(tr.priceHtg)} HTG
+            </span>
+          </button>
+        ))}
+        {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
+        {canOverridePrice && (
+          <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })}
+            style={{ ...planChipStyle(item._priceMode === 'manual', D.gold), border:`1.5px dashed ${item._priceMode === 'manual' ? D.gold : D.border}` }}>
+            <span style={{ display:'block' }}>✏️ MANYÈL</span>
+          </button>
+        )}
+      </div>
+    )}
     </div>
   )
 })
@@ -484,35 +508,31 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
           onBlur={e => e.target.style.borderColor = D.border}
         />
-        {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye). Gwosè
-            touch ogmante (padding/fontSize pi gwo, minHeight 36) pou yo
-            fasil peze ak dwèt sou iPhone/mobil. */}
+        {/* ✅ NOUVO — bouton "plan" pou TOUT moun (admin ak kesye) — non an
+            gra anlè, pri a an monospace anba, gwo ase pou touche ak dwèt. */}
         {item._priceTiers?.length > 0 && (
-          <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
-            <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
-              fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
-              borderColor: item._priceMode === 'retail' ? D.blue : D.border,
-              background: item._priceMode === 'retail' ? D.blue : '#fff',
-              color: item._priceMode === 'retail' ? '#fff' : D.muted, cursor:'pointer',
-            }}>Detay</button>
+          <div style={{ display:'flex', gap:8, marginTop:8, flexWrap:'wrap' }}>
+            <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })}
+              style={{ ...planChipStyle(item._priceMode === 'retail', D.blue), fontSize:13, padding:'10px 14px', minHeight:44 }}>
+              <span style={{ display:'block' }}>DETAY</span>
+              <span style={{ display:'block', fontFamily:'monospace', fontWeight:700, fontSize:11, opacity:0.85, marginTop:2 }}>{fmt(item._retailPrice)} HTG</span>
+            </button>
             {item._priceTiers.map(tr => (
               <button key={tr.id || tr.minQty} type="button"
                 onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
-                style={{
-                  fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
-                  borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
-                  background: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : '#fff',
-                  color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
-                }}>{tr.label || `${tr.minQty}+`}</button>
+                style={{ ...planChipStyle(item._priceMode === `tier-${tr.id || tr.minQty}`, D.orange), fontSize:13, padding:'10px 14px', minHeight:44 }}>
+                <span style={{ display:'block' }}>{(tr.label || `${tr.minQty}+`).toUpperCase()}</span>
+                <span style={{ display:'block', fontFamily:'monospace', fontWeight:700, fontSize:11, opacity:0.85, marginTop:2 }}>
+                  {tr.totalPriceHtg ? `${fmt(tr.totalPriceHtg)} / ${tr.minQty}` : fmt(tr.priceHtg)} HTG
+                </span>
+              </button>
             ))}
             {/* ✅ NOUVO — Admin sèlman: deloke pou tape yon pri espesyal */}
             {canOverridePrice && (
-              <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
-                fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px dashed', minHeight:36,
-                borderColor: item._priceMode === 'manual' ? D.orange : D.border,
-                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
-                color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
-              }}>✏️ Manyèl</button>
+              <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })}
+                style={{ ...planChipStyle(item._priceMode === 'manual', D.gold), fontSize:13, padding:'10px 14px', minHeight:44, border:`1.5px dashed ${item._priceMode === 'manual' ? D.gold : D.border}` }}>
+                ✏️ MANYÈL
+              </button>
             )}
           </div>
         )}
@@ -987,33 +1007,65 @@ export default function NewInvoicePage() {
         </div>
       )}
 
-      <div style={{ display:'flex', alignItems:'center', gap:isMobile ? 10 : 14, marginBottom: isMobile ? 18 : 28 }}>
-        <button onClick={() => navigate('/app/invoices')}
-          style={{ width:40, height:40, borderRadius:11, background:D.blueDim2, border:`1px solid ${D.border}`, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, flexShrink:0 }}>
-          <ArrowLeft size={17}/>
-        </button>
-        <div style={{ width: isMobile ? 40 : 48, height: isMobile ? 40 : 48, borderRadius:14, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-          <Receipt size={isMobile ? 18 : 22} color="#fff"/>
-        </div>
-        <div style={{ minWidth:0 }}>
-          <h1 style={{ color:D.text, fontSize: isMobile ? 17 : 22, fontWeight:900, margin:0 }}>
-            {t('invoice.directInvoiceTitle') || 'Nouvo Fakti Direk'}
-          </h1>
-          <p style={{ color:D.muted, fontSize: isMobile ? 11 : 13, margin:'2px 0 0' }}>
-            {t('invoice.directInvoiceDesc') || 'Kreye yon fakti san pase pa devi'}
-          </p>
+      {/* ✅ NOUVO — Banner/antèt tankou tèt yon dokiman ofisyèl (letterhead),
+          ak yon "swoosh" oranj ki fè eko ak logo PLUS GROUP la. Ranplase
+          ansyen ti liy kwens la pou bay paj la yon lè pwofesyonèl. */}
+      <div style={{
+        position:'relative', overflow:'hidden',
+        background: D.heroGrad, borderRadius: isMobile ? 18 : 22,
+        padding: isMobile ? '18px 18px' : '26px 30px',
+        marginBottom: isMobile ? 18 : 26,
+        boxShadow:'0 14px 34px rgba(15,26,92,0.28)',
+      }}>
+        {/* swoosh dekoratif — eko lojo PLUS GROUP la */}
+        <svg viewBox="0 0 600 200" preserveAspectRatio="none" style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.9, pointerEvents:'none' }}>
+          <path d="M -20 150 C 140 60, 340 210, 620 70" stroke={D.orange} strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 180 C 160 100, 360 240, 620 110" stroke={D.gold} strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+
+        <div style={{ position:'relative', display:'flex', alignItems:'center', gap: isMobile ? 12 : 16 }}>
+          <button onClick={() => navigate('/app/invoices')}
+            style={{ width: isMobile ? 38 : 42, height: isMobile ? 38 : 42, borderRadius:12, background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.22)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', flexShrink:0, backdropFilter:'blur(4px)' }}>
+            <ArrowLeft size={17}/>
+          </button>
+
+          <div style={{
+            width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius:14, flexShrink:0,
+            background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`,
+            display:'flex', alignItems:'center', justifyContent:'center',
+            boxShadow:'0 8px 18px rgba(255,107,0,0.35)',
+          }}>
+            <Receipt size={isMobile ? 19 : 23} color="#fff"/>
+          </div>
+
+          <div style={{ minWidth:0 }}>
+            <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>
+              PLUS GROUP · Fakti
+            </p>
+            <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0, letterSpacing:'-0.01em' }}>
+              {t('invoice.directInvoiceTitle') || 'Nouvo Fakti Direk'}
+            </h1>
+            <p style={{ color:'rgba(255,255,255,0.65)', fontSize: isMobile ? 11 : 13, margin:'3px 0 0' }}>
+              {t('invoice.directInvoiceDesc') || 'Kreye yon fakti san pase pa devi'}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap: isMobile ? 16 : 20 }}>
 
         {/* Kliyan + Dat */}
-        <div style={{ background:D.white, borderRadius:16, padding: isMobile ? 16 : 22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:14 }}>
-            <User size={15} color={D.blue}/>
-            <h3 style={{ color:D.text, fontSize:13, fontWeight:800, margin:0 }}>
-              {t('invoice.selectClient') || 'Chwazi Kliyan (opsyonèl)'}
-            </h3>
+        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+            <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <User size={14} color={D.blue}/>
+            </div>
+            <div>
+              <p style={{ color:D.muted, fontSize:9, fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', margin:'0 0 1px' }}>Etap 1</p>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>
+                {t('invoice.selectClient') || 'Chwazi Kliyan (opsyonèl)'}
+              </h3>
+            </div>
           </div>
 
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -1062,10 +1114,18 @@ export default function NewInvoicePage() {
         </div>
 
         {/* Atik yo */}
-        <div style={{ background:D.white, borderRadius:16, padding: isMobile ? 16 : 22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
-          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 14px' }}>
-            {t('quotes.items') || 'Atik yo'}
-          </h3>
+        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+            <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+              <Package size={14} color={D.blue}/>
+            </div>
+            <div>
+              <p style={{ color:D.muted, fontSize:9, fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', margin:'0 0 1px' }}>Etap 2</p>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>
+                {t('quotes.items') || 'Atik yo'}
+              </h3>
+            </div>
+          </div>
 
           {isMobile ? (
             items.map((item, idx) => (
@@ -1094,10 +1154,18 @@ export default function NewInvoicePage() {
         {/* Rezime */}
         <div style={{ display:'grid', gridTemplateColumns: '1fr', gap:14 }}>
 
-          <div style={{ background:D.white, borderRadius:16, padding: isMobile ? 16 : 22, border:`1px solid ${D.border}`, boxShadow:D.shadow }}>
-            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>
-              {t('quotes.summary') || 'Rezime'}
-            </h3>
+          <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
+              <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <Receipt size={14} color={D.blue}/>
+              </div>
+              <div>
+                <p style={{ color:D.muted, fontSize:9, fontWeight:800, letterSpacing:'0.1em', textTransform:'uppercase', margin:'0 0 1px' }}>Etap 3</p>
+                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>
+                  {t('quotes.summary') || 'Rezime'}
+                </h3>
+              </div>
+            </div>
 
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:D.muted }}>
