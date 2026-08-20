@@ -191,6 +191,10 @@ model Tenant {
   payments               Payment[]
   pg_employees           pg_employees[]
   pg_expenses            pg_expenses[]
+  // ✅ NOUVO — Founisè: kapital, founisè, achte
+  pg_founise             pg_founise[]
+  pg_kapital             pg_kapital[]
+  pg_achte               pg_achte[]
   pre_echeances          pre_echeances[]
   pre_kapital            pre_kapital[]
   prePaiements           PrePaiement[]
@@ -327,6 +331,10 @@ model User {
   klinik_services              klinik_services[]
   notifications                Notification[]
   payments                     Payment[]
+  // ✅ NOUVO — Founisè: kapital, founisè, achte
+  pg_founise                   pg_founise[]
+  pg_kapital                   pg_kapital[]
+  pg_achte                     pg_achte[]
   pre_kapital                  pre_kapital[]
   prePaiementsCreated          PrePaiement[]          @relation("PrePaiementCreatedBy")
   pre_rapo_kesye               pre_rapo_kesye[]
