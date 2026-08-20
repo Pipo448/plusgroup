@@ -125,10 +125,13 @@ const create = async (tenantId, userId, data) => {
           .filter(t => t.minQty && t.priceHtg)
           .map(t => ({
             tenantId,
-            minQty:   Number(t.minQty),
-            priceHtg: Number(t.priceHtg),
-            priceUsd: (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
-            label:    t.label?.trim() || null,
+            minQty:        Number(t.minQty),
+            priceHtg:      Number(t.priceHtg),
+            priceUsd:      (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
+            // ✅ NOUVO — pri total pou pakè a (egz. 1750 pou 3), sove tèl
+            // kèl pou kalkil egzat nan fakti/devi (evite erè awondisman)
+            totalPriceHtg: (t.totalPriceHtg != null && t.totalPriceHtg !== '') ? Number(t.totalPriceHtg) : null,
+            label:         t.label?.trim() || null,
           }))
       },
     },
@@ -193,10 +196,12 @@ const update = async (tenantId, id, userId, data) => {
             .filter(t => t.minQty && t.priceHtg)
             .map(t => ({
               tenantId,
-              minQty:   Number(t.minQty),
-              priceHtg: Number(t.priceHtg),
-              priceUsd: (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
-              label:    t.label?.trim() || null,
+              minQty:        Number(t.minQty),
+              priceHtg:      Number(t.priceHtg),
+              priceUsd:      (t.priceUsd != null && t.priceUsd !== '') ? Number(t.priceUsd) : null,
+              // ✅ NOUVO — menm rezon ak create()
+              totalPriceHtg: (t.totalPriceHtg != null && t.totalPriceHtg !== '') ? Number(t.totalPriceHtg) : null,
+              label:         t.label?.trim() || null,
             }))
         }
       }),

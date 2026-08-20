@@ -23,6 +23,22 @@ const pickBestTier = (tiers, qty) => {
   return eligible.reduce((best, tr) => Number(tr.minQty) > Number(best.minQty) ? tr : best)
 }
 
+// ✅ NOUVO — Si yon nivo pri an gwo aktif SOU LIY SA A epi li gen yon
+// "Pri Total Pakè a" (totalPriceHtg) sove, epi kantite a se yon MILTIP
+// EGZAK sèy nivo a (3, 6, 9... pou yon nivo 3), kalkile total la
+// DIRÈKTEMAN ak pri total la — olye de miltipliye pri linite a (ki
+// awondi a 2 chif) — pou evite erè tankou 3 × 583,33 = 1749,99 olye
+// 1750,00 net. Retounen null si kondisyon yo pa ranpli.
+const exactTierGross = (item) => {
+  if (!item?._priceMode?.startsWith('tier-') || !item._priceTiers?.length) return null
+  const tier = item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)
+  const minQty = Number(tier?.minQty || 0)
+  if (!tier?.totalPriceHtg || !minQty) return null
+  const qty = Number(item.quantity) || 0
+  if (qty <= 0 || qty % minQty !== 0) return null
+  return (qty / minQty) * Number(tier.totalPriceHtg)
+}
+
 // ✅ useDebounce — evite API call chak lèt
 function useDebounce(value, delay = 400) {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -212,7 +228,7 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
   const { t } = useTranslation()
 
   // ✅ KORIJE — kalkile total ak discountAmt (HTG), pa discountPct
-  const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+  const gross   = exactTierGross(item) ?? (Number(item.unitPriceHtg||0) * Number(item.quantity||0))
   const discAmt = Number(item.discountAmt||0)
   const totalHtg = useMemo(
     () => Math.max(0, gross - discAmt),
@@ -323,22 +339,12 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
         <div>
           <label style={{ display:'block', fontSize:10, fontWeight:800, color:'#6B7AAB', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:5 }}>Pri HTG</label>
           <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-            value={item.unitPriceHtg} disabled={!canOverridePrice}
-            style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
+            value={item.unitPriceHtg}
+            disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
+            style={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
             onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
-          {/* ✅ NOUVO — Admin: badge enfòmatif. Kesye (pa canOverridePrice): bouton pou chak nivo */}
-          {item._priceTiers?.length > 0 && canOverridePrice && (
-            <span style={{
-              display:'inline-block', marginTop:4, fontSize:9, fontWeight:800, padding:'2px 7px', borderRadius:99,
-              background: item._priceMode?.startsWith('tier-') ? 'rgba(255,107,0,0.12)' : 'rgba(100,100,100,0.08)',
-              color: item._priceMode?.startsWith('tier-') ? '#FF6B00' : '#6B7AAB',
-            }}>
-              {item._priceMode === 'manual' ? 'PRI MANYÈL' : item._priceMode?.startsWith('tier-')
-                ? (item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)?.label || 'GWO')
-                : 'PRI DETAY'}
-            </span>
-          )}
-          {item._priceTiers?.length > 0 && !canOverridePrice && (
+          {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl */}
+          {item._priceTiers?.length > 0 && (
             <div style={{ display:'flex', gap:4, marginTop:5, flexWrap:'wrap' }}>
               <button type="button" onClick={() => forcePriceMode(null)} style={{
                 fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px solid',
@@ -354,6 +360,15 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
                   color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
                 }}>{tr.label || `${tr.minQty}+`}</button>
               ))}
+              {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
+              {canOverridePrice && (
+                <button type="button" onClick={() => onChange(index, { ...item, _priceMode: 'manual' })} style={{
+                  fontSize:9, fontWeight:800, padding:'4px 8px', borderRadius:6, border:'1px dashed',
+                  borderColor: item._priceMode === 'manual' ? '#FF6B00' : '#E2E8F0',
+                  background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                  color: item._priceMode === 'manual' ? '#FF6B00' : '#6B7AAB', cursor:'pointer',
+                }}>✏️ Manyèl</button>
+              )}
             </div>
           )}
         </div>
@@ -382,7 +397,7 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
   const { t } = useTranslation()
 
   // ✅ KORIJE — kalkile total ak discountAmt (HTG)
-  const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+  const gross   = exactTierGross(item) ?? (Number(item.unitPriceHtg||0) * Number(item.quantity||0))
   const discAmt = Number(item.discountAmt||0)
   const totalHtg = useMemo(
     () => Math.max(0, gross - discAmt),
@@ -471,20 +486,11 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
       </td>
       <td className="p-2 w-32">
         <input type="number" step="0.01" min="0" className="input text-right text-sm py-2 font-mono"
-          value={item.unitPriceHtg} disabled={!canOverridePrice}
-          style={!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
+          value={item.unitPriceHtg}
+          disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
+          style={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : undefined}
           onFocus={e => e.target.select()} onChange={e => update('unitPriceHtg', e.target.value)}/>
-        {item._priceTiers?.length > 0 && canOverridePrice && (
-          <span style={{
-            display:'block', marginTop:3, fontSize:9, fontWeight:800, textAlign:'right',
-            color: item._priceMode?.startsWith('tier-') ? '#FF6B00' : '#6B7AAB',
-          }}>
-            {item._priceMode === 'manual' ? 'MANYÈL' : item._priceMode?.startsWith('tier-')
-              ? (item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)?.label || 'GWO')
-              : 'DETAY'}
-          </span>
-        )}
-        {item._priceTiers?.length > 0 && !canOverridePrice && (
+        {item._priceTiers?.length > 0 && (
           <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
             <button type="button" onClick={() => forcePriceMode(null)} style={{
               fontSize:8, fontWeight:800, padding:'3px 6px', borderRadius:5, border:'1px solid',
@@ -500,6 +506,15 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
                 color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : '#6B7AAB', cursor:'pointer',
               }}>{tr.label || `${tr.minQty}+`}</button>
             ))}
+            {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
+            {canOverridePrice && (
+              <button type="button" onClick={() => onChange(index, { ...item, _priceMode: 'manual' })} style={{
+                fontSize:8, fontWeight:800, padding:'3px 6px', borderRadius:5, border:'1px dashed',
+                borderColor: item._priceMode === 'manual' ? '#FF6B00' : '#E2E8F0',
+                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                color: item._priceMode === 'manual' ? '#FF6B00' : '#6B7AAB', cursor:'pointer',
+              }}>✏️ Manyèl</button>
+            )}
           </div>
         )}
       </td>
@@ -726,7 +741,7 @@ export default function QuoteForm() {
   // ✅ useMemo — pa recalcule chak keystroke (kounye a ak discountAmt HTG pa liy)
   const { subtotal, discountAmt, taxAmt, total } = useMemo(() => {
     const sub      = items.reduce((acc, item) => {
-      const gross   = Number(item.unitPriceHtg||0) * Number(item.quantity||0)
+      const gross   = exactTierGross(item) ?? (Number(item.unitPriceHtg||0) * Number(item.quantity||0))
       const lineDisc = Number(item.discountAmt||0)
       return acc + Math.max(0, gross - lineDisc)
     }, 0)
@@ -774,7 +789,7 @@ export default function QuoteForm() {
       expiryDate: expiryDate || null,
       items: items.map(i => {
         // ✅ KORIJE — konvèti discountAmt (HTG) → discountPct (%) pou backend
-        const gross    = Number(i.unitPriceHtg||0) * Number(i.quantity||0)
+        const gross    = exactTierGross(i) ?? (Number(i.unitPriceHtg||0) * Number(i.quantity||0))
         const discAmt  = Number(i.discountAmt||0)
         const discPct  = gross > 0 ? (discAmt / gross) * 100 : 0
         return {

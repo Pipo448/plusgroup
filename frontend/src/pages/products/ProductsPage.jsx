@@ -258,7 +258,10 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
       ? { ...product, priceHtg: Number(product.priceHtg), priceUsd: Number(product.priceUsd), costPriceHtg: Number(product.costPriceHtg),
           // ✅ NOUVO — priceTiers soti nan product.priceTiers (relasyon Prisma), triye pa minQty
           priceTiers: (product.priceTiers || []).slice().sort((a,b) => a.minQty - b.minQty).map(t => ({
-            minQty: t.minQty, priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd != null ? Number(t.priceUsd) : '', label: t.label || ''
+            minQty: t.minQty, priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd != null ? Number(t.priceUsd) : '',
+            // ✅ NOUVO — pri total pou pakè a, si li te ranpli
+            totalPriceHtg: t.totalPriceHtg != null ? Number(t.totalPriceHtg) : '',
+            label: t.label || ''
           })) }
       : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', priceTiers: [] }
   })
@@ -288,6 +291,22 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     setValue(`priceTiers.${i}.priceUsd`, e.target.value)
     if (usd > 0) setValue(`priceTiers.${i}.priceHtg`, (usd * rate).toFixed(2))
   }
+  // ✅ NOUVO — Pri Total pou Pakè a: responsab la antre total la dirèkteman
+  // (egz. 1750 pou yon pake 3) olye li fè divizyon an nan tèt li. Nou sove
+  // TOTAL la tèl kèl (pou kalkil egzat pita nan fakti/devi) EPI nou ranpli
+  // "Pri (HTG)" a otomatikman ak divizyon an — sèlman kòm referans/afichaj
+  // pou kantite ki pa matche sèy la egzakteman.
+  const handleTierTotalChange = (i, e) => {
+    const total = e.target.value
+    setValue(`priceTiers.${i}.totalPriceHtg`, total)
+    const totalNum = Number(total)
+    const minQty   = Number(watch(`priceTiers.${i}.minQty`))
+    if (totalNum > 0 && minQty > 0) {
+      const unitPrice = totalNum / minQty
+      setValue(`priceTiers.${i}.priceHtg`, unitPrice.toFixed(2))
+      setValue(`priceTiers.${i}.priceUsd`, (unitPrice / rate).toFixed(2))
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: (data) => {
@@ -301,7 +320,12 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
         ...payload,
         priceTiers: (payload.priceTiers || [])
           .filter(t => t.minQty && t.priceHtg)
-          .map(t => ({ minQty: Number(t.minQty), priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd ? Number(t.priceUsd) : null, label: t.label?.trim() || null }))
+          .map(t => ({
+            minQty: Number(t.minQty), priceHtg: Number(t.priceHtg), priceUsd: t.priceUsd ? Number(t.priceUsd) : null,
+            // ✅ NOUVO — pri total pou pakè a (si li ranpli)
+            totalPriceHtg: t.totalPriceHtg ? Number(t.totalPriceHtg) : null,
+            label: t.label?.trim() || null,
+          }))
       }
       return isEdit ? productAPI.update(product.id, payload) : productAPI.create(payload)
     },
@@ -429,13 +453,13 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                 <span className="text-sm font-semibold text-slate-700">Nivo Pri An Gwo</span>
                 <span className="text-xs text-slate-400 ml-1">— optyonèl, otan nivo ou vle</span>
               </div>
-              <button type="button" onClick={() => appendTier({ minQty: '', priceHtg: '', priceUsd: '', label: '' })}
+              <button type="button" onClick={() => appendTier({ minQty: '', priceHtg: '', priceUsd: '', totalPriceHtg: '', label: '' })}
                 className="text-xs font-bold text-brand-600 flex items-center gap-1" style={{ cursor: 'pointer' }}>
                 <Plus size={14}/> Ajoute Nivo
               </button>
             </div>
             {tierFields.map((f, i) => (
-              <div key={f.id} className="grid gap-2" style={{ gridTemplateColumns: '1fr 1fr 1fr 1fr auto', marginBottom: 8, alignItems: 'end' }}>
+              <div key={f.id} className="grid gap-2" style={{ gridTemplateColumns: '0.9fr 0.7fr 1fr 1fr 1fr auto', marginBottom: 4, alignItems: 'end' }}>
                 <div>
                   <label className="label text-xs">Non (opsyonèl)</label>
                   <input className="input" placeholder="Gwo, Kès 24..." {...register(`priceTiers.${i}.label`)}/>
@@ -446,7 +470,12 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                     {...register(`priceTiers.${i}.minQty`, { required: true, min: 1 })} onFocus={e => e.target.select()}/>
                 </div>
                 <div>
-                  <label className="label text-xs">Pri (HTG)</label>
+                  <label className="label text-xs">Pri Total Pakè a</label>
+                  <input type="number" step="0.01" min="0" className="input" placeholder="Egz. 1750"
+                    {...register(`priceTiers.${i}.totalPriceHtg`)} onChange={e => handleTierTotalChange(i, e)} onFocus={e => e.target.select()}/>
+                </div>
+                <div>
+                  <label className="label text-xs">Pri Linite (HTG) *</label>
                   <input type="number" step="0.01" min="0" className="input" placeholder="0.00"
                     {...register(`priceTiers.${i}.priceHtg`, { required: true, min: 0 })} onChange={e => handleTierHtgChange(i, e)} onFocus={e => e.target.select()}/>
                 </div>
@@ -460,6 +489,11 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
                 </button>
               </div>
             ))}
+            {tierFields.length > 0 && (
+              <p className="text-xs text-slate-400" style={{ marginBottom: 8 }}>
+                💡 Ranpli "Pri Total Pakè a" (egz. 1750 pou 3) — "Pri Linite" a ranpli poukont li. Konsa fakti/devi ap toujou bay total EGZAK la (1750,00), pa 1749,99 oswa 1750,02.
+              </p>
+            )}
             {tierFields.length === 0 && (
               <p className="text-xs text-slate-400">Pa gen nivo pri an gwo pou pwodwi sa a. Klike "Ajoute Nivo" si w vle ofri pri diferan selon kantite.</p>
             )}

@@ -127,6 +127,10 @@ router.get('/patients/:id', async (req, res) => {
         prescriptions:   { orderBy: { date: 'desc' }, take: 5, include: { items: true } },
         labOrders:       { orderBy: { dateCommande: 'desc' }, take: 5, include: { items: true } },
         hospitalizations:{ orderBy: { dateAdmission: 'desc' }, take: 5 },
+        // ⭐ Sonografi + lòt sèvis — relasyon an rele "klinik_services" (pa
+        //   konvansyon kamelCase abityèl la), konfime nan schema Prisma a.
+        //   Pa gen orderBy paske chan dat modèl sa a pa konfime.
+        klinik_services: { take: 30 },
       },
     })
     if (!patient) return res.status(404).json({ message: 'Pasyan pa jwenn.' })

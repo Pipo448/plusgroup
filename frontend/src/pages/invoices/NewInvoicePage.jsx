@@ -68,10 +68,27 @@ function useIsMobile() {
   return isMobile
 }
 
+// ✅ NOUVO — Si yon nivo pri an gwo aktif SOU LIY SA A epi li gen yon
+// "Pri Total Pakè a" (totalPriceHtg) sove, epi kantite a se yon MILTIP
+// EGZAK sèy nivo a (3, 6, 9... pou yon nivo 3), kalkile total la
+// DIRÈKTEMAN ak pri total la — olye de miltipliye pri linite a (ki
+// awondi a 2 chif) — pou evite erè tankou 3 × 583,33 = 1749,99 olye
+// 1750,00 net. Retounen null si kondisyon yo pa ranpli (tonbe sou
+// ansyen kalkil la pi ba a).
+const exactTierGross = (item) => {
+  if (!item?._priceMode?.startsWith('tier-') || !item._priceTiers?.length) return null
+  const tier = item._priceTiers.find(tr => `tier-${tr.id || tr.minQty}` === item._priceMode)
+  const minQty = Number(tier?.minQty || 0)
+  if (!tier?.totalPriceHtg || !minQty) return null
+  const qty = Number(item.qty) || 0
+  if (qty <= 0 || qty % minQty !== 0) return null
+  return (qty / minQty) * Number(tier.totalPriceHtg)
+}
+
 // ✅ Helper — kalkile line total ak rabè kòm montan HTG (pa pousantaj)
-const calcLineTotal = (qty, unitPrice, discountAmt) => {
-  const gross = Number(qty) * Number(unitPrice)
-  const disc  = Math.min(Number(discountAmt || 0), gross) // pa kite total vin negatif
+const calcLineTotal = (item) => {
+  const gross = exactTierGross(item) ?? (Number(item.qty) * Number(item.unitPrice))
+  const disc  = Math.min(Number(item.discount || 0), gross) // pa kite total vin negatif
   return Math.max(0, gross - disc)
 }
 
@@ -120,8 +137,8 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
 
   // ✅ KORIJE — rabè se yon montan HTG kounye a, pa pousantaj
   const lineTotal = useMemo(
-    () => calcLineTotal(item.qty, item.unitPrice, item.discount),
-    [item.unitPrice, item.qty, item.discount]
+    () => calcLineTotal(item),
+    [item.unitPrice, item.qty, item.discount, item._priceMode, item._priceTiers]
   )
 
   const selectProduct = useCallback((p) => {
@@ -226,14 +243,19 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         onBlur={e => e.target.style.borderColor = D.border}
       />
       <div>
-        <input type="number" min="0" step="0.01" value={item.unitPrice} disabled={!canOverridePrice}
+        {/* ✅ KORIJE — chan an lok pa default pou TOUT moun ki gen nivo pri
+            (evite tape total olye pri linite → total ki pa won). Admin ka
+            "deloke" li ak bouton "✏️ Manyèl" pi ba a si l vrèman bezwen l. */}
+        <input type="number" min="0" step="0.01" value={item.unitPrice}
+          disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
           onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
-          style={{ ...inp, fontSize:12, fontFamily:'monospace', ...(!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
+          style={{ ...inp, fontSize:12, fontFamily:'monospace',
+            ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
           onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
           onBlur={e => e.target.style.borderColor = D.border}
         />
-        {/* ✅ NOUVO — Kesye (pa canOverridePrice): bouton pou chwazi nivo pri a alamen */}
-        {!canOverridePrice && item._priceTiers?.length > 0 && (
+        {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl */}
+        {item._priceTiers?.length > 0 && (
           <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
             <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
               fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
@@ -251,6 +273,15 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
                   color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
                 }}>{tr.label || `${tr.minQty}+`}</button>
             ))}
+            {/* ✅ NOUVO — Admin sèlman: deloke chan an pou tape yon pri espesyal */}
+            {canOverridePrice && (
+              <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
+                fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px dashed',
+                borderColor: item._priceMode === 'manual' ? D.orange : D.border,
+                background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
+              }}>✏️ Manyèl</button>
+            )}
           </div>
         )}
       </div>
@@ -304,8 +335,8 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
 
   // ✅ KORIJE — rabè kòm montan HTG
   const lineTotal = useMemo(
-    () => calcLineTotal(item.qty, item.unitPrice, item.discount),
-    [item.unitPrice, item.qty, item.discount]
+    () => calcLineTotal(item),
+    [item.unitPrice, item.qty, item.discount, item._priceMode, item._priceTiers]
   )
 
   const selectProduct = useCallback((p) => {
@@ -429,14 +460,16 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         </div>
         <div>
           {label('Pri U. HTG')}
-          <input type="number" min="0" step="0.01" value={item.unitPrice} disabled={!canOverridePrice}
+          <input type="number" min="0" step="0.01" value={item.unitPrice}
+            disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
             onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
-            style={{ ...inp, fontFamily:'monospace', fontSize:13, ...(!canOverridePrice ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
+            style={{ ...inp, fontFamily:'monospace', fontSize:13,
+              ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
             onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
-          {/* ✅ NOUVO — Kesye: bouton pou chwazi nivo pri a alamen */}
-          {!canOverridePrice && item._priceTiers?.length > 0 && (
+          {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye) */}
+          {item._priceTiers?.length > 0 && (
             <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
               <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
                 fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
@@ -454,6 +487,15 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
                     color: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#fff' : D.muted, cursor:'pointer',
                   }}>{tr.label || `${tr.minQty}+`}</button>
               ))}
+              {/* ✅ NOUVO — Admin sèlman: deloke pou tape yon pri espesyal */}
+              {canOverridePrice && (
+                <button type="button" onClick={() => onUpdate(idx, { _priceMode: 'manual' })} style={{
+                  fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px dashed',
+                  borderColor: item._priceMode === 'manual' ? D.orange : D.border,
+                  background: item._priceMode === 'manual' ? 'rgba(255,107,0,0.1)' : '#fff',
+                  color: item._priceMode === 'manual' ? D.orange : D.muted, cursor:'pointer',
+                }}>✏️ Manyèl</button>
+              )}
             </div>
           )}
         </div>
@@ -685,7 +727,7 @@ export default function NewInvoicePage() {
 
   // ✅ KORIJE — rabè kòm montan HTG nan tout kalkil yo
   const { subtotal, discountAmount, afterDiscount, taxAmount, grandTotal } = useMemo(() => {
-    const sub     = items.reduce((acc, it) => acc + calcLineTotal(it.qty, it.unitPrice, it.discount), 0)
+    const sub     = items.reduce((acc, it) => acc + calcLineTotal(it), 0)
     const discAmt = Math.min(Number(discountGlobal || 0), sub) // pa kapab plis pase sou-total la
     const afterD  = Math.max(0, sub - discAmt)
     const taxAmt  = afterD * (Number(taxRate) / 100)
@@ -729,7 +771,9 @@ export default function NewInvoicePage() {
       const qty       = Number(it.qty)
       const unitPrice = Number(it.unitPrice)
       const discAmt   = Number(it.discount || 0)
-      const gross     = qty * unitPrice
+      // ✅ NOUVO — menm règ ak calcLineTotal: si kantite a se yon miltip
+      // egzat sèy nivo a, itilize pri total pakè a dirèkteman
+      const gross     = exactTierGross(it) ?? (qty * unitPrice)
       const lineTotal = Math.max(0, gross - Math.min(discAmt, gross))
       // Konvèti montan rabè → pousantaj pou backend
       const discPct   = gross > 0 ? Math.min(100, (discAmt / gross) * 100) : 0
