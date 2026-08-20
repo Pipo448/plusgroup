@@ -274,7 +274,7 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
     if (tier) {
       onChange(index, {
         ...item,
-        quantity: Math.max(Number(item.quantity) || 0, Number(tier.minQty)),
+        quantity: Number(tier.minQty),
         unitPriceHtg: Number(tier.priceHtg),
         unitPriceUsd: tier.priceUsd != null ? Number(tier.priceUsd) : 0,
         _priceMode: `tier-${tier.id || tier.minQty}`,
@@ -437,7 +437,7 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
     if (tier) {
       onChange(index, {
         ...item,
-        quantity: Math.max(Number(item.quantity) || 0, Number(tier.minQty)),
+        quantity: Number(tier.minQty),
         unitPriceHtg: Number(tier.priceHtg),
         unitPriceUsd: tier.priceUsd != null ? Number(tier.priceUsd) : 0,
         _priceMode: `tier-${tier.id || tier.minQty}`,

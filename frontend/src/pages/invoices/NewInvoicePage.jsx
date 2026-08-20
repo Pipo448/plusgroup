@@ -265,7 +265,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
             }}>Detay</button>
             {item._priceTiers.map(tr => (
               <button key={tr.id || tr.minQty} type="button"
-                onClick={() => onUpdate(idx, { qty: Math.max(Number(item.qty)||0, Number(tr.minQty)), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+                onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
                 style={{
                   fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
                   borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
@@ -497,7 +497,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
             }}>Detay</button>
             {item._priceTiers.map(tr => (
               <button key={tr.id || tr.minQty} type="button"
-                onClick={() => onUpdate(idx, { qty: Math.max(Number(item.qty)||0, Number(tr.minQty)), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
+                onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: `tier-${tr.id || tr.minQty}` })}
                 style={{
                   fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
                   borderColor: item._priceMode === `tier-${tr.id || tr.minQty}` ? '#FF6B00' : D.border,
