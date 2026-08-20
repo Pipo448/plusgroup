@@ -280,7 +280,7 @@ const ItemCard = memo(function ItemCard({ item, index, onChange, onRemove, canOv
         _priceMode: `tier-${tier.id || tier.minQty}`,
       })
     } else {
-      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
+      onChange(index, { ...item, quantity: 1, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
     }
   }, [index, item, onChange])
 
@@ -443,7 +443,7 @@ const ItemRow = memo(function ItemRow({ item, index, onChange, onRemove, canOver
         _priceMode: `tier-${tier.id || tier.minQty}`,
       })
     } else {
-      onChange(index, { ...item, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
+      onChange(index, { ...item, quantity: 1, unitPriceHtg: item._retailPriceHtg, unitPriceUsd: item._retailPriceUsd, _priceMode: 'retail' })
     }
   }, [index, item, onChange])
 

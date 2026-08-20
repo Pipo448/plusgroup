@@ -257,7 +257,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         {/* ✅ NOUVO — bouton nivo yo pou TOUT moun (admin ak kesye), pou evite kalkil manyèl */}
         {item._priceTiers?.length > 0 && (
           <div style={{ display:'flex', gap:3, marginTop:4, flexWrap:'wrap' }}>
-            <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
+            <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
               fontSize:8, fontWeight:800, padding:'2px 6px', borderRadius:5, border:'1px solid',
               borderColor: item._priceMode === 'retail' ? D.blue : D.border,
               background: item._priceMode === 'retail' ? D.blue : '#fff',
@@ -489,7 +489,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
             fasil peze ak dwèt sou iPhone/mobil. */}
         {item._priceTiers?.length > 0 && (
           <div style={{ display:'flex', gap:6, marginTop:6, flexWrap:'wrap' }}>
-            <button type="button" onClick={() => onUpdate(idx, { unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
+            <button type="button" onClick={() => onUpdate(idx, { qty: 1, unitPrice: item._retailPrice, _priceMode: 'retail' })} style={{
               fontSize:12, fontWeight:800, padding:'8px 12px', borderRadius:8, border:'1px solid', minHeight:36,
               borderColor: item._priceMode === 'retail' ? D.blue : D.border,
               background: item._priceMode === 'retail' ? D.blue : '#fff',
