@@ -24,7 +24,7 @@ const D = {
   gold:'#C9A84C', goldDk:'#8B6914',
   orange:'#FF6B00', orangeLt:'#FF8C33',
   white:'#FFFFFF', bg:'#F4F6FF',
-  border:'rgba(27,42,143,0.08)',
+  border:'rgba(27,42,143,0.18)',
   text:'#0F1A5C', muted:'#6B7AAB',
   success:'#059669', successBg:'rgba(5,150,105,0.08)',
   red:'#C0392B',
@@ -37,10 +37,19 @@ const D = {
 
 const inp = {
   width:'100%', padding:'10px 14px', borderRadius:10,
-  border:`1.5px solid ${D.border}`, outline:'none',
-  fontSize:13, color:D.text, background:'#FAFBFF',
+  border:`1.5px solid rgba(27,42,143,0.20)`, outline:'none',
+  fontSize:13, color:D.text, background:'#FFFFFF',
   fontFamily:'DM Sans,sans-serif', boxSizing:'border-box',
   transition:'border-color 0.15s ease, background 0.15s ease',
+}
+
+// ✅ NOUVO — chan lajan (pri, rabè, montan) pi vizib: bòday pi eskè, chif
+// an gra pou yo pa neye nan lòt chan tèks yo.
+const inpMoney = {
+  ...inp,
+  border:`1.5px solid rgba(27,42,143,0.28)`,
+  fontFamily:'monospace', fontWeight:800, color:D.blueDk,
+  background:'#F7F8FF',
 }
 
 const label = (txt) => (
@@ -271,7 +280,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
         <input type="number" min="0" step="0.01" value={item.unitPrice}
           disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
           onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
-          style={{ ...inp, fontSize:12, fontFamily:'monospace',
+          style={{ ...inpMoney, fontSize:12,
             ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
           onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
           onBlur={e => e.target.style.borderColor = D.border}
@@ -281,7 +290,7 @@ const ItemRowDesktop = memo(function ItemRowDesktop({ item, idx, onUpdate, onRem
       <input type="number" min="0" step="0.01" value={item.discount}
         onChange={e => onUpdate(idx, { discount: e.target.value })}
         placeholder="0.00"
-        style={{ ...inp, fontSize:12, fontFamily:'monospace', textAlign:'right' }}
+        style={{ ...inpMoney, fontSize:12, textAlign:'right' }}
         onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
         onBlur={e => e.target.style.borderColor = D.border}
       />
@@ -491,7 +500,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
           <input type="number" min="0" step="0.01" value={item.discount}
             onChange={e => onUpdate(idx, { discount: e.target.value })}
             placeholder="0.00"
-            style={{ ...inp, textAlign:'right', fontSize:13, fontFamily:'monospace' }}
+            style={{ ...inpMoney, textAlign:'right', fontSize:13 }}
             onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
             onBlur={e => e.target.style.borderColor = D.border}
           />
@@ -503,7 +512,7 @@ const ItemRowMobile = memo(function ItemRowMobile({ item, idx, onUpdate, onRemov
         <input type="number" min="0" step="0.01" value={item.unitPrice}
           disabled={!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual'))}
           onChange={e => onUpdate(idx, { unitPrice: e.target.value, _priceMode: 'manual' })}
-          style={{ ...inp, fontFamily:'monospace', fontSize:13,
+          style={{ ...inpMoney, fontSize:13,
             ...(!(canOverridePrice && (!item._priceTiers?.length || item._priceMode === 'manual')) ? { background:'#F1F5F9', color:'#64748B', cursor:'not-allowed' } : {}) }}
           onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }}
           onBlur={e => e.target.style.borderColor = D.border}
@@ -1040,7 +1049,7 @@ export default function NewInvoicePage() {
 
           <div style={{ minWidth:0 }}>
             <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>
-              PLUS GROUP · Fakti
+              {tenant?.name || t('invoice.newInvoice') || 'Fakti'}
             </p>
             <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0, letterSpacing:'-0.01em' }}>
               {t('invoice.directInvoiceTitle') || 'Nouvo Fakti Direk'}
@@ -1106,7 +1115,7 @@ export default function NewInvoicePage() {
               <div>
                 {label(`${t('settings.taxRate') || 'Taks TVA'} (%)`)}
                 <input type="number" min="0" max="100" step="0.5" value={taxRate}
-                  onChange={e => setTaxRate(e.target.value)} style={inp}
+                  onChange={e => setTaxRate(e.target.value)} style={inpMoney}
                   onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
             </div>
@@ -1178,7 +1187,7 @@ export default function NewInvoicePage() {
                 <input type="number" min="0" step="0.01" value={discountGlobal}
                   onChange={e => setDiscountGlobal(e.target.value)}
                   placeholder="0.00"
-                  style={{ ...inp, width:120, textAlign:'right', fontSize:12, padding:'6px 10px', fontFamily:'monospace' }}
+                  style={{ ...inpMoney, width:120, textAlign:'right', fontSize:12, padding:'6px 10px' }}
                   onFocus={e => { e.target.style.borderColor = D.blue; e.target.select() }} onBlur={e => e.target.style.borderColor = D.border}/>
               </div>
               {discountAmount > 0 && (
@@ -1232,7 +1241,7 @@ export default function NewInvoicePage() {
                     onChange={e => setAmountReceived(e.target.value)}
                     placeholder={fmt(grandTotal)}
                     onFocus={e => e.target.select()}
-                    style={{ ...inp, textAlign:'right', fontFamily:'monospace', fontSize:15 }}/>
+                    style={{ ...inpMoney, textAlign:'right', fontSize:16, padding:'12px 14px' }}/>
                   {Number(amountReceived) > grandTotal && (
                     <div style={{ display:'flex', justifyContent:'space-between', marginTop:6, padding:'8px 12px', background:D.successBg, borderRadius:8 }}>
                       <span style={{ fontSize:12, color:D.success, fontWeight:700 }}>Monnen pou remèt</span>
