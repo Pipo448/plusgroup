@@ -57,6 +57,8 @@ const DryOrdersPage      = lazy(() => import('./pages/dry/DryOrdersPage'))
 const DryOrderDetail     = lazy(() => import('./pages/dry/DryOrderDetail'))
 const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
 const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
+// ✅ NOUVO — Founisè: kapital, founisè, achte
+const FounisePage        = lazy(() => import('./pages/founise/FounisePage'))
 const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
 const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
 // ⚠️ NOUVO — Dashboard Ajan (pwoteje, lazy tankou lòt dashboard yo)
@@ -186,6 +188,8 @@ export default function App() {
             <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />
             <Route path="expenses"  element={<ProtectedPage pageKey="expenses"><ExpensesPage /></ProtectedPage>} />
             <Route path="finances"  element={<AdminFinancesPage />} />
+            {/* ✅ NOUVO — Founisè: kapital, founisè, achte */}
+            <Route path="founise"   element={<ProtectedPage pageKey="founise"><FounisePage /></ProtectedPage>} />
           </Route>
 
           {/* Legacy redirects */}

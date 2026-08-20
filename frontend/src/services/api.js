@@ -257,6 +257,23 @@ export const internetAPI = {
   // ── Peman ─────────────────────────────────────────────
   getPayments: (p) => api.get('/internet/admin/payments', { params: p }),
 }
+
+// ✅ NOUVO — Founisè: kapital, founisè, achte
+export const founiseAPI = {
+  // ── Kapital ──────────────────────────────────────────
+  getKapital:        ()     => api.get('/founise/kapital'),
+  getKapitalMouvman: (p)    => api.get('/founise/kapital/mouvman', { params: p }),
+  injectKapital:     (data) => api.post('/founise/kapital/enjeksyon', data),
+
+  // ── Founisè ──────────────────────────────────────────
+  getAll:  ()         => api.get('/founise/founise'),
+  create:  (data)     => api.post('/founise/founise', data),
+  update:  (id, data) => api.put(`/founise/founise/${id}`, data),
+
+  // ── Achte ────────────────────────────────────────────
+  getAchte:    (p)    => api.get('/founise/achte', { params: p }),
+  createAchte: (data) => api.post('/founise/achte', data),
+}
  
 
 export default api
