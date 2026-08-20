@@ -51,6 +51,9 @@ model Product {
   hotelServices     HotelService[]
   invoiceItems      InvoiceItem[]
   priceTiers        ProductPriceTier[]
+  // ✅ NOUVO — Founisè: achte ki afekte pwodwi sa a (mete kantite estòk +
+  // pri kout otomatikman lè yo anrejistre)
+  pgAchte           pg_achte[]
   branch            Branch?            @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   category          ProductCategory?   @relation(fields: [categoryId], references: [id])
   creator           User?              @relation(fields: [createdBy], references: [id])

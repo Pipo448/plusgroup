@@ -36,6 +36,14 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
   const dateFrom30 = getHaitiDateStr(thirtyDaysAgo);
   const salesRange = haitiRange(dateFrom30, today);
 
+  // ✅ NOUVO — Benefis: kalkile pou MWA SA A (menm konvansyon ak paj Depans
+  // lan, "TOTAL DEPANS MWA SA"), an lè Ayiti.
+  const monthStart = `${today.slice(0, 7)}-01`; // "YYYY-MM-01"
+  const monthRange = haitiRange(monthStart, today);
+  // pg_expenses.date_depans se yon kolòn DATE (pa Timestamptz) — konparezon
+  // an fèt ak dat pi senp, pa gen bezwen lè presi.
+  const monthDateOnlyRange = { gte: new Date(`${monthStart}T00:00:00.000Z`), lte: new Date(`${today}T23:59:59.999Z`) };
+
   const baseWhere = {
     tenantId,
     status: { not: 'cancelled' },
@@ -71,6 +79,11 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     allActiveProducts,
     // sales 30 jou (admin sèlman — sèvi pou graf la sèlman)
     salesReport,
+    // ✅ NOUVO — Benefis mwa sa a (admin sèlman)
+    monthRevenueAgg,
+    monthInvoiceItems,
+    monthExpensesAgg,
+    monthSalariesAgg,
   ] = await Promise.all([
     // Global stats
     prisma.invoice.aggregate({
@@ -134,7 +147,50 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
           take: 1000,
         })
       : Promise.resolve([]),
+    // ✅ NOUVO — Benefis mwa sa a (admin sèlman, menm jan ak salesReport):
+    // 1) revni mwa a, 2) kou machandiz vann (kantite × pri kout aktyèl
+    // pwodwi a), 3) depans, 4) salè anplwaye aktif yo.
+    isAdmin
+      ? prisma.invoice.aggregate({
+          where: { tenantId, status: { not: 'cancelled' }, ...(branchId && { branchId }), issueDate: monthRange },
+          _sum: { totalHtg: true },
+        })
+      : Promise.resolve({ _sum: { totalHtg: 0 } }),
+    isAdmin
+      ? prisma.invoiceItem.findMany({
+          where: {
+            tenantId,
+            invoice: { status: { not: 'cancelled' }, ...(branchId && { branchId }), issueDate: monthRange },
+          },
+          select: { quantity: true, product: { select: { costPriceHtg: true } } },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.pg_expenses.aggregate({
+          where: { tenant_id: tenantId, date_depans: monthDateOnlyRange },
+          _sum: { montant: true },
+        })
+      : Promise.resolve({ _sum: { montant: 0 } }),
+    isAdmin
+      ? prisma.pg_employees.aggregate({
+          where: { tenant_id: tenantId, statut: 'actif' },
+          _sum: { salaire: true },
+        })
+      : Promise.resolve({ _sum: { salaire: 0 } }),
   ]);
+
+  // ✅ NOUVO — Benefis mwa sa a
+  const monthRevenue  = Number(monthRevenueAgg._sum?.totalHtg || 0);
+  const monthCogs     = monthInvoiceItems.reduce((acc, it) => acc + Number(it.quantity) * Number(it.product?.costPriceHtg || 0), 0);
+  const monthExpenses = Number(monthExpensesAgg._sum?.montant || 0);
+  const monthSalaries = Number(monthSalariesAgg._sum?.salaire || 0);
+  const monthProfit = {
+    revenue:  monthRevenue,
+    cogs:     Math.round(monthCogs * 100) / 100,
+    expenses: monthExpenses,
+    salaries: monthSalaries,
+    net:      Math.round((monthRevenue - monthCogs - monthExpenses - monthSalaries) * 100) / 100,
+  };
 
   // ✅ Low stock: konparezon quantity <= alertThreshold fèt an JS
   // paske Prisma pa ka konpare 2 kolòn dirèkteman nan yon `where` san raw SQL.
@@ -171,6 +227,9 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
       todayTotalVentes,
       lowStock,
       salesDaily: Object.values(daily),
+      // ✅ NOUVO — Benefis = Vant − Kou machandiz vann − Depans − Salè,
+      // kalkile pou mwa an kou a (null pou kesye, admin sèlman)
+      monthProfit: isAdmin ? monthProfit : null,
     }
   });
 }));

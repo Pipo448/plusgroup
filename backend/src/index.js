@@ -55,6 +55,8 @@ const agentRoutes         = require('./modules/agents/agent.routes')
 const publicSignupRoutes  = require('./modules/tenants/public-signup.routes')
 // ✅ NOUVO — Sekirite: PIN pou aksyon sansib (efasman finansye)
 const securityRoutes      = require('./modules/security/pin.routes')
+// ✅ NOUVO — Founisè: kapital, founisè, achte (alimante estòk + pri kout)
+const founiseRoutes       = require('./modules/founise/founise.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -186,6 +188,8 @@ app.use(`${API}/pre`,           preRoutes)
 app.use(`${API}/klinik`,        klinikRoutes)    // ✅ NOUVO
 app.use(`${API}/pg-employees`, pgEmployeesRoutes)
 app.use(`${API}/pg-expenses`,  pgExpensesRoutes)
+// ✅ NOUVO — Founisè: kapital, founisè, achte
+app.use(`${API}/founise`,      founiseRoutes)
 app.use(`${API}/mikwo-expenses`, mikwoExpensesRoutes)
 app.use(`${API}/mikwo-profit`,   mikwoProfitRoutes)
 app.use(`${API}/internet`,   internetRoutes);

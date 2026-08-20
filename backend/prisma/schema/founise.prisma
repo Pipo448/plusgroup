@@ -1,0 +1,75 @@
+// backend/prisma/schema/founise.prisma
+// ✅ NOUVO — Modil Founisè: swiv egzakteman menm patwon "ledger kapital"
+// pre_kapital (modil Prè/Sabotay Inove) deja itilize nan ekosistèm lan, pou
+// rete koherán: chak antre/soti kapital se yon LIY nan tab la (pa yon sèl
+// chif ki ekrase), balans lan toujou kalkile an SUM() sou tout liy yo.
+
+model pg_founise {
+  id         String     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id  String
+  non        String     @db.VarChar(150)
+  telefon    String?    @db.VarChar(20)
+  email      String?    @db.VarChar(100)
+  adres      String?
+  notes      String?
+  aktif      Boolean    @default(true)
+  created_by String?
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at DateTime   @default(now()) @db.Timestamptz(6)
+  tenants    Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pg_founise_tenant_fk")
+  creator    User?      @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pg_founise_creator_fk")
+  achte      pg_achte[]
+
+  @@index([tenant_id], map: "idx_pg_founise_tenant")
+}
+
+// ✅ Ledger kapital: CHAK liy se yon mouvman (enjeksyon oswa achte). Balans
+// disponib = SUM(montant WHERE type='enjeksyon') - SUM(montant WHERE type='achte').
+// Lè yon Achte anrejistre, backend la kreye OTOMATIKMAN yon liy 'achte' isit
+// la — pa gen chan kapital pou modifye alamen pou sa.
+model pg_kapital {
+  id         String     @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id  String
+  montant    Decimal    @db.Decimal(14, 2)
+  type       String     @default("enjeksyon") @db.VarChar(20) // 'enjeksyon' | 'achte'
+  achte_id   String?
+  notes      String?
+  created_by String?
+  created_at DateTime   @default(now()) @db.Timestamptz(6)
+  tenants    Tenant     @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pg_kapital_tenant_fk")
+  creator    User?      @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pg_kapital_creator_fk")
+  achte      pg_achte?  @relation(fields: [achte_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "pg_kapital_achte_fk")
+
+  @@index([tenant_id], map: "idx_pg_kapital_tenant")
+  @@index([created_at], map: "idx_pg_kapital_date")
+}
+
+// ✅ Yon Achte kay yon Founisè. Lè l kreye, backend la (nan yon sèl
+// tranzaksyon) fè 3 bagay an menm tan:
+//   1. Kreye liy sa a
+//   2. Monte Product.quantity + StockMovement (si product_id bay)
+//   3. Ranplase Product.costPriceHtg ak pri_kout_inite (dènye pri kout la)
+//   4. Kreye liy pg_kapital ki soti kapital la pou menm montan an
+model pg_achte {
+  id             String       @id @default(dbgenerated("(gen_random_uuid())::text"))
+  tenant_id      String
+  founise_id     String
+  product_id     String?
+  deskripsyon    String?      @db.VarChar(200)
+  kantite        Decimal      @db.Decimal(12, 3)
+  pri_kout_inite Decimal      @db.Decimal(12, 2)
+  total_htg      Decimal      @db.Decimal(14, 2)
+  dat_acha       DateTime     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  notes          String?
+  created_by     String?
+  created_at     DateTime     @default(now()) @db.Timestamptz(6)
+  tenants        Tenant       @relation(fields: [tenant_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "pg_achte_tenant_fk")
+  founise        pg_founise   @relation(fields: [founise_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "pg_achte_founise_fk")
+  product        Product?     @relation(fields: [product_id], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "pg_achte_product_fk")
+  creator        User?        @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "pg_achte_creator_fk")
+  kapitalLiy     pg_kapital[]
+
+  @@index([tenant_id], map: "idx_pg_achte_tenant")
+  @@index([founise_id], map: "idx_pg_achte_founise")
+  @@index([product_id], map: "idx_pg_achte_product")
+}
