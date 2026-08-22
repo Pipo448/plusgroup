@@ -1,6 +1,17 @@
 // backend/src/modules/hotel/roomType.controller.js
 const prisma = require('../../lib/prisma')
 
+// ── To chanj USD/HTG jodi a (Paramèt > Taux & Devise), pou pri USD la pa janm antre manyèlman ──
+const getUsdRate = async (tenantId) => {
+  const tenant = await prisma.tenant.findUnique({
+    where:  { id: tenantId },
+    select: { exchangeRate: true, exchangeRates: true },
+  })
+  let ratesObj = {}
+  try { ratesObj = tenant?.exchangeRates ? JSON.parse(tenant.exchangeRates) : {} } catch { ratesObj = {} }
+  return parseFloat(ratesObj.USD || tenant?.exchangeRate || 0) || 0
+}
+
 const getAll = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
@@ -18,19 +29,23 @@ const getAll = async (req, res) => {
 const create = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
-    const { name, description, priceHtg, priceUsd, maxAdults, maxChildren, amenities } = req.body
+    const { name, description, priceHtg, maxAdults, maxChildren, amenities } = req.body
 
     if (!name || !priceHtg) {
       return res.status(400).json({ success: false, message: 'Non ak pri obligatwa' })
     }
+
+    const htg = parseFloat(priceHtg)
+    const usdRate = await getUsdRate(tenantId)
+    const priceUsd = usdRate > 0 ? Math.round((htg / usdRate) * 100) / 100 : 0
 
     const roomType = await prisma.roomType.create({
       data: {
         tenantId,
         name,
         description,
-        priceHtg: parseFloat(priceHtg),
-        priceUsd: parseFloat(priceUsd || 0),
+        priceHtg: htg,
+        priceUsd, // toujou kalkile — jamè valè client la voye a
         maxAdults: parseInt(maxAdults || 2),
         maxChildren: parseInt(maxChildren || 1),
         amenities: amenities || [],
@@ -46,10 +61,18 @@ const update = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
     const { id } = req.params
-    const { name, description, priceHtg, priceUsd, maxAdults, maxChildren, amenities, isActive } = req.body
+    const { name, description, priceHtg, maxAdults, maxChildren, amenities, isActive } = req.body
 
     const existing = await prisma.roomType.findFirst({ where: { id, tenantId } })
     if (!existing) return res.status(404).json({ success: false, message: 'Tip chanm pa jwenn' })
+
+    // priceUsd toujou kalkile soti nan (nouvo oswa ansyen) priceHtg + to jodi a — jamè aksepte valè client la
+    let usdUpdate = {}
+    if (priceHtg !== undefined) {
+      const htg = parseFloat(priceHtg)
+      const usdRate = await getUsdRate(tenantId)
+      usdUpdate = { priceUsd: usdRate > 0 ? Math.round((htg / usdRate) * 100) / 100 : 0 }
+    }
 
     const roomType = await prisma.roomType.update({
       where: { id },
@@ -57,7 +80,7 @@ const update = async (req, res) => {
         ...(name        !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(priceHtg    !== undefined && { priceHtg: parseFloat(priceHtg) }),
-        ...(priceUsd    !== undefined && { priceUsd: parseFloat(priceUsd) }),
+        ...usdUpdate,
         ...(maxAdults   !== undefined && { maxAdults: parseInt(maxAdults) }),
         ...(maxChildren !== undefined && { maxChildren: parseInt(maxChildren) }),
         ...(amenities   !== undefined && { amenities }),

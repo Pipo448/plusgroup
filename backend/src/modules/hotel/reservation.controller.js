@@ -271,6 +271,15 @@ const checkOut = async (req, res) => {
     const count = await prisma.invoice.count({ where: { tenantId } })
     const invoiceNumber = `FAK-${year}-${String(count + 1).padStart(4, '0')}`
 
+    // ── To chanj jodi a (Paramèt > Taux & Devise), pou l pa toujou rete 1 ──
+    const tenant = await prisma.tenant.findUnique({
+      where:  { id: tenantId },
+      select: { exchangeRate: true, exchangeRates: true },
+    })
+    let ratesObj = {}
+    try { ratesObj = tenant?.exchangeRates ? JSON.parse(tenant.exchangeRates) : {} } catch { ratesObj = {} }
+    const currentExchangeRate = parseFloat(ratesObj.USD || tenant?.exchangeRate || 1) || 1
+
     const result = await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
@@ -280,7 +289,7 @@ const checkOut = async (req, res) => {
           clientId:         reservation.clientId,
           clientSnapshot:   reservation.clientSnapshot,
           currency:         'HTG',
-          exchangeRate:     1,
+          exchangeRate:     currentExchangeRate,
           subtotalHtg:      totalHtg,
           totalHtg,
           amountPaidHtg:    alreadyPaid,

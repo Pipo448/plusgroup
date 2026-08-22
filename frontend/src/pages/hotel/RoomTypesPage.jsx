@@ -1,5 +1,5 @@
 // src/pages/hotel/RoomTypesPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
   BedDouble, Users, Baby, Tag, Clock
 } from 'lucide-react'
 import { hotelAPI } from '../../services/hotelAPI'
+import { tenantAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 
 const D = {
@@ -60,6 +61,25 @@ export default function RoomTypesPage() {
   })
   const roomTypes = data || []
 
+  // ── To chanj jodi a (menm keyQuery ak SettingsPage, pou l pa fè yon dezyèm apèl API si l deja an kachèt) ──
+  const { data: tenantSettings } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn: () => tenantAPI.getSettings().then(r => r.data.tenant),
+    staleTime: 5 * 60 * 1000,
+  })
+  const usdRate = Number(tenantSettings?.exchangeRates?.USD || tenantSettings?.exchangeRate || 0)
+  const computeUsd = (htg) => {
+    const n = Number(htg)
+    if (!usdRate || !n) return ''
+    return (n / usdRate).toFixed(2)
+  }
+
+  // Si to a fini chaje (oswa chanje) pandan modal la ouvè, resenkronize USD la ak li
+  useEffect(() => {
+    if (showModal) setForm(f => ({ ...f, priceUsd: computeUsd(f.priceHtg) }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usdRate, showModal])
+
   const createMutation = useMutation({
     mutationFn: (d) => hotelAPI.createRoomType(d),
     onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success('Tip chanm kreye!'); closeModal() },
@@ -83,7 +103,7 @@ export default function RoomTypesPage() {
       name:                  rt.name || '',
       description:           rt.description || '',
       priceHtg:              String(rt.priceHtg || ''),
-      priceUsd:              String(rt.priceUsd || ''),
+      priceUsd:              computeUsd(rt.priceHtg),
       momentPriceHtg:        rt.momentPriceHtg ? String(rt.momentPriceHtg) : '',
       momentPricePerHourHtg: rt.momentPricePerHourHtg ? String(rt.momentPricePerHourHtg) : '',
       maxAdults:             String(rt.maxAdults || 2),
@@ -96,6 +116,12 @@ export default function RoomTypesPage() {
   const closeModal = () => { setShowModal(false); setEditing(null); setForm(EMPTY_FORM); setErrors({}) }
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: null })) }
+
+  // PRI HTG chanje → USD la swiv otomatikman, li pa janm editab dirèkteman
+  const setPriceHtg = (v) => {
+    setForm(f => ({ ...f, priceHtg: v, priceUsd: computeUsd(v) }))
+    if (errors.priceHtg) setErrors(e => ({ ...e, priceHtg: null }))
+  }
 
   const toggleAmenity = (a) => setForm(f => ({
     ...f,
@@ -306,7 +332,7 @@ export default function RoomTypesPage() {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
                     <label style={labelStyle}>Pri HTG/nwit *</label>
-                    <input type="number" placeholder="0" value={form.priceHtg} onChange={e => set('priceHtg', e.target.value)} min="0"
+                    <input type="number" placeholder="0" value={form.priceHtg} onChange={e => setPriceHtg(e.target.value)} min="0"
                       style={{ ...inputStyle, borderColor: errors.priceHtg ? D.red : D.border }}
                       onFocus={e => e.target.style.borderColor = errors.priceHtg ? D.red : D.blue}
                       onBlur={e => e.target.style.borderColor = errors.priceHtg ? D.red : D.border}
@@ -314,12 +340,15 @@ export default function RoomTypesPage() {
                     {errors.priceHtg && <p style={{ color:D.red, fontSize:11, fontWeight:700, margin:'4px 0 0' }}>⚠ {errors.priceHtg}</p>}
                   </div>
                   <div>
-                    <label style={labelStyle}>Pri USD/nwit (opsyonèl)</label>
-                    <input type="number" placeholder="0" value={form.priceUsd} onChange={e => set('priceUsd', e.target.value)} min="0"
-                      style={inputStyle}
-                      onFocus={e => e.target.style.borderColor = D.blue}
-                      onBlur={e => e.target.style.borderColor = D.border}
+                    <label style={labelStyle}>Pri USD/nwit (oto-kalkile)</label>
+                    <input type="text" placeholder="—" value={form.priceUsd ? `$${form.priceUsd}` : '—'} disabled readOnly
+                      style={{ ...inputStyle, background:'#F1F3FA', color:D.muted, cursor:'not-allowed', fontWeight:700 }}
                     />
+                    <p style={{ fontSize:10, color:D.muted, margin:'4px 0 0' }}>
+                      {usdRate > 0
+                        ? <>Selon to jodi a: 1 USD = {usdRate.toLocaleString()} HTG</>
+                        : <span style={{ color:D.orange }}>⚠ Poko gen to chanj defini nan Paramèt — Taux & Devise</span>}
+                    </p>
                   </div>
                 </div>
               </div>
