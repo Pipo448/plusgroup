@@ -161,7 +161,7 @@ export default function RoomTypesPage() {
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <Link to="/app/hotel/rooms/new" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, background:D.blueDim2, border:`1px solid ${D.border}`, color:D.blue, textDecoration:'none' }}>
+          <Link to="/app/hotel" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:10, background:D.blueDim2, border:`1px solid ${D.border}`, color:D.blue, textDecoration:'none' }}>
             <ArrowLeft size={15}/>
           </Link>
           <div style={{ width:42, height:42, borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 14px ${D.blue}40` }}>

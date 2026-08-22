@@ -85,7 +85,7 @@ export default function NewReservationPage() {
     queryFn: () => hotelAPI.getAvailableRooms({ checkIn: form.checkIn, checkOut: form.checkOut }).then(r => r.data?.data || []),
     enabled: type === 'nuit' && !!form.checkIn && !!form.checkOut,
   })
-  const { data: allRoomsData } = useQuery({
+  const { data: allRoomsData, isLoading: loadingAllRooms } = useQuery({
     queryKey: ['hotel-all-rooms'],
     queryFn: () => hotelAPI.getRooms().then(r => r.data?.data || []),
     enabled: type === 'moman',
@@ -437,8 +437,12 @@ export default function NewReservationPage() {
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
                 <BedDouble size={16} color={D.purple}/> Chwazi Chanm
               </h3>
-              {rooms.length===0 ? (
+              {loadingAllRooms ? (
                 <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>Ap chaje chanm...</p>
+              ) : rooms.length===0 ? (
+                <p style={{ color:D.red, fontSize:13, textAlign:'center', padding:'20px 0' }}>
+                  Pa gen chanm disponib. Kreye chanm nan "Tip Chanm" oswa tcheke estati chanm yo nan Dashboard.
+                </p>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:300, overflowY:'auto' }}>
                   {rooms.map(room=>{
