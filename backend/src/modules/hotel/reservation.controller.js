@@ -287,11 +287,13 @@ const checkIn = async (req, res) => {
     }
 
     // ── Peman ki fèt kounye a (nan Check-in), anplis depo ki te deja egziste ──
-    const paymentNow  = parseFloat(paymentAmountHtg || 0)
-    const alreadyPaid = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
-    const totalPaid   = alreadyPaid + paymentNow
-    const totalHtg    = parseFloat(reservation.totalHtg)
-    const balanceDue  = Math.max(0, totalHtg - totalPaid)
+    // Kap defansif: menm si fwontyè a voye yon montan pi gwo pase balans lan, sèvè a pa dwe anrejistre depase balans lan.
+    const alreadyPaid   = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
+    const totalHtg      = parseFloat(reservation.totalHtg)
+    const balanceBefore = Math.max(0, totalHtg - alreadyPaid)
+    const paymentNow    = Math.min(Math.max(0, parseFloat(paymentAmountHtg || 0)), balanceBefore)
+    const totalPaid     = alreadyPaid + paymentNow
+    const balanceDue    = Math.max(0, totalHtg - totalPaid)
 
     const usdRate        = await getUsdRate(tenantId)
     const invoiceNumber  = await generateInvoiceNumber(tenantId)

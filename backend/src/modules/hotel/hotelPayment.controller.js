@@ -32,7 +32,16 @@ const add = async (req, res) => {
     const reservation = await prisma.reservation.findFirst({ where: { id: reservationId, tenantId } })
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
 
-    const amount = parseFloat(amountHtg)
+    // Kap defansif — sèlman pou peman estanda ('payment'); pa aplike sou depo/kalòn lòt tip ki gen pwòp semantik yo
+    const requested   = parseFloat(amountHtg)
+    const currentPaid = parseFloat(reservation.amountPaidHtg)
+    const totalHtg    = parseFloat(reservation.totalHtg)
+    const remaining   = Math.max(0, totalHtg - currentPaid)
+    const amount      = type === 'payment' ? Math.min(requested, remaining) : requested
+
+    if (amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Rezèvasyon sa deja peye — pa gen balans ki rete' })
+    }
 
     const payment = await prisma.$transaction(async (tx) => {
       const p = await tx.hotelPayment.create({

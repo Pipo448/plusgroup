@@ -415,7 +415,7 @@ export default {
       roomClientTitle: 'Chambre & Client', room: 'Chambre', type: 'Type', client: 'Client', anonymous: 'Anonyme',
       phone: 'Téléphone', adults: 'Adultes', children: 'Enfants', source: 'Source', notesLabel: 'Notes',
       financeTitle: 'Finances', roomLabel: 'Chambre', servicesLabel: 'Services', totalLabel: 'Total', paidLabel: 'Payé', balanceLabel: 'Solde',
-      addPaymentTitle: 'Ajouter un Paiement', amountPlaceholder: 'Montant HTG',
+      addPaymentTitle: 'Ajouter un Paiement', amountPlaceholder: 'Montant HTG', amountReceivedPlaceholder: 'Montant reçu (espèces)', appliedToBalance: 'Appliqué au solde', changeDue: 'Monnaie à rendre',
       methodCash: 'Espèces', methodCard: 'Carte', methodMoncash: 'MonCash', methodTransfer: 'Virement',
       recordPayment: '+ Enregistrer le Paiement', recording: 'Enregistrement...',
       depositType: 'Dépôt', paymentType: 'Paiement',

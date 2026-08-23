@@ -49,13 +49,13 @@ export default function ReservationDetail() {
   ]
 
   const [serviceForm, setServiceForm]       = useState({ type:'other', description:'', quantity:1, unitPriceHtg:'', notes:'' })
-  const [paymentForm, setPaymentForm]       = useState({ amountHtg:'', method:'cash' })
+  const [paymentForm, setPaymentForm]       = useState({ cashReceivedHtg:'', method:'cash' })
   const [cancelReason, setCancelReason]     = useState('')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [checkoutMethod, setCheckoutMethod] = useState('cash')
   const [showCheckinModal, setShowCheckinModal] = useState(false)
-  const [checkinForm, setCheckinForm] = useState({ paymentAmountHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
+  const [checkinForm, setCheckinForm] = useState({ cashReceivedHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
 
   const handleGuestPhoto = (e) => {
     const file = e.target.files?.[0]
@@ -77,7 +77,7 @@ export default function ReservationDetail() {
     onSuccess: (r) => {
       invalidate()
       setShowCheckinModal(false)
-      setCheckinForm({ paymentAmountHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
+      setCheckinForm({ cashReceivedHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
       if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`)
     },
   })
@@ -85,7 +85,7 @@ export default function ReservationDetail() {
   const cancelMut     = useMutation({ mutationFn: (d)   => hotelAPI.cancelReservation(id, d), onSuccess: () => { invalidate(); setShowCancelModal(false) } })
   const addServiceMut = useMutation({ mutationFn: (d)   => hotelAPI.addService(id, d), onSuccess: () => { invalidate(); setServiceForm({ type:'other', description:'', quantity:1, unitPriceHtg:'', notes:'' }) } })
   const delServiceMut = useMutation({ mutationFn: (sid) => hotelAPI.removeService(sid), onSuccess: invalidate })
-  const addPaymentMut = useMutation({ mutationFn: (d)   => hotelAPI.addPayment(id, d), onSuccess: () => { invalidate(); setPaymentForm({ amountHtg:'', method:'cash' }) } })
+  const addPaymentMut = useMutation({ mutationFn: (d)   => hotelAPI.addPayment(id, d), onSuccess: () => { invalidate(); setPaymentForm({ cashReceivedHtg:'', method:'cash' }) } })
 
   if (isLoading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
@@ -99,6 +99,18 @@ export default function ReservationDetail() {
   const canCheckIn  = data.status === 'confirmed'
   const canCheckOut = data.status === 'checked_in'
   const canCancel   = ['confirmed', 'pending'].includes(data.status)
+
+  // ── Kalkil monnen — Ajoute Peman (balans aktyèl la, ka gen sèvis ladan l) ──
+  const payBalanceDue  = Math.max(0, Number(data.balanceDueHtg || 0))
+  const payReceived    = Number(paymentForm.cashReceivedHtg || 0)
+  const payApplied     = Math.min(payReceived, payBalanceDue)
+  const payChange       = Math.max(0, payReceived - payBalanceDue)
+
+  // ── Kalkil monnen — Check-in (total rezèvasyon - sa ki deja peye kòm depo) ──
+  const checkinBalanceDue = Math.max(0, Number(data.totalHtg || 0) - Number(data.amountPaidHtg || 0))
+  const checkinReceived   = Number(checkinForm.cashReceivedHtg || 0)
+  const checkinApplied    = Math.min(checkinReceived, checkinBalanceDue)
+  const checkinChange     = Math.max(0, checkinReceived - checkinBalanceDue)
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif' }} className="pg-hotel-resdetail">
@@ -195,7 +207,7 @@ export default function ReservationDetail() {
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:13, fontWeight:800, margin:'0 0 14px', textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.addPaymentTitle')}</h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
-                <input type="number" placeholder={t('hotel.reservationDetail.amountPlaceholder')} value={paymentForm.amountHtg} onChange={e => setPaymentForm(f => ({ ...f, amountHtg: e.target.value }))} style={inputStyle}
+                <input type="number" placeholder={t('hotel.reservationDetail.amountReceivedPlaceholder')} value={paymentForm.cashReceivedHtg} onChange={e => setPaymentForm(f => ({ ...f, cashReceivedHtg: e.target.value }))} style={inputStyle}
                   onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
                 <select value={paymentForm.method} onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))} style={{ ...inputStyle, cursor:'pointer' }}>
                   <option value="cash">{t('hotel.reservationDetail.methodCash')}</option>
@@ -204,8 +216,22 @@ export default function ReservationDetail() {
                   <option value="transfer">{t('hotel.reservationDetail.methodTransfer')}</option>
                 </select>
               </div>
-              <button onClick={() => addPaymentMut.mutate(paymentForm)} disabled={addPaymentMut.isPending || !paymentForm.amountHtg}
-                style={{ width:'100%', padding:'9px', borderRadius:9, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', opacity: !paymentForm.amountHtg ? 0.5 : 1 }}>
+              {payReceived > 0 && (
+                <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px', borderRadius:8, background: payChange > 0 ? D.successBg : D.blueDim, marginBottom:10 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:12, color:D.muted }}>{t('hotel.reservationDetail.appliedToBalance')}</span>
+                    <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:12, color:D.text }}>{fmt(payApplied)} HTG</span>
+                  </div>
+                  {payChange > 0 && (
+                    <div style={{ display:'flex', justifyContent:'space-between' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.success }}>{t('hotel.reservationDetail.changeDue')}</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:13, color:D.success }}>{fmt(payChange)} HTG</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <button onClick={() => addPaymentMut.mutate({ amountHtg: payApplied, method: paymentForm.method })} disabled={addPaymentMut.isPending || !paymentForm.cashReceivedHtg || payApplied <= 0}
+                style={{ width:'100%', padding:'9px', borderRadius:9, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', opacity: (!paymentForm.cashReceivedHtg || payApplied <= 0) ? 0.5 : 1 }}>
                 {addPaymentMut.isPending ? t('hotel.reservationDetail.recording') : t('hotel.reservationDetail.recordPayment')}
               </button>
 
@@ -295,10 +321,10 @@ export default function ReservationDetail() {
             <h3 style={{ color:D.text, fontSize:18, fontWeight:900, margin:'0 0 8px' }}>{t('hotel.reservationDetail.checkinModalTitle')}</h3>
             <p style={{ color:D.muted, fontSize:13, margin:'0 0 20px' }}>{t('hotel.reservationDetail.checkoutFinalTotal')} <strong style={{ color:D.text }}>{fmt(data.totalHtg)} HTG</strong></p>
 
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16 }}>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:10 }}>
               <div>
                 <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.checkinAmountPlaceholder')}</label>
-                <input type="number" placeholder="0" value={checkinForm.paymentAmountHtg} onChange={e => setCheckinForm(f => ({ ...f, paymentAmountHtg: e.target.value }))} style={inputStyle}/>
+                <input type="number" placeholder="0" value={checkinForm.cashReceivedHtg} onChange={e => setCheckinForm(f => ({ ...f, cashReceivedHtg: e.target.value }))} style={inputStyle}/>
               </div>
               <div>
                 <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.checkinMethodLabel')}</label>
@@ -310,6 +336,20 @@ export default function ReservationDetail() {
                 </select>
               </div>
             </div>
+            {checkinReceived > 0 && (
+              <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'8px 12px', borderRadius:8, background: checkinChange > 0 ? D.successBg : D.blueDim, marginBottom:16 }}>
+                <div style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span style={{ fontSize:12, color:D.muted }}>{t('hotel.reservationDetail.appliedToBalance')}</span>
+                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:12, color:D.text }}>{fmt(checkinApplied)} HTG</span>
+                </div>
+                {checkinChange > 0 && (
+                  <div style={{ display:'flex', justifyContent:'space-between' }}>
+                    <span style={{ fontSize:12, fontWeight:700, color:D.success }}>{t('hotel.reservationDetail.changeDue')}</span>
+                    <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:13, color:D.success }}>{fmt(checkinChange)} HTG</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div style={{ borderTop:`1px solid ${D.border}`, paddingTop:14, marginBottom:16 }}>
               <p style={{ fontSize:11, fontWeight:800, color:D.text, textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 10px' }}>{t('hotel.reservationDetail.checkinGuestSection')}</p>
@@ -341,7 +381,7 @@ export default function ReservationDetail() {
               <button onClick={() => setShowCheckinModal(false)} style={{ flex:1, padding:'11px', borderRadius:10, border:`1.5px solid ${D.border}`, background:'transparent', color:D.muted, fontWeight:700, cursor:'pointer' }}>
                 {t('hotel.roomTypes.cancel')}
               </button>
-              <button onClick={() => checkInMut.mutate(checkinForm)} disabled={checkInMut.isPending}
+              <button onClick={() => checkInMut.mutate({ paymentAmountHtg: checkinApplied, paymentMethod: checkinForm.paymentMethod, guestIdPhotoUrl: checkinForm.guestIdPhotoUrl, guestAddress: checkinForm.guestAddress, guestNif: checkinForm.guestNif })} disabled={checkInMut.isPending}
                 style={{ flex:2, padding:'11px', borderRadius:10, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:800, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
                 {checkInMut.isPending ? <><Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> {t('hotel.reservationDetail.checkinProcessing')}</> : t('hotel.reservationDetail.checkinConfirmBtn')}
               </button>

@@ -412,7 +412,7 @@ export default {
       roomClientTitle: 'Chanm & Kliyan', room: 'Chanm', type: 'Tip', client: 'Kliyan', anonymous: 'Anonim',
       phone: 'Telefòn', adults: 'Granmoun', children: 'Timoun', source: 'Sous', notesLabel: 'Nòt',
       financeTitle: 'Finansye', roomLabel: 'Chanm', servicesLabel: 'Sèvis', totalLabel: 'Total', paidLabel: 'Peye', balanceLabel: 'Balans',
-      addPaymentTitle: 'Ajoute Peman', amountPlaceholder: 'Montan HTG',
+      addPaymentTitle: 'Ajoute Peman', amountPlaceholder: 'Montan HTG', amountReceivedPlaceholder: 'Montant resevwa (kach)', appliedToBalance: 'Aplike sou balans', changeDue: 'Monnen pou remèt',
       methodCash: 'Cash', methodCard: 'Kat', methodMoncash: 'MonCash', methodTransfer: 'Virement',
       recordPayment: '+ Anrejistre Peman', recording: 'Ap anrejistre...',
       depositType: 'Depo', paymentType: 'Peman',

@@ -413,7 +413,7 @@ export default {
       roomClientTitle: 'Room & Client', room: 'Room', type: 'Type', client: 'Client', anonymous: 'Anonymous',
       phone: 'Phone', adults: 'Adults', children: 'Children', source: 'Source', notesLabel: 'Notes',
       financeTitle: 'Finance', roomLabel: 'Room', servicesLabel: 'Services', totalLabel: 'Total', paidLabel: 'Paid', balanceLabel: 'Balance',
-      addPaymentTitle: 'Add Payment', amountPlaceholder: 'Amount HTG',
+      addPaymentTitle: 'Add Payment', amountPlaceholder: 'Amount HTG', amountReceivedPlaceholder: 'Amount received (cash)', appliedToBalance: 'Applied to balance', changeDue: 'Change due',
       methodCash: 'Cash', methodCard: 'Card', methodMoncash: 'MonCash', methodTransfer: 'Transfer',
       recordPayment: '+ Record Payment', recording: 'Recording...',
       depositType: 'Deposit', paymentType: 'Payment',

@@ -412,7 +412,7 @@ export default {
       roomClientTitle: 'Habitación y Cliente', room: 'Habitación', type: 'Tipo', client: 'Cliente', anonymous: 'Anónimo',
       phone: 'Teléfono', adults: 'Adultos', children: 'Niños', source: 'Origen', notesLabel: 'Notas',
       financeTitle: 'Finanzas', roomLabel: 'Habitación', servicesLabel: 'Servicios', totalLabel: 'Total', paidLabel: 'Pagado', balanceLabel: 'Saldo',
-      addPaymentTitle: 'Agregar Pago', amountPlaceholder: 'Monto HTG',
+      addPaymentTitle: 'Agregar Pago', amountPlaceholder: 'Monto HTG', amountReceivedPlaceholder: 'Monto recibido (efectivo)', appliedToBalance: 'Aplicado al saldo', changeDue: 'Cambio a devolver',
       methodCash: 'Efectivo', methodCard: 'Tarjeta', methodMoncash: 'MonCash', methodTransfer: 'Transferencia',
       recordPayment: '+ Registrar Pago', recording: 'Registrando...',
       depositType: 'Depósito', paymentType: 'Pago',
