@@ -332,7 +332,7 @@ export default {
   hotel: {
     dashboard: {
       title: 'Hotel Dashboard', roomsTotal: '{{count}} rooms total',
-      newReservation: 'New Reservation', allReservations: 'All Reservations',
+      newReservation: 'New Reservation', quickMoman: 'New Short Stay', allReservations: 'All Reservations',
       noRooms: 'No rooms', addRoom: 'Add Room', finishCleaning: 'Cleaning Done',
       view: 'View', reserve: 'Reserve',
       status: { available:'Available', occupied:'Occupied', reserved:'Reserved', cleaning:'Cleaning', maintenance:'Maintenance' },
@@ -376,13 +376,13 @@ export default {
       filterAll: 'All', filterConfirmed: 'Confirmed', filterCheckedIn: 'Checked-in', filterCheckedOut: 'Checked-out', filterCancelled: 'Cancelled',
       colNumber: '#Reservation', colClient: 'Client', colRoom: 'Room', colDuration: 'Duration', colTotal: 'Total HTG', colStatus: 'Status', colDate: 'Date',
       noReservations: 'No reservations',
-      nights: '{{count}} nights', momanBadge: 'Short Stay', nuitBadge: 'Night',
+      nights: '{{count}} nights', momanBadge: 'Short Stay', nuitBadge: 'Stay',
       balanceLabel: 'Balance', page: 'Page', totalWord: 'total',
       status: { pending:'Pending', confirmed:'Confirmed', checkedIn:'Checked-in', checkedOut:'Checked-out', cancelled:'Cancelled', noShow:'No-show' },
     },
     newReservation: {
       title: 'New Reservation', subtitle: 'Night or Short Stay',
-      tabNuit: 'Night', tabMoman: 'Short Stay',
+      tabNuit: 'Stay', tabMoman: 'Short Stay',
       periodSection: 'Stay Period', checkIn: 'Check-in', checkOut: 'Check-out', adults: 'Adults', children: 'Children',
       clientSection: 'Client (optional)', anonymousClient: '— Anonymous Client —',
       sourceSection: 'Source', sourceWalkIn: 'Walk-in', sourcePhone: 'Phone', sourceOnline: 'Online', sourceAgency: 'Agency',

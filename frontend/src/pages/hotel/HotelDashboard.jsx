@@ -72,6 +72,9 @@ export default function HotelDashboard() {
           <Link to="/app/hotel/reservations/new" style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none', boxShadow:`0 4px 16px ${D.orange}45` }}>
             <Plus size={16}/> {t('hotel.dashboard.newReservation')}
           </Link>
+          <Link to="/app/hotel/reservations/new?type=moman" style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:'linear-gradient(135deg,#7C3AED,#9F67FF)', color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none', boxShadow:'0 4px 16px rgba(124,58,237,0.35)' }}>
+            <Plus size={16}/> {t('hotel.dashboard.quickMoman')}
+          </Link>
           <Link to="/app/hotel/reservations" style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 18px', borderRadius:12, background:D.blueDim2, color:D.blue, fontWeight:800, fontSize:14, textDecoration:'none', border:`1px solid ${D.border}` }}>
             {t('hotel.dashboard.allReservations')} <ChevronRight size={15}/>
           </Link>

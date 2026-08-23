@@ -331,7 +331,7 @@ export default {
   hotel: {
     dashboard: {
       title: 'Dashboard Otèl', roomsTotal: '{{count}} chanm total',
-      newReservation: 'Nouvo Rezèvasyon', allReservations: 'Tout Rezèvasyon',
+      newReservation: 'Nouvo Rezèvasyon', quickMoman: 'Nouvo Moman', allReservations: 'Tout Rezèvasyon',
       noRooms: 'Pa gen chanm', addRoom: 'Ajoute Chanm', finishCleaning: 'Fin Netwaye',
       view: 'Wè', reserve: 'Rezève',
       status: { available:'Disponib', occupied:'Okipe', reserved:'Rezève', cleaning:'Ap Netwaye', maintenance:'Reparasyon' },
@@ -375,13 +375,13 @@ export default {
       filterAll: 'Tout', filterConfirmed: 'Konfime', filterCheckedIn: 'Antre', filterCheckedOut: 'Soti', filterCancelled: 'Anile',
       colNumber: '#Rezèvasyon', colClient: 'Kliyan', colRoom: 'Chanm', colDuration: 'Dire', colTotal: 'Total HTG', colStatus: 'Estati', colDate: 'Dat',
       noReservations: 'Pa gen rezèvasyon',
-      nights: '{{count}} nwit', momanBadge: 'Moman', nuitBadge: 'Nuit',
+      nights: '{{count}} nwit', momanBadge: 'Moman', nuitBadge: 'Sejou',
       balanceLabel: 'Balans', page: 'Paj', totalWord: 'total',
       status: { pending:'Annatant', confirmed:'Konfime', checkedIn:'Antre', checkedOut:'Soti', cancelled:'Anile', noShow:'No-show' },
     },
     newReservation: {
       title: 'Nouvo Rezèvasyon', subtitle: 'Nuit oswa Moman',
-      tabNuit: 'Nuit', tabMoman: 'Moman',
+      tabNuit: 'Sejou', tabMoman: 'Moman',
       periodSection: 'Peryòd Sejou', checkIn: 'Antre', checkOut: 'Soti', adults: 'Granmoun', children: 'Timoun',
       clientSection: 'Kliyan (opsyonèl)', anonymousClient: '— Kliyan Anonim —',
       sourceSection: 'Sous', sourceWalkIn: 'Walk-in', sourcePhone: 'Telefòn', sourceOnline: 'Anliy', sourceAgency: 'Ajans',

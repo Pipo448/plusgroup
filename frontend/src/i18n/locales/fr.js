@@ -334,7 +334,7 @@ export default {
   hotel: {
     dashboard: {
       title: 'Tableau de Bord Hôtel', roomsTotal: '{{count}} chambres au total',
-      newReservation: 'Nouvelle Réservation', allReservations: 'Toutes les Réservations',
+      newReservation: 'Nouvelle Réservation', quickMoman: 'Nouveau Court Séjour', allReservations: 'Toutes les Réservations',
       noRooms: 'Aucune chambre', addRoom: 'Ajouter une Chambre', finishCleaning: 'Nettoyage Terminé',
       view: 'Voir', reserve: 'Réserver',
       status: { available:'Disponible', occupied:'Occupée', reserved:'Réservée', cleaning:'Nettoyage', maintenance:'Maintenance' },
@@ -378,13 +378,13 @@ export default {
       filterAll: 'Toutes', filterConfirmed: 'Confirmées', filterCheckedIn: 'Arrivées', filterCheckedOut: 'Parties', filterCancelled: 'Annulées',
       colNumber: '#Réservation', colClient: 'Client', colRoom: 'Chambre', colDuration: 'Durée', colTotal: 'Total HTG', colStatus: 'Statut', colDate: 'Date',
       noReservations: 'Aucune réservation',
-      nights: '{{count}} nuits', momanBadge: 'Court séjour', nuitBadge: 'Nuit',
+      nights: '{{count}} nuits', momanBadge: 'Court séjour', nuitBadge: 'Séjour',
       balanceLabel: 'Solde', page: 'Page', totalWord: 'total',
       status: { pending:'En attente', confirmed:'Confirmée', checkedIn:'Arrivée', checkedOut:'Partie', cancelled:'Annulée', noShow:'No-show' },
     },
     newReservation: {
       title: 'Nouvelle Réservation', subtitle: 'Nuit ou Court Séjour',
-      tabNuit: 'Nuit', tabMoman: 'Court Séjour',
+      tabNuit: 'Séjour', tabMoman: 'Court Séjour',
       periodSection: 'Période de Séjour', checkIn: 'Arrivée', checkOut: 'Départ', adults: 'Adultes', children: 'Enfants',
       clientSection: 'Client (optionnel)', anonymousClient: '— Client Anonyme —',
       sourceSection: 'Source', sourceWalkIn: 'Sans rendez-vous', sourcePhone: 'Téléphone', sourceOnline: 'En ligne', sourceAgency: 'Agence',

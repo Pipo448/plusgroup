@@ -331,7 +331,7 @@ export default {
   hotel: {
     dashboard: {
       title: 'Panel del Hotel', roomsTotal: '{{count}} habitaciones en total',
-      newReservation: 'Nueva Reserva', allReservations: 'Todas las Reservas',
+      newReservation: 'Nueva Reserva', quickMoman: 'Nueva Estadía Corta', allReservations: 'Todas las Reservas',
       noRooms: 'No hay habitaciones', addRoom: 'Agregar Habitación', finishCleaning: 'Limpieza Terminada',
       view: 'Ver', reserve: 'Reservar',
       status: { available:'Disponible', occupied:'Ocupada', reserved:'Reservada', cleaning:'Limpieza', maintenance:'Mantenimiento' },
@@ -375,13 +375,13 @@ export default {
       filterAll: 'Todas', filterConfirmed: 'Confirmadas', filterCheckedIn: 'Registradas', filterCheckedOut: 'Finalizadas', filterCancelled: 'Canceladas',
       colNumber: '#Reserva', colClient: 'Cliente', colRoom: 'Habitación', colDuration: 'Duración', colTotal: 'Total HTG', colStatus: 'Estado', colDate: 'Fecha',
       noReservations: 'No hay reservas',
-      nights: '{{count}} noches', momanBadge: 'Estadía Corta', nuitBadge: 'Noche',
+      nights: '{{count}} noches', momanBadge: 'Estadía Corta', nuitBadge: 'Estadía',
       balanceLabel: 'Saldo', page: 'Página', totalWord: 'total',
       status: { pending:'Pendiente', confirmed:'Confirmada', checkedIn:'Registrada', checkedOut:'Finalizada', cancelled:'Cancelada', noShow:'No-show' },
     },
     newReservation: {
       title: 'Nueva Reserva', subtitle: 'Noche o Estadía Corta',
-      tabNuit: 'Noche', tabMoman: 'Estadía Corta',
+      tabNuit: 'Estadía', tabMoman: 'Estadía Corta',
       periodSection: 'Período de Estadía', checkIn: 'Entrada', checkOut: 'Salida', adults: 'Adultos', children: 'Niños',
       clientSection: 'Cliente (opcional)', anonymousClient: '— Cliente Anónimo —',
       sourceSection: 'Origen', sourceWalkIn: 'Sin cita previa', sourcePhone: 'Teléfono', sourceOnline: 'En línea', sourceAgency: 'Agencia',

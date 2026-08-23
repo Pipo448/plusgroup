@@ -36,6 +36,7 @@ export default function NewReservationPage() {
   const navigate        = useNavigate()
   const [params]        = useSearchParams()
   const preselectedRoom = params.get('roomId')
+  const preselectedType = params.get('type') === 'moman' ? 'moman' : 'nuit'
 
   const DURATIONS = [
     { value: 60,  label: t('hotel.newReservation.durations.h1') },
@@ -51,7 +52,7 @@ export default function NewReservationPage() {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
   const nowTime  = new Date().toTimeString().slice(0,5)
 
-  const [type, setType] = useState('nuit') // 'nuit' | 'moman'
+  const [type, setType] = useState(preselectedType) // 'nuit' | 'moman'
   const [error, setError] = useState('')
 
   // ── Fòm Nuit
