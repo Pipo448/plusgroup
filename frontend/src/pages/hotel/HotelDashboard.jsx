@@ -2,7 +2,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Hotel, BedDouble, Plus, RefreshCw, Wrench, Sparkles, Users, ChevronRight, Eye } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Hotel, BedDouble, Plus, Wrench, Sparkles, Users, ChevronRight, Eye } from 'lucide-react'
 import { hotelAPI } from '../../services/hotelAPI'
 
 const D = {
@@ -19,26 +20,22 @@ const D = {
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
-const STATUS_CONFIG = {
-  available:   { label: 'Disponib',    color: D.success,  bg: D.successBg,   icon: BedDouble,  dot: '#059669' },
-  occupied:    { label: 'Okipe',       color: D.red,      bg: D.redDim,      icon: Users,      dot: '#C0392B' },
-  reserved:    { label: 'Rezève',      color: D.blue,     bg: D.blueDim2,    icon: BedDouble,  dot: '#1B2A8F' },
-  cleaning:    { label: 'Ap Netwaye', color: D.warning,  bg: D.warningBg,   icon: Sparkles,   dot: '#D97706' },
-  maintenance: { label: 'Reparasyon', color: '#7C3AED',  bg: 'rgba(124,58,237,0.08)', icon: Wrench, dot: '#7C3AED' },
-}
-
 export default function HotelDashboard() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [filterStatus, setFilterStatus] = useState('')
+
+  const STATUS_CONFIG = {
+    available:   { label: t('hotel.dashboard.status.available'),   color: D.success,  bg: D.successBg,   icon: BedDouble,  dot: '#059669' },
+    occupied:    { label: t('hotel.dashboard.status.occupied'),    color: D.red,      bg: D.redDim,      icon: Users,      dot: '#C0392B' },
+    reserved:    { label: t('hotel.dashboard.status.reserved'),    color: D.blue,     bg: D.blueDim2,    icon: BedDouble,  dot: '#1B2A8F' },
+    cleaning:    { label: t('hotel.dashboard.status.cleaning'),    color: D.warning,  bg: D.warningBg,   icon: Sparkles,   dot: '#D97706' },
+    maintenance: { label: t('hotel.dashboard.status.maintenance'), color: '#7C3AED',  bg: 'rgba(124,58,237,0.08)', icon: Wrench, dot: '#7C3AED' },
+  }
 
   const { data: roomsData, isLoading } = useQuery({
     queryKey: ['hotel-rooms'],
     queryFn: () => hotelAPI.getRooms().then(r => r.data?.data || []),
-  })
-
-  const { data: statsData } = useQuery({
-    queryKey: ['hotel-stats'],
-    queryFn: () => hotelAPI.getReservations({ status: 'checked_in', limit: 100 }).then(r => r.data),
   })
 
   const statusMutation = useMutation({
@@ -58,7 +55,7 @@ export default function HotelDashboard() {
   }
 
   return (
-    <div style={{ fontFamily: 'DM Sans,sans-serif' }}>
+    <div style={{ fontFamily: 'DM Sans,sans-serif' }} className="pg-hotel-dashboard">
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
@@ -67,22 +64,22 @@ export default function HotelDashboard() {
             <Hotel size={22} color="#fff"/>
           </div>
           <div>
-            <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>Hotel Dashboard</h1>
-            <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{rooms.length} chanm total</p>
+            <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>{t('hotel.dashboard.title')}</h1>
+            <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{t('hotel.dashboard.roomsTotal', { count: rooms.length })}</p>
           </div>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
+        <div className="pg-dashboard-headerbtns" style={{ display:'flex', gap:10 }}>
           <Link to="/app/hotel/reservations/new" style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none', boxShadow:`0 4px 16px ${D.orange}45` }}>
-            <Plus size={16}/> Nouvo Rezèvasyon
+            <Plus size={16}/> {t('hotel.dashboard.newReservation')}
           </Link>
           <Link to="/app/hotel/reservations" style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 18px', borderRadius:12, background:D.blueDim2, color:D.blue, fontWeight:800, fontSize:14, textDecoration:'none', border:`1px solid ${D.border}` }}>
-            Tout Rezèvasyon <ChevronRight size={15}/>
+            {t('hotel.dashboard.allReservations')} <ChevronRight size={15}/>
           </Link>
         </div>
       </div>
 
       {/* Stat cards */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
+      <div className="pg-stats-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(140px,1fr))', gap:12, marginBottom:24 }}>
         {Object.entries(stats).map(([key, val]) => {
           const cfg = STATUS_CONFIG[key]
           return (
@@ -100,7 +97,7 @@ export default function HotelDashboard() {
 
       {/* Grid chanm */}
       {isLoading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
+        <div className="pg-rooms-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
           {Array(8).fill(0).map((_, i) => (
             <div key={i} style={{ height:120, borderRadius:14, background:'#EEF0FF', animation:'pulse 1.5s infinite' }}/>
           ))}
@@ -108,23 +105,31 @@ export default function HotelDashboard() {
       ) : !filtered.length ? (
         <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
           <BedDouble size={36} color={D.blue} style={{ marginBottom:12 }}/>
-          <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Pa gen chanm</p>
+          <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>{t('hotel.dashboard.noRooms')}</p>
           <Link to="/app/hotel/rooms/new" style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
-            <Plus size={14}/> Ajoute Chanm
+            <Plus size={14}/> {t('hotel.dashboard.addRoom')}
           </Link>
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
-          {filtered.map(room => <RoomCard key={room.id} room={room} D={D} STATUS_CONFIG={STATUS_CONFIG} onStatusChange={(id, status) => statusMutation.mutate({ id, status })}/>)}
+        <div className="pg-rooms-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12 }}>
+          {filtered.map(room => <RoomCard key={room.id} room={room} D={D} STATUS_CONFIG={STATUS_CONFIG} t={t} onStatusChange={(id, status) => statusMutation.mutate({ id, status })}/>)}
         </div>
       )}
 
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @media (max-width:640px) {
+          .pg-hotel-dashboard .pg-dashboard-headerbtns { width:100%; }
+          .pg-hotel-dashboard .pg-dashboard-headerbtns a { flex:1; justify-content:center; }
+          .pg-hotel-dashboard .pg-stats-grid { grid-template-columns:repeat(2,1fr) !important; }
+          .pg-hotel-dashboard .pg-rooms-grid { grid-template-columns:repeat(auto-fill,minmax(140px,1fr)) !important; }
+        }
+      `}</style>
     </div>
   )
 }
 
-function RoomCard({ room, D, STATUS_CONFIG, onStatusChange }) {
+function RoomCard({ room, D, STATUS_CONFIG, t, onStatusChange }) {
   const [showMenu, setShowMenu] = useState(false)
   const cfg = STATUS_CONFIG[room.status] || STATUS_CONFIG.available
   const activeRes = room.reservations?.[0]
@@ -163,12 +168,12 @@ function RoomCard({ room, D, STATUS_CONFIG, onStatusChange }) {
           {activeRes ? (
             <Link to={`/app/hotel/reservations/${activeRes.id}`}
               style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'7px 10px', borderRadius:9, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:11, textDecoration:'none' }}>
-              <Eye size={12}/> Wè
+              <Eye size={12}/> {t('hotel.dashboard.view')}
             </Link>
           ) : (
             <Link to={`/app/hotel/reservations/new?roomId=${room.id}`}
               style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'7px 10px', borderRadius:9, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:700, fontSize:11, textDecoration:'none' }}>
-              <Plus size={12}/> Rezève
+              <Plus size={12}/> {t('hotel.dashboard.reserve')}
             </Link>
           )}
 

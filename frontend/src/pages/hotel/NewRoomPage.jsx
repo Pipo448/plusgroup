@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { ArrowLeft, BedDouble, Plus, X, Save } from 'lucide-react'
 import { hotelAPI } from '../../services/hotelAPI'
 import toast from 'react-hot-toast'
@@ -17,15 +18,6 @@ const D = {
   success:'#059669',
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
-
-const FLOORS = [
-  { value: 0, label: 'Rezd chosye' },
-  { value: 1, label: '1ye etaj' },
-  { value: 2, label: '2yèm etaj' },
-  { value: 3, label: '3yèm etaj' },
-  { value: 4, label: '4yèm etaj' },
-  { value: 5, label: '5yèm etaj' },
-]
 
 const inputStyle = {
   width:'100%', padding:'11px 14px', borderRadius:10,
@@ -43,8 +35,18 @@ const labelStyle = {
 }
 
 export default function NewRoomPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const qc = useQueryClient()
+
+  const FLOORS = [
+    { value: 0, label: t('hotel.newRoom.floors.ground') },
+    { value: 1, label: t('hotel.newRoom.floors.f1') },
+    { value: 2, label: t('hotel.newRoom.floors.f2') },
+    { value: 3, label: t('hotel.newRoom.floors.f3') },
+    { value: 4, label: t('hotel.newRoom.floors.f4') },
+    { value: 5, label: t('hotel.newRoom.floors.f5') },
+  ]
 
   const [form, setForm] = useState({
     number:     '',
@@ -65,18 +67,18 @@ export default function NewRoomPage() {
     mutationFn: (data) => hotelAPI.createRoom(data),
     onSuccess: () => {
       qc.invalidateQueries(['hotel-rooms'])
-      toast.success('Chanm kreye avèk siksè!')
+      toast.success(t('hotel.newRoom.created'))
       navigate('/app/hotel')
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Erè pandan kreyasyon')
+      toast.error(err.response?.data?.message || t('hotel.newRoom.createError'))
     },
   })
 
   const validate = () => {
     const e = {}
-    if (!form.number.trim())     e.number     = 'Nimewo chanm obligatwa'
-    if (!form.roomTypeId)        e.roomTypeId = 'Tip chanm obligatwa'
+    if (!form.number.trim())     e.number     = t('hotel.newRoom.roomNumberRequired')
+    if (!form.roomTypeId)        e.roomTypeId = t('hotel.newRoom.roomTypeRequired')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -99,7 +101,7 @@ export default function NewRoomPage() {
   const selectedType = roomTypes.find(t => t.id === form.roomTypeId)
 
   return (
-    <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:580, margin:'0 auto' }}>
+    <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:580, margin:'0 auto' }} className="pg-hotel-newroom">
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:28 }}>
@@ -116,8 +118,8 @@ export default function NewRoomPage() {
             <BedDouble size={20} color="#fff"/>
           </div>
           <div>
-            <h1 style={{ color:D.text, fontSize:20, fontWeight:900, margin:0 }}>Ajoute Chanm</h1>
-            <p style={{ color:D.muted, fontSize:12, margin:'2px 0 0' }}>Kreye yon nouvo chanm nan otèl la</p>
+            <h1 style={{ color:D.text, fontSize:20, fontWeight:900, margin:0 }}>{t('hotel.newRoom.title')}</h1>
+            <p style={{ color:D.muted, fontSize:12, margin:'2px 0 0' }}>{t('hotel.newRoom.subtitle')}</p>
           </div>
         </div>
       </div>
@@ -132,10 +134,10 @@ export default function NewRoomPage() {
 
           {/* Nimewo Chanm */}
           <div style={{ marginBottom:20 }}>
-            <label style={labelStyle}>Nimewo Chanm *</label>
+            <label style={labelStyle}>{t('hotel.newRoom.roomNumber')}</label>
             <input
               type="text"
-              placeholder="Ex: 101, 202, A1..."
+              placeholder={t('hotel.newRoom.roomNumberPlaceholder')}
               value={form.number}
               onChange={e => set('number', e.target.value)}
               style={{ ...inputStyle, borderColor: errors.number ? D.red : D.border }}
@@ -147,30 +149,30 @@ export default function NewRoomPage() {
 
           {/* Etaj */}
           <div style={{ marginBottom:20 }}>
-            <label style={labelStyle}>Etaj</label>
+            <label style={labelStyle}>{t('hotel.newRoom.floor')}</label>
             <select
               value={form.floor}
               onChange={e => set('floor', e.target.value)}
               style={{ ...inputStyle, cursor:'pointer', appearance:'none', backgroundImage:`url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B7AAB' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat:'no-repeat', backgroundPosition:'right 14px center' }}
             >
-              <option value="">— Chwazi etaj (opsyonèl) —</option>
+              <option value="">{t('hotel.newRoom.floorPlaceholder')}</option>
               {FLOORS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
             </select>
           </div>
 
           {/* Tip Chanm */}
           <div style={{ marginBottom:20 }}>
-            <label style={labelStyle}>Tip Chanm *</label>
+            <label style={labelStyle}>{t('hotel.newRoom.roomType')}</label>
             {loadingTypes ? (
               <div style={{ ...inputStyle, color:D.muted, display:'flex', alignItems:'center', gap:8 }}>
                 <div style={{ width:14, height:14, border:`2px solid ${D.border}`, borderTop:`2px solid ${D.blue}`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-                Ap chaje...
+                {t('hotel.newRoom.loadingTypes')}
               </div>
             ) : roomTypes.length === 0 ? (
               <div style={{ padding:'12px 14px', borderRadius:10, background:D.blueDim, border:`1.5px solid ${D.border}`, color:D.muted, fontSize:13 }}>
-                Pa gen tip chanm encore.{' '}
+                {t('hotel.newRoom.noTypesYet')}{' '}
                 <Link to="/app/hotel/room-types" style={{ color:D.blue, fontWeight:700, textDecoration:'none' }}>
-                  Kreye yon tip chanm anvan.
+                  {t('hotel.newRoom.createTypeFirst')}
                 </Link>
               </div>
             ) : (
@@ -182,10 +184,10 @@ export default function NewRoomPage() {
                   onFocus={e => e.target.style.borderColor = errors.roomTypeId ? D.red : D.blue}
                   onBlur={e => e.target.style.borderColor = errors.roomTypeId ? D.red : D.border}
                 >
-                  <option value="">— Chwazi tip chanm —</option>
-                  {roomTypes.map(t => (
-                    <option key={t.id} value={t.id}>
-                      {t.name} — {Number(t.priceHtg).toLocaleString()} HTG/nwit
+                  <option value="">{t('hotel.newRoom.selectRoomType')}</option>
+                  {roomTypes.map(rt => (
+                    <option key={rt.id} value={rt.id}>
+                      {rt.name} — {Number(rt.priceHtg).toLocaleString()} HTG/nwit
                     </option>
                   ))}
                 </select>
@@ -197,13 +199,13 @@ export default function NewRoomPage() {
           {/* Preview tip chwazi */}
           {selectedType && (
             <div style={{ marginBottom:20, padding:'14px 16px', borderRadius:12, background:D.blueDim2, border:`1.5px solid ${D.border}` }}>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6, flexWrap:'wrap', gap:6 }}>
                 <span style={{ fontSize:13, fontWeight:800, color:D.blue }}>{selectedType.name}</span>
                 <span style={{ fontSize:12, fontWeight:700, color:D.orange }}>{Number(selectedType.priceHtg).toLocaleString()} HTG/nwit</span>
               </div>
-              <div style={{ display:'flex', gap:12 }}>
-                <span style={{ fontSize:11, color:D.muted }}>👥 Maks {selectedType.maxAdults} adilt</span>
-                <span style={{ fontSize:11, color:D.muted }}>👶 Maks {selectedType.maxChildren} timoun</span>
+              <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
+                <span style={{ fontSize:11, color:D.muted }}>👥 {t('hotel.newRoom.maxAdultsLabel', { count: selectedType.maxAdults })}</span>
+                <span style={{ fontSize:11, color:D.muted }}>👶 {t('hotel.newRoom.maxChildrenLabel', { count: selectedType.maxChildren })}</span>
               </div>
               {selectedType.amenities?.length > 0 && (
                 <div style={{ marginTop:8, display:'flex', flexWrap:'wrap', gap:6 }}>
@@ -217,9 +219,9 @@ export default function NewRoomPage() {
 
           {/* Nòt */}
           <div style={{ marginBottom:28 }}>
-            <label style={labelStyle}>Nòt (opsyonèl)</label>
+            <label style={labelStyle}>{t('hotel.newRoom.notes')}</label>
             <textarea
-              placeholder="Ekri nòt espesyal sou chanm nan..."
+              placeholder={t('hotel.newRoom.notesPlaceholder')}
               value={form.notes}
               onChange={e => set('notes', e.target.value)}
               rows={3}
@@ -230,7 +232,7 @@ export default function NewRoomPage() {
           </div>
 
           {/* Bouton yo */}
-          <div style={{ display:'flex', gap:12 }}>
+          <div className="pg-newroom-actions" style={{ display:'flex', gap:12 }}>
             <Link to="/app/hotel" style={{
               flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8,
               padding:'12px 20px', borderRadius:12,
@@ -238,7 +240,7 @@ export default function NewRoomPage() {
               color:D.blue, fontWeight:800, fontSize:14, textDecoration:'none',
               transition:'all 0.2s',
             }}>
-              <X size={15}/> Anile
+              <X size={15}/> {t('hotel.newRoom.cancel')}
             </Link>
             <button
               onClick={handleSubmit}
@@ -258,10 +260,10 @@ export default function NewRoomPage() {
               {mutation.isPending ? (
                 <>
                   <div style={{ width:15, height:15, border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid #fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-                  Ap sove...
+                  {t('hotel.newRoom.saving')}
                 </>
               ) : (
-                <><Save size={15}/> Sove Chanm</>
+                <><Save size={15}/> {t('hotel.newRoom.save')}</>
               )}
             </button>
           </div>
@@ -269,7 +271,12 @@ export default function NewRoomPage() {
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+        @media (max-width:480px) {
+          .pg-hotel-newroom .pg-newroom-actions { flex-direction:column; }
+        }
+      `}</style>
     </div>
   )
 }

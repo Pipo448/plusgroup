@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft, Plus, Pencil, Trash2, X, Save,
   BedDouble, Users, Baby, Tag, Clock
@@ -48,6 +49,7 @@ const EMPTY_FORM = {
 }
 
 export default function RoomTypesPage() {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const [showModal, setShowModal]         = useState(false)
   const [editing, setEditing]             = useState(null)
@@ -82,18 +84,18 @@ export default function RoomTypesPage() {
 
   const createMutation = useMutation({
     mutationFn: (d) => hotelAPI.createRoomType(d),
-    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success('Tip chanm kreye!'); closeModal() },
-    onError:   (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon'),
+    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success(t('hotel.roomTypes.created')); closeModal() },
+    onError:   (e) => toast.error(e.response?.data?.message || t('hotel.roomTypes.createError')),
   })
   const updateMutation = useMutation({
     mutationFn: ({ id, d }) => hotelAPI.updateRoomType(id, d),
-    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success('Mete ajou!'); closeModal() },
-    onError:   (e) => toast.error(e.response?.data?.message || 'Erè mete ajou'),
+    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success(t('hotel.roomTypes.updated')); closeModal() },
+    onError:   (e) => toast.error(e.response?.data?.message || t('hotel.roomTypes.updateError')),
   })
   const deleteMutation = useMutation({
     mutationFn: (id) => hotelAPI.deleteRoomType(id),
-    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success('Efase!'); setDeleteConfirm(null) },
-    onError:   (e) => toast.error(e.response?.data?.message || 'Pa ka efase — chanm ki itilize tip sa'),
+    onSuccess: () => { qc.invalidateQueries(['hotel-room-types']); toast.success(t('hotel.roomTypes.deleted')); setDeleteConfirm(null) },
+    onError:   (e) => toast.error(e.response?.data?.message || t('hotel.roomTypes.deleteError')),
   })
 
   const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); setErrors({}); setShowModal(true) }
@@ -130,8 +132,8 @@ export default function RoomTypesPage() {
 
   const validate = () => {
     const e = {}
-    if (!form.name.trim()) e.name = 'Non obligatwa'
-    if (!form.priceHtg || isNaN(Number(form.priceHtg))) e.priceHtg = 'Pri HTG obligatwa'
+    if (!form.name.trim()) e.name = t('hotel.roomTypes.nameRequired')
+    if (!form.priceHtg || isNaN(Number(form.priceHtg))) e.priceHtg = t('hotel.roomTypes.priceHtgRequired')
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -156,7 +158,7 @@ export default function RoomTypesPage() {
   const isPending = createMutation.isPending || updateMutation.isPending
 
   return (
-    <div style={{ fontFamily:'DM Sans,sans-serif' }}>
+    <div style={{ fontFamily:'DM Sans,sans-serif' }} className="pg-hotel-roomtypes">
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
@@ -168,18 +170,18 @@ export default function RoomTypesPage() {
             <Tag size={19} color="#fff"/>
           </div>
           <div>
-            <h1 style={{ color:D.text, fontSize:20, fontWeight:900, margin:0 }}>Tip Chanm</h1>
-            <p style={{ color:D.muted, fontSize:12, margin:'2px 0 0' }}>{roomTypes.length} tip defini</p>
+            <h1 style={{ color:D.text, fontSize:20, fontWeight:900, margin:0 }}>{t('hotel.roomTypes.title')}</h1>
+            <p style={{ color:D.muted, fontSize:12, margin:'2px 0 0' }}>{t('hotel.roomTypes.typesDefined', { count: roomTypes.length })}</p>
           </div>
         </div>
         <button onClick={openCreate} style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', boxShadow:`0 4px 16px ${D.blue}40` }}>
-          <Plus size={15}/> Nouvo Tip
+          <Plus size={15}/> {t('hotel.roomTypes.newType')}
         </button>
       </div>
 
       {/* Liste */}
       {isLoading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+        <div className="pg-cards-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
           {Array(4).fill(0).map((_,i) => (
             <div key={i} style={{ height:180, borderRadius:16, background:'#EEF0FF', animation:'pulse 1.5s infinite' }}/>
           ))}
@@ -187,13 +189,13 @@ export default function RoomTypesPage() {
       ) : roomTypes.length === 0 ? (
         <div style={{ padding:'60px 20px', textAlign:'center', background:D.white, borderRadius:16, border:`1px solid ${D.border}` }}>
           <BedDouble size={36} color={D.blue} style={{ marginBottom:12 }}/>
-          <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>Pa gen tip chanm encore</p>
+          <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>{t('hotel.roomTypes.noTypesYet')}</p>
           <button onClick={openCreate} style={{ display:'inline-flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer' }}>
-            <Plus size={14}/> Kreye premye tip la
+            <Plus size={14}/> {t('hotel.roomTypes.createFirst')}
           </button>
         </div>
       ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
+        <div className="pg-cards-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:14 }}>
           {roomTypes.map(rt => (
             <div key={rt.id} style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
               <div style={{ height:4, background:`linear-gradient(90deg,${D.blue},${D.blueLt})` }}/>
@@ -216,12 +218,12 @@ export default function RoomTypesPage() {
                 {/* Pri Nuit */}
                 <div style={{ display:'flex', gap:8, marginBottom: rt.momentPriceHtg ? 8 : 10 }}>
                   <div style={{ flex:1, padding:'8px 12px', borderRadius:10, background:D.blueDim2 }}>
-                    <p style={{ fontSize:10, color:D.muted, fontWeight:700, margin:'0 0 2px' }}>HTG/nwit</p>
+                    <p style={{ fontSize:10, color:D.muted, fontWeight:700, margin:'0 0 2px' }}>{t('hotel.roomTypes.htgPerNight')}</p>
                     <p style={{ fontSize:14, fontWeight:900, color:D.blue, margin:0 }}>{Number(rt.priceHtg).toLocaleString()}</p>
                   </div>
                   {rt.priceUsd > 0 && (
                     <div style={{ flex:1, padding:'8px 12px', borderRadius:10, background:'rgba(5,150,105,0.06)' }}>
-                      <p style={{ fontSize:10, color:D.muted, fontWeight:700, margin:'0 0 2px' }}>USD/nwit</p>
+                      <p style={{ fontSize:10, color:D.muted, fontWeight:700, margin:'0 0 2px' }}>{t('hotel.roomTypes.usdPerNight')}</p>
                       <p style={{ fontSize:14, fontWeight:900, color:D.success, margin:0 }}>${Number(rt.priceUsd).toFixed(2)}</p>
                     </div>
                   )}
@@ -232,13 +234,13 @@ export default function RoomTypesPage() {
                   <div style={{ display:'flex', gap:8, marginBottom:10 }}>
                     <div style={{ flex:1, padding:'8px 12px', borderRadius:10, background:D.purpleDim, border:`1px solid ${D.purple}20` }}>
                       <p style={{ fontSize:10, color:D.purple, fontWeight:700, margin:'0 0 2px', display:'flex', alignItems:'center', gap:4 }}>
-                        <Clock size={9}/> HTG/moman
+                        <Clock size={9}/> {t('hotel.roomTypes.htgPerNight').replace('nwit','moman')}
                       </p>
                       <p style={{ fontSize:14, fontWeight:900, color:D.purple, margin:0 }}>{Number(rt.momentPriceHtg).toLocaleString()}</p>
                     </div>
                     {rt.momentPricePerHourHtg > 0 && (
                       <div style={{ flex:1, padding:'8px 12px', borderRadius:10, background:'rgba(124,58,237,0.05)', border:`1px solid ${D.purple}15` }}>
-                        <p style={{ fontSize:10, color:D.purple, fontWeight:700, margin:'0 0 2px' }}>HTG/èd supla</p>
+                        <p style={{ fontSize:10, color:D.purple, fontWeight:700, margin:'0 0 2px' }}>{t('hotel.roomTypes.momentPerHour')}</p>
                         <p style={{ fontSize:14, fontWeight:900, color:D.purple, margin:0 }}>{Number(rt.momentPricePerHourHtg).toLocaleString()}</p>
                       </div>
                     )}
@@ -246,16 +248,16 @@ export default function RoomTypesPage() {
                 )}
 
                 {/* Kapasite */}
-                <div style={{ display:'flex', gap:12, marginBottom: rt.amenities?.length ? 10 : 0 }}>
+                <div style={{ display:'flex', gap:12, marginBottom: rt.amenities?.length ? 10 : 0, flexWrap:'wrap' }}>
                   <span style={{ fontSize:11, color:D.muted, display:'flex', alignItems:'center', gap:4 }}>
-                    <Users size={11}/> {rt.maxAdults} adilt
+                    <Users size={11}/> {t('hotel.roomTypes.maxAdultsLabel', { count: rt.maxAdults })}
                   </span>
                   <span style={{ fontSize:11, color:D.muted, display:'flex', alignItems:'center', gap:4 }}>
-                    <Baby size={11}/> {rt.maxChildren} timoun
+                    <Baby size={11}/> {t('hotel.roomTypes.maxChildrenLabel', { count: rt.maxChildren })}
                   </span>
                   {rt._count?.rooms !== undefined && (
                     <span style={{ fontSize:11, color:D.blue, fontWeight:700, display:'flex', alignItems:'center', gap:4 }}>
-                      <BedDouble size={11}/> {rt._count.rooms} chanm
+                      <BedDouble size={11}/> {t('hotel.roomTypes.roomsCount', { count: rt._count.rooms })}
                     </span>
                   )}
                 </div>
@@ -278,7 +280,7 @@ export default function RoomTypesPage() {
       {showModal && (
         <div style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.55)', backdropFilter:'blur(3px)', display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
           onClick={(e) => { if (e.target === e.currentTarget) closeModal() }}>
-          <div style={{ background:D.white, borderRadius:20, width:'100%', maxWidth:540, maxHeight:'92vh', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}>
+          <div className="pg-modal-card" style={{ background:D.white, borderRadius:20, width:'100%', maxWidth:540, maxHeight:'92vh', overflow:'hidden', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.25)' }}>
 
             <div style={{ height:4, background:`linear-gradient(90deg,${D.blue},${D.blueLt},${D.purple})`, flexShrink:0 }}/>
 
@@ -290,9 +292,9 @@ export default function RoomTypesPage() {
                 </div>
                 <div>
                   <h2 style={{ color:D.text, fontSize:16, fontWeight:900, margin:0 }}>
-                    {editing ? 'Edite Tip Chanm' : 'Nouvo Tip Chanm'}
+                    {editing ? t('hotel.roomTypes.modalEditTitle') : t('hotel.roomTypes.modalNewTitle')}
                   </h2>
-                  <p style={{ color:D.muted, fontSize:11, margin:0 }}>{editing ? editing.name : 'Kreye yon nouvo tip'}</p>
+                  <p style={{ color:D.muted, fontSize:11, margin:0 }}>{editing ? editing.name : t('hotel.roomTypes.modalNewSubtitle')}</p>
                 </div>
               </div>
               <button onClick={closeModal} style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.border}`, background:D.blueDim, color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -305,8 +307,8 @@ export default function RoomTypesPage() {
 
               {/* Non */}
               <div style={{ marginBottom:16 }}>
-                <label style={labelStyle}>Non Tip Chanm *</label>
-                <input type="text" placeholder="Ex: Chanm Estanda, Suite, Deluxe..." value={form.name} onChange={e => set('name', e.target.value)}
+                <label style={labelStyle}>{t('hotel.roomTypes.name')} *</label>
+                <input type="text" placeholder={t('hotel.roomTypes.namePlaceholder')} value={form.name} onChange={e => set('name', e.target.value)}
                   style={{ ...inputStyle, borderColor: errors.name ? D.red : D.border }}
                   onFocus={e => e.target.style.borderColor = errors.name ? D.red : D.blue}
                   onBlur={e => e.target.style.borderColor = errors.name ? D.red : D.border}
@@ -316,8 +318,8 @@ export default function RoomTypesPage() {
 
               {/* Deskripsyon */}
               <div style={{ marginBottom:16 }}>
-                <label style={labelStyle}>Deskripsyon (opsyonèl)</label>
-                <textarea placeholder="Dekriye tip chanm nan..." value={form.description} onChange={e => set('description', e.target.value)} rows={2}
+                <label style={labelStyle}>{t('hotel.roomTypes.description')}</label>
+                <textarea placeholder={t('hotel.roomTypes.descriptionPlaceholder')} value={form.description} onChange={e => set('description', e.target.value)} rows={2}
                   style={{ ...inputStyle, resize:'vertical', minHeight:60 }}
                   onFocus={e => e.target.style.borderColor = D.blue}
                   onBlur={e => e.target.style.borderColor = D.border}
@@ -327,11 +329,11 @@ export default function RoomTypesPage() {
               {/* ── SEKYON PRI NUIT ── */}
               <div style={{ marginBottom:6 }}>
                 <p style={{ fontSize:11, fontWeight:800, color:D.blue, textTransform:'uppercase', letterSpacing:'0.07em', margin:'0 0 10px', display:'flex', alignItems:'center', gap:6 }}>
-                  🌙 Pri Nuit
+                  🌙 {t('hotel.roomTypes.priceNightSection')}
                 </p>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="pg-form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
-                    <label style={labelStyle}>Pri HTG/nwit *</label>
+                    <label style={labelStyle}>{t('hotel.roomTypes.priceHtgNight')}</label>
                     <input type="number" placeholder="0" value={form.priceHtg} onChange={e => setPriceHtg(e.target.value)} min="0"
                       style={{ ...inputStyle, borderColor: errors.priceHtg ? D.red : D.border }}
                       onFocus={e => e.target.style.borderColor = errors.priceHtg ? D.red : D.blue}
@@ -340,14 +342,14 @@ export default function RoomTypesPage() {
                     {errors.priceHtg && <p style={{ color:D.red, fontSize:11, fontWeight:700, margin:'4px 0 0' }}>⚠ {errors.priceHtg}</p>}
                   </div>
                   <div>
-                    <label style={labelStyle}>Pri USD/nwit (oto-kalkile)</label>
+                    <label style={labelStyle}>{t('hotel.roomTypes.priceUsdNight')}</label>
                     <input type="text" placeholder="—" value={form.priceUsd ? `$${form.priceUsd}` : '—'} disabled readOnly
                       style={{ ...inputStyle, background:'#F1F3FA', color:D.muted, cursor:'not-allowed', fontWeight:700 }}
                     />
                     <p style={{ fontSize:10, color:D.muted, margin:'4px 0 0' }}>
                       {usdRate > 0
-                        ? <>Selon to jodi a: 1 USD = {usdRate.toLocaleString()} HTG</>
-                        : <span style={{ color:D.orange }}>⚠ Poko gen to chanj defini nan Paramèt — Taux & Devise</span>}
+                        ? t('hotel.roomTypes.rateHint', { rate: usdRate.toLocaleString() })
+                        : <span style={{ color:D.orange }}>⚠ {t('hotel.roomTypes.rateMissing')}</span>}
                     </p>
                   </div>
                 </div>
@@ -356,34 +358,34 @@ export default function RoomTypesPage() {
               {/* ── SEKYON PRI MOMAN ── */}
               <div style={{ margin:'16px 0', padding:'14px 16px', borderRadius:12, background:D.purpleDim, border:`1.5px solid ${D.purple}25` }}>
                 <p style={{ fontSize:11, fontWeight:800, color:D.purple, textTransform:'uppercase', letterSpacing:'0.07em', margin:'0 0 12px', display:'flex', alignItems:'center', gap:6 }}>
-                  <Clock size={12}/> Pri Moman (Short Stay)
+                  <Clock size={12}/> {t('hotel.roomTypes.momentSection')}
                 </p>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="pg-form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
-                    <label style={{ ...labelStyle, color:D.purple }}>Pri Fiks HTG/moman</label>
+                    <label style={{ ...labelStyle, color:D.purple }}>{t('hotel.roomTypes.momentFixedPrice')}</label>
                     <input type="number" placeholder="Ex: 500" value={form.momentPriceHtg} onChange={e => set('momentPriceHtg', e.target.value)} min="0"
                       style={{ ...inputStyle, borderColor:`${D.purple}30` }}
                       onFocus={e => e.target.style.borderColor = D.purple}
                       onBlur={e => e.target.style.borderColor = `${D.purple}30`}
                     />
-                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>Pri debaz pou yon moman</p>
+                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>{t('hotel.roomTypes.momentFixedHint')}</p>
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, color:D.purple }}>Pri pa èd (si depase)</label>
+                    <label style={{ ...labelStyle, color:D.purple }}>{t('hotel.roomTypes.momentPerHour')}</label>
                     <input type="number" placeholder="Ex: 200" value={form.momentPricePerHourHtg} onChange={e => set('momentPricePerHourHtg', e.target.value)} min="0"
                       style={{ ...inputStyle, borderColor:`${D.purple}30` }}
                       onFocus={e => e.target.style.borderColor = D.purple}
                       onBlur={e => e.target.style.borderColor = `${D.purple}30`}
                     />
-                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>Chak èd apre tan chwazi a</p>
+                    <p style={{ fontSize:10, color:D.purple, margin:'4px 0 0', opacity:0.8 }}>{t('hotel.roomTypes.momentPerHourHint')}</p>
                   </div>
                 </div>
               </div>
 
               {/* Kapasite */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div className="pg-form-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
                 <div>
-                  <label style={labelStyle}>Maks Adilt</label>
+                  <label style={labelStyle}>{t('hotel.roomTypes.maxAdults')}</label>
                   <input type="number" value={form.maxAdults} onChange={e => set('maxAdults', e.target.value)} min="1" max="10"
                     style={inputStyle}
                     onFocus={e => e.target.style.borderColor = D.blue}
@@ -391,7 +393,7 @@ export default function RoomTypesPage() {
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>Maks Timoun</label>
+                  <label style={labelStyle}>{t('hotel.roomTypes.maxChildren')}</label>
                   <input type="number" value={form.maxChildren} onChange={e => set('maxChildren', e.target.value)} min="0" max="10"
                     style={inputStyle}
                     onFocus={e => e.target.style.borderColor = D.blue}
@@ -402,7 +404,7 @@ export default function RoomTypesPage() {
 
               {/* Amenities */}
               <div style={{ marginBottom:8 }}>
-                <label style={labelStyle}>Ekipman / Sèvis</label>
+                <label style={labelStyle}>{t('hotel.roomTypes.amenities')}</label>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:7 }}>
                   {AMENITY_OPTIONS.map(a => {
                     const sel = form.amenities.includes(a)
@@ -425,12 +427,12 @@ export default function RoomTypesPage() {
             {/* Modal footer */}
             <div style={{ padding:'16px 24px', borderTop:`1px solid ${D.border}`, display:'flex', gap:10, flexShrink:0 }}>
               <button onClick={closeModal} style={{ flex:1, padding:'11px', borderRadius:11, background:D.blueDim, border:`1.5px solid ${D.border}`, color:D.blue, fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-                <X size={14}/> Anile
+                <X size={14}/> {t('hotel.roomTypes.cancel')}
               </button>
               <button onClick={handleSubmit} disabled={isPending} style={{ flex:2, padding:'11px', borderRadius:11, background: isPending ? 'rgba(27,42,143,0.4)' : `linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor: isPending ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:7, boxShadow:`0 4px 14px ${D.blue}40` }}>
                 {isPending
-                  ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid #fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Ap sove...</>
-                  : <><Save size={14}/> {editing ? 'Mete Ajou' : 'Kreye Tip'}</>
+                  ? <><div style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTop:'2px solid #fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> {t('hotel.roomTypes.saving')}</>
+                  : <><Save size={14}/> {editing ? t('hotel.roomTypes.update') : t('hotel.roomTypes.create')}</>
                 }
               </button>
             </div>
@@ -447,16 +449,16 @@ export default function RoomTypesPage() {
               <div style={{ width:44, height:44, borderRadius:12, background:D.redDim, display:'flex', alignItems:'center', justifyContent:'center', marginBottom:14 }}>
                 <Trash2 size={20} color={D.red}/>
               </div>
-              <h3 style={{ color:D.text, fontSize:16, fontWeight:900, margin:'0 0 8px' }}>Efase Tip Chanm?</h3>
+              <h3 style={{ color:D.text, fontSize:16, fontWeight:900, margin:'0 0 8px' }}>{t('hotel.roomTypes.deleteTitle')}</h3>
               <p style={{ color:D.muted, fontSize:13, margin:'0 0 20px', lineHeight:1.5 }}>
-                Ou sèten ou vle efase <strong style={{ color:D.text }}>{deleteConfirm.name}</strong>? Aksyon sa pa ka defèt.
+                {t('hotel.roomTypes.deleteConfirm', { name: deleteConfirm.name })}
               </p>
               <div style={{ display:'flex', gap:10 }}>
                 <button onClick={() => setDeleteConfirm(null)} style={{ flex:1, padding:'10px', borderRadius:10, background:D.blueDim, border:`1px solid ${D.border}`, color:D.blue, fontWeight:800, fontSize:13, cursor:'pointer' }}>
-                  Anile
+                  {t('hotel.roomTypes.cancel')}
                 </button>
                 <button onClick={() => deleteMutation.mutate(deleteConfirm.id)} disabled={deleteMutation.isPending} style={{ flex:1, padding:'10px', borderRadius:10, background:`linear-gradient(135deg,${D.red},#e74c3c)`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor: deleteMutation.isPending ? 'not-allowed' : 'pointer' }}>
-                  {deleteMutation.isPending ? 'Ap efase...' : 'Wi, Efase'}
+                  {deleteMutation.isPending ? t('hotel.roomTypes.deleting') : t('hotel.roomTypes.deleteBtn')}
                 </button>
               </div>
             </div>
@@ -464,7 +466,15 @@ export default function RoomTypesPage() {
         </div>
       )}
 
-      <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}} @keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @media (max-width:640px) {
+          .pg-hotel-roomtypes .pg-cards-grid { grid-template-columns:1fr !important; }
+          .pg-hotel-roomtypes .pg-form-grid-2 { grid-template-columns:1fr !important; }
+          .pg-hotel-roomtypes .pg-modal-card { max-width:100% !important; max-height:100vh !important; border-radius:0 !important; }
+        }
+      `}</style>
     </div>
   )
 }

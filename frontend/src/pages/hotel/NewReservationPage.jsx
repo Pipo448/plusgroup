@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { CalendarDays, ChevronLeft, BedDouble, User, Loader, Clock, Moon } from 'lucide-react'
 import { hotelAPI } from '../../services/hotelAPI'
 import { clientAPI } from '../../services/api'
@@ -30,21 +31,21 @@ const labelStyle = {
   marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em'
 }
 
-
-const DURATIONS = [
-  { value: 60,  label: '1èd tan' },
-  { value: 90,  label: '1èd 30min' },
-  { value: 120, label: '2èd tan' },
-  { value: 180, label: '3èd tan' },
-  { value: 240, label: '4èd tan' },
-  { value: 300, label: '5èd tan' },
-  { value: 360, label: '6èd tan' },
-]
-
 export default function NewReservationPage() {
+  const { t } = useTranslation()
   const navigate        = useNavigate()
   const [params]        = useSearchParams()
   const preselectedRoom = params.get('roomId')
+
+  const DURATIONS = [
+    { value: 60,  label: t('hotel.newReservation.durations.h1') },
+    { value: 90,  label: t('hotel.newReservation.durations.h1_30') },
+    { value: 120, label: t('hotel.newReservation.durations.h2') },
+    { value: 180, label: t('hotel.newReservation.durations.h3') },
+    { value: 240, label: t('hotel.newReservation.durations.h4') },
+    { value: 300, label: t('hotel.newReservation.durations.h5') },
+    { value: 360, label: t('hotel.newReservation.durations.h6') },
+  ]
 
   const today    = new Date().toISOString().split('T')[0]
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
@@ -80,7 +81,7 @@ export default function NewReservationPage() {
   })
 
   // ── Queries
-  const { data: roomsData } = useQuery({
+  const { data: roomsData, isLoading: loadingRooms } = useQuery({
     queryKey: ['hotel-available-rooms', form.checkIn, form.checkOut],
     queryFn: () => hotelAPI.getAvailableRooms({ checkIn: form.checkIn, checkOut: form.checkOut }).then(r => r.data?.data || []),
     enabled: type === 'nuit' && !!form.checkIn && !!form.checkOut,
@@ -126,7 +127,7 @@ export default function NewReservationPage() {
   const mutation = useMutation({
     mutationFn: (data) => hotelAPI.createReservation(data),
     onSuccess: (res) => navigate(`/app/hotel/reservations/${res.data.data.id}`),
-    onError: (err) => setError(err.response?.data?.message || 'Erè pandan kreyasyon'),
+    onError: (err) => setError(err.response?.data?.message || t('hotel.newReservation.creating')),
   })
 
   const set  = (k, v) => setForm(f  => ({ ...f, [k]: v }))
@@ -135,10 +136,10 @@ export default function NewReservationPage() {
   const handleSubmit = () => {
     setError('')
     if (type === 'nuit') {
-      if (!form.roomId)   return setError('Chwazi yon chanm')
-      if (!form.checkIn)  return setError('Dat antre obligatwa')
-      if (!form.checkOut) return setError('Dat soti obligatwa')
-      if (nights <= 0)    return setError('Dat yo pa valid')
+      if (!form.roomId)   return setError(t('hotel.newReservation.errorSelectRoom'))
+      if (!form.checkIn)  return setError(t('hotel.newReservation.errorCheckInRequired'))
+      if (!form.checkOut) return setError(t('hotel.newReservation.errorCheckOutRequired'))
+      if (nights <= 0)    return setError(t('hotel.newReservation.errorInvalidDates'))
       mutation.mutate({
         ...form,
         type: 'nuit',
@@ -146,10 +147,9 @@ export default function NewReservationPage() {
         children: parseInt(form.children),
       })
     } else {
-      if (!mForm.roomId)               return setError('Chwazi yon chanm')
-      if (!mForm.momentStartTime)      return setError('Lè kòmanse obligatwa')
-      if (!mForm.momentDurationMinutes) return setError('Chwazi dire a')
-      const now = new Date()
+      if (!mForm.roomId)                return setError(t('hotel.newReservation.errorSelectRoom'))
+      if (!mForm.momentStartTime)       return setError(t('hotel.newReservation.errorStartTimeRequired'))
+      if (!mForm.momentDurationMinutes) return setError(t('hotel.newReservation.errorDurationRequired'))
       const startDt = new Date(`${today}T${mForm.momentStartTime}:00`)
       const endDt   = new Date(startDt.getTime() + mForm.momentDurationMinutes * 60000)
       mutation.mutate({
@@ -171,7 +171,7 @@ export default function NewReservationPage() {
   }
 
   // ── Tabs
-  const TabBtn = ({ id, icon: Icon, label, color }) => (
+  const TabBtn = ({ id, icon: Icon, label }) => (
     <button onClick={() => { setType(id); setError('') }}
       style={{
         flex:1, padding:'12px 8px', borderRadius:12, border:'none', cursor:'pointer',
@@ -189,7 +189,7 @@ export default function NewReservationPage() {
   )
 
   return (
-    <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760, margin:'0 auto' }}>
+    <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760, margin:'0 auto' }} className="pg-hotel-newres">
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:14, marginBottom:24 }}>
@@ -200,20 +200,20 @@ export default function NewReservationPage() {
           <CalendarDays size={22} color="#fff"/>
         </div>
         <div>
-          <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>Nouvo Rezèvasyon</h1>
-          <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>Nuit oswa Moman</p>
+          <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>{t('hotel.newReservation.title')}</h1>
+          <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{t('hotel.newReservation.subtitle')}</p>
         </div>
       </div>
 
       {/* Toggle Nuit / Moman */}
       <div style={{ display:'flex', gap:10, marginBottom:24, background:'#F0F2FF', padding:6, borderRadius:14 }}>
-        <TabBtn id="nuit"  icon={Moon}  label="Nuit" />
-        <TabBtn id="moman" icon={Clock} label="Moman" />
+        <TabBtn id="nuit"  icon={Moon}  label={t('hotel.newReservation.tabNuit')} />
+        <TabBtn id="moman" icon={Clock} label={t('hotel.newReservation.tabMoman')} />
       </div>
 
       {/* ══════════════════════════════ MODE NUIT ══════════════════════════════ */}
       {type === 'nuit' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div className="pg-newres-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
 
           {/* Kolòn 1 */}
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
@@ -221,28 +221,28 @@ export default function NewReservationPage() {
             {/* Dat */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <CalendarDays size={16} color={D.blue}/> Peryòd Sejou
+                <CalendarDays size={16} color={D.blue}/> {t('hotel.newReservation.periodSection')}
               </h3>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                 <div>
-                  <label style={labelStyle}>Antre</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.checkIn')}</label>
                   <input type="date" value={form.checkIn} min={today} onChange={e => set('checkIn', e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
                 <div>
-                  <label style={labelStyle}>Soti</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.checkOut')}</label>
                   <input type="date" value={form.checkOut} min={form.checkIn||today} onChange={e => set('checkOut', e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
-                  <label style={labelStyle}>Granmoun</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.adults')}</label>
                   <input type="number" min={1} max={10} value={form.adults} onChange={e=>set('adults',e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
                 <div>
-                  <label style={labelStyle}>Timoun</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.children')}</label>
                   <input type="number" min={0} max={10} value={form.children} onChange={e=>set('children',e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
@@ -252,10 +252,10 @@ export default function NewReservationPage() {
             {/* Kliyan */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <User size={16} color={D.blue}/> Kliyan (opsyonèl)
+                <User size={16} color={D.blue}/> {t('hotel.newReservation.clientSection')}
               </h3>
               <select value={form.clientId} onChange={e=>set('clientId',e.target.value)} style={{...inputStyle,cursor:'pointer'}}>
-                <option value="">— Kliyan Anonim —</option>
+                <option value="">{t('hotel.newReservation.anonymousClient')}</option>
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?` · ${c.phone}`:''}</option>)}
               </select>
             </div>
@@ -263,18 +263,18 @@ export default function NewReservationPage() {
             {/* Sous + Nòt */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <div style={{ marginBottom:12 }}>
-                <label style={labelStyle}>Sous</label>
+                <label style={labelStyle}>{t('hotel.newReservation.sourceSection')}</label>
                 <select value={form.source} onChange={e=>set('source',e.target.value)} style={{...inputStyle,cursor:'pointer'}}>
-                  <option value="walk-in">Walk-in</option>
-                  <option value="phone">Telefòn</option>
-                  <option value="online">Anliy</option>
-                  <option value="agency">Ajans</option>
+                  <option value="walk-in">{t('hotel.newReservation.sourceWalkIn')}</option>
+                  <option value="phone">{t('hotel.newReservation.sourcePhone')}</option>
+                  <option value="online">{t('hotel.newReservation.sourceOnline')}</option>
+                  <option value="agency">{t('hotel.newReservation.sourceAgency')}</option>
                 </select>
               </div>
               <div>
-                <label style={labelStyle}>Nòt</label>
+                <label style={labelStyle}>{t('hotel.newReservation.notes')}</label>
                 <textarea value={form.notes} onChange={e=>set('notes',e.target.value)} rows={3}
-                  style={{...inputStyle,resize:'vertical'}} placeholder="Demann espesyal..."
+                  style={{...inputStyle,resize:'vertical'}} placeholder={t('hotel.newReservation.notesPlaceholder')}
                   onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
             </div>
@@ -285,12 +285,14 @@ export default function NewReservationPage() {
             {/* Chanm */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <BedDouble size={16} color={D.blue}/> Chwazi Chanm
+                <BedDouble size={16} color={D.blue}/> {t('hotel.newReservation.roomSection')}
               </h3>
               {!form.checkIn||!form.checkOut||nights<=0 ? (
-                <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>Antre dat yo pou wè chanm disponib</p>
+                <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>{t('hotel.newReservation.enterDatesFirst')}</p>
+              ) : loadingRooms ? (
+                <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>{t('hotel.newReservation.loadingRooms')}</p>
               ) : rooms.length===0 ? (
-                <p style={{ color:D.red, fontSize:13, textAlign:'center', padding:'20px 0' }}>Pa gen chanm disponib</p>
+                <p style={{ color:D.red, fontSize:13, textAlign:'center', padding:'20px 0' }}>{t('hotel.newReservation.noRoomsAvailable')}</p>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:280, overflowY:'auto' }}>
                   {rooms.map(room=>(
@@ -298,9 +300,9 @@ export default function NewReservationPage() {
                       style={{ padding:'12px 14px', borderRadius:10, border:`2px solid ${form.roomId===room.id?D.blue:D.border}`, background:form.roomId===room.id?D.blueDim2:'#F8F9FF', cursor:'pointer', textAlign:'left', transition:'all 0.15s' }}>
                       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                         <span style={{ fontWeight:800, color:D.text, fontSize:14 }}>#{room.number}</span>
-                        <span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:D.blue }}>{Number(room.roomType?.priceHtg).toLocaleString()} HTG/nwit</span>
+                        <span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:D.blue }}>{Number(room.roomType?.priceHtg).toLocaleString()} {t('hotel.newReservation.perNight')}</span>
                       </div>
-                      <span style={{ fontSize:11, color:D.muted }}>Etaj {room.floor} · {room.roomType?.name}</span>
+                      <span style={{ fontSize:11, color:D.muted }}>{t('hotel.newReservation.floorLabel', { floor: room.floor })} · {room.roomType?.name}</span>
                     </button>
                   ))}
                 </div>
@@ -309,30 +311,30 @@ export default function NewReservationPage() {
 
             {/* Estimasyon */}
             <div style={{ background:`linear-gradient(135deg,${D.blue}08,${D.blueLt}05)`, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Estimasyon Pri</h3>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('hotel.newReservation.estimateSection')}</h3>
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:13, color:D.muted }}>Pri pa nwit</span>
+                  <span style={{ fontSize:13, color:D.muted }}>{t('hotel.newReservation.pricePerNight')}</span>
                   <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{nightPrice.toLocaleString()} HTG</span>
                 </div>
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:13, color:D.muted }}>× {nights} nwit</span>
+                  <span style={{ fontSize:13, color:D.muted }}>{t('hotel.newReservation.nightsLabel', { count: nights })}</span>
                   <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{nightTotal.toLocaleString()} HTG</span>
                 </div>
                 <div style={{ height:1, background:D.border }}/>
                 <div style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span style={{ fontSize:14, fontWeight:800, color:D.text }}>Total</span>
+                  <span style={{ fontSize:14, fontWeight:800, color:D.text }}>{t('hotel.newReservation.total')}</span>
                   <span style={{ fontFamily:'monospace', fontWeight:900, color:D.blue, fontSize:16 }}>{nightTotal.toLocaleString()} HTG</span>
                 </div>
               </div>
               <div style={{ marginTop:16 }}>
-                <label style={labelStyle}>Depo Inisyal (HTG)</label>
+                <label style={labelStyle}>{t('hotel.newReservation.depositLabel')}</label>
                 <input type="number" min={0} value={form.depositHtg} onChange={e=>set('depositHtg',e.target.value)}
                   style={inputStyle} placeholder="0"
                   onFocus={e=>e.target.style.borderColor=D.blue} onBlur={e=>e.target.style.borderColor=D.border}/>
                 {Number(form.depositHtg)>0 && (
                   <p style={{ fontSize:12, color:D.muted, margin:'6px 0 0' }}>
-                    Balans rès: <strong style={{ color:(nightTotal-Number(form.depositHtg))>0?D.red:D.success }}>{Math.max(0,nightTotal-Number(form.depositHtg)).toLocaleString()} HTG</strong>
+                    {t('hotel.newReservation.balanceRemaining')} <strong style={{ color:(nightTotal-Number(form.depositHtg))>0?D.red:D.success }}>{Math.max(0,nightTotal-Number(form.depositHtg)).toLocaleString()} HTG</strong>
                   </p>
                 )}
               </div>
@@ -342,7 +344,7 @@ export default function NewReservationPage() {
 
             <button onClick={handleSubmit} disabled={mutation.isPending}
               style={{ padding:'14px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:15, border:'none', cursor:mutation.isPending?'not-allowed':'pointer', boxShadow:`0 4px 16px ${D.orange}45`, opacity:mutation.isPending?0.7:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-              {mutation.isPending ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Ap kreye...</> : 'Konfime Rezèvasyon'}
+              {mutation.isPending ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('hotel.newReservation.creating')}</> : t('hotel.newReservation.confirmReservation')}
             </button>
           </div>
         </div>
@@ -350,7 +352,7 @@ export default function NewReservationPage() {
 
       {/* ══════════════════════════════ MODE MOMAN ══════════════════════════════ */}
       {type === 'moman' && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+        <div className="pg-newres-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
 
           {/* Kolòn 1 */}
           <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
@@ -358,20 +360,20 @@ export default function NewReservationPage() {
             {/* Durasyon */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <Clock size={16} color={D.purple}/> Dire Moman
+                <Clock size={16} color={D.purple}/> {t('hotel.newReservation.momentDuration')}
               </h3>
 
               {/* Lè kòmanse */}
               <div style={{ marginBottom:14 }}>
-                <label style={labelStyle}>Lè Kòmanse</label>
+                <label style={labelStyle}>{t('hotel.newReservation.momentStartTime')}</label>
                 <input type="time" value={mForm.momentStartTime} onChange={e=>setM('momentStartTime',e.target.value)}
                   style={{...inputStyle, borderColor:D.border}}
                   onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
 
               {/* Bouton durasyon */}
-              <label style={labelStyle}>Kantite Tan</label>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12 }}>
+              <label style={labelStyle}>{t('hotel.newReservation.momentDuration')}</label>
+              <div className="pg-duration-grid" style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12 }}>
                 {DURATIONS.map(d=>(
                   <button key={d.value} onClick={()=>setM('momentDurationMinutes',d.value)}
                     style={{ padding:'9px 6px', borderRadius:9, border:`2px solid ${mForm.momentDurationMinutes===d.value?D.purple:D.border}`, background:mForm.momentDurationMinutes===d.value?D.purpleDim:'#F8F9FF', cursor:'pointer', fontWeight:800, fontSize:12, color:mForm.momentDurationMinutes===d.value?D.purple:D.muted, transition:'all 0.15s' }}>
@@ -384,12 +386,12 @@ export default function NewReservationPage() {
               {mForm.momentStartTime && (
                 <div style={{ background:`linear-gradient(135deg,${D.purple}10,${D.purpleLt}08)`, borderRadius:10, padding:'10px 14px', border:`1px solid ${D.purple}25` }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ fontSize:12, color:D.muted, fontWeight:600 }}>Dire:</span>
-                    <span style={{ fontWeight:900, color:D.purple, fontSize:13 }}>{momentDurHours > 0 ? `${momentDurHours}z` : ''}{momentDurMins > 0 ? ` ${momentDurMins}min` : ''}</span>
+                    <span style={{ fontSize:12, color:D.muted, fontWeight:600 }}>{t('hotel.newReservation.momentDurationSummary')}</span>
+                    <span style={{ fontWeight:900, color:D.purple, fontSize:13 }}>{momentDurHours > 0 ? `${momentDurHours}h` : ''}{momentDurMins > 0 ? ` ${momentDurMins}min` : ''}</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:4 }}>
                     <span style={{ fontSize:12, color:D.muted, fontWeight:600 }}>{mForm.momentStartTime} → {momentEndTime}</span>
-                    <span style={{ fontSize:11, color:D.purple, fontWeight:700 }}>Lè fini</span>
+                    <span style={{ fontSize:11, color:D.purple, fontWeight:700 }}>{t('hotel.newReservation.momentEndsLabel')}</span>
                   </div>
                 </div>
               )}
@@ -398,10 +400,10 @@ export default function NewReservationPage() {
             {/* Kliyan */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <User size={16} color={D.purple}/> Kliyan (opsyonèl)
+                <User size={16} color={D.purple}/> {t('hotel.newReservation.clientSection')}
               </h3>
               <select value={mForm.clientId} onChange={e=>setM('clientId',e.target.value)} style={{...inputStyle,cursor:'pointer'}}>
-                <option value="">— Kliyan Anonim —</option>
+                <option value="">{t('hotel.newReservation.anonymousClient')}</option>
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?` · ${c.phone}`:''}</option>)}
               </select>
             </div>
@@ -410,20 +412,20 @@ export default function NewReservationPage() {
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
                 <div>
-                  <label style={labelStyle}>Granmoun</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.adults')}</label>
                   <input type="number" min={1} max={10} value={mForm.adults} onChange={e=>setM('adults',e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
                 <div>
-                  <label style={labelStyle}>Timoun</label>
+                  <label style={labelStyle}>{t('hotel.newReservation.children')}</label>
                   <input type="number" min={0} max={10} value={mForm.children} onChange={e=>setM('children',e.target.value)} style={inputStyle}
                     onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Nòt</label>
+                <label style={labelStyle}>{t('hotel.newReservation.notes')}</label>
                 <textarea value={mForm.notes} onChange={e=>setM('notes',e.target.value)} rows={2}
-                  style={{...inputStyle,resize:'vertical'}} placeholder="Demann espesyal..."
+                  style={{...inputStyle,resize:'vertical'}} placeholder={t('hotel.newReservation.notesPlaceholder')}
                   onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
               </div>
             </div>
@@ -435,13 +437,13 @@ export default function NewReservationPage() {
             {/* Chanm */}
             <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px', display:'flex', alignItems:'center', gap:8 }}>
-                <BedDouble size={16} color={D.purple}/> Chwazi Chanm
+                <BedDouble size={16} color={D.purple}/> {t('hotel.newReservation.roomSection')}
               </h3>
               {loadingAllRooms ? (
-                <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>Ap chaje chanm...</p>
+                <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'20px 0' }}>{t('hotel.newReservation.loadingRooms')}</p>
               ) : rooms.length===0 ? (
                 <p style={{ color:D.red, fontSize:13, textAlign:'center', padding:'20px 0' }}>
-                  Pa gen chanm disponib. Kreye chanm nan "Tip Chanm" oswa tcheke estati chanm yo nan Dashboard.
+                  {t('hotel.newReservation.noRoomsAvailableHint')}
                 </p>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:8, maxHeight:300, overflowY:'auto' }}>
@@ -453,11 +455,11 @@ export default function NewReservationPage() {
                         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                           <span style={{ fontWeight:800, color:D.text, fontSize:14 }}>#{room.number}</span>
                           {hasMoment
-                            ? <span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:D.purple }}>{Number(room.roomType.momentPriceHtg).toLocaleString()} HTG/moman</span>
-                            : <span style={{ fontSize:11, color:D.muted }}>Pa gen pri moman</span>
+                            ? <span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:D.purple }}>{Number(room.roomType.momentPriceHtg).toLocaleString()} HTG</span>
+                            : <span style={{ fontSize:11, color:D.muted }}>{t('hotel.newReservation.momentNoDataLabel')}</span>
                           }
                         </div>
-                        <span style={{ fontSize:11, color:D.muted }}>Etaj {room.floor} · {room.roomType?.name}</span>
+                        <span style={{ fontSize:11, color:D.muted }}>{t('hotel.newReservation.floorLabel', { floor: room.floor })} · {room.roomType?.name}</span>
                       </button>
                     )
                   })}
@@ -467,36 +469,36 @@ export default function NewReservationPage() {
 
             {/* Estimasyon moman */}
             <div style={{ background:`linear-gradient(135deg,${D.purple}08,${D.purpleLt}05)`, borderRadius:16, border:`1px solid ${D.purple}20`, padding:20, boxShadow:D.shadow }}>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Estimasyon Pri</h3>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('hotel.newReservation.estimateSection')}</h3>
               {!selectedRoom ? (
-                <p style={{ color:D.muted, fontSize:13 }}>Chwazi yon chanm pou wè pri</p>
+                <p style={{ color:D.muted, fontSize:13 }}>{t('hotel.newReservation.chooseRoomForPrice')}</p>
               ) : (
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   <div style={{ display:'flex', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:13, color:D.muted }}>Pri fiks moman</span>
+                    <span style={{ fontSize:13, color:D.muted }}>{t('hotel.newReservation.momentFixedPrice')}</span>
                     <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{momentPrice.toLocaleString()} HTG</span>
                   </div>
                   {momentPerHour > 0 && (
                     <div style={{ display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:13, color:D.muted }}>Pri pa èd tan (si depase)</span>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{momentPerHour.toLocaleString()} HTG/èd</span>
+                      <span style={{ fontSize:13, color:D.muted }}>{t('hotel.newReservation.momentPerHourPrice')}</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text }}>{momentPerHour.toLocaleString()} HTG/h</span>
                     </div>
                   )}
                   <div style={{ height:1, background:`${D.purple}20` }}/>
                   <div style={{ display:'flex', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:14, fontWeight:800, color:D.text }}>Total Estimasyon</span>
+                    <span style={{ fontSize:14, fontWeight:800, color:D.text }}>{t('hotel.newReservation.momentEstimateTotal')}</span>
                     <span style={{ fontFamily:'monospace', fontWeight:900, color:D.purple, fontSize:16 }}>{momentPrice.toLocaleString()} HTG</span>
                   </div>
                   {momentPerHour > 0 && (
                     <p style={{ fontSize:11, color:D.muted, margin:0, fontStyle:'italic' }}>
-                      + {momentPerHour.toLocaleString()} HTG chak èd siplemantè apre fini
+                      {t('hotel.newReservation.momentExtraHint', { amount: momentPerHour.toLocaleString() })}
                     </p>
                   )}
                 </div>
               )}
 
               <div style={{ marginTop:16 }}>
-                <label style={labelStyle}>Depo Inisyal (HTG)</label>
+                <label style={labelStyle}>{t('hotel.newReservation.depositLabel')}</label>
                 <input type="number" min={0} value={mForm.depositHtg} onChange={e=>setM('depositHtg',e.target.value)}
                   style={inputStyle} placeholder="0"
                   onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
@@ -507,13 +509,19 @@ export default function NewReservationPage() {
 
             <button onClick={handleSubmit} disabled={mutation.isPending}
               style={{ padding:'14px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.purple},${D.purpleLt})`, color:'#fff', fontWeight:800, fontSize:15, border:'none', cursor:mutation.isPending?'not-allowed':'pointer', boxShadow:`0 4px 16px ${D.purple}45`, opacity:mutation.isPending?0.7:1, display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-              {mutation.isPending ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> Ap kreye...</> : '⚡ Konfime Moman'}
+              {mutation.isPending ? <><Loader size={16} style={{ animation:'spin 1s linear infinite' }}/> {t('hotel.newReservation.creating')}</> : `⚡ ${t('hotel.newReservation.confirmMoment')}`}
             </button>
           </div>
         </div>
       )}
 
-      <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      <style>{`
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @media (max-width:760px) {
+          .pg-hotel-newres .pg-newres-grid { grid-template-columns:1fr !important; }
+          .pg-hotel-newres .pg-duration-grid { grid-template-columns:repeat(2,1fr) !important; }
+        }
+      `}</style>
     </div>
   )
 }
