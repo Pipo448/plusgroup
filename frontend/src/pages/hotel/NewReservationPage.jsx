@@ -52,7 +52,7 @@ export default function NewReservationPage() {
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
   const nowTime  = new Date().toTimeString().slice(0,5)
 
-  const [type, setType] = useState(preselectedType) // 'nuit' | 'moman'
+  const type = preselectedType // 'nuit' | 'moman' — fiks selon kijan paj la ouvè a, pa chanjab nan paj la
   const [error, setError] = useState('')
 
   // ── Fòm Nuit
@@ -190,24 +190,6 @@ export default function NewReservationPage() {
     }
   }
 
-  // ── Tabs
-  const TabBtn = ({ id, icon: Icon, label }) => (
-    <button onClick={() => { setType(id); setError('') }}
-      style={{
-        flex:1, padding:'12px 8px', borderRadius:12, border:'none', cursor:'pointer',
-        display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-        fontWeight:800, fontSize:14, fontFamily:'DM Sans,sans-serif',
-        background: type === id
-          ? (id === 'nuit' ? `linear-gradient(135deg,${D.blue},${D.blueLt})` : `linear-gradient(135deg,${D.purple},${D.purpleLt})`)
-          : '#F0F2FF',
-        color: type === id ? '#fff' : D.muted,
-        boxShadow: type === id ? `0 4px 16px ${id==='nuit'?D.blue:D.purple}40` : 'none',
-        transition:'all 0.2s',
-      }}>
-      <Icon size={16}/> {label}
-    </button>
-  )
-
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif', maxWidth:760, margin:'0 auto' }} className="pg-hotel-newres">
 
@@ -216,19 +198,15 @@ export default function NewReservationPage() {
         <Link to="/app/hotel" style={{ width:38, height:38, borderRadius:10, display:'flex', alignItems:'center', justifyContent:'center', background:D.blueDim2, color:D.blue, textDecoration:'none', border:`1px solid ${D.border}` }}>
           <ChevronLeft size={18}/>
         </Link>
-        <div style={{ width:48, height:48, borderRadius:14, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${D.blue}40` }}>
+        <div style={{ width:48, height:48, borderRadius:14, background: type==='nuit' ? `linear-gradient(135deg,${D.blue},${D.blueLt})` : `linear-gradient(135deg,${D.purple},${D.purpleLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow: type==='nuit' ? `0 4px 16px ${D.blue}40` : `0 4px 16px ${D.purple}40` }}>
           <CalendarDays size={22} color="#fff"/>
         </div>
         <div>
           <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>{t('hotel.newReservation.title')}</h1>
-          <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{t('hotel.newReservation.subtitle')}</p>
+          <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0', display:'flex', alignItems:'center', gap:6 }}>
+            {type==='nuit' ? <Moon size={13}/> : <Clock size={13}/>} {type==='nuit' ? t('hotel.newReservation.tabNuit') : t('hotel.newReservation.tabMoman')}
+          </p>
         </div>
-      </div>
-
-      {/* Toggle Nuit / Moman */}
-      <div style={{ display:'flex', gap:10, marginBottom:24, background:'#F0F2FF', padding:6, borderRadius:14 }}>
-        <TabBtn id="nuit"  icon={Moon}  label={t('hotel.newReservation.tabNuit')} />
-        <TabBtn id="moman" icon={Clock} label={t('hotel.newReservation.tabMoman')} />
       </div>
 
       {/* ══════════════════════════════ MODE NUIT ══════════════════════════════ */}
