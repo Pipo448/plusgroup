@@ -354,6 +354,7 @@ export default {
       deleteTitle: 'Efase Tip Chanm?', deleteConfirm: 'Ou sèten ou vle efase {{name}}? Aksyon sa pa ka defèt.',
       deleteBtn: 'Wi, Efase', deleting: 'Ap efase...',
       htgPerNight: 'HTG/nwit', usdPerNight: 'USD/nwit', roomsCount: '{{count}} chanm',
+      maxAdultsLabel: 'Maks {{count}} adilt', maxChildrenLabel: 'Maks {{count}} timoun',
     },
     newRoom: {
       title: 'Ajoute Chanm', subtitle: 'Kreye yon nouvo chanm nan otèl la',

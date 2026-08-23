@@ -355,6 +355,7 @@ export default {
       deleteTitle: 'Delete Room Type?', deleteConfirm: 'Are you sure you want to delete {{name}}? This action cannot be undone.',
       deleteBtn: 'Yes, Delete', deleting: 'Deleting...',
       htgPerNight: 'HTG/night', usdPerNight: 'USD/night', roomsCount: '{{count}} rooms',
+      maxAdultsLabel: 'Max {{count}} adults', maxChildrenLabel: 'Max {{count}} children',
     },
     newRoom: {
       title: 'Add Room', subtitle: 'Create a new room in the hotel',

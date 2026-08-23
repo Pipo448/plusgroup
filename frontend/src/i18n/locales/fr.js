@@ -357,6 +357,7 @@ export default {
       deleteTitle: 'Supprimer ce Type de Chambre?', deleteConfirm: 'Voulez-vous vraiment supprimer {{name}}? Cette action est irréversible.',
       deleteBtn: 'Oui, Supprimer', deleting: 'Suppression...',
       htgPerNight: 'HTG/nuit', usdPerNight: 'USD/nuit', roomsCount: '{{count}} chambres',
+      maxAdultsLabel: 'Max {{count}} adultes', maxChildrenLabel: 'Max {{count}} enfants',
     },
     newRoom: {
       title: 'Ajouter une Chambre', subtitle: "Créer une nouvelle chambre dans l'hôtel",
