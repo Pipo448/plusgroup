@@ -80,6 +80,10 @@ model Reservation {
   momentEndTime         DateTime?         @map("moment_end_time") @db.Timestamptz(6)
   momentExtraHours      Int?              @map("moment_extra_hours")
   momentExtraChargeHtg  Decimal?          @map("moment_extra_charge_htg") @db.Decimal(12, 2)
+  // ── NOUVO: enfo envite espesifik a rezèvasyon sa a (pa mele ak pwofil Kliyan jeneral la)
+  guestIdPhotoUrl       String?           @map("guest_id_photo_url")
+  guestAddress          String?           @map("guest_address")
+  guestNif              String?           @map("guest_nif") @db.VarChar(50)
   payments              HotelPayment[]
   services              HotelService[]
   branch                Branch?           @relation(fields: [branchId], references: [id], onUpdate: NoAction)

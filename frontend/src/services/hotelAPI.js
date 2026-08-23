@@ -35,7 +35,7 @@ export const hotelAPI = {
   getReservations:  (p)           => axios.get(`${API}/hotel/reservations`, { params: p, headers: getHeaders() }),
   getReservation:   (id)          => axios.get(`${API}/hotel/reservations/${id}`, { headers: getHeaders() }),
   createReservation:(data)        => axios.post(`${API}/hotel/reservations`, data, { headers: getHeaders() }),
-  checkIn:          (id)          => axios.patch(`${API}/hotel/reservations/${id}/check-in`, {}, { headers: getHeaders() }),
+  checkIn:          (id, data={})    => axios.patch(`${API}/hotel/reservations/${id}/check-in`, data, { headers: getHeaders() }),
   checkOut:         (id, d)       => axios.patch(`${API}/hotel/reservations/${id}/check-out`, d, { headers: getHeaders() }),
   cancelReservation:(id, d)       => axios.patch(`${API}/hotel/reservations/${id}/cancel`, d, { headers: getHeaders() }),
 

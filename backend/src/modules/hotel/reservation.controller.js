@@ -9,6 +9,23 @@ const generateReservationNumber = async (tenantId) => {
   return `RES-${year}-${String(count + 1).padStart(4, '0')}`
 }
 
+// ── To chanj USD/HTG jodi a (Paramèt > Taux & Devise) ──
+const getUsdRate = async (tenantId) => {
+  const tenant = await prisma.tenant.findUnique({
+    where:  { id: tenantId },
+    select: { exchangeRate: true, exchangeRates: true },
+  })
+  let ratesObj = {}
+  try { ratesObj = tenant?.exchangeRates ? JSON.parse(tenant.exchangeRates) : {} } catch { ratesObj = {} }
+  return parseFloat(ratesObj.USD || tenant?.exchangeRate || 1) || 1
+}
+
+const generateInvoiceNumber = async (tenantId) => {
+  const year  = new Date().getFullYear()
+  const count = await prisma.invoice.count({ where: { tenantId } })
+  return `FAK-${year}-${String(count + 1).padStart(4, '0')}`
+}
+
 const getAll = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
@@ -80,6 +97,10 @@ const create = async (req, res) => {
       type = 'nuit',
       // Moman fields
       momentDurationMinutes, momentStartTime, momentEndTime,
+      // ── NOUVO: enfo envite espesifik a rezèvasyon sa a (pa mele ak pwofil Kliyan jeneral)
+      guestIdPhotoUrl, guestAddress, guestNif,
+      // ── NOUVO: metòd peman pou depo/peman inisyal la (moman check-in dirèkteman nan kreyasyon)
+      paymentMethod = 'cash',
     } = req.body
 
     if (!roomId || !checkIn || !checkOut) {
@@ -141,6 +162,14 @@ const create = async (req, res) => {
       roomStatus    = 'occupied' // moman → occupied dirèkteman
     }
 
+    // ── Moman check-in otomatikman nan kreyasyon → jenere Fakti dirèkteman (menm lojik ak check-in Nuit)
+    let invoiceForMoman = null
+    if (type === 'moman') {
+      const usdRate = await getUsdRate(tenantId)
+      const invoiceNumber = await generateInvoiceNumber(tenantId)
+      invoiceForMoman = { invoiceNumber, exchangeRate: usdRate }
+    }
+
     const reservation = await prisma.$transaction(async (tx) => {
       const r = await tx.reservation.create({
         data: {
@@ -173,6 +202,10 @@ const create = async (req, res) => {
           notes,
           createdBy:            userId,
           ...(type === 'moman' && { checkedInAt: new Date() }),
+          // Enfo envite (opsyonèl)
+          ...(guestIdPhotoUrl !== undefined && { guestIdPhotoUrl }),
+          ...(guestAddress    !== undefined && { guestAddress }),
+          ...(guestNif        !== undefined && { guestNif }),
         },
         include: {
           room:   { include: { roomType: true } },
@@ -188,14 +221,39 @@ const create = async (req, res) => {
             tenantId,
             reservationId: r.id,
             amountHtg:     deposit,
-            method:        'cash',
+            method:        paymentMethod,
             type:          'deposit',
             createdBy:     userId,
           },
         })
       }
 
-      return r
+      // ── Moman: fakti kreye dirèkteman paske li deja check-in
+      let invoice = null
+      if (type === 'moman' && invoiceForMoman) {
+        invoice = await tx.invoice.create({
+          data: {
+            tenantId,
+            branchId:         branchId || null,
+            invoiceNumber:    invoiceForMoman.invoiceNumber,
+            clientId:         r.clientId,
+            clientSnapshot:   r.clientSnapshot,
+            currency:         'HTG',
+            exchangeRate:     invoiceForMoman.exchangeRate,
+            subtotalHtg:      roomTotalHtg,
+            totalHtg:         roomTotalHtg,
+            amountPaidHtg:    deposit,
+            balanceDueHtg:    Math.max(0, roomTotalHtg - deposit),
+            status:           deposit >= roomTotalHtg ? 'paid' : (deposit > 0 ? 'partial' : 'unpaid'),
+            notes:            `Check-in ${r.reservationNumber} (Moman)`,
+            createdBy:        userId,
+            stockDecremented: false,
+          },
+        })
+        await tx.reservation.update({ where: { id: r.id }, data: { invoiceId: invoice.id } })
+      }
+
+      return { ...r, invoiceId: invoice?.id || r.invoiceId, invoice }
     })
 
     res.status(201).json({ success: true, data: reservation })
@@ -207,9 +265,18 @@ const create = async (req, res) => {
 const checkIn = async (req, res) => {
   try {
     const tenantId = req.user?.tenantId
+    const branchId = req.branchId
+    const userId   = req.user?.id
     const { id }   = req.params
+    const {
+      paymentAmountHtg, paymentMethod = 'cash',
+      guestIdPhotoUrl, guestAddress, guestNif,
+    } = req.body
 
-    const reservation = await prisma.reservation.findFirst({ where: { id, tenantId } })
+    const reservation = await prisma.reservation.findFirst({
+      where:   { id, tenantId },
+      include: { payments: true },
+    })
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
 
     if (reservation.type === 'moman') {
@@ -219,14 +286,67 @@ const checkIn = async (req, res) => {
       return res.status(400).json({ success: false, message: `Pa ka check-in — estati: ${reservation.status}` })
     }
 
+    // ── Peman ki fèt kounye a (nan Check-in), anplis depo ki te deja egziste ──
+    const paymentNow  = parseFloat(paymentAmountHtg || 0)
+    const alreadyPaid = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
+    const totalPaid   = alreadyPaid + paymentNow
+    const totalHtg    = parseFloat(reservation.totalHtg)
+    const balanceDue  = Math.max(0, totalHtg - totalPaid)
+
+    const usdRate        = await getUsdRate(tenantId)
+    const invoiceNumber  = await generateInvoiceNumber(tenantId)
+
     const updated = await prisma.$transaction(async (tx) => {
+      // ── Fakti kreye depi Check-in — se la premye moman kliyan an ofisyèlman antre
+      const invoice = await tx.invoice.create({
+        data: {
+          tenantId,
+          branchId:         branchId || null,
+          invoiceNumber,
+          clientId:         reservation.clientId,
+          clientSnapshot:   reservation.clientSnapshot,
+          currency:         'HTG',
+          exchangeRate:     usdRate,
+          subtotalHtg:      totalHtg,
+          totalHtg,
+          amountPaidHtg:    totalPaid,
+          balanceDueHtg:    balanceDue,
+          status:           balanceDue <= 0 ? 'paid' : (totalPaid > 0 ? 'partial' : 'unpaid'),
+          notes:            `Check-in ${reservation.reservationNumber}`,
+          createdBy:        userId,
+          stockDecremented: false,
+        },
+      })
+
+      if (paymentNow > 0) {
+        await tx.hotelPayment.create({
+          data: {
+            tenantId,
+            reservationId: id,
+            amountHtg:     paymentNow,
+            method:        paymentMethod,
+            type:          'payment',
+            createdBy:     userId,
+          },
+        })
+      }
+
       const r = await tx.reservation.update({
         where: { id },
-        data:  { status: 'checked_in', checkedInAt: new Date() },
-        include: { room: { include: { roomType: true } } },
+        data: {
+          status:         'checked_in',
+          checkedInAt:    new Date(),
+          amountPaidHtg:  totalPaid,
+          balanceDueHtg:  balanceDue,
+          invoiceId:      invoice.id,
+          ...(guestIdPhotoUrl !== undefined && { guestIdPhotoUrl }),
+          ...(guestAddress    !== undefined && { guestAddress }),
+          ...(guestNif        !== undefined && { guestNif }),
+        },
+        include: { room: { include: { roomType: true } }, payments: true },
       })
       await tx.room.update({ where: { id: reservation.roomId }, data: { status: 'occupied' } })
-      return r
+      return { reservation: r, invoice }
     })
 
     res.json({ success: true, data: updated })
@@ -267,39 +387,48 @@ const checkOut = async (req, res) => {
     const alreadyPaid      = reservation.payments.reduce((sum, p) => sum + parseFloat(p.amountHtg), 0)
     const balanceDue       = totalHtg - alreadyPaid
 
-    const year  = new Date().getFullYear()
-    const count = await prisma.invoice.count({ where: { tenantId } })
-    const invoiceNumber = `FAK-${year}-${String(count + 1).padStart(4, '0')}`
-
-    // ── To chanj jodi a (Paramèt > Taux & Devise), pou l pa toujou rete 1 ──
-    const tenant = await prisma.tenant.findUnique({
-      where:  { id: tenantId },
-      select: { exchangeRate: true, exchangeRates: true },
-    })
-    let ratesObj = {}
-    try { ratesObj = tenant?.exchangeRates ? JSON.parse(tenant.exchangeRates) : {} } catch { ratesObj = {} }
-    const currentExchangeRate = parseFloat(ratesObj.USD || tenant?.exchangeRate || 1) || 1
+    // ── To chanj jodi a — sèlman itilize si nou dwe kreye yon fakti fallback (ansyen done san fakti check-in)
+    const usdRate = await getUsdRate(tenantId)
 
     const result = await prisma.$transaction(async (tx) => {
-      const invoice = await tx.invoice.create({
-        data: {
-          tenantId,
-          branchId:         branchId || null,
-          invoiceNumber,
-          clientId:         reservation.clientId,
-          clientSnapshot:   reservation.clientSnapshot,
-          currency:         'HTG',
-          exchangeRate:     currentExchangeRate,
-          subtotalHtg:      totalHtg,
-          totalHtg,
-          amountPaidHtg:    alreadyPaid,
-          balanceDueHtg:    Math.max(0, balanceDue),
-          status:           balanceDue <= 0 ? 'paid' : 'partial',
-          notes:            `Check-out ${reservation.reservationNumber}${reservation.type === 'moman' ? ' (Moman)' : ''}`,
-          createdBy:        userId,
-          stockDecremented: false,
-        },
-      })
+      let invoice
+
+      if (reservation.invoiceId) {
+        // ── Fakti a deja egziste (kreye nan Check-in) — jis mete l ajou ak fèmen li, PA kreye yon dezyèm
+        invoice = await tx.invoice.update({
+          where: { id: reservation.invoiceId },
+          data: {
+            subtotalHtg:   totalHtg,
+            totalHtg,
+            amountPaidHtg: alreadyPaid, // ap ajou ankò pi ba a apre peman final la
+            balanceDueHtg: Math.max(0, balanceDue),
+            status:        balanceDue <= 0 ? 'paid' : 'partial',
+            notes:         `Check-out ${reservation.reservationNumber}${reservation.type === 'moman' ? ' (Moman)' : ''}`,
+          },
+        })
+      } else {
+        // ── Fallback — ansyen rezèvasyon ki pa t gen fakti check-in (done anvan chanjman sa a)
+        const invoiceNumber = await generateInvoiceNumber(tenantId)
+        invoice = await tx.invoice.create({
+          data: {
+            tenantId,
+            branchId:         branchId || null,
+            invoiceNumber,
+            clientId:         reservation.clientId,
+            clientSnapshot:   reservation.clientSnapshot,
+            currency:         'HTG',
+            exchangeRate:     usdRate,
+            subtotalHtg:      totalHtg,
+            totalHtg,
+            amountPaidHtg:    alreadyPaid,
+            balanceDueHtg:    Math.max(0, balanceDue),
+            status:           balanceDue <= 0 ? 'paid' : 'partial',
+            notes:            `Check-out ${reservation.reservationNumber}${reservation.type === 'moman' ? ' (Moman)' : ''}`,
+            createdBy:        userId,
+            stockDecremented: false,
+          },
+        })
+      }
 
       const updated = await tx.reservation.update({
         where: { id },
@@ -321,6 +450,7 @@ const checkOut = async (req, res) => {
         include: { room: { include: { roomType: true } }, services: true, payments: true },
       })
 
+      // ── Peman final — balans rès la peye konplè nan check-out (menm konpòtman ak anvan)
       if (balanceDue > 0) {
         await tx.hotelPayment.create({
           data: {
@@ -332,6 +462,11 @@ const checkOut = async (req, res) => {
             notes,
             createdBy:     userId,
           },
+        })
+        // Fakti a ajou ak montan final la apre peman an
+        invoice = await tx.invoice.update({
+          where: { id: invoice.id },
+          data:  { amountPaidHtg: totalHtg, balanceDueHtg: 0, status: 'paid' },
         })
       }
 

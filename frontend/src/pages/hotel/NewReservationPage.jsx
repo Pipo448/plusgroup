@@ -78,7 +78,18 @@ export default function NewReservationPage() {
     depositHtg:           0,
     source:               'walk-in',
     notes:                '',
+    guestIdPhotoUrl:      '',
+    guestAddress:         '',
+    guestNif:             '',
   })
+
+  const handleGuestPhotoM = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setMForm(f => ({ ...f, guestIdPhotoUrl: reader.result }))
+    reader.readAsDataURL(file)
+  }
 
   // ── Queries
   const { data: roomsData, isLoading: loadingRooms } = useQuery({
@@ -126,7 +137,11 @@ export default function NewReservationPage() {
   // ── Mutation
   const mutation = useMutation({
     mutationFn: (data) => hotelAPI.createReservation(data),
-    onSuccess: (res) => navigate(`/app/hotel/reservations/${res.data.data.id}`),
+    onSuccess: (res) => {
+      const d = res.data.data
+      if (d.invoice?.id) navigate(`/app/invoices/${d.invoice.id}`)
+      else navigate(`/app/hotel/reservations/${d.id}`)
+    },
     onError: (err) => setError(err.response?.data?.message || t('hotel.newReservation.creating')),
   })
 
@@ -166,6 +181,10 @@ export default function NewReservationPage() {
         depositHtg:           mForm.depositHtg,
         source:               mForm.source,
         notes:                mForm.notes,
+        guestIdPhotoUrl:      mForm.guestIdPhotoUrl || undefined,
+        guestAddress:         mForm.guestAddress || undefined,
+        guestNif:             mForm.guestNif || undefined,
+        paymentMethod:        'cash',
       })
     }
   }
@@ -406,6 +425,32 @@ export default function NewReservationPage() {
                 <option value="">{t('hotel.newReservation.anonymousClient')}</option>
                 {clients.map(c=><option key={c.id} value={c.id}>{c.name}{c.phone?` · ${c.phone}`:''}</option>)}
               </select>
+            </div>
+
+            {/* Enfo Envite (opsyonèl) */}
+            <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, padding:20, boxShadow:D.shadow }}>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>{t('hotel.newReservation.guestSection')}</h3>
+              <div style={{ marginBottom:12 }}>
+                <label style={labelStyle}>{t('hotel.newReservation.guestIdPhoto')}</label>
+                <label style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:9, border:`1.5px dashed ${D.border}`, cursor:'pointer', background:'#F8F9FF' }}>
+                  {mForm.guestIdPhotoUrl
+                    ? <img src={mForm.guestIdPhotoUrl} alt="" style={{ width:32, height:32, objectFit:'cover', borderRadius:6 }}/>
+                    : <div style={{ width:32, height:32, borderRadius:6, background:D.purpleDim, display:'flex', alignItems:'center', justifyContent:'center', color:D.purple, fontSize:14 }}>📷</div>
+                  }
+                  <span style={{ fontSize:12, color:D.muted }}>{t('hotel.newReservation.guestIdPhotoHint')}</span>
+                  <input type="file" accept="image/*" onChange={handleGuestPhotoM} style={{ display:'none' }}/>
+                </label>
+              </div>
+              <div style={{ marginBottom:12 }}>
+                <label style={labelStyle}>{t('hotel.newReservation.guestAddress')}</label>
+                <input placeholder={t('hotel.newReservation.guestAddressPlaceholder')} value={mForm.guestAddress} onChange={e=>setM('guestAddress',e.target.value)} style={inputStyle}
+                  onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
+              </div>
+              <div>
+                <label style={labelStyle}>{t('hotel.newReservation.guestNif')}</label>
+                <input placeholder={t('hotel.newReservation.guestNifPlaceholder')} value={mForm.guestNif} onChange={e=>setM('guestNif',e.target.value)} style={inputStyle}
+                  onFocus={e=>e.target.style.borderColor=D.purple} onBlur={e=>e.target.style.borderColor=D.border}/>
+              </div>
             </div>
 
             {/* Granmoun + Timoun */}

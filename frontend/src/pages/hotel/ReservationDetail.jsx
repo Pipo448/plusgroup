@@ -54,6 +54,16 @@ export default function ReservationDetail() {
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false)
   const [checkoutMethod, setCheckoutMethod] = useState('cash')
+  const [showCheckinModal, setShowCheckinModal] = useState(false)
+  const [checkinForm, setCheckinForm] = useState({ paymentAmountHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
+
+  const handleGuestPhoto = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCheckinForm(f => ({ ...f, guestIdPhotoUrl: reader.result }))
+    reader.readAsDataURL(file)
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ['reservation', id],
@@ -62,7 +72,15 @@ export default function ReservationDetail() {
 
   const invalidate = () => qc.invalidateQueries(['reservation', id])
 
-  const checkInMut    = useMutation({ mutationFn: ()    => hotelAPI.checkIn(id), onSuccess: invalidate })
+  const checkInMut    = useMutation({
+    mutationFn: (d) => hotelAPI.checkIn(id, d),
+    onSuccess: (r) => {
+      invalidate()
+      setShowCheckinModal(false)
+      setCheckinForm({ paymentAmountHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
+      if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`)
+    },
+  })
   const checkOutMut   = useMutation({ mutationFn: (d)   => hotelAPI.checkOut(id, d), onSuccess: (r) => { invalidate(); if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`) } })
   const cancelMut     = useMutation({ mutationFn: (d)   => hotelAPI.cancelReservation(id, d), onSuccess: () => { invalidate(); setShowCancelModal(false) } })
   const addServiceMut = useMutation({ mutationFn: (d)   => hotelAPI.addService(id, d), onSuccess: () => { invalidate(); setServiceForm({ type:'other', description:'', quantity:1, unitPriceHtg:'', notes:'' }) } })
@@ -105,9 +123,9 @@ export default function ReservationDetail() {
         {/* Aksyon prensipal */}
         <div className="pg-resdetail-actions" style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
           {canCheckIn && (
-            <button onClick={() => checkInMut.mutate()} disabled={checkInMut.isPending}
+            <button onClick={() => setShowCheckinModal(true)}
               style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 18px', borderRadius:11, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', boxShadow:`0 4px 14px ${D.success}45` }}>
-              {checkInMut.isPending ? <Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> : <LogIn size={14}/>} {t('hotel.reservationDetail.checkIn')}
+              <LogIn size={14}/> {t('hotel.reservationDetail.checkIn')}
             </button>
           )}
           {canCheckOut && (
@@ -143,8 +161,18 @@ export default function ReservationDetail() {
               <InfoBlock label={t('hotel.reservationDetail.adults')} value={data.adults}/>
               <InfoBlock label={t('hotel.reservationDetail.children')} value={data.children}/>
               <InfoBlock label={t('hotel.reservationDetail.source')} value={data.source}/>
+              {data.guestAddress && <InfoBlock label={t('hotel.reservationDetail.checkinGuestAddress')} value={data.guestAddress}/>}
+              {data.guestNif && <InfoBlock label={t('hotel.reservationDetail.checkinGuestNif')} value={data.guestNif}/>}
               {data.notes && <InfoBlock label={t('hotel.reservationDetail.notesLabel')} value={data.notes} fullWidth/>}
             </div>
+            {data.guestIdPhotoUrl && (
+              <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${D.border}` }}>
+                <p style={{ fontSize:10, fontWeight:700, color:D.muted, textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 6px' }}>{t('hotel.reservationDetail.checkinGuestIdPhoto')}</p>
+                <a href={data.guestIdPhotoUrl} target="_blank" rel="noopener noreferrer">
+                  <img src={data.guestIdPhotoUrl} alt="" style={{ width:64, height:64, objectFit:'cover', borderRadius:8, border:`1px solid ${D.border}` }}/>
+                </a>
+              </div>
+            )}
           </div>
 
           {/* Finansye */}
@@ -259,6 +287,68 @@ export default function ReservationDetail() {
           </div>
         </div>
       </div>
+
+      {/* Modal Check-in */}
+      {showCheckinModal && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+          <div style={{ background:D.white, borderRadius:20, padding:28, width:420, maxWidth:'100%', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ color:D.text, fontSize:18, fontWeight:900, margin:'0 0 8px' }}>{t('hotel.reservationDetail.checkinModalTitle')}</h3>
+            <p style={{ color:D.muted, fontSize:13, margin:'0 0 20px' }}>{t('hotel.reservationDetail.checkoutFinalTotal')} <strong style={{ color:D.text }}>{fmt(data.totalHtg)} HTG</strong></p>
+
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16 }}>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.checkinAmountPlaceholder')}</label>
+                <input type="number" placeholder="0" value={checkinForm.paymentAmountHtg} onChange={e => setCheckinForm(f => ({ ...f, paymentAmountHtg: e.target.value }))} style={inputStyle}/>
+              </div>
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.checkinMethodLabel')}</label>
+                <select value={checkinForm.paymentMethod} onChange={e => setCheckinForm(f => ({ ...f, paymentMethod: e.target.value }))} style={{ ...inputStyle, cursor:'pointer' }}>
+                  <option value="cash">{t('hotel.reservationDetail.methodCash')}</option>
+                  <option value="card">{t('hotel.reservationDetail.methodCard')}</option>
+                  <option value="moncash">{t('hotel.reservationDetail.methodMoncash')}</option>
+                  <option value="transfer">{t('hotel.reservationDetail.methodTransfer')}</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ borderTop:`1px solid ${D.border}`, paddingTop:14, marginBottom:16 }}>
+              <p style={{ fontSize:11, fontWeight:800, color:D.text, textTransform:'uppercase', letterSpacing:'0.05em', margin:'0 0 10px' }}>{t('hotel.reservationDetail.checkinGuestSection')}</p>
+
+              <div style={{ marginBottom:10 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6 }}>{t('hotel.reservationDetail.checkinGuestIdPhoto')}</label>
+                <label style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:9, border:`1.5px dashed ${D.border}`, cursor:'pointer', background:'#F8F9FF' }}>
+                  {checkinForm.guestIdPhotoUrl
+                    ? <img src={checkinForm.guestIdPhotoUrl} alt="" style={{ width:36, height:36, objectFit:'cover', borderRadius:6 }}/>
+                    : <div style={{ width:36, height:36, borderRadius:6, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, fontSize:16 }}>📷</div>
+                  }
+                  <span style={{ fontSize:12, color:D.muted }}>{t('hotel.reservationDetail.checkinGuestIdPhotoHint')}</span>
+                  <input type="file" accept="image/*" onChange={handleGuestPhoto} style={{ display:'none' }}/>
+                </label>
+              </div>
+
+              <div style={{ marginBottom:10 }}>
+                <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6 }}>{t('hotel.reservationDetail.checkinGuestAddress')}</label>
+                <input placeholder={t('hotel.reservationDetail.checkinGuestAddressPlaceholder')} value={checkinForm.guestAddress} onChange={e => setCheckinForm(f => ({ ...f, guestAddress: e.target.value }))} style={inputStyle}/>
+              </div>
+
+              <div>
+                <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:6 }}>{t('hotel.reservationDetail.checkinGuestNif')}</label>
+                <input placeholder={t('hotel.reservationDetail.checkinGuestNifPlaceholder')} value={checkinForm.guestNif} onChange={e => setCheckinForm(f => ({ ...f, guestNif: e.target.value }))} style={inputStyle}/>
+              </div>
+            </div>
+
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={() => setShowCheckinModal(false)} style={{ flex:1, padding:'11px', borderRadius:10, border:`1.5px solid ${D.border}`, background:'transparent', color:D.muted, fontWeight:700, cursor:'pointer' }}>
+                {t('hotel.roomTypes.cancel')}
+              </button>
+              <button onClick={() => checkInMut.mutate(checkinForm)} disabled={checkInMut.isPending}
+                style={{ flex:2, padding:'11px', borderRadius:10, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:800, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+                {checkInMut.isPending ? <><Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> {t('hotel.reservationDetail.checkinProcessing')}</> : t('hotel.reservationDetail.checkinConfirmBtn')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Check-out */}
       {showCheckoutModal && (

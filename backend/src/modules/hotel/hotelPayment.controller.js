@@ -50,15 +50,27 @@ const add = async (req, res) => {
 
       // Mete ajou balans
       const newAmountPaid = parseFloat(reservation.amountPaidHtg) + amount
-      const newBalance    = parseFloat(reservation.totalHtg) - newAmountPaid
+      const newBalance    = Math.max(0, parseFloat(reservation.totalHtg) - newAmountPaid)
 
       await tx.reservation.update({
         where: { id: reservationId },
         data: {
           amountPaidHtg: newAmountPaid,
-          balanceDueHtg: Math.max(0, newBalance),
+          balanceDueHtg: newBalance,
         },
       })
+
+      // ── Fakti a egziste depi Check-in — senkronize l ak nouvo peman an
+      if (reservation.invoiceId) {
+        await tx.invoice.update({
+          where: { id: reservation.invoiceId },
+          data: {
+            amountPaidHtg: newAmountPaid,
+            balanceDueHtg: newBalance,
+            status:        newBalance <= 0 ? 'paid' : 'partial',
+          },
+        })
+      }
 
       return p
     })
