@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Hotel, BedDouble, Plus, Wrench, Sparkles, Users, ChevronRight, Eye } from 'lucide-react'
+import { Hotel, BedDouble, Plus, Wrench, Sparkles, Users, ChevronRight, Eye, Check } from 'lucide-react'
 import { hotelAPI } from '../../services/hotelAPI'
 
 const D = {
@@ -165,7 +165,12 @@ function RoomCard({ room, D, STATUS_CONFIG, t, onStatusChange }) {
 
         {/* Aksyon */}
         <div style={{ display:'flex', gap:6 }}>
-          {activeRes ? (
+          {room.status === 'cleaning' ? (
+            <button onClick={() => onStatusChange(room.id, 'available')}
+              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'7px 10px', borderRadius:9, background:`linear-gradient(135deg,${D.success},#10B981)`, color:'#fff', fontWeight:700, fontSize:11, border:'none', cursor:'pointer' }}>
+              <Check size={12}/> {t('hotel.dashboard.finishCleaning')}
+            </button>
+          ) : activeRes ? (
             <Link to={`/app/hotel/reservations/${activeRes.id}`}
               style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'7px 10px', borderRadius:9, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:11, textDecoration:'none' }}>
               <Eye size={12}/> {t('hotel.dashboard.view')}

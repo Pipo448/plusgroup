@@ -333,7 +333,7 @@ export default {
     dashboard: {
       title: 'Hotel Dashboard', roomsTotal: '{{count}} rooms total',
       newReservation: 'New Reservation', allReservations: 'All Reservations',
-      noRooms: 'No rooms', addRoom: 'Add Room',
+      noRooms: 'No rooms', addRoom: 'Add Room', finishCleaning: 'Cleaning Done',
       view: 'View', reserve: 'Reserve',
       status: { available:'Available', occupied:'Occupied', reserved:'Reserved', cleaning:'Cleaning', maintenance:'Maintenance' },
     },
