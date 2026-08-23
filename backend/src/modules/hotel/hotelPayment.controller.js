@@ -3,7 +3,7 @@ const prisma = require('../../lib/prisma')
 
 const getByReservation = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.tenantId || req.user?.tenantId || req.tenant?.id
     const { id: reservationId } = req.params
 
     const reservation = await prisma.reservation.findFirst({ where: { id: reservationId, tenantId } })
@@ -21,7 +21,8 @@ const getByReservation = async (req, res) => {
 
 const add = async (req, res) => {
   try {
-    const { tenantId, userId } = req
+    const tenantId = req.tenantId || req.user?.tenantId || req.tenant?.id
+    const userId   = req.userId   || req.user?.id
     const { id: reservationId } = req.params
     const { amountHtg, method, type = 'payment', reference, notes } = req.body
 

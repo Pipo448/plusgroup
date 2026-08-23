@@ -416,7 +416,7 @@ export default {
       methodCash: 'Cash', methodCard: 'Kat', methodMoncash: 'MonCash', methodTransfer: 'Virement',
       recordPayment: '+ Anrejistre Peman', recording: 'Ap anrejistre...',
       depositType: 'Depo', paymentType: 'Peman',
-      servicesTitle: 'Sèvis Anplis', noServices: 'Pa gen sèvis anplis', addServiceTitle: 'Ajoute Sèvis', searchProductPlaceholder: 'Chèche yon pwodui nan stock...', stockLabel: 'Stock', manualServiceHint: 'Oswa antre yon sèvis manyèl si li pa nan stock (egz. Lavaj, Masaj)', insufficientStock: 'Sèlman {{qty}} disponib nan stock', noProductsFound: 'Pa gen pwodui ki matche', offerProductHint: 'Klike pou ofri yon bagay nan stock bay kliyan sa a',
+      servicesTitle: 'Sèvis Anplis', noServices: 'Pa gen sèvis anplis', addServiceTitle: 'Ajoute Sèvis', searchProductPlaceholder: 'Chèche yon pwodui nan stock...', stockLabel: 'Stock', stockOnlyHint: 'Sèlman atik ki nan katalòg Pwodui a ka ajoute — pou yon sèvis tankou Lavaj/Masaj, kreye l kòm Pwodui (Sèvis) nan Estòk.', insufficientStock: 'Sèlman {{qty}} disponib nan stock', noProductsFound: 'Pa gen pwodui ki matche', offerProductHint: 'Klike pou ofri yon bagay nan stock bay kliyan sa a', cartTotal: 'Total pànye a', cartStockIssue: 'Gen yon atik ki depase stock disponib — ajiste kantite oswa retire l anvan w soumèt', servicesAdded: 'Sèvis yo ajoute avèk siksè!',
       serviceTypeFood: '🍽 Manje', serviceTypeDrink: '🥤 Bwason', serviceTypeLaundry: '👕 Lavaj',
       serviceTypeTransport: '🚗 Transpò', serviceTypeSpa: '💆 Spa', serviceTypeRoomService: '🛎 Sèvis Chanm', serviceTypeOther: '📦 Lòt',
       quantityPlaceholder: 'Kantite', descriptionPlaceholder: 'Deskripsyon *', unitPricePlaceholder: 'Pri unitè HTG *',

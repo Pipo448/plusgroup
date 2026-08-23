@@ -417,7 +417,7 @@ export default {
       methodCash: 'Cash', methodCard: 'Card', methodMoncash: 'MonCash', methodTransfer: 'Transfer',
       recordPayment: '+ Record Payment', recording: 'Recording...',
       depositType: 'Deposit', paymentType: 'Payment',
-      servicesTitle: 'Additional Services', noServices: 'No additional services', addServiceTitle: 'Add Service', searchProductPlaceholder: 'Search a product in stock...', stockLabel: 'Stock', manualServiceHint: 'Or enter a manual service if not in stock (e.g. Laundry, Massage)', insufficientStock: 'Only {{qty}} available in stock', noProductsFound: 'No matching products', offerProductHint: 'Click to offer a stock item to this client',
+      servicesTitle: 'Additional Services', noServices: 'No additional services', addServiceTitle: 'Add Service', searchProductPlaceholder: 'Search a product in stock...', stockLabel: 'Stock', stockOnlyHint: 'Only items from the Products catalog can be added — for a service like Laundry/Massage, create it as a Product (Service) in Stock.', insufficientStock: 'Only {{qty}} available in stock', noProductsFound: 'No matching products', offerProductHint: 'Click to offer a stock item to this client', cartTotal: 'Cart total', cartStockIssue: 'An item exceeds available stock — adjust the quantity or remove it before submitting', servicesAdded: 'Services added successfully!',
       serviceTypeFood: '🍽 Food', serviceTypeDrink: '🥤 Drink', serviceTypeLaundry: '👕 Laundry',
       serviceTypeTransport: '🚗 Transport', serviceTypeSpa: '💆 Spa', serviceTypeRoomService: '🛎 Room Service', serviceTypeOther: '📦 Other',
       quantityPlaceholder: 'Quantity', descriptionPlaceholder: 'Description *', unitPricePlaceholder: 'Unit Price HTG *',

@@ -3,7 +3,7 @@ const prisma = require('../../lib/prisma')
 
 const getByReservation = async (req, res) => {
   try {
-    const { tenantId } = req
+    const tenantId = req.tenantId || req.user?.tenantId || req.tenant?.id
     const { id: reservationId } = req.params
 
     const reservation = await prisma.reservation.findFirst({ where: { id: reservationId, tenantId } })
@@ -22,10 +22,18 @@ const getByReservation = async (req, res) => {
 
 const add = async (req, res) => {
   try {
-    const { tenantId, userId } = req
+    // ── Kovansyon aksè itilizatè a varye ant kontwolè yo nan pwojè a
+    // (req.userId dirèk vs req.user?.id). Aksepte 2 pou evite yon
+    // 'createdBy' vid ki fè Prisma rejte tout ekriti a ak yon 500.
+    const tenantId = req.tenantId || req.user?.tenantId || req.tenant?.id
+    const userId   = req.userId   || req.user?.id
     const branchId = req.branchId
     const { id: reservationId } = req.params
-    const { productId, type, description, quantity, unitPriceHtg, notes } = req.body
+    const { productId, quantity, notes } = req.body
+
+    if (!productId) {
+      return res.status(400).json({ success: false, message: 'Ou dwe chwazi yon pwodui nan stock — antre manyèl pa aksepte' })
+    }
 
     const reservation = await prisma.reservation.findFirst({ where: { id: reservationId, tenantId } })
     if (!reservation) return res.status(404).json({ success: false, message: 'Rezèvasyon pa jwenn' })
@@ -35,35 +43,27 @@ const add = async (req, res) => {
 
     const qty = parseFloat(quantity || 1)
 
-    // ── Si sèvis la lye ak yon pwodui nan stock — sèvè a itilize pri/non pwodui a
-    // (jamè fè konfyans a valè fwontyè a), e verifye ase kantite disponib.
-    let finalDescription = description
-    let finalPrice       = parseFloat(unitPriceHtg || 0)
-    let product           = null
+    // ── Non/pri toujou soti nan pwodui a — jamè fè konfyans a valè fwontyè a.
+    const product = await prisma.product.findFirst({ where: { id: productId, tenantId } })
+    if (!product) return res.status(404).json({ success: false, message: 'Pwodui pa jwenn' })
+    if (!product.isActive) return res.status(400).json({ success: false, message: 'Pwodui sa inaktif' })
 
-    if (productId) {
-      product = await prisma.product.findFirst({ where: { id: productId, tenantId } })
-      if (!product) return res.status(404).json({ success: false, message: 'Pwodui pa jwenn' })
-      if (!product.isActive) return res.status(400).json({ success: false, message: 'Pwodui sa inaktif' })
-      if (Number(product.quantity) < qty) {
-        return res.status(400).json({ success: false, message: `Sèlman ${product.quantity} ${product.unit || 'unité'} disponib nan stock pou "${product.name}"` })
-      }
-      finalDescription = description?.trim() || product.name
-      finalPrice        = parseFloat(product.priceHtg)
-    } else if (!description || !unitPriceHtg) {
-      return res.status(400).json({ success: false, message: 'Deskripsyon ak pri obligatwa' })
+    // ── Sèvis (isService:true, egz. Lavaj/Masaj) pa gen stock fizik — pa verifye kantite
+    if (!product.isService && Number(product.quantity) < qty) {
+      return res.status(400).json({ success: false, message: `Sèlman ${product.quantity} ${product.unit || 'unité'} disponib nan stock pou "${product.name}"` })
     }
 
-    const totalHtg = qty * finalPrice
+    const finalPrice = parseFloat(product.priceHtg)
+    const totalHtg    = qty * finalPrice
 
     const service = await prisma.$transaction(async (tx) => {
       const s = await tx.hotelService.create({
         data: {
           tenantId,
           reservationId,
-          productId:    productId || null,
-          type:         type || 'other',
-          description:  finalDescription,
+          productId,
+          type:         'other',
+          description:  product.name,
           quantity:     qty,
           unitPriceHtg: finalPrice,
           totalHtg,
@@ -73,8 +73,8 @@ const add = async (req, res) => {
         include: { product: { select: { id: true, name: true } } },
       })
 
-      // ── Dekremante stock si sèvis la soti nan yon pwodui reyèl
-      if (product) {
+      // ── Dekremante stock — sèlman pou pwodui fizik (pa sèvis)
+      if (!product.isService) {
         const qtyBefore = Number(product.quantity)
         const qtyAfter  = qtyBefore - qty
         await tx.product.update({ where: { id: productId }, data: { quantity: qtyAfter } })
@@ -115,7 +115,8 @@ const add = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
-    const { tenantId, userId } = req
+    const tenantId = req.tenantId || req.user?.tenantId || req.tenant?.id
+    const userId   = req.userId   || req.user?.id
     const branchId = req.branchId
     const { serviceId } = req.params
 

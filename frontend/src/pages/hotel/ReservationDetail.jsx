@@ -7,6 +7,7 @@ import { ChevronLeft, BedDouble, User, Utensils, CreditCard, LogIn, LogOut, XCir
 import { format } from 'date-fns'
 import { hotelAPI } from '../../services/hotelAPI'
 import { productAPI } from '../../services/api'
+import toast from 'react-hot-toast'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF',
@@ -39,18 +40,7 @@ export default function ReservationDetail() {
     no_show:     { label:t('hotel.reservations.status.noShow'),     color:D.warning, bg:D.warningBg },
   }
 
-  const SERVICE_TYPES = [
-    { v:'food',         l:t('hotel.reservationDetail.serviceTypeFood') },
-    { v:'drink',        l:t('hotel.reservationDetail.serviceTypeDrink') },
-    { v:'laundry',      l:t('hotel.reservationDetail.serviceTypeLaundry') },
-    { v:'transport',    l:t('hotel.reservationDetail.serviceTypeTransport') },
-    { v:'spa',          l:t('hotel.reservationDetail.serviceTypeSpa') },
-    { v:'room_service', l:t('hotel.reservationDetail.serviceTypeRoomService') },
-    { v:'other',        l:t('hotel.reservationDetail.serviceTypeOther') },
-  ]
-
-  const [serviceForm, setServiceForm]       = useState({ productId:null, type:'other', description:'', quantity:1, unitPriceHtg:'', notes:'' })
-  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [cart, setCart]                       = useState([]) // [{ productId, name, priceHtg, unit, isService, quantity, availableQty }]
   const [productQuery, setProductQuery]       = useState('')
   const [productResults, setProductResults]   = useState([])
   const [searchingProducts, setSearchingProducts] = useState(false)
@@ -85,16 +75,21 @@ export default function ReservationDetail() {
     return () => clearTimeout(timer)
   }, [productQuery])
 
-  const selectProduct = (p) => {
-    setSelectedProduct(p)
-    setServiceForm(f => ({ ...f, productId: p.id, description: p.name, unitPriceHtg: String(p.priceHtg) }))
+  const addToCart = (p) => {
+    setCart(c => {
+      const existing = c.find(item => item.productId === p.id)
+      if (existing) return c.map(item => item.productId === p.id ? { ...item, quantity: item.quantity + 1 } : item)
+      return [...c, { productId: p.id, name: p.name, priceHtg: Number(p.priceHtg), unit: p.unit, isService: p.isService, quantity: 1, availableQty: Number(p.quantity) }]
+    })
     setProductQuery('')
     setProductResults([])
+    productSearchRef.current?.focus()
   }
-  const clearProduct = () => {
-    setSelectedProduct(null)
-    setServiceForm(f => ({ ...f, productId: null, description: '', unitPriceHtg: '' }))
-  }
+  const updateCartQty = (productId, qty) => setCart(c => c.map(item => item.productId === productId ? { ...item, quantity: qty } : item))
+  const removeFromCart = (productId) => setCart(c => c.filter(item => item.productId !== productId))
+  const cartTotal = cart.reduce((sum, item) => sum + item.priceHtg * item.quantity, 0)
+  const cartHasStockIssue = cart.some(item => !item.isService && Number(item.quantity) > item.availableQty)
+
   const jumpToServices = () => {
     servicesSectionRef.current?.scrollIntoView({ behavior:'smooth', block:'center' })
     setTimeout(() => productSearchRef.current?.focus(), 350)
@@ -106,6 +101,7 @@ export default function ReservationDetail() {
   })
 
   const invalidate = () => qc.invalidateQueries(['reservation', id])
+  const onErr = (err, fallback) => toast.error(err.response?.data?.message || fallback)
 
   const checkInMut    = useMutation({
     mutationFn: (d) => hotelAPI.checkIn(id, d),
@@ -115,12 +111,38 @@ export default function ReservationDetail() {
       setCheckinForm({ cashReceivedHtg:'', paymentMethod:'cash', guestIdPhotoUrl:'', guestAddress:'', guestNif:'' })
       if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`)
     },
+    onError: (err) => onErr(err, 'Erè pandan check-in'),
   })
-  const checkOutMut   = useMutation({ mutationFn: (d)   => hotelAPI.checkOut(id, d), onSuccess: (r) => { invalidate(); if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`) } })
-  const cancelMut     = useMutation({ mutationFn: (d)   => hotelAPI.cancelReservation(id, d), onSuccess: () => { invalidate(); setShowCancelModal(false) } })
-  const addServiceMut = useMutation({ mutationFn: (d)   => hotelAPI.addService(id, d), onSuccess: () => { invalidate(); setServiceForm({ productId:null, type:'other', description:'', quantity:1, unitPriceHtg:'', notes:'' }); setSelectedProduct(null) } })
-  const delServiceMut = useMutation({ mutationFn: (sid) => hotelAPI.removeService(sid), onSuccess: invalidate })
-  const addPaymentMut = useMutation({ mutationFn: (d)   => hotelAPI.addPayment(id, d), onSuccess: () => { invalidate(); setPaymentForm({ cashReceivedHtg:'', method:'cash' }) } })
+  const checkOutMut   = useMutation({
+    mutationFn: (d) => hotelAPI.checkOut(id, d),
+    onSuccess: (r) => { invalidate(); if (r.data?.data?.invoice?.id) navigate(`/app/invoices/${r.data.data.invoice.id}`) },
+    onError:   (err) => onErr(err, 'Erè pandan check-out'),
+  })
+  const cancelMut     = useMutation({
+    mutationFn: (d) => hotelAPI.cancelReservation(id, d),
+    onSuccess:  () => { invalidate(); setShowCancelModal(false) },
+    onError:    (err) => onErr(err, 'Erè pandan anilasyon'),
+  })
+  // ── Soumèt tout liy pànye a youn apre lòt; si youn echwe, rete anrejistre sa ki deja pase yo
+  const addCartMut = useMutation({
+    mutationFn: async () => {
+      for (const item of cart) {
+        await hotelAPI.addService(id, { productId: item.productId, quantity: item.quantity })
+      }
+    },
+    onSuccess: () => { invalidate(); setCart([]); toast.success(t('hotel.reservationDetail.servicesAdded')) },
+    onError:   (err) => { invalidate(); onErr(err, 'Erè pandan ajoute sèvis yo') },
+  })
+  const delServiceMut = useMutation({
+    mutationFn: (sid) => hotelAPI.removeService(sid),
+    onSuccess:  invalidate,
+    onError:    (err) => onErr(err, 'Erè pandan retire sèvis'),
+  })
+  const addPaymentMut = useMutation({
+    mutationFn: (d) => hotelAPI.addPayment(id, d),
+    onSuccess:  () => { invalidate(); setPaymentForm({ cashReceivedHtg:'', method:'cash' }) },
+    onError:    (err) => onErr(err, 'Erè pandan anrejistre peman'),
+  })
 
   if (isLoading) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:200 }}>
@@ -322,78 +344,78 @@ export default function ReservationDetail() {
               <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'16px 0' }}>{t('hotel.reservationDetail.noServices')}</p>
             )}
 
-            {/* Fòm ajoute sèvis */}
+            {/* Fòm ajoute sèvis — rechèch pwodui + pànye plizyè liy */}
             {isActive && (
               <div style={{ borderTop:`1px solid ${D.border}`, paddingTop:16 }}>
                 <p style={{ fontSize:12, fontWeight:800, color:D.text, margin:'0 0 10px', textTransform:'uppercase', letterSpacing:'0.05em' }}>{t('hotel.reservationDetail.addServiceTitle')}</p>
 
-                {/* ── Rechèch pwodui nan stock la ── */}
-                {selectedProduct ? (
-                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 12px', borderRadius:9, background:D.successBg, border:`1.5px solid ${D.success}30`, marginBottom:10 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <Package size={14} color={D.success}/>
-                      <div>
-                        <p style={{ fontSize:12, fontWeight:800, color:D.text, margin:0 }}>{selectedProduct.name}</p>
-                        <p style={{ fontSize:10, color:D.success, margin:0, fontWeight:700 }}>{t('hotel.reservationDetail.stockLabel')}: {selectedProduct.quantity} {selectedProduct.unit || ''} · {fmt(selectedProduct.priceHtg)} HTG</p>
-                      </div>
-                    </div>
-                    <button onClick={clearProduct} style={{ width:26, height:26, borderRadius:7, border:'none', background:'rgba(0,0,0,0.06)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                      <X size={13}/>
-                    </button>
+                {/* ── Rechèch pwodui/sèvis nan katalòg la (sèl sous — pa gen antre manyèl) ── */}
+                <div style={{ position:'relative', marginBottom:8 }}>
+                  <div style={{ position:'relative' }}>
+                    <Search size={13} style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
+                    <input ref={productSearchRef} placeholder={t('hotel.reservationDetail.searchProductPlaceholder')} value={productQuery} onChange={e => setProductQuery(e.target.value)}
+                      style={{ ...inputStyle, paddingLeft:30 }}
+                      onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
                   </div>
-                ) : (
-                  <div style={{ position:'relative', marginBottom:10 }}>
-                    <div style={{ position:'relative' }}>
-                      <Search size={13} style={{ position:'absolute', left:11, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
-                      <input ref={productSearchRef} placeholder={t('hotel.reservationDetail.searchProductPlaceholder')} value={productQuery} onChange={e => setProductQuery(e.target.value)}
-                        style={{ ...inputStyle, paddingLeft:30 }}
-                        onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
+                  {(productQuery.trim().length >= 2) && (
+                    <div style={{ position:'absolute', top:'100%', left:0, right:0, marginTop:4, background:D.white, borderRadius:9, border:`1px solid ${D.border}`, boxShadow:'0 8px 20px rgba(0,0,0,0.12)', zIndex:20, maxHeight:220, overflowY:'auto' }}>
+                      {searchingProducts ? (
+                        <p style={{ padding:'10px 12px', fontSize:12, color:D.muted, margin:0 }}>{t('hotel.newReservation.loadingRooms')}</p>
+                      ) : productResults.length === 0 ? (
+                        <p style={{ padding:'10px 12px', fontSize:12, color:D.muted, margin:0 }}>{t('hotel.reservationDetail.noProductsFound')}</p>
+                      ) : productResults.map(p => (
+                        <button key={p.id} onClick={() => addToCart(p)}
+                          style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 12px', border:'none', borderBottom:`1px solid ${D.border}`, background:'transparent', cursor:'pointer', textAlign:'left' }}
+                          onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <span style={{ fontSize:12, fontWeight:700, color:D.text, display:'flex', alignItems:'center', gap:5 }}>
+                            {p.isService ? '🔧' : <Package size={11}/>} {p.name}
+                          </span>
+                          <span style={{ fontSize:11, color: p.isService || Number(p.quantity) > 0 ? D.success : D.red, fontFamily:'monospace' }}>
+                            {fmt(p.priceHtg)} HTG {!p.isService && `· ${p.quantity} ${p.unit || ''}`}
+                          </span>
+                        </button>
+                      ))}
                     </div>
-                    {(productQuery.trim().length >= 2) && (
-                      <div style={{ position:'absolute', top:'100%', left:0, right:0, marginTop:4, background:D.white, borderRadius:9, border:`1px solid ${D.border}`, boxShadow:'0 8px 20px rgba(0,0,0,0.12)', zIndex:20, maxHeight:220, overflowY:'auto' }}>
-                        {searchingProducts ? (
-                          <p style={{ padding:'10px 12px', fontSize:12, color:D.muted, margin:0 }}>{t('hotel.newReservation.loadingRooms')}</p>
-                        ) : productResults.length === 0 ? (
-                          <p style={{ padding:'10px 12px', fontSize:12, color:D.muted, margin:0 }}>{t('hotel.reservationDetail.noProductsFound')}</p>
-                        ) : productResults.map(p => (
-                          <button key={p.id} onClick={() => selectProduct(p)}
-                            style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'9px 12px', border:'none', borderBottom:`1px solid ${D.border}`, background:'transparent', cursor:'pointer', textAlign:'left' }}
-                            onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
-                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                            <span style={{ fontSize:12, fontWeight:700, color:D.text }}>{p.name}</span>
-                            <span style={{ fontSize:11, color: Number(p.quantity) > 0 ? D.success : D.red, fontFamily:'monospace' }}>{fmt(p.priceHtg)} HTG · {p.quantity} {p.unit || ''}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <p style={{ fontSize:10, color:D.muted, margin:'-4px 0 10px' }}>{t('hotel.reservationDetail.manualServiceHint')}</p>
+                  )}
+                </div>
+                <p style={{ fontSize:10, color:D.muted, margin:'-2px 0 12px' }}>{t('hotel.reservationDetail.stockOnlyHint')}</p>
 
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:8 }}>
-                  <select value={serviceForm.type} onChange={e => setServiceForm(f => ({ ...f, type: e.target.value }))} style={{ ...inputStyle, cursor:'pointer' }}>
-                    {SERVICE_TYPES.map(st => <option key={st.v} value={st.v}>{st.l}</option>)}
-                  </select>
-                  <input type="number" placeholder={t('hotel.reservationDetail.quantityPlaceholder')} value={serviceForm.quantity} onChange={e => setServiceForm(f => ({ ...f, quantity: e.target.value }))} style={inputStyle}
-                    onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
-                </div>
-                <input placeholder={t('hotel.reservationDetail.descriptionPlaceholder')} value={serviceForm.description} onChange={e => setServiceForm(f => ({ ...f, description: e.target.value }))} disabled={!!selectedProduct} readOnly={!!selectedProduct}
-                  style={{ ...inputStyle, marginBottom:8, ...(selectedProduct ? { background:'#F1F3FA', color:D.muted, cursor:'not-allowed' } : {}) }}
-                  onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:6 }}>
-                  <input type="number" placeholder={t('hotel.reservationDetail.unitPricePlaceholder')} value={serviceForm.unitPriceHtg} onChange={e => setServiceForm(f => ({ ...f, unitPriceHtg: e.target.value }))} disabled={!!selectedProduct} readOnly={!!selectedProduct}
-                    style={{ ...inputStyle, ...(selectedProduct ? { background:'#F1F3FA', color:D.muted, cursor:'not-allowed' } : {}) }}
-                    onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
-                  <input placeholder={t('hotel.reservationDetail.notesOptionalPlaceholder')} value={serviceForm.notes} onChange={e => setServiceForm(f => ({ ...f, notes: e.target.value }))} style={inputStyle}
-                    onFocus={e => e.target.style.borderColor=D.blue} onBlur={e => e.target.style.borderColor=D.border}/>
-                </div>
-                {selectedProduct && Number(serviceForm.quantity) > Number(selectedProduct.quantity) && (
-                  <p style={{ color:D.red, fontSize:11, fontWeight:700, margin:'0 0 8px' }}>⚠ {t('hotel.reservationDetail.insufficientStock', { qty: selectedProduct.quantity })}</p>
+                {/* ── Pànye — plizyè liy anvan yon sèl soumèt ── */}
+                {cart.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:12 }}>
+                    {cart.map(item => {
+                      const overStock = !item.isService && item.quantity > item.availableQty
+                      return (
+                        <div key={item.productId} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:9, background: overStock ? D.redDim : '#F8F9FF', border:`1px solid ${overStock ? D.red+'40' : D.border}` }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <p style={{ fontSize:12, fontWeight:700, color:D.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.name}</p>
+                            <p style={{ fontSize:10, color: overStock ? D.red : D.muted, margin:0, fontWeight: overStock ? 700 : 400 }}>
+                              {fmt(item.priceHtg)} HTG {!item.isService && `· ${t('hotel.reservationDetail.stockLabel')}: ${item.availableQty}`}
+                            </p>
+                          </div>
+                          <input type="number" min="1" value={item.quantity} onChange={e => updateCartQty(item.productId, Math.max(1, parseInt(e.target.value) || 1))}
+                            style={{ width:52, padding:'6px 8px', borderRadius:7, border:`1.5px solid ${D.border}`, textAlign:'center', fontSize:12, fontWeight:700 }}/>
+                          <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:12, color:D.blue, width:64, textAlign:'right' }}>{fmt(item.priceHtg * item.quantity)}</span>
+                          <button onClick={() => removeFromCart(item.productId)} style={{ width:24, height:24, borderRadius:6, border:'none', background:D.redDim, color:D.red, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                            <X size={11}/>
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <div style={{ display:'flex', justifyContent:'space-between', padding:'8px 10px' }}>
+                      <span style={{ fontSize:12, fontWeight:700, color:D.muted }}>{t('hotel.reservationDetail.cartTotal')}</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:900, color:D.text, fontSize:13 }}>{fmt(cartTotal)} HTG</span>
+                    </div>
+                  </div>
                 )}
-                <button onClick={() => addServiceMut.mutate(serviceForm)}
-                  disabled={addServiceMut.isPending || !serviceForm.description || !serviceForm.unitPriceHtg || (selectedProduct && Number(serviceForm.quantity) > Number(selectedProduct.quantity))}
-                  style={{ width:'100%', padding:'9px', borderRadius:9, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, opacity: (!serviceForm.description || !serviceForm.unitPriceHtg || (selectedProduct && Number(serviceForm.quantity) > Number(selectedProduct.quantity))) ? 0.5 : 1 }}>
-                  {addServiceMut.isPending ? <Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> : <Plus size={14}/>} {t('hotel.reservationDetail.addServiceBtn')}
+
+                {cartHasStockIssue && (
+                  <p style={{ color:D.red, fontSize:11, fontWeight:700, margin:'0 0 8px' }}>⚠ {t('hotel.reservationDetail.cartStockIssue')}</p>
+                )}
+                <button onClick={() => addCartMut.mutate()} disabled={cart.length === 0 || addCartMut.isPending || cartHasStockIssue}
+                  style={{ width:'100%', padding:'9px', borderRadius:9, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:8, opacity: (cart.length === 0 || cartHasStockIssue) ? 0.5 : 1 }}>
+                  {addCartMut.isPending ? <Loader size={14} style={{ animation:'spin 1s linear infinite' }}/> : <Plus size={14}/>} {t('hotel.reservationDetail.addServiceBtn')} {cart.length > 0 && `(${cart.length})`}
                 </button>
               </div>
             )}
