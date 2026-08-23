@@ -416,7 +416,7 @@ export default {
       methodCash: 'Cash', methodCard: 'Kat', methodMoncash: 'MonCash', methodTransfer: 'Virement',
       recordPayment: '+ Anrejistre Peman', recording: 'Ap anrejistre...',
       depositType: 'Depo', paymentType: 'Peman',
-      servicesTitle: 'Sèvis Anplis', noServices: 'Pa gen sèvis anplis', addServiceTitle: 'Ajoute Sèvis',
+      servicesTitle: 'Sèvis Anplis', noServices: 'Pa gen sèvis anplis', addServiceTitle: 'Ajoute Sèvis', searchProductPlaceholder: 'Chèche yon pwodui nan stock...', stockLabel: 'Stock', manualServiceHint: 'Oswa antre yon sèvis manyèl si li pa nan stock (egz. Lavaj, Masaj)', insufficientStock: 'Sèlman {{qty}} disponib nan stock', noProductsFound: 'Pa gen pwodui ki matche', offerProductHint: 'Klike pou ofri yon bagay nan stock bay kliyan sa a',
       serviceTypeFood: '🍽 Manje', serviceTypeDrink: '🥤 Bwason', serviceTypeLaundry: '👕 Lavaj',
       serviceTypeTransport: '🚗 Transpò', serviceTypeSpa: '💆 Spa', serviceTypeRoomService: '🛎 Sèvis Chanm', serviceTypeOther: '📦 Lòt',
       quantityPlaceholder: 'Kantite', descriptionPlaceholder: 'Deskripsyon *', unitPricePlaceholder: 'Pri unitè HTG *',

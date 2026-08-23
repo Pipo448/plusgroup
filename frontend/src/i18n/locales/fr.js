@@ -419,7 +419,7 @@ export default {
       methodCash: 'Espèces', methodCard: 'Carte', methodMoncash: 'MonCash', methodTransfer: 'Virement',
       recordPayment: '+ Enregistrer le Paiement', recording: 'Enregistrement...',
       depositType: 'Dépôt', paymentType: 'Paiement',
-      servicesTitle: 'Services Additionnels', noServices: 'Aucun service additionnel', addServiceTitle: 'Ajouter un Service',
+      servicesTitle: 'Services Additionnels', noServices: 'Aucun service additionnel', addServiceTitle: 'Ajouter un Service', searchProductPlaceholder: 'Rechercher un produit en stock...', stockLabel: 'Stock', manualServiceHint: 'Ou saisissez un service manuel si non disponible en stock (ex. Blanchisserie, Massage)', insufficientStock: 'Seulement {{qty}} disponible en stock', noProductsFound: 'Aucun produit correspondant', offerProductHint: 'Cliquez pour proposer un article du stock à ce client',
       serviceTypeFood: '🍽 Repas', serviceTypeDrink: '🥤 Boisson', serviceTypeLaundry: '👕 Blanchisserie',
       serviceTypeTransport: '🚗 Transport', serviceTypeSpa: '💆 Spa', serviceTypeRoomService: '🛎 Service en Chambre', serviceTypeOther: '📦 Autre',
       quantityPlaceholder: 'Quantité', descriptionPlaceholder: 'Description *', unitPricePlaceholder: 'Prix unitaire HTG *',

@@ -23,6 +23,7 @@ const getByReservation = async (req, res) => {
 const add = async (req, res) => {
   try {
     const { tenantId, userId } = req
+    const branchId = req.branchId
     const { id: reservationId } = req.params
     const { productId, type, description, quantity, unitPriceHtg, notes } = req.body
 
@@ -31,30 +32,66 @@ const add = async (req, res) => {
     if (['checked_out', 'cancelled'].includes(reservation.status)) {
       return res.status(400).json({ success: false, message: 'Pa ka ajoute sèvis — rezèvasyon fini' })
     }
-    if (!description || !unitPriceHtg) {
+
+    const qty = parseFloat(quantity || 1)
+
+    // ── Si sèvis la lye ak yon pwodui nan stock — sèvè a itilize pri/non pwodui a
+    // (jamè fè konfyans a valè fwontyè a), e verifye ase kantite disponib.
+    let finalDescription = description
+    let finalPrice       = parseFloat(unitPriceHtg || 0)
+    let product           = null
+
+    if (productId) {
+      product = await prisma.product.findFirst({ where: { id: productId, tenantId } })
+      if (!product) return res.status(404).json({ success: false, message: 'Pwodui pa jwenn' })
+      if (!product.isActive) return res.status(400).json({ success: false, message: 'Pwodui sa inaktif' })
+      if (Number(product.quantity) < qty) {
+        return res.status(400).json({ success: false, message: `Sèlman ${product.quantity} ${product.unit || 'unité'} disponib nan stock pou "${product.name}"` })
+      }
+      finalDescription = description?.trim() || product.name
+      finalPrice        = parseFloat(product.priceHtg)
+    } else if (!description || !unitPriceHtg) {
       return res.status(400).json({ success: false, message: 'Deskripsyon ak pri obligatwa' })
     }
 
-    const qty      = parseFloat(quantity || 1)
-    const price    = parseFloat(unitPriceHtg)
-    const totalHtg = qty * price
+    const totalHtg = qty * finalPrice
 
     const service = await prisma.$transaction(async (tx) => {
       const s = await tx.hotelService.create({
         data: {
           tenantId,
           reservationId,
-          productId:   productId || null,
-          type:        type || 'other',
-          description,
-          quantity:    qty,
-          unitPriceHtg: price,
+          productId:    productId || null,
+          type:         type || 'other',
+          description:  finalDescription,
+          quantity:     qty,
+          unitPriceHtg: finalPrice,
           totalHtg,
           notes,
           createdBy: userId,
         },
         include: { product: { select: { id: true, name: true } } },
       })
+
+      // ── Dekremante stock si sèvis la soti nan yon pwodui reyèl
+      if (product) {
+        const qtyBefore = Number(product.quantity)
+        const qtyAfter  = qtyBefore - qty
+        await tx.product.update({ where: { id: productId }, data: { quantity: qtyAfter } })
+        await tx.stockMovement.create({
+          data: {
+            tenantId,
+            branchId:       branchId || null,
+            productId,
+            movementType:   'adjustment',
+            quantityBefore: qtyBefore,
+            quantityChange: -qty,
+            quantityAfter:  qtyAfter,
+            notes:          `Sèvis rezèvasyon ${reservation.reservationNumber} (Hotel)`,
+            createdBy:      userId,
+          },
+        })
+      }
 
       // Rekalkile total rezèvasyon
       const allServices       = await tx.hotelService.findMany({ where: { reservationId } })
@@ -78,7 +115,8 @@ const add = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
-    const { tenantId } = req
+    const { tenantId, userId } = req
+    const branchId = req.branchId
     const { serviceId } = req.params
 
     const service = await prisma.hotelService.findFirst({ where: { id: serviceId, tenantId } })
@@ -86,6 +124,29 @@ const remove = async (req, res) => {
 
     await prisma.$transaction(async (tx) => {
       await tx.hotelService.delete({ where: { id: serviceId } })
+
+      // ── Restore stock — sèvis la efase, kidonk atik la pa t reyèlman konsome
+      if (service.productId) {
+        const product = await tx.product.findFirst({ where: { id: service.productId, tenantId } })
+        if (product) {
+          const qtyBefore = Number(product.quantity)
+          const qtyAfter  = qtyBefore + Number(service.quantity)
+          await tx.product.update({ where: { id: service.productId }, data: { quantity: qtyAfter } })
+          await tx.stockMovement.create({
+            data: {
+              tenantId,
+              branchId:       branchId || null,
+              productId:      service.productId,
+              movementType:   'adjustment',
+              quantityBefore: qtyBefore,
+              quantityChange: Number(service.quantity),
+              quantityAfter:  qtyAfter,
+              notes:          `Sèvis retire — restorasyon stock (Hotel)`,
+              createdBy:      userId,
+            },
+          })
+        }
+      }
 
       const reservation      = await tx.reservation.findFirst({ where: { id: service.reservationId } })
       const allServices      = await tx.hotelService.findMany({ where: { reservationId: service.reservationId } })
