@@ -333,7 +333,7 @@ export default {
     dashboard: {
       title: 'Hotel Dashboard', roomsTotal: '{{count}} rooms total',
       newReservation: 'New Reservation', quickMoman: 'New Short Stay', allReservations: 'All Reservations',
-      noRooms: 'No rooms', addRoom: 'Add Room', finishCleaning: 'Cleaning Done',
+      noRooms: 'No rooms', addRoom: 'Add Room', finishCleaning: 'Cleaning Done', occupancyToday: 'Occupancy Today', occupancySub: '{{occupied}} of {{total}} rooms occupied',
       view: 'View', reserve: 'Reserve',
       status: { available:'Available', occupied:'Occupied', reserved:'Reserved', cleaning:'Cleaning', maintenance:'Maintenance' },
     },

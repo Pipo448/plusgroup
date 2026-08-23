@@ -332,7 +332,7 @@ export default {
     dashboard: {
       title: 'Dashboard Otèl', roomsTotal: '{{count}} chanm total',
       newReservation: 'Nouvo Rezèvasyon', quickMoman: 'Nouvo Moman', allReservations: 'Tout Rezèvasyon',
-      noRooms: 'Pa gen chanm', addRoom: 'Ajoute Chanm', finishCleaning: 'Fin Netwaye',
+      noRooms: 'Pa gen chanm', addRoom: 'Ajoute Chanm', finishCleaning: 'Fin Netwaye', occupancyToday: 'Okipasyon Jodi a', occupancySub: '{{occupied}} nan {{total}} chanm okipe',
       view: 'Wè', reserve: 'Rezève',
       status: { available:'Disponib', occupied:'Okipe', reserved:'Rezève', cleaning:'Ap Netwaye', maintenance:'Reparasyon' },
     },

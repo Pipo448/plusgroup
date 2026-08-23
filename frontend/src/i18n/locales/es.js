@@ -332,7 +332,7 @@ export default {
     dashboard: {
       title: 'Panel del Hotel', roomsTotal: '{{count}} habitaciones en total',
       newReservation: 'Nueva Reserva', quickMoman: 'Nueva Estadía Corta', allReservations: 'Todas las Reservas',
-      noRooms: 'No hay habitaciones', addRoom: 'Agregar Habitación', finishCleaning: 'Limpieza Terminada',
+      noRooms: 'No hay habitaciones', addRoom: 'Agregar Habitación', finishCleaning: 'Limpieza Terminada', occupancyToday: 'Ocupación de Hoy', occupancySub: '{{occupied}} de {{total}} habitaciones ocupadas',
       view: 'Ver', reserve: 'Reservar',
       status: { available:'Disponible', occupied:'Ocupada', reserved:'Reservada', cleaning:'Limpieza', maintenance:'Mantenimiento' },
     },

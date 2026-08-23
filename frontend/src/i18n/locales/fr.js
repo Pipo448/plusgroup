@@ -335,7 +335,7 @@ export default {
     dashboard: {
       title: 'Tableau de Bord Hôtel', roomsTotal: '{{count}} chambres au total',
       newReservation: 'Nouvelle Réservation', quickMoman: 'Nouveau Court Séjour', allReservations: 'Toutes les Réservations',
-      noRooms: 'Aucune chambre', addRoom: 'Ajouter une Chambre', finishCleaning: 'Nettoyage Terminé',
+      noRooms: 'Aucune chambre', addRoom: 'Ajouter une Chambre', finishCleaning: 'Nettoyage Terminé', occupancyToday: "Taux d'Occupation", occupancySub: '{{occupied}} chambres occupées sur {{total}}',
       view: 'Voir', reserve: 'Réserver',
       status: { available:'Disponible', occupied:'Occupée', reserved:'Réservée', cleaning:'Nettoyage', maintenance:'Maintenance' },
     },
