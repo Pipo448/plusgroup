@@ -59,6 +59,9 @@ const EmployeesPage      = lazy(() => import('./pages/employees/EmployeesPage'))
 const ExpensesPage       = lazy(() => import('./pages/expenses/ExpensesPage'))
 // ✅ NOUVO — Founisè: kapital, founisè, achte
 const FounisePage        = lazy(() => import('./pages/founise/FounisePage'))
+// ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
+const KesSesyonPage      = lazy(() => import('./pages/kes-sesyon/KesSesyonPage'))
+const EstokKontwolPage   = lazy(() => import('./pages/estok-kontwol/EstokKontwolPage'))
 const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/MikwoKrediProfit'))
 const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
 // ⚠️ NOUVO — Dashboard Ajan (pwoteje, lazy tankou lòt dashboard yo)
@@ -190,6 +193,9 @@ export default function App() {
             <Route path="finances"  element={<AdminFinancesPage />} />
             {/* ✅ NOUVO — Founisè: kapital, founisè, achte */}
             <Route path="founise"   element={<ProtectedPage pageKey="founise"><FounisePage /></ProtectedPage>} />
+            {/* ✅ NOUVO — Sesyon Kès + Kontwòl Estòk */}
+            <Route path="kes-sesyon"    element={<ProtectedPage pageKey="kes-sesyon"><KesSesyonPage /></ProtectedPage>} />
+            <Route path="estok-kontwol" element={<ProtectedPage pageKey="estok-kontwol"><EstokKontwolPage /></ProtectedPage>} />
           </Route>
 
           {/* Legacy redirects */}

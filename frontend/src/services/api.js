@@ -276,6 +276,20 @@ export const founiseAPI = {
   // ✅ NOUVO — plizyè liy achte pou menm founisè a, an yon sèl fwa
   createAchteBatch: (data) => api.post('/founise/achte/batch', data),
 }
+
+// ✅ NOUVO — Sesyon Kès (kontwòl kòb pa kesye)
+export const kesSesyonAPI = {
+  getAktif:  ()         => api.get('/kes-sesyon/aktif'),
+  louvri:    (data)     => api.post('/kes-sesyon/louvri', data),
+  femen:     (id, data) => api.post(`/kes-sesyon/${id}/femen`, data),
+  getAll:    (p)        => api.get('/kes-sesyon', { params: p }),
+}
+
+// ✅ NOUVO — Kontwòl Estòk (rapò konte fizik)
+export const estokKontwolAPI = {
+  create:  (data) => api.post('/estok-kontwol', data),
+  getAll:  (p)     => api.get('/estok-kontwol', { params: p }),
+}
  
 
 export default api
