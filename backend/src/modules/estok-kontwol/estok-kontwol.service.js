@@ -28,30 +28,30 @@ const createKontwol = async (tenantId, userId, { productId, kantiteKonte, notes 
   });
 };
 
-// ✅ NOUVO — Plizyè kontwòl an yon sèl fwa (yon liy pa pwodwi), pou kesye
-// a pa oblije repete tout fòm nan pou chak pwodwi. Chak liy trete
-// endepandamman — si youn echwe (egzanp yon productId ki pa egziste), rès
-// yo kontinye anrejistre; nou retounen yon rezime (konbyen reyisi, konbyen
-// echwe) pou kesye a wè klè.
+// ✅ KORIJE — Plizyè kontwòl an yon sèl fwa. TRETE AN PARALÈL (Promise.
+// allSettled) olye youn apre lòt: pou 16+ pwodwi, trete yo an sekans te ka
+// pran plis pase 15 segonn (timeout navigatè a), byenke backend lan te
+// kontinye anrejistre yo an silans — sa te bay yon "erè" bò kote kesye a
+// pandan done yo te deja ap sove. An paralèl, tout 16 (oswa plis) liy yo
+// fèt an menm tan, kidonk repons lan rive byen vit.
 const createKontwolBatch = async (tenantId, userId, data) => {
   const lignes = Array.isArray(data.lignes) ? data.lignes : [];
   if (!lignes.length) throw Object.assign(new Error('Ajoute omwen yon liy kontwòl.'), { statusCode: 400 });
 
+  const results = await Promise.allSettled(
+    lignes.map(l => createKontwol(tenantId, userId, {
+      productId: l.productId,
+      kantiteKonte: l.kantiteKonte,
+      notes: l.notes,
+    }))
+  );
+
   const rezilta = [];
   const erè = [];
-
-  for (const l of lignes) {
-    try {
-      const kontwol = await createKontwol(tenantId, userId, {
-        productId: l.productId,
-        kantiteKonte: l.kantiteKonte,
-        notes: l.notes,
-      });
-      rezilta.push(kontwol);
-    } catch (e) {
-      erè.push({ productId: l.productId, message: e.message });
-    }
-  }
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled') rezilta.push(r.value);
+    else erè.push({ productId: lignes[i].productId, message: r.reason?.message || 'Erè enkoni.' });
+  });
 
   return { kontwol: rezilta, kontwolReyisi: rezilta.length, kontwolEchwe: erè.length, erè };
 };

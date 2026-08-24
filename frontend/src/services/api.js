@@ -289,7 +289,7 @@ export const kesSesyonAPI = {
 export const estokKontwolAPI = {
   create:  (data) => api.post('/estok-kontwol', data),
   // ✅ NOUVO — plizyè kontwòl an yon sèl fwa (pa gen pou repete fòm nan pou chak pwodwi)
-  createBatch: (data) => api.post('/estok-kontwol/batch', data),
+  createBatch: (data) => api.post('/estok-kontwol/batch', data, { timeout: 30000 }),
   getAll:  (p)     => api.get('/estok-kontwol', { params: p }),
 }
  
