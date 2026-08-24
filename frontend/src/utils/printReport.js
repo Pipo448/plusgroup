@@ -1,43 +1,22 @@
 // src/utils/printReport.js
-// ✅ KORIJE — Kounye a fonksyon sa a se yon ÒKESTRATÈ: li eseye chemen
-// enprime yo nan lòd, menm jan ak rès app la (fakti, devi, elt.):
-//   1. Native (APK Android — Sunmi/iMin/Telpo/Bluetooth otomatik)
-//   2. Bluetooth Web (navigatè, si yon enprimant deja konekte)
-//   3. Repli HTML (fenèt navigatè ak bwat dyalòg enprime — pou tès sou
-//      òdinatè san enprimant, oswa si toude lòt chemen yo pa disponib)
-// Chak paj (Sesyon Kès, Kontwòl Estòk...) kontinye rele `printReport(...)`
-// menm jan an — pa gen chanjman pou fè nan paj yo.
+// ✅ KORIJE — Olye de yon sèl fonksyon ki "devine" ki chemen pou pran, kounye
+// a nou ekspoze DE FONKSYON EKSPLISIT — menm modèl ak paj Fakti a, kote
+// itilizatè a chwazi li menm ant "Enprime (USB)" ak "Enprime BT":
+//   - printReportUSB(...)       → fenèt navigatè + bwat dyalòg enprime OS la
+//                                  (nenpòt enprimant konekte, USB oswa lòt)
+//   - printReportBluetooth(...) → Native (APK Android) si disponib, sinon
+//                                  Web Bluetooth (navigatè, si yon
+//                                  enprimant tèmik deja konekte)
 
 import { isNativePrinterAvailable, printGenericReportNative } from '../services/printerNative'
-import { isPrinterConnected, printGenericReceipt } from '../services/printerService'
+import { printGenericReceipt } from '../services/printerService'
 
-export async function printReport({ title, subtitle, rows, meta, tenantName, tenant }) {
-  const tenantObj = tenant || { name: tenantName }
-
-  if (isNativePrinterAvailable()) {
-    try {
-      await printGenericReportNative({ title, subtitle, meta, rows }, tenantObj)
-      return
-    } catch (e) {
-      console.error('[printReport] Native failed, falling back:', e)
-    }
-  }
-
-  if (isPrinterConnected()) {
-    try {
-      await printGenericReceipt({ title, subtitle, meta, rows }, tenantObj)
-      return
-    } catch (e) {
-      console.error('[printReport] Bluetooth web failed, falling back:', e)
-    }
-  }
-
-  printReportHTML({ title, subtitle, rows, meta, tenantName: tenantObj.name })
-}
-
-function printReportHTML({ title, subtitle, rows, meta, tenantName }) {
+// ── Bouton "Enprime (USB)" ────────────────────────────────────────────
+export function printReportUSB({ title, subtitle, rows, meta, tenantName, tenant }) {
   const win = window.open('', '_blank', 'width=480,height=700')
   if (!win) return
+
+  const name = tenant?.name || tenantName
 
   const metaHtml = (meta || [])
     .map(m => `
@@ -99,7 +78,7 @@ function printReportHTML({ title, subtitle, rows, meta, tenantName }) {
     </head>
     <body>
       <div class="header">
-        <div class="tenant">${tenantName || 'PLUS GROUP'}</div>
+        <div class="tenant">${name || 'PLUS GROUP'}</div>
         <div class="title">${title}</div>
         ${subtitle ? `<div class="subtitle">${subtitle}</div>` : ''}
       </div>
@@ -119,4 +98,16 @@ function printReportHTML({ title, subtitle, rows, meta, tenantName }) {
     win.print()
     win.onafterprint = () => win.close()
   }, 300)
+}
+
+// ── Bouton "Enprime BT" ────────────────────────────────────────────────
+export async function printReportBluetooth({ title, subtitle, rows, meta, tenantName, tenant }) {
+  const tenantObj = tenant || { name: tenantName }
+
+  if (isNativePrinterAvailable()) {
+    await printGenericReportNative({ title, subtitle, meta, rows }, tenantObj)
+    return
+  }
+
+  await printGenericReceipt({ title, subtitle, meta, rows }, tenantObj)
 }

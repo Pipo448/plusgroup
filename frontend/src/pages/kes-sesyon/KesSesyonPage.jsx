@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { kesSesyonAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { printReport } from '../../utils/printReport'
+import { printReportUSB, printReportBluetooth } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Wallet, Printer, Lock, Unlock, History } from 'lucide-react'
+import { ArrowLeft, Wallet, Printer, Lock, Unlock, History, Bluetooth } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -83,9 +83,12 @@ export default function KesSesyonPage() {
   const ekaColor = (eka) => eka > 0 ? D.success : eka < 0 ? D.red : D.muted
   const ekaLabel = (eka) => eka > 0 ? 'Siplis' : eka < 0 ? 'Manko' : 'Ekzat'
 
-  const printSesyon = (s) => {
+  // ✅ KORIJE — konstwi done fich la yon sèl fwa, epi ofri DE bouton
+  // eksplisit (USB / BT) — menm modèl ak paj Fakti a — olye de yon sèl
+  // bouton ki "devine" ki enprimant pou itilize.
+  const buildSesyonFiche = (s) => {
     const eka = Number(s.eka || 0)
-    printReport({
+    return {
       tenant,
       title: 'Fich Sesyon Kès',
       subtitle: s.user?.fullName || '',
@@ -100,8 +103,10 @@ export default function KesSesyonPage() {
         { label: 'Kantite Konte', value: `${fmt(s.fon_kes_femen)} HTG`, strong: true },
         { label: ekaLabel(eka), value: `${eka > 0 ? '+' : ''}${fmt(eka)} HTG`, strong: true, color: eka > 0 ? 'color-green' : eka < 0 ? 'color-red' : '' },
       ],
-    })
+    }
   }
+  const printSesyonUSB = (s) => printReportUSB(buildSesyonFiche(s))
+  const printSesyonBT  = (s) => printReportBluetooth(buildSesyonFiche(s)).catch(e => toast.error(e.message || 'Pa gen enprimant Bluetooth konekte.'))
 
   return (
     <div style={{ maxWidth:1000, margin:'0 auto', padding: isMobile ? '16px' : '24px' }}>
@@ -174,11 +179,16 @@ export default function KesSesyonPage() {
         {/* Rezilta dènye sesyon fèmen */}
         {dernyeSesyon && (
           <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow, border:`2px solid ${ekaColor(Number(dernyeSesyon.eka))}` }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', gap:10, marginBottom:16 }}>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Rezilta Sesyon an</h3>
-              <button onClick={() => printSesyon(dernyeSesyon)} style={{ padding:'8px 14px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
-                <Printer size={14}/> Enprime Fich
-              </button>
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => printSesyonUSB(dernyeSesyon)} style={{ flex:1, padding:'8px 14px', borderRadius:10, border:'none', background:D.blue, color:'#fff', fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                  <Printer size={14}/> Enprime (USB)
+                </button>
+                <button onClick={() => printSesyonBT(dernyeSesyon)} style={{ flex:1, padding:'8px 14px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                  <Printer size={14}/> Enprime BT
+                </button>
+              </div>
             </div>
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr 1fr', gap: isMobile ? 10 : 14 }}>
               <div><p style={{ fontSize:10, color:D.muted, fontWeight:800, textTransform:'uppercase', margin:'0 0 3px' }}>Vant Kach</p><p style={{ fontSize:15, fontWeight:800, fontFamily:'monospace', margin:0 }}>{fmt(dernyeSesyon.vant_kach)}</p></div>
@@ -220,9 +230,14 @@ export default function KesSesyonPage() {
                         <span style={{ fontSize:11, fontWeight:800, color:D.success }}>● Aktif</span>
                       )}
                       {s.status === 'femen' && (
-                        <button onClick={() => printSesyon(s)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
-                          <Printer size={13}/>
-                        </button>
+                        <div style={{ display:'flex', gap:6 }}>
+                          <button onClick={() => printSesyonUSB(s)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                            <Printer size={13}/>
+                          </button>
+                          <button onClick={() => printSesyonBT(s)} title="Enprime BT" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                            <Bluetooth size={13}/>
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>

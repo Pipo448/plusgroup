@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estokKontwolAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { printReport } from '../../utils/printReport'
+import { printReportUSB, printReportBluetooth } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardCheck, Printer, Search, Zap } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Printer, Search, Zap, Bluetooth } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -69,6 +69,10 @@ export default function EstokKontwolPage() {
 
   const { data: histData } = useQuery({ queryKey: ['estok-kontwol-list'], queryFn: () => estokKontwolAPI.getAll({ limit: 40 }) })
   const historik = histData?.data?.kontwol || []
+  // ✅ NOUVO — kache liy ki pa gen okenn diferans (0 ekà), pou lis la pa
+  // vin twò long apre yon gwo kontwòl batch kote pifò pwodwi te ekzat.
+  const [sèlmanDiferans, setSèlmanDiferans] = useState(false)
+  const historikAfiche = sèlmanDiferans ? historik.filter(k => Number(k.eka) !== 0) : historik
 
   const batchMutation = useMutation({
     mutationFn: (data) => estokKontwolAPI.createBatch(data),
@@ -108,9 +112,10 @@ export default function EstokKontwolPage() {
   const ekaColor = (eka) => eka > 0 ? D.success : eka < 0 ? D.red : D.muted
   const ekaLabel = (eka) => eka > 0 ? 'Siplis' : eka < 0 ? 'Manko' : 'Ekzat'
 
-  const printKontwol = (k) => {
+  // ✅ KORIJE — konstwi done fich la yon sèl fwa, DE bouton eksplisit (USB/BT)
+  const buildKontwolFiche = (k) => {
     const eka = Number(k.eka)
-    printReport({
+    return {
       tenant,
       title: 'Fich Kontwòl Estòk',
       subtitle: k.product?.name || '',
@@ -120,8 +125,10 @@ export default function EstokKontwolPage() {
         { label: 'Kantite Konte', value: `${fmt(k.kantite_konte)} ${k.product?.unit || ''}`, strong: true },
         { label: ekaLabel(eka), value: `${eka > 0 ? '+' : ''}${fmt(eka)} ${k.product?.unit || ''}`, strong: true, color: eka > 0 ? 'color-green' : eka < 0 ? 'color-red' : '' },
       ],
-    })
+    }
   }
+  const printKontwolUSB = (k) => printReportUSB(buildKontwolFiche(k))
+  const printKontwolBT  = (k) => printReportBluetooth(buildKontwolFiche(k)).catch(e => toast.error(e.message || 'Pa gen enprimant Bluetooth konekte.'))
 
   return (
     <div style={{ maxWidth:1000, margin:'0 auto', padding: isMobile ? '16px' : '24px' }}>
@@ -237,8 +244,11 @@ export default function EstokKontwolPage() {
                     <div style={{ display:'flex', alignItems:'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap:10 }}>
                       <span style={{ fontSize:12, fontFamily:'monospace', color:D.muted }}>{fmt(k.kantite_sistem)} → {fmt(k.kantite_konte)}</span>
                       <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(eka) }}>{eka > 0 ? '+' : ''}{fmt(eka)}</span>
-                      <button onClick={() => printKontwol(k)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
+                      <button onClick={() => printKontwolUSB(k)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
                         <Printer size={12}/>
+                      </button>
+                      <button onClick={() => printKontwolBT(k)} title="Enprime BT" style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
+                        <Bluetooth size={12}/>
                       </button>
                     </div>
                   </div>
@@ -250,12 +260,21 @@ export default function EstokKontwolPage() {
 
         {/* Istorik */}
         <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
-          <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Istorik Kontwòl</h3>
-          {historik.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen kontwòl anrejistre ankò.</p>
+          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', gap:10, marginBottom:16 }}>
+            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Istorik Kontwòl</h3>
+            {/* ✅ NOUVO — kache liy ki gen 0 ekà, pou wè sèlman sa ki gen yon vrè diferans */}
+            <button onClick={() => setSèlmanDiferans(v => !v)}
+              style={{ padding:'8px 14px', borderRadius:10, border:`1.5px solid ${sèlmanDiferans ? D.orange : D.border}`, background: sèlmanDiferans ? 'rgba(255,107,0,0.08)' : '#fff', color: sèlmanDiferans ? D.orange : D.muted, fontWeight:800, fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
+              {sèlmanDiferans ? '✓ Sèlman diferans yo' : 'Montre sèlman diferans yo'}
+            </button>
+          </div>
+          {historikAfiche.length === 0 ? (
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>
+              {sèlmanDiferans ? 'Pa gen okenn diferans nan istorik la — tout kontwòl te ekzat.' : 'Pa gen kontwòl anrejistre ankò.'}
+            </p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {historik.map(k => (
+              {historikAfiche.map(k => (
                 <div key={k.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
                   <div style={{ minWidth:0 }}>
                     <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{k.product?.name}</p>
@@ -265,8 +284,11 @@ export default function EstokKontwolPage() {
                     <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(Number(k.eka)) }}>
                       {Number(k.eka) > 0 ? '+' : ''}{fmt(k.eka)}
                     </span>
-                    <button onClick={() => printKontwol(k)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                    <button onClick={() => printKontwolUSB(k)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
                       <Printer size={13}/>
+                    </button>
+                    <button onClick={() => printKontwolBT(k)} title="Enprime BT" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                      <Bluetooth size={13}/>
                     </button>
                   </div>
                 </div>
