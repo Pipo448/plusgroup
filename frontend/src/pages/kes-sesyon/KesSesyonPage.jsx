@@ -6,7 +6,7 @@ import { kesSesyonAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { printReportUSB, printReportBluetooth } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Wallet, Printer, Lock, Unlock, History, Bluetooth } from 'lucide-react'
+import { ArrowLeft, Wallet, Printer, Lock, Unlock, History, Bluetooth, X } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -30,7 +30,10 @@ const inpMoney = { ...inp, border:`1.5px solid rgba(27,42,143,0.28)`, fontFamily
 const label = (txt) => (
   <label style={{ display:'block', fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>{txt}</label>
 )
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+// ✅ KORIJE — toLocaleString('fr-HT') mete yon "espas san koupe" (U+00A0/U+202F)
+// ant milye yo. Enprimant tèmik la pa konprann karaktè sa a, li montre yon
+// "?" nan mitan chif yo. Nou ranplase l ak yon senp espas nòmal.
+const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
 
 // ✅ NOUVO — Hook responsive, menm modèl ak lòt paj yo
@@ -44,6 +47,55 @@ function useIsMobile() {
   return isMobile
 }
 
+// ✅ NOUVO — Detay konplè yon sesyon fèmen, lè yon moun klike sou li nan istorik la
+const SesyonDetailModal = ({ sesyon, onClose, onPrintUSB, onPrintBT }) => {
+  const eka = Number(sesyon.eka || 0)
+  const color = eka > 0 ? D.success : eka < 0 ? D.red : D.muted
+  const rowStyle = { display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${D.border}` }
+  const labelStyle = { fontSize:12, color:D.muted, fontWeight:700 }
+  const valueStyle = { fontSize:13, color:D.text, fontWeight:800, fontFamily:'monospace' }
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(15,26,92,0.45)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }} onClick={onClose}>
+      <div style={{ background:D.white, borderRadius:18, padding:24, width:'100%', maxWidth:420, boxShadow:D.shadowLift, maxHeight:'90vh', overflowY:'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+          <h3 style={{ color:D.text, fontSize:15, fontWeight:900, margin:0 }}>{sesyon.user?.fullName || 'Sesyon Kès'}</h3>
+          <button onClick={onClose} style={{ width:30, height:30, borderRadius:9, border:'none', background:D.blueDim, color:D.blue, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <X size={15}/>
+          </button>
+        </div>
+        <p style={{ fontSize:11, color:D.muted, margin:'0 0 16px' }}>{fmtDate(sesyon.opened_at)} → {fmtDate(sesyon.closed_at)}</p>
+
+        <div style={{ display:'flex', flexDirection:'column' }}>
+          <div style={rowStyle}><span style={labelStyle}>Fon Kès Inisyal</span><span style={valueStyle}>{fmt(sesyon.fon_kes_ouveti)} HTG</span></div>
+          <div style={rowStyle}><span style={labelStyle}>Vant Kach (pandan sesyon an)</span><span style={valueStyle}>{fmt(sesyon.vant_kach)} HTG</span></div>
+          <div style={rowStyle}><span style={labelStyle}>Total Atann</span><span style={valueStyle}>{fmt(sesyon.atann)} HTG</span></div>
+          <div style={rowStyle}><span style={labelStyle}>Kantite Konte (kesye a)</span><span style={valueStyle}>{fmt(sesyon.fon_kes_femen)} HTG</span></div>
+          <div style={{ ...rowStyle, borderBottom:'none', paddingTop:14 }}>
+            <span style={{ fontSize:12, color:D.muted, fontWeight:800, textTransform:'uppercase' }}>{eka > 0 ? 'Siplis' : eka < 0 ? 'Manko' : 'Ekzat'}</span>
+            <span style={{ fontSize:20, fontWeight:900, fontFamily:'monospace', color }}>{eka > 0 ? '+' : ''}{fmt(eka)} HTG</span>
+          </div>
+        </div>
+
+        {sesyon.notes && (
+          <div style={{ marginTop:14, padding:'10px 12px', borderRadius:10, background:D.blueDim }}>
+            <p style={{ fontSize:10, color:D.muted, fontWeight:800, textTransform:'uppercase', margin:'0 0 3px' }}>Nòt</p>
+            <p style={{ fontSize:12, color:D.text, margin:0 }}>{sesyon.notes}</p>
+          </div>
+        )}
+
+        <div style={{ display:'flex', gap:8, marginTop:18 }}>
+          <button onClick={onPrintUSB} style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:D.blue, color:'#fff', fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            <Printer size={14}/> Enprime (USB)
+          </button>
+          <button onClick={onPrintBT} style={{ flex:1, padding:'10px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+            <Bluetooth size={14}/> Enprime BT
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function KesSesyonPage() {
   const navigate = useNavigate()
   const { tenant, user } = useAuthStore()
@@ -55,6 +107,8 @@ export default function KesSesyonPage() {
   const [fonFemen, setFonFemen] = useState('')
   const [notes, setNotes] = useState('')
   const [dernyeSesyon, setDernyeSesyon] = useState(null)
+  // ✅ NOUVO — sesyon seleksyone pou wè detay konplè li nan istorik la
+  const [sesyonDetay, setSesyonDetay] = useState(null)
 
   const { data: aktifData } = useQuery({ queryKey: ['kes-sesyon-aktif'], queryFn: () => kesSesyonAPI.getAktif() })
   const sesyonAktif = aktifData?.data?.sesyon || null
@@ -216,7 +270,8 @@ export default function KesSesyonPage() {
             ) : (
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                 {historik.map(s => (
-                  <div key={s.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
+                  <div key={s.id} onClick={() => s.status === 'femen' && setSesyonDetay(s)}
+                    style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}`, cursor: s.status === 'femen' ? 'pointer' : 'default' }}>
                     <div style={{ minWidth:0 }}>
                       <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{s.user?.fullName || '—'}</p>
                       <p style={{ fontSize:11, color:D.muted, margin:0 }}>{fmtDate(s.opened_at)} {s.status === 'femen' ? `→ ${fmtDate(s.closed_at)}` : '· En kou'}</p>
@@ -230,7 +285,7 @@ export default function KesSesyonPage() {
                         <span style={{ fontSize:11, fontWeight:800, color:D.success }}>● Aktif</span>
                       )}
                       {s.status === 'femen' && (
-                        <div style={{ display:'flex', gap:6 }}>
+                        <div style={{ display:'flex', gap:6 }} onClick={e => e.stopPropagation()}>
                           <button onClick={() => printSesyonUSB(s)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
                             <Printer size={13}/>
                           </button>
@@ -247,6 +302,15 @@ export default function KesSesyonPage() {
           </div>
         )}
       </div>
+
+      {sesyonDetay && (
+        <SesyonDetailModal
+          sesyon={sesyonDetay}
+          onClose={() => setSesyonDetay(null)}
+          onPrintUSB={() => printSesyonUSB(sesyonDetay)}
+          onPrintBT={() => printSesyonBT(sesyonDetay)}
+        />
+      )}
     </div>
   )
 }

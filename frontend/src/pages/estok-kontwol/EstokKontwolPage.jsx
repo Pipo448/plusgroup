@@ -30,7 +30,9 @@ const inpMoney = { ...inp, border:`1.5px solid rgba(27,42,143,0.28)`, fontFamily
 const label = (txt) => (
   <label style={{ display:'block', fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>{txt}</label>
 )
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 3 }).replace(/\.?0+$/, m => m.includes('.') ? '' : m)
+// ✅ KORIJE — menm fix ak KesSesyonPage.jsx (retire espas san koupe ki
+// koze "?" sou enprimant tèmik la)
+const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 3 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ').replace(/\.?0+$/, m => m.includes('.') ? '' : m)
 const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
 
 // ✅ NOUVO — Hook responsive, menm modèl ak lòt paj yo
