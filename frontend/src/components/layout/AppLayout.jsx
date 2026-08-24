@@ -11,7 +11,7 @@ import {
   Wallet, Hotel, CalendarDays, Tag,
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
-  TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, Wallet, ClipboardCheck,
+  TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
