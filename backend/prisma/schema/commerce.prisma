@@ -54,6 +54,8 @@ model Product {
   // ✅ NOUVO — Founisè: achte ki afekte pwodwi sa a (mete kantite estòk +
   // pri kout otomatikman lè yo anrejistre)
   pgAchte           pg_achte[]
+  // ✅ NOUVO — Kontwòl Estòk: istorik konte fizik pou pwodwi sa a
+  pgEstokKontwol    pg_estok_kontwol[]
   branch            Branch?            @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   category          ProductCategory?   @relation(fields: [categoryId], references: [id])
   creator           User?              @relation(fields: [createdBy], references: [id])

@@ -195,6 +195,9 @@ model Tenant {
   pg_founise             pg_founise[]
   pg_kapital             pg_kapital[]
   pg_achte               pg_achte[]
+  // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
+  pg_kes_sesyon          pg_kes_sesyon[]
+  pg_estok_kontwol       pg_estok_kontwol[]
   pre_echeances          pre_echeances[]
   pre_kapital            pre_kapital[]
   prePaiements           PrePaiement[]
@@ -335,6 +338,9 @@ model User {
   pg_founise                   pg_founise[]
   pg_kapital                   pg_kapital[]
   pg_achte                     pg_achte[]
+  // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
+  pg_kes_sesyon                pg_kes_sesyon[]
+  pg_estok_kontwol             pg_estok_kontwol[]
   pre_kapital                  pre_kapital[]
   prePaiementsCreated          PrePaiement[]          @relation("PrePaiementCreatedBy")
   pre_rapo_kesye               pre_rapo_kesye[]

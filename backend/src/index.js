@@ -57,6 +57,9 @@ const publicSignupRoutes  = require('./modules/tenants/public-signup.routes')
 const securityRoutes      = require('./modules/security/pin.routes')
 // ✅ NOUVO — Founisè: kapital, founisè, achte (alimante estòk + pri kout)
 const founiseRoutes       = require('./modules/founise/founise.routes')
+// ✅ NOUVO — Sesyon Kès (kontwòl kòb pa kesye) + Kontwòl Estòk (rapò konte fizik)
+const kesSesyonRoutes     = require('./modules/kes-sesyon/kes-sesyon.routes')
+const estokKontwolRoutes  = require('./modules/estok-kontwol/estok-kontwol.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -190,6 +193,9 @@ app.use(`${API}/pg-employees`, pgEmployeesRoutes)
 app.use(`${API}/pg-expenses`,  pgExpensesRoutes)
 // ✅ NOUVO — Founisè: kapital, founisè, achte
 app.use(`${API}/founise`,      founiseRoutes)
+// ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
+app.use(`${API}/kes-sesyon`,     kesSesyonRoutes)
+app.use(`${API}/estok-kontwol`,  estokKontwolRoutes)
 app.use(`${API}/mikwo-expenses`, mikwoExpensesRoutes)
 app.use(`${API}/mikwo-profit`,   mikwoProfitRoutes)
 app.use(`${API}/internet`,   internetRoutes);
