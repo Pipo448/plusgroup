@@ -111,7 +111,7 @@ export default function EstokKontwolPage() {
   const printKontwol = (k) => {
     const eka = Number(k.eka)
     printReport({
-      tenantName: tenant?.name,
+      tenant,
       title: 'Fich Kontwòl Estòk',
       subtitle: k.product?.name || '',
       meta: [{ label: 'Dat', value: fmtDate(k.created_at) }, { label: 'Kontwole pa', value: k.creator?.fullName || '—' }],

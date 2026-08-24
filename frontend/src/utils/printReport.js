@@ -1,9 +1,41 @@
 // src/utils/printReport.js
-// ✅ NOUVO — Zouti pataje pou enprime nenpòt fich rapò (Sesyon Kès,
-// Kontwòl Estòk, elt.) nan yon fenèt pwòp, byen prezante, ak menm antèt/pye
-// paj ki itilize toupatou nan PLUS GROUP (footer "Powered by plusgroupe.com").
+// ✅ KORIJE — Kounye a fonksyon sa a se yon ÒKESTRATÈ: li eseye chemen
+// enprime yo nan lòd, menm jan ak rès app la (fakti, devi, elt.):
+//   1. Native (APK Android — Sunmi/iMin/Telpo/Bluetooth otomatik)
+//   2. Bluetooth Web (navigatè, si yon enprimant deja konekte)
+//   3. Repli HTML (fenèt navigatè ak bwat dyalòg enprime — pou tès sou
+//      òdinatè san enprimant, oswa si toude lòt chemen yo pa disponib)
+// Chak paj (Sesyon Kès, Kontwòl Estòk...) kontinye rele `printReport(...)`
+// menm jan an — pa gen chanjman pou fè nan paj yo.
 
-export function printReport({ title, subtitle, rows, meta, tenantName }) {
+import { isNativePrinterAvailable, printGenericReportNative } from '../services/printerNative'
+import { isPrinterConnected, printGenericReceipt } from '../services/printerService'
+
+export async function printReport({ title, subtitle, rows, meta, tenantName, tenant }) {
+  const tenantObj = tenant || { name: tenantName }
+
+  if (isNativePrinterAvailable()) {
+    try {
+      await printGenericReportNative({ title, subtitle, meta, rows }, tenantObj)
+      return
+    } catch (e) {
+      console.error('[printReport] Native failed, falling back:', e)
+    }
+  }
+
+  if (isPrinterConnected()) {
+    try {
+      await printGenericReceipt({ title, subtitle, meta, rows }, tenantObj)
+      return
+    } catch (e) {
+      console.error('[printReport] Bluetooth web failed, falling back:', e)
+    }
+  }
+
+  printReportHTML({ title, subtitle, rows, meta, tenantName: tenantObj.name })
+}
+
+function printReportHTML({ title, subtitle, rows, meta, tenantName }) {
   const win = window.open('', '_blank', 'width=480,height=700')
   if (!win) return
 
@@ -53,7 +85,16 @@ export function printReport({ title, subtitle, rows, meta, tenantName }) {
         .color-red { color: #C0392B; }
         .color-green { color: #059669; }
         .footer { text-align: center; margin-top: 20px; padding-top: 12px; border-top: 2px dashed #1B2A8F; font-size: 9px; color: #6B7AAB; }
-        @media print { body { padding: 8px; } }
+        .close-btn {
+          display: block; width: 100%; margin-top: 18px; padding: 12px;
+          background: #1B2A8F; color: #fff; border: none; border-radius: 10px;
+          font-family: 'DM Sans', Arial, sans-serif; font-size: 13px; font-weight: 800;
+          cursor: pointer;
+        }
+        @media print {
+          body { padding: 8px; }
+          .close-btn { display: none; }
+        }
       </style>
     </head>
     <body>
@@ -68,10 +109,14 @@ export function printReport({ title, subtitle, rows, meta, tenantName }) {
       <div class="footer">
         Powered by plusgroupe.com<br/>Tél: +509 4244-9024
       </div>
+      <button class="close-btn" onclick="window.close()">✕ Fèmen</button>
     </body>
     </html>
   `)
   win.document.close()
   win.focus()
-  setTimeout(() => win.print(), 300)
+  setTimeout(() => {
+    win.print()
+    win.onafterprint = () => win.close()
+  }, 300)
 }

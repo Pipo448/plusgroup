@@ -871,3 +871,41 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
 
   await dispatch(bytes)
 }
+
+// ✅ NOUVO — Enprime yon fich rapò JENERIK (Sesyon Kès, Kontwòl Estòk, elt.)
+// atravè Web Bluetooth, menm mekanis ak printKaneReceipt. Itilize pou
+// nenpòt fich ki gen sèlman antèt + liy "label: valè".
+export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [] }, tenant) => {
+  const W = getWidth(tenant)
+  const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+
+  const bytes = [
+    ...CMD.INIT,
+    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...encodeText((tenant?.name || 'PLUS GROUP') + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(tenant?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText(title + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(subtitle ? [...CMD.SMALL_FONT, ...encodeText(subtitle + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_LEFT,
+    ...meta.flatMap(m => [...makeLine(String(m.label), String(m.value), W), LF]),
+    ...(meta.length ? [...divider('-', W), LF] : []),
+    ...rows.flatMap(r => [
+      ...(r.strong ? CMD.BOLD_ON : []),
+      ...makeLine(String(r.label), String(r.value), W),
+      ...(r.strong ? CMD.BOLD_OFF : []),
+      LF,
+    ]),
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT,
+    ...encodeText('Powered by plusgroupe.com\n'),
+    ...encodeText('Tel: +50942449024\n'),
+    ...CMD.NORMAL_FONT,
+    LF, LF, ...CMD.CUT,
+  ]
+
+  await dispatch(bytes)
+}

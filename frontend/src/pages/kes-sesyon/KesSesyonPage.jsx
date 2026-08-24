@@ -86,7 +86,7 @@ export default function KesSesyonPage() {
   const printSesyon = (s) => {
     const eka = Number(s.eka || 0)
     printReport({
-      tenantName: tenant?.name,
+      tenant,
       title: 'Fich Sesyon Kès',
       subtitle: s.user?.fullName || '',
       meta: [

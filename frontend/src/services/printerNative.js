@@ -301,6 +301,76 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   return result
 }
 
+/**
+ * ✅ NOUVO — Enprime yon fich rapò JENERIK (Sesyon Kès, Kontwòl Estòk,
+ * elt.) atravè plugin UniversalPrinter la, menm mekanis ak
+ * printInvoiceNative. Sèvi pou nenpòt fich ki gen sèlman antèt + liy
+ * "label: valè" — pa gen bezwen bati yon fonksyon apa pou chak nouvo tip
+ * rapò nou ajoute pita.
+ */
+export async function printGenericReportNative({ title, subtitle, meta = [], rows = [] }, tenant) {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
+  }
+
+  const lines = []
+
+  if (tenant?.logoUrl) {
+    lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
+    lines.push({ type: 'space' })
+  }
+
+  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
+  if (tenant?.phone) {
+    lines.push({ type: 'text', content: `Tel: ${tenant.phone}`, align: 'center', size: 'small', bold: true })
+  }
+
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({ type: 'text', content: title, align: 'center', bold: true, size: 'large' })
+  if (subtitle) {
+    lines.push({ type: 'text', content: subtitle, align: 'center', size: 'small' })
+  }
+  lines.push({ type: 'divider', char: '=' })
+
+  meta.forEach(m => {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: String(m.label), width: 45, align: 'left' },
+        { text: String(m.value), width: 55, align: 'right' },
+      ],
+    })
+  })
+
+  if (meta.length) lines.push({ type: 'divider' })
+
+  rows.forEach(r => {
+    lines.push({
+      type: 'table',
+      bold: !!r.strong,
+      columns: [
+        { text: String(r.label), width: 45, align: 'left' },
+        { text: String(r.value), width: 55, align: 'right' },
+      ],
+    })
+  })
+
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
+  lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
+  lines.push({ type: 'space' })
+  lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
+
+  const cleanLines = sanitizeLines(lines)
+
+  const result = await UniversalPrinter.print({ lines: cleanLines, copies: 1, cutAtEnd: true })
+  if (!result.success) {
+    throw new Error(result.message || 'Erè pandan enprime')
+  }
+  return result
+}
+
 // ✅ NOUVO — Estati devi (labèl pou enprime)
 const QUOTE_STATUS_LABELS = {
   draft:     'BROUILLON',
