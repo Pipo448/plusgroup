@@ -154,6 +154,9 @@ model Tenant {
   monthlyPrice           Int                     @default(0) @map("monthly_price")
   bannerUrl              String?                 @map("banner_url")
   receiptFooterNote      String?                 @map("receipt_footer_note")
+  // ✅ NOUVO — kèk logo (fon fonse) pa enprime byen sou enprimant tèmik
+  // (nwa/blan sèlman); pèmèt tenant dezaktive logo a SÈLMAN sou resi yo.
+  printLogoOnReceipt     Boolean                 @default(true) @map("print_logo_on_receipt")
   agentId                String?                 @map("agent_id")
   pendingApproval        Boolean                 @default(false) @map("pending_approval")
   signupSource           String?                 @map("signup_source") @db.VarChar(20)

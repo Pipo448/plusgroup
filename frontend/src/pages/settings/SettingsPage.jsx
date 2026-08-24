@@ -255,6 +255,10 @@ export default function SettingsPage() {
         requireQuote:      settings.requireQuote      === true,
         // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
         receiptFooterNote: settings.receiptFooterNote  || '',
+        // ✅ NOUVO — Kèk logo (fon fonse) pa enprime byen sou enprimant tèmik
+        // (nwa/blan sèlman) — sa pèmèt tenant dezaktive logo a sou resi
+        // yo san l pa touche logo a limenm (ki ka toujou itilize sou app la).
+        printLogoOnReceipt: settings.printLogoOnReceipt !== false,
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -351,6 +355,8 @@ export default function SettingsPage() {
   const primaryColor    = watch('primaryColor') || D.blue
   const showExchangeRate = watch('showExchangeRate')
   const showQrCode      = watch('showQrCode')
+  // ✅ NOUVO
+  const printLogoOnReceipt = watch('printLogoOnReceipt')
   // ✅ NOUVO
   const requireQuote    = watch('requireQuote')
 
@@ -583,6 +589,22 @@ export default function SettingsPage() {
                   </label>
                   <p style={{ fontSize:11, color:D.muted, marginTop:6 }}>PNG, JPG, SVG · 5MB max</p>
                 </div>
+              </div>
+
+              {/* ✅ NOUVO — Kèk logo (fon fonse) pa enprime byen sou enprimant tèmik
+                  (nwa/blan sèlman). Sa pèmèt tenant dezaktive logo a SÈLMAN sou
+                  resi enprime yo, san l pa touche logo a ki toujou parèt sou app la. */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:12, background: printLogoOnReceipt ? 'rgba(27,42,143,0.06)' : '#f8f9ff', border:`1.5px solid ${printLogoOnReceipt ? D.border : '#e2e8f0'}`, marginTop:14, transition:'all 0.2s' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background: printLogoOnReceipt ? D.blueDim2 : '#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    {printLogoOnReceipt ? <Eye size={16} color={D.blue}/> : <EyeOff size={16} color={D.muted}/>}
+                  </div>
+                  <div>
+                    <p style={{ fontWeight:800, fontSize:13, color: printLogoOnReceipt ? D.text : D.muted, margin:'0 0 2px' }}>Enprime Logo sou Resi</p>
+                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>Dezaktive si logo w la pa soti klè sou enprimant tèmik la (logo ak fon fonse)</p>
+                  </div>
+                </div>
+                <Toggle checked={!!printLogoOnReceipt} onChange={val => setValue('printLogoOnReceipt', val)} color={D.blue} />
               </div>
             </div>
           </div>

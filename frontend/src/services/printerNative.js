@@ -133,7 +133,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   const lines = []
 
   // ─── Logo (si genyen) — DWE PREMYE, anlè tèt tout bagay ───
-  if (tenant?.logoUrl) {
+  if (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) {
     lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
     lines.push({ type: 'space' })
   }
@@ -267,10 +267,13 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   lines.push({ type: 'space' })
 
   // ─── Footer ───
-  // ✅ KORIJE — Nòt/Avètisman konfigirab (paramèt Tenant) parèt PREMYE kounye a
+  // ✅ KORIJE — Nòt/Avètisman konfigirab (paramèt Tenant) parèt PREMYE
+  // kounye a, e pi vizib (ankadre ant 2 divizè '=', an gra) pou l pa pèdi
+  // nan mitan rès tèks la — se pou sa yo rele l "avètisman".
   if (tenant?.receiptFooterNote) {
-    lines.push({ type: 'divider' })
-    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small' })
+    lines.push({ type: 'divider', char: '=' })
+    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small', bold: true })
+    lines.push({ type: 'divider', char: '=' })
     lines.push({ type: 'space' })
   }
 
@@ -315,12 +318,15 @@ export async function printGenericReportNative({ title, subtitle, meta = [], row
 
   const lines = []
 
-  if (tenant?.logoUrl) {
+  if (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) {
     lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
     lines.push({ type: 'space' })
   }
 
   lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
+  if (tenant?.address) {
+    lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
+  }
   if (tenant?.phone) {
     lines.push({ type: 'text', content: `Tel: ${tenant.phone}`, align: 'center', size: 'small', bold: true })
   }
@@ -399,7 +405,7 @@ export async function printQuoteNative(quote, tenant) {
   const lines = []
 
   // ─── Logo (si genyen) — DWE PREMYE, anlè tèt tout bagay ───
-  if (tenant?.logoUrl) {
+  if (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) {
     lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
     lines.push({ type: 'space' })
   }
@@ -516,8 +522,9 @@ export async function printQuoteNative(quote, tenant) {
 
   // ─── Footer ───
   if (tenant?.receiptFooterNote) {
-    lines.push({ type: 'divider' })
-    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small' })
+    lines.push({ type: 'divider', char: '=' })
+    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small', bold: true })
+    lines.push({ type: 'divider', char: '=' })
     lines.push({ type: 'space' })
   }
 
@@ -557,7 +564,7 @@ export async function printDirectQuoteNative(directQuote, tenant) {
 
   const lines = []
 
-  if (tenant?.logoUrl) {
+  if (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) {
     lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
     lines.push({ type: 'space' })
   }

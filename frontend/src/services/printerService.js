@@ -877,7 +877,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
 // nenpòt fich ki gen sèlman antèt + liy "label: valè".
 export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [] }, tenant) => {
   const W = getWidth(tenant)
-  const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+  const logoBytes = (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
 
   const bytes = [
     ...CMD.INIT,
@@ -885,6 +885,7 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
     ...encodeText((tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
     ...(tenant?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
     ...divider('=', W), LF,
     ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText(title + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
