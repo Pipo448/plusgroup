@@ -1,5 +1,5 @@
 // src/pages/estok-kontwol/EstokKontwolPage.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estokKontwolAPI, productAPI } from '../../services/api'
@@ -33,10 +33,22 @@ const label = (txt) => (
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 3 }).replace(/\.?0+$/, m => m.includes('.') ? '' : m)
 const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
 
+// ✅ NOUVO — Hook responsive, menm modèl ak lòt paj yo
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  return isMobile
+}
+
 export default function EstokKontwolPage() {
   const navigate = useNavigate()
   const { tenant } = useAuthStore()
   const qc = useQueryClient()
+  const isMobile = useIsMobile()
 
   // ✅ NOUVO — olye de chèche/tape yon pwodwi alafwa, kounye a nou chaje TOUT
   // lis pwodwi yo yon sèl kou; kesye a jis tape kantite a nan chak liy li
@@ -98,32 +110,32 @@ export default function EstokKontwolPage() {
   }
 
   return (
-    <div style={{ maxWidth:1000, margin:'0 auto', padding:'24px' }}>
-      <div style={{ position:'relative', overflow:'hidden', background: D.heroGrad, borderRadius:22, padding:'26px 30px', marginBottom:26, boxShadow:'0 14px 34px rgba(15,26,92,0.28)' }}>
+    <div style={{ maxWidth:1000, margin:'0 auto', padding: isMobile ? '16px' : '24px' }}>
+      <div style={{ position:'relative', overflow:'hidden', background: D.heroGrad, borderRadius: isMobile ? 18 : 22, padding: isMobile ? '18px 18px' : '26px 30px', marginBottom: isMobile ? 18 : 26, boxShadow:'0 14px 34px rgba(15,26,92,0.28)' }}>
         <svg viewBox="0 0 600 200" preserveAspectRatio="none" style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.9, pointerEvents:'none' }}>
           <path d="M -20 150 C 140 60, 340 210, 620 70" stroke={D.orange} strokeWidth="3" fill="none" opacity="0.55"/>
           <path d="M -20 180 C 160 100, 360 240, 620 110" stroke={D.gold} strokeWidth="2" fill="none" opacity="0.3"/>
         </svg>
-        <div style={{ position:'relative', display:'flex', alignItems:'center', gap:16 }}>
-          <button onClick={() => navigate(-1)} style={{ width:42, height:42, borderRadius:12, background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.22)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff' }}>
+        <div style={{ position:'relative', display:'flex', alignItems:'center', gap: isMobile ? 12 : 16 }}>
+          <button onClick={() => navigate(-1)} style={{ width: isMobile ? 38 : 42, height: isMobile ? 38 : 42, borderRadius:12, background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.22)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', flexShrink:0 }}>
             <ArrowLeft size={17}/>
           </button>
-          <div style={{ width:50, height:50, borderRadius:14, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 8px 18px rgba(255,107,0,0.35)' }}>
-            <ClipboardCheck size={23} color="#fff"/>
+          <div style={{ width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius:14, flexShrink:0, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 8px 18px rgba(255,107,0,0.35)' }}>
+            <ClipboardCheck size={isMobile ? 19 : 23} color="#fff"/>
           </div>
-          <div>
-            <p style={{ color:'rgba(255,255,255,0.6)', fontSize:10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || 'Estòk'}</p>
-            <h1 style={{ color:'#fff', fontSize:25, fontWeight:900, margin:0 }}>Kontwòl Estòk</h1>
-            <p style={{ color:'rgba(255,255,255,0.65)', fontSize:13, margin:'3px 0 0' }}>Konte fizik, konpare ak sistèm nan</p>
+          <div style={{ minWidth:0 }}>
+            <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || 'Estòk'}</p>
+            <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0 }}>Kontwòl Estòk</h1>
+            <p style={{ color:'rgba(255,255,255,0.65)', fontSize: isMobile ? 11 : 13, margin:'3px 0 0' }}>Konte fizik, konpare ak sistèm nan</p>
           </div>
         </div>
       </div>
 
-      <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap: isMobile ? 16 : 20 }}>
         {/* Nouvo kontwòl — lis konplè, tape kantite dirèkteman nan chak liy */}
-        <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow }}>
+        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
-            <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}><ClipboardCheck size={14} color={D.blue}/></div>
+            <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><ClipboardCheck size={14} color={D.blue}/></div>
             <div>
               <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
               <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi ou kontwole — kite lòt yo vid</p>
@@ -136,16 +148,16 @@ export default function EstokKontwolPage() {
               <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
               <input style={{ ...inp, paddingLeft:34 }} value={filtreChèche} onChange={e => setFiltreChèche(e.target.value)} placeholder="Filtre pa non pwodwi..."/>
             </div>
-            <select style={{ ...inp, flex:'0 1 200px' }} value={filtreKategori} onChange={e => setFiltreKategori(e.target.value)}>
+            <select style={{ ...inp, flex: isMobile ? '1 1 100%' : '0 1 200px' }} value={filtreKategori} onChange={e => setFiltreKategori(e.target.value)}>
               <option value="">Tout kategori</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
           {/* Antèt kolòn */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 130px', gap:10, padding:'0 4px 8px', borderBottom:`2px solid ${D.border}`, marginBottom:4 }}>
+          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 56px 78px' : '1fr 110px 130px', gap: isMobile ? 6 : 10, padding:'0 4px 8px', borderBottom:`2px solid ${D.border}`, marginBottom:4 }}>
             <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Pwodwi</span>
-            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Sistèm</span>
+            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Sist.</span>
             <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Konte</span>
           </div>
 
@@ -161,16 +173,16 @@ export default function EstokKontwolPage() {
                 const gen = valè !== ''
                 return (
                   <div key={p.id} style={{
-                    display:'grid', gridTemplateColumns:'1fr 110px 130px', gap:10, alignItems:'center',
-                    padding:'9px 4px', borderRadius:8,
+                    display:'grid', gridTemplateColumns: isMobile ? '1fr 56px 78px' : '1fr 110px 130px', gap: isMobile ? 6 : 10, alignItems:'center',
+                    padding: isMobile ? '8px 4px' : '9px 4px', borderRadius:8,
                     background: gen ? D.blueDim : 'transparent',
                   }}>
-                    <span style={{ fontSize:13, fontWeight: gen ? 700 : 500, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
-                    <span style={{ fontSize:12, color:D.muted, fontFamily:'monospace', textAlign:'right' }}>{fmt(p.quantity)} {p.unit}</span>
+                    <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: gen ? 700 : 500, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
+                    <span style={{ fontSize: isMobile ? 10 : 12, color:D.muted, fontFamily:'monospace', textAlign:'right' }}>{fmt(p.quantity)}</span>
                     <input type="number" step="0.001" min="0" value={valè}
                       onChange={e => setKonte(k => ({ ...k, [p.id]: e.target.value }))}
                       placeholder="—"
-                      style={{ ...inpMoney, padding:'6px 10px', fontSize:12, textAlign:'right' }}/>
+                      style={{ ...inpMoney, padding: isMobile ? '6px 6px' : '6px 10px', fontSize: isMobile ? 11 : 12, textAlign:'right' }}/>
                   </div>
                 )
               })
@@ -178,7 +190,7 @@ export default function EstokKontwolPage() {
           </div>
 
           {/* Ba konfimasyon — rete vizib, montre konbyen liy ranpli */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:16, paddingTop:16, borderTop:`1px dashed ${D.border}` }}>
+          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 10 : 0, justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', marginTop:16, paddingTop:16, borderTop:`1px dashed ${D.border}` }}>
             <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>
               {kantiteRanpli.length > 0 ? `${kantiteRanpli.length} pwodwi pare pou konfime` : 'Poko gen kantite antre'}
             </span>
@@ -193,18 +205,18 @@ export default function EstokKontwolPage() {
 
         {/* Rezilta dènye batch */}
         {dènyeRezime && dènyeRezime.length > 0 && (
-          <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow }}>
+          <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
             <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Rezilta Dènye Kontwòl yo</h3>
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {dènyeRezime.map(k => {
                 const eka = Number(k.eka)
                 return (
-                  <div key={k.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:10, border:`1px solid ${ekaColor(eka)}` }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{k.product?.name}</span>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <div key={k.id} style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 6 : 0, justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', padding:'10px 14px', borderRadius:10, border:`1px solid ${ekaColor(eka)}` }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.product?.name}</span>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap:10 }}>
                       <span style={{ fontSize:12, fontFamily:'monospace', color:D.muted }}>{fmt(k.kantite_sistem)} → {fmt(k.kantite_konte)}</span>
                       <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(eka) }}>{eka > 0 ? '+' : ''}{fmt(eka)}</span>
-                      <button onClick={() => printKontwol(k)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                      <button onClick={() => printKontwol(k)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
                         <Printer size={12}/>
                       </button>
                     </div>
@@ -216,7 +228,7 @@ export default function EstokKontwolPage() {
         )}
 
         {/* Istorik */}
-        <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow }}>
+        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
           <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Istorik Kontwòl</h3>
           {historik.length === 0 ? (
             <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen kontwòl anrejistre ankò.</p>
