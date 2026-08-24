@@ -64,6 +64,9 @@ const NAV = [
   { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices',  pageKey:'invoices'  },
   { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock',     pageKey:'stock'     },
   { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
+  // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk, nan meni prensipal la
+  { to:'/app/kes-sesyon',    icon:Wallet,          labelKey:'nav.kesSesyon',    pageKey:'kes-sesyon',    label:'Sesyon Kès'    },
+  { to:'/app/estok-kontwol', icon:ClipboardCheck,  labelKey:'nav.estokKontwol', pageKey:'estok-kontwol', label:'Kontwòl Estòk' },
 ]
 
 const MIKWO_KREDI_ITEMS = [
@@ -885,7 +888,7 @@ export default function AppLayout() {
           )}
 
           {/* ═══ RH & FINANS ═══ */}
-          {(isPageAllowed('employees') || isPageAllowed('expenses') || isPageAllowed('founise') || isPageAllowed('kes-sesyon') || isPageAllowed('estok-kontwol')) && (
+          {(isPageAllowed('employees') || isPageAllowed('expenses') || isPageAllowed('founise')) && (
             <>
               <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(16,185,129,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
                 <span style={{ color:C.rh, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💼 RH & Finans</span>
@@ -924,30 +927,6 @@ export default function AppLayout() {
                     <Truck size={15} style={{ flexShrink:0, color: isActive ? '#FF6B00' : C.mutedMd }}/>
                     <span style={{ flex:1 }}>Founisè</span>
                     {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#FF6B00', flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              )}
-
-              {/* ✅ NOUVO — Sesyon Kès (kontwòl kòb pa kesye) */}
-              {isPageAllowed('kes-sesyon') && (
-                <NavLink to="/app/kes-sesyon"
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? 'rgba(5,150,105,0.12)' : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? '3px solid #059669' : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                  {({ isActive }) => (<>
-                    <Wallet size={15} style={{ flexShrink:0, color: isActive ? '#059669' : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Sesyon Kès</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#059669', flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              )}
-
-              {/* ✅ NOUVO — Kontwòl Estòk (rapò konte fizik) */}
-              {isPageAllowed('estok-kontwol') && (
-                <NavLink to="/app/estok-kontwol"
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? C.rhDim : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? `3px solid ${C.rh}` : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                  {({ isActive }) => (<>
-                    <ClipboardCheck size={15} style={{ flexShrink:0, color: isActive ? C.rh : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Kontwòl Estòk</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
               )}
