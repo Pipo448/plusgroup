@@ -6,7 +6,7 @@ import { estokKontwolAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { printReport } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardCheck, Printer, Search } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Printer, Search, Zap } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -91,6 +91,20 @@ export default function EstokKontwolPage() {
     })
   }
 
+  // ✅ NOUVO — Yon sèl klik: ranpli chan "Konte" a pou TOUT pwodwi (nan lis
+  // filtre kounye a) ak kantite sistèm nan deja genyen. Konsa kesye a jis
+  // "konfime" li kòmanse travay ak sa a, epi li ajiste SÈLMAN pwodwi ki
+  // diferan — olye l tape chak kantite alamen youn pa youn.
+  const ranpliAkSistèm = () => {
+    if (!products.length) return
+    setKonte(k => {
+      const nouvo = { ...k }
+      products.forEach(p => { nouvo[p.id] = String(p.quantity) })
+      return nouvo
+    })
+    toast.success(`${products.length} pwodwi ranpli ak kantite sistèm nan.`)
+  }
+
   const ekaColor = (eka) => eka > 0 ? D.success : eka < 0 ? D.red : D.muted
   const ekaLabel = (eka) => eka > 0 ? 'Siplis' : eka < 0 ? 'Manko' : 'Ekzat'
 
@@ -134,12 +148,19 @@ export default function EstokKontwolPage() {
       <div style={{ display:'flex', flexDirection:'column', gap: isMobile ? 16 : 20 }}>
         {/* Nouvo kontwòl — lis konplè, tape kantite dirèkteman nan chak liy */}
         <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
-            <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><ClipboardCheck size={14} color={D.blue}/></div>
-            <div>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
-              <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi ou kontwole — kite lòt yo vid</p>
+          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 14 : 10, marginBottom:18 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><ClipboardCheck size={14} color={D.blue}/></div>
+              <div>
+                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
+                <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi, oswa kòmanse ak sistèm nan</p>
+              </div>
             </div>
+            {/* ✅ NOUVO — yon sèl klik pou ranpli tout ak kantite sistèm nan */}
+            <button onClick={ranpliAkSistèm} disabled={!products.length}
+              style={{ padding:'9px 16px', borderRadius:10, border:`1.5px solid ${D.gold}`, background:'rgba(201,168,76,0.08)', color:D.goldDk || D.gold, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, whiteSpace:'nowrap' }}>
+              <Zap size={14}/> Kòmanse ak Sistèm nan
+            </button>
           </div>
 
           {/* Filt — pou jwenn yon seksyon pwodwi rapid nan yon gwo katalòg */}
