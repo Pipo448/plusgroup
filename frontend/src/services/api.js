@@ -288,6 +288,8 @@ export const kesSesyonAPI = {
 // ✅ NOUVO — Kontwòl Estòk (rapò konte fizik)
 export const estokKontwolAPI = {
   create:  (data) => api.post('/estok-kontwol', data),
+  // ✅ NOUVO — plizyè kontwòl an yon sèl fwa (pa gen pou repete fòm nan pou chak pwodwi)
+  createBatch: (data) => api.post('/estok-kontwol/batch', data),
   getAll:  (p)     => api.get('/estok-kontwol', { params: p }),
 }
  

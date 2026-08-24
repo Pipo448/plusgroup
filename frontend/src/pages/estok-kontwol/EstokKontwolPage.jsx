@@ -6,7 +6,7 @@ import { estokKontwolAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { printReport } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardCheck, Printer, Search, X } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Printer, Search } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -38,38 +38,45 @@ export default function EstokKontwolPage() {
   const { tenant } = useAuthStore()
   const qc = useQueryClient()
 
-  const [search, setSearch] = useState('')
-  const [showResults, setShowResults] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState(null)
-  const [kantiteKonte, setKantiteKonte] = useState('')
-  const [notes, setNotes] = useState('')
-  const [dernyeKontwol, setDernyeKontwol] = useState(null)
+  // ✅ NOUVO — olye de chèche/tape yon pwodwi alafwa, kounye a nou chaje TOUT
+  // lis pwodwi yo yon sèl kou; kesye a jis tape kantite a nan chak liy li
+  // vle kontwole (kite lòt yo vid — yo pa antre nan konfimasyon an).
+  const [filtreKategori, setFiltreKategori] = useState('')
+  const [filtreChèche, setFiltreChèche] = useState('')
+  const [konte, setKonte] = useState({}) // { [productId]: '12.5' }
+  const [dènyeRezime, setDènyeRezime] = useState(null)
 
-  const { data: productsData } = useQuery({
-    queryKey: ['products-search-kontwol', search],
-    queryFn: () => productAPI.getAll({ search, limit: 8 }),
-    enabled: search.length >= 2,
+  const { data: categoriesData } = useQuery({ queryKey: ['product-categories'], queryFn: () => productAPI.getCategories() })
+  const categories = categoriesData?.data?.categories || []
+
+  const { data: productsData, isLoading: loadingProducts } = useQuery({
+    queryKey: ['products-all-kontwol', filtreKategori, filtreChèche],
+    queryFn: () => productAPI.getAll({ categoryId: filtreKategori || undefined, search: filtreChèche || undefined, limit: 500 }),
   })
   const products = productsData?.data?.products || []
 
   const { data: histData } = useQuery({ queryKey: ['estok-kontwol-list'], queryFn: () => estokKontwolAPI.getAll({ limit: 40 }) })
   const historik = histData?.data?.kontwol || []
 
-  const mutation = useMutation({
-    mutationFn: (data) => estokKontwolAPI.create(data),
+  const batchMutation = useMutation({
+    mutationFn: (data) => estokKontwolAPI.createBatch(data),
     onSuccess: (res) => {
-      toast.success('Kontwòl anrejistre.')
-      setDernyeKontwol(res.data.kontwol)
-      setSelectedProduct(null); setSearch(''); setKantiteKonte(''); setNotes('')
+      const { kontwolReyisi, kontwolEchwe, kontwol } = res.data
+      toast.success(`${kontwolReyisi} kontwòl anrejistre${kontwolEchwe > 0 ? ` (${kontwolEchwe} echwe)` : ''}.`)
+      setDènyeRezime(kontwol)
+      setKonte({})
       qc.invalidateQueries({ queryKey: ['estok-kontwol-list'] })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan anrejistreman an.'),
   })
 
+  const kantiteRanpli = Object.entries(konte).filter(([, v]) => v !== '' && v != null)
+
   const handleSubmit = () => {
-    if (!selectedProduct) return toast.error('Chwazi yon pwodwi.')
-    if (kantiteKonte === '') return toast.error('Antre kantite ou konte a.')
-    mutation.mutate({ productId: selectedProduct.id, kantiteKonte: Number(kantiteKonte), notes })
+    if (!kantiteRanpli.length) return toast.error('Antre kantite pou omwen yon pwodwi.')
+    batchMutation.mutate({
+      lignes: kantiteRanpli.map(([productId, v]) => ({ productId, kantiteKonte: Number(v) })),
+    })
   }
 
   const ekaColor = (eka) => eka > 0 ? D.success : eka < 0 ? D.red : D.muted
@@ -113,74 +120,97 @@ export default function EstokKontwolPage() {
       </div>
 
       <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-        {/* Nouvo kontwòl */}
+        {/* Nouvo kontwòl — lis konplè, tape kantite dirèkteman nan chak liy */}
         <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow }}>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:18 }}>
             <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}><ClipboardCheck size={14} color={D.blue}/></div>
-            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
+            <div>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
+              <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi ou kontwole — kite lòt yo vid</p>
+            </div>
           </div>
 
-          <div style={{ maxWidth:420, display:'flex', flexDirection:'column', gap:14 }}>
-            <div style={{ position:'relative' }}>
-              {label('Pwodwi *')}
-              {selectedProduct ? (
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'10px 14px', borderRadius:10, background:D.blueDim, border:`1.5px solid ${D.blue}` }}>
-                  <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{selectedProduct.name} <span style={{ color:D.muted, fontWeight:500 }}>· sistèm: {fmt(selectedProduct.quantity)}</span></span>
-                  <button onClick={() => { setSelectedProduct(null); setSearch('') }} style={{ background:'none', border:'none', color:D.blue, cursor:'pointer' }}><X size={15}/></button>
-                </div>
-              ) : (
-                <>
-                  <div style={{ position:'relative' }}>
-                    <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
-                    <input style={{ ...inp, paddingLeft:34 }} value={search}
-                      onChange={e => { setSearch(e.target.value); setShowResults(true) }}
-                      onFocus={() => setShowResults(true)}
-                      placeholder="Chèche yon pwodwi..."/>
-                  </div>
-                  {showResults && products.length > 0 && (
-                    <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', borderRadius:10, border:`1px solid ${D.border}`, boxShadow:D.shadow, maxHeight:180, overflowY:'auto', marginTop:4 }}>
-                      {products.map(p => (
-                        <div key={p.id} onClick={() => { setSelectedProduct(p); setShowResults(false) }}
-                          style={{ padding:'10px 14px', cursor:'pointer', fontSize:13, borderBottom:`1px solid ${D.border}` }}
-                          onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          {p.name} <span style={{ color:D.muted, fontSize:11 }}>· sistèm: {fmt(p.quantity)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+          {/* Filt — pou jwenn yon seksyon pwodwi rapid nan yon gwo katalòg */}
+          <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
+            <div style={{ position:'relative', flex:'1 1 220px' }}>
+              <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
+              <input style={{ ...inp, paddingLeft:34 }} value={filtreChèche} onChange={e => setFiltreChèche(e.target.value)} placeholder="Filtre pa non pwodwi..."/>
             </div>
+            <select style={{ ...inp, flex:'0 1 200px' }} value={filtreKategori} onChange={e => setFiltreKategori(e.target.value)}>
+              <option value="">Tout kategori</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
 
-            <div>{label('Kantite Ou Konte *')}<input type="number" step="0.001" min="0" style={inpMoney} value={kantiteKonte} onChange={e => setKantiteKonte(e.target.value)} placeholder="0"/></div>
-            <div>{label('Nòt (opsyonèl)')}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
+          {/* Antèt kolòn */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 110px 130px', gap:10, padding:'0 4px 8px', borderBottom:`2px solid ${D.border}`, marginBottom:4 }}>
+            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Pwodwi</span>
+            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Sistèm</span>
+            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Konte</span>
+          </div>
 
-            <button onClick={handleSubmit} disabled={mutation.isPending}
-              style={{ padding:'12px 20px', borderRadius:12, border:'none', background:D.orange, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
-              {mutation.isPending ? 'N ap sove...' : 'Konfime Kontwòl'}
+          {/* Lis pwodwi — defile, tape sèlman sa w ap kontwole a */}
+          <div style={{ maxHeight:420, overflowY:'auto' }}>
+            {loadingProducts ? (
+              <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>N ap chaje pwodwi yo...</p>
+            ) : products.length === 0 ? (
+              <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen pwodwi ki matche filt la.</p>
+            ) : (
+              products.map(p => {
+                const valè = konte[p.id] ?? ''
+                const gen = valè !== ''
+                return (
+                  <div key={p.id} style={{
+                    display:'grid', gridTemplateColumns:'1fr 110px 130px', gap:10, alignItems:'center',
+                    padding:'9px 4px', borderRadius:8,
+                    background: gen ? D.blueDim : 'transparent',
+                  }}>
+                    <span style={{ fontSize:13, fontWeight: gen ? 700 : 500, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
+                    <span style={{ fontSize:12, color:D.muted, fontFamily:'monospace', textAlign:'right' }}>{fmt(p.quantity)} {p.unit}</span>
+                    <input type="number" step="0.001" min="0" value={valè}
+                      onChange={e => setKonte(k => ({ ...k, [p.id]: e.target.value }))}
+                      placeholder="—"
+                      style={{ ...inpMoney, padding:'6px 10px', fontSize:12, textAlign:'right' }}/>
+                  </div>
+                )
+              })
+            )}
+          </div>
+
+          {/* Ba konfimasyon — rete vizib, montre konbyen liy ranpli */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:16, paddingTop:16, borderTop:`1px dashed ${D.border}` }}>
+            <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>
+              {kantiteRanpli.length > 0 ? `${kantiteRanpli.length} pwodwi pare pou konfime` : 'Poko gen kantite antre'}
+            </span>
+            <button onClick={handleSubmit} disabled={batchMutation.isPending || !kantiteRanpli.length}
+              style={{ padding:'12px 22px', borderRadius:12, border:'none',
+                background: kantiteRanpli.length ? D.orange : D.blueDim, color: kantiteRanpli.length ? '#fff' : D.muted,
+                fontWeight:800, fontSize:13, cursor: kantiteRanpli.length ? 'pointer' : 'not-allowed', boxShadow: kantiteRanpli.length ? D.shadowLift : 'none' }}>
+              {batchMutation.isPending ? 'N ap sove...' : `Konfime Tout (${kantiteRanpli.length})`}
             </button>
           </div>
         </div>
 
-        {/* Rezilta dènye kontwòl */}
-        {dernyeKontwol && (
-          <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow, border:`2px solid ${ekaColor(Number(dernyeKontwol.eka))}` }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{dernyeKontwol.product?.name}</h3>
-              <button onClick={() => printKontwol(dernyeKontwol)} style={{ padding:'8px 14px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
-                <Printer size={14}/> Enprime Fich
-              </button>
-            </div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
-              <div><p style={{ fontSize:10, color:D.muted, fontWeight:800, textTransform:'uppercase', margin:'0 0 3px' }}>Sistèm</p><p style={{ fontSize:15, fontWeight:800, fontFamily:'monospace', margin:0 }}>{fmt(dernyeKontwol.kantite_sistem)}</p></div>
-              <div><p style={{ fontSize:10, color:D.muted, fontWeight:800, textTransform:'uppercase', margin:'0 0 3px' }}>Konte</p><p style={{ fontSize:15, fontWeight:800, fontFamily:'monospace', margin:0 }}>{fmt(dernyeKontwol.kantite_konte)}</p></div>
-              <div>
-                <p style={{ fontSize:10, color:D.muted, fontWeight:800, textTransform:'uppercase', margin:'0 0 3px' }}>{ekaLabel(Number(dernyeKontwol.eka))}</p>
-                <p style={{ fontSize:18, fontWeight:900, fontFamily:'monospace', margin:0, color:ekaColor(Number(dernyeKontwol.eka)) }}>
-                  {Number(dernyeKontwol.eka) > 0 ? '+' : ''}{fmt(dernyeKontwol.eka)}
-                </p>
-              </div>
+        {/* Rezilta dènye batch */}
+        {dènyeRezime && dènyeRezime.length > 0 && (
+          <div style={{ background:D.white, borderRadius:20, padding:26, boxShadow:D.shadow }}>
+            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Rezilta Dènye Kontwòl yo</h3>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {dènyeRezime.map(k => {
+                const eka = Number(k.eka)
+                return (
+                  <div key={k.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:10, border:`1px solid ${ekaColor(eka)}` }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:D.text }}>{k.product?.name}</span>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <span style={{ fontSize:12, fontFamily:'monospace', color:D.muted }}>{fmt(k.kantite_sistem)} → {fmt(k.kantite_konte)}</span>
+                      <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(eka) }}>{eka > 0 ? '+' : ''}{fmt(eka)}</span>
+                      <button onClick={() => printKontwol(k)} style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
+                        <Printer size={12}/>
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

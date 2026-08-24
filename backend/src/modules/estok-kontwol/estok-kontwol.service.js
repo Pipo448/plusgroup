@@ -28,6 +28,34 @@ const createKontwol = async (tenantId, userId, { productId, kantiteKonte, notes 
   });
 };
 
+// ✅ NOUVO — Plizyè kontwòl an yon sèl fwa (yon liy pa pwodwi), pou kesye
+// a pa oblije repete tout fòm nan pou chak pwodwi. Chak liy trete
+// endepandamman — si youn echwe (egzanp yon productId ki pa egziste), rès
+// yo kontinye anrejistre; nou retounen yon rezime (konbyen reyisi, konbyen
+// echwe) pou kesye a wè klè.
+const createKontwolBatch = async (tenantId, userId, data) => {
+  const lignes = Array.isArray(data.lignes) ? data.lignes : [];
+  if (!lignes.length) throw Object.assign(new Error('Ajoute omwen yon liy kontwòl.'), { statusCode: 400 });
+
+  const rezilta = [];
+  const erè = [];
+
+  for (const l of lignes) {
+    try {
+      const kontwol = await createKontwol(tenantId, userId, {
+        productId: l.productId,
+        kantiteKonte: l.kantiteKonte,
+        notes: l.notes,
+      });
+      rezilta.push(kontwol);
+    } catch (e) {
+      erè.push({ productId: l.productId, message: e.message });
+    }
+  }
+
+  return { kontwol: rezilta, kontwolReyisi: rezilta.length, kontwolEchwe: erè.length, erè };
+};
+
 const listKontwol = (tenantId, { productId, dateFrom, dateTo, limit = 50 } = {}) =>
   prisma.pg_estok_kontwol.findMany({
     where: {
@@ -43,4 +71,4 @@ const listKontwol = (tenantId, { productId, dateFrom, dateTo, limit = 50 } = {})
     take: Number(limit),
   });
 
-module.exports = { createKontwol, listKontwol };
+module.exports = { createKontwol, createKontwolBatch, listKontwol };
