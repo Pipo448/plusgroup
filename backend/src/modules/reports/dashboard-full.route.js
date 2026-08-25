@@ -75,6 +75,9 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     // Sa a te AVAN sèlman kalkile pou admin (bay 0 pou kesye). Kounye a li
     // mache pou TOUT wòl, paske kat "Vant Jodi a" a vizib pou tout moun.
     todayAllStatus,
+    // ✅ NOUVO — Vant PA M jodi a (kesye ki konekte a sèlman), pou li ka
+    // konfye chif pa li san l pa gen aksè chif tout lòt kesye yo
+    myTodaySales,
     // low stock (tout pwodwi aktif — nou filtre pa alertThreshold reyèl la apre)
     allActiveProducts,
     // sales 30 jou (admin sèlman — sèvi pou graf la sèlman)
@@ -120,6 +123,11 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
     // ✅ NOUVO — pou TOUT wòl, pa sèlman admin
     prisma.invoice.aggregate({
       where: { ...todayWhere, status: { not: 'cancelled' } },
+      _sum: { totalHtg: true }, _count: true,
+    }),
+    // ✅ NOUVO — menm bagay la men filtre PA userId (kesye ki konekte a sèlman)
+    prisma.invoice.aggregate({
+      where: { ...todayWhere, status: { not: 'cancelled' }, createdBy: req.user.id },
       _sum: { totalHtg: true }, _count: true,
     }),
     // Tout pwodwi aktif (pa sèvis) — filtraj alertThreshold fèt an JS pi ba
@@ -201,6 +209,9 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
 
   // ✅ KORIJE — "Vant Jodi a" mache pou tout wòl kounye a (pa admin sèlman)
   const todayTotalVentes = Number(todayAllStatus._sum?.totalHtg || 0);
+  // ✅ NOUVO — Vant pa m jodi a (kesye ki konekte a)
+  const myTodayTotalVentes = Number(myTodaySales._sum?.totalHtg || 0);
+  const myTodayCount       = Number(myTodaySales._count || 0);
 
   // Konstrwi chart data 7 jou (grouye pa dat Ayiti, pa dat UTC) — admin sèlman
   const daily = salesReport.reduce((acc, inv) => {
@@ -225,6 +236,8 @@ router.get('/full', extractBranch, asyncHandler(async (req, res) => {
         totalPartial: { _sum: { balanceDueHtg: todayPartial._sum?.balanceDueHtg, amountPaidHtg: todayPartial._sum?.amountPaidHtg }, _count: todayPartial._count },
       },
       todayTotalVentes,
+      // ✅ NOUVO — pou tout wòl, chak moun wè sèlman pwòp chif pa li
+      myTodaySales: { total: myTodayTotalVentes, count: myTodayCount },
       lowStock,
       salesDaily: Object.values(daily),
       // ✅ NOUVO — Benefis = Vant − Kou machandiz vann − Depans − Salè,

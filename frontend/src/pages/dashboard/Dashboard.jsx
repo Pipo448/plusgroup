@@ -7,7 +7,7 @@ import ProfitSection from './ProfitSection'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   Receipt, Package, AlertTriangle, TrendingUp,
-  ArrowRight, CheckCircle2, Clock, Plus, Crown,
+  ArrowRight, CheckCircle2, Clock, Plus, Crown, User,
 } from 'lucide-react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -71,6 +71,8 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies=[]) => {
 
 const LABELS = {
   salesToday: { ht:'Vant Jodi a',    fr:'Ventes du Jour',    en:"Today's Sales",  es:'Ventas de Hoy' },
+  // ✅ NOUVO — Vant pa m jodi a (kesye ki konekte a sèlman)
+  mySalesToday: { ht:'Vant Pa m Jodi a', fr:'Mes Ventes du Jour', en:'My Sales Today', es:'Mis Ventas de Hoy' },
   paid:       { ht:'Peye Jodi a',    fr:'Payé Aujourd\'hui', en:'Paid Today',     es:'Pagado Hoy' },
   balance:    { ht:'Pa Peye Jodi a', fr:'Impayé du Jour',    en:'Unpaid Today',   es:'No Pagado Hoy' },
   // ✅ KORIJE — kat sa a montre balanceDueHtg (rès ki rete pou peye) sou fakti
@@ -212,6 +214,10 @@ export default function Dashboard() {
   }), [salesDaily, lang])
 
   const totalVentesJodi = Number(data?.todayTotalVentes||0)
+  // ✅ NOUVO — Vant PA M jodi a (kesye ki konekte a sèlman) — vizib pou
+  // tout wòl, chak moun wè sèlman pwòp chif pa li
+  const myTodaySales      = Number(data?.myTodaySales?.total||0)
+  const myTodaySalesCount = Number(data?.myTodaySales?.count||0)
   // ✅ KORIJE — "Peye Jodi a" dwe konte KACH ki antre jodi a: fakti peye konplè
   // + depo ki fèt sou fakti pasyèl yo. Anvan sa, li te sèlman konte fakti peye
   // konplè, li te inyore depo yo (egzanp: achte 400, depoze 200 → 200 sa a
@@ -401,6 +407,9 @@ export default function Dashboard() {
         <div className="hero-stats-scroll" style={{position:'relative', zIndex:1}}>
           <div className="hero-stats-inner">
             <StatCard label={lbl('salesToday')} val={`${fmt(totalVentesJodi)} HTG`} icon={<TrendingUp size={15}/>}  color={D.gold}   sub={showRate&&fmtConv(totalVentesJodi,exchangeRates,visibleCurrs)}/>
+            {/* ✅ NOUVO — vant pa m jodi a, apa de chif global yo — chak
+                moun (admin kou kesye) wè sèlman pwòp chif pa li isit la */}
+            <StatCard label={lbl('mySalesToday')} val={`${fmt(myTodaySales)} HTG`} icon={<User size={15}/>} color="#A78BFA" sub={`${myTodaySalesCount} ${t('dashboard.invoices')}`}/>
             <StatCard label={lbl('paid')}       val={`${fmt(totalPayeJodi)} HTG`}   icon={<CheckCircle2 size={15}/>} color="#34d399" sub={showRate&&fmtConv(totalPayeJodi,exchangeRates,visibleCurrs)||`${nbFaktiPayeJodi} ${t('dashboard.invoices')}`}/>
             <StatCard label={lbl('balance')}    val={`${fmt(totalImpayeJodi)} HTG`} icon={<Clock size={15}/>}        color={D.redLt} sub={showRate&&fmtConv(totalImpayeJodi,exchangeRates,visibleCurrs)||`${today?.totalUnpaid?._count||0} ${t('dashboard.unpaid')}`}/>
             <StatCard label={lbl('partial')}    val={`${fmt(totalPasyalJodi)} HTG`} icon={<Receipt size={15}/>}      color="#93c5fd" sub={showRate&&fmtConv(totalPasyalJodi,exchangeRates,visibleCurrs)||`${today?.totalPartial?._count||0} ${t('dashboard.documents')}`}/>
