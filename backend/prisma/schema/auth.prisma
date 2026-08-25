@@ -201,6 +201,9 @@ model Tenant {
   // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
   pg_kes_sesyon          pg_kes_sesyon[]
   pg_estok_kontwol       pg_estok_kontwol[]
+  // ✅ NOUVO — Restoran: tab ak kòmand
+  restaurantTables       RestaurantTable[]
+  restaurantOrders       RestaurantOrder[]
   pre_echeances          pre_echeances[]
   pre_kapital            pre_kapital[]
   prePaiements           PrePaiement[]
@@ -274,6 +277,8 @@ model Branch {
   rooms                 Room[]
   sabotayPlans          SabotayPlan[]
   stockMovements        StockMovement[]
+  // ✅ NOUVO — Restoran: tab ki apatyen branch sa a
+  restaurantTables      RestaurantTable[]
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -344,6 +349,8 @@ model User {
   // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
   pg_kes_sesyon                pg_kes_sesyon[]
   pg_estok_kontwol             pg_estok_kontwol[]
+  // ✅ NOUVO — Restoran: kòmand kesye/sèvè sa a te louvri
+  restaurantOrders             RestaurantOrder[]
   pre_kapital                  pre_kapital[]
   prePaiementsCreated          PrePaiement[]          @relation("PrePaiementCreatedBy")
   pre_rapo_kesye               pre_rapo_kesye[]

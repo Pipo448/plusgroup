@@ -90,6 +90,8 @@ const HOTEL_ITEMS = [
 
 // ✅ NOUVO — Restoran
 const RESTAURANT_ITEMS = [
+  // ✅ NOUVO — Tab & Kòmand vin anlè, se sa sèvè a itilize chak jou
+  { to:'/app/restaurant/tables', icon:Users, labelKey:'nav.restaurantTables', label:'Tab & Kòmand', end:true },
   { to:'/app/restaurant/menu', icon:UtensilsCrossed, labelKey:'nav.restaurant', label:'Meni Restoran', end:true },
 ]
 

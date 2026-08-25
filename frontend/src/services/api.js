@@ -292,6 +292,20 @@ export const estokKontwolAPI = {
   createBatch: (data) => api.post('/estok-kontwol/batch', data, { timeout: 30000 }),
   getAll:  (p)     => api.get('/estok-kontwol', { params: p }),
 }
+
+// ✅ NOUVO — Restoran: tab ak kòmand louvri
+export const restaurantTablesAPI = {
+  getTables:      ()             => api.get('/restaurant-tables/tables'),
+  createTable:    (data)         => api.post('/restaurant-tables/tables', data),
+  updateTable:    (id, data)     => api.put(`/restaurant-tables/tables/${id}`, data),
+  openOrder:      (tableId)      => api.post(`/restaurant-tables/tables/${tableId}/open`),
+  getOrder:       (orderId)      => api.get(`/restaurant-tables/orders/${orderId}`),
+  addItems:       (orderId, lignes) => api.post(`/restaurant-tables/orders/${orderId}/items`, { lignes }),
+  removeItem:     (orderId, itemId) => api.delete(`/restaurant-tables/orders/${orderId}/items/${itemId}`),
+  sendToKitchen:  (orderId)      => api.post(`/restaurant-tables/orders/${orderId}/send-kitchen`),
+  closeOrder:     (orderId, invoiceId) => api.post(`/restaurant-tables/orders/${orderId}/close`, { invoiceId }),
+  cancelOrder:    (orderId)      => api.post(`/restaurant-tables/orders/${orderId}/cancel`),
+}
  
 
 export default api

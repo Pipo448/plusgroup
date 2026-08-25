@@ -48,6 +48,8 @@ const SolDashboardPage   = lazy(() => import('./pages/sol/SolDashboardPage'))
 const HotelDashboard     = lazy(() => import('./pages/hotel/HotelDashboard'))
 // ✅ NOUVO — Restoran
 const RestaurantMenuPage = lazy(() => import('./pages/restaurant/RestaurantMenuPage'))
+// ✅ NOUVO — Restoran: tab ak kòmand
+const RestaurantTablesPage = lazy(() => import('./pages/restaurant/RestaurantTablesPage'))
 const ReservationsPage   = lazy(() => import('./pages/hotel/ReservationsPage'))
 const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage'))
 const ReservationDetail  = lazy(() => import('./pages/hotel/ReservationDetail'))
@@ -182,6 +184,8 @@ export default function App() {
             <Route path="hotel/room-types"       element={<ProtectedPage pageKey="hotel"><RoomTypesPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran */}
             <Route path="restaurant/menu" element={<ProtectedPage pageKey="restaurant"><RestaurantMenuPage /></ProtectedPage>} />
+            {/* ✅ NOUVO — Restoran: tab ak kòmand */}
+            <Route path="restaurant/tables" element={<ProtectedPage pageKey="restaurant"><RestaurantTablesPage /></ProtectedPage>} />
             <Route path="mikwo-profit" element={<ProtectedPage pageKey="pre"><MikwoKrediProfit/></ProtectedPage>}/>
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />

@@ -56,6 +56,8 @@ model Product {
   pgAchte           pg_achte[]
   // ✅ NOUVO — Kontwòl Estòk: istorik konte fizik pou pwodwi sa a
   pgEstokKontwol    pg_estok_kontwol[]
+  // ✅ NOUVO — Restoran: liy kòmand ki mansyone pwodwi sa a
+  restaurantOrderItems RestaurantOrderItem[]
   branch            Branch?            @relation(fields: [branchId], references: [id], onUpdate: NoAction)
   category          ProductCategory?   @relation(fields: [categoryId], references: [id])
   creator           User?              @relation(fields: [createdBy], references: [id])

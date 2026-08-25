@@ -60,6 +60,8 @@ const founiseRoutes       = require('./modules/founise/founise.routes')
 // ✅ NOUVO — Sesyon Kès (kontwòl kòb pa kesye) + Kontwòl Estòk (rapò konte fizik)
 const kesSesyonRoutes     = require('./modules/kes-sesyon/kes-sesyon.routes')
 const estokKontwolRoutes  = require('./modules/estok-kontwol/estok-kontwol.routes')
+// ✅ NOUVO — Restoran: tab ak kòmand louvri
+const restaurantTablesRoutes = require('./modules/restaurant-tables/restaurant-tables.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -196,6 +198,8 @@ app.use(`${API}/founise`,      founiseRoutes)
 // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk
 app.use(`${API}/kes-sesyon`,     kesSesyonRoutes)
 app.use(`${API}/estok-kontwol`,  estokKontwolRoutes)
+// ✅ NOUVO — Restoran: tab ak kòmand
+app.use(`${API}/restaurant-tables`, restaurantTablesRoutes)
 app.use(`${API}/mikwo-expenses`, mikwoExpensesRoutes)
 app.use(`${API}/mikwo-profit`,   mikwoProfitRoutes)
 app.use(`${API}/internet`,   internetRoutes);
