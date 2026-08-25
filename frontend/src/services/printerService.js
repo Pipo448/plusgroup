@@ -329,10 +329,14 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const qrContent  = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
   // ── Kolòn 80mm: Nom(20) Q(4) Pri(12) Tot(12) = 48
-  // ── Kolòn 58mm: Nom(16) Q(3) Pri(7)  Tot(6)  = 32
+  // ✅ KORIJE — Kolòn 58mm: ansyen valè yo (Pri:7, Tot:6) te twò etwat pou
+  // total reyèl tankou "1 000,00" (8 karaktè) — sa te fè li "debòde" sou
+  // yon lòt liy sou papye a (parèt tankou dezòd, "0,00" k ap flote pou kont
+  // yo). Nouvo valè yo (Pri:8, Tot:9) kenbe total jiska "99 999,99" san
+  // debòde, e chak montan rete byen aliye anba antèt li (Q, Pri, Tot).
   const C = is80
     ? { nom: 20, qte: 4, pri: 12, tot: 12 }
-    : { nom: 16, qte: 3, pri:  7, tot:  6 }
+    : { nom: 12, qte: 3, pri:  8, tot:  9 }
 
   // Header kolòn — GRAS pou lisibilite
   const tblHeader = is80
