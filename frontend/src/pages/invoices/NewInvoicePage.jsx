@@ -574,6 +574,8 @@ export default function NewInvoicePage() {
   // ✅ NOUVO — Peman (fèt AN MENM TAN ak kreyasyon fakti a — mache online ak offline)
   const [paymentMethod, setPaymentMethod]     = useState('cash')  // cash | moncash | natcash | credit
   const [amountReceived, setAmountReceived]   = useState('')
+  // ✅ NOUVO — si kliyan an bay yon avans lè li chwazi Kredi
+  const [creditDeposit, setCreditDeposit]     = useState('')
   const [offlineReceipt, setOfflineReceipt]   = useState(null)  // pseudo-fakti pou enprime apre vant offline
   const [printingOffline, setPrintingOffline] = useState(false)
 
@@ -800,6 +802,14 @@ export default function NewInvoicePage() {
       return
     }
 
+    // ✅ NOUVO — bloke si se Espès e kesye a poko antre kòb li resevwa a.
+    // Sa evite yon fakti make "peye" san pèsonn pa konfime konbyen kòb
+    // reyèlman antre nan men.
+    if (paymentMethod === 'cash' && amountReceived === '') {
+      toast.error('Antre kòb ou resevwa a anvan w kreye fakti a.')
+      return
+    }
+
     // ✅ KORIJE — pou chak liy, konvèti montan rabè a an pousantaj
     // (paske schema InvoiceItem nan backend la sèlman gen `discountPct`)
     const mappedItems = validItems.map(it => {
@@ -838,13 +848,24 @@ export default function NewInvoicePage() {
     const total    = afterDis + taxAmt
 
     // ✅ NOUVO — Konstwi peman an (si pa Kredi) — mache online ak offline
-    const payment = paymentMethod === 'credit' ? null : {
-      method:      paymentMethod,
-      amountHtg:   paymentMethod === 'cash' ? Math.min(Number(amountReceived || total), total) : total,
-      amountUsd:   0,
-      amountGiven: paymentMethod === 'cash' ? Number(amountReceived || 0) : total,
-      change:      paymentMethod === 'cash' ? Math.max(0, Number(amountReceived || 0) - total) : 0,
-    }
+    // ✅ MODIFYE — si Kredi chwazi MEN kliyan an bay yon avans, kreye yon
+    // peman pasyèl (kach) pou montan avans lan; rès la rete "Pa Peye".
+    const deposit = Number(creditDeposit || 0)
+    const payment = paymentMethod === 'credit'
+      ? (deposit > 0 ? {
+          method:      'cash',
+          amountHtg:   Math.min(deposit, total),
+          amountUsd:   0,
+          amountGiven: deposit,
+          change:      0,
+        } : null)
+      : {
+          method:      paymentMethod,
+          amountHtg:   paymentMethod === 'cash' ? Math.min(Number(amountReceived || total), total) : total,
+          amountUsd:   0,
+          amountGiven: paymentMethod === 'cash' ? Number(amountReceived || 0) : total,
+          change:      paymentMethod === 'cash' ? Math.max(0, Number(amountReceived || 0) - total) : 0,
+        }
 
     const payload = {
       clientId:      selectedClient?.id || null,
@@ -925,7 +946,7 @@ export default function NewInvoicePage() {
 
     // ─── Online — kontinye jan sa te ye a ───
     mutation.mutate(payload)
-  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate, paymentMethod, amountReceived])
+  }, [items, discountGlobal, taxRate, selectedClient, invoiceDate, dueDate, notes, terms, mutation, isOnline, navigate, paymentMethod, amountReceived, creditDeposit])
 
   // ✅ NOUVO — Enprime resi offline (itilize plugin native Bluetooth/Sunmi/etc)
   const handlePrintOfflineReceipt = useCallback(async () => {
@@ -1254,17 +1275,33 @@ export default function NewInvoicePage() {
               )}
 
               {paymentMethod === 'credit' && (
-                <p style={{ fontSize:11, color:D.muted, margin:'8px 0 0', fontStyle:'italic' }}>
-                  ℹ️ Fakti a ap rete "Pa peye" — kliyan an ap dwe {fmt(grandTotal)} HTG.
-                </p>
+                <div style={{ marginTop:10 }}>
+                  {label('Kòb Resevwa (Avans — opsyonèl)')}
+                  <input type="number" min="0" step="0.01" value={creditDeposit}
+                    onChange={e => setCreditDeposit(e.target.value)}
+                    placeholder="0.00"
+                    onFocus={e => e.target.select()}
+                    style={{ ...inpMoney, textAlign:'right', fontSize:16, padding:'12px 14px' }}/>
+                  <p style={{ fontSize:11, color:D.muted, margin:'8px 0 0', fontStyle:'italic' }}>
+                    {Number(creditDeposit) > 0
+                      ? `ℹ️ Fakti a ap "Pasyèl" — kliyan an ap dwe ${fmt(Math.max(0, grandTotal - Number(creditDeposit)))} HTG apre avans lan.`
+                      : `ℹ️ Fakti a ap rete "Pa peye" — kliyan an ap dwe ${fmt(grandTotal)} HTG.`}
+                  </p>
+                </div>
               )}
             </div>
 
-            <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
-              style={{ width:'100%', marginTop:22, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'13px 0', borderRadius:12, background: mutation.isPending ? '#ccc' : `linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', border:'none', fontWeight:800, fontSize:14, cursor: mutation.isPending ? 'not-allowed' : 'pointer', fontFamily:'DM Sans,sans-serif' }}>
+            {/* ✅ NOUVO — bloke bouton an vizyèlman si se Espès e kòb resevwa a poko antre */}
+            <button type="button" onClick={handleSubmit} disabled={mutation.isPending || (paymentMethod === 'cash' && amountReceived === '')}
+              style={{ width:'100%', marginTop:22, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'13px 0', borderRadius:12, background: (mutation.isPending || (paymentMethod === 'cash' && amountReceived === '')) ? '#ccc' : `linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', border:'none', fontWeight:800, fontSize:14, cursor: (mutation.isPending || (paymentMethod === 'cash' && amountReceived === '')) ? 'not-allowed' : 'pointer', fontFamily:'DM Sans,sans-serif' }}>
               <Save size={16}/>
               {mutation.isPending ? (t('invoice.saving') || 'Ap sovgade...') : (t('invoice.createInvoice') || 'Kreye Fakti')}
             </button>
+            {paymentMethod === 'cash' && amountReceived === '' && (
+              <p style={{ fontSize:11, color:D.red, margin:'8px 0 0', textAlign:'center' }}>
+                Antre kòb resevwa a pou w ka kreye fakti a.
+              </p>
+            )}
           </div>
         </div>
 
