@@ -43,12 +43,19 @@ const femenSesyon = async (tenantId, userId, sesyonId, { fonKesFemen, notes }) =
 
   const closedAt = new Date();
 
+  // ✅ KORIJE — lè admin anile/efase yon fakti (egzanp yon doub kreyasyon
+  // pa aksidan), fakti a chanje estati pou 'cancelled' men peman ki te
+  // asosye ak li a RETE nan tab payments. Si nou pa filtre sa, "Vant
+  // Kach" ap toujou konte kòb yon vant ki anile — sa fè li pa matche ak
+  // Tablo Bò a, ki deja eskli fakti anile yo. Menm règ la kounye a
+  // aplike toude kote.
   const vantKachAgg = await prisma.payment.aggregate({
     where: {
       tenantId,
       createdBy: userId,
       method: 'cash',
       paymentDate: { gte: sesyon.opened_at, lte: closedAt },
+      invoice: { status: { not: 'cancelled' } },
     },
     _sum: { amountHtg: true },
   });
