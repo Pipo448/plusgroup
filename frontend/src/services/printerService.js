@@ -501,11 +501,17 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     // ══ FOOTER ═══════════════════════════════════════════════
     ...CMD.ALIGN_CENTER,
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON,
-    ...encodeText('Mesi paske ou achte lakay nou!\n'),
-    ...CMD.BOLD_OFF,
-    ...encodeText('Machandiz pa reprann ni chanje.\n'),
-    ...divider('-', W), LF,
+    // ✅ KORIJE — sa a te "Mesi paske ou achte lakay nou! / Machandiz pa
+    // reprann ni chanje." kole an dir, kidonk nòt tenant lan te ranplase
+    // pa yon mesaj jeneral san yo pa gen chwa. Kounye a li li
+    // tenant.receiptFooterNote (menm chan Paramèt la deja konfigire) —
+    // menm konpòtman ak printerNative.js.
+    ...(tenant?.receiptFooterNote ? [
+      ...CMD.BOLD_ON,
+      ...encodeText(tenant.receiptFooterNote + '\n'),
+      ...CMD.BOLD_OFF,
+      ...divider('-', W), LF,
+    ] : []),
     ...CMD.SMALL_FONT,
     ...encodeText('Pwodwi pa: Plus Group | +509 4244-9024\n'),
     ...CMD.NORMAL_FONT,
