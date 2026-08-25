@@ -259,6 +259,8 @@ export default function SettingsPage() {
         // (nwa/blan sèlman) — sa pèmèt tenant dezaktive logo a sou resi
         // yo san l pa touche logo a limenm (ki ka toujou itilize sou app la).
         printLogoOnReceipt: settings.printLogoOnReceipt !== false,
+        // ✅ NOUVO — Egzije Sesyon Kès louvri pou vant kach
+        requireOpenCashSession: settings.requireOpenCashSession === true,
       })
       setPrinterConn(settings.printerConnection || 'usb')
       if (settings.exchangeRates) {
@@ -357,6 +359,8 @@ export default function SettingsPage() {
   const showQrCode      = watch('showQrCode')
   // ✅ NOUVO
   const printLogoOnReceipt = watch('printLogoOnReceipt')
+  // ✅ NOUVO
+  const requireOpenCashSession = watch('requireOpenCashSession')
   // ✅ NOUVO
   const requireQuote    = watch('requireQuote')
 
@@ -605,6 +609,21 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <Toggle checked={!!printLogoOnReceipt} onChange={val => setValue('printLogoOnReceipt', val)} color={D.blue} />
+              </div>
+
+              {/* ✅ NOUVO — Egzije Sesyon Kès louvri pou vant kach. Defo dezaktive:
+                  tenant ki pa itilize Sesyon Kès pa touche pa switch sa a. */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'14px 18px', borderRadius:12, background: requireOpenCashSession ? 'rgba(192,57,43,0.06)' : '#f8f9ff', border:`1.5px solid ${requireOpenCashSession ? 'rgba(192,57,43,0.25)' : '#e2e8f0'}`, marginTop:10, transition:'all 0.2s' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:36, height:36, borderRadius:10, background: requireOpenCashSession ? 'rgba(192,57,43,0.12)' : '#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                    <Lock size={16} color={requireOpenCashSession ? '#C0392B' : D.muted}/>
+                  </div>
+                  <div>
+                    <p style={{ fontWeight:800, fontSize:13, color: requireOpenCashSession ? D.text : D.muted, margin:'0 0 2px' }}>Egzije Sesyon Kès pou Vant Kach</p>
+                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>Kesye a dwe louvri yon Sesyon Kès anvan l ka fè yon vant an kach — sinon kalkil Vant Kach la ka manke vant ki fèt anvan sesyon an louvri</p>
+                  </div>
+                </div>
+                <Toggle checked={!!requireOpenCashSession} onChange={val => setValue('requireOpenCashSession', val)} color="#C0392B" />
               </div>
             </div>
           </div>

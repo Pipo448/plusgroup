@@ -150,6 +150,10 @@ model Tenant {
   visibleCurrencies      String?                 @default("[\"USD\"]")
   showQrCode             Boolean                 @default(true) @map("show_qr_code")
   requireQuote           Boolean                 @default(false) @map("require_quote")
+  // ✅ NOUVO — si aktive, yon vant KACH mande yon Sesyon Kès louvri deja
+  // pou menm kesye a. Chak tenant chwazi l pou tèt li — defo dezaktive
+  // (pa gen okenn chanjman pou tenant ki pa itilize Sesyon Kès).
+  requireOpenCashSession Boolean                 @default(false) @map("require_open_cash_session")
   allowedPages           Json?                   @default("{}") @map("allowed_pages")
   monthlyPrice           Int                     @default(0) @map("monthly_price")
   bannerUrl              String?                 @map("banner_url")

@@ -160,10 +160,25 @@ const createDirect = async (tenantId, userId, data, userRole) => {
 
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
-    select: { requireQuote: true, exchangeRate: true, taxRate: true }
+    // ✅ NOUVO — pou verifye si tenant lan egzije yon Sesyon Kès louvri
+    // anvan yon vant kach ka anrejistre (opsyonèl, chak tenant chwazi l pa
+    // yo nan Paramèt — pa yon règ jeneral pou tout moun)
+    select: { requireQuote: true, exchangeRate: true, taxRate: true, requireOpenCashSession: true }
   });
 
   if (tenant.requireQuote) throw Object.assign(new Error('Biznis ou obligе pase pa yon devi avan li ka fè fakti.'), { statusCode: 403 });
+
+  // ✅ NOUVO — si switch la aktive pou tenant lan, yon vant KACH mande yon
+  // Sesyon Kès louvri deja pou menm kesye a — sinon Vant Kach kalkile lè
+  // yo fèmen sesyon an ap rate vant ki te fèt anvan sesyon an te louvri.
+  if (tenant.requireOpenCashSession && payment?.method === 'cash') {
+    const sesyonAktif = await prisma.pg_kes_sesyon.findFirst({
+      where: { tenant_id: tenantId, user_id: userId, status: 'louvri' },
+    });
+    if (!sesyonAktif) {
+      throw Object.assign(new Error('Louvri Sesyon Kès ou anvan w fè yon vant kach.'), { statusCode: 403 });
+    }
+  }
 
   const invoiceNumber = await getNextInvoiceNumber(tenantId);
   const rate = exchangeRate || Number(tenant.exchangeRate);
