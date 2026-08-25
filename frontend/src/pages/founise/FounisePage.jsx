@@ -7,7 +7,7 @@ import { founiseAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import {
-  ArrowLeft, Plus, Truck, Wallet, ShoppingBag, X, Search,
+  ArrowLeft, Plus, Truck, Wallet, ShoppingBag, X, Search, History, TrendingUp,
 } from 'lucide-react'
 
 // ✅ Menm palèt/tokens ak paj Fakti a (NewInvoicePage.jsx) — pou tout paj
@@ -140,6 +140,8 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
       id: `p-${p.id}-${Date.now()}`,
       productId: p.id, name: p.name, deskripsyon: null,
       kantite: 1, priKoutInite: Number(p.costPriceHtg || 0),
+      // ✅ NOUVO — pri vant aktyèl pwodwi a, pou kalkile benefis pwojte a
+      priVant: Number(p.priceHtg || 0),
     }])
     setSearch(''); setShowResults(false)
   }
@@ -157,6 +159,12 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
 
   const machandizTotal = lines.reduce((acc, l) => acc + (Number(l.kantite) || 0) * (Number(l.priKoutInite) || 0), 0)
   const grandTotal = machandizTotal + (Number(fraAdisyonel) || 0)
+  // ✅ NOUVO — benefis pwojte: (pri vant aktyèl − pri kout) × kantite, pou
+  // chak liy ki mare ak yon vrè pwodwi (liy manyèl yo pa gen pri vant pou konpare)
+  const benefisTotal = lines.reduce((acc, l) => {
+    if (l.priVant == null) return acc
+    return acc + (Number(l.priVant) - (Number(l.priKoutInite) || 0)) * (Number(l.kantite) || 0)
+  }, 0)
 
   const mutation = useMutation({
     mutationFn: (data) => founiseAPI.createAchteBatch(data),
@@ -248,6 +256,15 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
                     {fmt((Number(l.kantite)||0) * (Number(l.priKoutInite)||0))}
                   </span>
                 </div>
+                {/* ✅ NOUVO — benefis pwojte pou liy sa a (sèlman si li mare ak yon vrè pwodwi ki gen pri vant) */}
+                {l.priVant != null && (
+                  <p style={{ fontSize:10, color:D.muted, margin:'6px 0 0' }}>
+                    Pri vant: <span style={{ fontWeight:700, color:D.text }}>{fmt(l.priVant)} HTG</span> · Benefis pwojte:{' '}
+                    <span style={{ fontWeight:800, color: (l.priVant - (Number(l.priKoutInite)||0)) >= 0 ? D.success : D.red }}>
+                      {fmt((l.priVant - (Number(l.priKoutInite)||0)) * (Number(l.kantite)||0))} HTG
+                    </span>
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -276,6 +293,14 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
           </div>
         </div>
 
+        {/* ✅ NOUVO — benefis total pwojte, dapre pri vant aktyèl pwodwi yo (sèlman si gen omwen yon liy ki mare ak yon vrè pwodwi) */}
+        {lines.some(l => l.priVant != null) && (
+          <div style={{ padding:'12px 16px', borderRadius:12, background: benefisTotal >= 0 ? D.successBg : 'rgba(192,57,43,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Benefis Total Pwojte (dapre pri vant aktyèl)</span>
+            <span style={{ fontSize:16, fontWeight:900, color: benefisTotal >= 0 ? D.success : D.red, fontFamily:'monospace' }}>{fmt(benefisTotal)} HTG</span>
+          </div>
+        )}
+
         <div>{label('Nòt (opsyonèl)')}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
 
         <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
@@ -301,15 +326,21 @@ export default function FounisePage() {
   const { data: kapitalData } = useQuery({ queryKey: ['founise-kapital'], queryFn: () => founiseAPI.getKapital() })
   const { data: founiseData } = useQuery({ queryKey: ['founise-list'], queryFn: () => founiseAPI.getAll() })
   const { data: achteData }   = useQuery({ queryKey: ['founise-achte'], queryFn: () => founiseAPI.getAchte({ limit: 20 }) })
+  // ✅ NOUVO — istorik mouvman kapital (enjeksyon + achte), pou n ka montre
+  // yon istorik detaye enjeksyon yo, menm jan ak lis achte a
+  const { data: mouvmanData } = useQuery({ queryKey: ['founise-kapital-mouvman'], queryFn: () => founiseAPI.getKapitalMouvman({ limit: 30 }) })
 
   const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0, totalFre: 0 }
   const founiseList = founiseData?.data?.founise || []
   const achteList = achteData?.data?.achte || []
+  // ✅ NOUVO — sèlman liy enjeksyon yo (pa mele ak achte/frè)
+  const enjeksyonList = (mouvmanData?.data?.mouvman || []).filter(m => m.type === 'enjeksyon')
 
   const refreshAll = () => {
     qc.invalidateQueries({ queryKey: ['founise-kapital'] })
     qc.invalidateQueries({ queryKey: ['founise-list'] })
     qc.invalidateQueries({ queryKey: ['founise-achte'] })
+    qc.invalidateQueries({ queryKey: ['founise-kapital-mouvman'] })
     qc.invalidateQueries({ queryKey: ['dashboard-full'] })
     setModal(null)
   }
@@ -408,6 +439,36 @@ export default function FounisePage() {
           )}
         </div>
 
+        {/* ✅ NOUVO — Istorik Enjeksyon */}
+        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <History size={14} color={D.blue}/>
+              </div>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Istorik Enjeksyon</h3>
+            </div>
+            <button onClick={() => setModal('kapital')} style={{ padding:'9px 14px', borderRadius:10, border:'none', background:D.gold, color:'#fff', fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
+              <Plus size={14}/> Enjekte
+            </button>
+          </div>
+          {enjeksyonList.length === 0 ? (
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen enjeksyon kapital anrejistre ankò.</p>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {enjeksyonList.map(m => (
+                <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
+                  <div style={{ minWidth:0 }}>
+                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{m.notes || 'Enjeksyon Kapital'}</p>
+                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>{new Date(m.created_at).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+                  </div>
+                  <p style={{ fontWeight:900, fontSize:14, color:D.success, fontFamily:'monospace', margin:0, whiteSpace:'nowrap' }}>+{fmt(m.montant)} HTG</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Achte */}
         <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
@@ -449,4 +510,3 @@ export default function FounisePage() {
     </div>
   )
 }
-
