@@ -6,7 +6,7 @@ import { estokKontwolAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { printReportUSB, printReportBluetooth } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardCheck, Printer, Search, Zap, Bluetooth } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Printer, Search, Zap, Bluetooth, RefreshCw } from 'lucide-react'
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
@@ -63,9 +63,19 @@ export default function EstokKontwolPage() {
   const { data: categoriesData } = useQuery({ queryKey: ['product-categories'], queryFn: () => productAPI.getCategories() })
   const categories = categoriesData?.data?.categories || []
 
-  const { data: productsData, isLoading: loadingProducts } = useQuery({
+  const { data: productsData, isLoading: loadingProducts, refetch: refetchProducts, isRefetching: refetchingProducts } = useQuery({
     queryKey: ['products-all-kontwol', filtreKategori, filtreChèche],
     queryFn: () => productAPI.getAll({ categoryId: filtreKategori || undefined, search: filtreChèche || undefined, limit: 500 }),
+    // ✅ KORIJE — si 2 kesye pataje menm aparèy/navigatè a (yon dekonekte,
+    // yon lòt konekte san rechajman konplè), oswa si paj la rete "ouvri"
+    // depi lontan san okenn navigasyon, chif yo te ka rete "kole" nan
+    // memwa navigatè a. Kounye a paj sa a: (1) toujou chèche fre lè l
+    // louvri, (2) rafrechi otomatikman chak 60s pandan l ouvri, (3)
+    // rafrechi lè moun retounen sou tab la — menm si paj la pa navige ankò.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   })
   const products = productsData?.data?.products || []
 
@@ -165,11 +175,20 @@ export default function EstokKontwolPage() {
                 <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi, oswa kòmanse ak sistèm nan</p>
               </div>
             </div>
-            {/* ✅ NOUVO — yon sèl klik pou ranpli tout ak kantite sistèm nan */}
-            <button onClick={ranpliAkSistèm} disabled={!products.length}
-              style={{ padding:'9px 16px', borderRadius:10, border:`1.5px solid ${D.gold}`, background:'rgba(201,168,76,0.08)', color:D.goldDk || D.gold, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, whiteSpace:'nowrap' }}>
-              <Zap size={14}/> Kòmanse ak Sistèm nan
-            </button>
+            <div style={{ display:'flex', gap:8 }}>
+              {/* ✅ NOUVO — rafrechi manyèl, pou kesye a ka fòse yon chif fre
+                  anvan l konfime, si l pa sèten paj la ajou */}
+              <button onClick={() => refetchProducts()} disabled={refetchingProducts}
+                title="Rafrechi kantite yo"
+                style={{ padding:'9px 12px', borderRadius:10, border:`1.5px solid ${D.border}`, background:'#fff', color:D.muted, fontWeight:800, fontSize:12, cursor: refetchingProducts ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <RefreshCw size={14} style={refetchingProducts ? { animation:'spin 1s linear infinite' } : undefined}/>
+              </button>
+              {/* ✅ NOUVO — yon sèl klik pou ranpli tout ak kantite sistèm nan */}
+              <button onClick={ranpliAkSistèm} disabled={!products.length}
+                style={{ padding:'9px 16px', borderRadius:10, border:`1.5px solid ${D.gold}`, background:'rgba(201,168,76,0.08)', color:D.goldDk || D.gold, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, whiteSpace:'nowrap' }}>
+                <Zap size={14}/> Kòmanse ak Sistèm nan
+              </button>
+            </div>
           </div>
 
           {/* Filt — pou jwenn yon seksyon pwodwi rapid nan yon gwo katalòg */}
