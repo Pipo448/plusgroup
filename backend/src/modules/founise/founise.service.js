@@ -1,6 +1,13 @@
 // src/modules/founise/founise.service.js
 const prisma = require('../../config/prisma');
 
+// ✅ NOUVO — Ayiti se UTC-4. Si nou kite Postgres CURRENT_DATE deside dat
+// yon achte otomatikman, li kalkile dat la an UTC (lè sèvè a), pa lè
+// Ayiti a — yon achte fèt aswè (Ayiti) ka anrejistre ak dat DEMEN pa
+// erè. Menm koreksyon egzat ak "getHaitiDateStr" nan dashboard-full.route.js.
+const getHaitiDateStr = (d = new Date()) =>
+  d.toLocaleDateString('en-CA', { timeZone: 'America/Port-au-Prince' }); // → "YYYY-MM-DD"
+
 // ── KAPITAL — balans disponib = SUM(enjeksyon) - SUM(achte) - SUM(fre)
 // ✅ KORIJE — Depans jeneral yo (pg_expenses, paj "Depans") rete SEPARE:
 // yo afekte Benefis (vant − depans) sou Tablo Bò a, men PA Kapital
@@ -115,7 +122,9 @@ const createAchte = async (tenantId, userId, data) => {
         kantite,
         pri_kout_inite: priKoutInite,
         total_htg: totalHtg,
-        dat_acha: data.datAcha ? new Date(data.datAcha) : undefined,
+        // ✅ KORIJE — pa kite Postgres CURRENT_DATE (UTC) deside; sèvi ak
+        // dat Ayiti a si pa gen dat espesifik bay.
+        dat_acha: new Date(data.datAcha || getHaitiDateStr()),
         notes: data.notes?.trim() || null,
         created_by: userId,
       },
@@ -217,7 +226,9 @@ const createAchteBatch = async (tenantId, userId, data) => {
           kantite: l.kantite,
           pri_kout_inite: l.priKoutInite,
           total_htg: l.totalHtg,
-          dat_acha: data.datAcha ? new Date(data.datAcha) : undefined,
+          // ✅ KORIJE — pa kite Postgres CURRENT_DATE (UTC) deside; sèvi ak
+          // dat Ayiti a si pa gen dat espesifik bay.
+          dat_acha: new Date(data.datAcha || getHaitiDateStr()),
           notes: l.notes,
           created_by: userId,
         },
