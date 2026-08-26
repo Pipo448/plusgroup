@@ -283,12 +283,20 @@ const createAchteBatch = async (tenantId, userId, data) => {
   });
 };
 
-const listAchte = (tenantId, { founiseId, limit = 50 } = {}) =>
+// ✅ MODIFYE — ajoute filt dat (dateFrom/dateTo) epi enkli pri vant AKTYÈL
+// pwodwi a (product.priceHtg), pou fwontèn nan ka kalkile benefis pwojte
+// pou nenpòt achte, menm si yo te antre yo youn pa youn (pa nan menm
+// panye) — dat achte a (dat_acha) se referans lan, pa dat kreyasyon an.
+const listAchte = (tenantId, { founiseId, dateFrom, dateTo, limit = 50 } = {}) =>
   prisma.pg_achte.findMany({
-    where: { tenant_id: tenantId, ...(founiseId && { founise_id: founiseId }) },
+    where: {
+      tenant_id: tenantId,
+      ...(founiseId && { founise_id: founiseId }),
+      ...(dateFrom && dateTo && { dat_acha: { gte: new Date(dateFrom), lte: new Date(`${dateTo}T23:59:59.999Z`) } }),
+    },
     include: {
       founise: { select: { non: true } },
-      product: { select: { name: true, unit: true } },
+      product: { select: { name: true, unit: true, priceHtg: true } },
     },
     orderBy: { created_at: 'desc' },
     take: Number(limit),

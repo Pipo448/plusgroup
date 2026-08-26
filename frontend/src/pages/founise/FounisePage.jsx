@@ -322,10 +322,16 @@ export default function FounisePage() {
   const qc = useQueryClient()
 
   const [modal, setModal] = useState(null) // 'founise' | 'kapital' | 'achte' | null
+  // ✅ NOUVO — filt dat pou lis Achte a, itil lè w antre plizyè achte
+  // youn pa youn (pa nan menm panye) e w vle wè total benefis pou yon dat
+  const [dateFilt, setDateFilt] = useState({ from: '', to: '' })
 
   const { data: kapitalData } = useQuery({ queryKey: ['founise-kapital'], queryFn: () => founiseAPI.getKapital() })
   const { data: founiseData } = useQuery({ queryKey: ['founise-list'], queryFn: () => founiseAPI.getAll() })
-  const { data: achteData }   = useQuery({ queryKey: ['founise-achte'], queryFn: () => founiseAPI.getAchte({ limit: 20 }) })
+  const { data: achteData }   = useQuery({
+    queryKey: ['founise-achte', dateFilt.from, dateFilt.to],
+    queryFn: () => founiseAPI.getAchte({ limit: 100, ...(dateFilt.from && dateFilt.to && { dateFrom: dateFilt.from, dateTo: dateFilt.to }) }),
+  })
   // ✅ NOUVO — istorik mouvman kapital (enjeksyon + achte), pou n ka montre
   // yon istorik detaye enjeksyon yo, menm jan ak lis achte a
   const { data: mouvmanData } = useQuery({ queryKey: ['founise-kapital-mouvman'], queryFn: () => founiseAPI.getKapitalMouvman({ limit: 30 }) })
@@ -333,6 +339,13 @@ export default function FounisePage() {
   const kapital = kapitalData?.data?.kapital || { disponib: 0, totalEnjeksyon: 0, totalAchte: 0, totalFre: 0 }
   const founiseList = founiseData?.data?.founise || []
   const achteList = achteData?.data?.achte || []
+  // ✅ NOUVO — total benefis pwojte pou TOUT achte ki nan lis la kounye a
+  // (filtre pa dat si yon peryòd chwazi) — sèvi ak pri vant aktyèl pwodwi
+  // a (product.priceHtg) ki kounye a vini nan menm rezilta a.
+  const achteBenefisTotal = achteList.reduce((acc, a) => {
+    if (a.product?.priceHtg == null) return acc
+    return acc + (Number(a.product.priceHtg) - Number(a.pri_kout_inite)) * Number(a.kantite)
+  }, 0)
   // ✅ NOUVO — sèlman liy enjeksyon yo (pa mele ak achte/frè)
   const enjeksyonList = (mouvmanData?.data?.mouvman || []).filter(m => m.type === 'enjeksyon')
 
@@ -486,8 +499,36 @@ export default function FounisePage() {
           {founiseList.length === 0 && (
             <p style={{ color:D.muted, fontSize:12, marginBottom:14 }}>Ajoute yon founisè anvan pou w ka anrejistre yon achte.</p>
           )}
+
+          {/* ✅ NOUVO — filt dat, itil lè w antre plizyè achte youn pa youn nan menm dat la */}
+          <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'end' }}>
+            <div>
+              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>De</label>
+              <input type="date" value={dateFilt.from} onChange={e => setDateFilt(d => ({ ...d, from: e.target.value }))} style={{ ...inp, padding:'8px 10px', fontSize:12 }}/>
+            </div>
+            <div>
+              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>Rive</label>
+              <input type="date" value={dateFilt.to} onChange={e => setDateFilt(d => ({ ...d, to: e.target.value }))} style={{ ...inp, padding:'8px 10px', fontSize:12 }}/>
+            </div>
+            {(dateFilt.from || dateFilt.to) && (
+              <button onClick={() => setDateFilt({ from:'', to:'' })} style={{ padding:'8px 12px', borderRadius:10, border:`1px solid ${D.border}`, background:'#fff', color:D.muted, fontWeight:700, fontSize:11, cursor:'pointer' }}>
+                Retire filt
+              </button>
+            )}
+          </div>
+
+          {/* ✅ NOUVO — total benefis pwojte pou tout achte ki nan lis la (peryòd chwazi a) */}
+          {achteList.length > 0 && (
+            <div style={{ padding:'12px 16px', borderRadius:12, background: achteBenefisTotal >= 0 ? D.successBg : 'rgba(192,57,43,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>
+                Benefis Total Pwojte {(dateFilt.from && dateFilt.to) ? `(${dateFilt.from} → ${dateFilt.to})` : '(tout achte ki afiche)'}
+              </span>
+              <span style={{ fontSize:16, fontWeight:900, color: achteBenefisTotal >= 0 ? D.success : D.red, fontFamily:'monospace' }}>{fmt(achteBenefisTotal)} HTG</span>
+            </div>
+          )}
+
           {achteList.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen achte anrejistre ankò.</p>
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen achte anrejistre pou peryòd sa a.</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {achteList.map(a => (
