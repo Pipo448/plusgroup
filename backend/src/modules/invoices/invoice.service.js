@@ -270,6 +270,10 @@ const createDirect = async (tenantId, userId, data, userRole) => {
           quantity: Number(item.quantity),
           unitPriceHtg: Number(item.unitPriceHtg || 0), unitPriceUsd: Number(item.unitPriceUsd || 0),
           discountPct: Number(item.discountPct || 0),
+          // ✅ NOUVO — montan rabè a egzak, sove tèl kèl (menm rezon ak
+          // QuoteItem — evite pèt presizyon lè n ta rekonstwi l apati
+          // discountPct pita, egzanp lè n reprime/afiche fakti a)
+          discountAmt: Number(item.discountAmt || 0),
           totalHtg: Number(item.totalHtg || 0), totalUsd: Number(item.totalUsd || 0),
           stockBefore, stockAfter, sortOrder: idx, notes: item.notes || null
         }

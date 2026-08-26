@@ -810,8 +810,10 @@ export default function NewInvoicePage() {
       return
     }
 
-    // ✅ KORIJE — pou chak liy, konvèti montan rabè a an pousantaj
-    // (paske schema InvoiceItem nan backend la sèlman gen `discountPct`)
+    // ✅ KORIJE — voye discountAmt (montan egzak) DIREKTEMAN bay backend la
+    // kounye a, an plis de discountPct (kenbe pou konpatibilite/afichaj kòm
+    // pousantaj). Sa evite pèt presizyon si fakti a re-louvri pou konsilte
+    // detay rabè a pita.
     const mappedItems = validItems.map(it => {
       const qty       = Number(it.qty)
       const unitPrice = Number(it.unitPrice)
@@ -820,7 +822,7 @@ export default function NewInvoicePage() {
       // egzat sèy nivo a, itilize pri total pakè a dirèkteman
       const gross     = exactTierGross(it) ?? (qty * unitPrice)
       const lineTotal = Math.max(0, gross - Math.min(discAmt, gross))
-      // Konvèti montan rabè → pousantaj pou backend
+      // Konvèti montan rabè → pousantaj (pou afichaj/rapò kòm pousantaj)
       const discPct   = gross > 0 ? Math.min(100, (discAmt / gross) * 100) : 0
       // ✅ NOUVO — non nivo pri a ki te aktif pou liy sa a (pou badj afichaj)
       const tierLabel = it._priceMode?.startsWith('tier-')
@@ -834,6 +836,7 @@ export default function NewInvoicePage() {
         unitPriceHtg:    unitPrice,
         unitPriceUsd:    0,
         discountPct:     Number(discPct.toFixed(4)),
+        discountAmt:     Math.min(discAmt, gross),  // ✅ NOUVO — valè egzak la
         totalHtg:        lineTotal,
         totalUsd:        0,
         productSnapshot: { name: it.description, code: it._productCode || null, unit: it._unit || null, tierLabel },

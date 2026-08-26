@@ -715,10 +715,15 @@ export default function QuoteForm() {
     const rawItems = Array.isArray(existingQuote.items) ? existingQuote.items : []
     setItems(rawItems.length > 0
       ? rawItems.map((i, idx) => {
-          // ✅ KORIJE — konvèti discountPct (ki sove nan DB) → discountAmt (HTG) pou afichaj
+          // ✅ KORIJE — li discountAmt DIREKTEMAN (valè egzak, sove tèl kèl)
+          // olye rekonstwi l apati discountPct (pousantaj awondi a 2 chif,
+          // ki pa janm tonbe sou menm valè a). Repli sou ansyen kalkil la
+          // SÈLMAN pou devi ki te kreye AVAN koreksyon sa a (ki pa gen
+          // discountAmt sove ankò — nan ka sa a li ap toujou apwoksimatif).
           const gross    = Number(i.unitPriceHtg||0) * Number(i.quantity||0)
-          const discPct  = Number(i.discountPct||0)
-          const discAmt  = gross * discPct / 100
+          const discAmt  = i.discountAmt != null
+            ? Number(i.discountAmt)
+            : gross * Number(i.discountPct||0) / 100
           return {
             _id:          i.id || idx,
             productId:    i.productId,
@@ -791,7 +796,10 @@ export default function QuoteForm() {
       taxRate: Number(taxRate), notes, terms,
       expiryDate: expiryDate || null,
       items: items.map(i => {
-        // ✅ KORIJE — konvèti discountAmt (HTG) → discountPct (%) pou backend
+        // ✅ KORIJE — voye discountAmt (montan egzak) DIREKTEMAN bay backend
+        // la, an plis de discountPct (kenbe pou konpatibilite ak rapò/
+        // enprime ki afiche l kòm pousantaj). Backend lan dwe sove
+        // discountAmt tèl kèl kounye a, pa jis kalkile l apati discountPct.
         const gross    = exactTierGross(i) ?? (Number(i.unitPriceHtg||0) * Number(i.quantity||0))
         const discAmt  = Number(i.discountAmt||0)
         const discPct  = gross > 0 ? (discAmt / gross) * 100 : 0
@@ -801,7 +809,8 @@ export default function QuoteForm() {
           quantity:        Number(i.quantity),
           unitPriceHtg:    Number(i.unitPriceHtg),
           unitPriceUsd:    Number(i.unitPriceUsd || 0),
-          discountPct:     Math.round(discPct * 100) / 100,  // sove kòm pousantaj nan DB
+          discountPct:     Math.round(discPct * 100) / 100,  // pou afichaj/rapò kòm pousantaj
+          discountAmt:     Math.round(discAmt * 100) / 100,  // ✅ NOUVO — valè egzak la, sa backend dwe sove
           sortOrder:       0
         }
       })

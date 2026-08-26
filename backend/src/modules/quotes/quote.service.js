@@ -58,8 +58,20 @@ const calculateTotals = (items, discountType, discountValue, taxRate, exchangeRa
   let subtotalUsd = 0;
 
   for (const item of items) {
-    const lineHtg = Number(item.unitPriceHtg) * Number(item.quantity) * (1 - Number(item.discountPct || 0) / 100);
-    const lineUsd = Number(item.unitPriceUsd) * Number(item.quantity) * (1 - Number(item.discountPct || 0) / 100);
+    // ✅ KORIJE — itilize discountAmt (montan egzak) si li bay, olye de
+    // toujou rekalkile apati discountPct (ki gen sèlman 2 chif desimal e
+    // ki pa janm tonbe sou menm valè a lè w rekonstwi l — menm bug ak pri
+    // an gwo yo, deja korije ak totalPriceHtg).
+    const grossHtg = Number(item.unitPriceHtg) * Number(item.quantity);
+    const grossUsd = Number(item.unitPriceUsd) * Number(item.quantity);
+    const discAmtHtg = item.discountAmt != null && item.discountAmt !== ''
+      ? Math.min(Number(item.discountAmt), grossHtg)
+      : grossHtg * Number(item.discountPct || 0) / 100;
+    // Rabè an USD kalkile pwopòsyonèl (menm pousantaj rabè a) — nou pa
+    // sove yon "discountAmtUsd" apa, konvèsyon an rete konsistan.
+    const discRatio = grossHtg > 0 ? discAmtHtg / grossHtg : 0;
+    const lineHtg = grossHtg - discAmtHtg;
+    const lineUsd = grossUsd * (1 - discRatio);
     item.totalHtg = Math.round(lineHtg * 100) / 100;
     item.totalUsd = Math.round(lineUsd * 100) / 100;
     subtotalHtg += lineHtg;
@@ -192,6 +204,8 @@ const create = async (tenantId, userId, data, userRole) => {
       unitPriceHtg: Number(item.unitPriceHtg || product?.priceHtg || 0),
       unitPriceUsd: Number(item.unitPriceUsd || product?.priceUsd || 0),
       discountPct: Number(item.discountPct || 0),
+      // ✅ NOUVO — montan rabè a egzak, sove tèl kèl
+      discountAmt: Number(item.discountAmt || 0),
       sortOrder: item.sortOrder || 0,
       notes: item.notes
     });
@@ -279,6 +293,8 @@ const update = async (tenantId, id, userId, data, userRole) => {
         unitPriceHtg: Number(item.unitPriceHtg || product?.priceHtg || 0),
         unitPriceUsd: Number(item.unitPriceUsd || product?.priceUsd || 0),
         discountPct: Number(item.discountPct || 0),
+        // ✅ NOUVO — montan rabè a egzak, sove tèl kèl
+        discountAmt: Number(item.discountAmt || 0),
         sortOrder: item.sortOrder || 0,
         notes: item.notes
       });
@@ -396,6 +412,8 @@ const convertToInvoice = async (tenantId, id, userId) => {
             unitPriceHtg: item.unitPriceHtg,
             unitPriceUsd: item.unitPriceUsd,
             discountPct: item.discountPct,
+            // ✅ NOUVO — kopye montan rabè a tou lè n dwaplike yon devi
+            discountAmt: item.discountAmt,
             totalHtg: item.totalHtg,
             totalUsd: item.totalUsd,
             sortOrder: item.sortOrder,
