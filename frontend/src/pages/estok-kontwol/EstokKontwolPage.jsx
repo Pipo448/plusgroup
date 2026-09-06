@@ -72,10 +72,15 @@ export default function EstokKontwolPage() {
     // memwa navigatè a. Kounye a paj sa a: (1) toujou chèche fre lè l
     // louvri, (2) rafrechi otomatikman chak 60s pandan l ouvri, (3)
     // rafrechi lè moun retounen sou tab la — menm si paj la pa navige ankò.
+    // ⚠️ KORIJE — te gen `refetchInterval: 60000` ak `refetchOnWindowFocus:
+    // true` isit la, ki te fè paj sa a rechèche jiska 500 pwodwi chak 60
+    // segond otomatikman toutotan l te ouvri. Sa te koze yon depasman
+    // egzajere nan egress Supabase (chak aparèy ki kite paj la ouvri tout
+    // jounen an te "manje" plizyè GB pa jou). Kounye a nou depann sèlman
+    // sou (1) yon rechèch FRÈ lè paj la reyèlman louvri (`refetchOnMount`,
+    // yon sèl kou, pa repete) ak (2) bouton "🔄 Rafrechi" manyèl anba a.
     staleTime: 0,
     refetchOnMount: 'always',
-    refetchInterval: 60000,
-    refetchOnWindowFocus: true,
   })
   const products = productsData?.data?.products || []
 

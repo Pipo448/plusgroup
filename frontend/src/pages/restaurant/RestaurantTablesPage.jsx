@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { restaurantTablesAPI, productAPI, invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, X, Search, Send, CreditCard, Trash2, Users, UtensilsCrossed } from 'lucide-react'
+import { ArrowLeft, Plus, X, Search, Send, CreditCard, Trash2, Users, UtensilsCrossed, RefreshCw } from 'lucide-react'
 
 const D = {
   red:'#C0392B', redLt:'#E05A4A', redDim:'rgba(192,57,43,0.08)',
@@ -213,7 +213,13 @@ export default function RestaurantTablesPage() {
   const [modal, setModal] = useState(null) // 'nouvo-tab' | null
   const [activeOrder, setActiveOrder] = useState(null)
 
-  const { data: tablesData, isLoading } = useQuery({ queryKey: ['restaurant-tables'], queryFn: () => restaurantTablesAPI.getTables(), refetchInterval: 15000 })
+  // ⚠️ KORIJE — te gen `refetchInterval: 15000` (chak 15s) isit la. Sa te
+  // fè paj sa a rechèche TOUT tab yo (ak kòmand/atik ki mare ak yo) 4 fwa
+  // pa minit, tout jounen an, pou chak aparèy ki gen paj la ouvri — sa te
+  // yon gwo kontribitè nan depasman egress Supabase la. Nou monte entèval
+  // la a 45s (3 fwa mwens frekan) epi nou ajoute yon bouton "Rafrechi"
+  // manyèl pou moman kote yo bezwen yon chif fre imedya.
+  const { data: tablesData, isLoading, refetch: refetchTables, isRefetching: refetchingTables } = useQuery({ queryKey: ['restaurant-tables'], queryFn: () => restaurantTablesAPI.getTables(), refetchInterval: 45000 })
   const tables = tablesData?.data?.tables || []
 
   const openMutation = useMutation({
@@ -246,6 +252,10 @@ export default function RestaurantTablesPage() {
             <p style={{ color:'rgba(255,255,255,0.7)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || 'Restoran'}</p>
             <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0 }}>Tab & Kòmand</h1>
           </div>
+          <button onClick={() => refetchTables()} disabled={refetchingTables} title="Rafrechi tab yo"
+            style={{ width: isMobile ? 38 : 42, height: isMobile ? 38 : 42, borderRadius:12, background:'rgba(255,255,255,0.15)', border:'1px solid rgba(255,255,255,0.25)', cursor: refetchingTables ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', flexShrink:0 }}>
+            <RefreshCw size={16} style={refetchingTables ? { animation:'spin 1s linear infinite' } : undefined}/>
+          </button>
           <button onClick={() => setModal('nouvo-tab')} style={{ padding: isMobile ? '9px 12px' : '10px 18px', borderRadius:12, border:'none', background:'#fff', color:D.red, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:6, whiteSpace:'nowrap' }}>
             <Plus size={15}/> {!isMobile && 'Nouvo Tab'}
           </button>
