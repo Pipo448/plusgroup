@@ -1,7 +1,7 @@
 model KlinikPatient {
   id                  String                  @id @default(dbgenerated("(gen_random_uuid())::text"))
   tenantId            String                  @map("tenant_id")
-  numeroDossier       String                  @unique @map("numero_dossier")
+  numeroDossier       String                  @map("numero_dossier")
   nom                 String
   prenom              String
   dateNaissance       DateTime?               @map("date_naissance") @db.Timestamptz(6)
@@ -33,6 +33,7 @@ model KlinikPatient {
   prescriptions       KlinikPrescription[]
   klinik_services     klinik_services[]
 
+  @@unique([tenantId, numeroDossier])
   @@index([tenantId])
   @@map("klinik_patients")
 }
