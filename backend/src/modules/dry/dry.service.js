@@ -182,4 +182,51 @@ const getDashboard = async (tenantId, branchId) => {
   return { received, processing, ready, delivered }
 }
 
-module.exports = { getAll, getOne, create, updateStatus, addPayment, getDashboard }
+const getCatalog = async (tenantId) => {
+  return prisma.dryCatalogItem.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  })
+}
+
+const createCatalogItem = async (tenantId, data) => {
+  const { name, unitPriceHtg, defaultService, sortOrder } = data
+  if (!name?.trim()) throw Object.assign(new Error('Non atik obligatwa.'), { statusCode: 400 })
+  const price = Number(unitPriceHtg || 0)
+  if (price < 0) throw Object.assign(new Error('Pri pa ka negatif.'), { statusCode: 400 })
+  const count = await prisma.dryCatalogItem.count({ where: { tenantId } })
+  return prisma.dryCatalogItem.create({
+    data: {
+      tenantId, name: name.trim(), unitPriceHtg: price,
+      defaultService: defaultService || 'presaj',
+      sortOrder: sortOrder ?? count,
+    }
+  })
+}
+
+const updateCatalogItem = async (tenantId, id, data) => {
+  const item = await prisma.dryCatalogItem.findFirst({ where: { id, tenantId } })
+  if (!item) throw Object.assign(new Error('Atik pa jwenn.'), { statusCode: 404 })
+  const { name, unitPriceHtg, defaultService, sortOrder, isActive } = data
+  return prisma.dryCatalogItem.update({
+    where: { id },
+    data: {
+      ...(name !== undefined && { name: name.trim() }),
+      ...(unitPriceHtg !== undefined && { unitPriceHtg: Number(unitPriceHtg) }),
+      ...(defaultService !== undefined && { defaultService }),
+      ...(sortOrder !== undefined && { sortOrder: Number(sortOrder) }),
+      ...(isActive !== undefined && { isActive: Boolean(isActive) }),
+    }
+  })
+}
+
+const deleteCatalogItem = async (tenantId, id) => {
+  const item = await prisma.dryCatalogItem.findFirst({ where: { id, tenantId } })
+  if (!item) throw Object.assign(new Error('Atik pa jwenn.'), { statusCode: 404 })
+  return prisma.dryCatalogItem.update({ where: { id }, data: { isActive: false } })
+}
+
+module.exports = {
+  getAll, getOne, create, updateStatus, addPayment, getDashboard,
+  getCatalog, createCatalogItem, updateCatalogItem, deleteCatalogItem,
+}

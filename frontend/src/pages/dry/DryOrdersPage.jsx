@@ -1,17 +1,20 @@
 // src/pages/dry/DryOrdersPage.jsx
-import { useState, useMemo, useCallback, memo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
-import { Search, Plus, Eye, ChevronLeft, ChevronRight, Scissors, X, Trash2 } from 'lucide-react'
+import { Search, Plus, Eye, ChevronLeft, ChevronRight, ChevronDown, Scissors, X, Trash2, Settings } from 'lucide-react'
 import { format } from 'date-fns'
 
 // ── API helpers
 const dryAPI = {
   getAll:  (params) => api.get('/dry', { params }),
   create:  (data)   => api.post('/dry', data),
+  getCatalog:        () => api.get('/dry/catalog'),
+  createCatalogItem: (data) => api.post('/dry/catalog', data),
+  deleteCatalogItem: (id)   => api.delete(`/dry/catalog/${id}`),
 }
 
 // ── Konstan
@@ -57,21 +60,29 @@ function useDebounce(v, d = 400) {
   return dv
 }
 
-// ── Fòmilè atik vid
+// ── Fòmilè atik vid (itilize pou ajout manyèl)
 const emptyItem = () => ({
   _id: Math.random().toString(36).slice(2),
   service: 'presaj', description: '', color: '', quantity: 1, unitPriceHtg: '', notes: ''
 })
 
+const isBlankItem = (it) =>
+  !it.description.trim() && !it.color.trim() && !it.unitPriceHtg && Number(it.quantity) === 1
+
 // ══════════════════════════════════════════════════════════════
 export default function DryOrdersPage() {
   const { hasRole } = useAuthStore()
   const qc = useQueryClient()
+  const overlayRef = useRef(null)
+  const colorInputRefs = useRef({})
 
-  const [search, setSearch]       = useState('')
-  const [status, setStatus]       = useState('')
-  const [page, setPage]           = useState(1)
+  const [search, setSearch]         = useState('')
+  const [status, setStatus]         = useState('')
+  const [page, setPage]             = useState(1)
   const [showCreate, setShowCreate] = useState(false)
+  const [showCatalogMgr, setShowCatalogMgr] = useState(false)
+  const [catalogForm, setCatalogForm] = useState({ name:'', unitPriceHtg:'', defaultService:'presaj' })
+  const [lastAddedId, setLastAddedId] = useState(null)
 
   // ── Fòmilè nouvo lòd
   const [form, setForm] = useState({
@@ -89,6 +100,12 @@ export default function DryOrdersPage() {
       .then(r => r.data),
     keepPreviousData: true,
     staleTime: 15000,
+  })
+
+  const { data: catalog = [] } = useQuery({
+    queryKey: ['dry-catalog'],
+    queryFn:  () => dryAPI.getCatalog().then(r => r.data.items),
+    staleTime: 60000,
   })
 
   const data = raw || { orders: [], total: 0, pages: 1 }
@@ -114,6 +131,22 @@ export default function DryOrdersPage() {
     onError: (e) => toast.error(e.response?.data?.message || 'Ere pandan kreye lòd.')
   })
 
+  const addCatalogMutation = useMutation({
+    mutationFn: (d) => dryAPI.createCatalogItem(d),
+    onSuccess: () => {
+      toast.success('Atik ajoute nan katalòg!')
+      qc.invalidateQueries(['dry-catalog'])
+      setCatalogForm({ name:'', unitPriceHtg:'', defaultService:'presaj' })
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan ajoute atik.')
+  })
+
+  const deleteCatalogMutation = useMutation({
+    mutationFn: (id) => dryAPI.deleteCatalogItem(id),
+    onSuccess: () => { toast.success('Atik retire nan katalòg.'); qc.invalidateQueries(['dry-catalog']) },
+    onError: () => toast.error('Erè pandan retire atik.')
+  })
+
   const handleSubmit = () => {
     if (!form.clientName.trim()) return toast.error('Non kliyan obligatwa.')
     if (!form.pickupDate)        return toast.error('Dat pou tounen obligatwa.')
@@ -129,6 +162,11 @@ export default function DryOrdersPage() {
     })
   }
 
+  const handleAddCatalog = () => {
+    if (!catalogForm.name.trim()) return toast.error('Non atik obligatwa.')
+    addCatalogMutation.mutate(catalogForm)
+  }
+
   const setItem = useCallback((id, field, val) => {
     setForm(f => ({ ...f, items: f.items.map(it => it._id === id ? { ...it, [field]: val } : it) }))
   }, [])
@@ -136,8 +174,41 @@ export default function DryOrdersPage() {
   const addItem    = () => setForm(f => ({ ...f, items: [...f.items, emptyItem()] }))
   const removeItem = (id) => setForm(f => ({ ...f, items: f.items.filter(it => it._id !== id) }))
 
-  const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate  = tomorrow.toISOString().split('T')[0]
+  // ── Klike sou yon tip rad nan katalòg la: ajoute liy nan lòd la ak pri ranpli otomatikman
+  const addFromCatalog = (cat) => {
+    const newId = Math.random().toString(36).slice(2)
+    setForm(f => {
+      const base = (f.items.length === 1 && isBlankItem(f.items[0])) ? [] : f.items
+      return {
+        ...f,
+        items: [...base, {
+          _id: newId,
+          service: cat.defaultService || 'presaj',
+          description: cat.name,
+          color: '',
+          quantity: 1,
+          unitPriceHtg: String(cat.unitPriceHtg),
+          notes: '',
+        }]
+      }
+    })
+    setLastAddedId(newId)
+  }
+
+  // Fokis otomatik sou chan "Koulè" apre ajout nan katalòg la
+  useEffect(() => {
+    if (lastAddedId && colorInputRefs.current[lastAddedId]) {
+      colorInputRefs.current[lastAddedId].focus()
+    }
+  }, [lastAddedId, form.items.length])
+
+  // Dat pou tounen: jodi a se minimòm (sèvis imedya), men ou ka toujou chwazi yon dat pita (randevou)
+  const today = new Date()
+  const minDate = today.toISOString().split('T')[0]
+
+  const scrollToBottom = () => {
+    overlayRef.current?.scrollTo({ top: overlayRef.current.scrollHeight, behavior: 'smooth' })
+  }
 
   return (
     <div style={{ fontFamily:'DM Sans,sans-serif' }}>
@@ -275,7 +346,7 @@ export default function DryOrdersPage() {
 
       {/* ══ MODAL NOUVO LÒD ══ */}
       {showCreate && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:100, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
+        <div ref={overlayRef} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:100, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
           onClick={e => e.target === e.currentTarget && setShowCreate(false)}>
           <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:680, boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
 
@@ -322,6 +393,37 @@ export default function DryOrdersPage() {
                 <input type="date" className="input" value={form.pickupDate} min={minDate}
                   onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))}
                   style={{ width:'100%', boxSizing:'border-box' }}/>
+                <p style={{ fontSize:11, color:D.muted, margin:'4px 0 0' }}>
+                  Chwazi <strong>jodi a</strong> pou yon sèvis imedya, oswa yon dat pita si se yon randevou.
+                </p>
+              </div>
+
+              {/* Katalòg — klike pou ajoute */}
+              <div style={{ marginBottom:16 }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>Klike pou Ajoute (Katalòg)</p>
+                  {hasRole(['admin']) && (
+                    <button onClick={() => setShowCatalogMgr(true)}
+                      style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'transparent', border:`1px solid ${D.border}`, color:D.muted, fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                      <Settings size={11}/> Jere Katalòg
+                    </button>
+                  )}
+                </div>
+                {catalog.length > 0 ? (
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                    {catalog.map(c => (
+                      <button key={c.id} type="button" onClick={() => addFromCatalog(c)}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'flex-start', padding:'8px 12px', borderRadius:10, border:`1.5px solid ${D.border}`, background:'#F8F9FF', cursor:'pointer', minWidth:88 }}>
+                        <span style={{ fontSize:12, fontWeight:800, color:D.text }}>{c.name}</span>
+                        <span style={{ fontSize:11, fontWeight:700, color:D.blue, fontFamily:'monospace' }}>{fmt(c.unitPriceHtg)} HTG</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ fontSize:12, color:D.muted, margin:0 }}>
+                    Poko gen tip rad nan katalòg la. {hasRole(['admin']) ? 'Klike "Jere Katalòg" pou ajoute.' : 'Mande admin ou ajoute tip rad ak pri.'}
+                  </p>
+                )}
               </div>
 
               {/* Atik yo */}
@@ -330,7 +432,7 @@ export default function DryOrdersPage() {
                   <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>Rad / Atik yo</p>
                   <button onClick={addItem}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:8, background:`rgba(27,42,143,0.07)`, border:`1px solid ${D.border}`, color:D.blue, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    <Plus size={12}/> Ajoute Rad
+                    <Plus size={12}/> Ajoute Lòt Atik
                   </button>
                 </div>
 
@@ -357,6 +459,7 @@ export default function DryOrdersPage() {
                         <div>
                           <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Koulè</label>
                           <input className="input" value={item.color}
+                            ref={el => { colorInputRefs.current[item._id] = el }}
                             onChange={e => setItem(item._id, 'color', e.target.value)}
                             placeholder="Blan, Nwa, Bleu..." style={{ width:'100%', boxSizing:'border-box', fontSize:13 }}/>
                         </div>
@@ -482,6 +585,59 @@ export default function DryOrdersPage() {
                     : <><Scissors size={16}/> Kreye Lòd Prese</>
                   }
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Bouton fiks nan kwen pou desann pi ba */}
+          <button type="button" onClick={scrollToBottom}
+            style={{ position:'fixed', bottom:24, right:24, zIndex:110, width:52, height:52, borderRadius:'50%', background:D.blue, color:'#fff', border:'none', boxShadow:`0 6px 20px ${D.blue}60`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
+            title="Desann pou wè total ak konfime lòd la">
+            <ChevronDown size={24}/>
+          </button>
+        </div>
+      )}
+
+      {/* ══ MODAL JERE KATALÒG ══ */}
+      {showCatalogMgr && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:150, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
+          onClick={e => e.target === e.currentTarget && setShowCatalogMgr(false)}>
+          <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid #f1f5f9' }}>
+              <h2 style={{ fontWeight:900, fontSize:16, color:D.text, margin:0 }}>Katalòg Tip Rad ak Pri</h2>
+              <button onClick={() => setShowCatalogMgr(false)} style={{ border:'none', background:'#f1f5f9', borderRadius:8, width:30, height:30, cursor:'pointer' }}>
+                <X size={14}/>
+              </button>
+            </div>
+            <div style={{ padding:'18px 22px' }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr auto', gap:8, marginBottom:14 }}>
+                <input className="input" placeholder="ex: Chemiz" value={catalogForm.name}
+                  onChange={e => setCatalogForm(c => ({ ...c, name:e.target.value }))} style={{ fontSize:13 }}/>
+                <input type="number" min="0" className="input" placeholder="Pri HTG" value={catalogForm.unitPriceHtg}
+                  onChange={e => setCatalogForm(c => ({ ...c, unitPriceHtg:e.target.value }))} style={{ fontSize:13 }}/>
+                <select className="input" value={catalogForm.defaultService}
+                  onChange={e => setCatalogForm(c => ({ ...c, defaultService:e.target.value }))} style={{ fontSize:12 }}>
+                  {SERVICES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+                <button onClick={handleAddCatalog} disabled={addCatalogMutation.isPending}
+                  style={{ padding:'8px 14px', borderRadius:8, background:D.blue, color:'#fff', border:'none', fontWeight:700, cursor:'pointer' }}>
+                  <Plus size={14}/>
+                </button>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:320, overflowY:'auto' }}>
+                {catalog.map(c => (
+                  <div key={c.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
+                    <div>
+                      <p style={{ margin:0, fontWeight:700, fontSize:13, color:D.text }}>{c.name}</p>
+                      <p style={{ margin:0, fontSize:11, color:D.muted }}>{SERVICES.find(s=>s.value===c.defaultService)?.label} · {fmt(c.unitPriceHtg)} HTG</p>
+                    </div>
+                    <button onClick={() => deleteCatalogMutation.mutate(c.id)}
+                      style={{ width:28, height:28, borderRadius:8, border:'1px solid rgba(192,57,43,0.2)', background:'rgba(192,57,43,0.07)', color:'#C0392B', cursor:'pointer' }}>
+                      <Trash2 size={12}/>
+                    </button>
+                  </div>
+                ))}
+                {!catalog.length && <p style={{ fontSize:12, color:D.muted, textAlign:'center', padding:'12px 0' }}>Poko gen atik nan katalòg la.</p>}
               </div>
             </div>
           </div>

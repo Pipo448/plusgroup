@@ -173,6 +173,7 @@ model Tenant {
   directQuoteItems       DirectQuoteItem[]
   directQuotes           DirectQuote[]
   documentSequences      DocumentSequence[]
+  dryCatalogItems        DryCatalogItem[]
   dryItems               DryOrderItem[]
   dryOrders              DryOrder[]
   dryPayments            DryPayment[]

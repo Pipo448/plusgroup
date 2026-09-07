@@ -35,4 +35,27 @@ const getDashboard = asyncHandler(async (req, res) => {
   res.json({ success: true, dashboard: data })
 })
 
-module.exports = { getAll, getOne, create, updateStatus, addPayment, getDashboard }
+const getCatalog       = asyncHandler(async (req, res) => {
+  const items = await svc.getCatalog(req.tenant.id)
+  res.json({ success: true, items })
+})
+
+const createCatalogItem = asyncHandler(async (req, res) => {
+  const item = await svc.createCatalogItem(req.tenant.id, req.body)
+  res.status(201).json({ success: true, item, message: 'Atik ajoute nan katalòg.' })
+})
+
+const updateCatalogItem = asyncHandler(async (req, res) => {
+  const item = await svc.updateCatalogItem(req.tenant.id, req.params.id, req.body)
+  res.json({ success: true, item, message: 'Atik mete ajou.' })
+})
+
+const deleteCatalogItem = asyncHandler(async (req, res) => {
+  await svc.deleteCatalogItem(req.tenant.id, req.params.id)
+  res.json({ success: true, message: 'Atik retire nan katalòg.' })
+})
+
+module.exports = {
+  getAll, getOne, create, updateStatus, addPayment, getDashboard,
+  getCatalog, createCatalogItem, updateCatalogItem, deleteCatalogItem,
+}
