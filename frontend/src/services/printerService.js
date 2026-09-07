@@ -882,6 +882,122 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
   await dispatch(bytes)
 }
 
+// ✅ NOUVO — Resi Prese espesyalize (pa jenerik), byen prezante, toujou an
+// Fransè, san emoji (emoji pa ekziste nan ansanm karaktè ESC/POS la, yo
+// tounen "?" oswa "??" sou papye).
+export const printDryReceipt = async (order, tenant) => {
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
+  const fmtD = (d) => { try { return new Date(d).toLocaleDateString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric' }) } catch { return '' } }
+
+  const W       = getWidth(tenant)
+  const bizName = tenant?.name || 'PLUS GROUP'
+  const logoBytes = (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+
+  const SERVICES_LABEL = { presaj:'Repassage', dry_clean:'Nettoyage a Sec', net_presaj:'Nettoyage + Repassage', reparasyon:'Reparation', blanchi:'Blanchisserie' }
+  const METOD_LABEL    = { cash:'Especes', moncash:'MonCash', natcash:'NatCash', card:'Carte', transfer:'Virement', check:'Cheque' }
+
+  const balance   = Number(order.balanceDueHtg || 0)
+  const paid      = Number(order.amountPaidHtg || 0)
+  const subtotal  = Number(order.subtotalHtg || 0)
+  const surcharge = Number(order.surchargeHtg || 0)
+  const lastPay   = order.payments?.[order.payments.length - 1]
+  const given     = Number(lastPay?.amountGiven || 0)
+  const change    = Number(lastPay?.change || 0)
+  const payStatusText = balance <= 0 ? 'PAYE INTEGRALEMENT' : paid > 0 ? 'PAIEMENT PARTIEL' : 'NON PAYE'
+
+  // ── Kolòn tab atik yo (chak liy kenbe SOU YON SÈL LIY, kèlkeswa lajè papye)
+  const qtyW   = 3
+  const priceW = W >= 48 ? 8 : 6
+  const totalW = W >= 48 ? 9 : 7
+  const descW  = Math.max(6, W - qtyW - priceW - totalW - 3)
+  const itemLine = (desc, qty, price, total) => {
+    const d = String(desc).length > descW ? String(desc).slice(0, descW - 1) + '.' : String(desc).padEnd(descW)
+    const q = String(qty).padStart(qtyW)
+    const p = fmt(price).padStart(priceW)
+    const t = fmt(total).padStart(totalW)
+    return `${d} ${q} ${p} ${t}`
+  }
+  const headerLine = 'Article'.slice(0, descW).padEnd(descW) + ' ' + 'Qte'.padStart(qtyW) + ' ' + 'P.U'.padStart(priceW) + ' ' + 'Total'.padStart(totalW)
+
+  const bytes = [
+    ...CMD.INIT,
+    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...encodeText(bizName + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText('RECU PRESSING\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...encodeText(order.orderNumber + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON,
+    ...encodeText((order.serviceMode === 'imedya' ? '[ SERVICE IMMEDIAT ]' : '[ RENDEZ-VOUS ]') + '\n'),
+    ...CMD.BOLD_OFF,
+    ...CMD.ALIGN_LEFT,
+    ...divider('-', W), LF,
+    ...makeLine('Depot:', fmtD(order.depositDate), W), LF,
+    ...CMD.BOLD_ON, ...makeLine('Client:', String(order.clientName || '').substring(0, W - 8), W), LF, ...CMD.BOLD_OFF,
+    ...(order.clientPhone ? [...makeLine('Tel:', order.clientPhone, W), LF] : []),
+    ...divider('-', W), LF,
+    ...CMD.ALIGN_CENTER,
+    ...CMD.SMALL_FONT, ...encodeText('A RECUPERER LE\n'), ...CMD.NORMAL_FONT,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...encodeText(fmtD(order.pickupDate) + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...CMD.ALIGN_LEFT,
+    ...divider('-', W), LF,
+    ...CMD.BOLD_ON, ...encodeText(headerLine + '\n'), ...CMD.BOLD_OFF,
+    ...divider('-', W), LF,
+    ...(order.items || []).flatMap(item => {
+      const desc = item.description + (item.color ? ` (${item.color})` : '')
+      const svcNote = '  -> ' + (SERVICES_LABEL[item.service] || item.service) + (item.notes ? ' - ' + item.notes : '')
+      return [
+        ...encodeText(itemLine(desc, item.quantity, item.unitPriceHtg, item.totalHtg) + '\n'),
+        ...CMD.SMALL_FONT, ...encodeText(svcNote.substring(0, W) + '\n'), ...CMD.NORMAL_FONT,
+      ]
+    }),
+    ...divider('-', W), LF,
+    ...(surcharge > 0 ? [
+      ...makeLine('Sous-total:', fmt(subtotal) + ' G', W), LF,
+      ...CMD.BOLD_ON, ...makeLine('Supplement Immediat:', '+' + fmt(surcharge) + ' G', W), LF, ...CMD.BOLD_OFF,
+    ] : []),
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...makeLine('TOTAL:', fmt(order.totalHtg) + ' G', W), LF,
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...(given > 0 ? [...makeLine('Montant donne:', fmt(given) + ' G', W), LF] : []),
+    ...makeLine('Recu:', fmt(paid) + ' G', W), LF,
+    ...(change > 0 ? [...makeLine('Monnaie rendue:', fmt(change) + ' G', W), LF] : []),
+    ...(lastPay?.method ? [...makeLine('Methode:', METOD_LABEL[lastPay.method] || lastPay.method, W), LF] : []),
+    ...(balance > 0 ? [...CMD.BOLD_ON, ...makeLine('SOLDE DU:', '-' + fmt(balance) + ' G', W), LF, ...CMD.BOLD_OFF] : []),
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...encodeText(payStatusText + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), LF,
+    ...(order.notes ? [
+      ...CMD.ALIGN_LEFT, ...CMD.SMALL_FONT,
+      ...encodeText('Note: ' + String(order.notes).substring(0, W - 6) + '\n'),
+      ...CMD.NORMAL_FONT, ...divider('-', W), LF,
+    ] : []),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
+    ...encodeText('Gardez ce recu pour\nrecuperer vos vetements!\n'),
+    ...CMD.BOLD_OFF,
+    ...(tenant?.receiptFooterNote ? [...CMD.SMALL_FONT, ...encodeText(String(tenant.receiptFooterNote).substring(0, W) + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...CMD.SMALL_FONT,
+    ...encodeText('Fourni par: Plus Group\n'),
+    ...encodeText('Tel: +50942449024\n'),
+    ...CMD.NORMAL_FONT,
+    LF, LF, ...CMD.CUT,
+  ]
+
+  await dispatch(bytes)
+}
+
 // ✅ NOUVO — Enprime yon fich rapò JENERIK (Sesyon Kès, Kontwòl Estòk, elt.)
 // atravè Web Bluetooth, menm mekanis ak printKaneReceipt. Itilize pou
 // nenpòt fich ki gen sèlman antèt + liy "label: valè".

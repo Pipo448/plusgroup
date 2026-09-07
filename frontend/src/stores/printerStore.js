@@ -8,6 +8,7 @@ import {
   printSabotayReceipt,
   printKaneReceipt, printPreReceipt,
   printGenericReceipt,
+  printDryReceipt,
   isAndroid,
   // ⚠️ NOUVO — Tiwa Kès
   openCashDrawer as openCashDrawerWeb,
@@ -638,46 +639,8 @@ printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = nul
 printDry: async (order, tenant) => {
   set({ printing: true })
   try {
+    await printDryReceipt(order, tenant)
     const tr = i18n.getFixedT('fr', 'translation')
-    const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-    const dateStr = (d) => { try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' } }
-    const balance = Number(order.balanceDueHtg || 0)
-    const paid = Number(order.amountPaidHtg || 0)
-    const subtotal = Number(order.subtotalHtg || 0)
-    const surcharge = Number(order.surchargeHtg || 0)
-
-    const payStatusLabel = balance <= 0
-      ? tr('dry.receipt.paidFull')
-      : paid > 0 ? tr('dry.receipt.paidPartial') : tr('dry.receipt.unpaid')
-
-    const meta = [
-      { label: order.serviceMode === 'imedya' ? '⚡' : '📅',
-        value: order.serviceMode === 'imedya' ? tr('dry.serviceModeImmediate').toUpperCase() : tr('dry.serviceModeAppointment').toUpperCase() },
-      { label: tr('dry.receipt.client'), value: order.clientName },
-      ...(order.clientPhone ? [{ label: tr('dry.receipt.phone'), value: order.clientPhone }] : []),
-      { label: tr('dry.receipt.depositDate'), value: dateStr(order.depositDate) },
-      { label: tr('dry.receipt.pickupDateBox'), value: dateStr(order.pickupDate) },
-    ]
-
-    const rows = [
-      ...(order.items || []).map(item => ({
-        label: `${item.description}${item.color ? ' (' + item.color + ')' : ''} x${item.quantity}`,
-        value: fmt(item.totalHtg) + ' G',
-      })),
-      ...(surcharge > 0 ? [
-        { label: tr('dry.receipt.subtotal'), value: fmt(subtotal) + ' G' },
-        { label: tr('dry.receipt.surcharge'), value: '+' + fmt(surcharge) + ' G', strong: true },
-      ] : []),
-      { label: tr('dry.receipt.totalCaps'), value: fmt(order.totalHtg) + ' G', strong: true },
-      { label: tr('dry.paid') + ':', value: fmt(paid) + ' G' },
-      ...(balance > 0 ? [{ label: tr('dry.balance') + ':', value: '-' + fmt(balance) + ' G', strong: true }] : []),
-      // ✅ Estati peman byen wè, pou kesye a konnen si lòd la peye lè kliyan an tounen
-      { label: '★ ' + payStatusLabel, value: '', strong: true },
-      // ✅ Avètisman pèsonalize pa chak tenant, si li ranpli l nan Paramèt
-      ...(tenant?.receiptFooterNote ? [{ label: tenant.receiptFooterNote, value: '' }] : []),
-    ]
-
-    await printGenericReceipt({ title: order.orderNumber, subtitle: tr('dry.receipt.title'), meta, rows }, tenant)
     toast.success(tr('dry.toastReceiptSent'))
     return true
   } catch (err) {
@@ -687,7 +650,7 @@ printDry: async (order, tenant) => {
     }
     console.error('Print dry error:', err)
     set({ connected: false })
-    toast.error('Erè enprimant. Eseye konekte ankò.')
+    toast.error('Erreur imprimante. Reconnectez-vous.')
     return false
   } finally {
     set({ printing: false })

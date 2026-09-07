@@ -1,7 +1,13 @@
 // src/modules/dry/dry.service.js
 const prisma = require('../../config/prisma')
 
-const getNextOrderNumber = async (tenantId) => {
+// ✅ NOUVO — Prefix nimewo tike a soti nan non biznis la (pa yon prefix jenerik fiks)
+const bizPrefix = (name) => {
+  const clean = String(name || 'PLUS').toUpperCase().replace(/[^A-Z0-9]/g, '')
+  return clean.slice(0, 3) || 'PLS'
+}
+
+const getNextOrderNumber = async (tenantId, tenantName) => {
   const year = new Date().getFullYear()
   const seq  = await prisma.documentSequence.upsert({
     where:  { tenantId_documentType: { tenantId, documentType: 'dry_order' } },
@@ -14,7 +20,7 @@ const getNextOrderNumber = async (tenantId) => {
     where: { tenantId_documentType: { tenantId, documentType: 'dry_order' } },
     data:  { lastNumber: next, currentYear: year }
   })
-  return `${seq.prefix}-${year}-${String(next).padStart(4, '0')}`
+  return `${bizPrefix(tenantName)}-PRE-${year}-${String(next).padStart(4, '0')}`
 }
 
 const getAll = async (tenantId, { status, search, page = 1, limit = 20, branchId, dateFrom, dateTo }) => {
@@ -79,10 +85,10 @@ const create = async (tenantId, userId, data) => {
 
   const mode = ['imedya', 'randevou'].includes(serviceMode) ? serviceMode : 'randevou'
 
-  const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { dryImmediateSurchargePct: true } })
+  const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { dryImmediateSurchargePct: true, name: true } })
   const surchargePct = mode === 'imedya' ? Number(tenantRow?.dryImmediateSurchargePct || 0) : 0
 
-  const orderNumber = await getNextOrderNumber(tenantId)
+  const orderNumber = await getNextOrderNumber(tenantId, tenantRow?.name)
   const subtotalHtg = items.reduce((s, it) => s + Number(it.unitPriceHtg || 0) * Number(it.quantity || 1), 0)
   const surchargeHtg = Math.round(subtotalHtg * surchargePct) / 100
   const totalHtg    = subtotalHtg + surchargeHtg
