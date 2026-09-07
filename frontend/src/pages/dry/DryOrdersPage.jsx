@@ -3,6 +3,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { useTranslation } from 'react-i18next'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import { Search, Plus, Eye, ChevronLeft, ChevronRight, ChevronDown, Scissors, X, Trash2, Settings } from 'lucide-react'
@@ -28,30 +29,6 @@ const D = {
   shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
-const STATUS_MAP = {
-  received:   { label:'Resevwa',  color:'#1B2A8F', bg:'rgba(27,42,143,0.10)'  },
-  processing: { label:'Ap Travay',color:'#D97706', bg:'rgba(217,119,6,0.10)'  },
-  ready:      { label:'Pare',     color:'#059669', bg:'rgba(5,150,105,0.10)'   },
-  delivered:  { label:'Remèt',    color:'#6b7280', bg:'rgba(107,114,128,0.10)' },
-  cancelled:  { label:'Anile',    color:'#C0392B', bg:'rgba(192,57,43,0.08)'   },
-}
-
-const SERVICES = [
-  { value:'presaj',    label:'Presaj'           },
-  { value:'dry_clean', label:'Netwayaj Sèk'     },
-  { value:'net_presaj',label:'Netwayaj + Presaj' },
-  { value:'reparasyon',label:'Reparasyon'        },
-  { value:'blanchi',   label:'Blanchiman'        },
-]
-
-const PAYMENT_METHODS = [
-  { value:'cash',     label:'Kach'      },
-  { value:'moncash',  label:'MonCash'   },
-  { value:'natcash',  label:'NatCash'   },
-  { value:'card',     label:'Kat Kredi' },
-  { value:'transfer', label:'Virement'  },
-]
-
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
 
 function useDebounce(v, d = 400) {
@@ -71,10 +48,35 @@ const isBlankItem = (it) =>
 
 // ══════════════════════════════════════════════════════════════
 export default function DryOrdersPage() {
+  const { t } = useTranslation()
   const { hasRole } = useAuthStore()
   const qc = useQueryClient()
   const overlayRef = useRef(null)
   const colorInputRefs = useRef({})
+
+  const STATUS_MAP = useMemo(() => ({
+    received:   { label:t('dry.status.received'),   color:'#1B2A8F', bg:'rgba(27,42,143,0.10)'  },
+    processing: { label:t('dry.status.processing'), color:'#D97706', bg:'rgba(217,119,6,0.10)'  },
+    ready:      { label:t('dry.status.ready'),       color:'#059669', bg:'rgba(5,150,105,0.10)'   },
+    delivered:  { label:t('dry.status.delivered'),   color:'#6b7280', bg:'rgba(107,114,128,0.10)' },
+    cancelled:  { label:t('dry.status.cancelled'),   color:'#C0392B', bg:'rgba(192,57,43,0.08)'   },
+  }), [t])
+
+  const SERVICES = useMemo(() => ([
+    { value:'presaj',     label:t('dry.services.presaj')     },
+    { value:'dry_clean',  label:t('dry.services.dry_clean')  },
+    { value:'net_presaj', label:t('dry.services.net_presaj') },
+    { value:'reparasyon', label:t('dry.services.reparasyon') },
+    { value:'blanchi',    label:t('dry.services.blanchi')    },
+  ]), [t])
+
+  const PAYMENT_METHODS = useMemo(() => ([
+    { value:'cash',     label:t('dry.paymentMethods.cash')     },
+    { value:'moncash',  label:t('dry.paymentMethods.moncash')  },
+    { value:'natcash',  label:t('dry.paymentMethods.natcash')  },
+    { value:'card',     label:t('dry.paymentMethods.card')     },
+    { value:'transfer', label:t('dry.paymentMethods.transfer') },
+  ]), [t])
 
   const [search, setSearch]         = useState('')
   const [status, setStatus]         = useState('')
@@ -123,34 +125,34 @@ export default function DryOrdersPage() {
   const createMutation = useMutation({
     mutationFn: (d) => dryAPI.create(d),
     onSuccess: () => {
-      toast.success('Lòd prese kreye!')
+      toast.success(t('dry.toastOrderCreated'))
       qc.invalidateQueries(['dry-orders'])
       setShowCreate(false)
       setForm({ clientName:'', clientPhone:'', pickupDate:'', depositAmount:'', paymentMethod:'cash', amountGiven:'', notes:'', items:[emptyItem()] })
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Ere pandan kreye lòd.')
+    onError: (e) => toast.error(e.response?.data?.message || t('dry.toastOrderError'))
   })
 
   const addCatalogMutation = useMutation({
     mutationFn: (d) => dryAPI.createCatalogItem(d),
     onSuccess: () => {
-      toast.success('Atik ajoute nan katalòg!')
+      toast.success(t('dry.toastCatalogAdded'))
       qc.invalidateQueries(['dry-catalog'])
       setCatalogForm({ name:'', unitPriceHtg:'', defaultService:'presaj' })
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan ajoute atik.')
+    onError: (e) => toast.error(e.response?.data?.message || t('dry.toastCatalogError'))
   })
 
   const deleteCatalogMutation = useMutation({
     mutationFn: (id) => dryAPI.deleteCatalogItem(id),
-    onSuccess: () => { toast.success('Atik retire nan katalòg.'); qc.invalidateQueries(['dry-catalog']) },
-    onError: () => toast.error('Erè pandan retire atik.')
+    onSuccess: () => { toast.success(t('dry.toastCatalogDeleted')); qc.invalidateQueries(['dry-catalog']) },
+    onError: () => toast.error(t('dry.toastCatalogDeleteError'))
   })
 
   const handleSubmit = () => {
-    if (!form.clientName.trim()) return toast.error('Non kliyan obligatwa.')
-    if (!form.pickupDate)        return toast.error('Dat pou tounen obligatwa.')
-    if (!form.items.some(it => it.description.trim())) return toast.error('Omwen yon rad obligatwa.')
+    if (!form.clientName.trim()) return toast.error(t('dry.toastClientRequired'))
+    if (!form.pickupDate)        return toast.error(t('dry.toastPickupRequired'))
+    if (!form.items.some(it => it.description.trim())) return toast.error(t('dry.toastItemRequired'))
     createMutation.mutate({
       ...form,
       depositAmount: deposit,
@@ -163,7 +165,7 @@ export default function DryOrdersPage() {
   }
 
   const handleAddCatalog = () => {
-    if (!catalogForm.name.trim()) return toast.error('Non atik obligatwa.')
+    if (!catalogForm.name.trim()) return toast.error(t('dry.toastCatalogNameRequired'))
     addCatalogMutation.mutate(catalogForm)
   }
 
@@ -220,14 +222,14 @@ export default function DryOrdersPage() {
             <Scissors size={22} color="#fff"/>
           </div>
           <div>
-            <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>Prese</h1>
-            <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{data.total} lòd total</p>
+            <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>{t('dry.title')}</h1>
+            <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{t('dry.ordersTotal', { count: data.total })}</p>
           </div>
         </div>
         {hasRole(['admin','cashier']) && (
           <button onClick={() => setShowCreate(true)}
             style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:14, border:'none', cursor:'pointer', boxShadow:`0 4px 16px ${D.orange}45` }}>
-            <Plus size={16}/> Nouvo Lòd
+            <Plus size={16}/> {t('dry.newOrder')}
           </button>
         )}
       </div>
@@ -236,19 +238,19 @@ export default function DryOrdersPage() {
       <div style={{ background:D.white, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:16, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', boxShadow:D.shadow }}>
         <div style={{ position:'relative', flex:1, minWidth:180 }}>
           <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
-          <input placeholder="Chèche pa nimewo, non, telefon..."
+          <input placeholder={t('dry.searchPlaceholder')}
             value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}
             style={{ width:'100%', padding:'9px 14px 9px 36px', borderRadius:10, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, color:D.text, background:'#F8F9FF', boxSizing:'border-box' }}
           />
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
           {[
-            { v:'', l:'Tout' },
-            { v:'received',   l:'Resevwa'   },
-            { v:'processing', l:'Ap Travay' },
-            { v:'ready',      l:'Pare'      },
-            { v:'delivered',  l:'Remèt'     },
-            { v:'cancelled',  l:'Anile'     },
+            { v:'', l:t('dry.filterAll') },
+            { v:'received',   l:STATUS_MAP.received.label   },
+            { v:'processing', l:STATUS_MAP.processing.label },
+            { v:'ready',      l:STATUS_MAP.ready.label      },
+            { v:'delivered',  l:STATUS_MAP.delivered.label  },
+            { v:'cancelled',  l:STATUS_MAP.cancelled.label  },
           ].map(opt => (
             <button key={opt.v} onClick={() => { setStatus(opt.v); setPage(1) }}
               style={{ padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap',
@@ -267,7 +269,7 @@ export default function DryOrdersPage() {
       <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
         {/* Entèt */}
         <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 1fr 1fr 1fr 90px 50px', padding:'11px 20px', background:D.bg, borderBottom:`1px solid ${D.border}` }}>
-          {['Nimewo','Kliyan','Depoze','Pou Tounen','Total','Statut',''].map((h,i) => (
+          {[t('dry.colNumber'), t('dry.colClient'), t('dry.colDeposited'), t('dry.colPickup'), t('dry.colTotal'), t('dry.colStatus'), ''].map((h,i) => (
             <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i >= 2 ? 'center' : 'left' }}>{h}</span>
           ))}
         </div>
@@ -282,10 +284,10 @@ export default function DryOrdersPage() {
           ? (
               <div style={{ padding:'60px 20px', textAlign:'center' }}>
                 <Scissors size={40} color={D.blue} style={{ marginBottom:12, opacity:0.4 }}/>
-                <p style={{ color:D.muted, fontSize:15, fontWeight:600 }}>Pa gen lòd pou kounye a</p>
+                <p style={{ color:D.muted, fontSize:15, fontWeight:600 }}>{t('dry.noOrders')}</p>
                 <button onClick={() => setShowCreate(true)}
                   style={{ marginTop:16, display:'inline-flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, color:'#fff', fontWeight:800, fontSize:13, border:'none', cursor:'pointer' }}>
-                  <Plus size={14}/> Kreye premye lòd
+                  <Plus size={14}/> {t('dry.createFirst')}
                 </button>
               </div>
             )
@@ -309,7 +311,7 @@ export default function DryOrdersPage() {
                   <div style={{ textAlign:'center' }}>
                     <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:12 }}>{fmt(ord.totalHtg)}</span>
                     {Number(ord.balanceDueHtg) > 0 && (
-                      <div style={{ fontSize:10, color:D.red, fontFamily:'monospace' }}>-{fmt(ord.balanceDueHtg)} balans</div>
+                      <div style={{ fontSize:10, color:D.red, fontFamily:'monospace' }}>-{fmt(ord.balanceDueHtg)}</div>
                     )}
                   </div>
                   <div style={{ textAlign:'center' }}>
@@ -330,7 +332,7 @@ export default function DryOrdersPage() {
       {/* ── Paginasyon */}
       {data.pages > 1 && (
         <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:16 }}>
-          <p style={{ color:D.muted, fontSize:13 }}>Paj <strong style={{ color:D.text }}>{page}</strong> / {data.pages} · <strong style={{ color:D.text }}>{data.total}</strong> lòd</p>
+          <p style={{ color:D.muted, fontSize:13 }}>{t('dry.page')} <strong style={{ color:D.text }}>{page}</strong> / {data.pages} · <strong style={{ color:D.text }}>{data.total}</strong> {t('dry.ordersWord')}</p>
           <div style={{ display:'flex', gap:6 }}>
             <button disabled={page<=1} onClick={() => setPage(p=>p-1)}
               style={{ width:36, height:36, borderRadius:10, cursor:page<=1?'not-allowed':'pointer', background:page<=1?'#F4F6FF':D.blue, border:`1px solid ${page<=1?D.border:D.blue}`, color:page<=1?D.muted:'#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -357,8 +359,8 @@ export default function DryOrdersPage() {
                   <Scissors size={18} color="#fff"/>
                 </div>
                 <div>
-                  <h2 style={{ fontWeight:900, fontSize:18, color:D.text, margin:0 }}>Nouvo Lòd Prese</h2>
-                  <p style={{ fontSize:12, color:D.muted, margin:0 }}>Antre enfòmasyon kliyan ak rad yo</p>
+                  <h2 style={{ fontWeight:900, fontSize:18, color:D.text, margin:0 }}>{t('dry.modalNewTitle')}</h2>
+                  <p style={{ fontSize:12, color:D.muted, margin:0 }}>{t('dry.modalNewSubtitle')}</p>
                 </div>
               </div>
               <button onClick={() => setShowCreate(false)} style={{ border:'none', background:'#f1f5f9', borderRadius:8, width:32, height:32, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#64748b' }}>
@@ -370,42 +372,40 @@ export default function DryOrdersPage() {
 
               {/* Seksyon kliyan */}
               <div style={{ marginBottom:20 }}>
-                <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Enfòmasyon Kliyan</p>
+                <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>{t('dry.clientInfo')}</p>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
-                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Non Kliyan *</label>
+                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.clientName')}</label>
                     <input className="input" value={form.clientName}
                       onChange={e => setForm(f => ({ ...f, clientName: e.target.value }))}
-                      placeholder="ex: Marie Jeanne" style={{ width:'100%', boxSizing:'border-box' }}/>
+                      placeholder={t('dry.clientNamePlaceholder')} style={{ width:'100%', boxSizing:'border-box' }}/>
                   </div>
                   <div>
-                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Telefon</label>
+                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.phone')}</label>
                     <input className="input" value={form.clientPhone}
                       onChange={e => setForm(f => ({ ...f, clientPhone: e.target.value }))}
-                      placeholder="509-XXXX-XXXX" style={{ width:'100%', boxSizing:'border-box' }}/>
+                      placeholder={t('dry.phonePlaceholder')} style={{ width:'100%', boxSizing:'border-box' }}/>
                   </div>
                 </div>
               </div>
 
               {/* Dat pou tounen */}
               <div style={{ marginBottom:20 }}>
-                <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>📅 Dat Pou Tounen Pran Rad *</label>
+                <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.pickupDateLabel')}</label>
                 <input type="date" className="input" value={form.pickupDate} min={minDate}
                   onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))}
                   style={{ width:'100%', boxSizing:'border-box' }}/>
-                <p style={{ fontSize:11, color:D.muted, margin:'4px 0 0' }}>
-                  Chwazi <strong>jodi a</strong> pou yon sèvis imedya, oswa yon dat pita si se yon randevou.
-                </p>
+                <p style={{ fontSize:11, color:D.muted, margin:'4px 0 0' }}>{t('dry.pickupDateHint')}</p>
               </div>
 
               {/* Katalòg — klike pou ajoute */}
               <div style={{ marginBottom:16 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-                  <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>Klike pou Ajoute (Katalòg)</p>
+                  <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>{t('dry.catalogTitle')}</p>
                   {hasRole(['admin']) && (
                     <button onClick={() => setShowCatalogMgr(true)}
                       style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:8, background:'transparent', border:`1px solid ${D.border}`, color:D.muted, fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                      <Settings size={11}/> Jere Katalòg
+                      <Settings size={11}/> {t('dry.manageCatalog')}
                     </button>
                   )}
                 </div>
@@ -421,7 +421,7 @@ export default function DryOrdersPage() {
                   </div>
                 ) : (
                   <p style={{ fontSize:12, color:D.muted, margin:0 }}>
-                    Poko gen tip rad nan katalòg la. {hasRole(['admin']) ? 'Klike "Jere Katalòg" pou ajoute.' : 'Mande admin ou ajoute tip rad ak pri.'}
+                    {hasRole(['admin']) ? t('dry.catalogEmptyAdmin') : t('dry.catalogEmptyOther')}
                   </p>
                 )}
               </div>
@@ -429,10 +429,10 @@ export default function DryOrdersPage() {
               {/* Atik yo */}
               <div style={{ marginBottom:20 }}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-                  <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>Rad / Atik yo</p>
+                  <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', margin:0 }}>{t('dry.itemsTitle')}</p>
                   <button onClick={addItem}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:8, background:`rgba(27,42,143,0.07)`, border:`1px solid ${D.border}`, color:D.blue, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    <Plus size={12}/> Ajoute Lòt Atik
+                    <Plus size={12}/> {t('dry.addItem')}
                   </button>
                 </div>
 
@@ -441,14 +441,14 @@ export default function DryOrdersPage() {
                     <div key={item._id} style={{ background:'#f8fafc', borderRadius:12, padding:'14px', border:'1px solid #e2e8f0' }}>
                       <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:10, marginBottom:10 }}>
                         <div>
-                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Deskripsyon *</label>
+                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.descriptionLabel')}</label>
                           <input className="input" value={item.description}
                             onChange={e => setItem(item._id, 'description', e.target.value)}
-                            placeholder="ex: Chemiz, Pantalon, Kostim..."
+                            placeholder={t('dry.descriptionPlaceholder')}
                             style={{ width:'100%', boxSizing:'border-box', fontSize:13 }}/>
                         </div>
                         <div>
-                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Sèvis</label>
+                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.serviceLabel')}</label>
                           <select className="input" value={item.service} onChange={e => setItem(item._id, 'service', e.target.value)}
                             style={{ width:'100%', boxSizing:'border-box', fontSize:13 }}>
                             {SERVICES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -457,21 +457,21 @@ export default function DryOrdersPage() {
                       </div>
                       <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 120px auto', gap:10, alignItems:'flex-end' }}>
                         <div>
-                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Koulè</label>
+                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.colorLabel')}</label>
                           <input className="input" value={item.color}
                             ref={el => { colorInputRefs.current[item._id] = el }}
                             onChange={e => setItem(item._id, 'color', e.target.value)}
-                            placeholder="Blan, Nwa, Bleu..." style={{ width:'100%', boxSizing:'border-box', fontSize:13 }}/>
+                            placeholder={t('dry.colorPlaceholder')} style={{ width:'100%', boxSizing:'border-box', fontSize:13 }}/>
                         </div>
                         <div>
-                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Kantite</label>
+                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.quantityLabel')}</label>
                           <input type="number" min="1" className="input" value={item.quantity}
                             onFocus={e => e.target.select()}
                             onChange={e => setItem(item._id, 'quantity', e.target.value)}
                             style={{ width:'100%', boxSizing:'border-box', textAlign:'center', fontSize:13 }}/>
                         </div>
                         <div>
-                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>Pri Unitè (HTG)</label>
+                          <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.unitPriceLabel')}</label>
                           <input type="number" min="0" className="input" value={item.unitPriceHtg}
                             onFocus={e => e.target.select()}
                             onChange={e => setItem(item._id, 'unitPriceHtg', e.target.value)}
@@ -499,7 +499,7 @@ export default function DryOrdersPage() {
               {total > 0 && (
                 <div style={{ background:`linear-gradient(135deg,rgba(27,42,143,0.06),rgba(27,42,143,0.03))`, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:20 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontWeight:900, fontSize:18, color:D.text, marginBottom:4 }}>
-                    <span>TOTAL:</span>
+                    <span>{t('dry.totalLabel')}</span>
                     <span style={{ fontFamily:'monospace' }}>{fmt(total)} HTG</span>
                   </div>
                 </div>
@@ -507,17 +507,17 @@ export default function DryOrdersPage() {
 
               {/* Peman */}
               <div style={{ marginBottom:20 }}>
-                <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>Peman Depozit</p>
+                <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>{t('dry.depositSection')}</p>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
-                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Montan Depozit (HTG)</label>
+                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.depositAmount')}</label>
                     <input type="number" min="0" className="input" value={form.depositAmount}
                       onFocus={e => e.target.select()}
                       onChange={e => setForm(f => ({ ...f, depositAmount: e.target.value }))}
-                      placeholder="0 si pa peye kounye a" style={{ width:'100%', boxSizing:'border-box', textAlign:'center', fontSize:15, fontWeight:700 }}/>
+                      placeholder={t('dry.depositPlaceholder')} style={{ width:'100%', boxSizing:'border-box', textAlign:'center', fontSize:15, fontWeight:700 }}/>
                   </div>
                   <div>
-                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Metod Peman</label>
+                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.paymentMethodLabel')}</label>
                     <select className="input" value={form.paymentMethod}
                       onChange={e => setForm(f => ({ ...f, paymentMethod: e.target.value }))}
                       style={{ width:'100%', boxSizing:'border-box' }}>
@@ -529,7 +529,7 @@ export default function DryOrdersPage() {
                 {/* Kòb bay + monnen */}
                 {deposit > 0 && (
                   <div style={{ marginTop:10 }}>
-                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Kòb Kliyan Bay (HTG)</label>
+                    <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.amountGiven')}</label>
                     <input type="number" min={deposit} className="input" value={form.amountGiven}
                       onFocus={e => e.target.select()}
                       onChange={e => setForm(f => ({ ...f, amountGiven: e.target.value }))}
@@ -540,7 +540,7 @@ export default function DryOrdersPage() {
                 {change > 0 && (
                   <div style={{ marginTop:10, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
                     <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between' }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase' }}>Monnen pou remèt</span>
+                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase' }}>{t('dry.changeDue')}</span>
                     </div>
                     <div style={{ background:'#f0fdf4', padding:'12px', textAlign:'center' }}>
                       <p style={{ fontFamily:'monospace', fontSize:32, fontWeight:900, color:'#15803d', margin:0 }}>
@@ -553,9 +553,9 @@ export default function DryOrdersPage() {
                 {/* Rezime peman */}
                 {total > 0 && (
                   <div style={{ marginTop:10, display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'#f8fafc', borderRadius:10, border:'1px solid #e2e8f0' }}>
-                    <span style={{ fontSize:12, color:'#64748b' }}>Balans apre depozit:</span>
+                    <span style={{ fontSize:12, color:'#64748b' }}>{t('dry.balanceAfterDeposit')}</span>
                     <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color: balance > 0 ? D.red : '#16a34a' }}>
-                      {balance > 0 ? `-${fmt(balance)}` : '✓ Peye nèt'} {balance > 0 ? 'HTG' : ''}
+                      {balance > 0 ? `-${fmt(balance)} HTG` : t('dry.fullyPaid')}
                     </span>
                   </div>
                 )}
@@ -563,26 +563,26 @@ export default function DryOrdersPage() {
 
               {/* Nòt */}
               <div style={{ marginBottom:24 }}>
-                <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>Nòt Espesyal (opsyonèl)</label>
+                <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.notesLabel')}</label>
                 <textarea className="input" value={form.notes} rows={2}
                   onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                  placeholder="ex: Rad gen bouton ki kase, fè atansyon..."
+                  placeholder={t('dry.notesPlaceholder')}
                   style={{ width:'100%', boxSizing:'border-box', resize:'vertical', fontSize:13 }}/>
               </div>
 
               {/* Bouton */}
               <div style={{ display:'flex', gap:12 }}>
                 <button onClick={() => setShowCreate(false)} className="btn-secondary" style={{ flex:1 }}>
-                  Anile
+                  {t('dry.cancel')}
                 </button>
                 <button onClick={handleSubmit} disabled={createMutation.isPending}
                   style={{ flex:2, display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px', borderRadius:12, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:15, border:'none', cursor:'pointer', boxShadow:`0 4px 16px ${D.blue}40` }}>
                   {createMutation.isPending
                     ? <span style={{ display:'flex', alignItems:'center', gap:8 }}>
                         <span style={{ width:16, height:16, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
-                        Ap kreye...
+                        {t('dry.creating')}
                       </span>
-                    : <><Scissors size={16}/> Kreye Lòd Prese</>
+                    : <><Scissors size={16}/> {t('dry.createOrder')}</>
                   }
                 </button>
               </div>
@@ -592,7 +592,7 @@ export default function DryOrdersPage() {
           {/* ── Bouton fiks nan kwen pou desann pi ba */}
           <button type="button" onClick={scrollToBottom}
             style={{ position:'fixed', bottom:24, right:24, zIndex:110, width:52, height:52, borderRadius:'50%', background:D.blue, color:'#fff', border:'none', boxShadow:`0 6px 20px ${D.blue}60`, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-            title="Desann pou wè total ak konfime lòd la">
+            title={t('dry.createOrder')}>
             <ChevronDown size={24}/>
           </button>
         </div>
@@ -604,16 +604,16 @@ export default function DryOrdersPage() {
           onClick={e => e.target === e.currentTarget && setShowCatalogMgr(false)}>
           <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid #f1f5f9' }}>
-              <h2 style={{ fontWeight:900, fontSize:16, color:D.text, margin:0 }}>Katalòg Tip Rad ak Pri</h2>
+              <h2 style={{ fontWeight:900, fontSize:16, color:D.text, margin:0 }}>{t('dry.catalogMgrTitle')}</h2>
               <button onClick={() => setShowCatalogMgr(false)} style={{ border:'none', background:'#f1f5f9', borderRadius:8, width:30, height:30, cursor:'pointer' }}>
                 <X size={14}/>
               </button>
             </div>
             <div style={{ padding:'18px 22px' }}>
               <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr auto', gap:8, marginBottom:14 }}>
-                <input className="input" placeholder="ex: Chemiz" value={catalogForm.name}
+                <input className="input" placeholder={t('dry.catalogNamePlaceholder')} value={catalogForm.name}
                   onChange={e => setCatalogForm(c => ({ ...c, name:e.target.value }))} style={{ fontSize:13 }}/>
-                <input type="number" min="0" className="input" placeholder="Pri HTG" value={catalogForm.unitPriceHtg}
+                <input type="number" min="0" className="input" placeholder={t('dry.catalogPricePlaceholder')} value={catalogForm.unitPriceHtg}
                   onChange={e => setCatalogForm(c => ({ ...c, unitPriceHtg:e.target.value }))} style={{ fontSize:13 }}/>
                 <select className="input" value={catalogForm.defaultService}
                   onChange={e => setCatalogForm(c => ({ ...c, defaultService:e.target.value }))} style={{ fontSize:12 }}>
@@ -637,7 +637,7 @@ export default function DryOrdersPage() {
                     </button>
                   </div>
                 ))}
-                {!catalog.length && <p style={{ fontSize:12, color:D.muted, textAlign:'center', padding:'12px 0' }}>Poko gen atik nan katalòg la.</p>}
+                {!catalog.length && <p style={{ fontSize:12, color:D.muted, textAlign:'center', padding:'12px 0' }}>{t('dry.catalogMgrEmpty')}</p>}
               </div>
             </div>
           </div>

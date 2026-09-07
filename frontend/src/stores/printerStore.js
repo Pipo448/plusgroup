@@ -16,6 +16,9 @@ import {
 } from '../services/printerService'
 import { isNativePrinterAvailable, openCashDrawerNative } from '../services/printerNative'
 import toast from 'react-hot-toast'
+// ✅ NOUVO — enstans i18n lan, pou konstwi resi (Bluetooth ak browser
+// fallback) nan menm lang aplikasyon an chwazi kounye a
+import i18n from '../i18n/config'
 
 // ─────────────────────────────────────────────────────────────
 // BROWSER PRINT FALLBACK — pou Android san BLE printer
@@ -386,8 +389,9 @@ let echHtml = ''
 }
 
 function buildDryHtml(order, tenant) {
+  const tr = (key, opts) => i18n.t(key, opts)
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-  const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const biz = tenant?.name || 'PLUS GROUP'
   const totalHtg = Number(order.totalHtg || 0)
   const paidHtg = Number(order.amountPaidHtg || 0)
   const balanceHtg = Number(order.balanceDueHtg || 0)
@@ -404,39 +408,40 @@ function buildDryHtml(order, tenant) {
         ${tenant?.logoUrl ? `<img src="${tenant.logoUrl}" style="height:40px;display:block;margin:0 auto 4px">` : ''}
         <strong style="font-size:14px">${biz}</strong><br>
         ${tenant?.address ? `<span style="font-size:9px">${tenant.address}</span><br>` : ''}
-        ${tenant?.phone ? `<span style="font-size:9px">Tel: ${tenant.phone}</span>` : ''}
+        ${tenant?.phone ? `<span style="font-size:9px">${tr('dry.receipt.phone')} ${tenant.phone}</span>` : ''}
       </div>
       <div style="text-align:center;font-weight:bold;font-size:13px;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px">
-        -- RESI PRESE --
+        ${tr('dry.receipt.title')}
       </div>
       <div style="text-align:center;font-weight:900;font-size:18px;letter-spacing:2px;background:#111;color:#fff;padding:5px 0;border-radius:2px;margin-bottom:6px">
         ${order.orderNumber}
       </div>
       <div style="font-size:10px;margin-bottom:6px">
-        <div>Dat Depo: ${dateStr(order.depositDate)}</div>
-        <div>Kliyan: ${order.clientName}</div>
-        ${order.clientPhone ? `<div>Tel: ${order.clientPhone}</div>` : ''}
+        <div>${tr('dry.receipt.depositDate')} ${dateStr(order.depositDate)}</div>
+        <div>${tr('dry.receipt.client')} ${order.clientName}</div>
+        ${order.clientPhone ? `<div>${tr('dry.receipt.phone')} ${order.clientPhone}</div>` : ''}
       </div>
       <div style="text-align:center;margin:6px 0;padding:5px;background:#f2f2f2;border-radius:3px">
-        <div style="font-size:9px;color:#555;text-transform:uppercase">Dat Pou Tounen Pran Rad:</div>
+        <div style="font-size:9px;color:#555;text-transform:uppercase">${tr('dry.receipt.pickupDateBox')}</div>
         <div style="font-weight:900;font-size:15px">${dateStr(order.pickupDate)}</div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px">
         <thead><tr style="border-bottom:1px solid #000">
-          <th style="text-align:left">Rad</th><th>Q</th><th style="text-align:right">Pri</th><th style="text-align:right">Tot</th>
+          <th style="text-align:left">${tr('dry.receipt.item')}</th><th>${tr('dry.receipt.qty')}</th><th style="text-align:right">${tr('dry.receipt.unitPrice')}</th><th style="text-align:right">${tr('dry.receipt.total')}</th>
         </tr></thead>
         <tbody>${itemsHtml}</tbody>
       </table>
       <div style="border-top:1px solid #000;padding-top:4px">
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px">
-          <span>TOTAL:</span><span>${fmt(totalHtg)} G</span>
+          <span>${tr('dry.receipt.totalCaps')}</span><span>${fmt(totalHtg)} G</span>
         </div>
-        <div style="display:flex;justify-content:space-between"><span>Peye:</span><span>${fmt(paidHtg)} G</span></div>
-        ${balanceHtg > 0 ? `<div style="display:flex;justify-content:space-between;color:red;font-weight:bold"><span>Balans:</span><span>-${fmt(balanceHtg)} G</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between"><span>${tr('dry.paid')}:</span><span>${fmt(paidHtg)} G</span></div>
+        ${balanceHtg > 0 ? `<div style="display:flex;justify-content:space-between;color:red;font-weight:bold"><span>${tr('dry.balance')}:</span><span>-${fmt(balanceHtg)} G</span></div>` : ''}
       </div>
       <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">
-        Kenbe resi sa a pou tounen pran rad ou!<br>
-        Pwodwi pa: Plus Group — +509 4244-9024
+        ${tr('dry.receipt.keepReceipt')}<br>
+        ${tenant?.receiptFooterNote ? `<div style="font-style:italic;margin:4px 0;padding:3px 0;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">${tenant.receiptFooterNote}</div>` : ''}
+        ${tr('dry.receipt.poweredBy')} — +509 4244-9024
       </div>
     </div>`
 }
@@ -615,15 +620,16 @@ printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = nul
 printDry: async (order, tenant) => {
   set({ printing: true })
   try {
+    const tr = (key, opts) => i18n.t(key, opts)
     const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     const dateStr = (d) => { try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' } }
     const balance = Number(order.balanceDueHtg || 0)
 
     const meta = [
-      { label: 'Kliyan:', value: order.clientName },
-      ...(order.clientPhone ? [{ label: 'Tel:', value: order.clientPhone }] : []),
-      { label: 'Dat Depo:', value: dateStr(order.depositDate) },
-      { label: 'Pou Tounen:', value: dateStr(order.pickupDate) },
+      { label: tr('dry.receipt.client'), value: order.clientName },
+      ...(order.clientPhone ? [{ label: tr('dry.receipt.phone'), value: order.clientPhone }] : []),
+      { label: tr('dry.receipt.depositDate'), value: dateStr(order.depositDate) },
+      { label: tr('dry.receipt.pickupDateBox'), value: dateStr(order.pickupDate) },
     ]
 
     const rows = [
@@ -631,13 +637,15 @@ printDry: async (order, tenant) => {
         label: `${item.description}${item.color ? ' (' + item.color + ')' : ''} x${item.quantity}`,
         value: fmt(item.totalHtg) + ' G',
       })),
-      { label: 'TOTAL:', value: fmt(order.totalHtg) + ' G', strong: true },
-      { label: 'Peye:', value: fmt(order.amountPaidHtg) + ' G' },
-      ...(balance > 0 ? [{ label: 'Balans:', value: '-' + fmt(balance) + ' G', strong: true }] : []),
+      { label: tr('dry.receipt.totalCaps'), value: fmt(order.totalHtg) + ' G', strong: true },
+      { label: tr('dry.paid') + ':', value: fmt(order.amountPaidHtg) + ' G' },
+      ...(balance > 0 ? [{ label: tr('dry.balance') + ':', value: '-' + fmt(balance) + ' G', strong: true }] : []),
+      // ✅ Avètisman pèsonalize pa chak tenant, si li ranpli l nan Paramèt
+      ...(tenant?.receiptFooterNote ? [{ label: tenant.receiptFooterNote, value: '' }] : []),
     ]
 
-    await printGenericReceipt({ title: order.orderNumber, subtitle: '-- RESI PRESE --', meta, rows }, tenant)
-    toast.success('Resi Prese enprime! 🖨️')
+    await printGenericReceipt({ title: order.orderNumber, subtitle: tr('dry.receipt.title'), meta, rows }, tenant)
+    toast.success(tr('dry.toastReceiptSent'))
     return true
   } catch (err) {
     if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
@@ -654,4 +662,4 @@ printDry: async (order, tenant) => {
 },
 
   isWebSerialSupported,
-}))
+}))  

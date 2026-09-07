@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
+import { useTranslation } from 'react-i18next'
 import api from '../../services/api'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Printer, Plus, CheckCircle2, Clock, AlertCircle, Bluetooth, BluetoothOff } from 'lucide-react'
@@ -22,37 +23,31 @@ const D = {
   success:'#059669', shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
-const STATUS_MAP = {
-  received:   { label:'Resevwa',   color:'#1B2A8F', bg:'rgba(27,42,143,0.10)', next:'processing', nextLabel:'Kòmanse Travay' },
-  processing: { label:'Ap Travay', color:'#D97706', bg:'rgba(217,119,6,0.10)', next:'ready',      nextLabel:'Mak Pare'       },
-  ready:      { label:'Pare',      color:'#059669', bg:'rgba(5,150,105,0.10)', next:'delivered',  nextLabel:'Remèt Kliyan'   },
-  delivered:  { label:'Remèt',     color:'#6b7280', bg:'rgba(107,114,128,0.10)', next:null },
-  cancelled:  { label:'Anile',     color:'#C0392B', bg:'rgba(192,57,43,0.08)', next:null },
-}
-
-const SERVICES_LABEL = {
-  presaj:'Presaj', dry_clean:'Netwayaj Sèk', net_presaj:'Netwayaj + Presaj',
-  reparasyon:'Reparasyon', blanchi:'Blanchiman',
-}
-
-const PAYMENT_METHODS = [
-  { value:'cash', label:'Kach' }, { value:'moncash', label:'MonCash' },
-  { value:'natcash', label:'NatCash' }, { value:'card', label:'Kat Kredi' },
-  { value:'transfer', label:'Virement' }, { value:'check', label:'Chek' },
-]
-
-const METOD_LABEL = {
-  cash:'Kach', moncash:'MonCash', natcash:'NatCash',
-  card:'Kat kredi', transfer:'Virement', check:'Chek', other:'Lòt',
-}
-
 const fmt  = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits:2 })
 const fmtR = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits:2 }).replace(/\u00A0/g,' ').replace(/\u202F/g,' ')
 const toDate = (d, f='dd/MM/yyyy') => { try { return format(new Date(d), f) } catch { return '' } }
 
-// ── Resi enprimab HTML (Kreyol, monospace klasik)
+// ── Resi enprimab HTML (tradui selon lang chwazi)
 function DryReceipt({ order, tenant }) {
+  const { t } = useTranslation()
   if (!order) return null
+
+  const STATUS_MAP = {
+    received:   { label:t('dry.status.received'),   color:'#1B2A8F' },
+    processing: { label:t('dry.status.processing'), color:'#D97706' },
+    ready:      { label:t('dry.status.ready'),       color:'#059669' },
+    delivered:  { label:t('dry.status.delivered'),   color:'#6b7280' },
+    cancelled:  { label:t('dry.status.cancelled'),   color:'#C0392B' },
+  }
+  const SERVICES_LABEL = {
+    presaj:t('dry.services.presaj'), dry_clean:t('dry.services.dry_clean'), net_presaj:t('dry.services.net_presaj'),
+    reparasyon:t('dry.services.reparasyon'), blanchi:t('dry.services.blanchi'),
+  }
+  const METOD_LABEL = {
+    cash:t('dry.paymentMethods.cash'), moncash:t('dry.paymentMethods.moncash'), natcash:t('dry.paymentMethods.natcash'),
+    card:t('dry.paymentMethods.card'), transfer:t('dry.paymentMethods.transfer'), check:t('dry.paymentMethods.check'),
+  }
+
   const is57     = tenant?.receiptSize === '57mm'
   const s        = STATUS_MAP[order.status] || STATUS_MAP.received
   const lastPay  = order.payments?.[order.payments.length - 1]
@@ -83,15 +78,15 @@ function DryReceipt({ order, tenant }) {
       {/* Antèt */}
       <div style={{textAlign:'center',marginBottom:'4px'}}>
         <div style={{fontWeight:'900',fontSize:is57?'14px':'17px',letterSpacing:'1px'}}>
-          {tenant?.businessName || tenant?.name || 'PRESE'}
+          {tenant?.name || 'PLUS GROUP'}
         </div>
         {tenant?.address && <div style={{fontSize:'9px',color:'#555'}}>{tenant.address}</div>}
-        {tenant?.phone   && <div style={{fontSize:'9px',color:'#555'}}>Tel: {tenant.phone}</div>}
+        {tenant?.phone   && <div style={{fontSize:'9px',color:'#555'}}>{t('dry.receipt.phone')} {tenant.phone}</div>}
       </div>
 
       <HR/>
       <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'13px':'16px',letterSpacing:'1px',margin:'3px 0'}}>
-        -- RESI PRESE --
+        {t('dry.receipt.title')}
       </div>
 
       {/* Nimewo lòd — gwo + fon nwa */}
@@ -102,17 +97,17 @@ function DryReceipt({ order, tenant }) {
 
       {/* Info kliyan */}
       <div style={{fontSize:'9px',marginBottom:'3px'}}>
-        <Row l="Dat Depo:"  v={toDate(order.depositDate,'dd/MM/yyyy')} />
-        <Row l="Kliyan:"    v={order.clientName} bold />
-        {order.clientPhone && <Row l="Tel:" v={order.clientPhone} />}
-        {!is57 && order.creator?.fullName && <Row l="Kesye:" v={order.creator.fullName} />}
+        <Row l={t('dry.receipt.depositDate')}  v={toDate(order.depositDate,'dd/MM/yyyy')} />
+        <Row l={t('dry.receipt.client')}    v={order.clientName} bold />
+        {order.clientPhone && <Row l={t('dry.receipt.phone')} v={order.clientPhone} />}
+        {!is57 && order.creator?.fullName && <Row l={t('dry.receipt.cashier')} v={order.creator.fullName} />}
       </div>
 
       {/* Dat pou tounen — mis an valè */}
       <DASH/>
       <div style={{textAlign:'center',margin:'4px 0',padding:'5px 4px',background:'rgba(0,0,0,0.05)',borderRadius:'3px'}}>
         <div style={{fontSize:'8px',color:'#555',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.5px'}}>
-          Dat Pou Tounen Pran Rad:
+          {t('dry.receipt.pickupDateBox')}
         </div>
         <div style={{fontWeight:'900',fontSize:is57?'15px':'18px',letterSpacing:'1px',marginTop:'1px'}}>
           {toDate(order.pickupDate,'dd/MM/yyyy')}
@@ -123,10 +118,10 @@ function DryReceipt({ order, tenant }) {
       {/* Atik yo */}
       <div style={{marginBottom:'3px'}}>
         <div style={{display:'grid',gridTemplateColumns:'1fr 18px 48px 48px',fontWeight:'700',fontSize:'9px',borderBottom:'1px solid #111',paddingBottom:'2px',marginBottom:'2px',gap:'2px'}}>
-          <span>Rad</span>
-          <span style={{textAlign:'right'}}>Q</span>
-          <span style={{textAlign:'right'}}>Pri</span>
-          <span style={{textAlign:'right'}}>Total</span>
+          <span>{t('dry.receipt.item')}</span>
+          <span style={{textAlign:'right'}}>{t('dry.receipt.qty')}</span>
+          <span style={{textAlign:'right'}}>{t('dry.receipt.unitPrice')}</span>
+          <span style={{textAlign:'right'}}>{t('dry.receipt.total')}</span>
         </div>
         {order.items?.map((item,i) => (
           <div key={i}>
@@ -150,15 +145,15 @@ function DryReceipt({ order, tenant }) {
 
       {/* Total + peman */}
       <div style={{fontSize:'9px'}}>
-        <Row l="TOTAL:"             v={`${fmtR(order.totalHtg)} G`} bold lg />
-        {given > 0 &&  <Row l="Kob kliyan bay:"    v={`${fmtR(given)} G`} bold />}
-        <Row l="Kob recu pa kesye:" v={`${fmtR(paid)} G`} bold />
-        {change > 0 && <Row l="Monnen remèt:"      v={`${fmtR(change)} G`} bold />}
-        {lastPay?.method && <Row l="Metod:" v={METOD_LABEL[lastPay.method]||lastPay.method} />}
+        <Row l={t('dry.receipt.totalCaps')}             v={`${fmtR(order.totalHtg)} G`} bold lg />
+        {given > 0 &&  <Row l={t('dry.receipt.amountGiven')}    v={`${fmtR(given)} G`} bold />}
+        <Row l={t('dry.receipt.amountReceived')} v={`${fmtR(paid)} G`} bold />
+        {change > 0 && <Row l={t('dry.receipt.change')}      v={`${fmtR(change)} G`} bold />}
+        {lastPay?.method && <Row l={t('dry.receipt.method')} v={METOD_LABEL[lastPay.method]||lastPay.method} />}
         {balance > 0 && (
           <>
             <DASH/>
-            <Row l="Balans ki rete:" v={`-${fmtR(balance)} G`} bold color="#C0392B" lg />
+            <Row l={t('dry.receipt.balanceDue')} v={`-${fmtR(balance)} G`} bold color="#C0392B" lg />
           </>
         )}
       </div>
@@ -174,17 +169,23 @@ function DryReceipt({ order, tenant }) {
       {/* Nòt */}
       {order.notes && (
         <div style={{fontSize:'8px',color:'#666',fontStyle:'italic',margin:'3px 0'}}>
-          Nòt: {order.notes}
+          {t('dry.receipt.notes')} {order.notes}
         </div>
       )}
 
       {/* Pye */}
       <div style={{textAlign:'center',fontSize:'8px',color:'#444',lineHeight:'1.5',marginTop:'4px',borderTop:'1px dashed #bbb',paddingTop:'4px'}}>
         <div style={{fontWeight:'900',fontSize:is57?'11px':'12px',marginBottom:'2px'}}>
-          Kenbe resi sa a pou tounen pran rad ou!
+          {t('dry.receipt.keepReceipt')}
         </div>
+        {/* ✅ Avètisman pèsonalize pa chak tenant (Paramèt → Enfòmasyon Antrepriz) */}
+        {tenant?.receiptFooterNote && (
+          <div style={{fontStyle:'italic',color:'#333',margin:'3px 0',padding:'3px',borderTop:'1px dashed #ccc',borderBottom:'1px dashed #ccc'}}>
+            {tenant.receiptFooterNote}
+          </div>
+        )}
         <div style={{fontStyle:'italic',color:'#888',marginBottom:'2px'}}>
-          Pwodwi pa: Plus Group
+          {t('dry.receipt.poweredBy')}
         </div>
         <div style={{color:'#555'}}>+509 4244-9024</div>
       </div>
@@ -195,6 +196,7 @@ function DryReceipt({ order, tenant }) {
 
 // ══════════════════════════════════════════════════════════════
 export default function DryOrderDetail() {
+  const { t } = useTranslation()
   const { id }    = useParams()
   const navigate  = useNavigate()
   const { hasRole, tenant } = useAuthStore()
@@ -208,6 +210,27 @@ export default function DryOrderDetail() {
   const onSunmi     = isSunmi()
   const btSupported = (() => { try { return !onSunmi && !!navigator.bluetooth } catch { return false } })()
 
+  const STATUS_MAP = {
+    received:   { label:t('dry.status.received'),   color:'#1B2A8F', bg:'rgba(27,42,143,0.10)', next:'processing', nextLabel:t('dry.nextStatus.processing') },
+    processing: { label:t('dry.status.processing'), color:'#D97706', bg:'rgba(217,119,6,0.10)', next:'ready',      nextLabel:t('dry.nextStatus.ready')       },
+    ready:      { label:t('dry.status.ready'),       color:'#059669', bg:'rgba(5,150,105,0.10)', next:'delivered',  nextLabel:t('dry.nextStatus.delivered')   },
+    delivered:  { label:t('dry.status.delivered'),   color:'#6b7280', bg:'rgba(107,114,128,0.10)', next:null },
+    cancelled:  { label:t('dry.status.cancelled'),   color:'#C0392B', bg:'rgba(192,57,43,0.08)', next:null },
+  }
+  const SERVICES_LABEL = {
+    presaj:t('dry.services.presaj'), dry_clean:t('dry.services.dry_clean'), net_presaj:t('dry.services.net_presaj'),
+    reparasyon:t('dry.services.reparasyon'), blanchi:t('dry.services.blanchi'),
+  }
+  const PAYMENT_METHODS = [
+    { value:'cash', label:t('dry.paymentMethods.cash') }, { value:'moncash', label:t('dry.paymentMethods.moncash') },
+    { value:'natcash', label:t('dry.paymentMethods.natcash') }, { value:'card', label:t('dry.paymentMethods.card') },
+    { value:'transfer', label:t('dry.paymentMethods.transfer') }, { value:'check', label:t('dry.paymentMethods.check') },
+  ]
+  const METOD_LABEL = {
+    cash:t('dry.paymentMethods.cash'), moncash:t('dry.paymentMethods.moncash'), natcash:t('dry.paymentMethods.natcash'),
+    card:t('dry.paymentMethods.card'), transfer:t('dry.paymentMethods.transfer'), check:t('dry.paymentMethods.check'),
+  }
+
   const { data: order, isLoading } = useQuery({
     queryKey: ['dry-order', id],
     queryFn:  () => dryAPI.getOne(id).then(r => r.data.order),
@@ -215,27 +238,27 @@ export default function DryOrderDetail() {
 
   const statusMutation = useMutation({
     mutationFn: (data) => dryAPI.updateStatus(id, data),
-    onSuccess:  () => { toast.success('Statut mete ajou!'); qc.invalidateQueries(['dry-order', id]); qc.invalidateQueries(['dry-orders']) },
-    onError:    (e) => toast.error(e.response?.data?.message || 'Ere statut.')
+    onSuccess:  () => { toast.success(t('dry.toastStatusUpdated')); qc.invalidateQueries(['dry-order', id]); qc.invalidateQueries(['dry-orders']) },
+    onError:    (e) => toast.error(e.response?.data?.message || t('dry.toastStatusError'))
   })
 
   const payMutation = useMutation({
     mutationFn: (data) => dryAPI.addPayment(id, data),
     onSuccess:  () => {
-      toast.success('Peman anrejistre!')
+      toast.success(t('dry.toastPaymentRecorded'))
       qc.invalidateQueries(['dry-order', id])
       setShowPayment(false)
       setPayData({ amountHtg:'', method:'cash', reference:'', amountGiven:'', notes:'' })
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Ere peman.')
+    onError: (e) => toast.error(e.response?.data?.message || t('dry.toastPaymentError'))
   })
 
   const handlePrint = async () => {
     setPrinting(true)
-    const tid = toast.loading('Ap prepare resi...')
+    const tid = toast.loading(t('dry.printing'))
     try {
       const el = document.getElementById('dry-printable-receipt')
-      if (!el) throw new Error('Resi pa disponib')
+      if (!el) throw new Error(t('dry.toastReceiptUnavailable'))
       const size = tenant?.receiptSize || '80mm'
       const old = document.getElementById('_dry_print_css')
       if (old) old.remove()
@@ -248,9 +271,9 @@ export default function DryOrderDetail() {
       root.innerHTML = el.outerHTML.replace('display:none','display:block').replace('display: none','display: block')
       await new Promise(r => setTimeout(r, 150))
       window.print()
-      toast.success('Resi voye!', { id: tid })
+      toast.success(t('dry.toastReceiptSent'), { id: tid })
     } catch (e) {
-      toast.error('Ere: ' + e.message, { id: tid })
+      toast.error(t('dry.toastPrintError', { msg: e.message }), { id: tid })
     } finally { setPrinting(false) }
   }
 
@@ -282,7 +305,7 @@ export default function DryOrderDetail() {
               <span style={{ fontSize:11, fontWeight:800, padding:'3px 12px', borderRadius:99, background:s.bg, color:s.color, textTransform:'uppercase', letterSpacing:'0.05em' }}>{s.label}</span>
               {isOverdue && (
                 <span style={{ fontSize:11, fontWeight:800, padding:'3px 10px', borderRadius:99, background:'rgba(192,57,43,0.1)', color:'#C0392B', display:'flex', alignItems:'center', gap:4 }}>
-                  <AlertCircle size={12}/> An Reta
+                  <AlertCircle size={12}/> {t('dry.overdue')}
                 </span>
               )}
             </div>
@@ -294,18 +317,18 @@ export default function DryOrderDetail() {
 
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           <button onClick={handlePrint} disabled={printing} className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <Printer size={14}/> {printing ? 'Ap enprime...' : 'Enprime Resi'}
+            <Printer size={14}/> {printing ? t('dry.printing') : t('dry.printReceipt')}
           </button>
 
           {btSupported && !connected && (
-            <button onClick={() => { try { connect() } catch { toast.error('BT echwe') } }} disabled={connecting} className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <Bluetooth size={14}/> {connecting ? 'Ap konekte...' : 'Konekte BT'}
+            <button onClick={() => { try { connect() } catch { toast.error('BT') } }} disabled={connecting} className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <Bluetooth size={14}/> {connecting ? t('dry.connecting') : t('dry.connectBT')}
             </button>
           )}
           {btSupported && connected && (
             <div style={{ display:'flex', gap:6 }}>
               <button onClick={() => printDry(order, tenant)} disabled={printingBT} className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}>
-                <Printer size={14}/> {printingBT ? 'Ap enprime...' : 'Enprime BT'}
+                <Printer size={14}/> {printingBT ? t('dry.printing') : t('dry.printBT')}
               </button>
               <button onClick={disconnect} style={{ width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <BluetoothOff size={13}/>
@@ -317,20 +340,20 @@ export default function DryOrderDetail() {
           {s.next && hasRole(['admin','cashier']) && (
             <button onClick={() => statusMutation.mutate({ status: s.next })} disabled={statusMutation.isPending}
               style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', borderRadius:10, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:700, fontSize:13, border:'none', cursor:'pointer', boxShadow:`0 4px 12px ${D.blue}40` }}>
-              {statusMutation.isPending ? 'Ap chanje...' : `→ ${s.nextLabel}`}
+              {statusMutation.isPending ? t('dry.creating') : `→ ${s.nextLabel}`}
             </button>
           )}
 
           {balance > 0 && order.status !== 'cancelled' && hasRole(['admin','cashier']) && (
             <button onClick={() => { setPayData(d => ({ ...d, amountHtg: String(balance) })); setShowPayment(true) }}
               className="btn-primary" style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <Plus size={14}/> Anrejistre Peman
+              <Plus size={14}/> {t('dry.recordPayment')}
             </button>
           )}
 
           {!['delivered','cancelled'].includes(order.status) && hasRole('admin') && (
-            <button onClick={() => { const r = prompt('Rezon anilasyon:'); if (r !== null) statusMutation.mutate({ status:'cancelled', cancelReason: r }) }}
-              className="btn-danger btn-sm">Anile</button>
+            <button onClick={() => { const r = prompt(t('dry.cancelReasonPrompt')); if (r !== null) statusMutation.mutate({ status:'cancelled', cancelReason: r }) }}
+              className="btn-danger btn-sm">{t('dry.cancelOrder')}</button>
           )}
         </div>
       </div>
@@ -340,15 +363,15 @@ export default function DryOrderDetail() {
 
           {/* Dat yo */}
           <div className="card p-5">
-            <h3 className="section-title">Dat yo</h3>
+            <h3 className="section-title">{t('dry.datesTitle')}</h3>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
               <div style={{ textAlign:'center', padding:'12px', background:'#f8fafc', borderRadius:10 }}>
-                <p style={{ fontSize:11, color:D.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 4px' }}>Dat Depo</p>
+                <p style={{ fontSize:11, color:D.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 4px' }}>{t('dry.depositDate')}</p>
                 <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:16, color:D.text, margin:0 }}>{toDate(order.depositDate)}</p>
               </div>
               <div style={{ textAlign:'center', padding:'12px', background: isOverdue ? 'rgba(192,57,43,0.06)' : '#f0fdf4', borderRadius:10, border: isOverdue ? '1px solid rgba(192,57,43,0.2)' : 'none' }}>
                 <p style={{ fontSize:11, color: isOverdue ? D.red : D.muted, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em', margin:'0 0 4px' }}>
-                  Dat Pou Tounen {isOverdue ? '⚠️' : '✓'}
+                  {t('dry.pickupDate')} {isOverdue ? '⚠️' : '✓'}
                 </p>
                 <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color: isOverdue ? D.red : '#16a34a', margin:0 }}>
                   {toDate(order.pickupDate)}
@@ -358,7 +381,7 @@ export default function DryOrderDetail() {
             {order.deliveredAt && (
               <div style={{ textAlign:'center', marginTop:10, padding:'8px', background:'#f0fdf4', borderRadius:8 }}>
                 <p style={{ fontSize:11, color:'#16a34a', fontWeight:600, margin:0 }}>
-                  ✓ Remèt: {toDate(order.deliveredAt, 'dd/MM/yyyy HH:mm')}
+                  {t('dry.deliveredOn', { date: toDate(order.deliveredAt, 'dd/MM/yyyy HH:mm') })}
                 </p>
               </div>
             )}
@@ -367,11 +390,11 @@ export default function DryOrderDetail() {
           {/* Atik yo */}
           <div className="card overflow-hidden">
             <div className="p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">Rad / Atik yo ({order.items?.length || 0})</h3>
+              <h3 className="font-display font-bold text-slate-800">{t('dry.itemsCount', { count: order.items?.length || 0 })}</h3>
             </div>
             <table className="table">
               <thead>
-                <tr><th>Rad</th><th>Sèvis</th><th>Koulè</th><th className="text-center">Qte</th><th className="text-right">Pri U.</th><th className="text-right">Total</th></tr>
+                <tr><th>{t('dry.descriptionLabel').replace(' *','')}</th><th>{t('dry.serviceLabel')}</th><th>{t('dry.colColor')}</th><th className="text-center">{t('dry.colQty')}</th><th className="text-right">{t('dry.colUnitPrice')}</th><th className="text-right">{t('dry.colTotal')}</th></tr>
               </thead>
               <tbody>
                 {order.items?.map((item, i) => (
@@ -392,10 +415,10 @@ export default function DryOrderDetail() {
           {order.payments?.length > 0 && (
             <div className="card overflow-hidden">
               <div className="p-4 border-b border-slate-100">
-                <h3 className="font-display font-bold text-slate-800">Istwa Peman ({order.payments.length})</h3>
+                <h3 className="font-display font-bold text-slate-800">{t('dry.paymentHistory', { count: order.payments.length })}</h3>
               </div>
               <table className="table">
-                <thead><tr><th>Dat</th><th>Metod</th><th>Nòt / Ref</th><th className="text-right">Montan HTG</th></tr></thead>
+                <thead><tr><th>{t('dry.colDate')}</th><th>{t('dry.colMethod')}</th><th>{t('dry.colNoteRef')}</th><th className="text-right">{t('dry.colAmountHtg')}</th></tr></thead>
                 <tbody>
                   {order.payments.map(p => (
                     <tr key={p.id}>
@@ -412,13 +435,13 @@ export default function DryOrderDetail() {
 
           {order.notes && (
             <div className="card p-5">
-              <h3 className="section-title">Nòt Espesyal</h3>
+              <h3 className="section-title">{t('dry.specialNotes')}</h3>
               <p className="text-slate-600 italic">{order.notes}</p>
             </div>
           )}
           {order.cancelReason && (
             <div style={{ padding:'12px 16px', background:'rgba(192,57,43,0.06)', border:'1px solid rgba(192,57,43,0.2)', borderRadius:10 }}>
-              <p style={{ fontSize:12, fontWeight:700, color:D.red, margin:'0 0 4px' }}>Rezon Anilasyon:</p>
+              <p style={{ fontSize:12, fontWeight:700, color:D.red, margin:'0 0 4px' }}>{t('dry.cancelReasonTitle')}</p>
               <p style={{ fontSize:13, color:'#7f1d1d', margin:0 }}>{order.cancelReason}</p>
             </div>
           )}
@@ -427,19 +450,19 @@ export default function DryOrderDetail() {
         {/* Kolòn dwat */}
         <div className="space-y-4">
           <div className="card p-5">
-            <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
+            <h3 className="font-display font-bold text-slate-800 mb-4">{t('dry.totals')}</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between font-bold text-base border-b border-slate-200 pb-2">
-                <span>TOTAL</span>
+                <span>{t('dry.colTotal').toUpperCase()}</span>
                 <span className="font-mono text-brand-700">{fmt(order.totalHtg)} HTG</span>
               </div>
               <div className="flex justify-between text-emerald-600">
-                <span className="flex items-center gap-1.5"><CheckCircle2 size={14}/> Peye</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 size={14}/> {t('dry.paid')}</span>
                 <span className="font-mono font-semibold">{fmt(order.amountPaidHtg)} HTG</span>
               </div>
               {balance > 0 && (
                 <div className="flex justify-between text-red-600">
-                  <span className="flex items-center gap-1.5"><Clock size={14}/> Balans</span>
+                  <span className="flex items-center gap-1.5"><Clock size={14}/> {t('dry.balance')}</span>
                   <span className="font-mono font-bold">-{fmt(balance)} HTG</span>
                 </div>
               )}
@@ -451,12 +474,12 @@ export default function DryOrderDetail() {
                     style={{ width:`${Math.min(100,(Number(order.amountPaidHtg)/Number(order.totalHtg))*100)}%` }}/>
                 </div>
                 <p className="text-xs text-slate-400 mt-1 text-right">
-                  {((Number(order.amountPaidHtg)/Number(order.totalHtg))*100).toFixed(0)}% peye
+                  {t('dry.percentPaid', { pct: ((Number(order.amountPaidHtg)/Number(order.totalHtg))*100).toFixed(0) })}
                 </p>
               </div>
             )}
             <button onClick={handlePrint} disabled={printing} className="btn-primary w-full mt-4" style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}>
-              <Printer size={15}/> {printing ? 'Ap enprime...' : 'Enprime Resi'}
+              <Printer size={15}/> {printing ? t('dry.printing') : t('dry.printReceipt')}
             </button>
           </div>
         </div>
@@ -468,7 +491,7 @@ export default function DryOrderDetail() {
           <div className="modal max-w-md">
             <div className="flex items-center justify-between p-5 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-display font-bold">Anrejistre Peman</h2>
+                <h2 className="text-lg font-display font-bold">{t('dry.payModalTitle')}</h2>
                 <p className="text-xs text-slate-400 mt-0.5">{order.orderNumber} · {order.clientName}</p>
               </div>
               <button onClick={() => setShowPayment(false)} className="text-slate-400 hover:text-slate-600 p-1 text-xl leading-none">×</button>
@@ -476,22 +499,22 @@ export default function DryOrderDetail() {
             <div className="p-5 space-y-4">
               <div style={{ background:'linear-gradient(135deg,#fef2f2,#fff5f5)', borderRadius:12, padding:'12px 16px', border:'1px solid #fecaca' }}>
                 <div className="flex justify-between items-center">
-                  <span style={{ fontSize:12, color:'#6b7280', fontWeight:600 }}>Total Lòd:</span>
+                  <span style={{ fontSize:12, color:'#6b7280', fontWeight:600 }}>{t('dry.orderTotal')}</span>
                   <span style={{ fontFamily:'monospace', fontWeight:700 }}>{fmt(order.totalHtg)} HTG</span>
                 </div>
                 <div style={{ borderTop:'1px solid #fecaca', marginTop:8, paddingTop:8 }} className="flex justify-between items-center">
-                  <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans ki rete:</span>
+                  <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>{t('dry.balanceRemaining')}</span>
                   <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>-{fmt(balance)} HTG</span>
                 </div>
               </div>
 
               <div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <label className="label mb-0">Montan kliyan bay (HTG) *</label>
+                  <label className="label mb-0">{t('dry.amountGivenLabel')}</label>
                   {amtNum !== balance && balance > 0 && (
                     <button type="button" onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}
                       style={{ fontSize:10, color:'#2563eb', fontWeight:700, background:'#eff6ff', border:'none', cursor:'pointer', padding:'2px 8px', borderRadius:4 }}>
-                      Ranpli tout
+                      {t('dry.fillAll')}
                     </button>
                   )}
                 </div>
@@ -501,14 +524,14 @@ export default function DryOrderDetail() {
                   style={{ fontSize:22, fontWeight:800, textAlign:'center' }}/>
                 {amtNum > 0 && amtNum < balance && (
                   <div style={{ marginTop:8, padding:'8px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10, display:'flex', justifyContent:'space-between' }}>
-                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>Peman pasyal</span>
-                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG ap rete</span>
+                    <span style={{ fontSize:12, color:'#d97706', fontWeight:700 }}>{t('dry.partialPayment')}</span>
+                    <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{t('dry.remainingAfter', { amount: fmt(balance - amtNum) + ' HTG' })}</span>
                   </div>
                 )}
                 {monnen > 0 && (
                   <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
                     <div style={{ background:'#16a34a', padding:'8px 14px' }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase' }}>Monnen pou remèt</span>
+                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase' }}>{t('dry.changeDue')}</span>
                     </div>
                     <div style={{ background:'#f0fdf4', padding:'14px', textAlign:'center' }}>
                       <p style={{ fontFamily:'monospace', fontSize:36, fontWeight:900, color:'#15803d', margin:0 }}>
@@ -520,29 +543,29 @@ export default function DryOrderDetail() {
               </div>
 
               <div>
-                <label className="label">Metod peman</label>
+                <label className="label">{t('dry.paymentMethodLabel')}</label>
                 <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
                   {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="label">Referans (opsyonèl)</label>
-                <input className="input" placeholder="ex: MCash #12345" value={payData.reference}
+                <label className="label">{t('dry.referenceLabel')}</label>
+                <input className="input" placeholder={t('dry.referencePlaceholder')} value={payData.reference}
                   onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))}/>
               </div>
 
               <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={payMutation.isPending}>Anile</button>
+                <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={payMutation.isPending}>{t('dry.cancel')}</button>
                 <button type="button" disabled={payMutation.isPending || amtNum <= 0} className="btn-primary" style={{ minWidth:160 }}
                   onClick={() => {
-                    if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
+                    if (!amtNum || amtNum <= 0) return toast.error(t('dry.toastItemRequired'))
                     const amtToRecord = monnen > 0 ? balance : amtNum
                     payMutation.mutate({ ...payData, amountHtg: amtToRecord, amountGiven: amtNum, change: monnen })
                   }}>
                   {payMutation.isPending
-                    ? <span style={{ display:'flex', alignItems:'center', gap:6 }}><span style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/> Ap anrejistre...</span>
-                    : `Konfime ${fmt(monnen > 0 ? balance : amtNum)} HTG`
+                    ? <span style={{ display:'flex', alignItems:'center', gap:6 }}><span style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/> {t('dry.recording')}</span>
+                    : t('dry.confirmPayment', { amount: fmt(monnen > 0 ? balance : amtNum) })
                   }
                 </button>
               </div>
