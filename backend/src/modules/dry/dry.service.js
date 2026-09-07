@@ -79,8 +79,13 @@ const create = async (tenantId, userId, data) => {
 
   const mode = ['imedya', 'randevou'].includes(serviceMode) ? serviceMode : 'randevou'
 
+  const tenantRow = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { dryImmediateSurchargePct: true } })
+  const surchargePct = mode === 'imedya' ? Number(tenantRow?.dryImmediateSurchargePct || 0) : 0
+
   const orderNumber = await getNextOrderNumber(tenantId)
-  const totalHtg    = items.reduce((s, it) => s + Number(it.unitPriceHtg || 0) * Number(it.quantity || 1), 0)
+  const subtotalHtg = items.reduce((s, it) => s + Number(it.unitPriceHtg || 0) * Number(it.quantity || 1), 0)
+  const surchargeHtg = Math.round(subtotalHtg * surchargePct) / 100
+  const totalHtg    = subtotalHtg + surchargeHtg
   const deposit     = Math.min(Number(depositAmount || 0), totalHtg)
   const balanceDue  = totalHtg - deposit
 
@@ -88,6 +93,7 @@ const create = async (tenantId, userId, data) => {
     const ord = await tx.dryOrder.create({
       data: {
         tenantId, branchId: branchId || null, orderNumber, serviceMode: mode,
+        subtotalHtg, surchargeHtg,
         clientName: clientName.trim(), clientPhone: clientPhone?.trim() || null,
         depositDate: new Date(), pickupDate: new Date(pickupDate),
         status: 'received', totalHtg, amountPaidHtg: deposit,

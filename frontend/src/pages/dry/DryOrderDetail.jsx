@@ -10,6 +10,8 @@ import { ArrowLeft, Printer, Plus, CheckCircle2, Clock, AlertCircle, Bluetooth, 
 import { format } from 'date-fns'
 import { usePrinterStore } from '../../stores/printerStore'
 import { isSunmi } from '../../services/printerService'
+// ✅ NOUVO — resi a toujou enprime an Fransè, kèlkeswa lang aplikasyon an
+import i18n from '../../i18n/config'
 
 const dryAPI = {
   getOne:       (id)       => api.get(`/dry/${id}`),
@@ -27,50 +29,62 @@ const fmt  = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits
 const fmtR = (n) => Number(n||0).toLocaleString('fr-HT', { minimumFractionDigits:2 }).replace(/\u00A0/g,' ').replace(/\u202F/g,' ')
 const toDate = (d, f='dd/MM/yyyy') => { try { return format(new Date(d), f) } catch { return '' } }
 
-// ── Resi enprimab HTML (tradui selon lang chwazi)
+// ── Resi enprimab HTML — toujou an Fransè, byen aliye
 function DryReceipt({ order, tenant }) {
-  const { t } = useTranslation()
+  const tf = i18n.getFixedT('fr', 'translation')
   if (!order) return null
 
   const STATUS_MAP = {
-    received:   { label:t('dry.status.received'),   color:'#1B2A8F' },
-    processing: { label:t('dry.status.processing'), color:'#D97706' },
-    ready:      { label:t('dry.status.ready'),       color:'#059669' },
-    delivered:  { label:t('dry.status.delivered'),   color:'#6b7280' },
-    cancelled:  { label:t('dry.status.cancelled'),   color:'#C0392B' },
+    received:   { label:tf('dry.status.received'),   color:'#1B2A8F' },
+    processing: { label:tf('dry.status.processing'), color:'#D97706' },
+    ready:      { label:tf('dry.status.ready'),       color:'#059669' },
+    delivered:  { label:tf('dry.status.delivered'),   color:'#6b7280' },
+    cancelled:  { label:tf('dry.status.cancelled'),   color:'#C0392B' },
   }
   const SERVICES_LABEL = {
-    presaj:t('dry.services.presaj'), dry_clean:t('dry.services.dry_clean'), net_presaj:t('dry.services.net_presaj'),
-    reparasyon:t('dry.services.reparasyon'), blanchi:t('dry.services.blanchi'),
+    presaj:tf('dry.services.presaj'), dry_clean:tf('dry.services.dry_clean'), net_presaj:tf('dry.services.net_presaj'),
+    reparasyon:tf('dry.services.reparasyon'), blanchi:tf('dry.services.blanchi'),
   }
   const METOD_LABEL = {
-    cash:t('dry.paymentMethods.cash'), moncash:t('dry.paymentMethods.moncash'), natcash:t('dry.paymentMethods.natcash'),
-    card:t('dry.paymentMethods.card'), transfer:t('dry.paymentMethods.transfer'), check:t('dry.paymentMethods.check'),
+    cash:tf('dry.paymentMethods.cash'), moncash:tf('dry.paymentMethods.moncash'), natcash:tf('dry.paymentMethods.natcash'),
+    card:tf('dry.paymentMethods.card'), transfer:tf('dry.paymentMethods.transfer'), check:tf('dry.paymentMethods.check'),
   }
 
-  const is57     = tenant?.receiptSize === '57mm'
-  const s        = STATUS_MAP[order.status] || STATUS_MAP.received
-  const lastPay  = order.payments?.[order.payments.length - 1]
-  const given    = Number(lastPay?.amountGiven || 0)
-  const change   = Number(lastPay?.change || 0)
-  const balance  = Number(order.balanceDueHtg || 0)
-  const paid     = Number(order.amountPaidHtg || 0)
+  const is57      = tenant?.receiptSize === '57mm'
+  const s         = STATUS_MAP[order.status] || STATUS_MAP.received
+  const lastPay   = order.payments?.[order.payments.length - 1]
+  const given     = Number(lastPay?.amountGiven || 0)
+  const change    = Number(lastPay?.change || 0)
+  const balance   = Number(order.balanceDueHtg || 0)
+  const paid      = Number(order.amountPaidHtg || 0)
+  const subtotal  = Number(order.subtotalHtg || 0)
+  const surcharge = Number(order.surchargeHtg || 0)
+
+  const payStatus = balance <= 0
+    ? { label: tf('dry.receipt.paidFull'),    bg:'#dcfce7', color:'#15803d' }
+    : paid > 0
+    ? { label: tf('dry.receipt.paidPartial'), bg:'#fef3c7', color:'#b45309' }
+    : { label: tf('dry.receipt.unpaid'),      bg:'#fee2e2', color:'#b91c1c' }
+
+  // Kolòn tab atik yo — menm gabarit pou antèt AK done pou yo byen aliye
+  const ITEM_COLS = '1fr 20px 56px 56px'
 
   const wrap = {
     fontFamily:"'Courier New',Courier,monospace",
     width:is57?'57mm':'80mm', maxWidth:is57?'57mm':'80mm',
     margin:'0 auto', padding:is57?'3mm 2mm':'4mm 4mm',
     background:'#fff', color:'#111',
-    fontSize:is57?'10px':'11px', lineHeight:'1.35',
+    fontSize:is57?'10px':'11px', lineHeight:'1.4',
   }
 
   const Row = ({l,v,bold,color,lg}) => (
-    <div style={{display:'flex',justifyContent:'space-between',fontWeight:bold?'700':'400',color:color||'#111',fontSize:lg?(is57?'12px':'13px'):'inherit',marginBottom:'1px'}}>
-      <span>{l}</span><span>{v}</span>
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',fontWeight:bold?'700':'400',color:color||'#111',fontSize:lg?(is57?'12px':'13px'):'inherit',marginBottom:'2px'}}>
+      <span style={{flexShrink:0,paddingRight:'6px'}}>{l}</span>
+      <span style={{textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{v}</span>
     </div>
   )
-  const HR   = () => <div style={{borderTop:'1.5px solid #111',margin:'3px 0'}}/>
-  const DASH = () => <div style={{borderTop:'1px dashed #888',margin:'3px 0'}}/>
+  const HR   = () => <div style={{borderTop:'1.5px solid #111',margin:'4px 0'}}/>
+  const DASH = () => <div style={{borderTop:'1px dashed #999',margin:'4px 0'}}/>
 
   return (
     <div id="dry-printable-receipt" style={{display:'none',...wrap}}>
@@ -80,66 +94,66 @@ function DryReceipt({ order, tenant }) {
         <div style={{fontWeight:'900',fontSize:is57?'14px':'17px',letterSpacing:'1px'}}>
           {tenant?.name || 'PLUS GROUP'}
         </div>
-        {tenant?.address && <div style={{fontSize:'9px',color:'#555'}}>{tenant.address}</div>}
-        {tenant?.phone   && <div style={{fontSize:'9px',color:'#555'}}>{t('dry.receipt.phone')} {tenant.phone}</div>}
+        {tenant?.address && <div style={{fontSize:'9px',color:'#555',marginTop:'1px'}}>{tenant.address}</div>}
+        {tenant?.phone   && <div style={{fontSize:'9px',color:'#555'}}>{tf('dry.receipt.phone')} {tenant.phone}</div>}
       </div>
 
       <HR/>
       <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'13px':'16px',letterSpacing:'1px',margin:'3px 0'}}>
-        {t('dry.receipt.title')}
+        {tf('dry.receipt.title')}
       </div>
 
       {/* Nimewo lòd — gwo + fon nwa */}
-      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'18px':'22px',letterSpacing:'3px',margin:'4px 0 3px',background:'#111',color:'#fff',padding:'5px 0',borderRadius:'2px'}}>
+      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'18px':'22px',letterSpacing:'3px',margin:'4px 0 4px',background:'#111',color:'#fff',padding:'6px 0',borderRadius:'3px'}}>
         {order.orderNumber}
       </div>
 
-      {/* Kalite Sèvis — Imedya oswa Randevou, mis an valè */}
-      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'12px':'14px',letterSpacing:'1px',margin:'2px 0 3px',
+      {/* Kalite Sèvis — Imedya oswa Randevou */}
+      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'11px':'13px',letterSpacing:'1px',margin:'0 0 4px',
         color: order.serviceMode === 'imedya' ? '#B45300' : '#1B2A8F'}}>
-        {order.serviceMode === 'imedya' ? `⚡ ${t('dry.serviceModeImmediate').toUpperCase()}` : `📅 ${t('dry.serviceModeAppointment').toUpperCase()}`}
+        {order.serviceMode === 'imedya' ? `⚡ ${tf('dry.serviceModeImmediate').toUpperCase()}` : `📅 ${tf('dry.serviceModeAppointment').toUpperCase()}`}
       </div>
       <HR/>
 
       {/* Info kliyan */}
-      <div style={{fontSize:'9px',marginBottom:'3px'}}>
-        <Row l={t('dry.receipt.depositDate')}  v={toDate(order.depositDate,'dd/MM/yyyy')} />
-        <Row l={t('dry.receipt.client')}    v={order.clientName} bold />
-        {order.clientPhone && <Row l={t('dry.receipt.phone')} v={order.clientPhone} />}
-        {!is57 && order.creator?.fullName && <Row l={t('dry.receipt.cashier')} v={order.creator.fullName} />}
+      <div style={{fontSize:'9px',marginBottom:'2px'}}>
+        <Row l={tf('dry.receipt.depositDate')} v={toDate(order.depositDate,'dd/MM/yyyy')} />
+        <Row l={tf('dry.receipt.client')}      v={order.clientName} bold />
+        {order.clientPhone && <Row l={tf('dry.receipt.phone')} v={order.clientPhone} />}
+        {!is57 && order.creator?.fullName && <Row l={tf('dry.receipt.cashier')} v={order.creator.fullName} />}
       </div>
 
       {/* Dat pou tounen — mis an valè */}
       <DASH/>
-      <div style={{textAlign:'center',margin:'4px 0',padding:'5px 4px',background:'rgba(0,0,0,0.05)',borderRadius:'3px'}}>
-        <div style={{fontSize:'8px',color:'#555',fontWeight:'600',textTransform:'uppercase',letterSpacing:'0.5px'}}>
-          {t('dry.receipt.pickupDateBox')}
+      <div style={{textAlign:'center',margin:'4px 0',padding:'6px 4px',background:'rgba(0,0,0,0.05)',borderRadius:'4px'}}>
+        <div style={{fontSize:'8px',color:'#555',fontWeight:'700',textTransform:'uppercase',letterSpacing:'0.5px'}}>
+          {tf('dry.receipt.pickupDateBox')}
         </div>
-        <div style={{fontWeight:'900',fontSize:is57?'15px':'18px',letterSpacing:'1px',marginTop:'1px'}}>
+        <div style={{fontWeight:'900',fontSize:is57?'15px':'18px',letterSpacing:'1px',marginTop:'2px'}}>
           {toDate(order.pickupDate,'dd/MM/yyyy')}
         </div>
       </div>
       <DASH/>
 
       {/* Atik yo */}
-      <div style={{marginBottom:'3px'}}>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 18px 48px 48px',fontWeight:'700',fontSize:'9px',borderBottom:'1px solid #111',paddingBottom:'2px',marginBottom:'2px',gap:'2px'}}>
-          <span>{t('dry.receipt.item')}</span>
-          <span style={{textAlign:'right'}}>{t('dry.receipt.qty')}</span>
-          <span style={{textAlign:'right'}}>{t('dry.receipt.unitPrice')}</span>
-          <span style={{textAlign:'right'}}>{t('dry.receipt.total')}</span>
+      <div style={{marginBottom:'4px'}}>
+        <div style={{display:'grid',gridTemplateColumns:ITEM_COLS,fontWeight:'700',fontSize:'9px',borderBottom:'1px solid #111',paddingBottom:'3px',marginBottom:'3px',gap:'4px'}}>
+          <span>{tf('dry.receipt.item')}</span>
+          <span style={{textAlign:'right'}}>{tf('dry.receipt.qty')}</span>
+          <span style={{textAlign:'right'}}>{tf('dry.receipt.unitPrice')}</span>
+          <span style={{textAlign:'right'}}>{tf('dry.receipt.total')}</span>
         </div>
         {order.items?.map((item,i) => (
-          <div key={i}>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 18px 48px 48px',fontSize:'9px',borderBottom:'1px dotted #ccc',padding:'1px 0',gap:'2px',alignItems:'baseline'}}>
+          <div key={i} style={{marginBottom:'3px'}}>
+            <div style={{display:'grid',gridTemplateColumns:ITEM_COLS,fontSize:'9px',gap:'4px',alignItems:'baseline'}}>
               <span style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontWeight:'600'}}>
                 {item.description}{item.color ? ` (${item.color})` : ''}
               </span>
-              <span style={{textAlign:'right'}}>{item.quantity}</span>
-              <span style={{textAlign:'right'}}>{fmtR(item.unitPriceHtg)}</span>
-              <span style={{textAlign:'right',fontWeight:'700'}}>{fmtR(item.totalHtg)}</span>
+              <span style={{textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{item.quantity}</span>
+              <span style={{textAlign:'right',fontVariantNumeric:'tabular-nums'}}>{fmtR(item.unitPriceHtg)}</span>
+              <span style={{textAlign:'right',fontWeight:'700',fontVariantNumeric:'tabular-nums'}}>{fmtR(item.totalHtg)}</span>
             </div>
-            <div style={{fontSize:'8px',color:'#666',paddingLeft:'2px',marginBottom:'1px'}}>
+            <div style={{fontSize:'8px',color:'#666',borderBottom:'1px dotted #ccc',paddingBottom:'2px'}}>
               → {SERVICES_LABEL[item.service]||item.service}
               {item.notes ? ` · ${item.notes}` : ''}
             </div>
@@ -151,22 +165,34 @@ function DryReceipt({ order, tenant }) {
 
       {/* Total + peman */}
       <div style={{fontSize:'9px'}}>
-        <Row l={t('dry.receipt.totalCaps')}             v={`${fmtR(order.totalHtg)} G`} bold lg />
-        {given > 0 &&  <Row l={t('dry.receipt.amountGiven')}    v={`${fmtR(given)} G`} bold />}
-        <Row l={t('dry.receipt.amountReceived')} v={`${fmtR(paid)} G`} bold />
-        {change > 0 && <Row l={t('dry.receipt.change')}      v={`${fmtR(change)} G`} bold />}
-        {lastPay?.method && <Row l={t('dry.receipt.method')} v={METOD_LABEL[lastPay.method]||lastPay.method} />}
+        {surcharge > 0 && (
+          <>
+            <Row l={tf('dry.receipt.subtotal')} v={`${fmtR(subtotal)} G`} />
+            <Row l={tf('dry.receipt.surcharge')} v={`+${fmtR(surcharge)} G`} color="#B45300" bold />
+          </>
+        )}
+        <Row l={tf('dry.receipt.totalCaps')}     v={`${fmtR(order.totalHtg)} G`} bold lg />
+        {given > 0 &&  <Row l={tf('dry.receipt.amountGiven')}    v={`${fmtR(given)} G`} bold />}
+        <Row l={tf('dry.receipt.amountReceived')} v={`${fmtR(paid)} G`} bold />
+        {change > 0 && <Row l={tf('dry.receipt.change')}      v={`${fmtR(change)} G`} bold />}
+        {lastPay?.method && <Row l={tf('dry.receipt.method')} v={METOD_LABEL[lastPay.method]||lastPay.method} />}
         {balance > 0 && (
           <>
             <DASH/>
-            <Row l={t('dry.receipt.balanceDue')} v={`-${fmtR(balance)} G`} bold color="#C0392B" lg />
+            <Row l={tf('dry.receipt.balanceDue')} v={`-${fmtR(balance)} G`} bold color="#C0392B" lg />
           </>
         )}
       </div>
 
+      {/* Estati Peman — byen wè, pou kesye a konnen si lòd la peye lè kliyan an tounen */}
+      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'12px':'14px',letterSpacing:'1px',
+        margin:'6px 0',padding:'6px 0',borderRadius:'4px',background:payStatus.bg,color:payStatus.color,border:`1.5px solid ${payStatus.color}`}}>
+        {payStatus.label}
+      </div>
+
       <HR/>
 
-      {/* Statut */}
+      {/* Statut lòd */}
       <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'13px':'15px',color:s.color,margin:'3px 0',letterSpacing:'1px'}}>
         {s.label.toUpperCase()}
       </div>
@@ -175,14 +201,14 @@ function DryReceipt({ order, tenant }) {
       {/* Nòt */}
       {order.notes && (
         <div style={{fontSize:'8px',color:'#666',fontStyle:'italic',margin:'3px 0'}}>
-          {t('dry.receipt.notes')} {order.notes}
+          {tf('dry.receipt.notes')} {order.notes}
         </div>
       )}
 
       {/* Pye */}
       <div style={{textAlign:'center',fontSize:'8px',color:'#444',lineHeight:'1.5',marginTop:'4px',borderTop:'1px dashed #bbb',paddingTop:'4px'}}>
         <div style={{fontWeight:'900',fontSize:is57?'11px':'12px',marginBottom:'2px'}}>
-          {t('dry.receipt.keepReceipt')}
+          {tf('dry.receipt.keepReceipt')}
         </div>
         {/* ✅ Avètisman pèsonalize pa chak tenant (Paramèt → Enfòmasyon Antrepriz) */}
         {tenant?.receiptFooterNote && (
@@ -191,7 +217,7 @@ function DryReceipt({ order, tenant }) {
           </div>
         )}
         <div style={{fontStyle:'italic',color:'#888',marginBottom:'2px'}}>
-          {t('dry.receipt.poweredBy')}
+          {tf('dry.receipt.poweredBy')}
         </div>
         <div style={{color:'#555'}}>+509 4244-9024</div>
       </div>

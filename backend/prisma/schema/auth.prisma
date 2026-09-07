@@ -136,6 +136,8 @@ model Tenant {
   defaultLanguage        DefaultLanguage         @default(ht) @map("default_language")
   exchangeRate           Decimal                 @default(125.00) @map("exchange_rate") @db.Decimal(10, 4)
   taxRate                Decimal                 @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  // ✅ NOUVO — Ogmantasyon (%) tenant ka mete sou lòd Prese ki "Imedya"
+  dryImmediateSurchargePct Decimal               @default(0) @map("dry_immediate_surcharge_pct") @db.Decimal(5, 2)
   planId                 String?                 @map("plan_id")
   status                 TenantStatus            @default(pending)
   trialEndsAt            DateTime?               @map("trial_ends_at")

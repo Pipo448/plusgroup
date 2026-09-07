@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
-import api from '../../services/api'
+import api, { tenantAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { Search, Plus, Eye, ChevronLeft, ChevronRight, ChevronDown, Scissors, X, Trash2, Settings } from 'lucide-react'
 import { format } from 'date-fns'
@@ -51,7 +51,7 @@ const getTodayISO = () => new Date().toISOString().split('T')[0]
 // ══════════════════════════════════════════════════════════════
 export default function DryOrdersPage() {
   const { t } = useTranslation()
-  const { hasRole } = useAuthStore()
+  const { hasRole, tenant, updateTenant } = useAuthStore()
   const qc = useQueryClient()
   const overlayRef = useRef(null)
   const colorInputRefs = useRef({})
@@ -87,6 +87,7 @@ export default function DryOrdersPage() {
   const [showCatalogMgr, setShowCatalogMgr] = useState(false)
   const [catalogForm, setCatalogForm] = useState({ name:'', unitPriceHtg:'', defaultService:'presaj' })
   const [lastAddedId, setLastAddedId] = useState(null)
+  const [surchargeInput, setSurchargeInput] = useState('')
 
   // ── Fòmilè nouvo lòd
   const [form, setForm] = useState({
@@ -112,13 +113,29 @@ export default function DryOrdersPage() {
     staleTime: 60000,
   })
 
+  const { data: tenantSettings } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn:  () => tenantAPI.getSettings().then(r => r.data.tenant),
+    staleTime: 60000,
+  })
+
+  useEffect(() => {
+    if (tenantSettings) setSurchargeInput(String(tenantSettings.dryImmediateSurchargePct ?? 0))
+  }, [tenantSettings])
+
+  const surchargePct = Number(tenantSettings?.dryImmediateSurchargePct ?? tenant?.dryImmediateSurchargePct ?? 0)
+
   const data = raw || { orders: [], total: 0, pages: 1 }
 
-  // ── Kalkil total + monnen
-  const total = useMemo(() =>
+  // ── Kalkil sou-total, ogmantasyon (si Imedya), total final + monnen
+  const subtotal = useMemo(() =>
     form.items.reduce((s, it) => s + Number(it.unitPriceHtg || 0) * Number(it.quantity || 1), 0),
     [form.items]
   )
+  const surchargeAmount = form.serviceMode === 'imedya' && surchargePct > 0
+    ? Math.round(subtotal * surchargePct) / 100
+    : 0
+  const total = subtotal + surchargeAmount
   const deposit = Math.min(Number(form.depositAmount || 0), total)
   const balance = total - deposit
   const given   = Number(form.amountGiven || 0)
@@ -149,6 +166,17 @@ export default function DryOrdersPage() {
     mutationFn: (id) => dryAPI.deleteCatalogItem(id),
     onSuccess: () => { toast.success(t('dry.toastCatalogDeleted')); qc.invalidateQueries(['dry-catalog']) },
     onError: () => toast.error(t('dry.toastCatalogDeleteError'))
+  })
+
+  const updateSurchargeMutation = useMutation({
+    mutationFn: (pct) => tenantAPI.updateSettings({ dryImmediateSurchargePct: pct }),
+    onSuccess: (res) => {
+      const updated = res.data.tenant
+      toast.success(t('dry.toastSurchargeUpdated'))
+      updateTenant({ ...tenantSettings, ...updated })
+      qc.setQueryData(['tenant-settings'], old => ({ ...old, ...updated }))
+    },
+    onError: (e) => toast.error(e.response?.data?.message || t('dry.toastSurchargeError'))
   })
 
   const handleSubmit = () => {
@@ -270,7 +298,7 @@ export default function DryOrdersPage() {
       {/* ── Tablo */}
       <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
         {/* Entèt */}
-        <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 1fr 1fr 1fr 90px 50px', padding:'11px 20px', background:D.bg, borderBottom:`1px solid ${D.border}` }}>
+        <div className="dry-thead" style={{ padding:'11px 20px', background:D.bg, borderBottom:`1px solid ${D.border}` }}>
           {[t('dry.colNumber'), t('dry.colClient'), t('dry.colDeposited'), t('dry.colPickup'), t('dry.colTotal'), t('dry.colStatus'), ''].map((h,i) => (
             <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i >= 2 ? 'center' : 'left' }}>{h}</span>
           ))}
@@ -278,7 +306,7 @@ export default function DryOrdersPage() {
 
         {isLoading
           ? Array(5).fill(0).map((_,i) => (
-              <div key={i} style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 1fr 1fr 1fr 90px 50px', padding:'14px 20px', borderBottom:`1px solid ${D.border}`, gap:8 }}>
+              <div key={i} className="dry-row" style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, gap:8 }}>
                 {Array(7).fill(0).map((_,j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, animation:'pulse 1.5s infinite' }}/>)}
               </div>
             ))
@@ -297,7 +325,7 @@ export default function DryOrdersPage() {
               const s = STATUS_MAP[ord.status] || STATUS_MAP.received
               return (
                 <div key={ord.id} className="dry-row"
-                  style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 1fr 1fr 1fr 90px 50px', padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
+                  style={{ padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
                   <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12, display:'flex', alignItems:'center', gap:5 }}>
                     <span title={ord.serviceMode === 'imedya' ? t('dry.serviceModeImmediate') : t('dry.serviceModeAppointment')}>
                       {ord.serviceMode === 'imedya' ? '⚡' : '📅'}
@@ -305,29 +333,34 @@ export default function DryOrdersPage() {
                     {ord.orderNumber}
                   </span>
                   <div>
+                    <span className="dry-lbl">{t('dry.colClient')}</span>
                     <p style={{ fontWeight:700, color:D.text, fontSize:13, margin:0 }}>{ord.clientName}</p>
                     {ord.clientPhone && <p style={{ fontSize:11, color:D.muted, margin:0, fontFamily:'monospace' }}>{ord.clientPhone}</p>}
                   </div>
                   <span style={{ fontSize:11, color:D.muted, textAlign:'center', fontFamily:'monospace' }}>
+                    <span className="dry-lbl">{t('dry.colDeposited')}</span>
                     {format(new Date(ord.depositDate), 'dd/MM/yy')}
                   </span>
                   <span style={{ fontSize:11, fontWeight:700, textAlign:'center', fontFamily:'monospace',
                     color: new Date(ord.pickupDate) < new Date() && ord.status !== 'delivered' ? D.red : D.text }}>
+                    <span className="dry-lbl">{t('dry.colPickup')}</span>
                     {format(new Date(ord.pickupDate), 'dd/MM/yy')}
                   </span>
                   <div style={{ textAlign:'center' }}>
+                    <span className="dry-lbl">{t('dry.colTotal')}</span>
                     <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:12 }}>{fmt(ord.totalHtg)}</span>
                     {Number(ord.balanceDueHtg) > 0 && (
                       <div style={{ fontSize:10, color:D.red, fontFamily:'monospace' }}>-{fmt(ord.balanceDueHtg)}</div>
                     )}
                   </div>
                   <div style={{ textAlign:'center' }}>
+                    <span className="dry-lbl">{t('dry.colStatus')}</span>
                     <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
                   </div>
-                  <div style={{ textAlign:'right' }}>
+                  <div className="dry-row-view" style={{ textAlign:'right' }}>
                     <Link to={`/app/dry/${ord.id}`}
                       style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:'rgba(27,42,143,0.07)', color:D.blue, textDecoration:'none' }}>
-                      <Eye size={13}/>
+                      <Eye size={13}/> <span className="dry-lbl" style={{ marginLeft:6 }}>{t('dry.colNumber')}</span>
                     </Link>
                   </div>
                 </div>
@@ -355,9 +388,9 @@ export default function DryOrdersPage() {
 
       {/* ══ MODAL NOUVO LÒD ══ */}
       {showCreate && (
-        <div ref={overlayRef} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:100, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
+        <div ref={overlayRef} className="dry-modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:100, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
           onClick={e => e.target === e.currentTarget && setShowCreate(false)}>
-          <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:680, boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div className="dry-modal" style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:680, boxShadow:'0 20px 60px rgba(0,0,0,0.2)' }}>
 
             {/* Antèt modal */}
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 24px', borderBottom:'1px solid #f1f5f9' }}>
@@ -380,7 +413,7 @@ export default function DryOrdersPage() {
               {/* Seksyon kliyan */}
               <div style={{ marginBottom:20 }}>
                 <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>{t('dry.clientInfo')}</p>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="dry-modal-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.clientName')}</label>
                     <input className="input" value={form.clientName}
@@ -399,14 +432,14 @@ export default function DryOrdersPage() {
               {/* Kalite Sèvis: Imedya oswa Randevou */}
               <div style={{ marginBottom:20 }}>
                 <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:6 }}>{t('dry.serviceModeLabel')}</label>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                <div className="dry-modal-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                   <button type="button"
-                    onClick={() => setForm(f => ({ ...f, serviceMode: 'imedya', pickupDate: minDate }))}
+                    onClick={() => setForm(f => ({ ...f, serviceMode: 'imedya', pickupDate: getTodayISO() }))}
                     style={{ padding:'12px', borderRadius:12, cursor:'pointer', fontWeight:800, fontSize:13,
                       border: form.serviceMode === 'imedya' ? `2px solid ${D.orange}` : `1.5px solid ${D.border}`,
                       background: form.serviceMode === 'imedya' ? 'rgba(255,107,0,0.08)' : '#F8F9FF',
                       color: form.serviceMode === 'imedya' ? D.orange : D.muted }}>
-                    ⚡ {t('dry.serviceModeImmediate')}
+                    ⚡ {t('dry.serviceModeImmediate')}{surchargePct > 0 ? ` (+${surchargePct}%)` : ''}
                   </button>
                   <button type="button"
                     onClick={() => setForm(f => ({ ...f, serviceMode: 'randevou' }))}
@@ -470,7 +503,7 @@ export default function DryOrdersPage() {
                 <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                   {form.items.map((item, idx) => (
                     <div key={item._id} style={{ background:'#f8fafc', borderRadius:12, padding:'14px', border:'1px solid #e2e8f0' }}>
-                      <div style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:10, marginBottom:10 }}>
+                      <div className="dry-modal-grid-2" style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr', gap:10, marginBottom:10 }}>
                         <div>
                           <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.descriptionLabel')}</label>
                           <input className="input" value={item.description}
@@ -486,7 +519,7 @@ export default function DryOrdersPage() {
                           </select>
                         </div>
                       </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 80px 120px auto', gap:10, alignItems:'flex-end' }}>
+                      <div className="dry-modal-grid-4" style={{ display:'grid', gridTemplateColumns:'1fr 80px 120px auto', gap:10, alignItems:'flex-end' }}>
                         <div>
                           <label style={{ fontSize:11, fontWeight:700, color:D.muted, display:'block', marginBottom:3 }}>{t('dry.colorLabel')}</label>
                           <input className="input" value={item.color}
@@ -529,6 +562,18 @@ export default function DryOrdersPage() {
               {/* Total */}
               {total > 0 && (
                 <div style={{ background:`linear-gradient(135deg,rgba(27,42,143,0.06),rgba(27,42,143,0.03))`, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:20 }}>
+                  {surchargeAmount > 0 && (
+                    <>
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:D.muted, marginBottom:4 }}>
+                        <span>{t('dry.subtotal')}</span>
+                        <span style={{ fontFamily:'monospace' }}>{fmt(subtotal)} HTG</span>
+                      </div>
+                      <div style={{ display:'flex', justifyContent:'space-between', fontSize:13, color:D.orange, fontWeight:700, marginBottom:8, paddingBottom:8, borderBottom:`1px dashed ${D.border}` }}>
+                        <span>⚡ {t('dry.immediateSurcharge', { pct: surchargePct })}</span>
+                        <span style={{ fontFamily:'monospace' }}>+{fmt(surchargeAmount)} HTG</span>
+                      </div>
+                    </>
+                  )}
                   <div style={{ display:'flex', justifyContent:'space-between', fontWeight:900, fontSize:18, color:D.text, marginBottom:4 }}>
                     <span>{t('dry.totalLabel')}</span>
                     <span style={{ fontFamily:'monospace' }}>{fmt(total)} HTG</span>
@@ -539,7 +584,7 @@ export default function DryOrdersPage() {
               {/* Peman */}
               <div style={{ marginBottom:20 }}>
                 <p style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:12 }}>{t('dry.depositSection')}</p>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="dry-modal-grid-2" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div>
                     <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.depositAmount')}</label>
                     <input type="number" min="0" className="input" value={form.depositAmount}
@@ -631,9 +676,9 @@ export default function DryOrdersPage() {
 
       {/* ══ MODAL JERE KATALÒG ══ */}
       {showCatalogMgr && (
-        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:150, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
+        <div className="dry-modal-overlay" style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.55)', zIndex:150, display:'flex', alignItems:'flex-start', justifyContent:'center', overflowY:'auto', padding:'20px 16px' }}
           onClick={e => e.target === e.currentTarget && setShowCatalogMgr(false)}>
-          <div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
+          <div className="dry-modal" style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.25)' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'18px 22px', borderBottom:'1px solid #f1f5f9' }}>
               <h2 style={{ fontWeight:900, fontSize:16, color:D.text, margin:0 }}>{t('dry.catalogMgrTitle')}</h2>
               <button onClick={() => setShowCatalogMgr(false)} style={{ border:'none', background:'#f1f5f9', borderRadius:8, width:30, height:30, cursor:'pointer' }}>
@@ -641,7 +686,26 @@ export default function DryOrdersPage() {
               </button>
             </div>
             <div style={{ padding:'18px 22px' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr auto', gap:8, marginBottom:14 }}>
+              {/* Ogmantasyon Sèvis Imedya */}
+              <div style={{ marginBottom:18, padding:'12px', background:'rgba(255,107,0,0.06)', border:'1px solid rgba(255,107,0,0.2)', borderRadius:10 }}>
+                <label style={{ fontSize:12, fontWeight:800, color:D.text, display:'block', marginBottom:6 }}>
+                  ⚡ {t('dry.immediateSurchargeLabel')}
+                </label>
+                <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                  <input type="number" min="0" max="100" step="0.5" className="input" value={surchargeInput}
+                    onChange={e => setSurchargeInput(e.target.value)}
+                    style={{ width:90, fontSize:14, fontWeight:700, textAlign:'center' }}/>
+                  <span style={{ fontSize:13, color:D.muted, fontWeight:700 }}>%</span>
+                  <button onClick={() => updateSurchargeMutation.mutate(Number(surchargeInput) || 0)}
+                    disabled={updateSurchargeMutation.isPending}
+                    style={{ padding:'8px 16px', borderRadius:8, background:D.orange, color:'#fff', border:'none', fontWeight:700, cursor:'pointer', fontSize:12 }}>
+                    {updateSurchargeMutation.isPending ? '...' : t('dry.save')}
+                  </button>
+                </div>
+                <p style={{ fontSize:11, color:D.muted, margin:'6px 0 0' }}>{t('dry.immediateSurchargeHint')}</p>
+              </div>
+
+              <div className="dry-modal-grid-4" style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr auto', gap:8, marginBottom:14 }}>
                 <input className="input" placeholder={t('dry.catalogNamePlaceholder')} value={catalogForm.name}
                   onChange={e => setCatalogForm(c => ({ ...c, name:e.target.value }))} style={{ fontSize:13 }}/>
                 <input type="number" min="0" className="input" placeholder={t('dry.catalogPricePlaceholder')} value={catalogForm.unitPriceHtg}
@@ -679,6 +743,33 @@ export default function DryOrdersPage() {
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .dry-row:hover { background: rgba(27,42,143,0.04) !important; }
+
+        /* ── Tablo lòd — desktop: grid nòmal */
+        .dry-thead, .dry-row { display:grid; grid-template-columns:1.2fr 1.4fr 1fr 1fr 1fr 90px 50px; }
+        .dry-lbl { display:none; }
+
+        /* ── Mobil (≤768px): tablo a vin yon lis kat */
+        @media (max-width:768px) {
+          .dry-thead { display:none; }
+          .dry-row {
+            grid-template-columns:1fr 1fr;
+            gap:8px 12px;
+            padding:14px 16px !important;
+          }
+          .dry-row > *:first-child { grid-column:1 / -1; }
+          .dry-lbl {
+            display:block; font-size:9px; font-weight:800; color:#6B7AAB;
+            text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;
+          }
+          .dry-row [style*="text-align:center"] { text-align:left !important; }
+          .dry-row-view { grid-column:1 / -1; text-align:left !important; margin-top:6px; }
+          .dry-row-view a { width:auto !important; padding:8px 14px; border-radius:8px !important; }
+
+          /* ── Fòm ak modal yo — kolòn sèl sou mobil */
+          .dry-modal-grid-2, .dry-modal-grid-4 { grid-template-columns:1fr !important; }
+          .dry-modal { max-width:100% !important; border-radius:0 !important; min-height:100vh; }
+          .dry-modal-overlay { padding:0 !important; }
+        }
       `}</style>
     </div>
   )

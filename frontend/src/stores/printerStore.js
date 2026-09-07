@@ -389,21 +389,29 @@ let echHtml = ''
 }
 
 function buildDryHtml(order, tenant) {
-  const tr = (key, opts) => i18n.t(key, opts)
+  const tr = i18n.getFixedT('fr', 'translation')
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
   const biz = tenant?.name || 'PLUS GROUP'
   const totalHtg = Number(order.totalHtg || 0)
   const paidHtg = Number(order.amountPaidHtg || 0)
   const balanceHtg = Number(order.balanceDueHtg || 0)
+  const subtotalHtg = Number(order.subtotalHtg || 0)
+  const surchargeHtg = Number(order.surchargeHtg || 0)
   const dateStr = (d) => { try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' } }
+
+  const payStatus = balanceHtg <= 0
+    ? { label: tr('dry.receipt.paidFull'),    bg:'#dcfce7', color:'#15803d' }
+    : paidHtg > 0
+    ? { label: tr('dry.receipt.paidPartial'), bg:'#fef3c7', color:'#b45309' }
+    : { label: tr('dry.receipt.unpaid'),      bg:'#fee2e2', color:'#b91c1c' }
 
   const itemsHtml = (order.items || []).map(item => {
     const nom = item.description + (item.color ? ` (${item.color})` : '')
-    return `<tr><td style="width:50%">${nom}</td><td style="text-align:center">${item.quantity}</td><td style="text-align:right">${fmt(item.unitPriceHtg)}</td><td style="text-align:right">${fmt(item.totalHtg)}</td></tr>`
+    return `<tr><td style="text-align:left;padding:2px 0">${nom}</td><td style="text-align:right;padding:2px 0">${item.quantity}</td><td style="text-align:right;padding:2px 0">${fmt(item.unitPriceHtg)}</td><td style="text-align:right;padding:2px 0;font-weight:700">${fmt(item.totalHtg)}</td></tr>`
   }).join('')
 
   return `
-    <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px">
+    <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px;font-family:'Courier New',Courier,monospace">
       <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:6px;margin-bottom:6px">
         ${tenant?.logoUrl ? `<img src="${tenant.logoUrl}" style="height:40px;display:block;margin:0 auto 4px">` : ''}
         <strong style="font-size:14px">${biz}</strong><br>
@@ -413,33 +421,40 @@ function buildDryHtml(order, tenant) {
       <div style="text-align:center;font-weight:bold;font-size:13px;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px">
         ${tr('dry.receipt.title')}
       </div>
-      <div style="text-align:center;font-weight:900;font-size:18px;letter-spacing:2px;background:#111;color:#fff;padding:5px 0;border-radius:2px;margin-bottom:4px">
+      <div style="text-align:center;font-weight:900;font-size:18px;letter-spacing:2px;background:#111;color:#fff;padding:6px 0;border-radius:3px;margin-bottom:4px">
         ${order.orderNumber}
       </div>
       <div style="text-align:center;font-weight:900;font-size:13px;letter-spacing:1px;margin-bottom:6px;color:${order.serviceMode === 'imedya' ? '#B45300' : '#1B2A8F'}">
         ${order.serviceMode === 'imedya' ? '⚡ ' + tr('dry.serviceModeImmediate').toUpperCase() : '📅 ' + tr('dry.serviceModeAppointment').toUpperCase()}
       </div>
-      <div style="font-size:10px;margin-bottom:6px">
-        <div>${tr('dry.receipt.depositDate')} ${dateStr(order.depositDate)}</div>
-        <div>${tr('dry.receipt.client')} ${order.clientName}</div>
-        ${order.clientPhone ? `<div>${tr('dry.receipt.phone')} ${order.clientPhone}</div>` : ''}
+      <div style="font-size:10px;margin-bottom:6px;display:flex;flex-direction:column;gap:2px">
+        <div style="display:flex;justify-content:space-between"><span>${tr('dry.receipt.depositDate')}</span><span>${dateStr(order.depositDate)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:700"><span>${tr('dry.receipt.client')}</span><span>${order.clientName}</span></div>
+        ${order.clientPhone ? `<div style="display:flex;justify-content:space-between"><span>${tr('dry.receipt.phone')}</span><span>${order.clientPhone}</span></div>` : ''}
       </div>
-      <div style="text-align:center;margin:6px 0;padding:5px;background:#f2f2f2;border-radius:3px">
-        <div style="font-size:9px;color:#555;text-transform:uppercase">${tr('dry.receipt.pickupDateBox')}</div>
-        <div style="font-weight:900;font-size:15px">${dateStr(order.pickupDate)}</div>
+      <div style="text-align:center;margin:6px 0;padding:6px;background:#f2f2f2;border-radius:4px">
+        <div style="font-size:9px;color:#555;text-transform:uppercase;font-weight:700">${tr('dry.receipt.pickupDateBox')}</div>
+        <div style="font-weight:900;font-size:15px;margin-top:2px">${dateStr(order.pickupDate)}</div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px">
         <thead><tr style="border-bottom:1px solid #000">
-          <th style="text-align:left">${tr('dry.receipt.item')}</th><th>${tr('dry.receipt.qty')}</th><th style="text-align:right">${tr('dry.receipt.unitPrice')}</th><th style="text-align:right">${tr('dry.receipt.total')}</th>
+          <th style="text-align:left;padding-bottom:3px">${tr('dry.receipt.item')}</th><th style="text-align:right;padding-bottom:3px">${tr('dry.receipt.qty')}</th><th style="text-align:right;padding-bottom:3px">${tr('dry.receipt.unitPrice')}</th><th style="text-align:right;padding-bottom:3px">${tr('dry.receipt.total')}</th>
         </tr></thead>
         <tbody>${itemsHtml}</tbody>
       </table>
-      <div style="border-top:1px solid #000;padding-top:4px">
+      <div style="border-top:1px solid #000;padding-top:5px;font-size:11px">
+        ${surchargeHtg > 0 ? `
+          <div style="display:flex;justify-content:space-between"><span>${tr('dry.receipt.subtotal')}</span><span>${fmt(subtotalHtg)} G</span></div>
+          <div style="display:flex;justify-content:space-between;color:#B45300;font-weight:700"><span>${tr('dry.receipt.surcharge')}</span><span>+${fmt(surchargeHtg)} G</span></div>
+        ` : ''}
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:13px">
           <span>${tr('dry.receipt.totalCaps')}</span><span>${fmt(totalHtg)} G</span>
         </div>
         <div style="display:flex;justify-content:space-between"><span>${tr('dry.paid')}:</span><span>${fmt(paidHtg)} G</span></div>
-        ${balanceHtg > 0 ? `<div style="display:flex;justify-content:space-between;color:red;font-weight:bold"><span>${tr('dry.balance')}:</span><span>-${fmt(balanceHtg)} G</span></div>` : ''}
+        ${balanceHtg > 0 ? `<div style="display:flex;justify-content:space-between;color:#C0392B;font-weight:bold"><span>${tr('dry.balance')}:</span><span>-${fmt(balanceHtg)} G</span></div>` : ''}
+      </div>
+      <div style="text-align:center;font-weight:900;font-size:14px;letter-spacing:1px;margin:8px 0;padding:6px 0;border-radius:4px;background:${payStatus.bg};color:${payStatus.color};border:1.5px solid ${payStatus.color}">
+        ${payStatus.label}
       </div>
       <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">
         ${tr('dry.receipt.keepReceipt')}<br>
@@ -623,10 +638,17 @@ printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = nul
 printDry: async (order, tenant) => {
   set({ printing: true })
   try {
-    const tr = (key, opts) => i18n.t(key, opts)
+    const tr = i18n.getFixedT('fr', 'translation')
     const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     const dateStr = (d) => { try { return new Date(d).toLocaleDateString('fr-HT') } catch { return '' } }
     const balance = Number(order.balanceDueHtg || 0)
+    const paid = Number(order.amountPaidHtg || 0)
+    const subtotal = Number(order.subtotalHtg || 0)
+    const surcharge = Number(order.surchargeHtg || 0)
+
+    const payStatusLabel = balance <= 0
+      ? tr('dry.receipt.paidFull')
+      : paid > 0 ? tr('dry.receipt.paidPartial') : tr('dry.receipt.unpaid')
 
     const meta = [
       { label: order.serviceMode === 'imedya' ? '⚡' : '📅',
@@ -642,9 +664,15 @@ printDry: async (order, tenant) => {
         label: `${item.description}${item.color ? ' (' + item.color + ')' : ''} x${item.quantity}`,
         value: fmt(item.totalHtg) + ' G',
       })),
+      ...(surcharge > 0 ? [
+        { label: tr('dry.receipt.subtotal'), value: fmt(subtotal) + ' G' },
+        { label: tr('dry.receipt.surcharge'), value: '+' + fmt(surcharge) + ' G', strong: true },
+      ] : []),
       { label: tr('dry.receipt.totalCaps'), value: fmt(order.totalHtg) + ' G', strong: true },
-      { label: tr('dry.paid') + ':', value: fmt(order.amountPaidHtg) + ' G' },
+      { label: tr('dry.paid') + ':', value: fmt(paid) + ' G' },
       ...(balance > 0 ? [{ label: tr('dry.balance') + ':', value: '-' + fmt(balance) + ' G', strong: true }] : []),
+      // ✅ Estati peman byen wè, pou kesye a konnen si lòd la peye lè kliyan an tounen
+      { label: '★ ' + payStatusLabel, value: '', strong: true },
       // ✅ Avètisman pèsonalize pa chak tenant, si li ranpli l nan Paramèt
       ...(tenant?.receiptFooterNote ? [{ label: tenant.receiptFooterNote, value: '' }] : []),
     ]
