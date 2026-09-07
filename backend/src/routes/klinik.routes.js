@@ -32,22 +32,24 @@ async function haitiDayRangeUTC(dateStr) {
 async function genNumeroDossier(tenantId) {
   const ane = new Date().getFullYear()
   const prefix = `DOS-${ane}-`
-  // ⭐ Baze sou pi gwo nimewo ki EGZISTE (pa COUNT) — COUNT te bay menm
-  //   nimewo a ankò apre yo siprime yon pasyan (COUNT desann, men nimewo
-  //   pi wo yo rete pran), sa ki te lakòz "Unique constraint failed on
-  //   numero_dossier". MAX toujou monte, li pa janm rekile.
+  // ⭐ Pran TOUT dosye ane sa a epi kalkile pi gwo nimewo a NIMERIKMAN nan
+  //   JavaScript — pa fè yon ORDER BY tèks (lexicographic) sou
+  //   numero_dossier, paske si gen menm yon sèl dosye ki pa gen
+  //   egzakteman 5 chif ak zewo devan (done antre alamen, enpòte, oswa
+  //   fòma ki chanje avan), tri tèks la ka bay yon move "dènye nimewo" —
+  //   e sa fè menm move nimewo a repwodwi menm apre plizyè eseye.
   const rows = await prisma.$queryRaw`
     SELECT numero_dossier FROM klinik_patients
     WHERE tenant_id::text = ${tenantId}::text
       AND numero_dossier LIKE ${prefix + '%'}
-    ORDER BY numero_dossier DESC
-    LIMIT 1
   `
   let next = 1
-  const last = rows[0]?.numero_dossier
-  if (last) {
-    const m = String(last).match(/(\d+)$/)
-    if (m) next = parseInt(m[1], 10) + 1
+  for (const row of rows) {
+    const m = String(row.numero_dossier || '').match(/(\d+)$/)
+    if (m) {
+      const n = parseInt(m[1], 10) + 1
+      if (n > next) next = n
+    }
   }
   return `${prefix}${String(next).padStart(5, '0')}`
 }
