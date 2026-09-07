@@ -212,7 +212,7 @@ function DryReceipt({ order, tenant }) {
         </div>
         {/* ✅ Avètisman pèsonalize pa chak tenant (Paramèt → Enfòmasyon Antrepriz) */}
         {tenant?.receiptFooterNote && (
-          <div style={{fontStyle:'italic',color:'#333',margin:'3px 0',padding:'3px',borderTop:'1px dashed #ccc',borderBottom:'1px dashed #ccc'}}>
+          <div style={{fontWeight:'700',fontSize:'11px',color:'#78350f',margin:'5px 0',padding:'5px',background:'#fef3c7',border:'1px dashed #b45309',borderRadius:'3px'}}>
             {tenant.receiptFooterNote}
           </div>
         )}

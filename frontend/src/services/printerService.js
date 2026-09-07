@@ -987,7 +987,15 @@ export const printDryReceipt = async (order, tenant) => {
     ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON,
     ...encodeText('Gardez ce recu pour\nrecuperer vos vetements!\n'),
     ...CMD.BOLD_OFF,
-    ...(tenant?.receiptFooterNote ? [...CMD.SMALL_FONT, ...encodeText(String(tenant.receiptFooterNote).substring(0, W) + '\n'), ...CMD.NORMAL_FONT] : []),
+    // ✅ Avètisman tenant lan — an gra, san koupe, ak yon bwat dash pou l frape je
+    // (menm apwòch ki deja itilize sou resi Fakti a)
+    ...(tenant?.receiptFooterNote ? [
+      ...divider('-', W), LF,
+      ...CMD.BOLD_ON,
+      ...encodeText(tenant.receiptFooterNote + '\n'),
+      ...CMD.BOLD_OFF,
+      ...divider('-', W), LF,
+    ] : []),
     ...CMD.SMALL_FONT,
     ...encodeText('Fourni par: Plus Group\n'),
     ...encodeText('Tel: +50942449024\n'),

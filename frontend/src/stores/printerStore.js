@@ -459,7 +459,7 @@ function buildDryHtml(order, tenant) {
       </div>
       <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">
         ${tr('dry.receipt.keepReceipt')}<br>
-        ${tenant?.receiptFooterNote ? `<div style="font-style:italic;margin:4px 0;padding:3px 0;border-top:1px dashed #ccc;border-bottom:1px dashed #ccc">${tenant.receiptFooterNote}</div>` : ''}
+        ${tenant?.receiptFooterNote ? `<div style="font-weight:700;font-size:11px;margin:5px 0;padding:5px;background:#fef3c7;border:1px dashed #b45309;border-radius:3px;color:#78350f">${tenant.receiptFooterNote}</div>` : ''}
         ${tr('dry.receipt.poweredBy')} — +509 4244-9024
       </div>
     </div>`
