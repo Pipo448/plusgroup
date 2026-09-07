@@ -204,7 +204,7 @@ export default function DryOrderDetail() {
   const [printing,    setPrinting]    = useState(false)
   const [payData, setPayData] = useState({ amountHtg:'', method:'cash', reference:'', amountGiven:'', notes:'' })
 
-  const { connected, connecting, connect, disconnect } = usePrinterStore()
+  const { connected, connecting, connect, disconnect, printDry, printing: printingBT } = usePrinterStore()
   const onSunmi     = isSunmi()
   const btSupported = (() => { try { return !onSunmi && !!navigator.bluetooth } catch { return false } })()
 
@@ -304,8 +304,8 @@ export default function DryOrderDetail() {
           )}
           {btSupported && connected && (
             <div style={{ display:'flex', gap:6 }}>
-              <button className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}>
-                <Printer size={14}/> Enprime BT
+              <button onClick={() => printDry(order, tenant)} disabled={printingBT} className="btn-secondary btn-sm" style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}>
+                <Printer size={14}/> {printingBT ? 'Ap enprime...' : 'Enprime BT'}
               </button>
               <button onClick={disconnect} style={{ width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <BluetoothOff size={13}/>
