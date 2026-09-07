@@ -427,10 +427,25 @@ router.delete('/appointments/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/consultations', async (req, res) => {
   try {
-    const { patientId, page = 1, limit = 20 } = req.query
+    const { patientId, search, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
+    // ⭐ Rechèch pa non/prenon/nimewo dosye pasyan an, oswa pa motif/dyagnostik
+    //   konsiltasyon an — te manke nèt, se poutèt sa rechèch la pa t janm fè anyen.
+    if (search && search.trim()) {
+      const tokens = search.trim().split(/\s+/).filter(Boolean)
+      where.AND = tokens.map(tok => ({
+        OR: [
+          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
+          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
+          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
+          { motif:      { contains: tok, mode: 'insensitive' } },
+          { diagnostic: { contains: tok, mode: 'insensitive' } },
+          { doctorName: { contains: tok, mode: 'insensitive' } },
+        ],
+      }))
+    }
     const [consultations, total] = await Promise.all([
       prisma.klinikConsultation.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{date:'desc'},
@@ -590,11 +605,22 @@ router.delete('/consultations/:id', async (req, res) => {
 })
 router.get('/prescriptions', async (req, res) => {
   try {
-    const { patientId, statut, page = 1, limit = 20 } = req.query
+    const { patientId, statut, search, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
     if (statut)    where.statut    = statut
+    if (search && search.trim()) {
+      const tokens = search.trim().split(/\s+/).filter(Boolean)
+      where.AND = tokens.map(tok => ({
+        OR: [
+          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
+          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
+          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
+          { doctorName: { contains: tok, mode: 'insensitive' } },
+        ],
+      }))
+    }
     const [prescriptions, total] = await Promise.all([
       prisma.klinikPrescription.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{date:'desc'},
@@ -652,11 +678,22 @@ router.delete('/prescriptions/:id', async (req, res) => {
 })
 router.get('/lab-orders', async (req, res) => {
   try {
-    const { patientId, statut, page = 1, limit = 20 } = req.query
+    const { patientId, statut, search, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
     if (statut)    where.statut    = statut
+    if (search && search.trim()) {
+      const tokens = search.trim().split(/\s+/).filter(Boolean)
+      where.AND = tokens.map(tok => ({
+        OR: [
+          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
+          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
+          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
+          { doctorName: { contains: tok, mode: 'insensitive' } },
+        ],
+      }))
+    }
     const [labOrders, total] = await Promise.all([
       prisma.klinikLabOrder.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{dateCommande:'desc'},
