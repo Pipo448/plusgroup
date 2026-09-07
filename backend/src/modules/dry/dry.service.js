@@ -20,7 +20,7 @@ const getNextOrderNumber = async (tenantId, tenantName) => {
     where: { tenantId_documentType: { tenantId, documentType: 'dry_order' } },
     data:  { lastNumber: next, currentYear: year }
   })
-  return `${bizPrefix(tenantName)}-PRE-${year}-${String(next).padStart(4, '0')}`
+  return `${bizPrefix(tenantName)}-PRE-${year}-${String(next).padStart(5, '0')}`
 }
 
 const getAll = async (tenantId, { status, search, page = 1, limit = 20, branchId, dateFrom, dateTo }) => {

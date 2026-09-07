@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
-import api from '../../services/api'
+import api, { tenantAPI } from '../../services/api'
 import toast from 'react-hot-toast'
 import { ArrowLeft, Printer, Plus, CheckCircle2, Clock, AlertCircle, Bluetooth, BluetoothOff } from 'lucide-react'
 import { format } from 'date-fns'
@@ -231,7 +231,17 @@ export default function DryOrderDetail() {
   const { t } = useTranslation()
   const { id }    = useParams()
   const navigate  = useNavigate()
-  const { hasRole, tenant } = useAuthStore()
+  const { hasRole, tenant: storeTenant } = useAuthStore()
+
+  // ✅ NOUVO — chèche paramèt tenant yo FRE (pa fè konfyans sèlman ak
+  // "tenant" ki nan memwa a, li ka vye si yo fèk chanje l nan Paramèt
+  // san rechaje paj la). Sa asire avètisman/nòt resi a toujou ajou.
+  const { data: freshTenant } = useQuery({
+    queryKey: ['tenant-settings'],
+    queryFn:  () => tenantAPI.getSettings().then(r => r.data.tenant),
+    staleTime: 30000,
+  })
+  const tenant = { ...storeTenant, ...freshTenant }
   const qc        = useQueryClient()
 
   const [showPayment, setShowPayment] = useState(false)
