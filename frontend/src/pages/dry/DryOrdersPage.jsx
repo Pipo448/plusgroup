@@ -46,6 +46,8 @@ const emptyItem = () => ({
 const isBlankItem = (it) =>
   !it.description.trim() && !it.color.trim() && !it.unitPriceHtg && Number(it.quantity) === 1
 
+const getTodayISO = () => new Date().toISOString().split('T')[0]
+
 // ══════════════════════════════════════════════════════════════
 export default function DryOrdersPage() {
   const { t } = useTranslation()
@@ -88,7 +90,7 @@ export default function DryOrdersPage() {
 
   // ── Fòmilè nouvo lòd
   const [form, setForm] = useState({
-    clientName: '', clientPhone: '', pickupDate: '', serviceMode: 'imedya',
+    clientName: '', clientPhone: '', pickupDate: getTodayISO(), serviceMode: 'imedya',
     depositAmount: '', paymentMethod: 'cash',
     amountGiven: '', notes: '',
     items: [emptyItem()],
@@ -128,7 +130,7 @@ export default function DryOrdersPage() {
       toast.success(t('dry.toastOrderCreated'))
       qc.invalidateQueries(['dry-orders'])
       setShowCreate(false)
-      setForm({ clientName:'', clientPhone:'', pickupDate:'', serviceMode:'imedya', depositAmount:'', paymentMethod:'cash', amountGiven:'', notes:'', items:[emptyItem()] })
+      setForm({ clientName:'', clientPhone:'', pickupDate:getTodayISO(), serviceMode:'imedya', depositAmount:'', paymentMethod:'cash', amountGiven:'', notes:'', items:[emptyItem()] })
     },
     onError: (e) => toast.error(e.response?.data?.message || t('dry.toastOrderError'))
   })
