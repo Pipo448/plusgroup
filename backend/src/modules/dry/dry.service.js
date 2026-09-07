@@ -60,7 +60,7 @@ const getOne = async (tenantId, id) => {
       items:    { orderBy: { sortOrder: 'asc' } },
       payments: { orderBy: { paymentDate: 'desc' } },
       creator:  { select: { fullName: true } },
-      tenant:   { select: { name: true, phone: true, address: true, logoUrl: true, businessName: true } },
+      tenant:   { select: { name: true, phone: true, address: true, logoUrl: true } },
     }
   })
   if (!order) throw Object.assign(new Error('Lod pa jwenn.'), { statusCode: 404 })
