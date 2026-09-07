@@ -413,8 +413,11 @@ function buildDryHtml(order, tenant) {
       <div style="text-align:center;font-weight:bold;font-size:13px;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px">
         ${tr('dry.receipt.title')}
       </div>
-      <div style="text-align:center;font-weight:900;font-size:18px;letter-spacing:2px;background:#111;color:#fff;padding:5px 0;border-radius:2px;margin-bottom:6px">
+      <div style="text-align:center;font-weight:900;font-size:18px;letter-spacing:2px;background:#111;color:#fff;padding:5px 0;border-radius:2px;margin-bottom:4px">
         ${order.orderNumber}
+      </div>
+      <div style="text-align:center;font-weight:900;font-size:13px;letter-spacing:1px;margin-bottom:6px;color:${order.serviceMode === 'imedya' ? '#B45300' : '#1B2A8F'}">
+        ${order.serviceMode === 'imedya' ? '⚡ ' + tr('dry.serviceModeImmediate').toUpperCase() : '📅 ' + tr('dry.serviceModeAppointment').toUpperCase()}
       </div>
       <div style="font-size:10px;margin-bottom:6px">
         <div>${tr('dry.receipt.depositDate')} ${dateStr(order.depositDate)}</div>
@@ -626,6 +629,8 @@ printDry: async (order, tenant) => {
     const balance = Number(order.balanceDueHtg || 0)
 
     const meta = [
+      { label: order.serviceMode === 'imedya' ? '⚡' : '📅',
+        value: order.serviceMode === 'imedya' ? tr('dry.serviceModeImmediate').toUpperCase() : tr('dry.serviceModeAppointment').toUpperCase() },
       { label: tr('dry.receipt.client'), value: order.clientName },
       ...(order.clientPhone ? [{ label: tr('dry.receipt.phone'), value: order.clientPhone }] : []),
       { label: tr('dry.receipt.depositDate'), value: dateStr(order.depositDate) },

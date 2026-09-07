@@ -19,7 +19,7 @@ const dryAPI = {
 
 const D = {
   blue:'#1B2A8F', blueLt:'#2D3FBF', border:'rgba(27,42,143,0.10)',
-  text:'#0F1A5C', muted:'#6B7AAB', red:'#C0392B', warning:'#D97706',
+  text:'#0F1A5C', muted:'#6B7AAB', red:'#C0392B', warning:'#D97706', orange:'#FF6B00',
   success:'#059669', shadow:'0 4px 20px rgba(27,42,143,0.10)',
 }
 
@@ -92,6 +92,12 @@ function DryReceipt({ order, tenant }) {
       {/* Nimewo lòd — gwo + fon nwa */}
       <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'18px':'22px',letterSpacing:'3px',margin:'4px 0 3px',background:'#111',color:'#fff',padding:'5px 0',borderRadius:'2px'}}>
         {order.orderNumber}
+      </div>
+
+      {/* Kalite Sèvis — Imedya oswa Randevou, mis an valè */}
+      <div style={{textAlign:'center',fontWeight:'900',fontSize:is57?'12px':'14px',letterSpacing:'1px',margin:'2px 0 3px',
+        color: order.serviceMode === 'imedya' ? '#B45300' : '#1B2A8F'}}>
+        {order.serviceMode === 'imedya' ? `⚡ ${t('dry.serviceModeImmediate').toUpperCase()}` : `📅 ${t('dry.serviceModeAppointment').toUpperCase()}`}
       </div>
       <HR/>
 
@@ -303,6 +309,11 @@ export default function DryOrderDetail() {
             <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
               <h1 className="text-2xl font-display font-bold" style={{ margin:0 }}>{order.orderNumber}</h1>
               <span style={{ fontSize:11, fontWeight:800, padding:'3px 12px', borderRadius:99, background:s.bg, color:s.color, textTransform:'uppercase', letterSpacing:'0.05em' }}>{s.label}</span>
+              <span style={{ fontSize:11, fontWeight:800, padding:'3px 12px', borderRadius:99,
+                background: order.serviceMode === 'imedya' ? 'rgba(255,107,0,0.10)' : 'rgba(27,42,143,0.10)',
+                color: order.serviceMode === 'imedya' ? D.orange : D.blue }}>
+                {order.serviceMode === 'imedya' ? `⚡ ${t('dry.serviceModeImmediate')}` : `📅 ${t('dry.serviceModeAppointment')}`}
+              </span>
               {isOverdue && (
                 <span style={{ fontSize:11, fontWeight:800, padding:'3px 10px', borderRadius:99, background:'rgba(192,57,43,0.1)', color:'#C0392B', display:'flex', alignItems:'center', gap:4 }}>
                   <AlertCircle size={12}/> {t('dry.overdue')}

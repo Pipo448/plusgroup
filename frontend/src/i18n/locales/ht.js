@@ -341,6 +341,7 @@ export default {
     phone: 'Telefon', phonePlaceholder: '509-XXXX-XXXX',
     pickupDateLabel: '📅 Dat Pou Tounen Pran Rad *',
     pickupDateHint: 'Chwazi jodi a pou yon sèvis imedya, oswa yon dat pita si se yon randevou.',
+    serviceModeLabel: 'Kalite Sèvis', serviceModeImmediate: 'Imedya', serviceModeAppointment: 'Randevou',
     catalogTitle: 'Klike pou Ajoute (Katalòg)', manageCatalog: 'Jere Katalòg',
     catalogEmptyAdmin: 'Poko gen tip rad nan katalòg la. Klike "Jere Katalòg" pou ajoute.',
     catalogEmptyOther: 'Poko gen tip rad nan katalòg la. Mande admin ou ajoute tip rad ak pri.',

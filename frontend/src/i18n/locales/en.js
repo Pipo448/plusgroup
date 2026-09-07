@@ -342,6 +342,7 @@ export default {
     phone: 'Phone', phonePlaceholder: '509-XXXX-XXXX',
     pickupDateLabel: '📅 Pickup Date *',
     pickupDateHint: 'Choose today for immediate service, or a later date for an appointment.',
+    serviceModeLabel: 'Service Type', serviceModeImmediate: 'Immediate', serviceModeAppointment: 'Appointment',
     catalogTitle: 'Click to Add (Catalog)', manageCatalog: 'Manage Catalog',
     catalogEmptyAdmin: 'No clothing types in the catalog yet. Click "Manage Catalog" to add some.',
     catalogEmptyOther: 'No clothing types in the catalog yet. Ask your admin to add clothing types and prices.',

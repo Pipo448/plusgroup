@@ -69,13 +69,15 @@ const getOne = async (tenantId, id) => {
 
 const create = async (tenantId, userId, data) => {
   const {
-    clientName, clientPhone, pickupDate, notes, branchId,
+    clientName, clientPhone, pickupDate, notes, branchId, serviceMode = 'randevou',
     items = [], depositAmount = 0, paymentMethod = 'cash',
   } = data
 
   if (!clientName?.trim()) throw Object.assign(new Error('Non kliyan obligatwa.'), { statusCode: 400 })
   if (!pickupDate)         throw Object.assign(new Error('Dat pou tounen obligatwa.'), { statusCode: 400 })
   if (!items.length)       throw Object.assign(new Error('Omwen yon atik obligatwa.'), { statusCode: 400 })
+
+  const mode = ['imedya', 'randevou'].includes(serviceMode) ? serviceMode : 'randevou'
 
   const orderNumber = await getNextOrderNumber(tenantId)
   const totalHtg    = items.reduce((s, it) => s + Number(it.unitPriceHtg || 0) * Number(it.quantity || 1), 0)
@@ -85,7 +87,7 @@ const create = async (tenantId, userId, data) => {
   const order = await prisma.$transaction(async (tx) => {
     const ord = await tx.dryOrder.create({
       data: {
-        tenantId, branchId: branchId || null, orderNumber,
+        tenantId, branchId: branchId || null, orderNumber, serviceMode: mode,
         clientName: clientName.trim(), clientPhone: clientPhone?.trim() || null,
         depositDate: new Date(), pickupDate: new Date(pickupDate),
         status: 'received', totalHtg, amountPaidHtg: deposit,

@@ -341,6 +341,7 @@ export default {
     phone: 'Teléfono', phonePlaceholder: '509-XXXX-XXXX',
     pickupDateLabel: '📅 Fecha de Recogida *',
     pickupDateHint: 'Elija hoy para un servicio inmediato, o una fecha posterior para una cita.',
+    serviceModeLabel: 'Tipo de Servicio', serviceModeImmediate: 'Inmediato', serviceModeAppointment: 'Cita',
     catalogTitle: 'Haga Clic para Agregar (Catálogo)', manageCatalog: 'Gestionar Catálogo',
     catalogEmptyAdmin: 'Aún no hay tipos de prendas en el catálogo. Haga clic en "Gestionar Catálogo" para agregar.',
     catalogEmptyOther: 'Aún no hay tipos de prendas en el catálogo. Pida al administrador que agregue tipos y precios.',

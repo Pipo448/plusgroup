@@ -9,6 +9,8 @@ model DryOrder {
   pickupDate    DateTime       @map("pickup_date") @db.Timestamptz(6)
   deliveredAt   DateTime?      @map("delivered_at") @db.Timestamptz(6)
   status        DryOrderStatus @default(received)
+  // ✅ NOUVO — Kalite sèvis: 'imedya' (menm jou, san randevou) oswa 'randevou' (dat pita)
+  serviceMode   String         @default("randevou") @map("service_mode") @db.VarChar(20)
   totalHtg      Decimal        @default(0) @map("total_htg") @db.Decimal(14, 2)
   amountPaidHtg Decimal        @default(0) @map("amount_paid_htg") @db.Decimal(14, 2)
   balanceDueHtg Decimal        @default(0) @map("balance_due_htg") @db.Decimal(14, 2)

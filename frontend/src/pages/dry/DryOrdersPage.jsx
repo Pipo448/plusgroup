@@ -88,7 +88,7 @@ export default function DryOrdersPage() {
 
   // ── Fòmilè nouvo lòd
   const [form, setForm] = useState({
-    clientName: '', clientPhone: '', pickupDate: '',
+    clientName: '', clientPhone: '', pickupDate: '', serviceMode: 'imedya',
     depositAmount: '', paymentMethod: 'cash',
     amountGiven: '', notes: '',
     items: [emptyItem()],
@@ -128,7 +128,7 @@ export default function DryOrdersPage() {
       toast.success(t('dry.toastOrderCreated'))
       qc.invalidateQueries(['dry-orders'])
       setShowCreate(false)
-      setForm({ clientName:'', clientPhone:'', pickupDate:'', depositAmount:'', paymentMethod:'cash', amountGiven:'', notes:'', items:[emptyItem()] })
+      setForm({ clientName:'', clientPhone:'', pickupDate:'', serviceMode:'imedya', depositAmount:'', paymentMethod:'cash', amountGiven:'', notes:'', items:[emptyItem()] })
     },
     onError: (e) => toast.error(e.response?.data?.message || t('dry.toastOrderError'))
   })
@@ -296,7 +296,12 @@ export default function DryOrdersPage() {
               return (
                 <div key={ord.id} className="dry-row"
                   style={{ display:'grid', gridTemplateColumns:'1.2fr 1.4fr 1fr 1fr 1fr 90px 50px', padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
-                  <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{ord.orderNumber}</span>
+                  <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12, display:'flex', alignItems:'center', gap:5 }}>
+                    <span title={ord.serviceMode === 'imedya' ? t('dry.serviceModeImmediate') : t('dry.serviceModeAppointment')}>
+                      {ord.serviceMode === 'imedya' ? '⚡' : '📅'}
+                    </span>
+                    {ord.orderNumber}
+                  </span>
                   <div>
                     <p style={{ fontWeight:700, color:D.text, fontSize:13, margin:0 }}>{ord.clientName}</p>
                     {ord.clientPhone && <p style={{ fontSize:11, color:D.muted, margin:0, fontFamily:'monospace' }}>{ord.clientPhone}</p>}
@@ -389,12 +394,36 @@ export default function DryOrdersPage() {
                 </div>
               </div>
 
+              {/* Kalite Sèvis: Imedya oswa Randevou */}
+              <div style={{ marginBottom:20 }}>
+                <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:6 }}>{t('dry.serviceModeLabel')}</label>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, serviceMode: 'imedya', pickupDate: minDate }))}
+                    style={{ padding:'12px', borderRadius:12, cursor:'pointer', fontWeight:800, fontSize:13,
+                      border: form.serviceMode === 'imedya' ? `2px solid ${D.orange}` : `1.5px solid ${D.border}`,
+                      background: form.serviceMode === 'imedya' ? 'rgba(255,107,0,0.08)' : '#F8F9FF',
+                      color: form.serviceMode === 'imedya' ? D.orange : D.muted }}>
+                    ⚡ {t('dry.serviceModeImmediate')}
+                  </button>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, serviceMode: 'randevou' }))}
+                    style={{ padding:'12px', borderRadius:12, cursor:'pointer', fontWeight:800, fontSize:13,
+                      border: form.serviceMode === 'randevou' ? `2px solid ${D.blue}` : `1.5px solid ${D.border}`,
+                      background: form.serviceMode === 'randevou' ? 'rgba(27,42,143,0.08)' : '#F8F9FF',
+                      color: form.serviceMode === 'randevou' ? D.blue : D.muted }}>
+                    📅 {t('dry.serviceModeAppointment')}
+                  </button>
+                </div>
+              </div>
+
               {/* Dat pou tounen */}
               <div style={{ marginBottom:20 }}>
                 <label style={{ fontSize:12, fontWeight:700, color:D.text, display:'block', marginBottom:4 }}>{t('dry.pickupDateLabel')}</label>
                 <input type="date" className="input" value={form.pickupDate} min={minDate}
+                  disabled={form.serviceMode === 'imedya'}
                   onChange={e => setForm(f => ({ ...f, pickupDate: e.target.value }))}
-                  style={{ width:'100%', boxSizing:'border-box' }}/>
+                  style={{ width:'100%', boxSizing:'border-box', opacity: form.serviceMode === 'imedya' ? 0.7 : 1 }}/>
                 <p style={{ fontSize:11, color:D.muted, margin:'4px 0 0' }}>{t('dry.pickupDateHint')}</p>
               </div>
 

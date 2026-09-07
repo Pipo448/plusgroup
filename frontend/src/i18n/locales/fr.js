@@ -344,6 +344,7 @@ export default {
     phone: 'Téléphone', phonePlaceholder: '509-XXXX-XXXX',
     pickupDateLabel: '📅 Date de Récupération *',
     pickupDateHint: "Choisissez aujourd'hui pour un service immédiat, ou une date ultérieure pour un rendez-vous.",
+    serviceModeLabel: 'Type de Service', serviceModeImmediate: 'Immédiat', serviceModeAppointment: 'Rendez-vous',
     catalogTitle: 'Cliquez pour Ajouter (Catalogue)', manageCatalog: 'Gérer le Catalogue',
     catalogEmptyAdmin: 'Aucun type de vêtement dans le catalogue. Cliquez "Gérer le Catalogue" pour en ajouter.',
     catalogEmptyOther: "Aucun type de vêtement dans le catalogue. Demandez à l'administrateur d'en ajouter.",
