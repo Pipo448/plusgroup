@@ -290,17 +290,18 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   }
 
   // ─── PIED DE RECU ───────────────────────────────────────────
-  lines.push({ type: 'space' })
-  lines.push({ type: 'divider' })
-  lines.push({ type: 'text', content: 'Merci pour votre achat !', align: 'center', bold: true })
-  lines.push({ type: 'text', content: 'Votre satisfaction est notre priorite !', align: 'center', size: 'small' })
-
+  // Le message d'avertissement est PERSONNALISE par chaque tenant
+  // depuis Parametres > receiptFooterNote. Aucun message commercial
+  // fixe n'est imprime ici.
   if (tenant?.receiptFooterNote) {
     lines.push({ type: 'space' })
+    lines.push({ type: 'divider' })
+    lines.push({ type: 'text', content: 'AVERTISSEMENT', align: 'center', bold: true })
+    lines.push({ type: 'space' })
     lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small', bold: true })
+    lines.push({ type: 'space' })
+    lines.push({ type: 'divider' })
   }
-
-  lines.push({ type: 'divider' })
   lines.push({ type: 'text', content: 'Produit par : Plus Group', align: 'center', size: 'small', bold: true })
   lines.push({ type: 'text', content: 'plusgroupe.com', align: 'center', size: 'small' })
   lines.push({ type: 'text', content: 'Tel : +509 4244 9024', align: 'center', size: 'small' })

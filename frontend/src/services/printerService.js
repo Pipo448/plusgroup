@@ -464,20 +464,23 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     ] : []),
 
     // ══ PIED DE RECU ══════════════════════════════════════════
-    LF,
-    ...CMD.ALIGN_CENTER,
-    ...divider('-', W), LF,
-    ...CMD.BOLD_ON,
-    ...encodeText('Merci pour votre achat !\n'),
-    ...CMD.BOLD_OFF,
-    ...encodeText('Votre satisfaction est notre priorite !\n'),
+    // Le message d'avertissement est PERSONNALISE par chaque tenant
+    // depuis Parametres > receiptFooterNote. Aucun message commercial
+    // fixe n'est imprime ici.
     ...(tenant?.receiptFooterNote ? [
       LF,
+      ...CMD.ALIGN_CENTER,
+      ...divider('-', W), LF,
       ...CMD.BOLD_ON,
-      ...encodeText(tenant.receiptFooterNote + '\n'),
+      ...encodeText('AVERTISSEMENT\n'),
       ...CMD.BOLD_OFF,
+      LF,
+      ...CMD.SMALL_FONT,
+      ...encodeText(tenant.receiptFooterNote + '\n'),
+      ...CMD.NORMAL_FONT,
+      LF,
+      ...divider('-', W), LF,
     ] : []),
-    ...divider('-', W), LF,
     ...CMD.SMALL_FONT,
     ...encodeText('Produit par : Plus Group\n'),
     ...encodeText('plusgroupe.com\n'),
