@@ -328,20 +328,23 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   const logoBytes  = logoUrl ? await logoWithTimeout(logoUrl, is80 ? 350 : 120) : []
   const qrContent  = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
-  // ── Kolòn 80mm: Nom(20) Q(4) Pri(12) Tot(12) = 48
-  // ✅ KORIJE — Kolòn 58mm: ansyen valè yo (Pri:7, Tot:6) te twò etwat pou
-  // total reyèl tankou "1 000,00" (8 karaktè) — sa te fè li "debòde" sou
-  // yon lòt liy sou papye a (parèt tankou dezòd, "0,00" k ap flote pou kont
-  // yo). Nouvo valè yo (Pri:8, Tot:9) kenbe total jiska "99 999,99" san
-  // debòde, e chak montan rete byen aliye anba antèt li (Q, Pri, Tot).
-  const C = is80
-    ? { nom: 20, qte: 4, pri: 12, tot: 12 }
-    : { nom: 12, qte: 3, pri:  8, tot:  9 }
-
-  // Header kolòn — GRAS pou lisibilite
-  const tblHeader = is80
-    ? 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri (G)'.padStart(C.pri) + 'Total'.padStart(C.tot)
-    : 'Pwodwi'.padEnd(C.nom) + 'Q'.padStart(C.qte) + 'Pri'.padStart(C.pri)     + 'Tot'.padStart(C.tot)
+  // ✅ KORIJE — ANSYEN lojik la te kalkile 4 kolòn ak yon lajè FIKS an
+  // karaktè (Pri:8-12, Tot:9-12) epi te sèvi ak padStart SAN verifye si
+  // total la depase lajè papye a (W). Yon pri/total ki gen plis chif pase
+  // lajè prevwa a (egzanp "10 000,00" = 9 karaktè nan yon kolòn 58mm ki
+  // gen sèlman 8) te "debòde" sou paj la, e paske enprimant lan koupe
+  // liy lan otomatikman san mete espas, chif yo te "kole" youn sou lòt
+  // (egzanp "3 10 000,0030 000,0" ak yon "0" k ap flote pou kont li sou
+  // pwochen liy — sa se egzakteman sa k rive sou fich ki gen "Drill
+  // Mecanique" a).
+  //
+  // NOUVO lojik: chak atik enprime sou 2 liy — non pwodwi a sou pwòp
+  // liy li (WGY li ka wrap san pwoblèm paske se tèks senp, pa chif kole),
+  // epi "Kantite x Pri" agoch / "Total" adwat sou dezyèm liy la, jenere
+  // ak makeLine() ki DEJA garanti l pa janm depase lajè W (li koupe agoch
+  // la si sa nesesè olye l kite chif yo debòde). Se MENM apwòch APK
+  // (printerNative.js) la deja sèvi a — kounye a 2 vèsyon yo (web ak APK)
+  // enprime pwodwi yo menm jan.
 
   const bytes = [
     ...CMD.INIT,
@@ -380,24 +383,18 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
 
     // ══ TABLO PWODWI ═════════════════════════════════════════
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON,
-    ...encodeText(tblHeader.substring(0, W) + '\n'),
-    ...CMD.BOLD_OFF,
-    ...divider('-', W), LF,
 
-    // Liy pwodwi — NORMAL_FONT, gras pou total
+    // Liy pwodwi — non an sou pwòp liy li, "Kantite x Pri" / "Total" sou
+    // yon dezyèm liy ak makeLine() (garanti pa depase lajè W).
     ...(invoice.items || []).flatMap(item => {
       const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
       const qty = String(Number(item.quantity))
       const pri = fmt(item.unitPriceHtg)
       const tot = fmt(item.totalHtg)
-      const result = []
-      if (nom.length > C.nom) {
-        result.push(...encodeText(nom.substring(0, W) + '\n'))
-        result.push(...encodeText(' '.repeat(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
-      } else {
-        result.push(...encodeText(nom.padEnd(C.nom) + qty.padStart(C.qte) + pri.padStart(C.pri) + tot.padStart(C.tot) + '\n'))
-      }
+      const result = [
+        ...CMD.BOLD_ON, ...encodeText(nom.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+        ...makeLine(`${qty} x ${pri}`, `${tot} G`, W), LF,
+      ]
       if (Number(item.discountPct) > 0) {
         result.push(...CMD.SMALL_FONT, ...encodeText('  Remiz: -' + item.discountPct + '%\n'), ...CMD.NORMAL_FONT)
       }
@@ -907,19 +904,10 @@ export const printDryReceipt = async (order, tenant) => {
   const change    = Number(lastPay?.change || 0)
   const payStatusText = balance <= 0 ? 'PAYE INTEGRALEMENT' : paid > 0 ? 'PAIEMENT PARTIEL' : 'NON PAYE'
 
-  // ── Kolòn tab atik yo (chak liy kenbe SOU YON SÈL LIY, kèlkeswa lajè papye)
-  const qtyW   = 3
-  const priceW = W >= 48 ? 8 : 6
-  const totalW = W >= 48 ? 9 : 7
-  const descW  = Math.max(6, W - qtyW - priceW - totalW - 3)
-  const itemLine = (desc, qty, price, total) => {
-    const d = String(desc).length > descW ? String(desc).slice(0, descW - 1) + '.' : String(desc).padEnd(descW)
-    const q = String(qty).padStart(qtyW)
-    const p = fmt(price).padStart(priceW)
-    const t = fmt(total).padStart(totalW)
-    return `${d} ${q} ${p} ${t}`
-  }
-  const headerLine = 'Article'.slice(0, descW).padEnd(descW) + ' ' + 'Qte'.padStart(qtyW) + ' ' + 'P.U'.padStart(priceW) + ' ' + 'Total'.padStart(totalW)
+  // ✅ KORIJE — menm bug ak printInvoice (kolòn fiks + padStart san
+  // limit te fè chif yo kole/debòde) — kounye a chak atik enprime sou 2
+  // liy (deskripsyon, epi "Kantite x Pri" / "Total" ak makeLine(), ki pa
+  // janm depase lajè W).
 
   const bytes = [
     ...CMD.INIT,
@@ -951,13 +939,12 @@ export const printDryReceipt = async (order, tenant) => {
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.ALIGN_LEFT,
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON, ...encodeText(headerLine + '\n'), ...CMD.BOLD_OFF,
-    ...divider('-', W), LF,
     ...(order.items || []).flatMap(item => {
       const desc = item.description + (item.color ? ` (${item.color})` : '')
       const svcNote = '  -> ' + (SERVICES_LABEL[item.service] || item.service) + (item.notes ? ' - ' + item.notes : '')
       return [
-        ...encodeText(itemLine(desc, item.quantity, item.unitPriceHtg, item.totalHtg) + '\n'),
+        ...CMD.BOLD_ON, ...encodeText(desc.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+        ...makeLine(`${item.quantity} x ${fmt(item.unitPriceHtg)}`, `${fmt(item.totalHtg)} G`, W), LF,
         ...CMD.SMALL_FONT, ...encodeText(svcNote.substring(0, W) + '\n'), ...CMD.NORMAL_FONT,
       ]
     }),

@@ -129,6 +129,31 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   const isPaid        = invoice.status === 'paid'
   const isPartial     = invoice.status === 'partial'
   const isCancelled   = invoice.status === 'cancelled'
+  // ✅ NOUVO — detay peman (Kob kliyan bay / Monnen remèt / Metòd / Ref),
+  // menm chan ki deja itilize nan vèsyon web la (printerService.js /
+  // printReceiptHTML.js), pou 2 rezi yo bay MENM enfo.
+  const lastPay       = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
+  const amountGiven   = Number(lastPay?.amountGiven || 0)
+  const change        = Number(lastPay?.change      || 0)
+  const dueDate       = lastPay?.dueDate || invoice.dueDate || null
+  const isCredit      = lastPay?.method === 'credit' || (balanceHtg > 0 && paidHtg === 0)
+
+  // ✅ NOUVO — konvèsyon USD/DOP, menm lojik ak vèsyon web la
+  const exchangeRates = (() => {
+    try {
+      const er = tenant?.exchangeRates
+      return er ? (typeof er === 'object' ? er : JSON.parse(String(er))) : {}
+    } catch { return {} }
+  })()
+  const rateUSD = Number(exchangeRates.USD || invoice.exchangeRate || 132)
+  const rateDOP = Number(exchangeRates.DOP || 0)
+  const toUSD   = (n) => rateUSD > 0 ? (n / rateUSD).toFixed(2) : null
+  const toDOP   = (n) => rateDOP > 0 ? (n / rateDOP).toFixed(2) : null
+
+  const METOD = {
+    cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi',
+    transfer:'Virement', check:'Chek', credit:'Kredi', other:'Lot',
+  }
 
   const lines = []
 
@@ -153,17 +178,20 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
 
   lines.push({ type: 'divider', char: '=' })
 
-  // ─── Enfo fakti ───
+  // ─── Enfo fakti — MENM lòd/etikèt ak vèsyon web la ───
   lines.push({ type: 'text', content: `Date : ${fmtDateTime(invoice.issueDate)}`, size: 'small' })
-  lines.push({ type: 'text', content: `Facture : ${invoice.invoiceNumber || ''}`, bold: true })
+  lines.push({ type: 'text', content: `Resi N : ${invoice.invoiceNumber || ''}`, bold: true })
   if (cashier?.fullName || cashier?.email) {
-    lines.push({ type: 'text', content: `Caissier : ${cashier.fullName || cashier.email}`, size: 'small' })
+    lines.push({ type: 'text', content: `Kesye : ${cashier.fullName || cashier.email}`, size: 'small' })
   }
   if (snap.name) {
-    lines.push({ type: 'text', content: `Client : ${snap.name}`, size: 'small' })
+    lines.push({ type: 'text', content: `Kliyan : ${snap.name}`, size: 'small' })
   }
   if (snap.phone) {
     lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
+  }
+  if (snap.nif) {
+    lines.push({ type: 'text', content: `NIF: ${snap.nif}`, size: 'small' })
   }
 
   lines.push({ type: 'divider' })
@@ -181,7 +209,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
       type: 'table',
       columns: [
         { text: `${qty} x ${pri}`, width: 60, align: 'left' },
-        { text: `${tot} HTG`,      width: 40, align: 'right' },
+        { text: `${tot} G`,        width: 40, align: 'right' },
       ]
     })
 
@@ -198,7 +226,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
     type: 'table',
     columns: [
       { text: 'SOUS-TOTAL', width: 60, align: 'left' },
-      { text: `${fmtN(invoice.subtotalHtg || totalHtg)} HTG`, width: 40, align: 'right' },
+      { text: `${fmtN(invoice.subtotalHtg || totalHtg)} G`, width: 40, align: 'right' },
     ]
   })
 
@@ -207,7 +235,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
       type: 'table',
       columns: [
         { text: 'Remise', width: 60, align: 'left' },
-        { text: `-${fmtN(invoice.discountHtg)} HTG`, width: 40, align: 'right' },
+        { text: `-${fmtN(invoice.discountHtg)} G`, width: 40, align: 'right' },
       ]
     })
   }
@@ -217,7 +245,7 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
       type: 'table',
       columns: [
         { text: `Taxe (${Number(invoice.taxRate || 0)}%)`, width: 60, align: 'left' },
-        { text: `${fmtN(invoice.taxHtg)} HTG`, width: 40, align: 'right' },
+        { text: `${fmtN(invoice.taxHtg)} G`, width: 40, align: 'right' },
       ]
     })
   }
@@ -231,37 +259,117 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
     bold: true,
     columns: [
       { text: 'TOTAL', width: 40, align: 'left' },
-      { text: `${fmtN(totalHtg)} HTG`, width: 60, align: 'right' },
+      { text: `${fmtN(totalHtg)} G`, width: 60, align: 'right' },
     ]
   })
+  // ✅ NOUVO — konvèsyon USD/DOP, menm jan ak vèsyon web la
+  if (toUSD(totalHtg)) {
+    lines.push({ type: 'text', content: `= $${toUSD(totalHtg)} USD`, align: 'right', size: 'small' })
+  }
+  if (toDOP(totalHtg)) {
+    lines.push({ type: 'text', content: `= RD$${toDOP(totalHtg)} DOP`, align: 'right', size: 'small' })
+  }
   lines.push({ type: 'divider', char: '=' })
+
+  // ✅ NOUVO — Detay peman (Kob kliyan bay / Kob peye / Monnen remèt /
+  // Metòd / Ref) — menm chan/lòd ak vèsyon web la
+  lines.push({ type: 'divider' })
+  if (amountGiven > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Kob kliyan bay', width: 60, align: 'left' },
+        { text: `${fmtN(amountGiven)} G`, width: 40, align: 'right' },
+      ]
+    })
+  }
+  lines.push({
+    type: 'table',
+    columns: [
+      { text: 'Kob peye', width: 60, align: 'left' },
+      { text: `${fmtN(paidHtg > 0 ? paidHtg : totalHtg)} G`, width: 40, align: 'right' },
+    ]
+  })
+  if (change > 0) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Monnen remèt', width: 60, align: 'left' },
+        { text: `${fmtN(change)} G`, width: 40, align: 'right' },
+      ]
+    })
+  }
+  if (lastPay?.method) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Metod', width: 60, align: 'left' },
+        { text: METOD[lastPay.method] || lastPay.method, width: 40, align: 'right' },
+      ]
+    })
+  }
+  if (lastPay?.reference) {
+    lines.push({
+      type: 'table',
+      columns: [
+        { text: 'Ref', width: 40, align: 'left' },
+        { text: String(lastPay.reference), width: 60, align: 'right' },
+      ]
+    })
+  }
 
   // ─── Estati peman ───
   if (isCancelled) {
     lines.push({ type: 'space' })
     lines.push({ type: 'text', content: 'X FACTURE ANNULEE', align: 'center', bold: true, size: 'large' })
-  } else if (isPaid) {
-    lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: '* PAYEE INTEGRALEMENT *', align: 'center', bold: true })
   } else if (isPartial) {
     lines.push({ type: 'divider' })
     lines.push({
       type: 'table',
       columns: [
-        { text: 'Acompte verse', width: 60, align: 'left' },
-        { text: `${fmtN(paidHtg)} HTG`, width: 40, align: 'right' },
+        { text: 'Balans ki rete', width: 60, align: 'left' },
+        { text: `-${fmtN(balanceHtg)} G`, width: 40, align: 'right' },
       ]
     })
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Solde restant', width: 60, align: 'left' },
-        { text: `${fmtN(balanceHtg)} HTG`, width: 40, align: 'right' },
-      ]
-    })
-  } else {
+    if (dueDate) {
+      lines.push({ type: 'text', content: `Dat limit: ${fmtDate(dueDate)}`, align: 'center', size: 'small' })
+    }
+  } else if (!isPaid) {
     lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: `A PAYER : ${fmtN(balanceHtg)} HTG`, align: 'center', bold: true })
+    lines.push({ type: 'text', content: `A PAYER : ${fmtN(balanceHtg)} G`, align: 'center', bold: true })
+  }
+
+  // ✅ NOUVO — estati final + total repete, menm jan ak vèsyon web la
+  // (statusLine + "TOTAL PEYE:"/"MONTANT DI:"/"DEJA PEYE:")
+  lines.push({ type: 'divider', char: '=' })
+  lines.push({
+    type: 'text',
+    content: isPaid ? 'TOTAL PEYE' : isCancelled ? 'ANILE' : isCredit ? 'KREDI' : isPartial ? 'PASYAL' : 'IMPAYE',
+    align: 'center', bold: true, size: 'large',
+  })
+  lines.push({
+    type: 'table',
+    bold: true,
+    columns: [
+      { text: isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:', width: 40, align: 'left' },
+      { text: `${fmtN(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg)} G`, width: 60, align: 'right' },
+    ]
+  })
+  lines.push({ type: 'divider', char: '=' })
+
+  // ✅ NOUVO — QR kòd, menm jan ak vèsyon web la.
+  // ⚠️ VERIFYE: mwen sipoze plugin @capacitor-plus/universal-printer a
+  // sipòte yon liy tip 'qr' (konsistan ak 'text'/'table'/'image'/'space'
+  // ki deja itilize pi wo a) — men mwen pa gen dokimantasyon plugin lan
+  // sou machin sa a pou m konfime non/paramèt egzat la. Si enprime kraze
+  // oswa QR la pa parèt, chèche nan dokimantasyon plugin ou a ki jan pou
+  // enprime yon QR (petèt yon lòt non tankou 'barcode' oswa yon metòd
+  // apa `UniversalPrinter.printQR(...)`), epi ranplase blòk sa a.
+  if (tenant?.showQrCode !== false) {
+    const qrLink = `${tenant?.webBaseUrl || 'https://app.plusgroupe.com'}/app/invoices/${invoice.id}`
+    lines.push({ type: 'space' })
+    lines.push({ type: 'qr', content: qrLink, align: 'center' })
+    lines.push({ type: 'text', content: invoice.invoiceNumber || '', align: 'center', size: 'small' })
   }
 
   lines.push({ type: 'space' })
