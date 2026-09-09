@@ -117,28 +117,23 @@ export async function openCashDrawerNative() {
  */
 export async function printInvoiceNative(invoice, tenant, cashier = null, copies = 1) {
   if (!Capacitor.isNativePlatform()) {
-    throw new Error('Enprime native sèlman disponib nan app Android la (APK)')
+    throw new Error('Enregistrement natif uniquement disponible dans l’application Android (APK)')
   }
 
-  // ✅ Plugin la deja chaje (static import anlè a) — pa gen bezwen entènèt isit la
-
   const snap        = invoice.clientSnapshot || {}
-  const totalHtg     = Number(invoice.totalHtg      || 0)
-  const paidHtg       = Number(invoice.amountPaidHtg  || 0)
-  const balanceHtg    = Number(invoice.balanceDueHtg  || 0)
-  const isPaid        = invoice.status === 'paid'
-  const isPartial     = invoice.status === 'partial'
-  const isCancelled   = invoice.status === 'cancelled'
-  // ✅ NOUVO — detay peman (Kob kliyan bay / Monnen remèt / Metòd / Ref),
-  // menm chan ki deja itilize nan vèsyon web la (printerService.js /
-  // printReceiptHTML.js), pou 2 rezi yo bay MENM enfo.
-  const lastPay       = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
-  const amountGiven   = Number(lastPay?.amountGiven || 0)
-  const change        = Number(lastPay?.change      || 0)
-  const dueDate       = lastPay?.dueDate || invoice.dueDate || null
-  const isCredit      = lastPay?.method === 'credit' || (balanceHtg > 0 && paidHtg === 0)
+  const totalHtg    = Number(invoice.totalHtg || 0)
+  const subtotalHtg = Number(invoice.subtotalHtg ?? totalHtg)
+  const paidHtg     = Number(invoice.amountPaidHtg || 0)
+  const balanceHtg  = Number(invoice.balanceDueHtg || 0)
+  const lastPay     = invoice.payments?.length > 0 ? invoice.payments[invoice.payments.length - 1] : null
+  const amountGiven = Number(lastPay?.amountGiven || 0)
+  const change      = Number(lastPay?.change || 0)
+  const dueDate     = lastPay?.dueDate || invoice.dueDate || null
+  const isPaid      = invoice.status === 'paid'
+  const isPartial   = invoice.status === 'partial'
+  const isCancelled = invoice.status === 'cancelled'
+  const isCredit    = lastPay?.method === 'credit' || (balanceHtg > 0 && paidHtg === 0)
 
-  // ✅ NOUVO — konvèsyon USD/DOP, menm lojik ak vèsyon web la
   const exchangeRates = (() => {
     try {
       const er = tenant?.exchangeRates
@@ -150,57 +145,76 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   const toUSD   = (n) => rateUSD > 0 ? (n / rateUSD).toFixed(2) : null
   const toDOP   = (n) => rateDOP > 0 ? (n / rateDOP).toFixed(2) : null
 
-  const METOD = {
-    cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi',
-    transfer:'Virement', check:'Chek', credit:'Kredi', other:'Lot',
+  const PAYMENT_METHODS = {
+    cash: 'Especes',
+    moncash: 'MonCash',
+    natcash: 'NatCash',
+    card: 'Carte bancaire',
+    transfer: 'Virement',
+    check: 'Cheque',
+    credit: 'Credit',
+    other: 'Autre',
   }
 
   const lines = []
+  const pushTable = (left, right, bold = false) => {
+    lines.push({
+      type: 'table',
+      bold,
+      columns: [
+        { text: left, width: 62, align: 'left' },
+        { text: right, width: 38, align: 'right' },
+      ],
+    })
+  }
 
-  // ─── Logo (si genyen) — DWE PREMYE, anlè tèt tout bagay ───
+  // ─── EN-TETE ────────────────────────────────────────────────
   if (tenant?.logoUrl && tenant?.printLogoOnReceipt !== false) {
     lines.push({ type: 'image', url: tenant.logoUrl, align: 'center' })
     lines.push({ type: 'space' })
   }
 
-  // ─── HEADER: Non konpayi (apre logo a) ───
   lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'large', bold: true })
   if (tenant?.address) {
     lines.push({ type: 'text', content: tenant.address, align: 'center', size: 'small' })
   }
   if (tenant?.phone) {
-    // ✅ si gen 2+ nimewo separe pa vigil (,) oswa (/), enprime chak sou pwòp liy pa l
     const phones = String(tenant.phone).split(/[,\/]/).map(p => p.trim()).filter(Boolean)
     phones.forEach(phone => {
-      lines.push({ type: 'text', content: `Tel: ${phone}`, align: 'center', size: 'small', bold: true })
+      lines.push({ type: 'text', content: `Tel : ${phone}`, align: 'center', size: 'small', bold: true })
     })
+  }
+  if (tenant?.tagline) {
+    lines.push({ type: 'text', content: tenant.tagline, align: 'center', size: 'small' })
   }
 
   lines.push({ type: 'divider', char: '=' })
+  lines.push({ type: 'text', content: 'VENTE', align: 'center', size: 'large', bold: true })
+  lines.push({ type: 'divider' })
 
-  // ─── Enfo fakti — MENM lòd/etikèt ak vèsyon web la ───
+  // ─── INFORMATIONS DE LA VENTE ───────────────────────────────
   lines.push({ type: 'text', content: `Date : ${fmtDateTime(invoice.issueDate)}`, size: 'small' })
-  lines.push({ type: 'text', content: `Resi N : ${invoice.invoiceNumber || ''}`, bold: true })
+  lines.push({ type: 'text', content: `N° Recu : ${invoice.invoiceNumber || ''}`, size: 'small', bold: true })
   if (cashier?.fullName || cashier?.email) {
-    lines.push({ type: 'text', content: `Kesye : ${cashier.fullName || cashier.email}`, size: 'small' })
+    lines.push({ type: 'text', content: `Caissier : ${cashier.fullName || cashier.email}`, size: 'small' })
   }
   if (snap.name) {
-    lines.push({ type: 'text', content: `Kliyan : ${snap.name}`, size: 'small' })
+    lines.push({ type: 'text', content: `Client : ${snap.name}`, size: 'small' })
   }
   if (snap.phone) {
-    lines.push({ type: 'text', content: `Tel: ${snap.phone}`, size: 'small' })
+    lines.push({ type: 'text', content: `Tel client : ${snap.phone}`, size: 'small' })
   }
   if (snap.nif) {
-    lines.push({ type: 'text', content: `NIF: ${snap.nif}`, size: 'small' })
+    lines.push({ type: 'text', content: `NIF : ${snap.nif}`, size: 'small' })
   }
 
   lines.push({ type: 'divider' })
 
-  // ─── Atik yo ───
+  // ─── ARTICLES : format compact et stable pour 57 mm ─────────
   const items = invoice.items || []
   for (const item of items) {
     const nom = item.product?.name || item.productSnapshot?.name || 'Article'
-    const qty = Number(item.quantity)
+    const qty = Number(item.quantity || 0)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
 
@@ -208,205 +222,100 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
     lines.push({
       type: 'table',
       columns: [
-        { text: `${qty} x ${pri}`, width: 60, align: 'left' },
-        { text: `${tot} G`,        width: 40, align: 'right' },
-      ]
+        { text: `${qty} x ${pri} G`, width: 62, align: 'left' },
+        { text: `${tot} G`, width: 38, align: 'right' },
+      ],
     })
-
     if (Number(item.discountPct) > 0) {
-      // ✅ KORIJE — '↳' pa nan codepage Windows-1252, ranplase l ak ekivalan ASCII
-      lines.push({ type: 'text', content: `  -> Remise : -${item.discountPct}%`, size: 'small' })
+      lines.push({ type: 'text', content: `Remise article : -${item.discountPct}%`, size: 'small' })
     }
   }
 
   lines.push({ type: 'divider' })
-
-  // ─── Totaux ───
-  lines.push({
-    type: 'table',
-    columns: [
-      { text: 'SOUS-TOTAL', width: 60, align: 'left' },
-      { text: `${fmtN(invoice.subtotalHtg || totalHtg)} G`, width: 40, align: 'right' },
-    ]
-  })
-
+  pushTable('Sous-total', `${fmtN(subtotalHtg)} G`)
   if (Number(invoice.discountHtg) > 0) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Remise', width: 60, align: 'left' },
-        { text: `-${fmtN(invoice.discountHtg)} G`, width: 40, align: 'right' },
-      ]
-    })
+    pushTable('Remise', `-${fmtN(invoice.discountHtg)} G`)
   }
-
   if (Number(invoice.taxHtg) > 0) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: `Taxe (${Number(invoice.taxRate || 0)}%)`, width: 60, align: 'left' },
-        { text: `${fmtN(invoice.taxHtg)} G`, width: 40, align: 'right' },
-      ]
-    })
+    pushTable(`Taxe (${Number(invoice.taxRate || 0)}%)`, `${fmtN(invoice.taxHtg)} G`)
   }
 
-  // ─── TOTAL — estrikti tablo (label + montan) an gra, pou l pa "wrap" mal sou papye a ───
-  // (font 'large' konsome 2x plas — sou 58mm sa fè tèks long antre nan yon lòt liy;
-  // yon tablo an gra rete nan yon sèl liy, byen aliye, tankou lòt liy total yo)
+  // ─── TOTAL ──────────────────────────────────────────────────
   lines.push({ type: 'divider', char: '=' })
-  lines.push({
-    type: 'table',
-    bold: true,
-    columns: [
-      { text: 'TOTAL', width: 40, align: 'left' },
-      { text: `${fmtN(totalHtg)} G`, width: 60, align: 'right' },
-    ]
-  })
-  // ✅ NOUVO — konvèsyon USD/DOP, menm jan ak vèsyon web la
+  pushTable('TOTAL', `${fmtN(totalHtg)} G`, true)
+  lines.push({ type: 'divider', char: '=' })
+
   if (toUSD(totalHtg)) {
-    lines.push({ type: 'text', content: `= $${toUSD(totalHtg)} USD`, align: 'right', size: 'small' })
+    pushTable('Equivalent USD', `$${toUSD(totalHtg)} USD`)
   }
   if (toDOP(totalHtg)) {
-    lines.push({ type: 'text', content: `= RD$${toDOP(totalHtg)} DOP`, align: 'right', size: 'small' })
+    pushTable('Equivalent DOP', `RD$${toDOP(totalHtg)} DOP`)
   }
-  lines.push({ type: 'divider', char: '=' })
 
-  // ✅ NOUVO — Detay peman (Kob kliyan bay / Kob peye / Monnen remèt /
-  // Metòd / Ref) — menm chan/lòd ak vèsyon web la
+  // ─── PAIEMENT ───────────────────────────────────────────────
   lines.push({ type: 'divider' })
-  if (amountGiven > 0) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Kob kliyan bay', width: 60, align: 'left' },
-        { text: `${fmtN(amountGiven)} G`, width: 40, align: 'right' },
-      ]
-    })
-  }
-  lines.push({
-    type: 'table',
-    columns: [
-      { text: 'Kob peye', width: 60, align: 'left' },
-      { text: `${fmtN(paidHtg > 0 ? paidHtg : totalHtg)} G`, width: 40, align: 'right' },
-    ]
-  })
-  if (change > 0) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Monnen remèt', width: 60, align: 'left' },
-        { text: `${fmtN(change)} G`, width: 40, align: 'right' },
-      ]
-    })
-  }
-  if (lastPay?.method) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Metod', width: 60, align: 'left' },
-        { text: METOD[lastPay.method] || lastPay.method, width: 40, align: 'right' },
-      ]
-    })
-  }
-  if (lastPay?.reference) {
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Ref', width: 40, align: 'left' },
-        { text: String(lastPay.reference), width: 60, align: 'right' },
-      ]
-    })
-  }
+  lines.push({ type: 'text', content: 'PAIEMENT', align: 'center', bold: true })
+  if (amountGiven > 0) pushTable('Montant remis', `${fmtN(amountGiven)} G`)
+  pushTable('Montant paye', `${fmtN(paidHtg > 0 ? paidHtg : totalHtg)} G`)
+  if (change > 0) pushTable('Monnaie rendue', `${fmtN(change)} G`)
+  if (lastPay?.method) pushTable('Mode de paiement', PAYMENT_METHODS[lastPay.method] || lastPay.method)
+  if (lastPay?.reference) pushTable('Reference', String(lastPay.reference))
 
-  // ─── Estati peman ───
-  if (isCancelled) {
-    lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: 'X FACTURE ANNULEE', align: 'center', bold: true, size: 'large' })
-  } else if (isPartial) {
+  if (balanceHtg > 0) {
     lines.push({ type: 'divider' })
-    lines.push({
-      type: 'table',
-      columns: [
-        { text: 'Balans ki rete', width: 60, align: 'left' },
-        { text: `-${fmtN(balanceHtg)} G`, width: 40, align: 'right' },
-      ]
-    })
-    if (dueDate) {
-      lines.push({ type: 'text', content: `Dat limit: ${fmtDate(dueDate)}`, align: 'center', size: 'small' })
+    pushTable('Solde restant', `${fmtN(balanceHtg)} G`, true)
+    if (isCredit) {
+      lines.push({ type: 'text', content: 'VENTE A CREDIT', align: 'center', bold: true })
+      if (dueDate) {
+        lines.push({ type: 'text', content: `Date d’echeance : ${fmtDate(dueDate)}`, align: 'center', size: 'small' })
+      }
     }
-  } else if (!isPaid) {
-    lines.push({ type: 'space' })
-    lines.push({ type: 'text', content: `A PAYER : ${fmtN(balanceHtg)} G`, align: 'center', bold: true })
   }
 
-  // ✅ NOUVO — estati final + total repete, menm jan ak vèsyon web la
-  // (statusLine + "TOTAL PEYE:"/"MONTANT DI:"/"DEJA PEYE:")
-  lines.push({ type: 'divider', char: '=' })
-  lines.push({
-    type: 'text',
-    content: isPaid ? 'TOTAL PEYE' : isCancelled ? 'ANILE' : isCredit ? 'KREDI' : isPartial ? 'PASYAL' : 'IMPAYE',
-    align: 'center', bold: true, size: 'large',
-  })
-  lines.push({
-    type: 'table',
-    bold: true,
-    columns: [
-      { text: isPaid ? 'TOTAL PEYE:' : isCredit ? 'MONTANT DI:' : isPartial ? 'DEJA PEYE:' : 'TOTAL:', width: 40, align: 'left' },
-      { text: `${fmtN(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg)} G`, width: 60, align: 'right' },
-    ]
-  })
-  lines.push({ type: 'divider', char: '=' })
+  if (isPartial) {
+    lines.push({ type: 'divider' })
+    lines.push({ type: 'text', content: 'PAIEMENT PARTIEL', align: 'center', bold: true })
+  } else if (isCancelled) {
+    lines.push({ type: 'divider' })
+    lines.push({ type: 'text', content: 'FACTURE ANNULEE', align: 'center', bold: true, size: 'large' })
+  }
 
-  // ✅ NOUVO — QR kòd, menm jan ak vèsyon web la.
-  // ⚠️ VERIFYE: mwen sipoze plugin @capacitor-plus/universal-printer a
-  // sipòte yon liy tip 'qr' (konsistan ak 'text'/'table'/'image'/'space'
-  // ki deja itilize pi wo a) — men mwen pa gen dokimantasyon plugin lan
-  // sou machin sa a pou m konfime non/paramèt egzat la. Si enprime kraze
-  // oswa QR la pa parèt, chèche nan dokimantasyon plugin ou a ki jan pou
-  // enprime yon QR (petèt yon lòt non tankou 'barcode' oswa yon metòd
-  // apa `UniversalPrinter.printQR(...)`), epi ranplase blòk sa a.
+  // ─── QR CODE ────────────────────────────────────────────────
   if (tenant?.showQrCode !== false) {
     const qrLink = `${tenant?.webBaseUrl || 'https://app.plusgroupe.com'}/app/invoices/${invoice.id}`
     lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: 'Scanner pour verifier le recu', align: 'center', size: 'small' })
     lines.push({ type: 'qr', content: qrLink, align: 'center' })
     lines.push({ type: 'text', content: invoice.invoiceNumber || '', align: 'center', size: 'small' })
   }
 
+  // ─── PIED DE RECU ───────────────────────────────────────────
   lines.push({ type: 'space' })
+  lines.push({ type: 'divider' })
+  lines.push({ type: 'text', content: 'Merci pour votre achat !', align: 'center', bold: true })
+  lines.push({ type: 'text', content: 'Votre satisfaction est notre priorite !', align: 'center', size: 'small' })
 
-  // ─── Footer ───
-  // ✅ KORIJE — Nòt/Avètisman konfigirab (paramèt Tenant) parèt PREMYE
-  // kounye a, e pi vizib (ankadre ant 2 divizè '=', an gra) pou l pa pèdi
-  // nan mitan rès tèks la — se pou sa yo rele l "avètisman".
   if (tenant?.receiptFooterNote) {
-    lines.push({ type: 'divider', char: '=' })
-    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small', bold: true })
-    lines.push({ type: 'divider', char: '=' })
     lines.push({ type: 'space' })
+    lines.push({ type: 'text', content: tenant.receiptFooterNote, align: 'center', size: 'small', bold: true })
   }
 
-  // ✅ KORIJE — "Powered by" olye "Mèsi pou konfyans ou!" (piblisite Plus Group)
-  lines.push({ type: 'text', content: 'Powered by plusgroupe.com', align: 'center', bold: true, size: 'small' })
-  lines.push({ type: 'text', content: 'Tél: +50942449024', align: 'center', size: 'small' })
-  lines.push({ type: 'text', content: tenant?.name || 'PLUS GROUP', align: 'center', size: 'small' })
-
-  // ✅ NOUVO — Dat/Lè REYÈL enprimasyon an (pa lè vant lan fèt) — nan pye paj tout anba
-  lines.push({ type: 'space' })
+  lines.push({ type: 'divider' })
+  lines.push({ type: 'text', content: 'Produit par : Plus Group', align: 'center', size: 'small', bold: true })
+  lines.push({ type: 'text', content: 'plusgroupe.com', align: 'center', size: 'small' })
+  lines.push({ type: 'text', content: 'Tel : +509 4244 9024', align: 'center', size: 'small' })
   lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
-  // ✅ NOUVO — Netwaye aksan yo (é, è, à, ò...) pou evite "?" sou enprimant Bluetooth
   const cleanLines = sanitizeLines(lines)
 
-  // ─── Voye nan plugin la ───
   const result = await UniversalPrinter.print({
     lines: cleanLines,
-    // ✅ NOUVO — pèmèt enprime plizyè kopi (egzanp: 1 pou kliyan, 1 pou achiv)
     copies: Math.max(1, Number(copies) || 1),
     cutAtEnd: true,
   })
 
   if (!result.success) {
-    throw new Error(result.message || 'Erè pandan enprime')
+    throw new Error(result.message || 'Erreur pendant l’impression')
   }
 
   return result
