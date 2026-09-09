@@ -8,7 +8,12 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 
-const POLL_INTERVAL  = 20_000
+// ⚠️ KORIJE — 20 segond te fè ~4,320 apèl/jou PA MENM SESYON aktif, e ak
+// plizyè tenant/kesye konekte an menm tan, sa te rive nan 31,000+ apèl/jou
+// — youn nan pi gwo koupab yo nan depasman egress Supabase la. 90 segond
+// rete rezonab pou yon klòch notifikasyon (pa gen bezwen tan reyèl segond
+// pa segond) e li redwi apèl yo ~4.5 fwa.
+const POLL_INTERVAL  = 90_000
 const LIMIT          = 15
 const VAPID_PUBLIC_KEY = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
 
@@ -225,8 +230,21 @@ export default function NotificationBell({ lang = 'ht' }) {
 
   useEffect(() => {
     pollUnread()
-    const interval = setInterval(pollUnread, POLL_INTERVAL)
-    return () => clearInterval(interval)
+    const interval = setInterval(() => {
+      // ✅ NOUVO — pa fè apèl si tab/app la pa vizib kounye a (moun chanje
+      // tab, minimize, telefòn ekran fèmen, elt.) — pa gen rezon pou
+      // konsome done Supabase pandan pèsonn pa menm ap gade klòch la.
+      if (document.visibilityState === 'visible') pollUnread()
+    }, POLL_INTERVAL)
+    // ✅ NOUVO — lè moun retounen sou tab la, tcheke imedyatman (pa tann
+    // rès entèval la fini) pou klòch la rete alè san n pa bezwen yon
+    // entèval pi kout pou tout moun.
+    const onVisible = () => { if (document.visibilityState === 'visible') pollUnread() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [pollUnread])
 
   useEffect(() => {
