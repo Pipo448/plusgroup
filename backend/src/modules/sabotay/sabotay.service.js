@@ -127,25 +127,34 @@ async function getPlans(tenantId, branchId, params = {}) {
     prisma.sabotayPlan.count({ where }),
   ])
 
-  const plansFormatted = await Promise.all(plans.map(async plan => ({
+  // ⚠️ KORIJE — te gen yon demand baz done SEPARE pou CHAK manm (N+1),
+  // ki te bay 32,480 apèl/jou. Kounye a nou fè yon SÈL demand pou tout
+  // manm ki nan paj sa a, epi n mare yo pa telefòn.
+  const allPhones = plans.flatMap(p => p.members.map(m => m.phone)).filter(Boolean)
+  const solAccounts = allPhones.length
+    ? await prisma.solMemberAccount.findMany({
+        where:  { tenantId, memberPhone: { in: allPhones } },
+        select: { memberPhone: true, username: true, plainPassword: true },
+      })
+    : []
+  const solAccountByPhone = new Map(solAccounts.map(a => [a.memberPhone, a]))
+
+  const plansFormatted = plans.map(plan => ({
     ...plan,
-    members: await Promise.all(plan.members.map(async member => {
+    members: plan.members.map(member => {
       const payments = {}, paymentTimings = {}
       for (const p of member.payments) {
         const dateKey = new Date(p.dueDate).toISOString().split('T')[0]
         payments[dateKey] = true
         paymentTimings[dateKey] = p.timing || 'onTime'
       }
-      const solAccount = await prisma.solMemberAccount.findFirst({
-        where: { tenantId, memberPhone: member.phone },
-        select: { username: true, plainPassword: true }
-      })
+      const solAccount = solAccountByPhone.get(member.phone)
       return {
         ...member, payments, paymentTimings,
         _credentials: solAccount ? { username: solAccount.username, password: solAccount.plainPassword } : null
       }
-    }))
-  })))
+    })
+  }))
   return { plans: plansFormatted, total, page: Number(page), limit: Number(limit) }
 }
 

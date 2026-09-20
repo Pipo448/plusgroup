@@ -484,7 +484,11 @@ async function _bulkUpdateSolMemberPositions(tx, planId, rows) {
 async function recalculateScoresOnly(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
     where:   { id: planId },
-    include: { members: { include: { payments: true } } },
+  // ⚠️ KORIJE — chaje SÈLMAN dueDate/timing (sa buildPaymentMap itilize),
+  // pa TOUT kolòn peman yo (payments: true). Fonksyon sa a rele chak fwa
+  // yon peman make, e chaje tout istwa peman chak manm te konsome dè GB
+  // egress Supabase pou anyen (sabotay_payments: 145 apèl → 1.6M liy/jou).
+    include: { members: { include: { payments: { select: { dueDate: true, timing: true } } } } },
   })
   if (!plan) throw new Error('Plan pa jwenn')
 
@@ -528,7 +532,11 @@ async function recalculatePositions(planId) {
     // ─── Li done FRE anndan lock la ─────────────────────────────
     const plan = await tx.sabotayPlan.findUnique({
       where:   { id: planId },
-      include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
+  // ⚠️ KORIJE — chaje SÈLMAN dueDate/timing (sa buildPaymentMap itilize),
+  // pa TOUT kolòn peman yo (payments: true). Fonksyon sa a rele chak fwa
+  // yon peman make, e chaje tout istwa peman chak manm te konsome dè GB
+  // egress Supabase pou anyen (sabotay_payments: 145 apèl → 1.6M liy/jou).
+      include: { members: { include: { payments: { select: { dueDate: true, timing: true } } }, orderBy: { position: 'asc' } } },
     })
 
     if (!plan)                  throw new Error('Plan pa jwenn')
@@ -692,7 +700,11 @@ async function recalculatePositions(planId) {
 async function getRankingSnapshot(planId) {
   const plan = await prisma.sabotayPlan.findUnique({
     where:   { id: planId },
-    include: { members: { include: { payments: true }, orderBy: { position: 'asc' } } },
+  // ⚠️ KORIJE — chaje SÈLMAN dueDate/timing (sa buildPaymentMap itilize),
+  // pa TOUT kolòn peman yo (payments: true). Fonksyon sa a rele chak fwa
+  // yon peman make, e chaje tout istwa peman chak manm te konsome dè GB
+  // egress Supabase pou anyen (sabotay_payments: 145 apèl → 1.6M liy/jou).
+    include: { members: { include: { payments: { select: { dueDate: true, timing: true } } }, orderBy: { position: 'asc' } } },
   })
 
   if (!plan) throw new Error('Plan pa jwenn')
