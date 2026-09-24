@@ -295,13 +295,26 @@ router.delete('/patients/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/appointments', async (req, res) => {
   try {
-    const { date, dateFrom, dateTo, statut, patientId, search, page = 1, limit = 50 } = req.query
+    const { date, dateFrom, dateTo, statut, patientId, search, includeOverdue, page = 1, limit = 50 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
 
     if (date) {
       // ⭐ Itilize jou kalandriye AYITI, pa jou UTC sèvè a
-      where.dateHeure = await haitiDayRangeUTC(date)
+      const range = await haitiDayRangeUTC(date)
+      if (String(includeOverdue) === 'true') {
+        // ⭐ Lè n ap gade "jodi a", enkli tou randevou ki gen yon dat AVAN
+        //   jodi a men ki rete "en_attente" (pasyan poko vini, poko peye).
+        //   Konsa yo kontinye parèt chak jou (ak konbyen jou anreta) jiskaske
+        //   pasyan an vin peye nan Kes oswa randevou a anile — olye yo
+        //   disparèt nèt si pasyan an pa t vini nan dat orijinal la.
+        where.OR = [
+          { dateHeure: range },
+          { dateHeure: { lt: range.gte }, statut: 'en_attente' },
+        ]
+      } else {
+        where.dateHeure = range
+      }
     } else if (dateFrom || dateTo) {
       where.dateHeure = {}
       if (dateFrom) { where.dateHeure.gte = (await haitiDayRangeUTC(dateFrom)).gte }
