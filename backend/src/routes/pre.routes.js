@@ -33,7 +33,7 @@ async function isKesFermen(tenantId, userId) {
 }
 
 async function genereNumeroPre(tenantId, kontKaneEpayId) {
-  
+
   // 1. Jwenn accountNumber kont Kane Epay la
   const kont = await prisma.kaneEpay.findFirst({
     where: { id: kontKaneEpayId, tenantId },
@@ -103,7 +103,16 @@ async function getPAR(tenantId) {
   }
 }
 
-async function majInteretKouru(tenantId) {
+// ⚠️ KORIJE — "heavy query" ki te flag: majInteretKouru() t ap fè 2
+// UPDATE sou TOUT prè/echeances yon tenant, CHAK FWA li rele — menm lè
+// se yon SÈL prè moun ap gade (GET /:id, GET /:id/echeances, POST
+// /:id/paiement). Sa vle di si yon tenant gen 500 prè, chak fwa yon
+// kesye louvri YON prè, baz done a t ap "reklakile" tout 500 yo.
+// Kounye a fonksyon an aksepte yon `preId` opsyonèl — lè yo bay li, IL
+// SÈLMAN mete ajou prè SA A (2 UPDATE yo limite ak "AND e.pre_id =" /
+// "AND p.id ="). Lè `preId` pa bay (ex: /stats, ki bezwen total tout
+// pòtfèy la), konpòtman an rete SAN chanje — tout tenant lan.
+async function majInteretKouru(tenantId, preId = null) {
   // ✅ Yon SÈL demand UPDATE (olye yon bouk ki voye 1 demand pa echeans,
   // youn apre lòt) — sa a evite paj la "kole" lè gen anpil echeans an
   // reta akimile pou tenant lan (menm kalkil ak calcInteretKouru la,
@@ -120,6 +129,7 @@ async function majInteretKouru(tenantId) {
       AND e.statut IN ('attente','partiel','reta')
       AND e.dat_limit < CURRENT_DATE
       AND p.taux_interet > 0
+      ${preId ? Prisma.sql`AND e.pre_id = ${preId}` : Prisma.empty}
   `
 
   // ✅ Senkronize estati NIVO PRÈ a (pa sèlman echeans lan) + total enterè
@@ -142,11 +152,13 @@ async function majInteretKouru(tenantId) {
              BOOL_OR(jou_reta > 0 AND statut != 'paye') as has_reta
       FROM pre_echeances
       WHERE tenant_id = ${tenantId}
+        ${preId ? Prisma.sql`AND pre_id = ${preId}` : Prisma.empty}
       GROUP BY pre_id
     ) sub
     WHERE p.id = sub.pre_id
       AND p.tenant_id = ${tenantId}
       AND p.statut IN ('actif','reta')
+      ${preId ? Prisma.sql`AND p.id = ${preId}` : Prisma.empty}
   `
 }
 
@@ -159,6 +171,8 @@ router.get('/stats', async (req, res) => {
     const debiMwa = new Date(); debiMwa.setDate(1); debiMwa.setHours(0,0,0,0)
     const debiJodi = new Date(); debiJodi.setHours(0,0,0,0)  // ✅ jodi a
 
+    // ℹ️ Stats la BEZWEN total pòtfèy la nèt, kidonk isit sèl kote nou kite
+    // majInteretKouru() SAN preId — tout tenant lan, tankou anvan.
     await majInteretKouru(tenantId)
 
     const [totalPrets, pretsActifs, pretsEnReta, pretsAnAtant, pretsKlotire, kolMwaAgg, kolJodiAgg] = await Promise.all([
@@ -223,7 +237,7 @@ router.get('/kane-epay-search', async (req, res) => {
     const { tenantId } = getTB(req)
     const { q = '' } = req.query
     if (q.length < 2) return res.json({ accounts: [] })
-    const accounts = await prisma.kaneEpay.findMany({
+    const rawAccounts = await prisma.kaneEpay.findMany({
       where: { tenantId, isActive: true, OR: [
         { firstName:     { contains: q, mode: 'insensitive' } },
         { lastName:      { contains: q, mode: 'insensitive' } },
@@ -234,6 +248,19 @@ router.get('/kane-epay-search', async (req, res) => {
       select: { id:true, accountNumber:true, firstName:true, lastName:true, phone:true, balance:true, photoUrl:true },
       take: 8,
     })
+    // ⚠️ KORIJE — EGRESS: menm pwoblèm ak kaneEpay.getAccounts() — sa a se
+    // yon rechèch "otokonplete" ki rele CHAK FWA moun tape yon karaktè.
+    // Li t ap voye foto konplè an base64 (ka plizyè MB) pou jiska 8 kont,
+    // pou CHAK karaktè. Kounye a nou retire photoUrl la epi ranplase l ak
+    // yon flag bool `hasPhoto` — menm apwòch ak kane-epay.service.js.
+    // ⚠️ Si konpozan rechèch la (pa egzanp KaneEpaySearch nan
+    // PreComponents.jsx) afiche yon ti foto (account.photoUrl) nan
+    // rezilta rechèch la, sa ap kase — voye m fichye a si se ka a pou
+    // m ka ajiste l pou l itilize hasPhoto olye.
+    const accounts = rawAccounts.map(({ photoUrl, ...rest }) => ({
+      ...rest,
+      hasPhoto: !!photoUrl,
+    }))
     return res.json({ accounts })
   } catch (err) { return res.status(500).json({ message: 'Erè sèvè.' }) }
 })
@@ -753,7 +780,10 @@ router.get('/:id', async (req, res) => {
       include: { paiements: { orderBy: { createdAt: 'desc' } } },
     })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
-    await majInteretKouru(tenantId)
+    // ⚠️ KORIJE — anvan sa a, majInteretKouru() te reklakile TOUT prè
+    // tenant lan chak fwa yon moun louvri yon SÈL prè. Kounye a limite l
+    // ak preId — sèlman prè sa a.
+    await majInteretKouru(tenantId, req.params.id)
     const echeances = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${req.params.id} ORDER BY numero
     `
@@ -895,7 +925,8 @@ router.post('/:id/paiement', async (req, res) => {
     if (pre.statut === 'annule')  return res.status(400).json({ message: 'Prè sa anile.'     })
     if (pre.statut === 'attente') return res.status(400).json({ message: 'Prè sa poko apwouve — pa gen lajan ki dekèse.' })
 
-    await majInteretKouru(tenantId)
+    // ⚠️ KORIJE — limite ak preId (sèlman prè sa a), pa tout tenant lan.
+    await majInteretKouru(tenantId, id)
 
     const echeancesRaw = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${id} AND statut != 'paye' ORDER BY numero
@@ -1012,7 +1043,8 @@ router.get('/:id/echeances', async (req, res) => {
     const { tenantId } = getTB(req)
     const pre = await prisma.pre.findFirst({ where: { id: req.params.id, tenantId } })
     if (!pre) return res.status(404).json({ message: 'Prè pa jwenn.' })
-    await majInteretKouru(tenantId)
+    // ⚠️ KORIJE — menm limitasyon ak GET /:id, preId sèlman.
+    await majInteretKouru(tenantId, req.params.id)
     const echeances = await prisma.$queryRaw`
       SELECT * FROM pre_echeances WHERE pre_id = ${req.params.id} ORDER BY numero
     `
