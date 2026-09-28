@@ -14,6 +14,11 @@ const path       = require('path');
 
 const logger = require('./config/logger');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+// ⚠️ DYAGNOSTIK TANPORÈ — EGRESS: mezire konbyen bytes chak repons API voye,
+// ekri nan lòg (Render Logs) sèlman repons ki depase 100KB. Objektif: jwenn
+// prèv dirèk sou ki wout egzat k ap voye pi gwo volim done yo. RETIRE l yon
+// fwa n jwenn repons lan (gade nòt nan fichye a).
+const responseSizeLogger = require('./middleware/responseSizeLogger');
 
 // Routes
 const adminRoutes   = require('./modules/admin/admin.routes');
@@ -124,6 +129,10 @@ const authLimiter = rateLimit({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(compression());
+
+// ⚠️ DYAGNOSTIK TANPORÈ — EGRESS: gade nòt anwo a. Rete apre compression()
+// pou l mezire tay REYÈL ki soti sou rezo a (apre konpresyon gzip).
+app.use(responseSizeLogger);
 
 if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('combined', {
