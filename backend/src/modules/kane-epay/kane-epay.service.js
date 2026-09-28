@@ -129,7 +129,7 @@ async function getAccounts(tenantId, branchId, params = {}) {
     })
   }
 
-  const [accounts, total] = await Promise.all([
+  const [rawAccounts, total] = await Promise.all([
     prisma.kaneEpay.findMany({
       where,
       include: {
@@ -142,6 +142,18 @@ async function getAccounts(tenantId, branchId, params = {}) {
     }),
     prisma.kaneEpay.count({ where })
   ])
+
+  // ⚠️ KORIJE — EGRESS: si photoUrl/idPhotoUrl estoke an baz64, yo ka pèz
+  // dèsèn KB chak grenn. Nan yon LIS (15 kont pa paj, chak refresh), sa
+  // vin yon gwo depans egress san nesesite — moun ki gade lis la pa
+  // bezwen wè foto a, se sèlman detay yon sèl kont (getAccountById) ki
+  // bezwen l. Nou ranplase yo ak yon flag bool pou UI a ka toujou
+  // afiche yon icon/badge "gen foto" san chaje done lou a.
+  const accounts = rawAccounts.map(({ photoUrl, idPhotoUrl, ...rest }) => ({
+    ...rest,
+    hasPhoto:   !!photoUrl,
+    hasIdPhoto: !!idPhotoUrl,
+  }))
 
   return { accounts, total, page: Number(page), limit: Number(limit) }
 }

@@ -66,17 +66,20 @@ export default function PrePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ⚠️ KORIJE — EGRESS: refetchInterval:30000 retire nèt (2 query sa yo).
+  // refetchOnWindowFocus deja aktive pa defo pou kes-status, epi backend
+  // toujou reverifye kès fèmen lè yo soumèt (pa gen risk kreye tranzaksyon
+  // si kès fèmen antretan sou yon lòt aparèy).
   const { data: kesData } = useQuery({
     queryKey: ['kes-status'],
     queryFn:  () => preAPI.checkKesFermen().then(r => r.data),
-    refetchInterval: 30000, staleTime: 0, refetchOnWindowFocus: true,
+    staleTime: 0, refetchOnWindowFocus: true,
   })
   const kesFemen = kesData?.kesFemen === true
 
   const { data: statsData, refetch: refetchStats } = useQuery({
     queryKey: ['pre-stats'],
     queryFn:  () => preAPI.getStats().then(r => r.data.stats),
-    refetchInterval: 30000,
   })
 
   const { data: listData, isLoading } = useQuery({
