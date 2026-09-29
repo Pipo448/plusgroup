@@ -251,13 +251,16 @@ export default function SabotayPage() {
   const [search,        setSearch]      = useState('')
 
   // ─── Chaje Plans ─────────────────────────────────────────
+  // ⚠️ KORIJE EGRESS — refetchInterval:15000 la te voye ~616KB CHAK 15
+  // segond, san rete, pandan tout tan paj la louvri. Retire l nèt — moun
+  // ki gen bouton "Reyesye" (refetch manyèl) ak refetchOnWindowFocus
+  // (default React Query) sifi pou done yo rete ajou.
   const { data: plans = [], isLoading, error, refetch } = useQuery({
     queryKey: ['sabotay-plans'],
     queryFn: () => apiFetch('/sabotay/plans').then(r => {
       const result = r.plans || r.data || r
       return Array.isArray(result) ? result : []
     }),
-    refetchInterval: 15000,
   })
 
   const activePlan = selectedPlan

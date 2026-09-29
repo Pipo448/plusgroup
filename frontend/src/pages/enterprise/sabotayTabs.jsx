@@ -99,6 +99,7 @@ export function ExchangeTab({ plan }) {
   const slug  = localStorage.getItem('plusgroup-slug')
   const authH = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' }
 
+  // ⚠️ KORIJE EGRESS — refetchInterval retire, bouton refresh deja disponib
   const { data: exchanges = [], isLoading, refetch } = useQuery({
     queryKey: ['sol-exchanges', plan.id],
     queryFn: async () => {
@@ -107,7 +108,6 @@ export function ExchangeTab({ plan }) {
       const result = d.exchanges || d || []
       return Array.isArray(result) ? result : []
     },
-    refetchInterval: 30000,
   })
 
   const [showConfig, setShowConfig] = useState(false)
@@ -262,10 +262,10 @@ export function AdminCashTab({ plan }) {
   const slug  = localStorage.getItem('plusgroup-slug')
   const authH = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' }
 
+  // ⚠️ KORIJE EGRESS — refetchInterval retire, bouton refresh deja disponib
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['admin-cash', plan.id],
     queryFn: async () => { const res = await fetch(`${API_URL}/sabotay/admin-cash?planId=${plan.id}`, { headers: authH }); return res.json() },
-    refetchInterval: 30000,
   })
 
   const TYPE_LABELS = {

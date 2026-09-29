@@ -155,12 +155,22 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 // buildPlanData
 // ══════════════════════════════════════════════════════════════
 
+// ⚠️ KORIJE EGRESS — sa a se sous 4.6MB `/sol/members/me` a. Chak apèl te
+// chaje TOUT kolòn nan `payments` (`include: { payments: ... }`) pou CHAK
+// manm ki NAN MENM PLAN AN (pou detekte "plizyè men" ak menm telefòn), pa
+// sèlman manm k ap login la — pou yon plan ki gen anpil manm ak anpil
+// istwa peman (plan chak jou sou plizyè mwa), sa fè dè milye ranje done
+// konplè chaje chak fwa yon moun konekte. `buildPaymentMaps` sèlman
+// bezwen dueDate/timing/paidDate/paidAt — menm fix ki te fèt deja nan
+// position-ranking.service.js.
+const PAYMENT_SELECT_MINIMAL = { dueDate: true, timing: true, paidDate: true, paidAt: true }
+
 async function buildPlanData(account, memberId) {
   if (!memberId) return null
 
   const sabotayMember = await prisma.sabotayMember.findUnique({
     where: { id: memberId },
-    include: { plan: true, payments: { orderBy: { dueDate: 'asc' } } }
+    include: { plan: true, payments: { select: PAYMENT_SELECT_MINIMAL, orderBy: { dueDate: 'asc' } } }
   })
   if (!sabotayMember || !sabotayMember.plan) return null
 
@@ -176,7 +186,7 @@ async function buildPlanData(account, memberId) {
       planId: sabotayMember.planId,
       ...(isClosed ? {} : { isActive: true })
     },
-    include: { payments: { orderBy: { dueDate: 'asc' } } },
+    include: { payments: { select: PAYMENT_SELECT_MINIMAL, orderBy: { dueDate: 'asc' } } },
     orderBy: { position: 'asc' }
   })
   const allSlots = normTarget
