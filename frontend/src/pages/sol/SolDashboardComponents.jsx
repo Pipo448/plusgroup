@@ -365,10 +365,13 @@ export function SolChat({ token, plan, member, onNewMessage }) {
     finally { setLoading(false) }
   }, [plan.id, token, onNewMessage])
 
+  // ⚠️ KORIJE EGRESS — te gen yon setInterval(fetchMessages, 5000) ki t ap
+  // voye yon apèl GET /api/sol/chat/:planId CHAK 5 SEGOND san rete pandan
+  // tout tan tab "Chat" a te louvri. Retire l nèt — chaje mesaj yo yon sèl
+  // fwa lè tab la louvri, epi itilize bouton "Rafrechi" (deja egziste anba,
+  // ki rele fetchMessages) pou wè nouvo mesaj.
   useEffect(() => {
     fetchMessages()
-    const iv = setInterval(fetchMessages, 5000)
-    return () => clearInterval(iv)
   }, [fetchMessages])
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
