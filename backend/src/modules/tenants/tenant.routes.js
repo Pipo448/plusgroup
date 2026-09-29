@@ -5,6 +5,9 @@ const { identifyTenant, authenticate, authorize } = require('../../middleware/au
 const { asyncHandler } = require('../../middleware/errorHandler');
 const prisma  = require('../../config/prisma');
 const multer  = require('multer');
+// ⚠️ KORIJE EGRESS — `sharp` konprese/rezize imaj yo AVAN yo antre nan baz
+// done a. Si l pa enstale ankò: npm install sharp (nan dosye backend a).
+const sharp   = require('sharp');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -15,6 +18,22 @@ const upload = multer({
     else cb(new Error('Sèlman JPEG, PNG, WebP ak SVG aksepte.'));
   }
 });
+
+// ⚠️ KORIJE EGRESS — anvan sa, `/logo` te sove BRIT (jiska 2MB) kòm base64
+// dirèkteman nan `tenant.logoUrl`, e chak fwa /settings chaje, TOUT logo sa
+// a te vwayaje nan rezo a — se yon sous MAJÈ nan egress Supabase. Fonksyon
+// sa a rezize logo a (max 512px lajè) epi konvèti l an WebP kalite 78% —
+// anjeneral sa redwi yon logo 500KB-2MB rive nan 15-40KB, san yo pa pèdi
+// klète vizyèl pou yon logo/ikòn. SVG pa touche (deja vektè, pa gen "poids"
+// pou konprese).
+async function compressImage(buffer, mimeType, { maxWidth = 512, quality = 78 } = {}) {
+  if (mimeType === 'image/svg+xml') return { buffer, mimeType };
+  const out = await sharp(buffer)
+    .resize({ width: maxWidth, withoutEnlargement: true })
+    .webp({ quality })
+    .toBuffer();
+  return { buffer: out, mimeType: 'image/webp' };
+}
 
 const parseJsonField = (field, fallback = null) => {
   if (!field) return fallback;
@@ -175,8 +194,9 @@ router.post('/logo', authorize('admin'), upload.single('logo'), asyncHandler(asy
   if (!req.file)
     return res.status(400).json({ success: false, message: 'Fichye logo obligatwa.' });
 
-  const mimeType  = req.file.mimetype;
-  const base64    = req.file.buffer.toString('base64');
+  // ⚠️ KORIJE EGRESS — konprese/rezize AVAN nou konvèti an base64 ak sove.
+  const { buffer: compressedBuffer, mimeType } = await compressImage(req.file.buffer, req.file.mimetype);
+  const base64    = compressedBuffer.toString('base64');
   const logoUrl   = `data:${mimeType};base64,${base64}`;
 
   await prisma.tenant.update({
