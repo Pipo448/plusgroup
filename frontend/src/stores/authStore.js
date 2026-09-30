@@ -28,12 +28,18 @@ export const useAuthStore = create(
       },
 
       // ✅ Refresh tenant sèlman, PA touche branch ni user
+      // ⚠️ KORIJE — anvan sa, `set(() => ({ tenant }))` te RANPLASE tout
+      // objè tenant an nèt. Kounye a `/auth/me` pa voye `logoUrl` ankò
+      // (te twò lou pou yon wout ki rele chak fwa AppLayout monte — gade
+      // auth.controller.js), donk yon ranplasman konplè ta EFASE logo a
+      // ki te sove depi login. Nou fè yon FUSION olye — chan ki pa nan
+      // nouvo repons lan (tankou logoUrl) rete jan yo te ye.
       refreshTenant: (tenant) => {
         if (tenant?.slug) {
           localStorage.setItem('plusgroup-slug', tenant.slug)
           api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
         }
-        set(() => ({ tenant }))
+        set((state) => ({ tenant: { ...state.tenant, ...tenant } }))
       },
 
       setBranch: (branchId, branchName = null) => {

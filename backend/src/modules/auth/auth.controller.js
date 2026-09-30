@@ -41,6 +41,15 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 const getMe = asyncHandler(async (req, res) => {
+  // ⚠️ KORIJE EGRESS — `logoUrl` la se yon imaj base64 KONPLÈ (ka fè
+  // plizyè santèn KB, jiska 1MB+) e li te vwayaje sou CHAK apèl
+  // `/auth/me` — yon wout ki rele CHAK fwa yon paj chaje/moun navige nan
+  // aplikasyon an. Se sa ki lakòz repons 275KB-1161KB repete nan log yo.
+  // Frontend a deja gen `tenant.logoUrl` sove nan `authStore` (persist,
+  // depi login) e li gen `refreshTenant()` pou aktyalize l apre yon chanjman
+  // logo — donk `/auth/me` pa bezwen repete l chak fwa. Si w vle logo a
+  // toujou disponib apre yon rafrechisman paj (F5), itilize `/tenant/settings`
+  // (ki deja retounen l) olye `/auth/me`.
   res.json({
     success: true,
     user: req.user,
@@ -48,7 +57,6 @@ const getMe = asyncHandler(async (req, res) => {
       id:                 req.tenant.id,
       name:               req.tenant.name,
       slug:               req.tenant.slug,
-      logoUrl:            req.tenant.logoUrl,
       primaryColor:       req.tenant.primaryColor,
       defaultCurrency:    req.tenant.defaultCurrency,
       defaultLanguage:    req.tenant.defaultLanguage,
