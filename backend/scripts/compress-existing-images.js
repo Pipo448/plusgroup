@@ -1,234 +1,176 @@
-// backend/scripts/compress-existing-images.js
-// ─── Konprese ANSYEN foto ki deja estoke kòm base64 ─────────────
-// Script sa a lanse YON SÈL FWA (pa yon rout API, pa yon travay ki
-// repete) pou l pase sou: Logo Tenant, Foto Kanè Epay, Pwodui, ak Atik
-// Devi Dirèk ki gen yon foto DEJA estoke, epi l konprese yo (max 800px
-// lajè pou pwodui/atik/foto Kanè Epay, max 200px pou logo, ~75% kalite
-// JPEG).
+// scripts/compress-existing-images.js
+// ─────────────────────────────────────────────────────────────────
+// SCRIPT YON SÈL FWA — konprese TOUT imaj pwodui ki DEJA egziste nan
+// baz done a (tout tenant). Sèvi ak menm teknik (sharp + WebP) ki
+// kounye a aplike otomatikman pou NOUVO pwodui/modifikasyon nan
+// product.service.js — men fwa sa a pou done ki DEJA la yo.
 //
-// ⚠️ IMPÒTAN — Fè yon SAUVEGARD baz done a anvan w lanse script sa a.
-// Li MODIFYE done ki deja la, aksyon an pa ka anile fasil apre.
+// ⚠️ KORIJE — ajoute retry otomatik sou erè koneksyon (P1017 "Server
+// has closed the connection"). Supabase/pgbouncer fèmen koneksyon ki
+// rete "poze" twò lontan, e konpresyon sharp sou gwo imaj ka pran
+// kèk segond — ase pou koneksyon an tonbe ant rekèt yo. Kounye a chak
+// rekèt Prisma (SELECT ak UPDATE) eseye ankò otomatikman si sa rive.
 //
-// Kijan pou lanse l (nan dosye backend):
-//   node scripts/compress-existing-images.js --dry-run           ← montre rezilta a, pa touche BD
-//   node scripts/compress-existing-images.js --dry-run --only=tenants
-//   node scripts/compress-existing-images.js --only=tenants        ← aplike pou vre, sèlman tenants
-//   node scripts/compress-existing-images.js                       ← aplike pou vre, tout kategori
+// SAN DANJE pou relanse plizyè fwa: li SOTE pwodui ki imaj yo deja
+// piti (< SKIP_THRESHOLD_KB) — donk yon pwodui ki deja konprese pa
+// pral re-trete.
 //
-// --only ka pran: tenants | kane | products | quotes
-//
-// Sa mande pakè "sharp" (tretman imaj sèvè, pi rapid/fyab pase canvas
-// navigatè a). Si l poko enstale:
-//   npm install sharp --save
+// Kouri l ak:   node scripts/compress-existing-images.js
+// ─────────────────────────────────────────────────────────────────
 
-const prisma = require('../src/config/prisma');
-const sharp = require('sharp');
+const prisma = require('../src/config/prisma'); // ⚠️ Ajiste chemen sa a si l pa matche
+const sharp  = require('sharp');
 
-const MAX_WIDTH = 800;
-const JPEG_QUALITY = 75;
+const BATCH_SIZE        = 10;   // ✅ REDWI (te 25) — mwens tan ant rekèt yo
+const SKIP_THRESHOLD_KB = 60;   // si imaj la deja pi piti pase sa, sote l
+const MAX_WIDTH         = 600;  // menm valè ak product.service.js
+const QUALITY           = 75;   // menm valè ak product.service.js
+const MAX_RETRIES       = 5;    // ✅ NOUVO — kantite tantativ si koneksyon tonbe
+const RETRY_DELAY_MS    = 2000; // ✅ NOUVO — tan pou tann ant tantativ yo
 
-// ⭐ AJOUTE — --dry-run montre rezilta a SAN modifye baz done a.
-// --only=tenants | products | quotes | kane pou fè yo youn pa youn.
-const DRY_RUN = process.argv.includes('--dry-run');
-const ONLY = (() => {
-  const arg = process.argv.find(a => a.startsWith('--only='));
-  return arg ? arg.split('=')[1] : null;
-})();
-
-// ── Konprese yon sèl base64 data URL, retounen nouvo a (oswa null si erè)
-async function compressBase64Image(dataUrl, label) {
-  if (!dataUrl || !dataUrl.startsWith('data:image')) return null;
-
-  try {
-    const base64Payload = dataUrl.split(',')[1];
-    if (!base64Payload) return null;
-
-    const inputBuffer = Buffer.from(base64Payload, 'base64');
-    const originalSizeKb = Math.round(inputBuffer.length / 1024);
-
-    // Si li deja piti (mwens pase 60KB), pa gen bezwen konprese l ankò
-    if (originalSizeKb < 60) {
-      console.log(`  ⏭️  ${label} — deja piti (${originalSizeKb}KB), sote l`);
-      return null;
-    }
-
-    const outputBuffer = await sharp(inputBuffer)
-      .resize({ width: MAX_WIDTH, withoutEnlargement: true })
-      .jpeg({ quality: JPEG_QUALITY })
-      .toBuffer();
-
-    const newSizeKb = Math.round(outputBuffer.length / 1024);
-    const savedPct = Math.round((1 - outputBuffer.length / inputBuffer.length) * 100);
-
-    console.log(`  ✅ ${label} — ${originalSizeKb}KB → ${newSizeKb}KB (${savedPct}% ekonomize)`);
-
-    return `data:image/jpeg;base64,${outputBuffer.toString('base64')}`;
-  } catch (err) {
-    console.error(`  ❌ ${label} — erè:`, err.message);
-    return null;
-  }
+function kb(bytes) {
+  return (bytes / 1024).toFixed(1);
 }
 
-async function compressProducts() {
-  console.log('\n📦 Pwodui yo...');
-
-  // ⚠️ KORIJE — menm pwoblèm ak kane_epay: 513 pwodui ak imaj an menm
-  // kou (~140KB mwayèn = 70+ MB total) lakòz koneksyon an lage (P1017).
-  // Chaje id+non yo dabò (leje), epi rale imaj la youn pa youn.
-  const productRefs = await prisma.product.findMany({
-    where: { imageUrl: { startsWith: 'data:image' } },
-    select: { id: true, name: true },
-  });
-
-  console.log(`Jwenn ${productRefs.length} pwodui ak foto pou tcheke.`);
-
-  let updated = 0;
-  for (const ref of productRefs) {
-    const p = await prisma.product.findUnique({ where: { id: ref.id }, select: { imageUrl: true } });
-    const compressed = await compressBase64Image(p.imageUrl, ref.name);
-    if (compressed) {
-      if (!DRY_RUN) await prisma.product.update({ where: { id: ref.id }, data: { imageUrl: compressed } });
-      updated++;
-    }
-  }
-  console.log(`📦 ${updated}/${productRefs.length} pwodui konprese.`);
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function compressDirectQuoteItems() {
-  console.log('\n🔖 Atik Devi Dirèk yo...');
-  const items = await prisma.directQuoteItem.findMany({
-    where: { imageUrl: { startsWith: 'data:image' } },
-    select: { id: true, description: true, imageUrl: true },
-  });
+// ✅ NOUVO — relanse yon operasyon Prisma otomatikman si koneksyon an tonbe
+// (P1017 oswa nenpòt erè rezo/koneksyon), olye kite tout script la kraze.
+async function withRetry(fn, label) {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      const isConnectionError =
+        err.code === 'P1017' ||
+        err.code === 'P1001' ||
+        err.code === 'P1008' ||
+        /closed the connection|connection.*closed|timeout/i.test(err.message || '');
 
-  console.log(`Jwenn ${items.length} atik ak foto pou tcheke.`);
+      if (!isConnectionError || attempt === MAX_RETRIES) throw err;
 
-  let updated = 0;
-  for (const it of items) {
-    const compressed = await compressBase64Image(it.imageUrl, it.description);
-    if (compressed) {
-      if (!DRY_RUN) await prisma.directQuoteItem.update({ where: { id: it.id }, data: { imageUrl: compressed } });
-      updated++;
+      console.warn(
+        `⚠️  Koneksyon tonbe pandan "${label}" (tantativ ${attempt}/${MAX_RETRIES}) — ` +
+        `tann ${RETRY_DELAY_MS}ms epi eseye ankò...`
+      );
+      await sleep(RETRY_DELAY_MS);
+      // ✅ Fòse Prisma rekonekte anvan pwochen tantativ la
+      try { await prisma.$connect(); } catch {}
     }
   }
-  console.log(`🔖 ${updated}/${items.length} atik konprese.`);
+  throw lastErr;
 }
 
-// ⭐ AJOUTE — Logo tenant yo (tenants.logo_url). Pi piti (max 200px) paske
-// se yon logo, pa yon foto pwodui — pa bezwen gwo rezolisyon.
-async function compressTenantLogos() {
-  console.log('\n🏢 Logo Tenant yo...');
-  const tenants = await prisma.tenant.findMany({
-    where: { logoUrl: { startsWith: 'data:image' } },
-    select: { id: true, slug: true, logoUrl: true },
-  });
+async function compressImageDataUri(dataUri) {
+  const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return null;
+  const [, mimeType, base64Data] = match;
+  if (mimeType === 'image/svg+xml') return null; // pa touche SVG — deja vektè
 
-  console.log(`Jwenn ${tenants.length} tenant ak logo pou tcheke.`);
+  const inputBuffer = Buffer.from(base64Data, 'base64');
+  const outBuffer = await sharp(inputBuffer)
+    .resize({ width: MAX_WIDTH, withoutEnlargement: true })
+    .webp({ quality: QUALITY })
+    .toBuffer();
 
-  let updated = 0;
-  for (const t of tenants) {
-    const compressed = await compressLogoImage(t.logoUrl, t.slug);
-    if (compressed) {
-      if (!DRY_RUN) await prisma.tenant.update({ where: { id: t.id }, data: { logoUrl: compressed } });
-      updated++;
-    }
-  }
-  console.log(`🏢 ${updated}/${tenants.length} logo tenant konprese.`);
-}
-
-// ⭐ AJOUTE — Foto Kanè Epay (kane_epay_accounts.photo_url ak id_photo_url).
-// Sa a se PI GWO sous egress la kounye a (foto rive 7.5 MB chak, san
-// konprese, pran dirèkteman soti nan kamera telefòn nan).
-async function compressKaneEpayPhotos() {
-  console.log('\n🪪 Foto Kanè Epay yo...');
-
-  // ⚠️ KORIJE — Foto sa yo ka rive 7.5 MB chak. Chaje TOUT kont yo an
-  // menm kou (ak foto ladan yo) nan yon sèl findMany() lakòz konneksyon
-  // Postgres/PgBouncer lan lage (P1017 "server has closed the
-  // connection") paske li twò gwo. Kounye a nou chaje SÈLMAN id+non yo
-  // dabò (leje), epi nou chaje FOTO a youn pa youn (yon rekèt separe pou
-  // chak kont) — chak rekèt rete piti e koneksyon an pa gen tan lage.
-  const accountRefs = await prisma.kaneEpay.findMany({
-    where: {
-      OR: [
-        { photoUrl:   { startsWith: 'data:image' } },
-        { idPhotoUrl: { startsWith: 'data:image' } },
-      ],
-    },
-    select: { id: true, accountNumber: true },
-  });
-
-  console.log(`Jwenn ${accountRefs.length} kont ak foto pou tcheke.`);
-
-  let updated = 0;
-  for (const ref of accountRefs) {
-    // Rale FOTO sa a apa — yon sèl kont a la fwa, pa tout 12 an menm kou.
-    const acc = await prisma.kaneEpay.findUnique({
-      where: { id: ref.id },
-      select: { photoUrl: true, idPhotoUrl: true },
-    });
-
-    const data = {};
-    const photoCompressed = await compressBase64Image(acc.photoUrl, `${ref.accountNumber} (foto)`);
-    if (photoCompressed) data.photoUrl = photoCompressed;
-
-    const idPhotoCompressed = await compressBase64Image(acc.idPhotoUrl, `${ref.accountNumber} (id_photo)`);
-    if (idPhotoCompressed) data.idPhotoUrl = idPhotoCompressed;
-
-    if (Object.keys(data).length) {
-      if (!DRY_RUN) await prisma.kaneEpay.update({ where: { id: ref.id }, data });
-      updated++;
-    }
-  }
-  console.log(`🪪 ${updated}/${accountRefs.length} kont Kanè Epay konprese.`);
-}
-
-// Logo — vèsyon pi piti (200px) menm modèl ak compressBase64Image, men
-// san sote sou "deja piti < 60KB" (yon logo 60KB toujou vo konprese).
-async function compressLogoImage(dataUrl, label) {
-  if (!dataUrl || !dataUrl.startsWith('data:image')) return null;
-  try {
-    const base64Payload = dataUrl.split(',')[1];
-    if (!base64Payload) return null;
-    const inputBuffer = Buffer.from(base64Payload, 'base64');
-    const originalSizeKb = Math.round(inputBuffer.length / 1024);
-
-    const outputBuffer = await sharp(inputBuffer)
-      .resize({ width: 200, withoutEnlargement: true })
-      .jpeg({ quality: JPEG_QUALITY })
-      .toBuffer();
-
-    if (outputBuffer.length >= inputBuffer.length) return null; // pa gen benefis
-
-    const newSizeKb = Math.round(outputBuffer.length / 1024);
-    const savedPct = Math.round((1 - outputBuffer.length / inputBuffer.length) * 100);
-    console.log(`  ✅ ${label} — ${originalSizeKb}KB → ${newSizeKb}KB (${savedPct}% ekonomize)`);
-
-    return `data:image/jpeg;base64,${outputBuffer.toString('base64')}`;
-  } catch (err) {
-    console.error(`  ❌ ${label} — erè:`, err.message);
-    return null;
-  }
+  return {
+    newDataUri: `data:image/webp;base64,${outBuffer.toString('base64')}`,
+    originalBytes: inputBuffer.length,
+    compressedBytes: outBuffer.length,
+  };
 }
 
 async function main() {
-  console.log(DRY_RUN ? '🔍 MOD TÈS (--dry-run) — anyen p ap sove nan baz done a.\n' : '⚠️  MOD REYÈL — chanjman yo AP sove nan baz done a.\n');
-  if (ONLY) console.log(`👉 Sèlman: ${ONLY}\n`);
-  console.log('🗜️  Konprese ansyen foto yo — kòmanse...\n');
-  const startedAt = Date.now();
+  console.log('🔍 Chèche pwodui ki gen yon imaj base64...\n');
 
-  if (!ONLY || ONLY === 'tenants')  await compressTenantLogos();
-  if (!ONLY || ONLY === 'kane')     await compressKaneEpayPhotos();
-  if (!ONLY || ONLY === 'products') await compressProducts();
-  if (!ONLY || ONLY === 'quotes')   await compressDirectQuoteItems();
+  let cursor       = null;
+  let totalScanned = 0;
+  let totalSkipped = 0;
+  let totalFixed   = 0;
+  let totalErrors  = 0;
+  let bytesBefore  = 0;
+  let bytesAfter   = 0;
 
-  const elapsed = ((Date.now() - startedAt) / 1000).toFixed(1);
-  console.log(`\n🎉 Fini an ${elapsed}s.${DRY_RUN ? ' (Dry run — okenn chanjman pa fèt.)' : ''}`);
+  while (true) {
+    const products = await withRetry(
+      () => prisma.product.findMany({
+        where: {
+          imageUrl: { startsWith: 'data:' },
+        },
+        select: { id: true, name: true, tenantId: true, imageUrl: true },
+        orderBy: { id: 'asc' },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      }),
+      'SELECT pwodui'
+    );
+
+    if (products.length === 0) break;
+
+    for (const product of products) {
+      totalScanned++;
+      const approxKb = (product.imageUrl.length * 0.75) / 1024; // base64 → bytes apwoksimatif
+
+      if (approxKb < SKIP_THRESHOLD_KB) {
+        totalSkipped++;
+        continue;
+      }
+
+      try {
+        const result = await compressImageDataUri(product.imageUrl);
+        if (!result) { totalSkipped++; continue; }
+
+        const { newDataUri, originalBytes, compressedBytes } = result;
+
+        // ✅ Filè sekirite — si pou yon rezon konpresyon pa bay pi piti, pa touche done a
+        if (compressedBytes >= originalBytes) {
+          totalSkipped++;
+          continue;
+        }
+
+        await withRetry(
+          () => prisma.product.update({
+            where: { id: product.id },
+            data:  { imageUrl: newDataUri },
+          }),
+          `UPDATE pwodui ${product.id}`
+        );
+
+        bytesBefore += originalBytes;
+        bytesAfter  += compressedBytes;
+        totalFixed++;
+
+        console.log(
+          `✅ ${product.name || product.id} — ${kb(originalBytes)}KB → ${kb(compressedBytes)}KB`
+        );
+      } catch (err) {
+        totalErrors++;
+        console.error(`❌ Erè sou pwodui ${product.id} (${product.name || '—'}):`, err.message);
+      }
+    }
+
+    cursor = products[products.length - 1].id;
+  }
+
+  console.log('\n─────────────────────────────────────────');
+  console.log(`📊 Total eskane:     ${totalScanned}`);
+  console.log(`✅ Total korije:     ${totalFixed}`);
+  console.log(`⏭️  Total sote:       ${totalSkipped} (deja piti oswa SVG)`);
+  console.log(`❌ Total erè:        ${totalErrors}`);
+  if (totalFixed > 0) {
+    console.log(`💾 Egress sove:      ${kb(bytesBefore - bytesAfter)}KB (${kb(bytesBefore)}KB → ${kb(bytesAfter)}KB)`);
+  }
+  console.log('─────────────────────────────────────────\n');
+
   await prisma.$disconnect();
 }
 
 main().catch(async (err) => {
-  console.error('💥 Erè jeneral:', err);
+  console.error('💥 Erè fatal:', err);
   await prisma.$disconnect();
   process.exit(1);
 });

@@ -1,5 +1,35 @@
 // src/modules/products/product.service.js
 const prisma = require('../../config/prisma');
+// ⚠️ KORIJE EGRESS — `sharp` konprese imaj pwodui yo AVAN yo antre nan
+// baz done a (si l pa enstale: npm install sharp).
+const sharp  = require('sharp');
+
+// ⚠️ KORIJE EGRESS — `imageUrl` rive dirèkteman kòm yon base64 BRIT nan
+// `data.imageUrl` (frontend ankode l epi voye l nan JSON, pa Multer).
+// San konpresyon, yon sèl foto telefòn (2-5MB) te ka miltipliye pa 200
+// pwodui sou yon sèl paj (`GET /products?limit=200`) — sa egzakteman sa
+// ki te lakòz repons 26.8MB nou wè nan log Render yo, e menm yon rechèch
+// limite a 8 rezilta te ka fè 1.7MB. Fonksyon sa a rezize (max 600px lajè)
+// epi konvèti an WebP kalite 75% anvan nenpòt pwodui sove — menm apwòch
+// nou te itilize pou logo tenant la.
+async function compressImageDataUri(dataUri, { maxWidth = 600, quality = 75 } = {}) {
+  if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:')) return dataUri;
+  const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return dataUri;
+  const [, mimeType, base64Data] = match;
+  if (mimeType === 'image/svg+xml') return dataUri; // deja vektè, pa gen "poids" pou konprese
+  try {
+    const inputBuffer = Buffer.from(base64Data, 'base64');
+    const outBuffer = await sharp(inputBuffer)
+      .resize({ width: maxWidth, withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+    return `data:image/webp;base64,${outBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('[product] Erè konpresyon imaj:', err.message);
+    return dataUri; // ✅ filè sekirite — pa bloke kreyasyon/modifikasyon pwodui a
+  }
+}
 
 // ── GET ALL — default isActive=true si frontend pa pase parameter
 const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId, module }) => {
@@ -92,6 +122,9 @@ const create = async (tenantId, userId, data) => {
     if (exists) throw Object.assign(new Error('Kòd pwodui sa deja egziste.'), { statusCode: 409 });
   }
 
+  // ⚠️ KORIJE EGRESS — konprese/rezize AVAN nou sove.
+  const compressedImageUrl = await compressImageDataUri(data.imageUrl);
+
   const product = await prisma.product.create({
     data: {
       tenantId,
@@ -109,7 +142,7 @@ const create = async (tenantId, userId, data) => {
       costPriceHtg:   data.costPriceHtg || 0,
       quantity:       data.quantity || 0,
       alertThreshold: data.alertThreshold || 5,
-      imageUrl:       data.imageUrl,
+      imageUrl:       compressedImageUrl,
       isService:      data.isService || false,
       // ✅ NOUVO — "general" (pa defo) oswa "restaurant" pou Meni Restoran
       module:         data.module || 'general',
@@ -170,6 +203,11 @@ const update = async (tenantId, id, userId, data) => {
     if (dup) throw Object.assign(new Error('Kòd sa deja itilize.'), { statusCode: 409 });
   }
 
+  // ⚠️ KORIJE EGRESS — sèlman konprese si yon NOUVO imaj voye (data: URI).
+  // Si `imageUrl` pa chanje (frontend ka renvoye menm lyen/URL ki te deja
+  // konprese a), pa gen rezon pou re-konprese l ankò.
+  const compressedImageUrl = await compressImageDataUri(data.imageUrl);
+
   return prisma.product.update({
     where: { id },
     data: {
@@ -178,7 +216,7 @@ const update = async (tenantId, id, userId, data) => {
       categoryId: data.categoryId, unit: data.unit,
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
-      imageUrl: data.imageUrl, isService: data.isService, isActive: data.isActive,
+      imageUrl: compressedImageUrl, isService: data.isService, isActive: data.isActive,
       // ✅ NOUVO — modil (general/restaurant), sèlman si voye eksplisitman
       ...(('module' in data) && { module: data.module }),
       // ── Vant an gwo (bwat) — sèlman si frontend voye yo (pa kraze lòt apèl PUT) ──

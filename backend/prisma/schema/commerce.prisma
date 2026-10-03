@@ -20,50 +20,47 @@ model ProductCategory {
 }
 
 model Product {
-  id                String             @id @default(uuid())
-  tenantId          String             @map("tenant_id")
-  categoryId        String?            @map("category_id")
-  code              String?            @db.VarChar(100)
-  name              String             @db.VarChar(200)
-  nameFr            String?            @map("name_fr") @db.VarChar(200)
-  nameEn            String?            @map("name_en") @db.VarChar(200)
-  description       String?
-  unit              String             @default("unité") @db.VarChar(50)
-  priceHtg          Decimal            @default(0) @map("price_htg") @db.Decimal(12, 2)
-  priceUsd          Decimal            @default(0) @map("price_usd") @db.Decimal(12, 2)
-  costPriceHtg      Decimal            @default(0) @map("cost_price_htg") @db.Decimal(12, 2)
-  quantity          Decimal            @default(0) @db.Decimal(12, 3)
-  alertThreshold    Decimal            @default(5) @map("alert_threshold") @db.Decimal(12, 3)
-  imageUrl          String?            @map("image_url")
-  isActive          Boolean            @default(true) @map("is_active")
-  isService         Boolean            @default(false) @map("is_service")
-  createdBy         String?            @map("created_by")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  updatedAt         DateTime           @updatedAt @map("updated_at")
-  branchId          String?            @map("branch_id")
-  packLabel         String?            @map("pack_label")
-  packSize          Int?               @map("pack_size")
-  packPriceHtg      Decimal?           @map("pack_price_htg") @db.Decimal(12, 2)
-  module            String             @default("general") @map("module") @db.VarChar(20)
-  wholesaleMinQty   Int?               @map("wholesale_min_qty")
-  wholesalePriceHtg Decimal?           @map("wholesale_price_htg") @db.Decimal(12, 2)
-  wholesalePriceUsd Decimal?           @map("wholesale_price_usd") @db.Decimal(12, 2)
-  hotelServices     HotelService[]
-  invoiceItems      InvoiceItem[]
-  priceTiers        ProductPriceTier[]
-  // ✅ NOUVO — Founisè: achte ki afekte pwodwi sa a (mete kantite estòk +
-  // pri kout otomatikman lè yo anrejistre)
-  pgAchte           pg_achte[]
-  // ✅ NOUVO — Kontwòl Estòk: istorik konte fizik pou pwodwi sa a
-  pgEstokKontwol    pg_estok_kontwol[]
-  // ✅ NOUVO — Restoran: liy kòmand ki mansyone pwodwi sa a
-  restaurantOrderItems RestaurantOrderItem[]
-  branch            Branch?            @relation(fields: [branchId], references: [id], onUpdate: NoAction)
-  category          ProductCategory?   @relation(fields: [categoryId], references: [id])
-  creator           User?              @relation(fields: [createdBy], references: [id])
-  tenant            Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  quoteItems        QuoteItem[]
-  stockMovements    StockMovement[]
+  id                     String                   @id @default(uuid())
+  tenantId               String                   @map("tenant_id")
+  categoryId             String?                  @map("category_id")
+  code                   String?                  @db.VarChar(100)
+  name                   String                   @db.VarChar(200)
+  nameFr                 String?                  @map("name_fr") @db.VarChar(200)
+  nameEn                 String?                  @map("name_en") @db.VarChar(200)
+  description            String?
+  unit                   String                   @default("unité") @db.VarChar(50)
+  priceHtg               Decimal                  @default(0) @map("price_htg") @db.Decimal(12, 2)
+  priceUsd               Decimal                  @default(0) @map("price_usd") @db.Decimal(12, 2)
+  costPriceHtg           Decimal                  @default(0) @map("cost_price_htg") @db.Decimal(12, 2)
+  quantity               Decimal                  @default(0) @db.Decimal(12, 3)
+  alertThreshold         Decimal                  @default(5) @map("alert_threshold") @db.Decimal(12, 3)
+  imageUrl               String?                  @map("image_url")
+  thumbnailUrl           String?                  @map("thumbnail_url")
+  isActive               Boolean                  @default(true) @map("is_active")
+  isService              Boolean                  @default(false) @map("is_service")
+  createdBy              String?                  @map("created_by")
+  createdAt              DateTime                 @default(now()) @map("created_at")
+  updatedAt              DateTime                 @updatedAt @map("updated_at")
+  branchId               String?                  @map("branch_id")
+  packLabel              String?                  @map("pack_label")
+  packSize               Int?                     @map("pack_size")
+  packPriceHtg           Decimal?                 @map("pack_price_htg") @db.Decimal(12, 2)
+  module                 String                   @default("general") @map("module") @db.VarChar(20)
+  wholesaleMinQty        Int?                     @map("wholesale_min_qty")
+  wholesalePriceHtg      Decimal?                 @map("wholesale_price_htg") @db.Decimal(12, 2)
+  wholesalePriceUsd      Decimal?                 @map("wholesale_price_usd") @db.Decimal(12, 2)
+  hotelServices          HotelService[]
+  invoiceItems           InvoiceItem[]
+  pgAchte                pg_achte[]
+  pgEstokKontwol         pg_estok_kontwol[]
+  priceTiers             ProductPriceTier[]
+  branch                 Branch?                  @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  category               ProductCategory?         @relation(fields: [categoryId], references: [id])
+  creator                User?                    @relation(fields: [createdBy], references: [id])
+  tenant                 Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  quoteItems             QuoteItem[]
+  restaurantOrderItems   RestaurantOrderItem[]
+  stockMovements         StockMovement[]
 
   @@unique([tenantId, code])
   @@index([branchId])
@@ -78,13 +75,9 @@ model ProductPriceTier {
   minQty        Int      @map("min_qty")
   priceHtg      Decimal  @map("price_htg") @db.Decimal(12, 2)
   priceUsd      Decimal? @map("price_usd") @db.Decimal(12, 2)
-  // ✅ NOUVO — Pri TOTAL pou tout pakè a (egz. 1750 pou yon pake 3), sove
-  // tèl kèl san divizyon. Sa pèmèt fakti/devi kalkile total la dirèkteman
-  // ak pri sa a (kantite egzat) olye de miltipliye priceHtg (ki awondi a 2
-  // chif) — sa evite erè tankou 3 × 583.33 = 1749.99 olye 1750.00 net.
-  totalPriceHtg Decimal? @map("total_price_htg") @db.Decimal(12, 2)
   label         String?  @db.VarChar(50)
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  totalPriceHtg Decimal? @map("total_price_htg") @db.Decimal(12, 2)
   product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([productId, minQty], map: "idx_price_tiers_product")
@@ -182,16 +175,12 @@ model QuoteItem {
   unitPriceHtg    Decimal  @map("unit_price_htg") @db.Decimal(12, 2)
   unitPriceUsd    Decimal  @map("unit_price_usd") @db.Decimal(12, 2)
   discountPct     Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
-  // ✅ NOUVO — montan rabè a an HTG, sove TÈL KÈL (pa yon pousantaj kalkile).
-  // Menm bug ak pri an gwo yo (deja korije ak totalPriceHtg): si nou sove
-  // sèlman yon pousantaj awondi a 2 chif, rekonstwi 1500 goud apati l pa
-  // janm tonbe sou 1500 net ankò. Kounye a nou sove valè EGZAK la.
-  discountAmt     Decimal  @default(0) @map("discount_amt") @db.Decimal(12, 2)
   totalHtg        Decimal  @map("total_htg") @db.Decimal(14, 2)
   totalUsd        Decimal  @map("total_usd") @db.Decimal(14, 2)
   sortOrder       Int      @default(0) @map("sort_order")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
+  discountAmt     Decimal  @default(0) @map("discount_amt") @db.Decimal(12, 2)
   product         Product? @relation(fields: [productId], references: [id])
   quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -265,8 +254,6 @@ model InvoiceItem {
   unitPriceHtg    Decimal  @map("unit_price_htg") @db.Decimal(12, 2)
   unitPriceUsd    Decimal  @map("unit_price_usd") @db.Decimal(12, 2)
   discountPct     Decimal  @default(0) @map("discount_pct") @db.Decimal(5, 2)
-  // ✅ NOUVO — menm rezon ak QuoteItem: sove montan rabè a an HTG tèl kèl
-  discountAmt     Decimal  @default(0) @map("discount_amt") @db.Decimal(12, 2)
   totalHtg        Decimal  @map("total_htg") @db.Decimal(14, 2)
   totalUsd        Decimal  @map("total_usd") @db.Decimal(14, 2)
   stockBefore     Decimal? @map("stock_before") @db.Decimal(12, 3)
@@ -274,6 +261,7 @@ model InvoiceItem {
   sortOrder       Int      @default(0) @map("sort_order")
   notes           String?
   createdAt       DateTime @default(now()) @map("created_at")
+  discountAmt     Decimal  @default(0) @map("discount_amt") @db.Decimal(12, 2)
   invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   product         Product? @relation(fields: [productId], references: [id])
   tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
