@@ -108,6 +108,13 @@ async function getPlans(tenantId, branchId, params = {}) {
     ...(status   && { status }),
     ...(search   && { name: { contains: search, mode: 'insensitive' } }),
   }
+  // ⚠️ KORIJE EGRESS — sa a se sous 623.6KB `/api/sabotay/plans` la. Avan,
+  // nou te chaje 6 chan (`id, dueDate, paidDate, amount, timing, fineAmt`)
+  // pou CHAK peman CHAK manm aktif nan CHAK plan — men pi ba a (liy ~146),
+  // transfòmasyon an itilize SÈLMAN `dueDate` ak `timing` pou bati
+  // `payments`/`paymentTimings` (yon bolean pou chak dat). Lòt 4 chan yo
+  // (id, paidDate, amount, fineAmt) te chaje pou granmesi — menm fix ki te
+  // fèt deja nan sol.routes.js (PAYMENT_SELECT_MINIMAL).
   const [plans, total] = await Promise.all([
     prisma.sabotayPlan.findMany({
       where,
@@ -116,7 +123,7 @@ async function getPlans(tenantId, branchId, params = {}) {
         _count:  { select: { members: true, payments: true } },
         members: {
           where:   { isActive: true },
-          include: { payments: { select: { id: true, dueDate: true, paidDate: true, amount: true, timing: true, fineAmt: true } } },
+          include: { payments: { select: { dueDate: true, timing: true } } },
           orderBy: { position: 'asc' },
         },
       },

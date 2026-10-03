@@ -116,9 +116,12 @@ router.post('/auth/login', async (req, res) => {
       }
     }
 
+    // ⚠️ KORIJE EGRESS — sa a se sous 1160.8KB `/sol/auth/login` a. `logoUrl`
+    // se yon imaj brit ki ka fè plizyè santèn KB; menm fix ki te fèt deja
+    // nan `/api/v1/auth/login` prensipal la (auth.service.js).
     const tenant = await prisma.tenant.findUnique({
       where: { id: matchedAccount.tenantId },
-      select: { id: true, name: true, phone: true, address: true, logoUrl: true }
+      select: { id: true, name: true, phone: true, address: true }
     })
     const token = jwt.sign(
       { role: 'sol_member', accountId: matchedAccount.id, memberId: matchedAccount.memberId, planId: matchedAccount.planId, tenantId: matchedAccount.tenantId },
@@ -187,17 +190,38 @@ async function buildPlanData(account, memberId) {
   // ✅ FIX: konpare nimewo yo NÒMALIZE (san espas/tirè/parantèz) pou pa rate
   // "men" ki gen menm moun men fòma telefòn diferan.
   const normTarget = normalizePhone(sabotayMember.phone)
-  const planCandidates = await prisma.sabotayMember.findMany({
-    where: {
-      planId: sabotayMember.planId,
-      ...(isClosed ? {} : { isActive: true })
-    },
-    include: { payments: { select: PAYMENT_SELECT_MINIMAL, orderBy: { dueDate: 'asc' } } },
-    orderBy: { position: 'asc' }
-  })
-  const allSlots = normTarget
-    ? planCandidates.filter(m => normalizePhone(m.phone) === normTarget)
-    : [sabotayMember]
+
+  // ⚠️ KORIJE EGRESS — sa a se sous 5.8MB `/sol/members/me` a. AVAN, nou te
+  // chaje TOUT istwa peman TOUT manm aktif nan plan an (`include: payments`)
+  // epi SÈLMAN APRE sa filtre pa telefòn nan JavaScript — pou yon plan ki
+  // gen anpil manm ak anpil istwa peman, sa te chaje done pou granmesi pou
+  // tout manm ki PA menm "men" a. Kounye a nou fè yon PREMYE rekèt LEJE
+  // (san peman) sèlman pou idantifye ki manm ki gen menm telefòn, epi yon
+  // DEZYÈM rekèt ki chaje peman SÈLMAN pou moun sa yo.
+  let allSlots
+  if (normTarget) {
+    const planCandidatesBasic = await prisma.sabotayMember.findMany({
+      where: {
+        planId: sabotayMember.planId,
+        ...(isClosed ? {} : { isActive: true })
+      },
+      select: { id: true, phone: true },
+      orderBy: { position: 'asc' }
+    })
+    const matchedIds = planCandidatesBasic
+      .filter(m => normalizePhone(m.phone) === normTarget)
+      .map(m => m.id)
+
+    allSlots = matchedIds.length
+      ? await prisma.sabotayMember.findMany({
+          where: { id: { in: matchedIds } },
+          include: { payments: { select: PAYMENT_SELECT_MINIMAL, orderBy: { dueDate: 'asc' } } },
+          orderBy: { position: 'asc' }
+        })
+      : [sabotayMember]
+  } else {
+    allSlots = [sabotayMember]
+  }
 
   const activeMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) }
@@ -277,9 +301,13 @@ router.get('/members/me', authMember, async (req, res) => {
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
     if (!account.memberId) return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
 
+    // ⚠️ KORIJE EGRESS — menm pwoblèm `logoUrl` a, men isit la l te menm
+    // ANVLOPE: fonksyon sa a rele yon fwa pou chak plan/kont (allPlansData),
+    // epi `tenantFormatted` an te kopye nan CHAK antre nan `plans: [...]` —
+    // sa vle di menm logo a te double/triple/kat fwa nan menm repons lan.
     const tenant = await prisma.tenant.findUnique({
       where: { id: account.tenantId },
-      select: { id: true, name: true, phone: true, address: true, logoUrl: true }
+      select: { id: true, name: true, phone: true, address: true }
     })
     const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
 
