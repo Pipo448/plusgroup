@@ -31,6 +31,29 @@ async function compressImageDataUri(dataUri, { maxWidth = 600, quality = 75 } = 
   }
 }
 
+// ⚠️ KORIJE EGRESS — ti vèsyon TRÈ piti (100px, 60% kalite) pou lis/griy
+// pwodui yo. Paj lis la montre yon imaj ~64px — pa gen rezon pou l resevwa
+// vèsyon 600px "konplè" a. Sa redwi anpil egrès Supabase sou
+// `GET /products` ki se youn nan apèl ki pi souvan rele yo.
+async function compressThumbnailDataUri(dataUri, { maxWidth = 100, quality = 60 } = {}) {
+  if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:')) return dataUri;
+  const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return dataUri;
+  const [, mimeType, base64Data] = match;
+  if (mimeType === 'image/svg+xml') return dataUri;
+  try {
+    const inputBuffer = Buffer.from(base64Data, 'base64');
+    const outBuffer = await sharp(inputBuffer)
+      .resize({ width: maxWidth, withoutEnlargement: true })
+      .webp({ quality })
+      .toBuffer();
+    return `data:image/webp;base64,${outBuffer.toString('base64')}`;
+  } catch (err) {
+    console.error('[product] Erè konpresyon thumbnail:', err.message);
+    return null; // pa gen filè sekirite isit la — si l echwe, pa gen thumbnail, imageUrl rete sous verite a
+  }
+}
+
 // ── GET ALL — default isActive=true si frontend pa pase parameter
 const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit = 20, sortBy = 'name', sortOrder = 'asc', branchId, module }) => {
   const where = {
@@ -52,9 +75,14 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
     ...(module && { module }),
   };
 
-  const [products, total] = await Promise.all([
+  const [rawProducts, total] = await Promise.all([
     prisma.product.findMany({
       where,
+      // ⚠️ KORIJE EGRESS — eskli `imageUrl` (gwo) dirèkteman nan nivo Prisma/DB.
+      // Egrès Supabase konte sou transfè Postgres → backend, kidonk retire
+      // chan an APRE query a fin kouri pa t ap sove anyen; `omit` anpeche
+      // Postgres menm voye done sa a bay backend la.
+      omit: { imageUrl: true },
       include: {
         category: { select: { id: true, name: true, nameFr: true, color: true } },
         // ✅ NOUVO — nivo pri an gwo, triye pa sèy kantite pou frontend afiche yo nan lòd
@@ -66,6 +94,14 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
     }),
     prisma.product.count({ where })
   ]);
+
+  // ⚠️ KORIJE EGRESS — frontend kontinye li `product.imageUrl` nòmalman; isit
+  // la nou ranpli `imageUrl` ak ti thumbnail la (pa gwo vèsyon an) pou lis la.
+  // Zewo chanjman nesesè sou frontend.
+  const products = rawProducts.map(({ thumbnailUrl, ...p }) => ({
+    ...p,
+    imageUrl: thumbnailUrl || null,
+  }));
 
   return { products, total, page: Number(page), limit: Number(limit), pages: Math.ceil(total / limit) };
 };
@@ -122,8 +158,10 @@ const create = async (tenantId, userId, data) => {
     if (exists) throw Object.assign(new Error('Kòd pwodui sa deja egziste.'), { statusCode: 409 });
   }
 
-  // ⚠️ KORIJE EGRESS — konprese/rezize AVAN nou sove.
-  const compressedImageUrl = await compressImageDataUri(data.imageUrl);
+  // ⚠️ KORIJE EGRESS — konprese/rezize AVAN nou sove. Nou kreye 2 vèsyon:
+  // youn gwo (pou paj detay/edisyon) e youn ti piti (pou lis/griy).
+  const compressedImageUrl     = await compressImageDataUri(data.imageUrl);
+  const compressedThumbnailUrl = await compressThumbnailDataUri(data.imageUrl);
 
   const product = await prisma.product.create({
     data: {
@@ -143,6 +181,7 @@ const create = async (tenantId, userId, data) => {
       quantity:       data.quantity || 0,
       alertThreshold: data.alertThreshold || 5,
       imageUrl:       compressedImageUrl,
+      thumbnailUrl:   compressedThumbnailUrl,
       isService:      data.isService || false,
       // ✅ NOUVO — "general" (pa defo) oswa "restaurant" pou Meni Restoran
       module:         data.module || 'general',
@@ -206,7 +245,8 @@ const update = async (tenantId, id, userId, data) => {
   // ⚠️ KORIJE EGRESS — sèlman konprese si yon NOUVO imaj voye (data: URI).
   // Si `imageUrl` pa chanje (frontend ka renvoye menm lyen/URL ki te deja
   // konprese a), pa gen rezon pou re-konprese l ankò.
-  const compressedImageUrl = await compressImageDataUri(data.imageUrl);
+  const compressedImageUrl     = await compressImageDataUri(data.imageUrl);
+  const compressedThumbnailUrl = await compressThumbnailDataUri(data.imageUrl);
 
   return prisma.product.update({
     where: { id },
@@ -216,7 +256,8 @@ const update = async (tenantId, id, userId, data) => {
       categoryId: data.categoryId, unit: data.unit,
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
-      imageUrl: compressedImageUrl, isService: data.isService, isActive: data.isActive,
+      imageUrl: compressedImageUrl, thumbnailUrl: compressedThumbnailUrl,
+      isService: data.isService, isActive: data.isActive,
       // ✅ NOUVO — modil (general/restaurant), sèlman si voye eksplisitman
       ...(('module' in data) && { module: data.module }),
       // ── Vant an gwo (bwat) — sèlman si frontend voye yo (pa kraze lòt apèl PUT) ──
@@ -304,7 +345,7 @@ const remove = async (tenantId, id) => {
 
 // ── LOW STOCK
 const getLowStock = async (tenantId, branchId, module) => {
-  return prisma.product.findMany({
+  const rawProducts = await prisma.product.findMany({
     where: {
       tenantId,
       ...(branchId && { branchId }),
@@ -313,9 +354,17 @@ const getLowStock = async (tenantId, branchId, module) => {
       isService: false,
       quantity:  { lte: prisma.product.fields.alertThreshold }
     },
+    // ⚠️ KORIJE EGRESS — menm apwòch ak getAll(): eskli `imageUrl` gwo a,
+    // sèvi ak thumbnail la nan plas li.
+    omit: { imageUrl: true },
     include: { category: { select: { id: true, name: true } } },
     orderBy: { quantity: 'asc' }
   });
+
+  return rawProducts.map(({ thumbnailUrl, ...p }) => ({
+    ...p,
+    imageUrl: thumbnailUrl || null,
+  }));
 };
 
 // ── CATEGORIES
