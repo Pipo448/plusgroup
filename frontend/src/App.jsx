@@ -68,6 +68,13 @@ const MikwoKrediProfit = lazy(() => import('./pages/enterprise/mikwo-kredi/Mikwo
 const AdminFinancesPage = lazy(() => import('./pages/enterprise/AdminFinancesPage'))
 // ⚠️ NOUVO — Dashboard Ajan (pwoteje, lazy tankou lòt dashboard yo)
 const AgentDashboardPage = lazy(() => import('./pages/agent/AgentDashboardPage'))
+// ✅ NOUVO — Modil Jim/Gym
+const GymDashboard       = lazy(() => import('./pages/gym/GymDashboard'))
+const GymMembersPage     = lazy(() => import('./pages/gym/GymMembersPage'))
+const GymMemberDetail    = lazy(() => import('./pages/gym/GymMemberDetail'))
+const GymCheckInPage     = lazy(() => import('./pages/gym/GymCheckInPage'))
+const GymClassesPage     = lazy(() => import('./pages/gym/GymClassesPage'))
+const GymPlansPage       = lazy(() => import('./pages/gym/GymPlansPage'))
 
 // ✅ NOUVO — Paj piblik pwoforma (san otorizasyon, lyen pataje 24è)
 const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
@@ -190,6 +197,14 @@ export default function App() {
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
             <Route path="dry/:id" element={<ProtectedPage pageKey="dry"><DryOrderDetail /></ProtectedPage>} />
+
+            {/* ✅ NOUVO — Modil Jim/Gym */}
+            <Route path="gym"              element={<ProtectedPage pageKey="gym"><GymDashboard /></ProtectedPage>} />
+            <Route path="gym/members"      element={<ProtectedPage pageKey="gym"><GymMembersPage /></ProtectedPage>} />
+            <Route path="gym/members/:id"  element={<ProtectedPage pageKey="gym"><GymMemberDetail /></ProtectedPage>} />
+            <Route path="gym/check-in"     element={<ProtectedPage pageKey="gym"><GymCheckInPage /></ProtectedPage>} />
+            <Route path="gym/classes"      element={<ProtectedPage pageKey="gym"><GymClassesPage /></ProtectedPage>} />
+            <Route path="gym/plans"        element={<ProtectedPage pageKey="gym"><GymPlansPage /></ProtectedPage>} />
 
             {/* ✅ RH & Finans — ANDEDAN /app */}
             <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />

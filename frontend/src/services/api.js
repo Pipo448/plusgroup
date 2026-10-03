@@ -248,12 +248,12 @@ export const internetAPI = {
   updateClient:  (id, data) => api.put(`/internet/clients/${id}`, data),
   deleteClient:  (id)       => api.delete(`/internet/clients/${id}`),
   renewClient:   (data)     => api.post('/internet/renew', data),
- 
+
   // ── Mikrotik config ───────────────────────────────────
   getMikrotikConfig:    ()     => api.get('/internet/mikrotik-config'),
   saveMikrotikConfig:   (data) => api.post('/internet/mikrotik-config', data),
   testMikrotikConfig:   ()     => api.post('/internet/mikrotik-config/test'),
- 
+
   // ── Peman ─────────────────────────────────────────────
   getPayments: (p) => api.get('/internet/admin/payments', { params: p }),
 }
@@ -306,6 +306,47 @@ export const restaurantTablesAPI = {
   closeOrder:     (orderId, invoiceId) => api.post(`/restaurant-tables/orders/${orderId}/close`, { invoiceId }),
   cancelOrder:    (orderId)      => api.post(`/restaurant-tables/orders/${orderId}/cancel`),
 }
- 
+
+// ✅ NOUVO — Modil Jim/Gym
+export const gymAPI = {
+  // ── Stats ────────────────────────────────────────────
+  getStats: () => api.get('/gym/stats'),
+
+  // ── Plans (abònman) ──────────────────────────────────
+  getPlans:    ()         => api.get('/gym/plans'),
+  createPlan:  (data)     => api.post('/gym/plans', data),
+  updatePlan:  (id, data) => api.patch(`/gym/plans/${id}`, data),
+  deletePlan:  (id)       => api.delete(`/gym/plans/${id}`),
+
+  // ── Members ──────────────────────────────────────────
+  getMembers:  (p)        => api.get('/gym/members', { params: p }),
+  getMember:   (id)       => api.get(`/gym/members/${id}`),
+  addMember:   (data)     => api.post('/gym/members', data),
+  updateMember: (id, data) => api.patch(`/gym/members/${id}`, data),
+  removeMember: (id)      => api.delete(`/gym/members/${id}`),
+
+  // ── Memberships (achte/renouvle abònman) ────────────
+  getMemberships:    (memberId)       => api.get(`/gym/members/${memberId}/memberships`),
+  createMembership:  (memberId, data) => api.post(`/gym/members/${memberId}/memberships`, data),
+  cancelMembership:  (membershipId)   => api.patch(`/gym/memberships/${membershipId}/cancel`),
+
+  // ── Check-in ─────────────────────────────────────────
+  getCheckIns: (p)                 => api.get('/gym/check-ins', { params: p }),
+  checkIn:     (memberId, data)    => api.post(`/gym/members/${memberId}/check-in`, data),
+  checkOut:    (checkInId)         => api.patch(`/gym/check-ins/${checkInId}/check-out`),
+
+  // ── Payments / Kès ───────────────────────────────────
+  getPayments: (p)                 => api.get('/gym/payments', { params: p }),
+  addPayment:  (memberId, data)    => api.post(`/gym/members/${memberId}/payments`, data),
+
+  // ── Classes & Trainers (klas & antrenè) ─────────────
+  getClasses:      ()             => api.get('/gym/classes'),
+  createClass:     (data)         => api.post('/gym/classes', data),
+  updateClass:     (id, data)     => api.patch(`/gym/classes/${id}`, data),
+  deleteClass:     (id)           => api.delete(`/gym/classes/${id}`),
+  getClassMembers: (id)           => api.get(`/gym/classes/${id}/members`),
+  enrollMember:    (id, memberId) => api.post(`/gym/classes/${id}/enroll`, { memberId }),
+  unenrollMember:  (id, memberId) => api.delete(`/gym/classes/${id}/members/${memberId}`),
+}
 
 export default api
