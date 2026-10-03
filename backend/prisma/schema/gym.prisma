@@ -1,0 +1,167 @@
+// backend/prisma/schema/gym.prisma
+// ✅ NOUVO — Modil Jim/Gym: jesyon manm, abònman, check-in, peman, klas & antrenè.
+// Swiv menm patwon ak hotel.prisma / sabotay.prisma (scoped pa tenantId, branchId optional).
+
+enum GymMembershipStatus {
+  active
+  expired
+  cancelled
+}
+
+enum GymPaymentMethod {
+  cash
+  moncash
+  natcash
+  card
+  bank
+}
+
+model GymPlan {
+  id           String          @id @default(uuid())
+  tenantId     String          @map("tenant_id")
+  branchId     String?         @map("branch_id")
+  name         String          @db.VarChar(100)      // "Mansyèl", "Trimès", "Anyèl"
+  durationDays Int             @map("duration_days")  // 30, 90, 365...
+  priceHtg     Decimal         @map("price_htg") @db.Decimal(12, 2)
+  priceUsd     Decimal         @default(0) @map("price_usd") @db.Decimal(12, 2)
+  isActive     Boolean         @default(true) @map("is_active")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch?         @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  memberships  GymMembership[]
+
+  @@index([tenantId])
+  @@map("gym_plans")
+}
+
+model GymMember {
+  id               String               @id @default(uuid())
+  tenantId         String               @map("tenant_id")
+  branchId         String?              @map("branch_id")
+  fullName         String               @map("full_name") @db.VarChar(150)
+  phone            String?              @db.VarChar(30)
+  email            String?              @db.VarChar(150)
+  photoUrl         String?              @map("photo_url")
+  birthDate        DateTime?            @map("birth_date") @db.Date
+  address          String?
+  emergencyContact String?              @map("emergency_contact") @db.VarChar(150)
+  emergencyPhone   String?              @map("emergency_phone") @db.VarChar(30)
+  isActive         Boolean              @default(true) @map("is_active")
+  joinedAt         DateTime             @default(now()) @map("joined_at")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  tenant           Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch?              @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  memberships      GymMembership[]
+  checkIns         GymCheckIn[]
+  payments         GymPayment[]
+  classEnrollments GymClassEnrollment[]
+
+  @@index([tenantId])
+  @@index([branchId])
+  @@map("gym_members")
+}
+
+// Istwa abònman (chak fwa yon manm achte/renouvle yon plan)
+model GymMembership {
+  id         String              @id @default(uuid())
+  tenantId   String              @map("tenant_id")
+  memberId   String              @map("member_id")
+  planId     String?             @map("plan_id")      // null si se peman pa vizit
+  startDate  DateTime            @map("start_date") @db.Date
+  endDate    DateTime?           @map("end_date") @db.Date
+  priceHtg   Decimal             @map("price_htg") @db.Decimal(12, 2)
+  status     GymMembershipStatus @default(active)
+  notes      String?
+  createdBy  String?             @map("created_by")
+  createdAt  DateTime            @default(now()) @map("created_at")
+  updatedAt  DateTime            @updatedAt @map("updated_at")
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member     GymMember           @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  plan       GymPlan?            @relation(fields: [planId], references: [id])
+  creator    User?               @relation("GymMembershipCreatedBy", fields: [createdBy], references: [id])
+  payments   GymPayment[]
+
+  @@index([tenantId])
+  @@index([memberId])
+  @@map("gym_memberships")
+}
+
+// Chak antre nan jim lan (check-in)
+model GymCheckIn {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  branchId   String?   @map("branch_id")
+  memberId   String    @map("member_id")
+  checkInAt  DateTime  @default(now()) @map("check_in_at") @db.Timestamptz(6)
+  checkOutAt DateTime? @map("check_out_at") @db.Timestamptz(6)
+  method     String    @default("manual") @db.VarChar(20)   // manual | qr | card
+  createdBy  String?   @map("created_by")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch?   @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  member     GymMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  creator    User?     @relation("GymCheckInCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([tenantId])
+  @@index([memberId])
+  @@index([checkInAt])
+  @@map("gym_check_ins")
+}
+
+model GymPayment {
+  id           String           @id @default(uuid())
+  tenantId     String           @map("tenant_id")
+  memberId     String           @map("member_id")
+  membershipId String?          @map("membership_id")
+  amountHtg    Decimal          @map("amount_htg") @db.Decimal(14, 2)
+  method       GymPaymentMethod @default(cash)
+  type         String           @default("membership") @db.VarChar(20)  // membership | visit | other
+  reference    String?          @db.VarChar(200)
+  notes        String?
+  createdBy    String?          @map("created_by")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  member       GymMember        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membership   GymMembership?   @relation(fields: [membershipId], references: [id])
+  creator      User?            @relation("GymPaymentCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([tenantId])
+  @@index([memberId])
+  @@map("gym_payments")
+}
+
+// Klas ak antrenè
+model GymClass {
+  id          String               @id @default(uuid())
+  tenantId    String               @map("tenant_id")
+  branchId    String?              @map("branch_id")
+  name        String               @db.VarChar(100)   // "Yoga", "CrossFit"...
+  trainerName String               @map("trainer_name") @db.VarChar(150)
+  schedule    Json                 @default("[]")      // [{day:"lundi", start:"18:00", end:"19:00"}]
+  capacity    Int?
+  isActive    Boolean              @default(true) @map("is_active")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  tenant      Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch      Branch?              @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  enrollments GymClassEnrollment[]
+
+  @@index([tenantId])
+  @@map("gym_classes")
+}
+
+model GymClassEnrollment {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  classId    String    @map("class_id")
+  memberId   String    @map("member_id")
+  enrolledAt DateTime  @default(now()) @map("enrolled_at")
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  class      GymClass  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  member     GymMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, memberId])
+  @@index([tenantId])
+  @@map("gym_class_enrollments")
+}

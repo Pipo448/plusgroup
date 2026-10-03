@@ -182,6 +182,14 @@ model Tenant {
   epayJounalyeContracts  EpayJounalyeContract[]
   epayJounalyePayments   EpayJounalyePayment[]
   epayJounalyeSettings   EpayJounalyeSettings?
+  // ✅ NOUVO — Modil Jim/Gym
+  gymPlans               GymPlan[]
+  gymMembers             GymMember[]
+  gymMemberships         GymMembership[]
+  gymCheckIns            GymCheckIn[]
+  gymPayments            GymPayment[]
+  gymClasses             GymClass[]
+  gymClassEnrollments    GymClassEnrollment[]
   hotelPayments          HotelPayment[]
   hotelServices          HotelService[]
   invoiceItems           InvoiceItem[]
@@ -274,6 +282,11 @@ model Branch {
   directQuotes          DirectQuote[]
   dryOrders             DryOrder[]
   epayJounalyeContracts EpayJounalyeContract[]
+  // ✅ NOUVO — Modil Jim/Gym
+  gymPlans              GymPlan[]
+  gymMembers            GymMember[]
+  gymCheckIns           GymCheckIn[]
+  gymClasses            GymClass[]
   invoices              Invoice[]
   kaneAccounts          KaneEpay[]
   prets                 Pre[]
@@ -340,6 +353,10 @@ model User {
   dryPaymentsCreated           DryPayment[]           @relation("DryPaymentCreatedBy")
   epayJounalyeContractsCreated EpayJounalyeContract[] @relation("EpayJounalyeCreatedBy")
   epayJounalyePaymentsCreated  EpayJounalyePayment[]  @relation("EpayJounalyePaymentCreatedBy")
+  // ✅ NOUVO — Modil Jim/Gym
+  gymMembershipsCreated        GymMembership[]        @relation("GymMembershipCreatedBy")
+  gymCheckInsCreated           GymCheckIn[]           @relation("GymCheckInCreatedBy")
+  gymPaymentsCreated           GymPayment[]           @relation("GymPaymentCreatedBy")
   hotelPaymentsCreated         HotelPayment[]         @relation("HotelPaymentCreatedBy")
   hotelServicesCreated         HotelService[]         @relation("HotelServiceCreatedBy")
   invoicesCancelled            Invoice[]              @relation("InvoiceCancelledBy")
@@ -369,8 +386,8 @@ model User {
   sabotayMembersCreated        SabotayMember[]        @relation("SabotayMemberCreatedBy")
   sabotayPaymentsCreated       SabotayPayment[]       @relation("SabotayPaymentCreatedBy")
   sabotayPlansCreated          SabotayPlan[]          @relation("SabotayPlanCreatedBy")
-  stockMovements               StockMovement[]
-  tenant                       Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stockMovements                StockMovement[]
+  tenant                        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, email])
   @@map("users")
