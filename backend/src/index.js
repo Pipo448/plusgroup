@@ -67,6 +67,8 @@ const kesSesyonRoutes     = require('./modules/kes-sesyon/kes-sesyon.routes')
 const estokKontwolRoutes  = require('./modules/estok-kontwol/estok-kontwol.routes')
 // ✅ NOUVO — Restoran: tab ak kòmand louvri
 const restaurantTablesRoutes = require('./modules/restaurant-tables/restaurant-tables.routes')
+// ✅ NOUVO — Modil Jim/Gym
+const gymRoutes = require('./routes/gym.routes')
 
 // ✅ Scheduler — cron jobs (Sabotay Sol reminders)
 const { startScheduler } = require('./jobs/scheduler')
@@ -217,6 +219,8 @@ app.use(`${API}/admin-finances`, adminFinRoutes);
 app.use(`${API}/agents`, agentRoutes);
 // ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik)
 app.use(`${API}/public`, publicSignupRoutes);
+// ✅ NOUVO — Modil Jim/Gym
+app.use(`${API}/gym`, gymRoutes);
 
 // ✅ SABOTAY
 app.use(`${API}/sabotay`,       sabotayRoutes);
