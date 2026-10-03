@@ -40,7 +40,9 @@ function buildPaymentMaps(sabotayPayments) {
       // ki panel admin lan itilize a). Rekalkile ak yon fonksyon lokal senplifye
       // te bay move kategori ki pa t matche SCORE_POINTS, donk peman yo te
       // disparèt san yo pa konte nan skò a.
-      paymentTimings[dateKey] = p.timing || computeTiming(p.dueDate, p.paidDate || p.paidAt || p.dueDate)
+      // ⚠️ KORIJE — chan an nan schema a rele `paid_at` (pa `paidAt`); ansyen
+      // non an te lakòz `PrismaClientValidationError` sou CHAK apèl /members/me.
+      paymentTimings[dateKey] = p.timing || computeTiming(p.dueDate, p.paidDate || p.paid_at || p.dueDate)
     } catch(_) {}
   }
   return { payments, paymentTimings }
@@ -161,9 +163,13 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 // sèlman manm k ap login la — pou yon plan ki gen anpil manm ak anpil
 // istwa peman (plan chak jou sou plizyè mwa), sa fè dè milye ranje done
 // konplè chaje chak fwa yon moun konekte. `buildPaymentMaps` sèlman
-// bezwen dueDate/timing/paidDate/paidAt — menm fix ki te fèt deja nan
+// bezwen dueDate/timing/paidDate/paid_at — menm fix ki te fèt deja nan
 // position-ranking.service.js.
-const PAYMENT_SELECT_MINIMAL = { dueDate: true, timing: true, paidDate: true, paidAt: true }
+// ⚠️ KORIJE — chan an nan modèl SabotayPayment rele `paid_at` (san @map,
+// non Prisma a se literalman `paid_at`), pa `paidAt`. Ansyen non an te
+// lakòz `PrismaClientValidationError` sou chak apèl /members/me, ki te
+// fè paj Sol la rete blanch pou tout moun.
+const PAYMENT_SELECT_MINIMAL = { dueDate: true, timing: true, paidDate: true, paid_at: true }
 
 async function buildPlanData(account, memberId) {
   if (!memberId) return null
