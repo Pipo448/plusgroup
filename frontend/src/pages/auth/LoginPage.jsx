@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Eye, EyeOff, LogIn, Building2, Globe, ChevronDown, ChevronRight, WifiOff, UserPlus, ArrowLeft, Mail, Lock, ShieldCheck, Lightbulb, Cpu, ShoppingCart, Headphones } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { authAPI } from '../../services/api'
+import { authAPI, tenantAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
 // ✅ NOUVO — Login offline
@@ -48,7 +48,7 @@ const TEXTS = {
 export default function LoginPage() {
   const navigate       = useNavigate()
   const [searchParams] = useSearchParams()
-  const { setAuth, autoSetBranch } = useAuthStore()
+  const { setAuth, autoSetBranch, refreshTenant } = useAuthStore()
 
   const [show, setShow]         = useState(false)
   const [loading, setLoading]   = useState(false)
@@ -192,6 +192,18 @@ export default function LoginPage() {
       const user   = meRes.data.user
 
       setAuth(token, user, tenant)
+
+      // ⚠️ KORIJE — `/auth/me` pa voye `logoUrl` ankò (twò lou, gade
+      // auth.controller.js), kidonk nou ale chèche l apa nan
+      // `/tenant/settings` (ki deja retounen l pou paj Paramèt la) epi nou
+      // fè yon FUSION (refreshTenant), pa yon ranplasman — sa pa bloke
+      // login an si apèl sa a echwe oswa pran tan.
+      tenantAPI.getSettings()
+        .then(settingsRes => {
+          const logoUrl = settingsRes.data?.tenant?.logoUrl
+          if (logoUrl) refreshTenant({ logoUrl })
+        })
+        .catch(() => {})
 
       // ✅ NOUVO — Sove anprint pou pèmèt login offline pita (JANM modpas an klè)
       saveOfflineCredentials({ slug, email: data.email, password: data.password, token, user, tenant }).catch(() => {})
