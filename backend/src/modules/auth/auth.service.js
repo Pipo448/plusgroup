@@ -36,10 +36,16 @@ const login = async (tenantId, email, password) => {
     }),
 
     // 2. Chèche tenant + plan + allowedPages ✅
+    // ⚠️ KORIJE EGRESS — `logoUrl` se yon imaj base64 KONPLÈ (ka fè plizyè
+    // santèn KB, jiska 1MB+) e li te vwayaje sou CHAK koneksyon — se sa ki
+    // te lakòz repons 1161.7KB nou wè nan log Render yo. Menm korije nou te
+    // deja fè pou `/auth/me` a: frontend gen `tenant.logoUrl` deja sove nan
+    // `authStore` (persist) e/oswa li ka chèche l nan `/tenant/settings` si
+    // li bezwen l apre login. `/auth/login` pa bezwen voye l.
     prisma.tenant.findUnique({
       where: { id: tenantId },
       select: {
-        id: true, name: true, slug: true, logoUrl: true,
+        id: true, name: true, slug: true,
         primaryColor: true, defaultCurrency: true, defaultLanguage: true,
         phone: true, address: true, exchangeRate: true, exchangeRates: true,
         visibleCurrencies: true, showExchangeRate: true, showQrCode: true,
