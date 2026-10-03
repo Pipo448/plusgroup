@@ -78,12 +78,41 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
   const [rawProducts, total] = await Promise.all([
     prisma.product.findMany({
       where,
-      // ⚠️ KORIJE EGRESS — eskli `imageUrl` (gwo) dirèkteman nan nivo Prisma/DB.
-      // Egrès Supabase konte sou transfè Postgres → backend, kidonk retire
-      // chan an APRE query a fin kouri pa t ap sove anyen; `omit` anpeche
-      // Postgres menm voye done sa a bay backend la.
-      omit: { imageUrl: true },
-      include: {
+      // ⚠️ KORIJE EGRESS — `select` eksplisit (pa `omit`, ki mande yon vèsyon
+      // Prisma Client pi resan ke sa ki deploye sou Render) ki eskli
+      // `imageUrl` (gwo) dirèkteman nan nivo Prisma/DB. Egrès Supabase konte
+      // sou transfè Postgres → backend, kidonk retire chan an APRE query a
+      // fin kouri pa t ap sove anyen; isit la Postgres pa menm voye done sa
+      // a bay backend la.
+      select: {
+        id: true,
+        tenantId: true,
+        categoryId: true,
+        code: true,
+        name: true,
+        nameFr: true,
+        nameEn: true,
+        description: true,
+        unit: true,
+        priceHtg: true,
+        priceUsd: true,
+        costPriceHtg: true,
+        quantity: true,
+        alertThreshold: true,
+        thumbnailUrl: true,
+        isActive: true,
+        isService: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        branchId: true,
+        packLabel: true,
+        packSize: true,
+        packPriceHtg: true,
+        module: true,
+        wholesaleMinQty: true,
+        wholesalePriceHtg: true,
+        wholesalePriceUsd: true,
         category: { select: { id: true, name: true, nameFr: true, color: true } },
         // ✅ NOUVO — nivo pri an gwo, triye pa sèy kantite pou frontend afiche yo nan lòd
         priceTiers: { orderBy: { minQty: 'asc' } },
@@ -354,10 +383,40 @@ const getLowStock = async (tenantId, branchId, module) => {
       isService: false,
       quantity:  { lte: prisma.product.fields.alertThreshold }
     },
-    // ⚠️ KORIJE EGRESS — menm apwòch ak getAll(): eskli `imageUrl` gwo a,
-    // sèvi ak thumbnail la nan plas li.
-    omit: { imageUrl: true },
-    include: { category: { select: { id: true, name: true } } },
+    // ⚠️ KORIJE EGRESS — menm apwòch ak getAll(): `select` eksplisit (pa
+    // `omit`, pa sipòte sou vèsyon Prisma Client ki deploye a) ki eskli
+    // `imageUrl` gwo a, sèvi ak thumbnail la nan plas li.
+    select: {
+      id: true,
+      tenantId: true,
+      categoryId: true,
+      code: true,
+      name: true,
+      nameFr: true,
+      nameEn: true,
+      description: true,
+      unit: true,
+      priceHtg: true,
+      priceUsd: true,
+      costPriceHtg: true,
+      quantity: true,
+      alertThreshold: true,
+      thumbnailUrl: true,
+      isActive: true,
+      isService: true,
+      createdBy: true,
+      createdAt: true,
+      updatedAt: true,
+      branchId: true,
+      packLabel: true,
+      packSize: true,
+      packPriceHtg: true,
+      module: true,
+      wholesaleMinQty: true,
+      wholesalePriceHtg: true,
+      wholesalePriceUsd: true,
+      category: { select: { id: true, name: true } },
+    },
     orderBy: { quantity: 'asc' }
   });
 
