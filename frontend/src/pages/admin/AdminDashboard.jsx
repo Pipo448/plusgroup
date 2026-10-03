@@ -89,7 +89,7 @@ const PAGE_DEFINITIONS = [
   { key:'pre',    label:'Prè Mikwo Kredi',               icon:<Wallet size={14}/>,      group:'Antrepriz' },
   { key:'dry',    label:'Prese (Teinturerie)',            icon:<Scissors size={14}/>,    group:'Modil'     },
   { key:'klinik', label:'Klinik Medikal',                 icon:<Stethoscope size={14}/>, group:'Modil'     },
-  { key:'gym',    label:'Jim (Gym)',                     icon:<Dumbbell size={14}/>,    group:'Modil'     },
+  { key:'gym',    label:'GYM FITNESS',                   icon:<Dumbbell size={14}/>,    group:'Modil'     },
   { key:'employees', label:'Anplwaye (RH)',                icon:<UserCog size={14}/>,     group:'RH & Finans' },
   { key:'expenses',   label:'Depans',                      icon:<TrendingDown size={14}/>,group:'RH & Finans' },
 ]

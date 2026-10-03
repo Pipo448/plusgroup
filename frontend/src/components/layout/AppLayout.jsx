@@ -12,6 +12,7 @@ import {
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
+  Dumbbell, LogIn,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -42,6 +43,10 @@ const C = {
   dry:         '#8B5CF6',
   dryDim:      'rgba(139,92,246,0.15)',
   dryBorder:   'rgba(139,92,246,0.28)',
+  // ✅ NOUVO — Jim/Gym
+  gym:         '#14B8A6',
+  gymDim:      'rgba(20,184,166,0.15)',
+  gymBorder:   'rgba(20,184,166,0.28)',
   rh:          '#10B981',
   rhDim:       'rgba(16,185,129,0.15)',
   rhBorder:    'rgba(16,185,129,0.28)',
@@ -93,6 +98,15 @@ const RESTAURANT_ITEMS = [
   // ✅ NOUVO — Tab & Kòmand vin anlè, se sa sèvè a itilize chak jou
   { to:'/app/restaurant/tables', icon:Users, labelKey:'nav.restaurantTables', label:'Tab & Kòmand', end:true },
   { to:'/app/restaurant/menu', icon:UtensilsCrossed, labelKey:'nav.restaurant', label:'Meni Restoran', end:true },
+]
+
+// ✅ NOUVO — Jim/Gym
+const GYM_ITEMS = [
+  { to:'/app/gym',          icon:LayoutDashboard, label:'Dashboard Jim', end:true  },
+  { to:'/app/gym/members',  icon:Users,           label:'Manm',          end:false },
+  { to:'/app/gym/check-in', icon:LogIn,           label:'Check-in',      end:false },
+  { to:'/app/gym/classes',  icon:BookOpen,        label:'Klas',          end:false },
+  { to:'/app/gym/plans',    icon:CreditCard,      label:'Plan Abònman',  end:false },
 ]
 
 const LANGS = [
@@ -160,6 +174,17 @@ const restaurantLinkStyle = (isActive) => ({
   background: isActive ? C.restaurantDim : 'transparent',
   color: isActive ? '#ffffff' : C.muted,
   borderLeft: isActive ? `3px solid ${C.restaurant}` : '3px solid transparent',
+  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
+})
+
+// ✅ NOUVO — Jim/Gym
+const gymLinkStyle = (isActive) => ({
+  display:'flex', alignItems:'center', gap:10,
+  padding:'9px 14px', borderRadius:10, marginBottom:3,
+  textDecoration:'none',
+  background: isActive ? C.gymDim : 'transparent',
+  color: isActive ? '#ffffff' : C.muted,
+  borderLeft: isActive ? `3px solid ${C.gym}` : '3px solid transparent',
   fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
 })
 
@@ -313,7 +338,7 @@ function CalculatorMenu({ isMobile }) {
           {tab === 'pad' ? (
             <>
               <div style={{ padding: '14px 14px 0', textAlign: 'right', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'IBM Plex Mono,monospace', minHeight: 16, wordBreak: 'break-all' }}>
-                {liveExpr || lastExpr || '\u00A0'}
+                {liveExpr || lastExpr || ' '}
               </div>
               <div style={{ padding: '4px 14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
                 <button onClick={handleBackspace} title="Efase dènye chif" style={{
@@ -865,6 +890,26 @@ export default function AppLayout() {
                     <Icon size={15} style={{ flexShrink:0, color: isActive ? C.restaurant : C.mutedMd }}/>
                     <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
                     {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
+                  </>)}
+                </NavLink>
+              ))}
+            </>
+          )}
+
+          {/* ═══ JIM (GYM) ═══ */}
+          {isPageAllowed('gym') && (
+            <>
+              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(20,184,166,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 Jim</span>
+                <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym }}/>
+              </div>
+              {GYM_ITEMS.map(({ to, icon:Icon, label, end }) => (
+                <NavLink key={to} to={to} end={end}
+                  style={({ isActive }) => gymLinkStyle(isActive)}>
+                  {({ isActive }) => (<>
+                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.gym : C.mutedMd }}/>
+                    <span style={{ flex:1 }}>{label}</span>
+                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
               ))}
