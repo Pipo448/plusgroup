@@ -116,7 +116,7 @@ model GymPayment {
   membershipId String?          @map("membership_id")
   amountHtg    Decimal          @map("amount_htg") @db.Decimal(14, 2)
   method       GymPaymentMethod @default(cash)
-  type         String           @default("membership") @db.VarChar(20)  // membership | visit | other
+  type         String           @default("membership") @db.VarChar(20)  // membership | visit | daily | other
   reference    String?          @db.VarChar(200)
   notes        String?
   createdBy    String?          @map("created_by")
@@ -164,4 +164,24 @@ model GymClassEnrollment {
   @@unique([classId, memberId])
   @@index([tenantId])
   @@map("gym_class_enrollments")
+}
+
+// ✅ NOUVO — Tarif Jounalye: pri pa jou pou moun k ap peye pa vizit (san plan).
+// Chak fwa yo chanje tarif la, nou kreye yon NOUVO liy (pa modifye ansyen an),
+// konsa istorik peman ki deja fèt yo pa chanje si tarif la chanje pita —
+// "current rate" se toujou dènye liy ki kreye a (orderBy createdAt desc).
+model GymDailyRate {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  branchId  String?  @map("branch_id")
+  priceHtg  Decimal  @map("price_htg") @db.Decimal(12, 2)
+  priceUsd  Decimal? @map("price_usd") @db.Decimal(12, 2)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?  @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  creator   User?    @relation("GymDailyRateCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([tenantId])
+  @@map("gym_daily_rates")
 }

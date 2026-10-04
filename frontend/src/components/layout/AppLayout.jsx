@@ -12,7 +12,7 @@ import {
   Bluetooth, BluetoothOff, Printer, Scissors,
   DollarSign, ChevronUp, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
-  Dumbbell, LogIn,
+  Dumbbell, LogIn, Banknote,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -107,6 +107,7 @@ const GYM_ITEMS = [
   { to:'/app/gym/check-in', icon:LogIn,           label:'Check-in',      end:false },
   { to:'/app/gym/classes',  icon:BookOpen,        label:'Klas',          end:false },
   { to:'/app/gym/plans',    icon:CreditCard,      label:'Plan Abònman',  end:false },
+  { to:'/app/gym/daily-payment', icon:Banknote,   label:'Peman Pa Jou',  end:false },
 ]
 
 const LANGS = [

@@ -387,6 +387,49 @@ async function getPayments(tenantId, params = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// DAILY RATE (Tarif Jounalye — peman pa jou, san plan)
+// ─────────────────────────────────────────────────────────────
+async function getDailyRate(tenantId, branchId) {
+  return prisma.gymDailyRate.findFirst({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+async function setDailyRate(tenantId, branchId, userId, { priceHtg, priceUsd }) {
+  if (!priceHtg || Number(priceHtg) <= 0) throw new Error('Tarif pa jou obligatwa.')
+  return prisma.gymDailyRate.create({
+    data: {
+      tenantId, branchId: branchId || null,
+      priceHtg: Number(priceHtg),
+      priceUsd: priceUsd != null ? Number(priceUsd) : null,
+      createdBy: userId,
+    },
+  })
+}
+
+async function confirmDailyPayment(tenantId, branchId, memberId, userId, { amountHtg, method, notes } = {}) {
+  const member = await prisma.gymMember.findFirst({ where: { id: memberId, tenantId } })
+  if (!member) throw new Error('Manm pa jwenn.')
+
+  let amount = amountHtg
+  if (amount == null) {
+    const rate = await getDailyRate(tenantId, branchId)
+    if (!rate) throw new Error('Pa gen tarif jounalye konfigire. Mete yon tarif anvan.')
+    amount = rate.priceHtg
+  }
+
+  return prisma.gymPayment.create({
+    data: {
+      tenantId, memberId,
+      amountHtg: Number(amount), method: method || 'cash',
+      type: 'daily', notes: notes || null,
+      createdBy: userId,
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────
 // CLASSES & TRAINERS (klas & antrenè)
 // ─────────────────────────────────────────────────────────────
 async function getClasses(tenantId, branchId) {
@@ -473,6 +516,7 @@ module.exports = {
   createMembership, getMemberships, cancelMembership,
   checkIn, checkOut, getCheckIns,
   addPayment, getPayments,
+  getDailyRate, setDailyRate, confirmDailyPayment,
   getClasses, createClass, updateClass, deleteClass,
   enrollMember, unenrollMember, getClassMembers,
 }

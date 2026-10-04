@@ -339,6 +339,11 @@ export const gymAPI = {
   getPayments: (p)                 => api.get('/gym/payments', { params: p }),
   addPayment:  (memberId, data)    => api.post(`/gym/members/${memberId}/payments`, data),
 
+  // ── Daily Rate (Tarif Jounalye) ──────────────────────
+  getDailyRate:        ()               => api.get('/gym/daily-rate'),
+  setDailyRate:        (data)           => api.post('/gym/daily-rate', data),
+  confirmDailyPayment: (memberId, data) => api.post(`/gym/members/${memberId}/daily-payment`, data),
+
   // ── Classes & Trainers (klas & antrenè) ─────────────
   getClasses:      ()             => api.get('/gym/classes'),
   createClass:     (data)         => api.post('/gym/classes', data),

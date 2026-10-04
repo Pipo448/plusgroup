@@ -79,6 +79,7 @@ const GymMemberDetail    = lazy(() => import('./pages/gym/GymMemberDetail'))
 const GymCheckInPage     = lazy(() => import('./pages/gym/GymCheckInPage'))
 const GymClassesPage     = lazy(() => import('./pages/gym/GymClassesPage'))
 const GymPlansPage       = lazy(() => import('./pages/gym/GymPlansPage'))
+const GymDailyPaymentPage = lazy(() => import('./pages/gym/GymDailyPaymentPage'))
 
 // ✅ NOUVO — Paj piblik pwoforma (san otorizasyon, lyen pataje 24è)
 const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
@@ -212,6 +213,7 @@ export default function App() {
             <Route path="gym/check-in"     element={<ProtectedPage pageKey="gym"><GymCheckInPage /></ProtectedPage>} />
             <Route path="gym/classes"      element={<ProtectedPage pageKey="gym"><GymClassesPage /></ProtectedPage>} />
             <Route path="gym/plans"        element={<ProtectedPage pageKey="gym"><GymPlansPage /></ProtectedPage>} />
+            <Route path="gym/daily-payment" element={<ProtectedPage pageKey="gym"><GymDailyPaymentPage /></ProtectedPage>} />
 
             {/* ✅ RH & Finans — ANDEDAN /app */}
             <Route path="employees" element={<ProtectedPage pageKey="employees"><EmployeesPage /></ProtectedPage>} />

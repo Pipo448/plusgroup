@@ -194,6 +194,37 @@ exports.getPayments = async (req, res) => {
   }
 }
 
+// ── Daily Rate (Tarif Jounalye) ──────────────────────────────
+exports.getDailyRate = async (req, res) => {
+  try {
+    const { tenantId, branchId } = getCtx(req)
+    const rate = await svc.getDailyRate(tenantId, branchId)
+    res.json({ success: true, rate })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+exports.setDailyRate = async (req, res) => {
+  try {
+    const { tenantId, branchId, userId } = getCtx(req)
+    const rate = await svc.setDailyRate(tenantId, branchId, userId, req.body)
+    res.status(201).json({ success: true, rate })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
+exports.confirmDailyPayment = async (req, res) => {
+  try {
+    const { tenantId, branchId, userId } = getCtx(req)
+    const payment = await svc.confirmDailyPayment(tenantId, branchId, req.params.memberId, userId, req.body)
+    res.status(201).json({ success: true, payment })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
 // ── Classes & Trainers (klas & antrenè) ──────────────────────
 exports.getClasses = async (req, res) => {
   try {
