@@ -9,6 +9,8 @@ import {
   printKaneReceipt, printPreReceipt,
   printGenericReceipt,
   printDryReceipt,
+  // ✅ NOUVO — Resi GYM FITNESS
+  printGymReceipt,
   isAndroid,
   // ⚠️ NOUVO — Tiwa Kès
   openCashDrawer as openCashDrawerWeb,
@@ -465,6 +467,71 @@ function buildDryHtml(order, tenant) {
     </div>`
 }
 
+// ✅ NOUVO — Resi GYM FITNESS (fallback browser print)
+function buildGymHtml(member, tenant, type, extra = {}) {
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const TITLES = { enskripsyon:'FICHE ENSKRIPSYON', daily:'RESI PEMAN JOU', plan:'RESI ABONMAN' }
+  const METOD = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
+  const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+
+  return `
+    <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px">
+      <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:6px;margin-bottom:6px">
+        ${tenant?.logoUrl ? `<img src="${tenant.logoUrl}" style="height:40px;display:block;margin:0 auto 4px">` : ''}
+        <strong style="font-size:14px">${biz}</strong><br>
+        <strong>-- GYM FITNESS --</strong><br>
+        ${tenant?.phone ? `<span style="font-size:9px">Tel: ${tenant.phone}</span>` : ''}
+      </div>
+      <div style="text-align:center;font-weight:bold;font-size:13px;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px">
+        ${TITLES[type] || 'RESI'}
+      </div>
+      <div style="font-size:10px;margin-bottom:6px">
+        <div>Dat: ${txDate}</div>
+      </div>
+      <div style="border-top:1px dashed #000;padding-top:4px;margin-bottom:6px">
+        <strong>${member?.fullName || ''}</strong><br>
+        ${member?.phone ? `<span style="font-size:10px">Tel: ${member.phone}</span><br>` : ''}
+        ${member?.email ? `<span style="font-size:10px">Email: ${member.email}</span>` : ''}
+      </div>
+      ${type === 'enskripsyon' ? `
+        <div style="font-size:10px">
+          ${member?.emergencyContact ? `<div>Kontak Ijans: ${member.emergencyContact}</div>` : ''}
+          ${member?.emergencyPhone ? `<div>Tel Ijans: ${member.emergencyPhone}</div>` : ''}
+        </div>
+        ${extra.planName ? `
+        <div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px;font-size:10px">
+          <div>Plan Inisyal: ${extra.planName}</div>
+          ${Number(extra.amountPaid) > 0 ? `<div>Montan Peye: ${fmt(extra.amountPaid)} G</div>` : ''}
+        </div>` : `<div style="font-size:10px;margin-top:6px">San abònman — ka peye pa jou.</div>`}
+        <div style="text-align:center;font-weight:bold;font-size:13px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
+          BYENVINI NAN JIM NAN!
+        </div>
+      ` : type === 'daily' ? `
+        <div style="font-size:10px">
+          <div>Tip Peman: Pa Jou</div>
+          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
+        </div>
+        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
+          MONTAN: ${fmt(extra.amount)} G
+        </div>
+      ` : `
+        <div style="font-size:10px">
+          <div>Plan: ${extra.planName || ''}</div>
+          ${extra.startDate ? `<div>Dat Kòmansman: ${new Date(extra.startDate).toLocaleDateString('fr-HT')}</div>` : ''}
+          ${extra.endDate ? `<div>Dat Fini: ${new Date(extra.endDate).toLocaleDateString('fr-HT')}</div>` : ''}
+          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
+        </div>
+        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
+          PEYE: ${fmt(extra.amountPaid)} G
+        </div>
+      `}
+      <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">
+        Mesi!<br>${biz} — ${tenant?.phone || '+50942449024'}
+      </div>
+    </div>`
+}
+
 // ─────────────────────────────────────────────────────────────
 // STORE
 // ─────────────────────────────────────────────────────────────
@@ -657,5 +724,26 @@ printDry: async (order, tenant) => {
   }
 },
 
+  // ── PRINT GYM FITNESS (enskripsyon / peman pa jou / plan) ────
+  printGym: async (member, tenant, type = 'enskripsyon', extra = {}) => {
+    set({ printing: true })
+    try {
+      await printGymReceipt(member, tenant, type, extra)
+      toast.success('Resi Jim enprime! 🖨️')
+      return true
+    } catch (err) {
+      if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
+        const html = buildGymHtml(member, tenant, type, extra)
+        return browserPrint(html)
+      }
+      console.error('Print gym error:', err)
+      set({ connected: false })
+      toast.error('Erè enprimant. Eseye konekte ankò.')
+      return false
+    } finally {
+      set({ printing: false })
+    }
+  },
+
   isWebSerialSupported,
-}))  
+}))

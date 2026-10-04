@@ -1005,3 +1005,83 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
 
   await dispatch(bytes)
 }
+
+// ✅ NOUVO — Resi GYM FITNESS: Enskripsyon manm / Peman Pa Jou / Abònman (Plan)
+// Menm mekanis ESC/POS ak printKaneReceipt/printPreReceipt (Bluetooth/RawBT,
+// repli sou browser print via buildGymHtml nan printerStore.js).
+export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extra = {}) => {
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/ /g, ' ').replace(/ /g, ' ')
+  const W = getWidth(tenant)
+  const TITLES = { enskripsyon: 'FICHE ENSKRIPSYON', daily: 'RESI PEMAN JOU', plan: 'RESI ABONMAN' }
+  const METOD  = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
+  const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+  const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+
+  const bytes = [
+    ...CMD.INIT,
+    ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
+    ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON, ...encodeText('-- GYM FITNESS --\n'), ...CMD.BOLD_OFF,
+    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText((TITLES[type] || 'RESI') + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...divider('=', W), LF,
+    ...CMD.ALIGN_LEFT,
+    ...makeLine('Dat:', txDate, W), LF,
+    ...divider('-', W), LF,
+    ...CMD.BOLD_ON, ...encodeText((member?.fullName || '').substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+    ...(member?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(member?.email ? [...CMD.SMALL_FONT, ...encodeText('Email: ' + member.email + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...divider('-', W), LF,
+
+    ...(type === 'enskripsyon' ? [
+      ...(member?.emergencyContact ? [...makeLine('Kontak Ijans:', member.emergencyContact, W), LF] : []),
+      ...(member?.emergencyPhone  ? [...makeLine('Tel Ijans:', member.emergencyPhone, W), LF] : []),
+      ...(extra.planName ? [
+        ...divider('-', W), LF,
+        ...makeLine('Plan Inisyal:', extra.planName, W), LF,
+        ...(Number(extra.amountPaid) > 0 ? [...makeLine('Montan Peye:', fmt(extra.amountPaid) + ' G', W), LF] : []),
+      ] : [
+        ...CMD.SMALL_FONT, ...encodeText('San abonman — ka peye pa jou.\n'), ...CMD.NORMAL_FONT,
+      ]),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('BYENVINI NAN JIM NAN!\n'), ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+    ] : type === 'daily' ? [
+      ...CMD.BOLD_ON, ...makeLine('Tip Peman:', 'Pa Jou', W), LF, ...CMD.BOLD_OFF,
+      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('Bon antrennman!\n'), ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
+    ] : [
+      // type === 'plan'
+      ...makeLine('Plan:', extra.planName || '', W), LF,
+      ...(extra.startDate ? [...makeLine('Dat Kòmansman:', new Date(extra.startDate).toLocaleDateString('fr-HT'), W), LF] : []),
+      ...(extra.endDate   ? [...makeLine('Dat Fini:', new Date(extra.endDate).toLocaleDateString('fr-HT'), W), LF] : []),
+      ...(extra.method    ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('PEYE: ' + fmt(extra.amountPaid) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+    ]),
+
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('Mesi!\n'), ...CMD.BOLD_OFF,
+    ...CMD.SMALL_FONT,
+    ...encodeText((tenant?.businessName || tenant?.name || 'PlusGroup') + ' — Tel: ' + (tenant?.phone || '+50942449024') + '\n'),
+    ...CMD.NORMAL_FONT,
+    LF, LF, ...CMD.CUT,
+  ]
+
+  await dispatch(bytes)
+}

@@ -7,6 +7,8 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { ArrowLeft, User, Phone, Mail, Plus, X, CreditCard, Wallet, LogIn, Ban } from 'lucide-react'
 import { gymAPI } from '../../services/api'
+import { usePrinterStore } from '../../stores/printerStore'
+import { useAuthStore } from '../../stores/authStore'
 
 const G = {
   teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
@@ -37,17 +39,27 @@ function Modal({ title, onClose, children }) {
   )
 }
 
-function NewMembershipModal({ memberId, onClose }) {
+function NewMembershipModal({ memberId, member, onClose }) {
   const qc = useQueryClient()
+  const { tenant } = useAuthStore()
+  const { printGym } = usePrinterStore()
   const { register, handleSubmit } = useForm()
   const { data: plans } = useQuery({ queryKey:['gym-plans'], queryFn: () => gymAPI.getPlans().then(r => r.data.plans) })
 
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.createMembership(memberId, data),
-    onSuccess: () => {
+    onSuccess: (res, variables) => {
       toast.success('Abònman kreye!')
       qc.invalidateQueries(['gym-member', memberId])
       qc.invalidateQueries(['gym-memberships', memberId])
+      const plan = plans?.find(p => p.id === variables.planId)
+      printGym(member, tenant, 'plan', {
+        planName: plan?.name,
+        amountPaid: variables.amountPaid,
+        method: variables.method,
+        startDate: res.data.membership?.startDate || variables.startDate,
+        endDate: res.data.membership?.endDate,
+      })
       onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
@@ -264,7 +276,7 @@ export default function GymMemberDetail() {
         </SectionCard>
       </div>
 
-      {showMembership && <NewMembershipModal memberId={id} onClose={() => setShowMembership(false)} />}
+      {showMembership && <NewMembershipModal memberId={id} member={member} onClose={() => setShowMembership(false)} />}
       {showPayment && <NewPaymentModal memberId={id} onClose={() => setShowPayment(false)} />}
 
       <style>{`

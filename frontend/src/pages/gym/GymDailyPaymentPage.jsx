@@ -8,6 +8,8 @@ import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { Search, Banknote, CheckCircle2, Settings2, X } from 'lucide-react'
 import { gymAPI } from '../../services/api'
+import { usePrinterStore } from '../../stores/printerStore'
+import { useAuthStore } from '../../stores/authStore'
 
 const G = {
   teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
@@ -63,6 +65,8 @@ const inputStyle = { width:'100%', padding:'10px 14px', borderRadius:10, border:
 
 export default function GymDailyPaymentPage() {
   const qc = useQueryClient()
+  const { tenant } = useAuthStore()
+  const { printGym } = usePrinterStore()
   const [search, setSearch] = useState('')
   const [showRateForm, setShowRateForm] = useState(false)
   const [confirmed, setConfirmed] = useState([])
@@ -84,6 +88,7 @@ export default function GymDailyPaymentPage() {
       toast.success('Peman konfime! ✅')
       const member = membersData?.members?.find(m => m.id === memberId)
       setConfirmed(c => [{ id: res.data.payment?.id || Date.now(), name: member?.fullName, amount: res.data.payment?.amountHtg, at: new Date() }, ...c])
+      printGym(member, tenant, 'daily', { amount: res.data.payment?.amountHtg, method: 'cash' })
       setSearch('')
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),

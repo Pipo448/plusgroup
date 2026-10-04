@@ -7,6 +7,8 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { Plus, Search, X, Users, ChevronRight } from 'lucide-react'
 import { gymAPI } from '../../services/api'
+import { usePrinterStore } from '../../stores/printerStore'
+import { useAuthStore } from '../../stores/authStore'
 
 const G = {
   teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
@@ -16,6 +18,8 @@ const G = {
 
 function AddMemberModal({ onClose }) {
   const qc = useQueryClient()
+  const { tenant } = useAuthStore()
+  const { printGym } = usePrinterStore()
   const { register, handleSubmit, formState: { errors } } = useForm()
 
   const { data: plans } = useQuery({
@@ -25,9 +29,14 @@ function AddMemberModal({ onClose }) {
 
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.addMember(data),
-    onSuccess: () => {
+    onSuccess: (res, variables) => {
       toast.success('Manm ajoute!')
       qc.invalidateQueries(['gym-members'])
+      const plan = plans?.find(p => p.id === variables.planId)
+      printGym(res.data.member, tenant, 'enskripsyon', {
+        planName: plan?.name,
+        amountPaid: variables.amountPaid,
+      })
       onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
