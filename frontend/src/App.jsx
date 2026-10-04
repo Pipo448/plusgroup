@@ -15,6 +15,10 @@ import AgentApplyPage from './pages/agent/AgentApplyPage'
 import AgentLoginPage from './pages/agent/AgentLoginPage'
 
 const Dashboard          = lazy(() => import('./pages/dashboard/Dashboard'))
+// ✅ NOUVO — Routeur ki deside ki "tableau de bò" pou montre: dashboard
+// jeneral Stock/POS la, OSWA dashboard yon modil espesyal (Hotel, Restoran,
+// Gym, Prese) lè se SÈL modil sa a tenant lan genyen aktive.
+const DashboardRouter     = lazy(() => import('./pages/dashboard/DashboardRouter'))
 const ProductsPage       = lazy(() => import('./pages/products/ProductsPage'))
 const ClientsPage        = lazy(() => import('./pages/clients/ClientsPage'))
 const QuotesPage         = lazy(() => import('./pages/quotes/QuotesPage'))
@@ -150,7 +154,10 @@ export default function App() {
 
           <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
             <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard"       element={<Dashboard />} />
+            {/* ✅ KORIJE — DashboardRouter deside si se Dashboard jeneral Stock/POS
+                la oswa dashboard SÈL modil aktive a (Hotel/Restoran/Gym/Prese)
+                ki parèt kòm tableau de bò prensipal la. */}
+            <Route path="dashboard"       element={<DashboardRouter />} />
             <Route path="products"        element={<ProtectedPage pageKey="products"><ProductsPage /></ProtectedPage>} />
             <Route path="clients"         element={<ProtectedPage pageKey="clients"><ClientsPage /></ProtectedPage>} />
             <Route path="quotes"          element={<ProtectedPage pageKey="quotes"><QuotesPage /></ProtectedPage>} />

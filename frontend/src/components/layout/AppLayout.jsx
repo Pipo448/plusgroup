@@ -900,7 +900,7 @@ export default function AppLayout() {
           {isPageAllowed('gym') && (
             <>
               <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(20,184,166,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 Jim</span>
+                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 GYM FITNESS</span>
                 <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym }}/>
               </div>
               {GYM_ITEMS.map(({ to, icon:Icon, label, end }) => (
