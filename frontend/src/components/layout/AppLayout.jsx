@@ -102,12 +102,12 @@ const RESTAURANT_ITEMS = [
 
 // ✅ NOUVO — Jim/Gym
 const GYM_ITEMS = [
-  { to:'/app/gym',          icon:LayoutDashboard, label:'Dashboard Jim', end:true  },
-  { to:'/app/gym/members',  icon:Users,           label:'Manm',          end:false },
-  { to:'/app/gym/check-in', icon:LogIn,           label:'Check-in',      end:false },
-  { to:'/app/gym/classes',  icon:BookOpen,        label:'Klas',          end:false },
-  { to:'/app/gym/plans',    icon:CreditCard,      label:'Plan Abònman',  end:false },
-  { to:'/app/gym/daily-payment', icon:Banknote,   label:'Peman Pa Jou',  end:false },
+  { to:'/app/gym',          icon:LayoutDashboard, labelKey:'gym.nav.dashboard',     end:true  },
+  { to:'/app/gym/members',  icon:Users,           labelKey:'gym.nav.members',       end:false },
+  { to:'/app/gym/check-in', icon:LogIn,           labelKey:'gym.nav.checkIn',       end:false },
+  { to:'/app/gym/classes',  icon:BookOpen,        labelKey:'gym.nav.classes',       end:false },
+  { to:'/app/gym/plans',    icon:CreditCard,      labelKey:'gym.nav.plans',         end:false },
+  { to:'/app/gym/daily-payment', icon:Banknote,   labelKey:'gym.nav.dailyPayment',  end:false },
 ]
 
 const LANGS = [
@@ -901,15 +901,15 @@ export default function AppLayout() {
           {isPageAllowed('gym') && (
             <>
               <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(20,184,166,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 GYM FITNESS</span>
+                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 {t('gym.title')}</span>
                 <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym }}/>
               </div>
-              {GYM_ITEMS.map(({ to, icon:Icon, label, end }) => (
+              {GYM_ITEMS.map(({ to, icon:Icon, labelKey, end }) => (
                 <NavLink key={to} to={to} end={end}
                   style={({ isActive }) => gymLinkStyle(isActive)}>
                   {({ isActive }) => (<>
                     <Icon size={15} style={{ flexShrink:0, color: isActive ? C.gym : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>{label}</span>
+                    <span style={{ flex:1 }}>{t(labelKey)}</span>
                     {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>

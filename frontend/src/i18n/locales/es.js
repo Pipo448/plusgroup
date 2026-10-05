@@ -505,6 +505,10 @@ export default {
   // ✅ NUEVO — GYM FITNESS
   gym: {
     title: 'GYM FITNESS',
+    nav: {
+      dashboard: 'Panel del Gimnasio', members: 'Miembros', checkIn: 'Check-in',
+      classes: 'Clases', plans: 'Plan de Membresía', dailyPayment: 'Pago Diario',
+    },
     dashboard: {
       subtitle: 'Panel general del módulo de gimnasio',
       totalMembers: 'Total Miembros', activeMembers: 'Miembros Activos',

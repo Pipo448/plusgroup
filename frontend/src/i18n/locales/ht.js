@@ -505,6 +505,10 @@ export default {
   // ✅ NOUVO — GYM FITNESS
   gym: {
     title: 'GYM FITNESS',
+    nav: {
+      dashboard: 'Dashboard Jim', members: 'Manm', checkIn: 'Check-in',
+      classes: 'Klas', plans: 'Plan Abònman', dailyPayment: 'Peman Pa Jou',
+    },
     dashboard: {
       subtitle: 'Tablo bò jeneral modil jim nan',
       totalMembers: 'Total Manm', activeMembers: 'Manm Aktif',

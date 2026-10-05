@@ -506,6 +506,10 @@ export default {
   // ✅ NEW — GYM FITNESS
   gym: {
     title: 'GYM FITNESS',
+    nav: {
+      dashboard: 'Gym Dashboard', members: 'Members', checkIn: 'Check-in',
+      classes: 'Classes', plans: 'Subscription Plan', dailyPayment: 'Daily Payment',
+    },
     dashboard: {
       subtitle: 'Overview of the gym module',
       totalMembers: 'Total Members', activeMembers: 'Active Members',
