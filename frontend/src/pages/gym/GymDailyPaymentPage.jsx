@@ -65,6 +65,44 @@ function RateFormModal({ currentRate, onClose }) {
 
 const inputStyle = { width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontSize:14, boxSizing:'border-box' }
 
+function ConfirmPaymentModal({ member, rate, onClose, onConfirm, isPending }) {
+  const { t } = useTranslation()
+  const due = Number(rate?.priceHtg || 0)
+  const [amountGiven, setAmountGiven] = useState(String(due))
+  const changeDue = Math.max(0, Number(amountGiven || 0) - due)
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(26,5,51,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+      <div className="gym-modal-pop" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:24, width:'100%', maxWidth:380, boxShadow:'0 24px 60px rgba(20,20,43,0.25)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
+          <h3 style={{ color:G.ink, margin:0, fontSize:16, fontWeight:800 }}>{t('gym.dailyPayment.changeModal.title')}</h3>
+          <button type="button" onClick={onClose} style={{ background:G.bgSoft, border:'none', borderRadius:8, padding:6, color:G.muted, cursor:'pointer', display:'flex' }}><X size={16} /></button>
+        </div>
+
+        <p style={{ margin:'0 0 14px', color:G.ink, fontWeight:700, fontSize:14 }}>{member?.fullName}</p>
+
+        <label style={{ display:'block', color:G.muted, fontSize:12, fontWeight:600, marginBottom:6 }}>{t('gym.dailyPayment.changeModal.amountDue')}</label>
+        <p style={{ margin:'0 0 14px', color:G.teal, fontWeight:900, fontSize:20 }}>{due.toLocaleString('fr-FR')} HTG</p>
+
+        <label style={{ display:'block', color:G.muted, fontSize:12, fontWeight:600, marginBottom:6 }}>{t('gym.dailyPayment.changeModal.amountReceived')}</label>
+        <input type="number" step="0.01" autoFocus value={amountGiven} onChange={e => setAmountGiven(e.target.value)} style={inputStyle} />
+
+        {changeDue > 0 && (
+          <div style={{ marginTop:14, padding:'10px 14px', borderRadius:10, background:'rgba(217,119,6,0.08)', border:'1px solid rgba(217,119,6,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+            <span style={{ color:'#b45309', fontWeight:700, fontSize:13 }}>{t('gym.dailyPayment.changeModal.changeDue')}</span>
+            <span style={{ color:'#b45309', fontWeight:900, fontSize:16 }}>{changeDue.toLocaleString('fr-FR')} HTG</span>
+          </div>
+        )}
+
+        <button type="button" disabled={isPending || Number(amountGiven || 0) < due} onClick={() => onConfirm(changeDue)}
+          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)', opacity: (isPending || Number(amountGiven || 0) < due) ? 0.6 : 1 }}>
+          {isPending ? t('gym.dailyPayment.changeModal.confirming') : t('gym.dailyPayment.changeModal.confirm')}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function GymDailyPaymentPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -73,6 +111,7 @@ export default function GymDailyPaymentPage() {
   const [search, setSearch] = useState('')
   const [showRateForm, setShowRateForm] = useState(false)
   const [confirmed, setConfirmed] = useState([])
+  const [payingMember, setPayingMember] = useState(null)
 
   const { data: rate, isLoading: loadingRate } = useQuery({
     queryKey: ['gym-daily-rate'],
@@ -86,13 +125,14 @@ export default function GymDailyPaymentPage() {
   })
 
   const confirmMutation = useMutation({
-    mutationFn: (memberId) => gymAPI.confirmDailyPayment(memberId, { method: 'cash' }),
-    onSuccess: (res, memberId) => {
+    mutationFn: ({ memberId }) => gymAPI.confirmDailyPayment(memberId, { method: 'cash' }),
+    onSuccess: (res, { memberId, changeDue }) => {
       toast.success(t('gym.dailyPayment.paymentConfirmed'))
-      const member = membersData?.members?.find(m => m.id === memberId)
-      setConfirmed(c => [{ id: res.data.payment?.id || Date.now(), member, amount: res.data.payment?.amountHtg, at: new Date() }, ...c])
+      const member = membersData?.members?.find(m => m.id === memberId) || payingMember
+      setConfirmed(c => [{ id: res.data.payment?.id || Date.now(), member, amount: res.data.payment?.amountHtg, changeDue, at: new Date() }, ...c])
       printGym(member, tenant, 'daily', { amount: res.data.payment?.amountHtg, method: 'cash' })
       setSearch('')
+      setPayingMember(null)
     },
     onError: (e) => toast.error(e.response?.data?.message || t('gym.dailyPayment.error')),
   })
@@ -144,7 +184,7 @@ export default function GymDailyPaymentPage() {
           {!membersData?.members?.length ? (
             <p style={{ color:G.muted, fontSize:13, textAlign:'center', padding:16 }}>{t('gym.dailyPayment.noMembers')}</p>
           ) : membersData.members.map(m => (
-            <button key={m.id} onClick={() => confirmMutation.mutate(m.id)} disabled={confirmMutation.isPending || !rate}
+            <button key={m.id} onClick={() => setPayingMember(m)} disabled={confirmMutation.isPending || !rate}
               className="gym-row"
               style={{
                 display:'flex', justifyContent:'space-between', alignItems:'center', width:'100%',
@@ -181,6 +221,11 @@ export default function GymDailyPaymentPage() {
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <span style={{ color:G.teal, fontWeight:800, fontSize:13 }}>{Number(c.amount).toLocaleString('fr-FR')} HTG</span>
+                  {c.changeDue > 0 && (
+                    <span style={{ color:'#b45309', fontWeight:700, fontSize:12 }}>
+                      {t('gym.dailyPayment.changeModal.changeGiven')}: {Number(c.changeDue).toLocaleString('fr-FR')} HTG
+                    </span>
+                  )}
                   <button
                     title={t('gym.dailyPayment.reprintReceipt')}
                     onClick={() => printGym(c.member, tenant, 'daily', { amount: c.amount, method: 'cash' })}
@@ -195,6 +240,16 @@ export default function GymDailyPaymentPage() {
       )}
 
       {showRateForm && <RateFormModal currentRate={rate} onClose={() => setShowRateForm(false)} />}
+
+      {payingMember && (
+        <ConfirmPaymentModal
+          member={payingMember}
+          rate={rate}
+          isPending={confirmMutation.isPending}
+          onClose={() => setPayingMember(null)}
+          onConfirm={(changeDue) => confirmMutation.mutate({ memberId: payingMember.id, changeDue })}
+        />
+      )}
 
       <style>{`
         @keyframes gymFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }

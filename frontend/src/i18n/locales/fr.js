@@ -550,6 +550,11 @@ export default {
         hint: "Le changement prend effet sur le PROCHAIN paiement — n'affecte pas les paiements déjà confirmés.",
         updated: 'Tarif journalier mis à jour!',
       },
+      changeModal: {
+        title: 'Confirmer le Paiement', amountDue: 'Montant à Payer', amountReceived: 'Montant Donné par le Client (HTG)',
+        changeDue: 'Monnaie à Rendre', confirm: 'Confirmer', confirming: 'Confirmation...',
+        changeGiven: 'Monnaie',
+      },
     },
     memberDetail: {
       backToMembers: 'Retour aux Membres', loading: 'Chargement...', notFound: 'Membre introuvable.',

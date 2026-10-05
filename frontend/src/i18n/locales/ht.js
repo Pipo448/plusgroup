@@ -547,6 +547,11 @@ export default {
         hint: 'Chanjman an pran efè sou PWOCHEN peman — li pa touche peman ki deja konfime.',
         updated: 'Tarif jounalye ajou!',
       },
+      changeModal: {
+        title: 'Konfime Peman', amountDue: 'Montan pou Peye', amountReceived: 'Kòb Kliyan Bay (HTG)',
+        changeDue: 'Monnen pou Remèt', confirm: 'Konfime', confirming: 'Ap konfime...',
+        changeGiven: 'Monnen',
+      },
     },
     memberDetail: {
       backToMembers: 'Tounen nan Manm', loading: 'Ap chaje...', notFound: 'Manm pa jwenn.',

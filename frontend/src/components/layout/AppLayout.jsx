@@ -104,7 +104,6 @@ const RESTAURANT_ITEMS = [
 const GYM_ITEMS = [
   { to:'/app/gym',          icon:LayoutDashboard, labelKey:'gym.nav.dashboard',     end:true  },
   { to:'/app/gym/members',  icon:Users,           labelKey:'gym.nav.members',       end:false },
-  { to:'/app/gym/check-in', icon:LogIn,           labelKey:'gym.nav.checkIn',       end:false },
   { to:'/app/gym/classes',  icon:BookOpen,        labelKey:'gym.nav.classes',       end:false },
   { to:'/app/gym/plans',    icon:CreditCard,      labelKey:'gym.nav.plans',         end:false },
   { to:'/app/gym/daily-payment', icon:Banknote,   labelKey:'gym.nav.dailyPayment',  end:false },

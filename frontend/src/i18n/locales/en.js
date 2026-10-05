@@ -548,6 +548,11 @@ export default {
         hint: 'The change takes effect on the NEXT payment — it does not affect already confirmed payments.',
         updated: 'Daily rate updated!',
       },
+      changeModal: {
+        title: 'Confirm Payment', amountDue: 'Amount Due', amountReceived: 'Amount Given by Client (HTG)',
+        changeDue: 'Change Due', confirm: 'Confirm', confirming: 'Confirming...',
+        changeGiven: 'Change',
+      },
     },
     memberDetail: {
       backToMembers: 'Back to Members', loading: 'Loading...', notFound: 'Member not found.',

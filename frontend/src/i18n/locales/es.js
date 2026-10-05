@@ -547,6 +547,11 @@ export default {
         hint: 'El cambio tiene efecto en el PRÓXIMO pago — no afecta los pagos ya confirmados.',
         updated: '¡Tarifa diaria actualizada!',
       },
+      changeModal: {
+        title: 'Confirmar Pago', amountDue: 'Monto a Pagar', amountReceived: 'Monto Dado por el Cliente (HTG)',
+        changeDue: 'Cambio a Devolver', confirm: 'Confirmar', confirming: 'Confirmando...',
+        changeGiven: 'Cambio',
+      },
     },
     memberDetail: {
       backToMembers: 'Volver a Miembros', loading: 'Cargando...', notFound: 'Miembro no encontrado.',
