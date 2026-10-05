@@ -192,6 +192,8 @@ model Tenant {
   gymClassEnrollments    GymClassEnrollment[]
   // ✅ NOUVO — Tarif Jounalye (peman pa jou)
   gymDailyRates          GymDailyRate[]
+  // ✅ NOUVO — Tarif Enskripsyon (frè enskripsyon)
+  gymRegistrationFees    GymRegistrationFee[]
   hotelPayments          HotelPayment[]
   hotelServices          HotelService[]
   invoiceItems           InvoiceItem[]
@@ -291,6 +293,8 @@ model Branch {
   gymClasses            GymClass[]
   // ✅ NOUVO — Tarif Jounalye (peman pa jou)
   gymDailyRates         GymDailyRate[]
+  // ✅ NOUVO — Tarif Enskripsyon (frè enskripsyon)
+  gymRegistrationFees   GymRegistrationFee[]
   invoices              Invoice[]
   kaneAccounts          KaneEpay[]
   prets                 Pre[]
@@ -363,6 +367,8 @@ model User {
   gymPaymentsCreated           GymPayment[]           @relation("GymPaymentCreatedBy")
   // ✅ NOUVO — Tarif Jounalye (peman pa jou)
   gymDailyRatesCreated         GymDailyRate[]         @relation("GymDailyRateCreatedBy")
+  // ✅ NOUVO — Tarif Enskripsyon (frè enskripsyon)
+  gymRegistrationFeesCreated   GymRegistrationFee[]   @relation("GymRegistrationFeeCreatedBy")
   hotelPaymentsCreated         HotelPayment[]         @relation("HotelPaymentCreatedBy")
   hotelServicesCreated         HotelService[]         @relation("HotelServiceCreatedBy")
   invoicesCancelled            Invoice[]              @relation("InvoiceCancelledBy")

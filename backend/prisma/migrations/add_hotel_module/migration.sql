@@ -1,0 +1,1 @@
+-- Deja aplike sou pwodiksyon, placeholder pou senkwonize istwa migrasyon

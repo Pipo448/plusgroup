@@ -185,3 +185,24 @@ model GymDailyRate {
   @@index([tenantId])
   @@map("gym_daily_rates")
 }
+
+// ✅ NOUVO — Tarif Enskripsyon: frè fiks ou peye YON SÈL FWA lè w vin manm,
+// separe de pri plan/abònman an. Menm patwon ak GymDailyRate: chak fwa
+// yo chanje l, nou kreye yon NOUVO liy (pa modifye ansyen an), konsa
+// istorik peman ki deja fèt yo pa chanje si tarif la chanje pita —
+// "current fee" se toujou dènye liy ki kreye a (orderBy createdAt desc).
+model GymRegistrationFee {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  branchId  String?  @map("branch_id")
+  priceHtg  Decimal  @map("price_htg") @db.Decimal(12, 2)
+  priceUsd  Decimal? @map("price_usd") @db.Decimal(12, 2)
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch    Branch?  @relation(fields: [branchId], references: [id], onUpdate: NoAction)
+  creator   User?    @relation("GymRegistrationFeeCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([tenantId])
+  @@map("gym_registration_fees")
+}

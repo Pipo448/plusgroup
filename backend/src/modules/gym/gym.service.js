@@ -185,11 +185,29 @@ async function addMember(tenantId, branchId, userId, data) {
     },
   })
 
+  // ✅ NOUVO — Kòb Enskripsyon (frè fiks, YON SÈL FWA, separe de pri plan an)
+  // Si gen yon tarif enskripsyon konfigire, nou anrejistre l kòm yon peman
+  // apa (type:'registration') anvan nou touche pati plan an ak rès lajan an.
+  let remainingForPlan = Number(data.amountPaid || 0)
+  const regFee = await getRegistrationFee(tenantId, branchId)
+  const registrationFeeHtg = regFee ? Number(regFee.priceHtg) : 0
+
+  if (registrationFeeHtg > 0) {
+    await prisma.gymPayment.create({
+      data: {
+        tenantId, memberId: member.id,
+        amountHtg: registrationFeeHtg, method: data.method || 'cash',
+        type: 'registration', createdBy: userId,
+      },
+    })
+    remainingForPlan = Math.max(0, remainingForPlan - registrationFeeHtg)
+  }
+
   // ✅ Si yon plan bay ansanm ak kreyasyon manm nan, kreye premye abònman an tousuit
   if (data.planId) {
     await createMembership(tenantId, member.id, userId, {
       planId: data.planId,
-      amountPaid: data.amountPaid,
+      amountPaid: remainingForPlan,
       method: data.method,
     })
   }
@@ -440,6 +458,28 @@ async function confirmDailyPayment(tenantId, branchId, memberId, userId, { amoun
 }
 
 // ─────────────────────────────────────────────────────────────
+// REGISTRATION FEE (Tarif Enskripsyon — frè fiks yon sèl fwa, separe de plan)
+// ─────────────────────────────────────────────────────────────
+async function getRegistrationFee(tenantId, branchId) {
+  return prisma.gymRegistrationFee.findFirst({
+    where: { tenantId },
+    orderBy: { createdAt: 'desc' },
+  })
+}
+
+async function setRegistrationFee(tenantId, branchId, userId, { priceHtg, priceUsd }) {
+  if (priceHtg === undefined || Number(priceHtg) < 0) throw new Error('Tarif enskripsyon obligatwa.')
+  return prisma.gymRegistrationFee.create({
+    data: {
+      tenantId, branchId: branchId || null,
+      priceHtg: Number(priceHtg),
+      priceUsd: priceUsd != null ? Number(priceUsd) : null,
+      createdBy: userId,
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────
 // CLASSES & TRAINERS (klas & antrenè)
 // ─────────────────────────────────────────────────────────────
 async function getClasses(tenantId, branchId) {
@@ -527,6 +567,7 @@ module.exports = {
   checkIn, checkOut, getCheckIns,
   addPayment, getPayments,
   getDailyRate, setDailyRate, confirmDailyPayment,
+  getRegistrationFee, setRegistrationFee,
   getClasses, createClass, updateClass, deleteClass,
   enrollMember, unenrollMember, getClassMembers,
 }

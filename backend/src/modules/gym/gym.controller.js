@@ -225,6 +225,27 @@ exports.confirmDailyPayment = async (req, res) => {
   }
 }
 
+// ── Registration Fee (Tarif Enskripsyon) ─────────────────────
+exports.getRegistrationFee = async (req, res) => {
+  try {
+    const { tenantId, branchId } = getCtx(req)
+    const fee = await svc.getRegistrationFee(tenantId, branchId)
+    res.json({ success: true, fee })
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message })
+  }
+}
+
+exports.setRegistrationFee = async (req, res) => {
+  try {
+    const { tenantId, branchId, userId } = getCtx(req)
+    const fee = await svc.setRegistrationFee(tenantId, branchId, userId, req.body)
+    res.status(201).json({ success: true, fee })
+  } catch (e) {
+    res.status(400).json({ success: false, message: e.message })
+  }
+}
+
 // ── Classes & Trainers (klas & antrenè) ──────────────────────
 exports.getClasses = async (req, res) => {
   try {

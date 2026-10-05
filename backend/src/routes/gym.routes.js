@@ -18,6 +18,10 @@ router.get('/daily-rate', ctrl.getDailyRate)
 router.post('/daily-rate', ctrl.setDailyRate)
 router.post('/members/:memberId/daily-payment', ctrl.confirmDailyPayment)
 
+// ✅ NOUVO — Tarif Enskripsyon (frè fiks yon sèl fwa, lè w vin manm)
+router.get('/registration-fee', ctrl.getRegistrationFee)
+router.post('/registration-fee', ctrl.setRegistrationFee)
+
 router.get('/members', ctrl.getMembers)
 router.get('/members/:id', ctrl.getMember)
 router.post('/members', ctrl.addMember)
