@@ -467,75 +467,98 @@ function buildDryHtml(order, tenant) {
     </div>`
 }
 
-// ✅ NOUVO — Resi GYM FITNESS (fallback browser print)
+// ✅ Resi GYM FITNESS (fallback browser print) — an FRANSE
+//    Pye resi: nòt Paramèt la (tenant.receiptFooterNote) + "Produit par PLUS GROUP" toujou nèt anba
 function buildGymHtml(member, tenant, type, extra = {}) {
-  const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtD = (d) => { try { return new Date(d).toLocaleDateString('fr-FR') } catch { return '' } }
   const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-  const TITLES = { enskripsyon:'FICHE ENSKRIPSYON', daily:'RESI PEMAN JOU', plan:'RESI ABONMAN', peman:'RESI PEMAN' }
-  const METOD = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
-  const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+  const TITLES = {
+    enskripsyon: "FICHE D'INSCRIPTION",
+    daily:       'REÇU - PAIEMENT JOURNALIER',
+    plan:        "REÇU D'ABONNEMENT",
+    peman:       'REÇU DE PAIEMENT',
+  }
+  const METHODS = {
+    cash:'Espèces', moncash:'MonCash', natcash:'NatCash', card:'Carte',
+    bank:'Banque', transfer:'Virement', credit:'Crédit', other:'Autre',
+  }
+  const now = new Date()
+  const txDate = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+
+  // Liy etikèt (agoch) + valè (adwat) sou MENM liy lan
+  const row = (label, value, bold = false) => value == null || value === '' ? '' : `
+    <div style="display:flex;justify-content:space-between;gap:8px;${bold ? 'font-weight:bold;' : ''}">
+      <span style="white-space:nowrap">${label}</span><span style="text-align:right">${value}</span>
+    </div>`
+  const sep = (style = 'dashed') => `<div style="border-top:1px ${style} #000;margin:5px 0"></div>`
+  const big = (label, amount) => `
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-weight:bold;font-size:14px;border-top:1px solid #000;border-bottom:1px solid #000;padding:5px 0;margin-top:6px">
+      <span>${label}</span><span>${fmt(amount)} HTG</span>
+    </div>`
+
+  let body = ''
+  if (type === 'enskripsyon') {
+    const fee = Number(extra.registrationFeeHtg || 0)
+    body = `
+      ${member?.emergencyContact || member?.emergencyPhone ? `
+        ${sep()}
+        ${row("Contact d'urgence :", member?.emergencyContact)}
+        ${row('Tél. urgence :', member?.emergencyPhone)}` : ''}
+      ${sep()}
+      ${extra.planName ? `
+        ${row('Plan initial :', extra.planName)}
+        ${fee > 0 ? row("Frais d'inscription :", fmt(fee) + ' HTG') : ''}
+        ${Number(extra.amountPaid) > 0 ? big('MONTANT PAYÉ', extra.amountPaid) : ''}
+      ` : `
+        ${fee > 0 ? row("Frais d'inscription :", fmt(fee) + ' HTG') : ''}
+        <div style="margin-top:3px">Sans abonnement - paiement à la journée.</div>
+      `}
+      <div style="text-align:center;font-weight:bold;font-size:13px;margin-top:8px">BIENVENUE À LA SALLE !</div>`
+  } else if (type === 'daily') {
+    body = `
+      ${sep()}
+      ${row('Type :', 'Séance journalière')}
+      ${row('Mode de paiement :', METHODS[extra.method] || extra.method)}
+      ${big('MONTANT', extra.amount)}`
+  } else if (type === 'plan') {
+    body = `
+      ${sep()}
+      ${row('Abonnement :', extra.planName)}
+      ${extra.startDate ? row('Début :', fmtD(extra.startDate)) : ''}
+      ${extra.endDate ? row('Fin :', fmtD(extra.endDate)) : ''}
+      ${row('Mode de paiement :', METHODS[extra.method] || extra.method)}
+      ${big('MONTANT PAYÉ', extra.amountPaid)}`
+  } else {
+    body = `
+      ${sep()}
+      ${row('Mode de paiement :', METHODS[extra.method] || extra.method)}
+      ${extra.notes ? `<div style="margin-top:2px">Note : ${extra.notes}</div>` : ''}
+      ${big('MONTANT', extra.amount)}`
+  }
 
   return `
-    <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px">
-      <div style="text-align:center;border-bottom:1px solid #000;padding-bottom:6px;margin-bottom:6px">
+    <div style="width:100%;max-width:300px;margin:0 auto;font-size:11px;font-family:'Courier New',monospace">
+      <div style="text-align:center;padding-bottom:4px">
         ${tenant?.logoUrl ? `<img src="${tenant.logoUrl}" style="height:40px;display:block;margin:0 auto 4px">` : ''}
-        <strong style="font-size:14px">${biz}</strong><br>
-        <strong>-- GYM FITNESS --</strong><br>
-        ${tenant?.phone ? `<span style="font-size:9px">Tel: ${tenant.phone}</span>` : ''}
+        <strong style="font-size:15px">${biz}</strong><br>
+        <span>-- GYM FITNESS --</span><br>
+        ${tenant?.address ? `<span style="font-size:9px">${tenant.address}</span><br>` : ''}
+        ${tenant?.phone ? `<span style="font-size:9px">Tél : ${tenant.phone}</span>` : ''}
       </div>
-      <div style="text-align:center;font-weight:bold;font-size:13px;border-bottom:1px solid #000;padding-bottom:4px;margin-bottom:6px">
-        ${TITLES[type] || 'RESI'}
-      </div>
-      <div style="font-size:10px;margin-bottom:6px">
-        <div>Dat: ${txDate}</div>
-      </div>
-      <div style="border-top:1px dashed #000;padding-top:4px;margin-bottom:6px">
-        <strong>${member?.fullName || ''}</strong><br>
-        ${member?.phone ? `<span style="font-size:10px">Tel: ${member.phone}</span><br>` : ''}
-        ${member?.email ? `<span style="font-size:10px">Email: ${member.email}</span>` : ''}
-      </div>
-      ${type === 'enskripsyon' ? `
-        <div style="font-size:10px">
-          ${member?.emergencyContact ? `<div>Kontak Ijans: ${member.emergencyContact}</div>` : ''}
-          ${member?.emergencyPhone ? `<div>Tel Ijans: ${member.emergencyPhone}</div>` : ''}
-        </div>
-        ${extra.planName ? `
-        <div style="border-top:1px dashed #000;margin-top:6px;padding-top:4px;font-size:10px">
-          <div>Plan Inisyal: ${extra.planName}</div>
-          ${Number(extra.amountPaid) > 0 ? `<div>Montan Peye: ${fmt(extra.amountPaid)} G</div>` : ''}
-        </div>` : `<div style="font-size:10px;margin-top:6px">San abònman — ka peye pa jou.</div>`}
-        <div style="text-align:center;font-weight:bold;font-size:13px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
-          BYENVINI NAN JIM NAN!
-        </div>
-      ` : type === 'daily' ? `
-        <div style="font-size:10px">
-          <div>Tip Peman: Pa Jou</div>
-          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
-        </div>
-        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
-          MONTAN: ${fmt(extra.amount)} G
-        </div>
-      ` : type === 'plan' ? `
-        <div style="font-size:10px">
-          <div>Plan: ${extra.planName || ''}</div>
-          ${extra.startDate ? `<div>Dat Kòmansman: ${new Date(extra.startDate).toLocaleDateString('fr-HT')}</div>` : ''}
-          ${extra.endDate ? `<div>Dat Fini: ${new Date(extra.endDate).toLocaleDateString('fr-HT')}</div>` : ''}
-          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
-        </div>
-        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
-          PEYE: ${fmt(extra.amountPaid)} G
-        </div>
-      ` : `
-        <div style="font-size:10px">
-          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
-          ${extra.notes ? `<div>Nòt: ${extra.notes}</div>` : ''}
-        </div>
-        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
-          MONTAN: ${fmt(extra.amount)} G
-        </div>
-      `}
-      <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">
-        Mesi!<br>${biz} — ${tenant?.phone || '+50942449024'}
+      ${sep('solid')}
+      <div style="text-align:center;font-weight:bold;font-size:13px">${TITLES[type] || 'REÇU'}</div>
+      ${sep('solid')}
+      ${row('Date :', txDate)}
+      ${sep()}
+      <div style="font-weight:bold;font-size:12px">${member?.fullName || ''}</div>
+      ${row('Tél :', member?.phone)}
+      ${row('Email :', member?.email)}
+      ${body}
+      <div style="text-align:center;margin-top:8px;border-top:1px dashed #000;padding-top:5px">
+        <div style="font-weight:bold">Merci de votre confiance !</div>
+        ${tenant?.receiptFooterNote ? `<div style="margin-top:4px;font-size:10px">${tenant.receiptFooterNote}</div>` : ''}
+        <div style="margin-top:6px;font-size:9px">Produit par PLUS GROUP - Tél : +509 4244 9024</div>
       </div>
     </div>`
 }
@@ -737,7 +760,7 @@ printDry: async (order, tenant) => {
     set({ printing: true })
     try {
       await printGymReceipt(member, tenant, type, extra)
-      toast.success('Resi Jim enprime! 🖨️')
+      toast.success('Reçu imprimé ! 🖨️')
       return true
     } catch (err) {
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {

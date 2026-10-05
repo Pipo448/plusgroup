@@ -55,6 +55,14 @@ const encodeText = (text) => {
     .replace(/[ÈÉÊË]/g,  'E').replace(/[ÌÍÎÏ]/g,  'I')
     .replace(/[ÒÓÔÕÖ]/g, 'O').replace(/[ÙÚÛÜ]/g,  'U')
     .replace(/ç/g, 'c').replace(/Ç/g, 'C').replace(/ñ/g, 'n')
+    // ✅ Karaktè tipografik → ASCII (anvan sa yo te soti '?' sou papye a)
+    .replace(/[\u2013\u2014\u2015\u2212]/g, '-')   // – — ― −
+    .replace(/[\u00B7\u2022\u2023\u25CF]/g, '-')   // · • ‣ ●
+    .replace(/[\u2018\u2019\u201B\u00B4]/g, "'")  // ‘ ’ ´
+    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')  // “ ” « »
+    .replace(/\u2026/g, '...')                       // …
+    .replace(/[\u00A0\u202F\u2009\u2007]/g, ' ')   // espas ensekab (fr-FR / fr-HT)
+    .replace(/\u2192/g, '->').replace(/\u00D7/g, 'x')
     .replace(/[^\x00-\x7F]/g, '?')
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
@@ -1006,90 +1014,147 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
   await dispatch(bytes)
 }
 
-// ✅ NOUVO — Resi GYM FITNESS: Enskripsyon manm / Peman Pa Jou / Abònman (Plan)
-// Menm mekanis ESC/POS ak printKaneReceipt/printPreReceipt (Bluetooth/RawBT,
-// repli sou browser print via buildGymHtml nan printerStore.js).
+// ✅ Resi GYM FITNESS — enskripsyon / peman pa jou / abonman (plan) / peman
+// Tout an FRANSE. Pye resi a: nòt Paramèt la (tenant.receiptFooterNote),
+// epi "Produit par PLUS GROUP" TOUJOU nèt anba.
+// Menm mekanis ESC/POS ak lòt resi yo (Bluetooth/RawBT, repli sou browser
+// print via buildGymHtml nan printerStore.js).
 export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extra = {}) => {
-  const fmt = (n) => Number(n || 0)
-    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-    .replace(/ /g, ' ').replace(/ /g, ' ')
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const fmtD = (d) => { try { return new Date(d).toLocaleDateString('fr-FR') } catch { return '' } }
   const W = getWidth(tenant)
-  const TITLES = { enskripsyon: 'FICHE ENSKRIPSYON', daily: 'RESI PEMAN JOU', plan: 'RESI ABONMAN', peman: 'RESI PEMAN' }
-  const METOD  = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
-  const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+  const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const TITLES = {
+    enskripsyon: "FICHE D'INSCRIPTION",
+    daily:       'PAIEMENT JOURNALIER',
+    plan:        "RECU D'ABONNEMENT",
+    peman:       'RECU DE PAIEMENT',
+  }
+  const METHODS = {
+    cash:'Especes', moncash:'MonCash', natcash:'NatCash', card:'Carte',
+    bank:'Banque', transfer:'Virement', credit:'Credit', other:'Autre',
+  }
+  const now = new Date()
+  const txDate = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
+
+  // Etikèt agoch + valè adwat sou menm liy. Si yo pa kenbe, valè a desann
+  // sou pwochen liy lan, aliyen adwat (pa janm koupe).
+  const line = (label, value) => {
+    if (value == null || value === '') return []
+    const l = String(label), v = String(value)
+    if (l.length + v.length + 1 <= W) return [...makeLine(l, v, W), LF]
+    return [...encodeText(l), LF, ...encodeText(v.length >= W ? v.substring(0, W) : ' '.repeat(W - v.length) + v), LF]
+  }
+  const total = (label, amount) => [
+    ...divider('=', W), LF,
+    ...CMD.BOLD_ON, ...line(label, fmt(amount) + ' HTG'), ...CMD.BOLD_OFF,
+    ...divider('=', W), LF,
+  ]
+  const method = extra.method ? (METHODS[extra.method] || extra.method) : null
+  // Koupe yon tèks long sou plizyè liy san koupe mo yo an de
+  const wrap = (text) => {
+    const out = []
+    for (const para of String(text).split(/\r?\n/)) {
+      let cur = ''
+      for (const word of para.split(/\s+/).filter(Boolean)) {
+        if (!cur) cur = word
+        else if ((cur + ' ' + word).length <= W) cur += ' ' + word
+        else { out.push(cur); cur = word }
+        while (cur.length > W) { out.push(cur.substring(0, W)); cur = cur.substring(W) }
+      }
+      if (cur) out.push(cur)
+    }
+    return out.flatMap(l => [...encodeText(l), LF])
+  }
+
+  let body = []
+  if (type === 'enskripsyon') {
+    const fee = Number(extra.registrationFeeHtg || 0)
+    body = [
+      ...(member?.emergencyContact || member?.emergencyPhone ? [
+        ...line("Contact d'urgence :", member?.emergencyContact),
+        ...line('Tel. urgence :', member?.emergencyPhone),
+        ...divider('-', W), LF,
+      ] : []),
+      ...(extra.planName ? [
+        ...line('Plan initial :', extra.planName),
+        ...(fee > 0 ? line("Frais d'inscription :", fmt(fee) + ' HTG') : []),
+        ...(Number(extra.amountPaid) > 0 ? total('MONTANT PAYE :', extra.amountPaid) : []),
+      ] : [
+        ...(fee > 0 ? line("Frais d'inscription :", fmt(fee) + ' HTG') : []),
+        ...encodeText('Sans abonnement - paiement a la'), LF,
+        ...encodeText('journee.'), LF,
+      ]),
+      LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('BIENVENUE A LA SALLE !'), LF, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
+    ]
+  } else if (type === 'daily') {
+    body = [
+      ...line('Type :', 'Seance journaliere'),
+      ...line('Mode de paiement :', method),
+      ...total('MONTANT :', extra.amount),
+      ...CMD.ALIGN_CENTER, ...encodeText('Bon entrainement !'), LF, ...CMD.ALIGN_LEFT,
+    ]
+  } else if (type === 'plan') {
+    body = [
+      ...line('Abonnement :', extra.planName),
+      ...(extra.startDate ? line('Debut :', fmtD(extra.startDate)) : []),
+      ...(extra.endDate   ? line('Fin :', fmtD(extra.endDate)) : []),
+      ...line('Mode de paiement :', method),
+      ...total('MONTANT PAYE :', extra.amountPaid),
+    ]
+  } else {
+    // type === 'peman' — peman manyèl / adisyonèl
+    body = [
+      ...line('Mode de paiement :', method),
+      ...(extra.notes ? wrap('Note : ' + extra.notes) : []),
+      ...total('MONTANT :', extra.amount),
+    ]
+  }
 
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
-    ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
+
+    // ══ EN-TETE ══════════════════════════════════════════════
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+    ...encodeText(biz.substring(0, W)), LF,
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...CMD.BOLD_ON, ...encodeText('-- GYM FITNESS --\n'), ...CMD.BOLD_OFF,
-    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...encodeText('-- GYM FITNESS --'), LF,
+    ...(tenant?.address ? [...encodeText(tenant.address), LF] : []),
+    ...(tenant?.phone   ? [...encodeText('Tel : ' + tenant.phone), LF] : []),
     ...divider('=', W), LF,
-    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText((TITLES[type] || 'RESI') + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON, ...encodeText(TITLES[type] || 'RECU'), LF, ...CMD.BOLD_OFF,
     ...divider('=', W), LF,
     ...CMD.ALIGN_LEFT,
-    ...makeLine('Dat:', txDate, W), LF,
+
+    // ══ MEMBRE ═══════════════════════════════════════════════
+    ...line('Date :', txDate),
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON, ...encodeText((member?.fullName || '').substring(0, W) + '\n'), ...CMD.BOLD_OFF,
-    ...(member?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(member?.email ? [...CMD.SMALL_FONT, ...encodeText('Email: ' + member.email + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...CMD.BOLD_ON, ...encodeText((member?.fullName || '').substring(0, W)), LF, ...CMD.BOLD_OFF,
+    ...line('Tel :', member?.phone),
+    ...line('Email :', member?.email),
     ...divider('-', W), LF,
 
-    ...(type === 'enskripsyon' ? [
-      ...(member?.emergencyContact ? [...makeLine('Kontak Ijans:', member.emergencyContact, W), LF] : []),
-      ...(member?.emergencyPhone  ? [...makeLine('Tel Ijans:', member.emergencyPhone, W), LF] : []),
-      ...(extra.planName ? [
-        ...divider('-', W), LF,
-        ...makeLine('Plan Inisyal:', extra.planName, W), LF,
-        ...(Number(extra.amountPaid) > 0 ? [...makeLine('Montan Peye:', fmt(extra.amountPaid) + ' G', W), LF] : []),
-      ] : [
-        ...CMD.SMALL_FONT, ...encodeText('San abonman — ka peye pa jou.\n'), ...CMD.NORMAL_FONT,
-      ]),
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('BYENVINI NAN JIM NAN!\n'), ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
-    ] : type === 'daily' ? [
-      ...CMD.BOLD_ON, ...makeLine('Tip Peman:', 'Pa Jou', W), LF, ...CMD.BOLD_OFF,
-      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('Bon antrennman!\n'), ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
-    ] : type === 'plan' ? [
-      ...makeLine('Plan:', extra.planName || '', W), LF,
-      ...(extra.startDate ? [...makeLine('Dat Kòmansman:', new Date(extra.startDate).toLocaleDateString('fr-HT'), W), LF] : []),
-      ...(extra.endDate   ? [...makeLine('Dat Fini:', new Date(extra.endDate).toLocaleDateString('fr-HT'), W), LF] : []),
-      ...(extra.method    ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('PEYE: ' + fmt(extra.amountPaid) + ' G\n'),
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
-      ...divider('=', W), LF,
-    ] : [
-      // type === 'peman' — peman manyèl/adisyonèl (san plan, san tarif jounalye)
-      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
-      ...(extra.notes  ? [...makeLine('Nòt:', String(extra.notes).substring(0, W - 6), W), LF] : []),
-      ...divider('=', W), LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
-      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-      ...CMD.ALIGN_LEFT,
-      ...divider('=', W), LF,
-    ]),
+    ...body,
 
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('Mesi!\n'), ...CMD.BOLD_OFF,
+    // ══ PIED DE RECU ═════════════════════════════════════════
+    LF,
+    ...CMD.ALIGN_CENTER,
+    ...CMD.BOLD_ON, ...encodeText('Merci de votre confiance !'), LF, ...CMD.BOLD_OFF,
+    ...(tenant?.receiptFooterNote ? [
+      ...divider('-', W), LF,
+      ...wrap(String(tenant.receiptFooterNote).trim()),
+    ] : []),
+    ...divider('-', W), LF,
     ...CMD.SMALL_FONT,
-    ...encodeText((tenant?.businessName || tenant?.name || 'PlusGroup') + ' — Tel: ' + (tenant?.phone || '+50942449024') + '\n'),
+    ...encodeText('Produit par PLUS GROUP'), LF,
+    ...encodeText('Tel : +509 4244 9024'), LF,
     ...CMD.NORMAL_FONT,
-    LF, LF, ...CMD.CUT,
+    ...CMD.ALIGN_LEFT,
+    LF, LF, LF,
+    ...CMD.CUT,
   ]
 
   await dispatch(bytes)
