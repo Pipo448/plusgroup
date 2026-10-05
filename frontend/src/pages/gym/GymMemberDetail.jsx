@@ -1,6 +1,7 @@
 // src/pages/gym/GymMemberDetail.jsx
 // ✅ GYM FITNESS — Pwofil manm (istorik abònman, peman, check-in) — tèm klè, animasyon, responsive
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -17,9 +18,9 @@ const G = {
 }
 
 const STATUS_COLORS = {
-  active:    { bg:'rgba(34,197,94,0.12)',  color:'#16a34a', label:'Aktif' },
-  expired:   { bg:'rgba(239,68,68,0.12)',  color:'#dc2626', label:'Ekspire' },
-  cancelled: { bg:'rgba(100,116,139,0.12)',color:'#475569', label:'Anile' },
+  active:    { bg:'rgba(34,197,94,0.12)',  color:'#16a34a', labelKey:'gym.members.status.active' },
+  expired:   { bg:'rgba(239,68,68,0.12)',  color:'#dc2626', labelKey:'gym.members.status.expired' },
+  cancelled: { bg:'rgba(100,116,139,0.12)',color:'#475569', labelKey:'gym.members.status.cancelled' },
 }
 
 const labelStyle = { display:'block', color:G.muted, fontSize:12, fontWeight:600, margin:'12px 0 6px' }
@@ -40,6 +41,7 @@ function Modal({ title, onClose, children }) {
 }
 
 function NewMembershipModal({ memberId, member, onClose }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { tenant } = useAuthStore()
   const { printGym } = usePrinterStore()
@@ -49,7 +51,7 @@ function NewMembershipModal({ memberId, member, onClose }) {
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.createMembership(memberId, data),
     onSuccess: (res, variables) => {
-      toast.success('Abònman kreye!')
+      toast.success(t('gym.memberDetail.membershipModal.created'))
       qc.invalidateQueries(['gym-member', memberId])
       qc.invalidateQueries(['gym-memberships', memberId])
       const plan = plans?.find(p => p.id === variables.planId)
@@ -62,33 +64,33 @@ function NewMembershipModal({ memberId, member, onClose }) {
       })
       onClose()
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
+    onError: (e) => toast.error(e.response?.data?.message || t('gym.memberDetail.error')),
   })
 
   const onSubmit = (data) => mutation.mutate({ ...data, amountPaid: Number(data.amountPaid || 0) })
 
   return (
-    <Modal title="Nouvo Abònman" onClose={onClose}>
+    <Modal title={t('gym.memberDetail.membershipModal.title')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <label style={labelStyle}>Plan</label>
+        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.plan')}</label>
         <select {...register('planId', { required:true })} style={inputStyle}>
           {plans?.map(p => <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>)}
         </select>
-        <label style={labelStyle}>Dat Kòmansman</label>
+        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.startDate')}</label>
         <input type="date" defaultValue={new Date().toISOString().split('T')[0]} {...register('startDate', { required:true })} style={inputStyle} />
-        <label style={labelStyle}>Montan Peye (HTG)</label>
+        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.amountPaid')}</label>
         <input type="number" step="0.01" {...register('amountPaid')} style={inputStyle} />
-        <label style={labelStyle}>Metòd</label>
+        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.method')}</label>
         <select {...register('method')} style={inputStyle}>
-          <option value="cash">Kach</option>
-          <option value="moncash">MonCash</option>
-          <option value="natcash">NatCash</option>
-          <option value="card">Kat</option>
-          <option value="bank">Bank</option>
+          <option value="cash">{t('gym.memberDetail.methods.cash')}</option>
+          <option value="moncash">{t('gym.memberDetail.methods.moncash')}</option>
+          <option value="natcash">{t('gym.memberDetail.methods.natcash')}</option>
+          <option value="card">{t('gym.memberDetail.methods.card')}</option>
+          <option value="bank">{t('gym.memberDetail.methods.bank')}</option>
         </select>
         <button type="submit" disabled={mutation.isPending}
           style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? 'Ap sove...' : 'Kreye Abònman'}
+          {mutation.isPending ? t('gym.memberDetail.membershipModal.saving') : t('gym.memberDetail.membershipModal.create')}
         </button>
       </form>
     </Modal>
@@ -96,46 +98,47 @@ function NewMembershipModal({ memberId, member, onClose }) {
 }
 
 function NewPaymentModal({ memberId, onClose }) {
+  const { t } = useTranslation()
   const qc = useQueryClient()
   const { register, handleSubmit } = useForm({ defaultValues:{ type:'manual', method:'cash' } })
 
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.addPayment(memberId, data),
     onSuccess: () => {
-      toast.success('Peman anrejistre!')
+      toast.success(t('gym.memberDetail.paymentModal.recorded'))
       qc.invalidateQueries(['gym-payments', memberId])
       onClose()
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
+    onError: (e) => toast.error(e.response?.data?.message || t('gym.memberDetail.error')),
   })
 
   const onSubmit = (data) => mutation.mutate({ ...data, amountHtg: Number(data.amountHtg) })
 
   return (
-    <Modal title="Nouvo Peman" onClose={onClose}>
+    <Modal title={t('gym.memberDetail.paymentModal.title')} onClose={onClose}>
       <form onSubmit={handleSubmit(onSubmit)}>
-        <label style={labelStyle}>Montan (HTG)</label>
+        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.amount')}</label>
         <input type="number" step="0.01" {...register('amountHtg', { required:true, min:0 })} style={inputStyle} />
-        <label style={labelStyle}>Metòd</label>
+        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.method')}</label>
         <select {...register('method')} style={inputStyle}>
-          <option value="cash">Kach</option>
-          <option value="moncash">MonCash</option>
-          <option value="natcash">NatCash</option>
-          <option value="card">Kat</option>
-          <option value="bank">Bank</option>
+          <option value="cash">{t('gym.memberDetail.methods.cash')}</option>
+          <option value="moncash">{t('gym.memberDetail.methods.moncash')}</option>
+          <option value="natcash">{t('gym.memberDetail.methods.natcash')}</option>
+          <option value="card">{t('gym.memberDetail.methods.card')}</option>
+          <option value="bank">{t('gym.memberDetail.methods.bank')}</option>
         </select>
-        <label style={labelStyle}>Nòt (opsyonèl)</label>
+        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.notes')}</label>
         <input {...register('notes')} style={inputStyle} />
         <button type="submit" disabled={mutation.isPending}
           style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? 'Ap sove...' : 'Anrejistre Peman'}
+          {mutation.isPending ? t('gym.memberDetail.paymentModal.saving') : t('gym.memberDetail.paymentModal.record')}
         </button>
       </form>
     </Modal>
   )
 }
 
-function PrintButton({ onClick, title = 'Enprime resi' }) {
+function PrintButton({ onClick, title }) {
   return (
     <button onClick={onClick} title={title} style={{
       background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:6,
@@ -159,6 +162,7 @@ function SectionCard({ icon:Icon, title, color, children, delay }) {
 }
 
 export default function GymMemberDetail() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const qc = useQueryClient()
   const { tenant } = useAuthStore()
@@ -185,17 +189,17 @@ export default function GymMemberDetail() {
 
   const cancelMutation = useMutation({
     mutationFn: (membershipId) => gymAPI.cancelMembership(membershipId),
-    onSuccess: () => { toast.success('Abònman anile.'); qc.invalidateQueries(['gym-memberships', id]) },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
+    onSuccess: () => { toast.success(t('gym.memberDetail.membershipCancelled')); qc.invalidateQueries(['gym-memberships', id]) },
+    onError: (e) => toast.error(e.response?.data?.message || t('gym.memberDetail.error')),
   })
 
-  if (isLoading) return <p style={{ color:G.muted }}>Ap chaje...</p>
-  if (!member) return <p style={{ color:G.red }}>Manm pa jwenn.</p>
+  if (isLoading) return <p style={{ color:G.muted }}>{t('gym.memberDetail.loading')}</p>
+  if (!member) return <p style={{ color:G.red }}>{t('gym.memberDetail.notFound')}</p>
 
   return (
     <div style={{ maxWidth:800, margin:'0 auto' }}>
       <Link to="/app/gym/members" className="gym-fadeup" style={{ display:'inline-flex', alignItems:'center', gap:6, color:G.muted, fontSize:13, fontWeight:600, textDecoration:'none', marginBottom:16 }}>
-        <ArrowLeft size={15} /> Tounen nan Manm
+        <ArrowLeft size={15} /> {t('gym.memberDetail.backToMembers')}
       </Link>
 
       <div className="gym-fadeup" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:22, boxShadow:G.shadow, marginBottom:18, animationDelay:'50ms' }}>
@@ -212,19 +216,19 @@ export default function GymMemberDetail() {
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <button onClick={() => setShowMembership(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:700, cursor:'pointer', fontSize:12 }}>
-              <Plus size={14} /> Abònman
+              <Plus size={14} /> {t('gym.memberDetail.addMembership')}
             </button>
             <button onClick={() => setShowPayment(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontWeight:700, cursor:'pointer', fontSize:12 }}>
-              <Plus size={14} /> Peman
+              <Plus size={14} /> {t('gym.memberDetail.addPayment')}
             </button>
           </div>
         </div>
       </div>
 
       <div style={{ display:'grid', gap:16 }}>
-        <SectionCard icon={CreditCard} title="Istorik Abònman" color={G.teal} delay={100}>
+        <SectionCard icon={CreditCard} title={t('gym.memberDetail.membershipHistory')} color={G.teal} delay={100}>
           {!memberships?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>Pa gen abònman ankò.</p>
+            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noMemberships')}</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {memberships.map(ms => {
@@ -232,21 +236,21 @@ export default function GymMemberDetail() {
                 return (
                   <div key={ms.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:11, background:G.bgSoft, border:`1px solid ${G.border}`, flexWrap:'wrap', gap:8 }}>
                     <div>
-                      <p style={{ margin:0, color:G.ink, fontWeight:700, fontSize:13 }}>{ms.planName || 'Plan'}</p>
+                      <p style={{ margin:0, color:G.ink, fontWeight:700, fontSize:13 }}>{ms.planName || t('gym.memberDetail.plan')}</p>
                       <p style={{ margin:'2px 0 0', color:G.muted, fontSize:11 }}>
                         {new Date(ms.startDate).toLocaleDateString('fr-FR')} {ms.endDate && `→ ${new Date(ms.endDate).toLocaleDateString('fr-FR')}`}
                       </p>
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontSize:10, fontWeight:700, padding:'4px 9px', borderRadius:7, background:meta.bg, color:meta.color }}>{meta.label}</span>
-                      <PrintButton title="Re-enprime resi abònman" onClick={() => printGym(member, tenant, 'plan', {
+                      <span style={{ fontSize:10, fontWeight:700, padding:'4px 9px', borderRadius:7, background:meta.bg, color:meta.color }}>{t(meta.labelKey)}</span>
+                      <PrintButton title={t('gym.memberDetail.reprintMembership')} onClick={() => printGym(member, tenant, 'plan', {
                         planName: ms.plan?.name || ms.planName,
                         amountPaid: ms.priceHtg,
                         startDate: ms.startDate,
                         endDate: ms.endDate,
                       })} />
                       {ms.status === 'active' && (
-                        <button onClick={() => cancelMutation.mutate(ms.id)} title="Anile" style={{ background:'none', border:'none', color:G.red, cursor:'pointer', display:'flex' }}>
+                        <button onClick={() => cancelMutation.mutate(ms.id)} title={t('gym.memberDetail.cancelAction')} style={{ background:'none', border:'none', color:G.red, cursor:'pointer', display:'flex' }}>
                           <Ban size={14} />
                         </button>
                       )}
@@ -258,9 +262,9 @@ export default function GymMemberDetail() {
           )}
         </SectionCard>
 
-        <SectionCard icon={Wallet} title="Istorik Peman" color={G.amber} delay={150}>
+        <SectionCard icon={Wallet} title={t('gym.memberDetail.paymentHistory')} color={G.amber} delay={150}>
           {!payments?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>Pa gen peman ankò.</p>
+            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noPayments')}</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {payments.map(p => (
@@ -271,7 +275,7 @@ export default function GymMemberDetail() {
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                     {p.notes && <span style={{ color:G.muted, fontSize:11, maxWidth:140, textAlign:'right' }}>{p.notes}</span>}
-                    <PrintButton title="Re-enprime resi peman" onClick={() => {
+                    <PrintButton title={t('gym.memberDetail.reprintPayment')} onClick={() => {
                       if (p.type === 'daily') {
                         printGym(member, tenant, 'daily', { amount: p.amountHtg, method: p.method })
                       } else if (p.type === 'membership') {
@@ -291,9 +295,9 @@ export default function GymMemberDetail() {
           )}
         </SectionCard>
 
-        <SectionCard icon={LogIn} title="Dènye Check-in" color="#6366f1" delay={200}>
+        <SectionCard icon={LogIn} title={t('gym.memberDetail.recentCheckIns')} color="#6366f1" delay={200}>
           {!checkIns?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>Pa gen check-in ankò.</p>
+            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noCheckIns')}</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {checkIns.map(c => (

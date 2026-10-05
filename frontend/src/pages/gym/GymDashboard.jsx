@@ -1,5 +1,6 @@
 // src/pages/gym/GymDashboard.jsx
 // ✅ GYM FITNESS — Tablo bò, tèm klè pwofesyonèl + animasyon + responsive
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
@@ -19,17 +20,17 @@ const G = {
 }
 
 const STATS = [
-  { key:'totalMembers',      label:'Total Manm',    icon:Users,      color:'#14B8A6', bg:'rgba(20,184,166,0.12)' },
-  { key:'activeMembers',     label:'Manm Aktif',    icon:UserCheck,  color:'#16a34a', bg:'rgba(34,197,94,0.12)'  },
-  { key:'activeMemberships', label:'Abònman Aktif', icon:CreditCard, color:'#d97706', bg:'rgba(245,158,11,0.12)' },
-  { key:'checkInsToday',     label:'Antre Jodi a',  icon:LogInIcon,  color:'#6366f1', bg:'rgba(99,102,241,0.12)' },
+  { key:'totalMembers',      labelKey:'gym.dashboard.totalMembers',      icon:Users,      color:'#14B8A6', bg:'rgba(20,184,166,0.12)' },
+  { key:'activeMembers',     labelKey:'gym.dashboard.activeMembers',     icon:UserCheck,  color:'#16a34a', bg:'rgba(34,197,94,0.12)'  },
+  { key:'activeMemberships', labelKey:'gym.dashboard.activeMemberships', icon:CreditCard, color:'#d97706', bg:'rgba(245,158,11,0.12)' },
+  { key:'checkInsToday',     labelKey:'gym.dashboard.checkInsToday',     icon:LogInIcon,  color:'#6366f1', bg:'rgba(99,102,241,0.12)' },
 ]
 
 const QUICK_LINKS = [
-  { to:'/app/gym/check-in', icon:LogInIcon,  label:'Check-in Rapid', color:'#6366f1' },
-  { to:'/app/gym/members',  icon:Users,      label:'Jere Manm',      color:'#14B8A6' },
-  { to:'/app/gym/plans',    icon:CreditCard, label:'Plan Abònman',   color:'#d97706' },
-  { to:'/app/gym/classes',  icon:BookOpen,   label:'Klas & Antrenè', color:'#8b5cf6' },
+  { to:'/app/gym/check-in', icon:LogInIcon,  labelKey:'gym.dashboard.quickCheckIn',       color:'#6366f1' },
+  { to:'/app/gym/members',  icon:Users,      labelKey:'gym.dashboard.manageMembers',      color:'#14B8A6' },
+  { to:'/app/gym/plans',    icon:CreditCard, labelKey:'gym.dashboard.subscriptionPlan',   color:'#d97706' },
+  { to:'/app/gym/classes',  icon:BookOpen,   labelKey:'gym.dashboard.classesAndTrainers', color:'#8b5cf6' },
 ]
 
 function StatCard({ icon:Icon, label, value, color, bg, loading, delay }) {
@@ -72,6 +73,7 @@ function QuickLink({ to, icon:Icon, label, color, delay }) {
 }
 
 export default function GymDashboard() {
+  const { t } = useTranslation()
   const { data, isLoading } = useQuery({
     queryKey: ['gym-stats'],
     // ✅ KORIJE — backend voye { success:true, stats:{...} }, pa stats yo dirèkteman.
@@ -95,14 +97,14 @@ export default function GymDashboard() {
           <Dumbbell size={26} color="#fff"/>
         </div>
         <div>
-          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:G.ink }}>GYM FITNESS</h1>
-          <p style={{ margin:'2px 0 0', fontSize:12.5, color:G.muted, fontWeight:500 }}>Tablo bò jeneral modil jim nan</p>
+          <h1 style={{ margin:0, fontSize:21, fontWeight:800, color:G.ink }}>{t('gym.title')}</h1>
+          <p style={{ margin:'2px 0 0', fontSize:12.5, color:G.muted, fontWeight:500 }}>{t('gym.dashboard.subtitle')}</p>
         </div>
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(190px, 1fr))', gap:14, marginBottom:28 }}>
         {STATS.map((s, i) => (
-          <StatCard key={s.key} icon={s.icon} label={s.label} color={s.color} bg={s.bg}
+          <StatCard key={s.key} icon={s.icon} label={t(s.labelKey)} color={s.color} bg={s.bg}
             value={data?.[s.key] ?? 0} loading={isLoading} delay={i * 60}/>
         ))}
         <div className="gym-fadeup" style={{
@@ -118,7 +120,7 @@ export default function GymDashboard() {
               ? <div className="gym-pulse" style={{ width:70, height:22, borderRadius:6, background:'rgba(255,255,255,0.3)' }}/>
               : <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#fff', lineHeight:1.1, whiteSpace:'nowrap' }}>{revenueToday}</p>
             }
-            <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>Revni Jodi a</p>
+            <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>{t('gym.dashboard.revenueToday')}</p>
           </div>
         </div>
 
@@ -135,17 +137,17 @@ export default function GymDashboard() {
               ? <div className="gym-pulse" style={{ width:70, height:22, borderRadius:6, background:'rgba(255,255,255,0.3)' }}/>
               : <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#fff', lineHeight:1.1, whiteSpace:'nowrap' }}>{revenueMonth}</p>
             }
-            <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>Revni Mwa sa a</p>
+            <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>{t('gym.dashboard.revenueMonth')}</p>
           </div>
         </div>
       </div>
 
       <p className="gym-fadeup" style={{ fontSize:11, color:G.muted, textTransform:'uppercase', letterSpacing:'0.09em', fontWeight:800, margin:'0 0 12px', animationDelay:`${(STATS.length + 2) * 60}ms` }}>
-        Aksyon Rapid
+        {t('gym.dashboard.quickActions')}
       </p>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:14 }}>
         {QUICK_LINKS.map((q, i) => (
-          <QuickLink key={q.to} {...q} delay={(STATS.length + 3 + i) * 60}/>
+          <QuickLink key={q.to} to={q.to} icon={q.icon} color={q.color} label={t(q.labelKey)} delay={(STATS.length + 3 + i) * 60}/>
         ))}
       </div>
 
