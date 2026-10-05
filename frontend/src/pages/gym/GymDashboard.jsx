@@ -81,8 +81,11 @@ export default function GymDashboard() {
     queryFn: () => gymAPI.getStats().then(r => r.data.stats),
   })
 
-  const revenue = data?.revenueThisMonth != null
+  const revenueMonth = data?.revenueThisMonth != null
     ? Number(data.revenueThisMonth).toLocaleString('fr-FR') + ' HTG'
+    : '—'
+  const revenueToday = data?.revenueToday != null
+    ? Number(data.revenueToday).toLocaleString('fr-FR') + ' HTG'
     : '—'
 
   return (
@@ -103,8 +106,8 @@ export default function GymDashboard() {
             value={data?.[s.key] ?? 0} loading={isLoading} delay={i * 60}/>
         ))}
         <div className="gym-fadeup" style={{
-          background:`linear-gradient(135deg,${G.teal},#0d9488)`, borderRadius:16, padding:'18px 20px',
-          boxShadow:'0 8px 22px rgba(20,184,166,0.3)', display:'flex', alignItems:'center', gap:14,
+          background:`linear-gradient(135deg,#6366f1,#4338ca)`, borderRadius:16, padding:'18px 20px',
+          boxShadow:'0 8px 22px rgba(99,102,241,0.3)', display:'flex', alignItems:'center', gap:14,
           animationDelay:`${STATS.length * 60}ms`,
         }}>
           <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:'rgba(255,255,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -113,19 +116,36 @@ export default function GymDashboard() {
           <div style={{ minWidth:0 }}>
             {isLoading
               ? <div className="gym-pulse" style={{ width:70, height:22, borderRadius:6, background:'rgba(255,255,255,0.3)' }}/>
-              : <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#fff', lineHeight:1.1, whiteSpace:'nowrap' }}>{revenue}</p>
+              : <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#fff', lineHeight:1.1, whiteSpace:'nowrap' }}>{revenueToday}</p>
+            }
+            <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>Revni Jodi a</p>
+          </div>
+        </div>
+
+        <div className="gym-fadeup" style={{
+          background:`linear-gradient(135deg,${G.teal},#0d9488)`, borderRadius:16, padding:'18px 20px',
+          boxShadow:'0 8px 22px rgba(20,184,166,0.3)', display:'flex', alignItems:'center', gap:14,
+          animationDelay:`${(STATS.length + 1) * 60}ms`,
+        }}>
+          <div style={{ width:46, height:46, borderRadius:13, flexShrink:0, background:'rgba(255,255,255,0.18)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <Wallet size={22} color="#fff"/>
+          </div>
+          <div style={{ minWidth:0 }}>
+            {isLoading
+              ? <div className="gym-pulse" style={{ width:70, height:22, borderRadius:6, background:'rgba(255,255,255,0.3)' }}/>
+              : <p style={{ margin:0, fontSize:20, fontWeight:800, color:'#fff', lineHeight:1.1, whiteSpace:'nowrap' }}>{revenueMonth}</p>
             }
             <p style={{ margin:'4px 0 0', fontSize:12, color:'rgba(255,255,255,0.85)', fontWeight:600 }}>Revni Mwa sa a</p>
           </div>
         </div>
       </div>
 
-      <p className="gym-fadeup" style={{ fontSize:11, color:G.muted, textTransform:'uppercase', letterSpacing:'0.09em', fontWeight:800, margin:'0 0 12px', animationDelay:`${(STATS.length + 1) * 60}ms` }}>
+      <p className="gym-fadeup" style={{ fontSize:11, color:G.muted, textTransform:'uppercase', letterSpacing:'0.09em', fontWeight:800, margin:'0 0 12px', animationDelay:`${(STATS.length + 2) * 60}ms` }}>
         Aksyon Rapid
       </p>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:14 }}>
         {QUICK_LINKS.map((q, i) => (
-          <QuickLink key={q.to} {...q} delay={(STATS.length + 2 + i) * 60}/>
+          <QuickLink key={q.to} {...q} delay={(STATS.length + 3 + i) * 60}/>
         ))}
       </div>
 

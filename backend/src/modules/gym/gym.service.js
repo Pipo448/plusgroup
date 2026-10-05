@@ -22,7 +22,7 @@ async function getStats(tenantId, branchId) {
   const today = todayDateOnly()
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
 
-  const [totalMembers, activeMembers, activeMemberships, checkInsToday, revenueAgg] = await Promise.all([
+  const [totalMembers, activeMembers, activeMemberships, checkInsToday, revenueAgg, revenueTodayAgg] = await Promise.all([
     prisma.gymMember.count({ where: memberWhere }),
     prisma.gymMember.count({ where: { ...memberWhere, isActive: true } }),
     prisma.gymMembership.count({
@@ -35,6 +35,11 @@ async function getStats(tenantId, branchId) {
       where: { tenantId, createdAt: { gte: monthStart } },
       _sum: { amountHtg: true },
     }),
+    // ✅ NOUVO — Revni Jodi a (sèlman peman ki fèt depi minwi jodi a)
+    prisma.gymPayment.aggregate({
+      where: { tenantId, createdAt: { gte: today } },
+      _sum: { amountHtg: true },
+    }),
   ])
 
   return {
@@ -42,6 +47,7 @@ async function getStats(tenantId, branchId) {
     activeMembers,
     activeMemberships,
     checkInsToday,
+    revenueToday: Number(revenueTodayAgg._sum.amountHtg || 0),
     revenueThisMonth: Number(revenueAgg._sum.amountHtg || 0),
   }
 }
