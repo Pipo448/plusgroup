@@ -363,6 +363,7 @@ a.gx-row:hover .gx-chevron{transform:translateX(3px);color:${C.ink}}
   .gx-hero{padding:22px 20px;border-radius:22px}
   .gx-title{font-size:32px}
   .gx-hero-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .gx-hero-stats > .gx-hstat:last-child:nth-child(odd){grid-column:1 / -1}
   .gx-hero-actions{width:100%}
   .gx-hero-actions .gx-btn{flex:1}
 }
