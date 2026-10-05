@@ -344,6 +344,10 @@ export const gymAPI = {
   setDailyRate:        (data)           => api.post('/gym/daily-rate', data),
   confirmDailyPayment: (memberId, data) => api.post(`/gym/members/${memberId}/daily-payment`, data),
 
+  // ── Tarif Enskripsyon (frè fiks yon sèl fwa) ─────────
+  getRegistrationFee: ()     => api.get('/gym/registration-fee'),
+  setRegistrationFee: (data) => api.post('/gym/registration-fee', data),
+
   // ── Classes & Trainers (klas & antrenè) ─────────────
   getClasses:      ()             => api.get('/gym/classes'),
   createClass:     (data)         => api.post('/gym/classes', data),

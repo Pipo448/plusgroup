@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Plus, Search, X, Users, ChevronRight, Printer } from 'lucide-react'
+import { Plus, Search, X, Users, ChevronRight, Printer, Settings2 } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -29,11 +29,19 @@ function AddMemberModal({ onClose }) {
     queryFn: () => gymAPI.getPlans().then(r => r.data.plans),
   })
 
+  // ✅ Kòb Enskripsyon — frè fiks yon sèl fwa, separe de pri plan an
+  const { data: fee } = useQuery({
+    queryKey: ['gym-registration-fee'],
+    queryFn: () => gymAPI.getRegistrationFee().then(r => r.data.fee),
+  })
+
   const selectedPlanId = watch('planId')
   const amountPaidWatch = watch('amountPaid')
   const selectedPlan = plans?.find(p => p.id === selectedPlanId)
-  const amountDue = Number(selectedPlan?.priceHtg || 0)
-  const changeDue = amountDue > 0 ? Math.max(0, Number(amountPaidWatch || 0) - amountDue) : 0
+  const registrationFeeHtg = Number(fee?.priceHtg || 0)
+  const planPriceHtg = Number(selectedPlan?.priceHtg || 0)
+  const totalDue = registrationFeeHtg + planPriceHtg
+  const changeDue = totalDue > 0 ? Math.max(0, Number(amountPaidWatch || 0) - totalDue) : 0
 
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.addMember(data),
@@ -44,6 +52,7 @@ function AddMemberModal({ onClose }) {
       printGym(res.data.member, tenant, 'enskripsyon', {
         planName: plan?.name,
         amountPaid: variables.amountPaid,
+        registrationFeeHtg,
       })
       onClose()
     },
@@ -53,7 +62,7 @@ function AddMemberModal({ onClose }) {
   const onSubmit = (data) => {
     const payload = { ...data }
     if (!payload.planId) delete payload.planId
-    else payload.amountPaid = Number(payload.amountPaid || 0)
+    payload.amountPaid = Number(payload.amountPaid || 0)
     mutation.mutate(payload)
   }
 
@@ -90,11 +99,28 @@ function AddMemberModal({ onClose }) {
               <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>
             ))}
           </select>
-          {selectedPlan && (
-            <p style={{ margin:'0 0 10px', color:G.teal, fontWeight:800, fontSize:13 }}>
-              {t('gym.members.modal.amountDue')}: {amountDue.toLocaleString('fr-FR')} HTG
-            </p>
+
+          {(registrationFeeHtg > 0 || selectedPlan) && (
+            <div style={{ margin:'10px 0 14px', padding:'10px 14px', borderRadius:10, background:G.bgSoft, border:`1px solid ${G.border}` }}>
+              {registrationFeeHtg > 0 && (
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, color:G.ink, marginBottom:4 }}>
+                  <span>{t('gym.members.modal.registrationFeeLabel')}</span>
+                  <span style={{ fontWeight:700 }}>{registrationFeeHtg.toLocaleString('fr-FR')} HTG</span>
+                </div>
+              )}
+              {selectedPlan && (
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, color:G.ink, marginBottom:4 }}>
+                  <span>{t('gym.members.modal.planAmountLabel')}</span>
+                  <span style={{ fontWeight:700 }}>{planPriceHtg.toLocaleString('fr-FR')} HTG</span>
+                </div>
+              )}
+              <div style={{ display:'flex', justifyContent:'space-between', fontSize:13.5, color:G.teal, fontWeight:900, paddingTop:6, marginTop:2, borderTop:`1px dashed ${G.border}` }}>
+                <span>{t('gym.members.modal.totalDue')}</span>
+                <span>{totalDue.toLocaleString('fr-FR')} HTG</span>
+              </div>
+            </div>
           )}
+
           <label style={labelStyle}>{t('gym.members.modal.amountPaid')}</label>
           <input type="number" step="0.01" {...register('amountPaid')} style={inputStyle} />
           {changeDue > 0 && (
@@ -109,6 +135,51 @@ function AddMemberModal({ onClose }) {
           style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
           {mutation.isPending ? t('gym.members.modal.saving') : t('gym.members.modal.addMember')}
         </button>
+      </form>
+    </div>
+  )
+}
+
+function RegistrationFeeFormModal({ currentFee, onClose }) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const { register, handleSubmit } = useForm({
+    defaultValues: { priceHtg: currentFee?.priceHtg || '', priceUsd: currentFee?.priceUsd || '' },
+  })
+
+  const mutation = useMutation({
+    mutationFn: (data) => gymAPI.setRegistrationFee(data),
+    onSuccess: () => {
+      toast.success(t('gym.members.feeModal.updated'))
+      qc.invalidateQueries(['gym-registration-fee'])
+      onClose()
+    },
+    onError: (e) => toast.error(e.response?.data?.message || t('gym.members.error')),
+  })
+
+  const onSubmit = (data) => mutation.mutate({ priceHtg: Number(data.priceHtg), priceUsd: data.priceUsd ? Number(data.priceUsd) : null })
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(26,5,51,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
+      <form onSubmit={handleSubmit(onSubmit)} className="gym-modal-pop" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:24, width:'100%', maxWidth:400, boxShadow:'0 24px 60px rgba(20,20,43,0.25)' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
+          <h3 style={{ color:G.ink, margin:0, fontSize:16, fontWeight:800 }}>{t('gym.members.feeModal.title')}</h3>
+          <button type="button" onClick={onClose} style={{ background:G.bgSoft, border:'none', borderRadius:8, padding:6, color:G.muted, cursor:'pointer', display:'flex' }}><X size={16} /></button>
+        </div>
+
+        <label style={labelStyle}>{t('gym.members.feeModal.priceHtg')}</label>
+        <input type="number" step="0.01" {...register('priceHtg', { required:true, min:0 })} style={inputStyle} autoFocus />
+
+        <label style={labelStyle}>{t('gym.members.feeModal.priceUsd')}</label>
+        <input type="number" step="0.01" {...register('priceUsd')} style={inputStyle} />
+
+        <button type="submit" disabled={mutation.isPending}
+          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
+          {mutation.isPending ? t('gym.members.feeModal.saving') : t('gym.members.feeModal.save')}
+        </button>
+        <p style={{ fontSize:11, color:G.muted, textAlign:'center', marginTop:12 }}>
+          {t('gym.members.feeModal.hint')}
+        </p>
       </form>
     </div>
   )
@@ -130,10 +201,16 @@ export default function GymMembersPage() {
   const { printGym } = usePrinterStore()
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [showFeeForm, setShowFeeForm] = useState(false)
 
   const { data, isLoading } = useQuery({
     queryKey: ['gym-members', search],
     queryFn: () => gymAPI.getMembers({ search: search || undefined, limit: 50 }).then(r => r.data),
+  })
+
+  const { data: fee } = useQuery({
+    queryKey: ['gym-registration-fee'],
+    queryFn: () => gymAPI.getRegistrationFee().then(r => r.data.fee),
   })
 
   return (
@@ -148,6 +225,20 @@ export default function GymMembersPage() {
         <button onClick={() => setShowAdd(true)} className="gym-btn-prim"
           style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:700, cursor:'pointer', fontSize:13, boxShadow:'0 6px 16px rgba(20,184,166,0.3)' }}>
           <Plus size={16} /> {t('gym.members.newMember')}
+        </button>
+      </div>
+
+      <div className="gym-fadeup" style={{
+        display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap',
+        padding:'10px 16px', borderRadius:12, background:G.card, border:`1px solid ${G.border}`,
+        boxShadow:G.shadow, marginBottom:14, animationDelay:'40ms',
+      }}>
+        <span style={{ fontSize:12, color:G.muted, fontWeight:700 }}>
+          {t('gym.members.registrationFee')}: <span style={{ color:G.teal, fontWeight:900 }}>{Number(fee?.priceHtg || 0).toLocaleString('fr-FR')} HTG</span>
+        </span>
+        <button onClick={() => setShowFeeForm(true)}
+          style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontWeight:700, cursor:'pointer', fontSize:12 }}>
+          <Settings2 size={13} /> {t('gym.members.editFee')}
         </button>
       </div>
 
@@ -206,6 +297,7 @@ export default function GymMembersPage() {
       )}
 
       {showAdd && <AddMemberModal onClose={() => setShowAdd(false)} />}
+      {showFeeForm && <RegistrationFeeFormModal currentFee={fee} onClose={() => setShowFeeForm(false)} />}
 
       <style>{`
         @keyframes gymFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
