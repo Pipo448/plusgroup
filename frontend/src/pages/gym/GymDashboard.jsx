@@ -74,7 +74,11 @@ function QuickLink({ to, icon:Icon, label, color, delay }) {
 export default function GymDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['gym-stats'],
-    queryFn: () => gymAPI.getStats().then(r => r.data),
+    // ✅ KORIJE — backend voye { success:true, stats:{...} }, pa stats yo dirèkteman.
+    // Avan sa, "data" se te tout anvlòp la ({success,stats}) — kidonk data.totalMembers,
+    // data.revenueThisMonth elt. te toujou "undefined" e kat yo te toujou afiche 0 / "—"
+    // menm lè gen manm/peman ki egziste reyèlman nan baz done a.
+    queryFn: () => gymAPI.getStats().then(r => r.data.stats),
   })
 
   const revenue = data?.revenueThisMonth != null
