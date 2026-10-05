@@ -1,16 +1,19 @@
 // src/pages/gym/GymCheckInPage.jsx
-// ✅ GYM FITNESS — Check-in rapid (tèm klè, animasyon, responsive)
+// ✅ GYM FITNESS — Check-in rapid (stil Plus Fit: hero fonse, rechèch gwo, tan reyèl, animasyon)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Search, LogIn, LogOut, CheckCircle2 } from 'lucide-react'
+import { Search, LogIn, LogOut, Users, Activity, Clock, UserX } from 'lucide-react'
 import { gymAPI } from '../../services/api'
+import {
+  C, GymStyles, PageHero, Avatar, EmptyState, SkeletonRows, SectionHead, fmtTime,
+} from './gymUI'
 
-const G = {
-  teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
-  border:'rgba(0,0,0,0.08)', card:'#ffffff',
-  shadow:'0 2px 14px rgba(20,20,43,0.06)', green:'#22c55e', bgSoft:'#f8fafc',
+const durationLabel = (from, to) => {
+  const mins = Math.max(0, Math.round((new Date(to || Date.now()) - new Date(from)) / 60000))
+  const h = Math.floor(mins / 60)
+  return h ? `${h}h${String(mins % 60).padStart(2, '0')}` : `${mins} min`
 }
 
 export default function GymCheckInPage() {
@@ -18,7 +21,7 @@ export default function GymCheckInPage() {
   const qc = useQueryClient()
   const [search, setSearch] = useState('')
 
-  const { data: membersData } = useQuery({
+  const { data: membersData, isFetching: searching } = useQuery({
     queryKey: ['gym-members-search', search],
     queryFn: () => gymAPI.getMembers({ search: search || undefined, status: 'active', limit: 10 }).then(r => r.data),
     enabled: search.length >= 2,
@@ -48,93 +51,101 @@ export default function GymCheckInPage() {
     onError: (e) => toast.error(e.response?.data?.message || t('gym.checkIn.error')),
   })
 
-  return (
-    <div style={{ maxWidth:700, margin:'0 auto' }}>
-      <div className="gym-fadeup" style={{ display:'flex', alignItems:'center', gap:12, marginBottom:22 }}>
-        <div style={{ width:46, height:46, borderRadius:14, background:`linear-gradient(135deg,${G.green},#16a34a)`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 6px 16px rgba(34,197,94,0.3)' }}>
-          <LogIn size={22} color="#fff" />
-        </div>
-        <h1 style={{ margin:0, fontSize:20, fontWeight:800, color:G.ink }}>{t('gym.checkIn.title')}</h1>
-      </div>
+  const list = recentCheckIns || []
+  const inside = list.filter(c => !c.checkOutAt).length
+  const left = list.length - inside
+  const results = membersData?.members || []
 
-      <div className="gym-fadeup" style={{ position:'relative', marginBottom:14, animationDelay:'60ms' }}>
-        <Search size={18} color={G.muted} style={{ position:'absolute', left:16, top:'50%', transform:'translateY(-50%)' }} />
+  const onKeyDown = (e) => {
+    if (e.key === 'Enter' && results.length === 1 && !checkInMutation.isPending) checkInMutation.mutate(results[0].id)
+    if (e.key === 'Escape') setSearch('')
+  }
+
+  return (
+    <div className="gx-page narrow">
+      <GymStyles/>
+
+      <PageHero
+        icon={LogIn}
+        eyebrow={t('gym.checkIn.live', 'En direct')}
+        title={t('gym.checkIn.title')}
+        subtitle={t('gym.checkIn.subtitle', 'Recherchez un membre et validez son entrée en un clic')}
+        stats={[
+          { label: t('gym.checkIn.todayCheckIns'), value: list.length, icon: Activity, tone: 'volt', loading: loadingCheckIns },
+          { label: t('gym.checkIn.insideNow', 'Dans la salle'), value: inside, icon: Users, tone: 'ember', loading: loadingCheckIns },
+          { label: t('gym.checkIn.leftToday', 'Sortis'), value: left, icon: LogOut, loading: loadingCheckIns },
+        ]}
+      />
+
+      <div className="gx-search big gx-in" style={{ animationDelay:'120ms' }}>
+        <Search size={20} className="lead"/>
         <input
           autoFocus
-          value={search} onChange={e => setSearch(e.target.value)}
+          value={search} onChange={e => setSearch(e.target.value)} onKeyDown={onKeyDown}
           placeholder={t('gym.checkIn.searchPlaceholder')}
-          style={{ width:'100%', padding:'16px 16px 16px 46px', borderRadius:16, border:`1px solid ${G.border}`, background:G.card, color:G.ink, fontSize:16, boxSizing:'border-box', boxShadow:G.shadow }}
         />
+        {search.length >= 2 && results.length === 1 && <span className="gx-kbd gx-hide-sm">↵ Enter</span>}
       </div>
 
       {search.length >= 2 && (
-        <div className="gym-fadeup" style={{ marginBottom:24, display:'flex', flexDirection:'column', gap:8 }}>
-          {!membersData?.members?.length ? (
-            <p style={{ color:G.muted, fontSize:13, textAlign:'center', padding:16 }}>{t('gym.checkIn.noMembers')}</p>
-          ) : membersData.members.map(m => (
+        <div className="gx-stack" style={{ marginTop:12 }}>
+          {searching && !results.length ? (
+            <SkeletonRows rows={2} height={70}/>
+          ) : !results.length ? (
+            <EmptyState icon={UserX} text={t('gym.checkIn.noMembers')}/>
+          ) : results.map((m, i) => (
             <button key={m.id} onClick={() => checkInMutation.mutate(m.id)} disabled={checkInMutation.isPending}
-              className="gym-row"
-              style={{
-                display:'flex', justifyContent:'space-between', alignItems:'center', width:'100%',
-                padding:'14px 18px', borderRadius:14, border:`1px solid rgba(34,197,94,0.25)`,
-                background:'rgba(34,197,94,0.06)', color:G.ink, cursor:'pointer', textAlign:'left',
-              }}>
-              <div>
-                <p style={{ margin:0, fontWeight:700, fontSize:14 }}>{m.fullName}</p>
-                <p style={{ margin:'3px 0 0', color:G.muted, fontSize:12 }}>{m.phone || '—'}</p>
+              className="gx-row clickable gx-slide" style={{ animationDelay:`${i * 50}ms` }}>
+              <Avatar name={m.fullName} size={44}/>
+              <div className="grow">
+                <p className="gx-row-title">{m.fullName}</p>
+                <p className="gx-row-meta">{m.phone || '—'}</p>
               </div>
-              <span style={{ display:'flex', alignItems:'center', gap:6, color:'#16a34a', fontWeight:800, fontSize:13 }}>
-                <LogIn size={15} /> {t('gym.checkIn.checkInAction')}
+              <span className="gx-btn gx-btn-dark gx-btn-sm" style={{ pointerEvents:'none' }}>
+                <LogIn size={14}/> {t('gym.checkIn.checkInAction')}
               </span>
             </button>
           ))}
         </div>
       )}
 
-      <h2 style={{ fontSize:12, color:G.muted, textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:10, fontWeight:800 }}>
-        {t('gym.checkIn.todayCheckIns')}
-      </h2>
+      <SectionHead title={t('gym.checkIn.todayCheckIns')} count={loadingCheckIns ? null : list.length}/>
+
       {loadingCheckIns ? (
-        <p style={{ color:G.muted }}>{t('gym.checkIn.loading')}</p>
-      ) : !recentCheckIns?.length ? (
-        <div className="gym-fadeup" style={{ textAlign:'center', padding:30, background:G.card, border:`1px dashed ${G.border}`, borderRadius:14, color:G.muted }}>
-          {t('gym.checkIn.noneToday')}
-        </div>
+        <SkeletonRows rows={4}/>
+      ) : !list.length ? (
+        <EmptyState icon={Clock} text={t('gym.checkIn.noneToday')}/>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-          {recentCheckIns.map((c, i) => (
-            <div key={c.id} className="gym-fadeup" style={{
-              display:'flex', justifyContent:'space-between', alignItems:'center',
-              padding:'12px 16px', borderRadius:12, background:G.card, border:`1px solid ${G.border}`,
-              boxShadow:G.shadow, animationDelay:`${Math.min(i, 8) * 40}ms`,
-            }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <CheckCircle2 size={16} color={c.checkOutAt ? G.muted : '#16a34a'} />
-                <div>
-                  <p style={{ margin:0, color:G.ink, fontSize:13, fontWeight:700 }}>{c.member?.fullName}</p>
-                  <p style={{ margin:'2px 0 0', color:G.muted, fontSize:11 }}>
-                    {new Date(c.checkInAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    {c.checkOutAt && ` → ${new Date(c.checkOutAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
-                  </p>
+        <div className="gx-stack">
+          {list.map((c, i) => {
+            const isIn = !c.checkOutAt
+            return (
+              <div key={c.id} className="gx-row gx-in" style={{ animationDelay:`${Math.min(i, 10) * 45}ms` }}>
+                <div style={{ width:58, flex:'none' }}>
+                  <p className="gx-display" style={{ margin:0, fontSize:22 }}>{fmtTime(c.checkInAt)}</p>
+                  {c.checkOutAt && <p style={{ margin:'2px 0 0', fontSize:11.5, color:C.muted, fontWeight:700 }}>→ {fmtTime(c.checkOutAt)}</p>}
                 </div>
+                <Avatar name={c.member?.fullName} size={38}/>
+                <div className="grow">
+                  <p className="gx-row-title">{c.member?.fullName}</p>
+                  <p className="gx-row-meta"><Clock size={12}/> {durationLabel(c.checkInAt, c.checkOutAt)}</p>
+                </div>
+                {isIn ? (
+                  <>
+                    <span className="gx-chip gx-hide-sm" style={{ '--c': C.green }}><span className="dot"/>{t('gym.checkIn.inside', 'Présent')}</span>
+                    <button onClick={() => checkOutMutation.mutate(c.id)} disabled={checkOutMutation.isPending}
+                      className="gx-btn gx-btn-soft gx-btn-sm">
+                      <LogOut size={13}/> {t('gym.checkIn.checkOut')}
+                    </button>
+                  </>
+                ) : (
+                  <span className="gx-chip" style={{ '--c': C.muted }}>{t('gym.checkIn.left', 'Sorti')}</span>
+                )}
               </div>
-              {!c.checkOutAt && (
-                <button onClick={() => checkOutMutation.mutate(c.id)} disabled={checkOutMutation.isPending}
-                  style={{ display:'flex', alignItems:'center', gap:5, padding:'7px 13px', borderRadius:9, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.muted, cursor:'pointer', fontSize:11, fontWeight:700 }}>
-                  <LogOut size={12} /> {t('gym.checkIn.checkOut')}
-                </button>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
-
-      <style>{`
-        @keyframes gymFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        .gym-fadeup { opacity:0; animation: gymFadeUp 0.4s ease forwards; }
-        .gym-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-        .gym-row:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(20,20,43,0.08); }
-      `}</style>
     </div>
   )
 }

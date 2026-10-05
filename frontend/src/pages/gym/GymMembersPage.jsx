@@ -1,20 +1,23 @@
 // src/pages/gym/GymMembersPage.jsx
-// ✅ GYM FITNESS — Lis manm + ajoute nouvo manm (tèm klè, animasyon, responsive)
+// ✅ GYM FITNESS — Lis manm + ajoute nouvo manm (stil Plus Fit: hero, filtre estati, lis anime)
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Plus, Search, X, Users, ChevronRight, Printer, Settings2 } from 'lucide-react'
+import { Plus, Search, Users, ChevronRight, Printer, Settings2, UserPlus, UserCheck, UserX, Ticket } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
+import {
+  C, GymStyles, PageHero, Modal, Field, Avatar, EmptyState, SkeletonRows, SectionHead, fmtMoney,
+} from './gymUI'
 
-const G = {
-  teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
-  border:'rgba(0,0,0,0.08)', card:'#ffffff', bgSoft:'#f8fafc',
-  shadow:'0 2px 14px rgba(20,20,43,0.06)', red:'#ef4444',
+const STATUS_COLORS = {
+  active:    { color:'#16a34a', labelKey:'gym.members.status.active' },
+  expired:   { color:'#dc2626', labelKey:'gym.members.status.expired' },
+  cancelled: { color:'#64748b', labelKey:'gym.members.status.cancelled' },
 }
 
 function AddMemberModal({ onClose }) {
@@ -22,7 +25,7 @@ function AddMemberModal({ onClose }) {
   const qc = useQueryClient()
   const { tenant } = useAuthStore()
   const { printGym } = usePrinterStore()
-  const { register, handleSubmit, watch, formState: { errors } } = useForm()
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm()
 
   const { data: plans } = useQuery({
     queryKey: ['gym-plans'],
@@ -67,76 +70,70 @@ function AddMemberModal({ onClose }) {
   }
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(26,5,51,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-      <form onSubmit={handleSubmit(onSubmit)} className="gym-modal-pop" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:24, width:'100%', maxWidth:440, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 60px rgba(20,20,43,0.25)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-          <h3 style={{ color:G.ink, margin:0, fontSize:16, fontWeight:800 }}>{t('gym.members.modal.title')}</h3>
-          <button type="button" onClick={onClose} style={{ background:G.bgSoft, border:'none', borderRadius:8, padding:6, color:G.muted, cursor:'pointer', display:'flex' }}><X size={16} /></button>
+    <Modal icon={UserPlus} title={t('gym.members.modal.title')} onClose={onClose} onSubmit={handleSubmit(onSubmit)} maxWidth={520}>
+      <Field label={t('gym.members.modal.fullName')} error={errors.fullName && t('gym.members.modal.fullNameRequired')}>
+        <input {...register('fullName', { required: true })} className="gx-input" autoFocus/>
+      </Field>
+      <div className="gx-two">
+        <Field label={t('gym.members.modal.phone')}><input {...register('phone')} className="gx-input"/></Field>
+        <Field label={t('gym.members.modal.email')}><input type="email" {...register('email')} className="gx-input"/></Field>
+      </div>
+      <div className="gx-two">
+        <Field label={t('gym.members.modal.emergencyContact')}><input {...register('emergencyContact')} className="gx-input"/></Field>
+        <Field label={t('gym.members.modal.emergencyPhone')}><input {...register('emergencyPhone')} className="gx-input"/></Field>
+      </div>
+
+      <div className="gx-divider"/>
+      <p className="gx-label" style={{ marginBottom:12 }}>{t('gym.members.modal.initialSubscription')}</p>
+
+      <Field label={t('gym.members.modal.plan')}>
+        <select {...register('planId')} className="gx-input">
+          <option value="">{t('gym.members.modal.noPlanOption')}</option>
+          {plans?.map(p => (
+            <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>
+          ))}
+        </select>
+      </Field>
+
+      {(registrationFeeHtg > 0 || selectedPlan) && (
+        <div className="gx-summary gx-slide">
+          {registrationFeeHtg > 0 && (
+            <div className="line"><span>{t('gym.members.modal.registrationFeeLabel')}</span><span>{fmtMoney(registrationFeeHtg)} HTG</span></div>
+          )}
+          {selectedPlan && (
+            <div className="line"><span>{t('gym.members.modal.planAmountLabel')}</span><span>{fmtMoney(planPriceHtg)} HTG</span></div>
+          )}
+          <div className="total">
+            <span>{t('gym.members.modal.totalDue')}</span>
+            <b>{fmtMoney(totalDue)} <small style={{ fontSize:13, color:C.muted }}>HTG</small></b>
+          </div>
         </div>
+      )}
 
-        <label style={labelStyle}>{t('gym.members.modal.fullName')}</label>
-        <input {...register('fullName', { required: true })} style={inputStyle} />
-        {errors.fullName && <p style={errorStyle}>{t('gym.members.modal.fullNameRequired')}</p>}
-
-        <label style={labelStyle}>{t('gym.members.modal.phone')}</label>
-        <input {...register('phone')} style={inputStyle} />
-
-        <label style={labelStyle}>{t('gym.members.modal.email')}</label>
-        <input type="email" {...register('email')} style={inputStyle} />
-
-        <label style={labelStyle}>{t('gym.members.modal.emergencyContact')}</label>
-        <input {...register('emergencyContact')} style={inputStyle} />
-
-        <label style={labelStyle}>{t('gym.members.modal.emergencyPhone')}</label>
-        <input {...register('emergencyPhone')} style={inputStyle} />
-
-        <div style={{ marginTop:18, paddingTop:14, borderTop:`1px solid ${G.border}` }}>
-          <p style={{ color:G.muted, fontSize:12, margin:'0 0 10px', fontWeight:700 }}>{t('gym.members.modal.initialSubscription')}</p>
-          <label style={labelStyle}>{t('gym.members.modal.plan')}</label>
-          <select {...register('planId')} style={inputStyle}>
-            <option value="">{t('gym.members.modal.noPlanOption')}</option>
-            {plans?.map(p => (
-              <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>
+      <Field label={t('gym.members.modal.amountPaid')}>
+        <input type="number" step="0.01" {...register('amountPaid')} className="gx-input big"/>
+        {totalDue > 0 && (
+          <div className="gx-quick-amounts">
+            {[...new Set([totalDue, ...[500, 1000].map(s => Math.ceil(totalDue / s) * s)])].map(v => (
+              <button type="button" key={v} className={Number(amountPaidWatch) === v ? 'on' : ''}
+                onClick={() => setValue('amountPaid', v, { shouldDirty: true })}>
+                {fmtMoney(v)}
+              </button>
             ))}
-          </select>
-
-          {(registrationFeeHtg > 0 || selectedPlan) && (
-            <div style={{ margin:'10px 0 14px', padding:'10px 14px', borderRadius:10, background:G.bgSoft, border:`1px solid ${G.border}` }}>
-              {registrationFeeHtg > 0 && (
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, color:G.ink, marginBottom:4 }}>
-                  <span>{t('gym.members.modal.registrationFeeLabel')}</span>
-                  <span style={{ fontWeight:700 }}>{registrationFeeHtg.toLocaleString('fr-FR')} HTG</span>
-                </div>
-              )}
-              {selectedPlan && (
-                <div style={{ display:'flex', justifyContent:'space-between', fontSize:12.5, color:G.ink, marginBottom:4 }}>
-                  <span>{t('gym.members.modal.planAmountLabel')}</span>
-                  <span style={{ fontWeight:700 }}>{planPriceHtg.toLocaleString('fr-FR')} HTG</span>
-                </div>
-              )}
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:13.5, color:G.teal, fontWeight:900, paddingTop:6, marginTop:2, borderTop:`1px dashed ${G.border}` }}>
-                <span>{t('gym.members.modal.totalDue')}</span>
-                <span>{totalDue.toLocaleString('fr-FR')} HTG</span>
-              </div>
-            </div>
-          )}
-
-          <label style={labelStyle}>{t('gym.members.modal.amountPaid')}</label>
-          <input type="number" step="0.01" {...register('amountPaid')} style={inputStyle} />
-          {changeDue > 0 && (
-            <div style={{ marginTop:10, padding:'10px 14px', borderRadius:10, background:'rgba(217,119,6,0.08)', border:'1px solid rgba(217,119,6,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <span style={{ color:'#b45309', fontWeight:700, fontSize:13 }}>{t('gym.members.modal.changeDue')}</span>
-              <span style={{ color:'#b45309', fontWeight:900, fontSize:16 }}>{changeDue.toLocaleString('fr-FR')} HTG</span>
-            </div>
-          )}
+          </div>
+        )}
+      </Field>
+      {changeDue > 0 && (
+        <div className="gx-change">
+          <span>{t('gym.members.modal.changeDue')}</span>
+          <b>{fmtMoney(changeDue)} HTG</b>
         </div>
+      )}
 
-        <button type="submit" disabled={mutation.isPending}
-          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? t('gym.members.modal.saving') : t('gym.members.modal.addMember')}
-        </button>
-      </form>
-    </div>
+      <button type="submit" disabled={mutation.isPending} className="gx-btn gx-btn-dark gx-btn-block" style={{ marginTop:18 }}>
+        <UserPlus size={16}/> {mutation.isPending ? t('gym.members.modal.saving') : t('gym.members.modal.addMember')}
+      </button>
+    </Modal>
   )
 }
 
@@ -160,39 +157,19 @@ function RegistrationFeeFormModal({ currentFee, onClose }) {
   const onSubmit = (data) => mutation.mutate({ priceHtg: Number(data.priceHtg), priceUsd: data.priceUsd ? Number(data.priceUsd) : null })
 
   return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(26,5,51,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-      <form onSubmit={handleSubmit(onSubmit)} className="gym-modal-pop" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:24, width:'100%', maxWidth:400, boxShadow:'0 24px 60px rgba(20,20,43,0.25)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-          <h3 style={{ color:G.ink, margin:0, fontSize:16, fontWeight:800 }}>{t('gym.members.feeModal.title')}</h3>
-          <button type="button" onClick={onClose} style={{ background:G.bgSoft, border:'none', borderRadius:8, padding:6, color:G.muted, cursor:'pointer', display:'flex' }}><X size={16} /></button>
-        </div>
-
-        <label style={labelStyle}>{t('gym.members.feeModal.priceHtg')}</label>
-        <input type="number" step="0.01" {...register('priceHtg', { required:true, min:0 })} style={inputStyle} autoFocus />
-
-        <label style={labelStyle}>{t('gym.members.feeModal.priceUsd')}</label>
-        <input type="number" step="0.01" {...register('priceUsd')} style={inputStyle} />
-
-        <button type="submit" disabled={mutation.isPending}
-          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? t('gym.members.feeModal.saving') : t('gym.members.feeModal.save')}
-        </button>
-        <p style={{ fontSize:11, color:G.muted, textAlign:'center', marginTop:12 }}>
-          {t('gym.members.feeModal.hint')}
-        </p>
-      </form>
-    </div>
+    <Modal icon={Ticket} title={t('gym.members.feeModal.title')} subtitle={t('gym.members.feeModal.hint')}
+      onClose={onClose} onSubmit={handleSubmit(onSubmit)} maxWidth={420}>
+      <Field label={t('gym.members.feeModal.priceHtg')}>
+        <input type="number" step="0.01" {...register('priceHtg', { required:true, min:0 })} className="gx-input big" autoFocus/>
+      </Field>
+      <Field label={t('gym.members.feeModal.priceUsd')}>
+        <input type="number" step="0.01" {...register('priceUsd')} className="gx-input"/>
+      </Field>
+      <button type="submit" disabled={mutation.isPending} className="gx-btn gx-btn-dark gx-btn-block" style={{ marginTop:8 }}>
+        {mutation.isPending ? t('gym.members.feeModal.saving') : t('gym.members.feeModal.save')}
+      </button>
+    </Modal>
   )
-}
-
-const labelStyle = { display:'block', color:G.muted, fontSize:12, fontWeight:600, margin:'12px 0 6px' }
-const inputStyle = { width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontSize:14, boxSizing:'border-box' }
-const errorStyle = { color:G.red, fontSize:11, margin:'4px 0 0' }
-
-const STATUS_COLORS = {
-  active:    { bg:'rgba(34,197,94,0.12)',  color:'#16a34a', labelKey:'gym.members.status.active' },
-  expired:   { bg:'rgba(239,68,68,0.12)',  color:'#dc2626', labelKey:'gym.members.status.expired' },
-  cancelled: { bg:'rgba(100,116,139,0.12)',color:'#475569', labelKey:'gym.members.status.cancelled' },
 }
 
 export default function GymMembersPage() {
@@ -200,6 +177,7 @@ export default function GymMembersPage() {
   const { tenant } = useAuthStore()
   const { printGym } = usePrinterStore()
   const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
   const [showFeeForm, setShowFeeForm] = useState(false)
 
@@ -213,72 +191,92 @@ export default function GymMembersPage() {
     queryFn: () => gymAPI.getRegistrationFee().then(r => r.data.fee),
   })
 
+  const members = data?.members || []
+  const statusOf = (m) => m.currentMembership?.status || 'none'
+  const counts = {
+    all: members.length,
+    active: members.filter(m => statusOf(m) === 'active').length,
+    expired: members.filter(m => statusOf(m) === 'expired').length,
+    none: members.filter(m => statusOf(m) === 'none' || statusOf(m) === 'cancelled').length,
+  }
+  const shown = members.filter(m =>
+    filter === 'all' ? true
+    : filter === 'none' ? (statusOf(m) === 'none' || statusOf(m) === 'cancelled')
+    : statusOf(m) === filter)
+
+  const TABS = [
+    { key:'all',     label: t('gym.members.filterAll', 'Tous') },
+    { key:'active',  label: t('gym.members.status.active') },
+    { key:'expired', label: t('gym.members.status.expired') },
+    { key:'none',    label: t('gym.members.filterNoPlan', 'Sans plan') },
+  ]
+
   return (
-    <div style={{ maxWidth:1000, margin:'0 auto' }}>
-      <div className="gym-fadeup" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20, flexWrap:'wrap', gap:12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <div style={{ width:42, height:42, borderRadius:12, background:'rgba(20,184,166,0.12)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <Users size={20} color={G.teal} />
-          </div>
-          <h1 style={{ margin:0, fontSize:19, fontWeight:800, color:G.ink }}>{t('gym.members.title')}</h1>
+    <div className="gx-page">
+      <GymStyles/>
+
+      <PageHero
+        icon={Users}
+        eyebrow={t('gym.members.eyebrow', 'Communauté')}
+        title={t('gym.members.title')}
+        subtitle={t('gym.members.subtitle', 'Inscriptions, abonnements et fiches membres')}
+        actions={<>
+          <button onClick={() => setShowFeeForm(true)} className="gx-btn gx-btn-ghost-dark"><Settings2 size={15}/> {t('gym.members.editFee')}</button>
+          <button onClick={() => setShowAdd(true)} className="gx-btn gx-btn-volt"><Plus size={16}/> {t('gym.members.newMember')}</button>
+        </>}
+        stats={[
+          { label: t('gym.members.statTotal', 'Membres'), value: data?.total ?? members.length, icon: Users, tone: 'volt', loading: isLoading },
+          { label: t('gym.members.status.active'), value: counts.active, icon: UserCheck, loading: isLoading },
+          { label: t('gym.members.status.expired'), value: counts.expired, icon: UserX, tone: 'ember', loading: isLoading },
+          { label: t('gym.members.registrationFee'), value: Number(fee?.priceHtg || 0), suffix: 'HTG', icon: Ticket, tone: 'sky' },
+        ]}
+      />
+
+      <div className="gx-in" style={{ display:'flex', gap:12, flexWrap:'wrap', alignItems:'center', animationDelay:'120ms' }}>
+        <div className="gx-search" style={{ flex:'1 1 280px' }}>
+          <Search size={18} className="lead"/>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('gym.members.searchPlaceholder')}/>
         </div>
-        <button onClick={() => setShowAdd(true)} className="gym-btn-prim"
-          style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 18px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:700, cursor:'pointer', fontSize:13, boxShadow:'0 6px 16px rgba(20,184,166,0.3)' }}>
-          <Plus size={16} /> {t('gym.members.newMember')}
-        </button>
+        <div className="gx-tabs" style={{ overflowX:'auto', maxWidth:'100%' }}>
+          {TABS.map(tab => (
+            <button key={tab.key} className={filter === tab.key ? 'on' : ''} onClick={() => setFilter(tab.key)}>
+              {tab.label} <span className="n">{counts[tab.key]}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="gym-fadeup" style={{
-        display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, flexWrap:'wrap',
-        padding:'10px 16px', borderRadius:12, background:G.card, border:`1px solid ${G.border}`,
-        boxShadow:G.shadow, marginBottom:14, animationDelay:'40ms',
-      }}>
-        <span style={{ fontSize:12, color:G.muted, fontWeight:700 }}>
-          {t('gym.members.registrationFee')}: <span style={{ color:G.teal, fontWeight:900 }}>{Number(fee?.priceHtg || 0).toLocaleString('fr-FR')} HTG</span>
-        </span>
-        <button onClick={() => setShowFeeForm(true)}
-          style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontWeight:700, cursor:'pointer', fontSize:12 }}>
-          <Settings2 size={13} /> {t('gym.members.editFee')}
-        </button>
-      </div>
-
-      <div className="gym-fadeup" style={{ position:'relative', marginBottom:18, animationDelay:'60ms' }}>
-        <Search size={16} color={G.muted} style={{ position:'absolute', left:14, top:'50%', transform:'translateY(-50%)' }} />
-        <input
-          value={search} onChange={e => setSearch(e.target.value)}
-          placeholder={t('gym.members.searchPlaceholder')}
-          style={{ width:'100%', padding:'12px 14px 12px 42px', borderRadius:12, border:`1px solid ${G.border}`, background:G.card, color:G.ink, fontSize:14, boxSizing:'border-box', boxShadow:G.shadow }}
-        />
-      </div>
+      <SectionHead title={t('gym.members.title')} count={isLoading ? null : shown.length}/>
 
       {isLoading ? (
-        <p style={{ color:G.muted }}>{t('gym.members.loading')}</p>
-      ) : !data?.members?.length ? (
-        <div className="gym-fadeup" style={{ textAlign:'center', padding:50, background:G.card, border:`1px dashed ${G.border}`, borderRadius:16, color:G.muted }}>
-          {t('gym.members.noMembers')}
-        </div>
+        <SkeletonRows rows={6} height={70}/>
+      ) : !shown.length ? (
+        <EmptyState icon={Users} text={t('gym.members.noMembers')}
+          action={<button onClick={() => setShowAdd(true)} className="gx-btn gx-btn-dark"><Plus size={15}/> {t('gym.members.newMember')}</button>}/>
       ) : (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-          {data.members.map((m, i) => {
+        <div className="gx-stack">
+          {shown.map((m, i) => {
             const statusMeta = m.currentMembership ? STATUS_COLORS[m.currentMembership.status] || STATUS_COLORS.cancelled : null
             return (
-              <Link key={m.id} to={`/app/gym/members/${m.id}`} className="gym-fadeup gym-row" style={{
-                display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
-                padding:'14px 18px', borderRadius:14, background:G.card,
-                border:`1px solid ${m.isActive ? G.border : 'rgba(239,68,68,0.25)'}`,
-                textDecoration:'none', boxShadow:G.shadow, animationDelay:`${Math.min(i, 8) * 40}ms`,
-              }}>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    <span style={{ color:G.ink, fontWeight:700, fontSize:14 }}>{m.fullName}</span>
-                    {!m.isActive && <span style={{ fontSize:9, color:G.red, background:'rgba(239,68,68,0.1)', padding:'2px 6px', borderRadius:4, fontWeight:700 }}>{t('gym.members.inactive')}</span>}
+              <Link key={m.id} to={`/app/gym/members/${m.id}`} className="gx-row gx-in"
+                style={{ animationDelay:`${Math.min(i, 10) * 40}ms`, borderColor: m.isActive ? undefined : 'rgba(220,38,38,.25)' }}>
+                <Avatar name={m.fullName} size={44}/>
+                <div className="grow">
+                  <div style={{ display:'flex', alignItems:'center', gap:8, minWidth:0 }}>
+                    <p className="gx-row-title">{m.fullName}</p>
+                    {!m.isActive && <span className="gx-chip" style={{ '--c': C.red }}>{t('gym.members.inactive')}</span>}
                   </div>
-                  <p style={{ margin:'3px 0 0', color:G.muted, fontSize:12 }}>{m.phone || '—'}</p>
+                  <p className="gx-row-meta">{m.phone || '—'}</p>
                 </div>
-                {statusMeta && (
-                  <span style={{ fontSize:11, fontWeight:700, padding:'5px 11px', borderRadius:9, background:statusMeta.bg, color:statusMeta.color, whiteSpace:'nowrap' }}>
-                    {m.currentMembership.planName || t('gym.members.plan')} · {t(statusMeta.labelKey)}
+                {statusMeta ? (
+                  <span className="gx-chip gx-hide-sm" style={{ '--c': statusMeta.color }}>
+                    <span className="dot"/>{m.currentMembership.planName || t('gym.members.plan')} · {t(statusMeta.labelKey)}
                   </span>
+                ) : (
+                  <span className="gx-chip gx-hide-sm" style={{ '--c': C.muted }}>{t('gym.members.filterNoPlan', 'Sans plan')}</span>
+                )}
+                {statusMeta && (
+                  <span className="dot-sm" style={{ width:9, height:9, borderRadius:'50%', background:statusMeta.color, flex:'none' }} aria-hidden/>
                 )}
                 <button
                   title={t('gym.members.reprintRegistration')}
@@ -286,31 +284,22 @@ export default function GymMembersPage() {
                     e.preventDefault(); e.stopPropagation()
                     printGym(m, tenant, 'enskripsyon', { planName: m.currentMembership?.planName })
                   }}
-                  style={{ background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:7, color:G.teal, cursor:'pointer', display:'flex', flexShrink:0 }}>
-                  <Printer size={14} />
+                  className="gx-icon-btn">
+                  <Printer size={15}/>
                 </button>
-                <ChevronRight size={16} color={G.muted} />
+                <ChevronRight size={18} className="gx-chevron"/>
               </Link>
             )
           })}
         </div>
       )}
 
-      {showAdd && <AddMemberModal onClose={() => setShowAdd(false)} />}
-      {showFeeForm && <RegistrationFeeFormModal currentFee={fee} onClose={() => setShowFeeForm(false)} />}
+      {showAdd && <AddMemberModal onClose={() => setShowAdd(false)}/>}
+      {showFeeForm && <RegistrationFeeFormModal currentFee={fee} onClose={() => setShowFeeForm(false)}/>}
 
       <style>{`
-        @keyframes gymFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes gymPop { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .gym-fadeup { opacity:0; animation: gymFadeUp 0.4s ease forwards; }
-        .gym-modal-pop { animation: gymPop 0.22s ease; }
-        .gym-row { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-        .gym-row:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(20,20,43,0.09); }
-        .gym-btn-prim { transition: transform 0.15s ease; }
-        .gym-btn-prim:hover { transform: translateY(-2px); }
-        @media (max-width: 520px) {
-          .gym-row { padding:12px 14px !important; }
-        }
+        .gx-row .dot-sm{display:none}
+        @media (max-width:520px){ .gx-row .dot-sm{display:block} }
       `}</style>
     </div>
   )

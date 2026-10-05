@@ -1,51 +1,35 @@
 // src/pages/gym/GymMemberDetail.jsx
-// ✅ GYM FITNESS — Pwofil manm (istorik abònman, peman, check-in) — tèm klè, animasyon, responsive
+// ✅ GYM FITNESS — Pwofil manm (stil Plus Fit): hero ak abònman aktif + jou ki rete,
+//    istorik abònman, peman, check-in — animasyon, responsive
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { ArrowLeft, User, Phone, Mail, Plus, X, CreditCard, Wallet, LogIn, Ban, Printer } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Plus, CreditCard, Wallet, LogIn, Ban, Printer, CalendarClock, UserX } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
-
-const G = {
-  teal:'#14B8A6', ink:'#1a0533', muted:'#64748b',
-  border:'rgba(0,0,0,0.08)', card:'#ffffff', bgSoft:'#f8fafc',
-  shadow:'0 2px 14px rgba(20,20,43,0.06)', red:'#ef4444', amber:'#d97706',
-}
+import {
+  C, GymStyles, Modal, Field, Avatar, AnimatedNumber, EmptyState, SkeletonRows,
+  fmtMoney, fmtDate, fmtDateShort, fmtTime, FONT_DISPLAY,
+} from './gymUI'
 
 const STATUS_COLORS = {
-  active:    { bg:'rgba(34,197,94,0.12)',  color:'#16a34a', labelKey:'gym.members.status.active' },
-  expired:   { bg:'rgba(239,68,68,0.12)',  color:'#dc2626', labelKey:'gym.members.status.expired' },
-  cancelled: { bg:'rgba(100,116,139,0.12)',color:'#475569', labelKey:'gym.members.status.cancelled' },
+  active:    { color:'#16a34a', labelKey:'gym.members.status.active' },
+  expired:   { color:'#dc2626', labelKey:'gym.members.status.expired' },
+  cancelled: { color:'#64748b', labelKey:'gym.members.status.cancelled' },
 }
 
-const labelStyle = { display:'block', color:G.muted, fontSize:12, fontWeight:600, margin:'12px 0 6px' }
-const inputStyle = { width:'100%', padding:'10px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontSize:14, boxSizing:'border-box' }
-
-function Modal({ title, onClose, children }) {
-  return (
-    <div style={{ position:'fixed', inset:0, background:'rgba(26,5,51,0.55)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000, padding:16 }}>
-      <div className="gym-modal-pop" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:24, width:'100%', maxWidth:420, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 60px rgba(20,20,43,0.25)' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-          <h3 style={{ color:G.ink, margin:0, fontSize:16, fontWeight:800 }}>{title}</h3>
-          <button type="button" onClick={onClose} style={{ background:G.bgSoft, border:'none', borderRadius:8, padding:6, color:G.muted, cursor:'pointer', display:'flex' }}><X size={16} /></button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
-}
+const METHODS = ['cash', 'moncash', 'natcash', 'card', 'bank']
 
 function NewMembershipModal({ memberId, member, onClose }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const { tenant } = useAuthStore()
   const { printGym } = usePrinterStore()
-  const { register, handleSubmit } = useForm()
+  const { register, handleSubmit, watch } = useForm()
   const { data: plans } = useQuery({ queryKey:['gym-plans'], queryFn: () => gymAPI.getPlans().then(r => r.data.plans) })
 
   const mutation = useMutation({
@@ -69,30 +53,35 @@ function NewMembershipModal({ memberId, member, onClose }) {
 
   const onSubmit = (data) => mutation.mutate({ ...data, amountPaid: Number(data.amountPaid || 0) })
 
+  const plan = plans?.find(p => p.id === watch('planId')) || plans?.[0]
+  const start = watch('startDate')
+  const endPreview = plan && start ? new Date(new Date(start).getTime() + Number(plan.durationDays) * 86400000) : null
+
   return (
-    <Modal title={t('gym.memberDetail.membershipModal.title')} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.plan')}</label>
-        <select {...register('planId', { required:true })} style={inputStyle}>
+    <Modal icon={CreditCard} title={t('gym.memberDetail.membershipModal.title')} subtitle={member?.fullName}
+      onClose={onClose} onSubmit={handleSubmit(onSubmit)} maxWidth={460}>
+      <Field label={t('gym.memberDetail.membershipModal.plan')}>
+        <select {...register('planId', { required:true })} className="gx-input">
           {plans?.map(p => <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>)}
         </select>
-        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.startDate')}</label>
-        <input type="date" defaultValue={new Date().toISOString().split('T')[0]} {...register('startDate', { required:true })} style={inputStyle} />
-        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.amountPaid')}</label>
-        <input type="number" step="0.01" {...register('amountPaid')} style={inputStyle} />
-        <label style={labelStyle}>{t('gym.memberDetail.membershipModal.method')}</label>
-        <select {...register('method')} style={inputStyle}>
-          <option value="cash">{t('gym.memberDetail.methods.cash')}</option>
-          <option value="moncash">{t('gym.memberDetail.methods.moncash')}</option>
-          <option value="natcash">{t('gym.memberDetail.methods.natcash')}</option>
-          <option value="card">{t('gym.memberDetail.methods.card')}</option>
-          <option value="bank">{t('gym.memberDetail.methods.bank')}</option>
-        </select>
-        <button type="submit" disabled={mutation.isPending}
-          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? t('gym.memberDetail.membershipModal.saving') : t('gym.memberDetail.membershipModal.create')}
-        </button>
-      </form>
+      </Field>
+      <Field label={t('gym.memberDetail.membershipModal.startDate')}
+        hint={endPreview && !isNaN(endPreview) ? `→ ${fmtDate(endPreview)}` : null}>
+        <input type="date" defaultValue={new Date().toISOString().split('T')[0]} {...register('startDate', { required:true })} className="gx-input"/>
+      </Field>
+      <div className="gx-two">
+        <Field label={t('gym.memberDetail.membershipModal.amountPaid')}>
+          <input type="number" step="0.01" {...register('amountPaid')} className="gx-input" placeholder={plan ? String(plan.priceHtg) : ''}/>
+        </Field>
+        <Field label={t('gym.memberDetail.membershipModal.method')}>
+          <select {...register('method')} className="gx-input">
+            {METHODS.map(m => <option key={m} value={m}>{t(`gym.memberDetail.methods.${m}`)}</option>)}
+          </select>
+        </Field>
+      </div>
+      <button type="submit" disabled={mutation.isPending} className="gx-btn gx-btn-dark gx-btn-block" style={{ marginTop:8 }}>
+        {mutation.isPending ? t('gym.memberDetail.membershipModal.saving') : t('gym.memberDetail.membershipModal.create')}
+      </button>
     </Modal>
   )
 }
@@ -115,46 +104,34 @@ function NewPaymentModal({ memberId, onClose }) {
   const onSubmit = (data) => mutation.mutate({ ...data, amountHtg: Number(data.amountHtg) })
 
   return (
-    <Modal title={t('gym.memberDetail.paymentModal.title')} onClose={onClose}>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.amount')}</label>
-        <input type="number" step="0.01" {...register('amountHtg', { required:true, min:0 })} style={inputStyle} />
-        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.method')}</label>
-        <select {...register('method')} style={inputStyle}>
-          <option value="cash">{t('gym.memberDetail.methods.cash')}</option>
-          <option value="moncash">{t('gym.memberDetail.methods.moncash')}</option>
-          <option value="natcash">{t('gym.memberDetail.methods.natcash')}</option>
-          <option value="card">{t('gym.memberDetail.methods.card')}</option>
-          <option value="bank">{t('gym.memberDetail.methods.bank')}</option>
+    <Modal icon={Wallet} title={t('gym.memberDetail.paymentModal.title')} onClose={onClose} onSubmit={handleSubmit(onSubmit)} maxWidth={420}>
+      <Field label={t('gym.memberDetail.paymentModal.amount')}>
+        <input type="number" step="0.01" {...register('amountHtg', { required:true, min:0 })} className="gx-input big" autoFocus/>
+      </Field>
+      <Field label={t('gym.memberDetail.paymentModal.method')}>
+        <select {...register('method')} className="gx-input">
+          {METHODS.map(m => <option key={m} value={m}>{t(`gym.memberDetail.methods.${m}`)}</option>)}
         </select>
-        <label style={labelStyle}>{t('gym.memberDetail.paymentModal.notes')}</label>
-        <input {...register('notes')} style={inputStyle} />
-        <button type="submit" disabled={mutation.isPending}
-          style={{ width:'100%', marginTop:20, padding:'13px', borderRadius:12, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:800, cursor:'pointer', fontSize:14, boxShadow:'0 8px 20px rgba(20,184,166,0.3)' }}>
-          {mutation.isPending ? t('gym.memberDetail.paymentModal.saving') : t('gym.memberDetail.paymentModal.record')}
-        </button>
-      </form>
+      </Field>
+      <Field label={t('gym.memberDetail.paymentModal.notes')}>
+        <input {...register('notes')} className="gx-input"/>
+      </Field>
+      <button type="submit" disabled={mutation.isPending} className="gx-btn gx-btn-dark gx-btn-block" style={{ marginTop:8 }}>
+        {mutation.isPending ? t('gym.memberDetail.paymentModal.saving') : t('gym.memberDetail.paymentModal.record')}
+      </button>
     </Modal>
   )
 }
 
-function PrintButton({ onClick, title }) {
+function SectionCard({ icon:Icon, title, count, children, delay }) {
   return (
-    <button onClick={onClick} title={title} style={{
-      background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:6,
-      color:G.teal, cursor:'pointer', display:'flex', flexShrink:0,
-    }}>
-      <Printer size={14} />
-    </button>
-  )
-}
-
-function SectionCard({ icon:Icon, title, color, children, delay }) {
-  return (
-    <div className="gym-fadeup" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:16, padding:18, boxShadow:G.shadow, animationDelay:`${delay}ms` }}>
-      <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14 }}>
-        <Icon size={16} color={color} />
-        <h3 style={{ margin:0, fontSize:13, fontWeight:800, color:G.ink, textTransform:'uppercase', letterSpacing:'0.03em' }}>{title}</h3>
+    <div className="gx-card gx-pad gx-in" style={{ animationDelay:`${delay}ms` }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:14 }}>
+        <span style={{ width:34, height:34, borderRadius:11, background:C.night, color:C.volt, display:'grid', placeItems:'center', flex:'none' }}>
+          <Icon size={16}/>
+        </span>
+        <h3 style={{ margin:0, fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:20, textTransform:'uppercase', letterSpacing:'.05em' }}>{title}</h3>
+        {count != null && <span className="gx-count">{count}</span>}
       </div>
       {children}
     </div>
@@ -193,120 +170,203 @@ export default function GymMemberDetail() {
     onError: (e) => toast.error(e.response?.data?.message || t('gym.memberDetail.error')),
   })
 
-  if (isLoading) return <p style={{ color:G.muted }}>{t('gym.memberDetail.loading')}</p>
-  if (!member) return <p style={{ color:G.red }}>{t('gym.memberDetail.notFound')}</p>
+  if (isLoading) return (
+    <div className="gx-page"><GymStyles/>
+      <div className="gx-skel" style={{ height:230, borderRadius:28, marginBottom:20 }}/>
+      <SkeletonRows rows={4} height={70}/>
+    </div>
+  )
+  if (!member) return (
+    <div className="gx-page"><GymStyles/>
+      <EmptyState icon={UserX} text={t('gym.memberDetail.notFound')}
+        action={<Link to="/app/gym/members" className="gx-btn gx-btn-dark"><ArrowLeft size={15}/> {t('gym.memberDetail.backToMembers')}</Link>}/>
+    </div>
+  )
+
+  // Abònman aktif + jou ki rete
+  const activeMs = memberships?.find(ms => ms.status === 'active')
+  let daysLeft = null, progress = 0
+  if (activeMs?.endDate) {
+    const start = new Date(activeMs.startDate).getTime()
+    const end = new Date(activeMs.endDate).getTime()
+    const now = Date.now()
+    daysLeft = Math.max(0, Math.ceil((end - now) / 86400000))
+    progress = end > start ? Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100)) : 100
+  }
+  const totalPaid = (payments || []).reduce((s, p) => s + Number(p.amountHtg || 0), 0)
+  const lastVisit = checkIns?.[0]?.checkInAt
+  const ringR = 52, ringC = 2 * Math.PI * ringR
+
+  const reprintPayment = (p) => {
+    if (p.type === 'daily') {
+      printGym(member, tenant, 'daily', { amount: p.amountHtg, method: p.method })
+    } else if (p.type === 'membership') {
+      printGym(member, tenant, 'plan', {
+        planName: p.membership?.plan?.name,
+        amountPaid: p.amountHtg, method: p.method,
+        startDate: p.membership?.startDate, endDate: p.membership?.endDate,
+      })
+    } else {
+      printGym(member, tenant, 'peman', { amount: p.amountHtg, method: p.method, notes: p.notes })
+    }
+  }
 
   return (
-    <div style={{ maxWidth:800, margin:'0 auto' }}>
-      <Link to="/app/gym/members" className="gym-fadeup" style={{ display:'inline-flex', alignItems:'center', gap:6, color:G.muted, fontSize:13, fontWeight:600, textDecoration:'none', marginBottom:16 }}>
-        <ArrowLeft size={15} /> {t('gym.memberDetail.backToMembers')}
-      </Link>
+    <div className="gx-page">
+      <GymStyles/>
+      <style>{`
+        .gx-md-hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center}
+        .gx-md-side{display:flex;align-items:center;gap:18px;padding-left:28px;border-left:1px solid ${C.line}}
+        .gx-md-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+        .gx-back{display:inline-flex;align-items:center;gap:6px;color:${C.muted};font-size:13px;font-weight:700;text-decoration:none;margin-bottom:14px;transition:color .2s, gap .2s}
+        .gx-back:hover{color:${C.ink};gap:10px}
+        .gx-contact{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:rgba(242,241,236,.7);background:rgba(255,255,255,.06);padding:5px 11px;border-radius:999px;text-decoration:none}
+        a.gx-contact:hover{background:rgba(255,255,255,.12);color:#fff}
+        @media (max-width: 900px){
+          .gx-md-hero{grid-template-columns:1fr}
+          .gx-md-side{padding-left:0;border-left:0;border-top:1px solid ${C.line};padding-top:18px}
+          .gx-md-grid{grid-template-columns:1fr}
+        }
+      `}</style>
 
-      <div className="gym-fadeup" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:18, padding:22, boxShadow:G.shadow, marginBottom:18, animationDelay:'50ms' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14, flexWrap:'wrap' }}>
-          <div style={{ width:56, height:56, borderRadius:16, background:`linear-gradient(135deg,${G.teal},#0d9488)`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 6px 16px rgba(20,184,166,0.3)' }}>
-            <User size={26} color="#fff" />
-          </div>
-          <div style={{ flex:1, minWidth:180 }}>
-            <h1 style={{ margin:0, fontSize:19, fontWeight:800, color:G.ink }}>{member.fullName}</h1>
-            <div style={{ display:'flex', gap:14, flexWrap:'wrap', marginTop:6 }}>
-              {member.phone && <span style={{ display:'flex', alignItems:'center', gap:5, color:G.muted, fontSize:12 }}><Phone size={12} />{member.phone}</span>}
-              {member.email && <span style={{ display:'flex', alignItems:'center', gap:5, color:G.muted, fontSize:12 }}><Mail size={12} />{member.email}</span>}
+      <Link to="/app/gym/members" className="gx-back gx-in"><ArrowLeft size={15}/> {t('gym.memberDetail.backToMembers')}</Link>
+
+      <section className="gx-hero gx-in" style={{ animationDelay:'60ms' }}>
+        <div className="gx-hero-glow"/>
+        <div className="gx-hero-grid"/>
+        <div className="gx-md-hero">
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:18, flexWrap:'wrap' }}>
+              <Avatar name={member.fullName} size={72}/>
+              <div style={{ minWidth:0 }}>
+                <span className="gx-eyebrow">
+                  {activeMs ? <><span className="gx-live"/> {t('gym.members.status.active')}</> : t('gym.memberDetail.noActivePlan', 'Aucun abonnement actif')}
+                </span>
+                <h1 className="gx-title">{member.fullName}</h1>
+                <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:10 }}>
+                  {member.phone && <a href={`tel:${member.phone}`} className="gx-contact"><Phone size={12}/>{member.phone}</a>}
+                  {member.email && <a href={`mailto:${member.email}`} className="gx-contact"><Mail size={12}/>{member.email}</a>}
+                </div>
+              </div>
+            </div>
+            <div className="gx-hero-stats" style={{ '--n': 3 }}>
+              <div className="gx-hstat tone-volt">
+                <span className="gx-label-dark"><Wallet size={13}/> {t('gym.memberDetail.totalPaid', 'Total payé')}</span>
+                <p className="gx-hstat-val"><AnimatedNumber value={totalPaid} suffix="HTG"/></p>
+              </div>
+              <div className="gx-hstat">
+                <span className="gx-label-dark"><LogIn size={13}/> {t('gym.memberDetail.visits', 'Visites')}</span>
+                <p className="gx-hstat-val"><AnimatedNumber value={checkIns?.length || 0}/></p>
+              </div>
+              <div className="gx-hstat tone-sky">
+                <span className="gx-label-dark"><CalendarClock size={13}/> {t('gym.memberDetail.lastVisit', 'Dernière visite')}</span>
+                <p className="gx-hstat-val">{lastVisit ? fmtDateShort(lastVisit) : '—'}</p>
+              </div>
             </div>
           </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-            <button onClick={() => setShowMembership(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${G.teal},#0d9488)`, color:'#fff', fontWeight:700, cursor:'pointer', fontSize:12 }}>
-              <Plus size={14} /> {t('gym.memberDetail.addMembership')}
-            </button>
-            <button onClick={() => setShowPayment(true)} style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 14px', borderRadius:10, border:`1px solid ${G.border}`, background:G.bgSoft, color:G.ink, fontWeight:700, cursor:'pointer', fontSize:12 }}>
-              <Plus size={14} /> {t('gym.memberDetail.addPayment')}
-            </button>
+
+          <div className="gx-md-side">
+            <div style={{ position:'relative', width:124, height:124, flex:'none' }}>
+              <svg width="124" height="124" viewBox="0 0 124 124">
+                <circle cx="62" cy="62" r={ringR} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth="12"/>
+                <circle cx="62" cy="62" r={ringR} fill="none" stroke={daysLeft != null && daysLeft <= 3 ? C.ember : C.volt} strokeWidth="12"
+                  strokeLinecap="round" strokeDasharray={ringC} strokeDashoffset={ringC * (progress / 100)}
+                  transform="rotate(-90 62 62)" style={{ transition:'stroke-dashoffset 1.2s cubic-bezier(.22,1,.36,1)' }}/>
+              </svg>
+              <div style={{ position:'absolute', inset:0, display:'grid', placeContent:'center', textAlign:'center' }}>
+                <span style={{ fontFamily:FONT_DISPLAY, fontWeight:800, fontSize:38, lineHeight:1 }}>{daysLeft ?? '—'}</span>
+                <span style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.08em', textTransform:'uppercase', color:'rgba(242,241,236,.55)' }}>
+                  {t('gym.memberDetail.daysLeft', 'jours restants')}
+                </span>
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8, minWidth:170 }}>
+              {activeMs && (
+                <div style={{ marginBottom:4 }}>
+                  <p style={{ margin:0, fontFamily:FONT_DISPLAY, fontWeight:700, fontSize:22, textTransform:'uppercase' }}>{activeMs.planName || t('gym.memberDetail.plan')}</p>
+                  <p style={{ margin:'2px 0 0', fontSize:12, color:'rgba(242,241,236,.55)', fontWeight:600 }}>
+                    {fmtDate(activeMs.startDate)}{activeMs.endDate && ` → ${fmtDate(activeMs.endDate)}`}
+                  </p>
+                </div>
+              )}
+              <button onClick={() => setShowMembership(true)} className="gx-btn gx-btn-volt"><Plus size={15}/> {t('gym.memberDetail.addMembership')}</button>
+              <button onClick={() => setShowPayment(true)} className="gx-btn gx-btn-ghost-dark"><Plus size={15}/> {t('gym.memberDetail.addPayment')}</button>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div style={{ display:'grid', gap:16 }}>
-        <SectionCard icon={CreditCard} title={t('gym.memberDetail.membershipHistory')} color={G.teal} delay={100}>
-          {!memberships?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noMemberships')}</p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {memberships.map(ms => {
-                const meta = STATUS_COLORS[ms.status] || STATUS_COLORS.cancelled
-                return (
-                  <div key={ms.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:11, background:G.bgSoft, border:`1px solid ${G.border}`, flexWrap:'wrap', gap:8 }}>
-                    <div>
-                      <p style={{ margin:0, color:G.ink, fontWeight:700, fontSize:13 }}>{ms.planName || t('gym.memberDetail.plan')}</p>
-                      <p style={{ margin:'2px 0 0', color:G.muted, fontSize:11 }}>
-                        {new Date(ms.startDate).toLocaleDateString('fr-FR')} {ms.endDate && `→ ${new Date(ms.endDate).toLocaleDateString('fr-FR')}`}
-                      </p>
-                    </div>
-                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                      <span style={{ fontSize:10, fontWeight:700, padding:'4px 9px', borderRadius:7, background:meta.bg, color:meta.color }}>{t(meta.labelKey)}</span>
-                      <PrintButton title={t('gym.memberDetail.reprintMembership')} onClick={() => printGym(member, tenant, 'plan', {
+      <div className="gx-md-grid">
+        <div className="gx-stack" style={{ gap:16 }}>
+          <SectionCard icon={CreditCard} title={t('gym.memberDetail.membershipHistory')} count={memberships?.length} delay={140}>
+            {!memberships?.length ? (
+              <p style={{ color:C.muted, fontSize:13, margin:0 }}>{t('gym.memberDetail.noMemberships')}</p>
+            ) : (
+              <div className="gx-stack" style={{ gap:8 }}>
+                {memberships.map((ms, i) => {
+                  const meta = STATUS_COLORS[ms.status] || STATUS_COLORS.cancelled
+                  return (
+                    <div key={ms.id} className="gx-row inset gx-slide" style={{ animationDelay:`${200 + i * 50}ms`, flexWrap:'wrap' }}>
+                      <span style={{ width:4, alignSelf:'stretch', borderRadius:4, background:meta.color, flex:'none' }}/>
+                      <div className="grow">
+                        <p className="gx-row-title">{ms.planName || t('gym.memberDetail.plan')}</p>
+                        <p className="gx-row-meta">{fmtDate(ms.startDate)} {ms.endDate && `→ ${fmtDate(ms.endDate)}`}</p>
+                      </div>
+                      <span className="gx-chip" style={{ '--c': meta.color }}><span className="dot"/>{t(meta.labelKey)}</span>
+                      <button className="gx-icon-btn" title={t('gym.memberDetail.reprintMembership')} onClick={() => printGym(member, tenant, 'plan', {
                         planName: ms.plan?.name || ms.planName,
                         amountPaid: ms.priceHtg,
                         startDate: ms.startDate,
                         endDate: ms.endDate,
-                      })} />
+                      })}><Printer size={14}/></button>
                       {ms.status === 'active' && (
-                        <button onClick={() => cancelMutation.mutate(ms.id)} title={t('gym.memberDetail.cancelAction')} style={{ background:'none', border:'none', color:G.red, cursor:'pointer', display:'flex' }}>
-                          <Ban size={14} />
+                        <button onClick={() => cancelMutation.mutate(ms.id)} title={t('gym.memberDetail.cancelAction')} className="gx-icon-btn danger">
+                          <Ban size={14}/>
                         </button>
                       )}
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </SectionCard>
+                  )
+                })}
+              </div>
+            )}
+          </SectionCard>
 
-        <SectionCard icon={Wallet} title={t('gym.memberDetail.paymentHistory')} color={G.amber} delay={150}>
-          {!payments?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noPayments')}</p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {payments.map(p => (
-                <div key={p.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:11, background:G.bgSoft, border:`1px solid ${G.border}`, flexWrap:'wrap', gap:8 }}>
-                  <div>
-                    <p style={{ margin:0, color:G.ink, fontWeight:700, fontSize:13 }}>{Number(p.amountHtg).toLocaleString('fr-FR')} HTG</p>
-                    <p style={{ margin:'2px 0 0', color:G.muted, fontSize:11 }}>{new Date(p.createdAt).toLocaleDateString('fr-FR')} · {p.method}</p>
+          <SectionCard icon={Wallet} title={t('gym.memberDetail.paymentHistory')} count={payments?.length} delay={200}>
+            {!payments?.length ? (
+              <p style={{ color:C.muted, fontSize:13, margin:0 }}>{t('gym.memberDetail.noPayments')}</p>
+            ) : (
+              <div className="gx-stack" style={{ gap:8 }}>
+                {payments.map((p, i) => (
+                  <div key={p.id} className="gx-row inset gx-slide" style={{ animationDelay:`${260 + Math.min(i, 8) * 40}ms` }}>
+                    <div className="grow">
+                      <p className="gx-display" style={{ margin:0, fontSize:22 }}>{fmtMoney(p.amountHtg)} <small style={{ fontSize:12, color:C.muted }}>HTG</small></p>
+                      <p className="gx-row-meta">
+                        {fmtDate(p.createdAt)}
+                        <span className="gx-chip" style={{ '--c': C.ink, padding:'2px 8px', textTransform:'uppercase' }}>{p.method}</span>
+                        {p.notes && <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:180 }}>· {p.notes}</span>}
+                      </p>
+                    </div>
+                    <button className="gx-icon-btn" title={t('gym.memberDetail.reprintPayment')} onClick={() => reprintPayment(p)}><Printer size={14}/></button>
                   </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                    {p.notes && <span style={{ color:G.muted, fontSize:11, maxWidth:140, textAlign:'right' }}>{p.notes}</span>}
-                    <PrintButton title={t('gym.memberDetail.reprintPayment')} onClick={() => {
-                      if (p.type === 'daily') {
-                        printGym(member, tenant, 'daily', { amount: p.amountHtg, method: p.method })
-                      } else if (p.type === 'membership') {
-                        printGym(member, tenant, 'plan', {
-                          planName: p.membership?.plan?.name,
-                          amountPaid: p.amountHtg, method: p.method,
-                          startDate: p.membership?.startDate, endDate: p.membership?.endDate,
-                        })
-                      } else {
-                        printGym(member, tenant, 'peman', { amount: p.amountHtg, method: p.method, notes: p.notes })
-                      }
-                    }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </SectionCard>
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        </div>
 
-        <SectionCard icon={LogIn} title={t('gym.memberDetail.recentCheckIns')} color="#6366f1" delay={200}>
+        <SectionCard icon={LogIn} title={t('gym.memberDetail.recentCheckIns')} count={checkIns?.length} delay={260}>
           {!checkIns?.length ? (
-            <p style={{ color:G.muted, fontSize:13 }}>{t('gym.memberDetail.noCheckIns')}</p>
+            <p style={{ color:C.muted, fontSize:13, margin:0 }}>{t('gym.memberDetail.noCheckIns')}</p>
           ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {checkIns.map(c => (
-                <div key={c.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', borderRadius:11, background:G.bgSoft, border:`1px solid ${G.border}` }}>
-                  <span style={{ color:G.ink, fontSize:12.5, fontWeight:600 }}>{new Date(c.checkInAt).toLocaleDateString('fr-FR')}</span>
-                  <span style={{ color:G.muted, fontSize:12 }}>
-                    {new Date(c.checkInAt).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}
-                    {c.checkOutAt && ` → ${new Date(c.checkOutAt).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`}
-                  </span>
+            <div style={{ position:'relative', paddingLeft:22 }}>
+              <span style={{ position:'absolute', left:6, top:6, bottom:6, width:2, background:C.border, borderRadius:2 }}/>
+              {checkIns.map((c, i) => (
+                <div key={c.id} className="gx-slide" style={{ position:'relative', padding:'8px 0', animationDelay:`${320 + i * 45}ms` }}>
+                  <span style={{ position:'absolute', left:-21, top:13, width:12, height:12, borderRadius:'50%', background: i === 0 ? C.volt : C.card, border:`2px solid ${i === 0 ? C.night : 'rgba(20,21,26,.25)'}` }}/>
+                  <p style={{ margin:0, fontWeight:700, fontSize:13.5 }}>{fmtDate(c.checkInAt)}</p>
+                  <p style={{ margin:'2px 0 0', color:C.muted, fontSize:12.5, fontWeight:600 }}>
+                    {fmtTime(c.checkInAt)}{c.checkOutAt && ` → ${fmtTime(c.checkOutAt)}`}
+                  </p>
                 </div>
               ))}
             </div>
@@ -314,15 +374,8 @@ export default function GymMemberDetail() {
         </SectionCard>
       </div>
 
-      {showMembership && <NewMembershipModal memberId={id} member={member} onClose={() => setShowMembership(false)} />}
-      {showPayment && <NewPaymentModal memberId={id} onClose={() => setShowPayment(false)} />}
-
-      <style>{`
-        @keyframes gymFadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
-        @keyframes gymPop { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        .gym-fadeup { opacity:0; animation: gymFadeUp 0.4s ease forwards; }
-        .gym-modal-pop { animation: gymPop 0.22s ease; }
-      `}</style>
+      {showMembership && <NewMembershipModal memberId={id} member={member} onClose={() => setShowMembership(false)}/>}
+      {showPayment && <NewPaymentModal memberId={id} onClose={() => setShowPayment(false)}/>}
     </div>
   )
 }
