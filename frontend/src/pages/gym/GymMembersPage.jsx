@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Plus, Search, X, Users, ChevronRight } from 'lucide-react'
+import { Plus, Search, X, Users, ChevronRight, Printer } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -106,6 +106,8 @@ const STATUS_COLORS = {
 }
 
 export default function GymMembersPage() {
+  const { tenant } = useAuthStore()
+  const { printGym } = usePrinterStore()
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
 
@@ -167,6 +169,15 @@ export default function GymMembersPage() {
                     {m.currentMembership.planName || 'Plan'} · {statusMeta.label}
                   </span>
                 )}
+                <button
+                  title="Re-enprime fich enskripsyon"
+                  onClick={(e) => {
+                    e.preventDefault(); e.stopPropagation()
+                    printGym(m, tenant, 'enskripsyon', { planName: m.currentMembership?.planName })
+                  }}
+                  style={{ background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:7, color:G.teal, cursor:'pointer', display:'flex', flexShrink:0 }}>
+                  <Printer size={14} />
+                </button>
                 <ChevronRight size={16} color={G.muted} />
               </Link>
             )

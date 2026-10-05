@@ -1014,7 +1014,7 @@ export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extr
     .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
     .replace(/ /g, ' ').replace(/ /g, ' ')
   const W = getWidth(tenant)
-  const TITLES = { enskripsyon: 'FICHE ENSKRIPSYON', daily: 'RESI PEMAN JOU', plan: 'RESI ABONMAN' }
+  const TITLES = { enskripsyon: 'FICHE ENSKRIPSYON', daily: 'RESI PEMAN JOU', plan: 'RESI ABONMAN', peman: 'RESI PEMAN' }
   const METOD  = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
   const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
@@ -1062,8 +1062,7 @@ export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extr
       ...CMD.ALIGN_LEFT,
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('Bon antrennman!\n'), ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
-    ] : [
-      // type === 'plan'
+    ] : type === 'plan' ? [
       ...makeLine('Plan:', extra.planName || '', W), LF,
       ...(extra.startDate ? [...makeLine('Dat Kòmansman:', new Date(extra.startDate).toLocaleDateString('fr-HT'), W), LF] : []),
       ...(extra.endDate   ? [...makeLine('Dat Fini:', new Date(extra.endDate).toLocaleDateString('fr-HT'), W), LF] : []),
@@ -1071,6 +1070,16 @@ export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extr
       ...divider('=', W), LF,
       ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
       ...encodeText('PEYE: ' + fmt(extra.amountPaid) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+    ] : [
+      // type === 'peman' — peman manyèl/adisyonèl (san plan, san tarif jounalye)
+      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...(extra.notes  ? [...makeLine('Nòt:', String(extra.notes).substring(0, W - 6), W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
       ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
       ...CMD.ALIGN_LEFT,
       ...divider('=', W), LF,

@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { Search, Banknote, CheckCircle2, Settings2, X } from 'lucide-react'
+import { Search, Banknote, CheckCircle2, Settings2, X, Printer } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -87,7 +87,7 @@ export default function GymDailyPaymentPage() {
     onSuccess: (res, memberId) => {
       toast.success('Peman konfime! ✅')
       const member = membersData?.members?.find(m => m.id === memberId)
-      setConfirmed(c => [{ id: res.data.payment?.id || Date.now(), name: member?.fullName, amount: res.data.payment?.amountHtg, at: new Date() }, ...c])
+      setConfirmed(c => [{ id: res.data.payment?.id || Date.now(), member, amount: res.data.payment?.amountHtg, at: new Date() }, ...c])
       printGym(member, tenant, 'daily', { amount: res.data.payment?.amountHtg, method: 'cash' })
       setSearch('')
     },
@@ -174,9 +174,17 @@ export default function GymDailyPaymentPage() {
               }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                   <CheckCircle2 size={16} color={G.green} />
-                  <p style={{ margin:0, color:G.ink, fontSize:13, fontWeight:700 }}>{c.name}</p>
+                  <p style={{ margin:0, color:G.ink, fontSize:13, fontWeight:700 }}>{c.member?.fullName}</p>
                 </div>
-                <span style={{ color:G.teal, fontWeight:800, fontSize:13 }}>{Number(c.amount).toLocaleString('fr-FR')} HTG</span>
+                <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ color:G.teal, fontWeight:800, fontSize:13 }}>{Number(c.amount).toLocaleString('fr-FR')} HTG</span>
+                  <button
+                    title="Re-enprime resi"
+                    onClick={() => printGym(c.member, tenant, 'daily', { amount: c.amount, method: 'cash' })}
+                    style={{ background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:6, color:G.teal, cursor:'pointer', display:'flex' }}>
+                    <Printer size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

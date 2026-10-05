@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
-import { ArrowLeft, User, Phone, Mail, Plus, X, CreditCard, Wallet, LogIn, Ban } from 'lucide-react'
+import { ArrowLeft, User, Phone, Mail, Plus, X, CreditCard, Wallet, LogIn, Ban, Printer } from 'lucide-react'
 import { gymAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { useAuthStore } from '../../stores/authStore'
@@ -135,6 +135,17 @@ function NewPaymentModal({ memberId, onClose }) {
   )
 }
 
+function PrintButton({ onClick, title = 'Enprime resi' }) {
+  return (
+    <button onClick={onClick} title={title} style={{
+      background:'rgba(20,184,166,0.1)', border:'none', borderRadius:8, padding:6,
+      color:G.teal, cursor:'pointer', display:'flex', flexShrink:0,
+    }}>
+      <Printer size={14} />
+    </button>
+  )
+}
+
 function SectionCard({ icon:Icon, title, color, children, delay }) {
   return (
     <div className="gym-fadeup" style={{ background:G.card, border:`1px solid ${G.border}`, borderRadius:16, padding:18, boxShadow:G.shadow, animationDelay:`${delay}ms` }}>
@@ -150,6 +161,8 @@ function SectionCard({ icon:Icon, title, color, children, delay }) {
 export default function GymMemberDetail() {
   const { id } = useParams()
   const qc = useQueryClient()
+  const { tenant } = useAuthStore()
+  const { printGym } = usePrinterStore()
   const [showMembership, setShowMembership] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
 
@@ -226,6 +239,12 @@ export default function GymMemberDetail() {
                     </div>
                     <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontSize:10, fontWeight:700, padding:'4px 9px', borderRadius:7, background:meta.bg, color:meta.color }}>{meta.label}</span>
+                      <PrintButton title="Re-enprime resi abònman" onClick={() => printGym(member, tenant, 'plan', {
+                        planName: ms.plan?.name || ms.planName,
+                        amountPaid: ms.priceHtg,
+                        startDate: ms.startDate,
+                        endDate: ms.endDate,
+                      })} />
                       {ms.status === 'active' && (
                         <button onClick={() => cancelMutation.mutate(ms.id)} title="Anile" style={{ background:'none', border:'none', color:G.red, cursor:'pointer', display:'flex' }}>
                           <Ban size={14} />
@@ -250,7 +269,22 @@ export default function GymMemberDetail() {
                     <p style={{ margin:0, color:G.ink, fontWeight:700, fontSize:13 }}>{Number(p.amountHtg).toLocaleString('fr-FR')} HTG</p>
                     <p style={{ margin:'2px 0 0', color:G.muted, fontSize:11 }}>{new Date(p.createdAt).toLocaleDateString('fr-FR')} · {p.method}</p>
                   </div>
-                  {p.notes && <span style={{ color:G.muted, fontSize:11, maxWidth:160, textAlign:'right' }}>{p.notes}</span>}
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    {p.notes && <span style={{ color:G.muted, fontSize:11, maxWidth:140, textAlign:'right' }}>{p.notes}</span>}
+                    <PrintButton title="Re-enprime resi peman" onClick={() => {
+                      if (p.type === 'daily') {
+                        printGym(member, tenant, 'daily', { amount: p.amountHtg, method: p.method })
+                      } else if (p.type === 'membership') {
+                        printGym(member, tenant, 'plan', {
+                          planName: p.membership?.plan?.name,
+                          amountPaid: p.amountHtg, method: p.method,
+                          startDate: p.membership?.startDate, endDate: p.membership?.endDate,
+                        })
+                      } else {
+                        printGym(member, tenant, 'peman', { amount: p.amountHtg, method: p.method, notes: p.notes })
+                      }
+                    }} />
+                  </div>
                 </div>
               ))}
             </div>

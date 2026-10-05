@@ -471,7 +471,7 @@ function buildDryHtml(order, tenant) {
 function buildGymHtml(member, tenant, type, extra = {}) {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
   const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-  const TITLES = { enskripsyon:'FICHE ENSKRIPSYON', daily:'RESI PEMAN JOU', plan:'RESI ABONMAN' }
+  const TITLES = { enskripsyon:'FICHE ENSKRIPSYON', daily:'RESI PEMAN JOU', plan:'RESI ABONMAN', peman:'RESI PEMAN' }
   const METOD = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
   const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
 
@@ -515,7 +515,7 @@ function buildGymHtml(member, tenant, type, extra = {}) {
         <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
           MONTAN: ${fmt(extra.amount)} G
         </div>
-      ` : `
+      ` : type === 'plan' ? `
         <div style="font-size:10px">
           <div>Plan: ${extra.planName || ''}</div>
           ${extra.startDate ? `<div>Dat Kòmansman: ${new Date(extra.startDate).toLocaleDateString('fr-HT')}</div>` : ''}
@@ -524,6 +524,14 @@ function buildGymHtml(member, tenant, type, extra = {}) {
         </div>
         <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
           PEYE: ${fmt(extra.amountPaid)} G
+        </div>
+      ` : `
+        <div style="font-size:10px">
+          ${extra.method ? `<div>Metod: ${METOD[extra.method] || extra.method}</div>` : ''}
+          ${extra.notes ? `<div>Nòt: ${extra.notes}</div>` : ''}
+        </div>
+        <div style="text-align:center;font-weight:bold;font-size:15px;border-top:1px solid #000;margin-top:6px;padding-top:6px">
+          MONTAN: ${fmt(extra.amount)} G
         </div>
       `}
       <div style="text-align:center;margin-top:8px;font-size:9px;border-top:1px dashed #000;padding-top:4px">

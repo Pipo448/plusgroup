@@ -382,7 +382,11 @@ async function getPayments(tenantId, params = {}) {
   const [payments, total, totalAgg] = await Promise.all([
     prisma.gymPayment.findMany({
       where,
-      include: { member: { select: { id: true, fullName: true, phone: true } } },
+      include: {
+        member: { select: { id: true, fullName: true, phone: true } },
+        // ✅ NOUVO — pou ka re-enprime resi abònman an ak non plan an + dat yo
+        membership: { select: { startDate: true, endDate: true, plan: { select: { name: true } } } },
+      },
       orderBy: { createdAt: 'desc' },
       skip, take: Number(limit),
     }),
