@@ -22,12 +22,18 @@ function AddMemberModal({ onClose }) {
   const qc = useQueryClient()
   const { tenant } = useAuthStore()
   const { printGym } = usePrinterStore()
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, watch, formState: { errors } } = useForm()
 
   const { data: plans } = useQuery({
     queryKey: ['gym-plans'],
     queryFn: () => gymAPI.getPlans().then(r => r.data.plans),
   })
+
+  const selectedPlanId = watch('planId')
+  const amountPaidWatch = watch('amountPaid')
+  const selectedPlan = plans?.find(p => p.id === selectedPlanId)
+  const amountDue = Number(selectedPlan?.priceHtg || 0)
+  const changeDue = amountDue > 0 ? Math.max(0, Number(amountPaidWatch || 0) - amountDue) : 0
 
   const mutation = useMutation({
     mutationFn: (data) => gymAPI.addMember(data),
@@ -84,8 +90,19 @@ function AddMemberModal({ onClose }) {
               <option key={p.id} value={p.id}>{p.name} — {Number(p.priceHtg).toLocaleString('fr-FR')} HTG</option>
             ))}
           </select>
+          {selectedPlan && (
+            <p style={{ margin:'0 0 10px', color:G.teal, fontWeight:800, fontSize:13 }}>
+              {t('gym.members.modal.amountDue')}: {amountDue.toLocaleString('fr-FR')} HTG
+            </p>
+          )}
           <label style={labelStyle}>{t('gym.members.modal.amountPaid')}</label>
           <input type="number" step="0.01" {...register('amountPaid')} style={inputStyle} />
+          {changeDue > 0 && (
+            <div style={{ marginTop:10, padding:'10px 14px', borderRadius:10, background:'rgba(217,119,6,0.08)', border:'1px solid rgba(217,119,6,0.2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ color:'#b45309', fontWeight:700, fontSize:13 }}>{t('gym.members.modal.changeDue')}</span>
+              <span style={{ color:'#b45309', fontWeight:900, fontSize:16 }}>{changeDue.toLocaleString('fr-FR')} HTG</span>
+            </div>
+          )}
         </div>
 
         <button type="submit" disabled={mutation.isPending}

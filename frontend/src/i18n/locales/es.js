@@ -531,6 +531,7 @@ export default {
         emergencyContact: 'Contacto de Emergencia', emergencyPhone: 'Teléfono de Emergencia',
         initialSubscription: 'Membresía inicial (opcional)', plan: 'Plan',
         noPlanOption: '— Sin plan (agregar después) —', amountPaid: 'Monto Pagado (HTG)',
+        amountDue: 'Monto a Pagar', changeDue: 'Cambio a Devolver',
         saving: 'Guardando...', addMember: 'Agregar Miembro',
       },
       status: { active:'Activo', expired:'Expirado', cancelled:'Cancelado' },

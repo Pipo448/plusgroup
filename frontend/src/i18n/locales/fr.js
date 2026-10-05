@@ -534,6 +534,7 @@ export default {
         emergencyContact: "Contact d'Urgence", emergencyPhone: "Téléphone d'Urgence",
         initialSubscription: 'Abonnement initial (optionnel)', plan: 'Plan',
         noPlanOption: '— Sans plan (ajouter plus tard) —', amountPaid: 'Montant Payé (HTG)',
+        amountDue: 'Montant à Payer', changeDue: 'Monnaie à Rendre',
         saving: 'Enregistrement...', addMember: 'Ajouter Membre',
       },
       status: { active:'Actif', expired:'Expiré', cancelled:'Annulé' },

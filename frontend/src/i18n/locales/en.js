@@ -532,6 +532,7 @@ export default {
         emergencyContact: 'Emergency Contact', emergencyPhone: 'Emergency Phone',
         initialSubscription: 'Initial subscription (optional)', plan: 'Plan',
         noPlanOption: '— No plan (add later) —', amountPaid: 'Amount Paid (HTG)',
+        amountDue: 'Amount Due', changeDue: 'Change Due',
         saving: 'Saving...', addMember: 'Add Member',
       },
       status: { active:'Active', expired:'Expired', cancelled:'Cancelled' },

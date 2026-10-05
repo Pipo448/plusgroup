@@ -531,6 +531,7 @@ export default {
         emergencyContact: 'Kontak Ijans', emergencyPhone: 'Telefòn Ijans',
         initialSubscription: 'Abònman inisyal (opsyonèl)', plan: 'Plan',
         noPlanOption: '— San plan (ajoute pita) —', amountPaid: 'Montan Peye (HTG)',
+        amountDue: 'Montan pou Peye', changeDue: 'Monnen pou Remèt',
         saving: 'Ap sove...', addMember: 'Ajoute Manm',
       },
       status: { active:'Aktif', expired:'Ekspire', cancelled:'Anile' },
