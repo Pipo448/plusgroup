@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
-import { Users, Star, UserCheck, UserPlus, ArrowLeft, Calendar, Camera, IdCard, User, ShieldCheck, Phone, Trophy, CheckCircle } from 'lucide-react'
+import { Users, Star, UserCheck, UserPlus, ArrowLeft, Calendar, Camera, CreditCard, User, ShieldCheck, Phone, Trophy, CheckCircle } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { Modal } from './sabotayAtoms'
 import { D, fmt, RELATIONSHIPS, getPayoutDate, generateCredentials, API_URL } from './sabotayUtils'
@@ -293,7 +293,7 @@ export function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) 
         )}
 
         <div className="am-tabs" role="tablist">
-          {[['info', 'Enfòmasyon', <User size={14} key="i" />], ['kyc', 'KYC', <IdCard size={14} key="i" />], ['ref', 'Referans', <ShieldCheck size={14} key="i" />]].map(([t, l, ic]) => (
+          {[['info', 'Enfòmasyon', <User size={14} key="i" />], ['kyc', 'KYC', <CreditCard size={14} key="i" />], ['ref', 'Referans', <ShieldCheck size={14} key="i" />]].map(([t, l, ic]) => (
             <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{ic}{l}</button>
           ))}
         </div>
@@ -325,7 +325,7 @@ export function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) 
             <Field label="Adrès"><input className="ke-input" value={form.address} onChange={e => set('address', e.target.value)} placeholder="Vil, depatman..." /></Field>
             <div className="ke-two">
               <PhotoBox label="Foto kliyan" icon={<Camera size={18} />} preview={photoB64} inputId="sol-photo-upload" hint="Peze pou foto" onChange={e => handlePhoto(e, 'photo')} />
-              <PhotoBox label="Pyès idantite" icon={<IdCard size={18} />} preview={idPhotoB64} inputId="sol-id-upload" hint="CIN / Paspò" onChange={e => handlePhoto(e, 'idPhoto')} />
+              <PhotoBox label="Pyès idantite" icon={<CreditCard size={18} />} preview={idPhotoB64} inputId="sol-id-upload" hint="CIN / Paspò" onChange={e => handlePhoto(e, 'idPhoto')} />
             </div>
           </div>
         )}
