@@ -1,33 +1,35 @@
 // src/pages/enterprise/kane-epay/KaneEpayPage.jsx
 // ═══════════════════════════════════════════════════════════════
-// KANÈ EPAY — Paj prensipal (design premium, anime, responsive)
+// KANÈ EPAY — Tablo bò (menm konsèp ak Gym "Plus Fit")
+// Hero nwa + gwo chif lò, wonn aktivite, kat stat blan, lis kont anime
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
 import toast from 'react-hot-toast'
 import {
-  Search, ArrowDownCircle, ArrowUpCircle, Eye, X,
-  ChevronLeft, ChevronRight, Users, Wallet, TrendingUp, TrendingDown,
-  Activity, CreditCard, UserPlus, Bluetooth, BluetoothOff, RefreshCw,
-  Lock, FileText, Trash2, Phone, ShieldCheck, ShieldAlert, Inbox, Layers,
-  CheckCircle2, MinusCircle,
+  Search, ArrowDownCircle, ArrowUpCircle, Eye, X, ChevronLeft, ChevronRight,
+  Users, UserCheck, Wallet, TrendingUp, TrendingDown, CreditCard, UserPlus,
+  Bluetooth, BluetoothOff, RefreshCw, Lock, FileText, Trash2, Phone,
+  ShieldCheck, ShieldAlert, Inbox, Activity,
 } from 'lucide-react'
 import { fmt, usePrinter } from './kaneEpayUtils'
-import { KANE_STYLES, T } from './kaneEpayConstants'
+import { KANE_STYLES, T, hexA, todayLabel } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
-import { Spinner, StatCard, TodayTile, AnimatedNumber, AnimatedInt, Avatar, AccountSkeleton } from './KaneEpayComponents'
+import {
+  Spinner, StatCard, GlassStat, Ring, AnimatedNumber, AnimatedInt, Avatar,
+  AccountSkeleton, Chip, avatarColors,
+} from './KaneEpayComponents'
 import { ModalCreate, ModalTx, ModalDetail, ModalRapoKesyeKane } from './KaneEpayModals'
 import PinConfirmModal from '../../../components/PinConfirmModal'
 
 const PAGE_SIZE = 15
 const FILTERS = [
-  { val: null,  label: 'Tout',    icon: Layers },
-  { val: true,  label: 'Aktif',   icon: CheckCircle2 },
-  { val: false, label: 'Inaktif', icon: MinusCircle },
+  { val: null,  label: 'Tout'    },
+  { val: true,  label: 'Aktif'   },
+  { val: false, label: 'Inaktif' },
 ]
 
-// Lis paj ak "…" (1 … 4 5 6 … 12)
 function pageList(cur, total) {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
   const out = [1]
@@ -41,48 +43,46 @@ function pageList(cur, total) {
 
 // ─── Kat yon kont ────────────────────────────────────────────
 function AccountCard({ acc, index, kesFemen, isAdmin, onOpen, onDepo, onRetrait, onDelete }) {
-  const hasKyc  = !!acc.idPhotoUrl
-  const locked  = Number(acc.lockedAmount) > 0
-  const off     = acc.isActive === false
-  const stop    = (fn) => (e) => { e.stopPropagation(); fn(acc) }
+  const hasKyc = !!acc.idPhotoUrl
+  const locked = Number(acc.lockedAmount) > 0
+  const off    = acc.isActive === false
+  const [a1]   = avatarColors(`${acc.firstName}${acc.lastName}${acc.accountNumber}`)
+  const stop   = (fn) => (e) => { e.stopPropagation(); fn(acc) }
 
   return (
     <div className={`ke-acc${off ? ' off' : ''}`} tabIndex={0} role="button"
-      style={{ animationDelay: `${Math.min(index, 12) * 0.045}s` }}
-      onClick={() => onOpen(acc)}
-      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(acc) }}>
+      style={{ animationDelay: `${Math.min(index, 12) * 0.045}s`, '--abg': hexA(a1, .1) }}
+      onClick={() => onOpen(acc)} onKeyDown={(e) => { if (e.key === 'Enter') onOpen(acc) }}>
       <div className="ke-acc-head">
         <Avatar account={acc} />
         <div className="ke-acc-id">
           <p className="ke-acc-no">{acc.accountNumber}</p>
           <p className="ke-acc-name">{acc.firstName} {acc.lastName}</p>
-          {acc.phone && <p className="ke-acc-phone"><Phone size={11} /> {acc.phone}</p>}
+          {acc.phone && <p className="ke-acc-meta"><Phone size={12} /> {acc.phone}</p>}
         </div>
         <div className="ke-badges">
-          <span className="ke-badge" style={{ '--c': hasKyc ? T.green : T.orange }}>
-            {hasKyc ? <ShieldCheck size={11} /> : <ShieldAlert size={11} />} KYC
-          </span>
-          {off && <span className="ke-badge" style={{ '--c': T.muted }}>Inaktif</span>}
+          <Chip color={hasKyc ? T.green : T.orange} icon={hasKyc ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}>KYC</Chip>
+          {off && <Chip color={T.muted}>Inaktif</Chip>}
         </div>
       </div>
 
       <div className="ke-acc-bal">
         <div style={{ minWidth: 0 }}>
-          <p className="l">Balans</p>
-          <p className="v ke-num">{fmt(acc.balance)}<small>HTG</small></p>
+          <p className="ke-label-s">Balans</p>
+          <p className="v">{fmt(acc.balance)}<small>HTG</small></p>
         </div>
-        {locked && <span className="ke-lock"><Lock size={11} /> {fmt(acc.lockedAmount)}</span>}
+        {locked && <Chip color={T.orange} icon={<Lock size={11} />}>{fmt(acc.lockedAmount)}</Chip>}
       </div>
 
-      <div className={`ke-acc-acts${isAdmin ? ' adm' : ''}`}>
+      <div className={`ke-acts${isAdmin ? ' adm' : ''}`}>
         <button className="ke-act dep" onClick={stop(onDepo)} disabled={kesFemen}>
-          {kesFemen ? <Lock size={13} /> : <ArrowDownCircle size={15} />} Depo
+          {kesFemen ? <Lock size={13} /> : <ArrowDownCircle size={16} />} Depo
         </button>
         <button className="ke-act ret" onClick={stop(onRetrait)} disabled={kesFemen}>
-          {kesFemen ? <Lock size={13} /> : <ArrowUpCircle size={15} />} Retrè
+          {kesFemen ? <Lock size={13} /> : <ArrowUpCircle size={16} />} Retrè
         </button>
-        <button className="ke-act ghost" title="Wè detay" onClick={stop(onOpen)}><Eye size={16} /></button>
-        {isAdmin && <button className="ke-act del" title="Efase kont" onClick={stop(onDelete)}><Trash2 size={15} /></button>}
+        <button className="ke-act ic" title="Wè detay" onClick={stop(onOpen)}><Eye size={17} /></button>
+        {isAdmin && <button className="ke-act ic danger" title="Efase kont" onClick={stop(onDelete)}><Trash2 size={16} /></button>}
       </div>
     </div>
   )
@@ -114,33 +114,29 @@ export default function KaneEpayPage() {
   }, [])
 
   const { data: kesData } = useQuery({
-    queryKey:        ['kes-status'],
-    queryFn:         () => kaneAPI.checkKesFemen().then(r => r.data),
-    staleTime:       30000,
-    refetchInterval: 30000,
+    queryKey: ['kes-status'],
+    queryFn:  () => kaneAPI.checkKesFemen().then(r => r.data),
+    staleTime: 30000, refetchInterval: 30000,
   })
   const kesFemen = kesData?.kesFemen === true
 
   const { data: statsData, refetch: refetchStats, isFetching: statsFetching } = useQuery({
-    queryKey:        ['kane-stats'],
-    queryFn:         () => kaneAPI.getStats().then(r => r.data.stats),
-    staleTime:       60000,
-    refetchInterval: 60000,
+    queryKey: ['kane-stats'],
+    queryFn:  () => kaneAPI.getStats().then(r => r.data.stats),
+    staleTime: 60000, refetchInterval: 60000,
   })
 
   const { data: listData, isLoading, isFetching } = useQuery({
-    queryKey:        ['kane-accounts', debouncedSearch, page, filterActive],
-    queryFn:         () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit: PAGE_SIZE, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
-    staleTime:       30000,
-    placeholderData: (prev) => prev,   // ✅ React Query v5 (ranplase keepPreviousData)
+    queryKey: ['kane-accounts', debouncedSearch, page, filterActive],
+    queryFn:  () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit: PAGE_SIZE, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
+    staleTime: 30000,
+    placeholderData: (prev) => prev,   // React Query v5
   })
 
   const accounts   = listData?.accounts || []
   const total      = listData?.total    || 0
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1
-
-  // ✅ Toujou itilize vèsyon kont ki pi fre a (balans ajou apre depo/retrè)
-  const liveSel = (selAcc && accounts.find(a => a.id === selAcc.id)) || selAcc
+  const liveSel    = (selAcc && accounts.find(a => a.id === selAcc.id)) || selAcc
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['kane-accounts'] })
@@ -158,168 +154,151 @@ export default function KaneEpayPage() {
     searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
   }
   const clearSearch = () => { setSearch(''); setDebouncedSearch(''); setPage(1) }
+  const goPage = (p) => { setPage(p); gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }
 
-  const goPage = (p) => {
-    setPage(p)
-    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
-  // ✅ Efase kont depi lis la — mande PIN (backend la egzije l)
   const confirmDelete = async (pin) => {
     try {
       await kaneAPI.deleteAccount(delTarget.id, pin)
       toast.success('Kont efase!')
-      setDelTarget(null)
-      refresh()
+      setDelTarget(null); refresh()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Erè efase kont.')
       throw err
     }
   }
 
-  // ── Kalkil stats ──
-  const s          = statsData || {}
-  const dep        = Number(s.todayDepositAmount  || 0)
-  const ret        = Number(s.todayWithdrawAmount || 0)
-  const todayNet   = dep - ret
-  const flowTotal  = dep + ret
-  const depPct     = flowTotal > 0 ? (dep / flowTotal) * 100 : 0
-  const totalAcc   = Number(s.totalAccounts  || 0)
-  const activeAcc  = Number(s.activeAccounts || 0)
-  const activeRat  = totalAcc ? activeAcc / totalAcc : 0
-  const avgBal     = totalAcc ? Number(s.totalBalance || 0) / totalAcc : 0
-  const filterIdx  = FILTERS.findIndex(f => f.val === filterActive)
+  // ── Kalkil ──
+  const s         = statsData || {}
+  const dep       = Number(s.todayDepositAmount  || 0)
+  const ret       = Number(s.todayWithdrawAmount || 0)
+  const net       = dep - ret
+  const flow      = dep + ret
+  const totalBal  = Number(s.totalBalance || 0)
+  const totalAcc  = Number(s.totalAccounts  || 0)
+  const activeAcc = Number(s.activeAccounts || 0)
+  const newToday  = Number(s.todayNewAccounts || 0)
+  const activeRat = totalAcc ? activeAcc / totalAcc : 0
+  const avgBal    = totalAcc ? totalBal / totalAcc : 0
+  const pct       = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0)
+  const filterIdx = FILTERS.findIndex(f => f.val === filterActive)
 
   return (
     <div className="ke-scope ke-page">
 
-      {/* ── Bannè kès fèmen ── */}
       {kesFemen && (
-        <div className="ke-lockbar" role="status">
-          <div className="ke-lockbar-ic"><Lock size={17} /></div>
-          <p><b>Kès fèmen jodi a.</b> Okenn nouvo tranzaksyon p ap aksepte jiskaske demen.</p>
+        <div className="ke-lockbar ke-in" role="status">
+          <div className="ke-lockbar-ic"><Lock size={18} /></div>
+          <p><b>Kès fèmen jodi a</b>Okenn nouvo tranzaksyon p ap aksepte jiskaske demen.</p>
         </div>
       )}
 
-      {/* ── HERO ── */}
-      <section className="ke-hero">
-        <span className="ke-orb a" /><span className="ke-orb b" />
-        <div className="ke-hero-in">
-          <div className="ke-hero-top">
-            <div className="ke-brand">
-              <div className="ke-brand-ic"><CreditCard size={22} /></div>
-              <div style={{ minWidth: 0 }}>
-                <h1 className="ke-title">Kanè Epay</h1>
-                <p className="ke-sub">
-                  <span className={`ke-live${kesFemen ? ' off' : ''}`} />
-                  {kesFemen ? 'Kès fèmen' : 'Kès louvri'} · Kont depo ak retrè
-                </p>
+      {/* ════════ HERO ════════ */}
+      <section className="ke-hero ke-in">
+        <div className="ke-hero-glow" />
+        <div className="ke-hero-grid" />
+        <div className="ke-hero-body">
+          <div style={{ minWidth: 0 }}>
+            <div className="ke-hero-top">
+              <div className="ke-hero-head">
+                <div className="ke-logo"><CreditCard size={26} strokeWidth={2.4} /></div>
+                <div style={{ minWidth: 0 }}>
+                  <span className="ke-eyebrow"><span className={`ke-live${kesFemen ? ' off' : ''}`} />{todayLabel()} · {kesFemen ? 'Kès fèmen' : 'Kès louvri'}</span>
+                  <h1 className="ke-title">Kanè Epay</h1>
+                  <p className="ke-sub">Tablo jesyon kont depo ak retrè</p>
+                </div>
+              </div>
+              <div className="ke-hero-actions">
+                <button className="ke-btn ke-btn-glass sq" title="Rafrechi" onClick={() => { refresh(); refetchStats() }}>
+                  <RefreshCw size={17} className={isFetching || statsFetching ? 'ke-spin' : ''} />
+                </button>
+                <button className={`ke-btn ke-btn-glass${printer.connected ? ' on' : ''}`} title={printer.connected ? 'Dekonekte printer' : 'Konekte printer Bluetooth'}
+                  onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}>
+                  {printer.connecting ? <Spinner size={15} /> : printer.connected ? <Bluetooth size={17} /> : <BluetoothOff size={17} />}
+                  <span className="lbl">{printer.connected ? 'Printer OK' : 'Printer'}</span>
+                </button>
+                {!kesFemen && (
+                  <button className="ke-btn ke-btn-glass" title="Fèmen kès" onClick={() => setModal('rapo')}>
+                    <FileText size={17} /><span className="lbl">Fèmen kès</span>
+                  </button>
+                )}
+                <button className="ke-btn ke-btn-gold ke-hide-sm" disabled={kesFemen} onClick={() => !kesFemen && setModal('create')}>
+                  {kesFemen ? <Lock size={17} /> : <UserPlus size={17} />} {kesFemen ? 'Kès fèmen' : 'Nouvo kont'}
+                </button>
               </div>
             </div>
-            <div className="ke-actions">
-              <button className="ke-icbtn" title="Rafrechi" onClick={() => { refresh(); refetchStats() }}>
-                <RefreshCw size={16} className={isFetching || statsFetching ? 'ke-spin' : ''} />
-              </button>
-              <button className={`ke-icbtn${printer.connected ? ' on' : ''}`} title={printer.connected ? 'Dekonekte printer' : 'Konekte printer Bluetooth'}
-                onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}>
-                {printer.connecting ? <Spinner size={14} /> : printer.connected ? <Bluetooth size={16} /> : <BluetoothOff size={16} />}
-                <span className="lbl">{printer.connected ? 'Printer OK' : 'Printer'}</span>
-              </button>
-              {!kesFemen && (
-                <button className="ke-icbtn warn" title="Fèmen kès" onClick={() => setModal('rapo')}>
-                  <FileText size={16} /><span className="lbl">Fèmen Kès</span>
-                </button>
-              )}
-              <button className="ke-btn-gold ke-hide-sm" disabled={kesFemen} onClick={() => !kesFemen && setModal('create')}>
-                {kesFemen ? <Lock size={16} /> : <UserPlus size={16} />} {kesFemen ? 'Kès Fèmen' : 'Nouvo Kont'}
-              </button>
+
+            <div className="ke-hero-bottom">
+              <div>
+                <span className="ke-big-l"><Wallet size={14} /> Total balans</span>
+                <p className="ke-big"><AnimatedNumber value={totalBal} duration={1500} /><small>HTG</small></p>
+                <span className="ke-net" style={{ color: net >= 0 ? T.greenD : T.redD }}>
+                  {net >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  Nèt jodi a <AnimatedNumber value={net} signed /> G
+                </span>
+              </div>
+              <GlassStat label="Depo jodi a"  icon={<ArrowDownCircle size={14} />} num={dep} color={T.greenD} pct={pct(dep, flow)}
+                sub={`${pct(dep, flow)}% mouvman · ${s.todayTransactions || 0} tx`} />
+              <GlassStat label="Retrè jodi a" icon={<ArrowUpCircle size={14} />}   num={ret} color={T.redD}   pct={pct(ret, flow)}
+                sub={`${pct(ret, flow)}% mouvman jodi a`} />
             </div>
           </div>
 
-          <div className="ke-hero-mid">
-            <div>
-              <div className="ke-bal-lbl"><Wallet size={13} /> Total balans · tout kont</div>
-              <div className="ke-bal">
-                <AnimatedNumber value={s.totalBalance} duration={1400} />
-                <small>HTG</small>
-              </div>
-              <div className="ke-bal-meta">
-                <span><b><AnimatedInt value={totalAcc} /></b> kont</span>
-                <span>Mwayèn <b>{fmt(avgBal)} G</b> / kont</span>
-              </div>
-              <div className="ke-flow">
-                <div className="ke-flow-head"><span>Mouvman jodi a</span><span>{s.todayTransactions || 0} tranzaksyon</span></div>
-                <div className="ke-flow-bar">
-                  {flowTotal > 0 ? (
-                    <>
-                      {dep > 0 && <i style={{ width: `${depPct}%`, background: `linear-gradient(90deg,#17A86C,${T.green})` }} />}
-                      {ret > 0 && <i style={{ flex: 1, background: `linear-gradient(90deg,${T.red},#FF8F9B)` }} />}
-                    </>
-                  ) : <i style={{ width: '100%', background: 'rgba(255,255,255,.06)', animation: 'none' }} />}
-                </div>
-                <div className="ke-legend">
-                  <span style={{ color: T.green }}>Depo {Math.round(depPct)}%</span>
-                  <span style={{ color: T.red }}>Retrè {flowTotal > 0 ? 100 - Math.round(depPct) : 0}%</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="ke-today">
-              <TodayTile label="Depo jodi a"  num={dep} color={T.green} icon={<ArrowDownCircle size={15} />} sub={`${s.todayTransactions || 0} tx total`} delay={0.12} />
-              <TodayTile label="Retrè jodi a" num={ret} color={T.red}   icon={<ArrowUpCircle size={15} />}   sub="Lajan ki soti" delay={0.2} />
-              <TodayTile label="Nèt jodi a"   num={todayNet} signed color={todayNet >= 0 ? T.green : T.red}
-                icon={todayNet >= 0 ? <TrendingUp size={15} /> : <TrendingDown size={15} />} sub="Depo − Retrè" delay={0.28} />
+          <div className="ke-hero-side">
+            <Ring value={activeRat} size={170} />
+            <div className="ke-side-txt" style={{ textAlign: 'center' }}>
+              <span className="ke-eyebrow ke-side-l"><Activity size={14} /> To aktivite</span>
+              <p className="ke-side-v"><AnimatedInt value={activeAcc} /> <span>/ {totalAcc}</span></p>
+              <p className="ke-side-s">Kont aktif</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── KPI ── */}
-      <div className="ke-kpis">
-        <StatCard label="Total kont"   num={totalAcc}  format={n => Math.round(n)} icon={<Users size={17} />}    color={T.gold}   sub="Tout kont Kanè"    delay={0.06} />
-        <StatCard label="Kont aktif"   num={activeAcc} format={n => Math.round(n)} icon={<Activity size={17} />} color={T.green}  sub={`${totalAcc - activeAcc} inaktif`} ring={activeRat} delay={0.12} />
-        <StatCard label="Mwayèn balans" num={avgBal} suffix="G" icon={<Wallet size={17} />} color={T.blue} sub="Pa kont" delay={0.18} />
-        <StatCard label="Nouvo jodi a" num={Number(s.todayNewAccounts || 0)} format={n => Math.round(n)} icon={<UserPlus size={17} />} color={T.violet} sub="Kont kreye jodi a" delay={0.24} />
+      {/* ════════ STATS ════════ */}
+      <div className="ke-stats">
+        <StatCard label="Total kont"    num={totalAcc}  icon={<Users size={21} />}     color={T.teal}   pct={100} delay={0.08} />
+        <StatCard label="Kont aktif"    num={activeAcc} icon={<UserCheck size={21} />} color={T.green}  pct={pct(activeAcc, totalAcc)} pill={`${pct(activeAcc, totalAcc)}%`} delay={0.14} />
+        <StatCard label="Mwayèn balans" num={avgBal} format={fmt} suffix="G" icon={<Wallet size={21} />} color={T.orange} pct={pct(avgBal, Math.max(...accounts.map(a => Number(a.balance) || 0), avgBal))} delay={0.2} />
+        <StatCard label="Nouvo jodi a"  num={newToday}  icon={<UserPlus size={21} />}  color={T.violet} pct={pct(newToday, totalAcc)} pill={`${pct(newToday, totalAcc)}%`} delay={0.26} />
       </div>
 
-      {/* ── Rechèch + Filtre ── */}
-      <div className="ke-toolbar">
+      {/* ════════ KONT ════════ */}
+      <div className="ke-section-head ke-in" style={{ animationDelay: '.3s' }}>
+        <h2>Kont kliyan</h2>
+        <span className="ke-count">{total}</span>
+        <span className="ke-rule" />
+        {isFetching && !isLoading && <span className="ke-updating"><Spinner size={12} /> Ap mete ajou</span>}
+      </div>
+
+      <div className="ke-toolbar ke-in" style={{ animationDelay: '.34s' }}>
         <div className="ke-search">
+          <Search size={19} className="lead" />
           <input placeholder="Chèche non, nimewo kont, telefòn..." value={search} onChange={handleSearch} aria-label="Chèche kont" />
-          <Search size={17} className="ic" />
-          {search && <button className="clr" onClick={clearSearch} aria-label="Efase rechèch"><X size={14} /></button>}
+          {search && <button className="clr" onClick={clearSearch} aria-label="Efase rechèch"><X size={15} /></button>}
         </div>
-        <div className="ke-seg" role="tablist">
-          <span className="ke-seg-pill" style={{ transform: `translateX(${filterIdx * 100}%)` }} />
-          {FILTERS.map(f => {
-            const Ic = f.icon
-            return (
-              <button key={String(f.val)} role="tab" aria-selected={filterActive === f.val}
-                className={filterActive === f.val ? 'on' : ''} onClick={() => { setFilterActive(f.val); setPage(1) }}>
-                <Ic size={14} />{f.label}
-              </button>
-            )
-          })}
-        </div>
-        <div className="ke-meta">
-          <span>
-            <b>{total}</b> kont{debouncedSearch ? <> pou « <b>{debouncedSearch}</b> »</> : ''} · paj {page}/{totalPages}
-          </span>
-          {isFetching && !isLoading && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.gold2 }}><Spinner size={11} /> Ap mete ajou</span>}
+        <div className="ke-tabs" role="tablist">
+          <span className="ke-tabs-pill" style={{ transform: `translateX(${filterIdx * 100}%)` }} />
+          {FILTERS.map(f => (
+            <button key={String(f.val)} role="tab" aria-selected={filterActive === f.val}
+              className={filterActive === f.val ? 'on' : ''} onClick={() => { setFilterActive(f.val); setPage(1) }}>
+              {f.label}
+              {f.val === null && <span className="n">{totalAcc}</span>}
+              {f.val === true && <span className="n">{activeAcc}</span>}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ── Lis kont ── */}
       {isLoading ? (
         <div className="ke-grid">{Array.from({ length: 6 }).map((_, i) => <AccountSkeleton key={i} i={i} />)}</div>
       ) : !accounts.length ? (
-        <div className="ke-empty">
-          <div className="ke-empty-ic">{search ? <Search size={30} /> : <Inbox size={30} />}</div>
-          <h3>{search ? 'Pa jwenn rezilta' : 'Pa gen kont Kanè Epay ankò'}</h3>
-          <p>{search ? 'Eseye yon lòt non oswa nimewo kont.' : 'Kreye premye kont lan pou kòmanse.'}</p>
+        <div className="ke-empty ke-in">
+          <div className="ke-empty-ic">{search ? <Search size={28} /> : <Inbox size={28} />}</div>
+          <h3>{search ? 'Pa jwenn rezilta' : 'Pa gen kont ankò'}</h3>
+          <p>{search ? `Pa gen kont pou « ${debouncedSearch || search} ».` : 'Kreye premye kont Kanè Epay la pou kòmanse.'}</p>
           {search
-            ? <button className="ke-icbtn" onClick={clearSearch} style={{ margin: '0 auto' }}><X size={15} /> Efase rechèch</button>
-            : !kesFemen && <button className="ke-btn-gold" onClick={() => setModal('create')}><UserPlus size={16} /> Nouvo Kont</button>}
+            ? <button className="ke-btn ke-btn-soft" onClick={clearSearch}><X size={16} /> Efase rechèch</button>
+            : !kesFemen && <button className="ke-btn ke-btn-dark" onClick={() => setModal('create')}><UserPlus size={17} /> Nouvo kont</button>}
         </div>
       ) : (
         <div className="ke-grid" ref={gridRef}>
@@ -330,29 +309,24 @@ export default function KaneEpayPage() {
         </div>
       )}
 
-      {/* ── Pajinasyon ── */}
       {totalPages > 1 && (
         <div className="ke-pager">
-          <span>{total} kont</span>
+          <span>Paj {page} sou {totalPages} · {total} kont</span>
           <div className="ke-pages">
-            <button className="ke-pg" onClick={() => goPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Paj anvan"><ChevronLeft size={16} /></button>
+            <button className="ke-pg" onClick={() => goPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Paj anvan"><ChevronLeft size={17} /></button>
             <span className="ke-pcur">{page} / {totalPages}</span>
             <div className="ke-pnums">
               {pageList(page, totalPages).map(p => typeof p === 'number'
                 ? <button key={p} className={`ke-pg${p === page ? ' on' : ''}`} onClick={() => p !== page && goPage(p)}>{p}</button>
                 : <span key={p} className="ke-pg dots">…</span>)}
             </div>
-            <button className="ke-pg" onClick={() => goPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="Paj apre"><ChevronRight size={16} /></button>
+            <button className="ke-pg" onClick={() => goPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="Paj apre"><ChevronRight size={17} /></button>
           </div>
         </div>
       )}
 
-      {/* ── FAB mobil ── */}
-      {!kesFemen && (
-        <button className="ke-fab" onClick={() => setModal('create')}><UserPlus size={19} /> Nouvo Kont</button>
-      )}
+      {!kesFemen && <button className="ke-fab" onClick={() => setModal('create')}><UserPlus size={20} /> Nouvo kont</button>}
 
-      {/* ── Modal yo ── */}
       {modal==='create' && <ModalCreate onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />}
       {modal==='rapo'   && <ModalRapoKesyeKane onClose={() => setModal(null)} onKesFemen={() => qc.invalidateQueries({ queryKey: ['kes-status'] })} statsKane={statsData} />}
       {modal==='detail' && selAcc && (
@@ -364,7 +338,6 @@ export default function KaneEpayPage() {
       {(modal==='depot'||modal==='retrait') && liveSel && !kesFemen && (
         <ModalTx account={liveSel} type={modal} onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
       )}
-
       {delTarget && (
         <PinConfirmModal
           title="Efase Kont"

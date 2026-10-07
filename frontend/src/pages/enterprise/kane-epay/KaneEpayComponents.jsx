@@ -1,29 +1,28 @@
 // src/pages/enterprise/kane-epay/KaneEpayComponents.jsx
 // ═══════════════════════════════════════════════════════════════
-// KANÈ EPAY — Konpozan UI (design premium + animasyon)
+// KANÈ EPAY — Konpozan UI (konsèp "Plus Fit": Barlow Condensed + Manrope)
 // ═══════════════════════════════════════════════════════════════
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, AlertCircle, Camera, Check, Banknote, Smartphone,
   ArrowLeftRight, CreditCard, FileText,
 } from 'lucide-react'
-import { fmt } from './kaneEpayUtils'
-import { PAYMENT_METHODS, AVATAR_GRADIENTS, T, FRE_OUVERTURE } from './kaneEpayConstants'
+import { fmt, buildShareReceiptHTML, RECEIPT_WIDTH } from './kaneEpayUtils'
+import { PAYMENT_METHODS, AVATAR_GRADIENTS, T, FRE_OUVERTURE, hexA } from './kaneEpayConstants'
 
 // ─── Spinner ─────────────────────────────────────────────────
 export function Spinner({ size = 14, color = 'currentColor' }) {
   return <span className="ke-spinner" style={{ width: size, height: size, color }} />
 }
 
-// ─── Hook: chif ki monte dousman (count-up) ──────────────────
-export function useCountUp(target, duration = 1000) {
+// ─── Chif ki monte (count-up) ────────────────────────────────
+export function useCountUp(target, duration = 1100) {
   const [val, setVal] = useState(0)
   const fromRef = useRef(0)
   useEffect(() => {
     const to = Number(target) || 0
-    const reduce = typeof window !== 'undefined' &&
-      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    const reduce = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     if (reduce) { fromRef.current = to; setVal(to); return }
     const from = fromRef.current
     if (from === to) { setVal(to); return }
@@ -31,10 +30,8 @@ export function useCountUp(target, duration = 1000) {
     const tick = (t) => {
       if (start === undefined) start = t
       const p = Math.min((t - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - p, 4)
-      const v = from + (to - from) * eased
-      fromRef.current = v
-      setVal(v)
+      const v = from + (to - from) * (1 - Math.pow(1 - p, 4))
+      fromRef.current = v; setVal(v)
       if (p < 1) raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
@@ -43,95 +40,107 @@ export function useCountUp(target, duration = 1000) {
   return val
 }
 
-const fmtInt = (n) => Math.round(Number(n) || 0).toLocaleString('fr-HT')
+export const fmtInt = (n) => Math.round(Number(n) || 0).toLocaleString('fr-HT')
 
-export function AnimatedNumber({ value, format = fmt, signed = false, className = 'ke-num', duration }) {
+export function AnimatedNumber({ value, format = fmt, signed = false, duration }) {
   const v = useCountUp(value, duration)
-  const sign = signed && v > 0.004 ? '+' : ''
-  return <span className={className}>{sign}{format(v)}</span>
+  return <>{signed && v > 0.004 ? '+' : ''}{format(v)}</>
 }
 export const AnimatedInt = (p) => <AnimatedNumber {...p} format={fmtInt} />
 
-// ─── Avatar (koulè fiks selon non an) ────────────────────────
+// Ba pwogrè ki ranpli apre montaj la
+export function Track({ pct = 0, color, dark = false }) {
+  const [w, setW] = useState(0)
+  useEffect(() => { const id = setTimeout(() => setW(Math.max(0, Math.min(100, pct))), 120); return () => clearTimeout(id) }, [pct])
+  return (
+    <div className={dark ? 'ke-dtrack' : 'ke-track'} style={{ '--c': color }}>
+      <i style={{ width: `${w}%`, background: color }} />
+    </div>
+  )
+}
+
+// ─── Avatar ──────────────────────────────────────────────────
 export function avatarColors(seed = '') {
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   return AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length]
 }
 export function initials(a) {
-  const f = (a?.firstName || '').trim()[0] || ''
-  const l = (a?.lastName  || '').trim()[0] || ''
-  return (f + l).toUpperCase() || '?'
+  return (((a?.firstName || '').trim()[0] || '') + ((a?.lastName || '').trim()[0] || '')).toUpperCase() || '?'
 }
-export function Avatar({ account, size = 46, radius = 15, photo = false }) {
+export function Avatar({ account, size = 48, radius = 16 }) {
   const [a1, a2] = avatarColors(`${account?.firstName}${account?.lastName}${account?.accountNumber}`)
   return (
-    <div className="ke-av" style={{ width: size, height: size, borderRadius: radius, '--a1': a1, '--a2': a2, fontSize: size * 0.33 }}>
-      {photo && account?.photoUrl ? <img src={account.photoUrl} alt="" /> : initials(account)}
+    <div className="ke-av" style={{ width: size, height: size, borderRadius: radius, fontSize: size * 0.42, '--a1': a1, '--a2': a2 }}>
+      {initials(account)}
     </div>
   )
 }
 
-// ─── Wonn pwogrè (ring) ──────────────────────────────────────
-export function Ring({ value = 0, size = 40, stroke = 4, color = T.green, label }) {
+// ─── Wonn aktivite (hero) ────────────────────────────────────
+export function Ring({ value = 0, size = 170, stroke = 14, color = T.gold }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const [p, setP] = useState(0)
-  useEffect(() => { const id = requestAnimationFrame(() => setP(Math.max(0, Math.min(1, value)))); return () => cancelAnimationFrame(id) }, [value])
+  useEffect(() => { const id = setTimeout(() => setP(Math.max(0, Math.min(1, value))), 150); return () => clearTimeout(id) }, [value])
+  const pct = Math.round(useCountUp(value * 100, 1400))
   return (
-    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <svg className="ke-ring" width={size} height={size}>
+    <div className="ke-ring-wrap" style={{ width: size, height: size }}>
+      <svg width={size} height={size}>
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
         <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - p)} />
+          strokeDasharray={c} strokeDashoffset={c * (1 - p)} style={{ filter: `drop-shadow(0 0 10px ${hexA(color, .45)})` }} />
       </svg>
-      {label != null && (
-        <span className="ke-num" style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', fontSize: 10, fontWeight: 800, color }}>{label}</span>
-      )}
+      <div className="ke-ring-c" style={{ fontSize: size * 0.3 }}>
+        <span>{pct}<small>%</small></span>
+      </div>
     </div>
   )
 }
 
-// ─── StatCard (KPI) ──────────────────────────────────────────
-// Konpatib ak ansyen vèsyon an: `value` (tèks) — oswa `num` + `format` pou chif anime.
-export function StatCard({ label, value, num, format = fmt, suffix, sub, icon, color = T.gold, ring, delay = 0 }) {
+// ─── Kat stat blan (menm jan ak Gym) ─────────────────────────
+export function StatCard({ label, num, format = fmtInt, suffix, icon, color = T.teal, pill, pct, delay = 0 }) {
   return (
-    <div className="ke-kpi" style={{ '--c': color, animationDelay: `${delay}s` }}>
-      <div className="ke-kpi-top">
-        <div className="ke-chip-ic">{icon}</div>
-        {ring != null && <Ring value={ring} color={color} label={`${Math.round(ring * 100)}%`} />}
+    <div className="ke-stat" style={{ '--c': color, '--cbg': hexA(color, .1), '--cbg2': hexA(color, .12), animationDelay: `${delay}s` }}>
+      <div className="ke-stat-top">
+        <div className="ke-stat-ic">{icon}</div>
+        {pill != null && <span className="ke-pill">{pill}</span>}
       </div>
-      <p className="ke-kpi-lbl">{label}</p>
-      <p className="ke-kpi-val">
-        {num != null ? <AnimatedNumber value={num} format={format} /> : <span className="ke-num">{value}</span>}
-        {suffix && <span style={{ fontSize: 12, color: T.gold2, marginLeft: 5, fontWeight: 800, letterSpacing: '.1em' }}>{suffix}</span>}
-      </p>
-      {sub && <p className="ke-kpi-sub">{sub}</p>}
+      <p className="ke-stat-v"><AnimatedNumber value={num} format={format} />{suffix && <small>{suffix}</small>}</p>
+      <p className="ke-stat-l">{label}</p>
+      <Track pct={pct} color={color} />
     </div>
   )
 }
 
-// ─── Tile "Aktivite jodi a" (nan hero a) ─────────────────────
-export function TodayTile({ label, num, signed, sub, icon, color, delay = 0 }) {
+// ─── Kat "glass" nan hero ────────────────────────────────────
+export function GlassStat({ label, icon, num, color, pct, sub, signed }) {
   return (
-    <div className="ke-tile" style={{ '--c': color, animationDelay: `${delay}s` }}>
-      <div className="ke-tile-h">
-        <div className="ke-chip-ic" style={{ width: 30, height: 30, borderRadius: 10 }}>{icon}</div>
-        <p className="ke-tile-l">{label}</p>
-      </div>
-      <p className="ke-tile-v"><AnimatedNumber value={num} signed={signed} /> <span style={{ fontSize: 11, opacity: .8 }}>G</span></p>
-      {sub && <p className="ke-tile-s">{sub}</p>}
+    <div className="ke-glass">
+      <p className="ke-glass-l">{icon}{label}</p>
+      <p className="ke-glass-v" style={{ color: color || '#fff' }}><AnimatedNumber value={num} signed={signed} /><small>HTG</small></p>
+      <Track pct={pct} color={color} dark />
+      {sub && <p className="ke-glass-s">{sub}</p>}
     </div>
+  )
+}
+
+// ─── Chip ────────────────────────────────────────────────────
+export function Chip({ color = T.ink, icon, children, dark }) {
+  return (
+    <span className={`ke-chip${dark ? ' dark' : ''}`} style={dark ? undefined : { '--c': color, '--cbg': hexA(color, .1) }}>
+      {icon}{children}
+    </span>
   )
 }
 
 // ─── Section fòm ─────────────────────────────────────────────
-export function Section({ n, icon, title, optional, children, delay = 0 }) {
+export function Section({ n, title, optional, children, delay = 0 }) {
   return (
     <div className="ke-sec" style={{ animationDelay: `${delay}s` }}>
       <div className="ke-sec-h">
         {n != null && <span className="ke-sec-n">{n}</span>}
-        <p className="ke-sec-t">{n == null && icon}{title}</p>
+        <p className="ke-sec-t">{title}</p>
         {optional && <span className="ke-sec-opt">Opsyonèl</span>}
       </div>
       {children}
@@ -139,18 +148,18 @@ export function Section({ n, icon, title, optional, children, delay = 0 }) {
   )
 }
 
-// ─── Field (label + input + erè) ─────────────────────────────
-export function Field({ label, error, children }) {
+export function Field({ label, error, hint, children }) {
   return (
     <div style={{ minWidth: 0 }}>
       {label && <label className="ke-label">{label}</label>}
       {children}
-      {error && <p className="ke-err"><AlertCircle size={12} /> {error}</p>}
+      {error && <p className="ke-err"><AlertCircle size={13} /> {error}</p>}
+      {!error && hint && <p className="ke-hint">{hint}</p>}
     </div>
   )
 }
 
-// ─── Modal (bottom-sheet sou mobil, santre sou PC) ───────────
+// ─── Modal ───────────────────────────────────────────────────
 export function Modal({ onClose, title, subtitle, icon, accent = T.gold, width = 540, footer, children, dismissible = false }) {
   const [closing, setClosing] = useState(false)
   const close = useCallback(() => {
@@ -159,7 +168,6 @@ export function Modal({ onClose, title, subtitle, icon, accent = T.gold, width =
     setTimeout(() => onClose?.(), 200)
   }, [closing, onClose])
 
-  // Bloke scroll paj la pandan modal la louvri
   useEffect(() => {
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -178,7 +186,6 @@ export function Modal({ onClose, title, subtitle, icon, accent = T.gold, width =
       onMouseDown={(e) => { if (dismissible && e.target === e.currentTarget) close() }}>
       <div className="ke-sheet" role="dialog" aria-modal="true" aria-label={typeof title === 'string' ? title : undefined}
         style={{ '--w': `${width}px`, '--accent': accent }}>
-        <div className="ke-sheet-glow" />
         <div className="ke-grab" />
         <div className="ke-mhead">
           {icon && <div className="ke-mhead-ic">{icon}</div>}
@@ -196,7 +203,7 @@ export function Modal({ onClose, title, subtitle, icon, accent = T.gold, width =
   )
 }
 
-// ─── Lightbox foto ───────────────────────────────────────────
+// ─── Lightbox ────────────────────────────────────────────────
 export function Lightbox({ src, caption, onClose }) {
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose() }
@@ -220,15 +227,9 @@ export function PhotoBox({ label, icon, preview, inputId, onChange, hint }) {
       <label className="ke-label">{label}</label>
       <label htmlFor={inputId} className={`ke-photo${preview ? ' has' : ''}`}>
         {preview ? (
-          <>
-            <img src={preview} alt={label} />
-            <span className="ok"><Check size={14} strokeWidth={3} /></span>
-          </>
+          <><img src={preview} alt={label} /><span className="ok"><Check size={15} strokeWidth={3} /></span></>
         ) : (
-          <>
-            <span className="ic">{icon || <Camera size={18} />}</span>
-            <span className="h">{hint}</span>
-          </>
+          <><span className="ic">{icon || <Camera size={18} />}</span><span>{hint}</span></>
         )}
         <input id={inputId} type="file" accept="image/*" style={{ display: 'none' }} onChange={onChange} />
       </label>
@@ -236,11 +237,8 @@ export function PhotoBox({ label, icon, preview, inputId, onChange, hint }) {
   )
 }
 
-// ─── Chwa metòd peman (pills) ────────────────────────────────
-const METHOD_ICONS = {
-  cash: Banknote, moncash: Smartphone, natcash: Smartphone,
-  transfer: ArrowLeftRight, card: CreditCard, check: FileText,
-}
+// ─── Metòd peman ─────────────────────────────────────────────
+const METHOD_ICONS = { cash: Banknote, moncash: Smartphone, natcash: Smartphone, transfer: ArrowLeftRight, card: CreditCard, check: FileText }
 export function MethodPicker({ value, onChange }) {
   return (
     <div className="ke-methods" role="radiogroup">
@@ -249,7 +247,7 @@ export function MethodPicker({ value, onChange }) {
         return (
           <button type="button" key={m.value} role="radio" aria-checked={value === m.value}
             className={`ke-m${value === m.value ? ' on' : ''}`} onClick={() => onChange(m.value)}>
-            <Ic size={17} />{m.label}
+            <Ic size={18} />{m.label}
           </button>
         )
       })}
@@ -257,13 +255,14 @@ export function MethodPicker({ value, onChange }) {
   )
 }
 
-// ─── Gwo chan montan + bouton rapid ──────────────────────────
+// ─── Gwo chan montan (bwat nwa) ──────────────────────────────
+// accent = koulè sou fon nwa (lò, vèt klè, wouj klè, ble klè)
 export function AmountField({ label, value, onChange, accent = T.gold, quick = [], allValue, error, autoFocus, onEnter }) {
   return (
     <div>
-      <div className={`ke-amount${error ? ' err' : ''}`} style={{ '--accent': accent }}>
+      <div className={`ke-amount${error ? ' err' : ''}`} style={{ '--acc': accent, '--glow': hexA(accent, .22), '--ring': hexA(accent, .35) }}>
         <p className="ke-amount-l">{label}</p>
-        <input type="number" inputMode="decimal" min="0" step="0.01" placeholder="0,00"
+        <input type="number" inputMode="decimal" min="0" step="0.01" placeholder="0"
           value={value} autoFocus={autoFocus}
           onChange={e => onChange(e.target.value)}
           onFocus={e => e.target.select()}
@@ -272,17 +271,13 @@ export function AmountField({ label, value, onChange, accent = T.gold, quick = [
         {(quick.length > 0 || allValue > 0) && (
           <div className="ke-quick">
             {quick.map(q => (
-              <button type="button" key={q} className="ke-q" onClick={() => onChange(String(q))}>
-                {Number(q).toLocaleString('fr-HT')}
-              </button>
+              <button type="button" key={q} onClick={() => onChange(String(q))}>{Number(q).toLocaleString('fr-HT')}</button>
             ))}
-            {allValue > 0 && (
-              <button type="button" className="ke-q all" onClick={() => onChange(String(allValue))}>Tout balans</button>
-            )}
+            {allValue > 0 && <button type="button" className="all" onClick={() => onChange(String(allValue))}>Tout balans</button>}
           </div>
         )}
       </div>
-      {error && <p className="ke-err"><AlertCircle size={12} /> {error}</p>}
+      {error && <p className="ke-err"><AlertCircle size={13} /> {error}</p>}
     </div>
   )
 }
@@ -290,29 +285,29 @@ export function AmountField({ label, value, onChange, accent = T.gold, quick = [
 // ─── Alert ───────────────────────────────────────────────────
 export function Alert({ color = T.orange, icon, children }) {
   return (
-    <div className="ke-alert" style={{ '--c': color }}>
-      {icon || <AlertCircle size={16} />}
+    <div className="ke-alert" style={{ '--c': color, '--cbg': hexA(color, .07), '--cbd': hexA(color, .25) }}>
+      {icon || <AlertCircle size={17} />}
       <div>{children}</div>
     </div>
   )
 }
 
-// ─── Skeleton kat kont ───────────────────────────────────────
+// ─── Skeleton ────────────────────────────────────────────────
 export function AccountSkeleton({ i = 0 }) {
   return (
     <div className="ke-acc" style={{ cursor: 'default', animationDelay: `${i * 0.05}s` }}>
       <div className="ke-acc-head">
-        <div className="ke-skel" style={{ width: 46, height: 46, borderRadius: 15 }} />
+        <div className="ke-skel" style={{ width: 48, height: 48, borderRadius: 16 }} />
         <div style={{ flex: 1 }}>
-          <div className="ke-skel" style={{ width: '45%', height: 10, marginBottom: 8 }} />
-          <div className="ke-skel" style={{ width: '75%', height: 14 }} />
+          <div className="ke-skel" style={{ width: '40%', height: 11, marginBottom: 8 }} />
+          <div className="ke-skel" style={{ width: '70%', height: 15 }} />
         </div>
       </div>
-      <div className="ke-skel" style={{ height: 66, borderRadius: 16 }} />
+      <div className="ke-skel" style={{ height: 78, borderRadius: 18 }} />
       <div style={{ display: 'flex', gap: 8 }}>
-        <div className="ke-skel" style={{ flex: 1, height: 40, borderRadius: 12 }} />
-        <div className="ke-skel" style={{ flex: 1, height: 40, borderRadius: 12 }} />
-        <div className="ke-skel" style={{ width: 40, height: 40, borderRadius: 12 }} />
+        <div className="ke-skel" style={{ flex: 1, height: 42, borderRadius: 13 }} />
+        <div className="ke-skel" style={{ flex: 1, height: 42, borderRadius: 13 }} />
+        <div className="ke-skel" style={{ width: 42, height: 42, borderRadius: 13 }} />
       </div>
     </div>
   )
@@ -327,7 +322,7 @@ export function BalanceBar({ opening, fee = FRE_OUVERTURE, locked = 0 }) {
       <div className="ke-stack">
         {fee > 0     && <i style={{ width: pct(fee),    background: T.red }} />}
         {locked > 0  && <i style={{ width: pct(locked), background: T.orange }} />}
-        {balance > 0 && <i style={{ flex: 1, background: `linear-gradient(90deg, ${T.green}, #6FF0B8)` }} />}
+        {balance > 0 && <i style={{ flex: 1, background: T.green }} />}
       </div>
       <div className="ke-legend">
         {fee > 0    && <span style={{ color: T.red }}>Frè {fmt(fee)}</span>}
@@ -335,5 +330,34 @@ export function BalanceBar({ opening, fee = FRE_OUVERTURE, locked = 0 }) {
         <span style={{ color: balance >= 0 ? T.green : T.red }}>Balans {fmt(balance)}</span>
       </div>
     </>
+  )
+}
+
+// ─── Aperçu resi pataje (menm HTML ak imaj/PDF la) ───────────
+export function ReceiptPreview({ account, transaction, tenant, type }) {
+  const wrapRef = useRef(null)
+  const innerRef = useRef(null)
+  const [box, setBox] = useState({ scale: 1, h: 0 })
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const w = wrapRef.current?.clientWidth || RECEIPT_WIDTH
+      const scale = Math.min(1, w / RECEIPT_WIDTH)
+      const h = (innerRef.current?.scrollHeight || 0) * scale
+      setBox({ scale, h })
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(wrapRef.current)
+    document.fonts?.ready?.then(measure).catch(() => {})
+    return () => ro?.disconnect()
+  }, [account, transaction, type])
+
+  return (
+    <div ref={wrapRef} className="ke-rcpt-wrap" style={{ height: box.h || undefined }}>
+      <div ref={innerRef} className="ke-rcpt-inner"
+        style={{ width: RECEIPT_WIDTH, transform: `scale(${box.scale})`, marginLeft: box.scale < 1 ? 0 : 'auto', marginRight: box.scale < 1 ? 0 : 'auto' }}
+        dangerouslySetInnerHTML={{ __html: buildShareReceiptHTML(account, transaction, tenant, type) }} />
+    </div>
   )
 }

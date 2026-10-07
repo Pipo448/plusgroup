@@ -1,6 +1,6 @@
 // src/pages/enterprise/kane-epay/KaneEpayModals.jsx
 // ═══════════════════════════════════════════════════════════════
-// KANÈ EPAY — Modal yo (Kreye, Depo/Retrè, Detay, Fèmen Kès)
+// KANÈ EPAY — Modal yo (Kreye, Depo/Retrè, Detay, Resi, Fèmen Kès)
 // ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,16 +8,16 @@ import { useAuthStore } from '../../../stores/authStore'
 import api from '../../../services/api'
 import toast from 'react-hot-toast'
 import {
-  Printer, ArrowDownCircle, ArrowUpCircle, Lock, FileText, Trash2, Share2,
-  UserPlus, Camera, Wallet, Hash, Phone, ShieldCheck,
-  ShieldAlert, ArrowRight, Landmark, ClipboardCheck, AlertTriangle, Eye,
+  Printer, ArrowDownCircle, ArrowUpCircle, Lock, Trash2, Share2,
+  UserPlus, Camera, Wallet, Hash, Phone, ShieldCheck, ShieldAlert, ArrowRight,
+  Landmark, ClipboardCheck, AlertTriangle, Eye, Image as ImageIcon, FileDown, Receipt,
 } from 'lucide-react'
 import { fmt, fmtDate, getAccountPrefix, usePDFReceipt } from './kaneEpayUtils'
-import { FAMILY_RELATIONS, TX_STYLES, T, FRE_OUVERTURE, QUICK_AMOUNTS } from './kaneEpayConstants'
+import { FAMILY_RELATIONS, TX_STYLES, T, FRE_OUVERTURE, QUICK_AMOUNTS, hexA } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
 import {
   Spinner, Section, Modal, PhotoBox, Field, MethodPicker, AmountField,
-  Alert, Avatar, AnimatedNumber, BalanceBar, Lightbox,
+  Alert, Avatar, AnimatedNumber, BalanceBar, Lightbox, Chip, ReceiptPreview,
 } from './KaneEpayComponents'
 import PinConfirmModal from '../../../components/PinConfirmModal'
 
@@ -48,9 +48,8 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
     const file = e.target.files?.[0]; if (!file) return
     const r = new FileReader()
     r.onload = (ev) => {
-      const b64 = ev.target.result
-      if (type === 'photo')   setPhotoPreview(b64)
-      if (type === 'idPhoto') setIdPhotoPreview(b64)
+      if (type === 'photo')   setPhotoPreview(ev.target.result)
+      if (type === 'idPhoto') setIdPhotoPreview(ev.target.result)
     }
     r.readAsDataURL(file)
   }
@@ -91,26 +90,25 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
 
   const footer = (
     <>
-      <button className="ke-btn-ghost" onClick={onClose}>Anile</button>
-      <button className="ke-btn-main gold" onClick={handleSubmit} disabled={mutation.isPending || opening <= 0}>
-        {mutation.isPending ? <><Spinner /> Ap kreye...</> : <><Printer size={16} /> Kreye + Enprime</>}
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main gold" onClick={handleSubmit} disabled={mutation.isPending || opening <= 0}>
+        {mutation.isPending ? <><Spinner /> Ap kreye...</> : <><Printer size={17} /> Kreye + Enprime</>}
       </button>
     </>
   )
 
   return (
-    <Modal onClose={onClose} title="Nouvo Kont Kanè" subtitle="Enskripsyon kliyan + depo ouverture" icon={<UserPlus size={19} />} width={600} footer={footer}>
-      {/* Nimewo otomatik */}
+    <Modal onClose={onClose} title="Nouvo Kont" subtitle="Enskripsyon kliyan + depo ouverture" icon={<UserPlus size={20} />} width={620} footer={footer}>
       <div className="ke-numchip">
         <div>
-          <p className="l">Nimewo kont</p>
+          <span className="ke-eyebrow">Nimewo kont</span>
           <p className="v">{prefix}-{new Date().getFullYear()}-•••••</p>
         </div>
-        <span className="t"><Hash size={11} /> Otomatik</span>
+        <Chip dark icon={<Hash size={12} />}>Otomatik</Chip>
       </div>
 
-      <Section n={1} title="Enfòmasyon Titilè" delay={0.04}>
-        <div className="ke-g2x">
+      <Section n={1} title="Titilè kont lan" delay={0.04}>
+        <div className="ke-two">
           <Field label="Prenon *" error={errors.firstName}>
             <input className={`ke-input${errors.firstName ? ' err' : ''}`} value={form.firstName} onChange={e => set('firstName', e.target.value)} placeholder="Prenon" autoComplete="off" />
           </Field>
@@ -118,74 +116,61 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
             <input className={`ke-input${errors.lastName ? ' err' : ''}`} value={form.lastName} onChange={e => set('lastName', e.target.value)} placeholder="Non" autoComplete="off" />
           </Field>
         </div>
-        <div className="ke-g2 ke-mt">
-          <Field label="NIF / CIN">
-            <input className="ke-input" value={form.nifOrCin} onChange={e => set('nifOrCin', e.target.value)} placeholder="001-234-5678" />
-          </Field>
-          <Field label="Telefòn">
-            <input className="ke-input" inputMode="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+509 XXXX XXXX" />
-          </Field>
+        <div className="ke-two-r ke-mt">
+          <Field label="NIF / CIN"><input className="ke-input" value={form.nifOrCin} onChange={e => set('nifOrCin', e.target.value)} placeholder="001-234-5678" /></Field>
+          <Field label="Telefòn"><input className="ke-input" inputMode="tel" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+509 XXXX XXXX" /></Field>
         </div>
         <div className="ke-mt">
-          <Field label="Adrès">
-            <input className="ke-input" value={form.address} onChange={e => set('address', e.target.value)} placeholder="Vil, Depatman..." />
-          </Field>
+          <Field label="Adrès"><input className="ke-input" value={form.address} onChange={e => set('address', e.target.value)} placeholder="Vil, Depatman..." /></Field>
         </div>
       </Section>
 
       <Section n={2} title="Foto KYC" delay={0.08}>
-        <div className="ke-g2x">
+        <div className="ke-two">
           <PhotoBox label="Foto kliyan" icon={<Camera size={18} />} preview={photoPreview} inputId="ke-photo" onChange={e => handlePhoto(e,'photo')} hint="Foto figi kliyan" />
           <PhotoBox label="Kat idantite" icon={<ShieldCheck size={18} />} preview={idPhotoPreview} inputId="ke-idphoto" onChange={e => handlePhoto(e,'idPhoto')} hint="CIN, Paspò, lòt ID" />
         </div>
-        {!idPhotoPreview && <p style={{ fontSize: 11, color: T.dim, margin: '10px 0 0' }}>San foto kat idantite, kont lan ap make <b style={{ color: T.orange }}>KYC enkonplè</b>.</p>}
+        {!idPhotoPreview && <p className="ke-hint">San foto kat idantite, kont lan ap make <b style={{ color: T.orange }}>KYC enkonplè</b>.</p>}
       </Section>
 
-      <Section n={3} title="Referans Fanmi" optional delay={0.12}>
-        <div className="ke-g2">
+      <Section n={3} title="Referans fanmi" optional delay={0.12}>
+        <div className="ke-two-r">
           <Field label="Relasyon">
             <select className="ke-input" value={form.familyRelation} onChange={e => set('familyRelation', e.target.value)}>
               <option value="">— Chwazi —</option>
               {FAMILY_RELATIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </Field>
-          <Field label="Non referans">
-            <input className="ke-input" value={form.familyName} onChange={e => set('familyName', e.target.value)} placeholder="Non konplè" />
-          </Field>
+          <Field label="Non referans"><input className="ke-input" value={form.familyName} onChange={e => set('familyName', e.target.value)} placeholder="Non konplè" /></Field>
         </div>
       </Section>
 
-      <Section n={4} title="Depo Ouverture" delay={0.16}>
+      <Section n={4} title="Depo ouverture" delay={0.16}>
         <AmountField label="Montan total kliyan peye *" value={form.openingAmount} onChange={v => set('openingAmount', v)}
           accent={T.gold} quick={[500, 1000, 2500, 5000]} error={errors.openingAmount} />
-
         <div className="ke-mt">
-          <Field label="Montan bloke (opsyonèl)">
-            <input type="number" inputMode="decimal" min="0" step="0.01" className="ke-input ke-num"
-              style={{ color: T.orange }} value={form.lockedAmount} onChange={e => set('lockedAmount', e.target.value)} placeholder="0,00" />
+          <Field label="Montan bloke (opsyonèl)" hint="Kòb kliyan an pa ka retire, men li rete sou kont lan.">
+            <input type="number" inputMode="decimal" min="0" step="0.01" className="ke-input" value={form.lockedAmount} onChange={e => set('lockedAmount', e.target.value)} placeholder="0,00" />
           </Field>
         </div>
-
         {opening > 0 && (
-          <div className="ke-break">
-            <div className="ke-ln"><span className="k">Montan total</span><span className="v" style={{ color: T.gold2 }}>{fmt(opening)} HTG</span></div>
-            <div className="ke-ln"><span className="k">Frè ouverture <span className="ke-tag">OTOMATIK</span></span><span className="v" style={{ color: T.red }}>− {fmt(FRE_OUVERTURE)} HTG</span></div>
-            {locked > 0 && <div className="ke-ln"><span className="k"><Lock size={12} /> Montan bloke</span><span className="v" style={{ color: T.orange }}>− {fmt(locked)} HTG</span></div>}
-            <div className="ke-ln total">
-              <span className="k">Balans kont</span>
-              <span className="v" style={{ color: balance >= 0 ? T.green : T.red }}><AnimatedNumber value={balance} duration={500} /> HTG</span>
+          <div className="ke-summary">
+            <div className="line"><span>Montan total</span><b>{fmt(opening)} HTG</b></div>
+            <div className="line"><span>Frè ouverture <span className="ke-tag">OTOMATIK</span></span><b style={{ color: T.red }}>− {fmt(FRE_OUVERTURE)} HTG</b></div>
+            {locked > 0 && <div className="line"><span><Lock size={12} /> Montan bloke</span><b style={{ color: T.orange }}>− {fmt(locked)} HTG</b></div>}
+            <div className="total">
+              <span>Balans kont</span>
+              <b style={{ color: balance >= 0 ? T.ink : T.red }}><AnimatedNumber value={balance} duration={500} /> <small style={{ fontSize: 14, color: T.muted }}>HTG</small></b>
             </div>
             <BalanceBar opening={opening} fee={FRE_OUVERTURE} locked={locked} />
           </div>
         )}
       </Section>
 
-      <Section n={5} title="Metòd Peman" delay={0.2}>
+      <Section n={5} title="Metòd peman" delay={0.2}>
         <MethodPicker value={form.method} onChange={v => set('method', v)} />
         <div className="ke-mt">
-          <Field label="Referans (opsyonèl)">
-            <input className="ke-input" value={form.reference} onChange={e => set('reference', e.target.value)} placeholder="Egz: MonCash #12345" />
-          </Field>
+          <Field label="Referans (opsyonèl)"><input className="ke-input" value={form.reference} onChange={e => set('reference', e.target.value)} placeholder="Egz: MonCash #12345" /></Field>
         </div>
       </Section>
     </Modal>
@@ -201,6 +186,7 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
   const amt    = Number(form.amount || 0)
   const isW    = type === 'retrait'
   const color  = isW ? T.red : T.green
+  const onDark = isW ? T.redD : T.greenD
   const bal    = Number(account.balance)
   const newBal = isW ? bal - amt : bal + amt
   const balOk  = !isW || amt <= bal
@@ -217,55 +203,54 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
   })
   const isDisabled = mutation.isPending || amt <= 0 || !balOk
   const submit = () => { if (!isDisabled) mutation.mutate({ amount:amt, method:form.method, reference:form.reference||undefined }) }
-
   const quick = isW ? QUICK_AMOUNTS.filter(q => q <= bal).slice(0, 4) : QUICK_AMOUNTS
 
   const footer = (
     <>
-      <button className="ke-btn-ghost" onClick={onClose}>Anile</button>
-      <button className={`ke-btn-main ${isW ? 'red' : 'green'}`} onClick={submit} disabled={isDisabled}>
-        {mutation.isPending ? <Spinner /> : isW ? <ArrowUpCircle size={17} /> : <ArrowDownCircle size={17} />}
-        {mutation.isPending ? 'Ap trete...' : amt > 0 ? `Konfime ${fmt(amt)} G` : `Konfime ${isW ? 'Retrè' : 'Depo'}`}
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className={`ke-fbtn main ${isW ? 'red' : 'green'}`} onClick={submit} disabled={isDisabled}>
+        {mutation.isPending ? <Spinner /> : isW ? <ArrowUpCircle size={18} /> : <ArrowDownCircle size={18} />}
+        {mutation.isPending ? 'Ap trete...' : amt > 0 ? `Konfime ${fmt(amt)} G` : `Konfime ${isW ? 'retrè' : 'depo'}`}
       </button>
     </>
   )
 
   return (
-    <Modal onClose={onClose} accent={color} width={460} footer={footer}
-      title={isW ? 'Retrè lajan' : 'Depo lajan'} subtitle={`${account.accountNumber} · ${account.firstName} ${account.lastName}`}
-      icon={isW ? <ArrowUpCircle size={19} /> : <ArrowDownCircle size={19} />}>
-      <div className="ke-stackv">
-        <div className="ke-mini-acc">
-          <Avatar account={account} size={42} radius={13} />
+    <Modal onClose={onClose} accent={onDark} width={480} footer={footer}
+      title={isW ? 'Retrè' : 'Depo'} subtitle={`${account.accountNumber} · ${account.firstName} ${account.lastName}`}
+      icon={isW ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}>
+      <div className="ke-col">
+        <div className="ke-mini">
+          <Avatar account={account} size={46} radius={15} />
           <div style={{ minWidth: 0 }}>
             <p className="ke-acc-no">{account.accountNumber}</p>
-            <p className="ke-acc-name" style={{ fontSize: 14 }}>{account.firstName} {account.lastName}</p>
+            <p className="ke-acc-name">{account.firstName} {account.lastName}</p>
           </div>
           <div className="r">
-            <p className="l">Balans aktyèl</p>
-            <p className="v ke-num">{fmt(bal)}</p>
-            {Number(account.lockedAmount) > 0 && <span className="ke-lock"><Lock size={10} /> {fmt(account.lockedAmount)} bloke</span>}
+            <p className="ke-label-s">Balans aktyèl</p>
+            <p className="v">{fmt(bal)}</p>
+            {Number(account.lockedAmount) > 0 && <Chip color={T.orange} icon={<Lock size={10} />}>{fmt(account.lockedAmount)} bloke</Chip>}
           </div>
         </div>
 
         <AmountField label={isW ? 'Montan retrè' : 'Montan depo'} value={form.amount}
-          onChange={v => setForm(p => ({ ...p, amount: v }))} accent={color} quick={quick}
+          onChange={v => setForm(p => ({ ...p, amount: v }))} accent={onDark} quick={quick}
           allValue={isW ? bal : 0} autoFocus onEnter={submit} />
 
         {amt > 0 && (balOk ? (
-          <div className="ke-preview" style={{ '--accent': color }}>
-            <div className="col">
-              <p className="l">Anvan</p>
+          <div className="ke-preview" style={{ '--cbg': hexA(color, .06), '--cbd': hexA(color, .25) }}>
+            <div>
+              <p className="ke-label-s">Anvan</p>
               <p className="v" style={{ color: T.muted }}>{fmt(bal)}</p>
             </div>
             <div className="arrow"><ArrowRight size={16} /></div>
-            <div className="col" style={{ textAlign: 'right' }}>
-              <p className="l">Nouvo balans</p>
-              <p className="v" style={{ color, fontSize: 18 }}><AnimatedNumber value={newBal} duration={450} /> HTG</p>
+            <div style={{ textAlign: 'right' }}>
+              <p className="ke-label-s">Nouvo balans</p>
+              <p className="v" style={{ color }}><AnimatedNumber value={newBal} duration={450} /></p>
             </div>
           </div>
         ) : (
-          <Alert color={T.red}>Balans ensifizan! Disponib: <strong>{fmt(bal)} HTG</strong></Alert>
+          <Alert color={T.red}>Balans ensifizan! Disponib: <b>{fmt(bal)} HTG</b></Alert>
         ))}
 
         <div>
@@ -281,14 +266,45 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// MODAL: RESI — Aperçu + Pataje Imaj / PDF + Enprime
+// ═══════════════════════════════════════════════════════════════
+export function ModalReceipt({ account, transaction, type, onClose, printer }) {
+  const { tenant } = useAuthStore()
+  const pdf = usePDFReceipt()
+  const label = TX_STYLES[type]?.label || 'Resi'
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={() => printer?.print(account, transaction, tenant, type)} disabled={!printer || printer.printing} style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)">
+        {printer?.printing ? <Spinner /> : <Printer size={18} />}
+      </button>
+      <button className="ke-fbtn" onClick={() => pdf.share(account, transaction, tenant, type, 'pdf')} disabled={!!pdf.generating}>
+        {pdf.generating === 'pdf' ? <Spinner /> : <FileDown size={18} />} PDF
+      </button>
+      <button className="ke-fbtn main dark" onClick={() => pdf.share(account, transaction, tenant, type, 'png')} disabled={!!pdf.generating}>
+        {pdf.generating === 'png' ? <Spinner /> : <ImageIcon size={18} />} Pataje imaj
+      </button>
+    </>
+  )
+
+  return (
+    <Modal onClose={onClose} dismissible width={520} footer={footer} icon={<Receipt size={20} />}
+      title={`Resi ${label}`} subtitle={`${account.accountNumber} · ${account.firstName} ${account.lastName}`}>
+      <ReceiptPreview account={account} transaction={transaction} tenant={tenant} type={type} />
+      <p className="ke-rcpt-note"><Share2 size={14} /> Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
+    </Modal>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
 // MODAL: DETAY — Admin ka efase tranzaksyon/kont (ak PIN)
 // ═══════════════════════════════════════════════════════════════
 export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, kesFemen = false }) {
   const { tenant, user } = useAuthStore()
   const qc = useQueryClient()
   const isAdminUser = user?.role === 'admin'
-  const pdf = usePDFReceipt()
   const [zoom, setZoom] = useState(null)
+  const [receipt, setReceipt] = useState(null)   // { tx, type }
   const [busyTx, setBusyTx] = useState(null)
 
   const { data: account, isLoading } = useQuery({
@@ -299,12 +315,6 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
 
   const [showDeleteAcctConfirm, setShowDeleteAcctConfirm] = useState(false)
   const [txDeleteTarget, setTxDeleteTarget] = useState(null)
-
-  const invalidateAll = () => {
-    qc.invalidateQueries({ queryKey: ['kane-account', accountId] })
-    qc.invalidateQueries({ queryKey: ['kane-accounts'] })
-    qc.invalidateQueries({ queryKey: ['kane-stats'] })
-  }
 
   const mutDeleteAccount = useMutation({
     mutationFn: (pin) => kaneAPI.deleteAccount(accountId, pin),
@@ -322,7 +332,9 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
     try {
       await kaneAPI.deleteTransaction(txDeleteTarget.id, pin)
       toast.success('Tranzaksyon efase!')
-      invalidateAll()
+      qc.invalidateQueries({ queryKey: ['kane-account', accountId] })
+      qc.invalidateQueries({ queryKey: ['kane-accounts'] })
+      qc.invalidateQueries({ queryKey: ['kane-stats'] })
       setTxDeleteTarget(null)
     } catch (e) {
       toast.error(e.response?.data?.message || 'Erè efase tranzaksyon.')
@@ -331,15 +343,14 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
   }
 
   const doPrint = async (tx, type) => { setBusyTx(`p-${tx?.id || type}`); try { await printer.print(account, tx, tenant, type) } finally { setBusyTx(null) } }
-  const doShare = async (tx, type) => { setBusyTx(`s-${tx?.id || type}`); try { await pdf.share(account, tx, tenant, type) } finally { setBusyTx(null) } }
 
   if (isLoading || !account) return (
-    <Modal onClose={onClose} title="Detay kont" subtitle="Ap chaje..." icon={<Eye size={19} />} width={600} dismissible>
-      <div className="ke-stackv">
-        <div className="ke-skel" style={{ height: 170, borderRadius: 22 }} />
-        <div className="ke-g2x"><div className="ke-skel" style={{ height: 64, borderRadius: 16 }} /><div className="ke-skel" style={{ height: 64, borderRadius: 16 }} /></div>
-        <div className="ke-skel" style={{ height: 46, borderRadius: 12 }} />
-        {[0,1,2].map(i => <div key={i} className="ke-skel" style={{ height: 58, borderRadius: 15 }} />)}
+    <Modal onClose={onClose} title="Detay kont" subtitle="Ap chaje..." icon={<Eye size={20} />} width={640} dismissible>
+      <div className="ke-col">
+        <div className="ke-skel" style={{ height: 200, borderRadius: 24 }} />
+        <div className="ke-three">{[0,1,2].map(i => <div key={i} className="ke-skel" style={{ height: 72, borderRadius: 18 }} />)}</div>
+        <div className="ke-skel" style={{ height: 50, borderRadius: 15 }} />
+        {[0,1,2].map(i => <div key={i} className="ke-skel" style={{ height: 64, borderRadius: 17 }} />)}
       </div>
     </Modal>
   )
@@ -350,18 +361,22 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
   const hasKyc       = !!account.idPhotoUrl
   const openTx       = txs.find(t => t.type === 'ouverture') || txs[0]
   const infos = [
-    account.nifOrCin       && { l: 'NIF / CIN', v: account.nifOrCin },
-    account.phone          && { l: 'Telefòn',   v: account.phone },
-    account.address        && { l: 'Adrès',     v: account.address },
+    account.nifOrCin && { l: 'NIF / CIN', v: account.nifOrCin },
+    account.phone    && { l: 'Telefòn',   v: account.phone },
+    account.address  && { l: 'Adrès',     v: account.address },
     (account.familyName || account.familyRelation) && { l: `Referans${account.familyRelation ? ` · ${account.familyRelation}` : ''}`, v: account.familyName || '—' },
   ].filter(Boolean)
+  const tiles = [
+    { l: 'Total depo',  v: `+${fmt(totalDepo)}`,    c: T.green },
+    { l: 'Total retrè', v: `−${fmt(totalRetrait)}`, c: T.red },
+    { l: 'Tranzaksyon', v: txs.length,             c: T.blue },
+  ]
 
   return (
     <>
       <Modal onClose={onClose} title={`${account.firstName} ${account.lastName}`} subtitle={`Kont ${account.accountNumber}`}
-        icon={<Wallet size={19} />} width={620} dismissible={!showDeleteAcctConfirm && !txDeleteTarget && !zoom}>
-        <div className="ke-stackv">
-          {/* Kanè (kat prensipal) */}
+        icon={<Wallet size={20} />} width={640} dismissible={!showDeleteAcctConfirm && !txDeleteTarget && !zoom && !receipt}>
+        <div className="ke-col">
           <div className="ke-pass">
             <div className="ke-pass-top">
               <button className="ke-pass-ph" onClick={() => account.photoUrl && setZoom({ src: account.photoUrl, caption: 'Foto kliyan' })}
@@ -376,84 +391,78 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
             </div>
             <div className="ke-pass-bal">
               <div>
-                <p className="l">BALANS DISPONIB</p>
-                <p className="v ke-num"><AnimatedNumber value={account.balance} /><small>HTG</small></p>
+                <span className="ke-eyebrow"><Wallet size={13} /> Balans disponib</span>
+                <p className="v"><AnimatedNumber value={account.balance} /><small>HTG</small></p>
               </div>
-              {Number(account.lockedAmount) > 0 && <span className="ke-pass-lock"><Lock size={11} /> {fmt(account.lockedAmount)} bloke</span>}
             </div>
             <div className="ke-pass-meta">
-              {account.phone && <span><Phone size={11} /> {account.phone}</span>}
-              <span>{hasKyc ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />} KYC {hasKyc ? 'konplè' : 'enkonplè'}</span>
+              {Number(account.lockedAmount) > 0 && <span style={{ color: T.gold }}><Lock size={12} /> {fmt(account.lockedAmount)} bloke</span>}
+              {account.phone && <span><Phone size={12} /> {account.phone}</span>}
+              <span>{hasKyc ? <ShieldCheck size={13} color={T.greenD} /> : <ShieldAlert size={13} color={T.gold} />} KYC {hasKyc ? 'konplè' : 'enkonplè'}</span>
             </div>
           </div>
 
-          {/* Stats */}
-          <div className="ke-g3 tri">
-            <div className="ke-mtile" style={{ '--c': T.green, animationDelay: '.05s' }}><p className="l">Total depo</p><p className="v">+{fmt(totalDepo)}</p></div>
-            <div className="ke-mtile" style={{ '--c': T.red, animationDelay: '.1s' }}><p className="l">Total retrè</p><p className="v">−{fmt(totalRetrait)}</p></div>
-            <div className="ke-mtile" style={{ '--c': T.blue, animationDelay: '.15s' }}><p className="l">Tranzaksyon</p><p className="v">{txs.length}</p></div>
+          <div className="ke-three">
+            {tiles.map((t, i) => (
+              <div key={t.l} className="ke-mtile" style={{ '--c': t.c, '--cbg': hexA(t.c, .07), animationDelay: `${0.05 + i * 0.05}s` }}>
+                <p className="ke-label-s">{t.l}</p>
+                <p className="v">{t.v}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Aksyon */}
-          <div className="ke-row-acts">
-            <button className="ke-act dep" onClick={onDepo} disabled={kesFemen}>{kesFemen ? <Lock size={14} /> : <ArrowDownCircle size={16} />} Depo</button>
-            <button className="ke-act ret" onClick={onRetrait} disabled={kesFemen}>{kesFemen ? <Lock size={14} /> : <ArrowUpCircle size={16} />} Retrè</button>
-            <button className="ke-act ghost" title="Enprime resi ouverture" onClick={() => doPrint(openTx, 'ouverture')} disabled={printer.printing}>
-              {printer.printing ? <Spinner size={14} /> : <Printer size={16} />}
+          <div className="ke-detail-acts">
+            <button className="ke-act dep" onClick={onDepo} disabled={kesFemen}>{kesFemen ? <Lock size={14} /> : <ArrowDownCircle size={17} />} Depo</button>
+            <button className="ke-act ret" onClick={onRetrait} disabled={kesFemen}>{kesFemen ? <Lock size={14} /> : <ArrowUpCircle size={17} />} Retrè</button>
+            <button className="ke-act ic" title="Enprime resi ouverture" onClick={() => doPrint(openTx, 'ouverture')} disabled={printer.printing}>
+              {printer.printing ? <Spinner size={14} /> : <Printer size={17} />}
             </button>
-            <button className="ke-act gold" title="Pataje PDF (WhatsApp, Imèl...)" onClick={() => doShare(openTx, 'ouverture')} disabled={pdf.generating}>
-              {pdf.generating ? <Spinner size={14} /> : <Share2 size={16} />}
+            <button className="ke-act ic goldy" title="Pataje resi (Imaj / PDF)" onClick={() => setReceipt({ tx: openTx, type: 'ouverture' })}>
+              <Share2 size={17} />
             </button>
           </div>
 
-          {/* Enfòmasyon */}
           {infos.length > 0 && (
             <div className="ke-info">
-              {infos.map(i => (
-                <div key={i.l}><p className="l">{i.l}</p><p className="v" title={i.v}>{i.v}</p></div>
-              ))}
+              {infos.map(i => <div key={i.l}><p className="ke-label-s">{i.l}</p><p className="v" title={i.v}>{i.v}</p></div>)}
             </div>
           )}
 
-          {/* KYC */}
           {(account.photoUrl || account.idPhotoUrl) ? (
             <div className="ke-kyc">
               {account.photoUrl   && <button onClick={() => setZoom({ src: account.photoUrl, caption: 'Foto kliyan' })}><img src={account.photoUrl} alt="" /><span>Foto kliyan</span></button>}
               {account.idPhotoUrl && <button onClick={() => setZoom({ src: account.idPhotoUrl, caption: 'Kat idantite' })}><img src={account.idPhotoUrl} alt="" /><span>Kat idantite</span></button>}
             </div>
           ) : (
-            <Alert color={T.orange} icon={<ShieldAlert size={16} />}>KYC enkonplè — pa gen foto kat idantite pou kont sa a.</Alert>
+            <Alert color={T.orange} icon={<ShieldAlert size={17} />}>KYC enkonplè — pa gen foto kat idantite pou kont sa a.</Alert>
           )}
 
-          {/* Istwa */}
           <div>
-            <div className="ke-h"><p>Istwa tranzaksyon</p><span>{txs.length}</span></div>
+            <div className="ke-sh"><h3>Istwa</h3><span className="ke-count">{txs.length}</span><span className="ke-rule" /></div>
             <div className="ke-tl">
               {!txs.length
-                ? <p style={{ textAlign: 'center', color: T.muted, fontSize: 12.5, padding: 22, margin: 0 }}>Pa gen tranzaksyon ankò</p>
+                ? <div className="ke-empty" style={{ padding: 26 }}>Pa gen tranzaksyon ankò</div>
                 : txs.map((tx, i) => {
                     const cfg = TX_STYLES[tx.type] || TX_STYLES.ouverture
                     const Ic  = TX_ICONS[tx.type] || Landmark
                     return (
-                      <div key={tx.id} className="ke-tx" style={{ '--c': cfg.color, animationDelay: `${Math.min(i, 10) * 0.04}s` }}>
-                        <div className="ke-tx-ic"><Ic size={17} /></div>
+                      <div key={tx.id} className="ke-tx" style={{ '--c': cfg.color, '--cbg': cfg.bg, animationDelay: `${Math.min(i, 10) * 0.04}s` }}>
+                        <div className="ke-tx-ic"><Ic size={18} /></div>
                         <div className="ke-tx-mid">
                           <div className="ke-tx-t">
                             <span>{cfg.label}</span>
-                            <span className="ke-tx-amt">{tx.type === 'retrait' ? '−' : '+'}{fmt(tx.amount)} G</span>
+                            <span className="ke-tx-amt">{tx.type === 'retrait' ? '−' : '+'}{fmt(tx.amount)}</span>
                           </div>
                           <p className="ke-tx-s">{fmtDate(tx.createdAt)} · {String(tx.method || '').toUpperCase()}{tx.reference ? ` · ${tx.reference}` : ''}</p>
                         </div>
-                        <button className="ke-mini" title="Enprime" onClick={() => doPrint(tx, tx.type)} disabled={printer.printing}>
-                          {busyTx === `p-${tx.id}` ? <Spinner size={12} /> : <Printer size={14} />}
+                        <button className="ke-ibtn" title="Enprime" onClick={() => doPrint(tx, tx.type)} disabled={printer.printing}>
+                          {busyTx === `p-${tx.id}` ? <Spinner size={12} /> : <Printer size={15} />}
                         </button>
-                        <button className="ke-mini gold" title="Pataje PDF" onClick={() => doShare(tx, tx.type)} disabled={pdf.generating}>
-                          {busyTx === `s-${tx.id}` ? <Spinner size={12} /> : <Share2 size={14} />}
+                        <button className="ke-ibtn goldy" title="Pataje resi" onClick={() => setReceipt({ tx, type: tx.type })}>
+                          <Share2 size={15} />
                         </button>
                         {isAdminUser && (
-                          <button className="ke-mini red" title="Efase" onClick={() => setTxDeleteTarget(tx)}>
-                            <Trash2 size={14} />
-                          </button>
+                          <button className="ke-ibtn danger" title="Efase" onClick={() => setTxDeleteTarget(tx)}><Trash2 size={15} /></button>
                         )}
                       </div>
                     )
@@ -461,12 +470,11 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
             </div>
           </div>
 
-          {/* Zòn admin */}
           {isAdminUser && (
             <div className="ke-danger">
               <p><AlertTriangle size={13} /> Zòn admin</p>
               <button onClick={() => setShowDeleteAcctConfirm(true)} disabled={mutDeleteAccount.isPending}>
-                {mutDeleteAccount.isPending ? <Spinner size={14} /> : <Trash2 size={15} />}
+                {mutDeleteAccount.isPending ? <Spinner size={14} /> : <Trash2 size={16} />}
                 {mutDeleteAccount.isPending ? 'Ap efase...' : `Efase kont ${account.accountNumber}`}
               </button>
             </div>
@@ -474,9 +482,9 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
         </div>
       </Modal>
 
+      {receipt && <ModalReceipt account={account} transaction={receipt.tx} type={receipt.type} printer={printer} onClose={() => setReceipt(null)} />}
       {zoom && <Lightbox src={zoom.src} caption={zoom.caption} onClose={() => setZoom(null)} />}
 
-      {/* PIN — efase kont */}
       {showDeleteAcctConfirm && (
         <PinConfirmModal
           title="Efase Kont"
@@ -486,8 +494,6 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer, ke
           onClose={() => setShowDeleteAcctConfirm(false)}
         />
       )}
-
-      {/* PIN — efase tranzaksyon */}
       {txDeleteTarget && (
         <PinConfirmModal
           title="Efase Tranzaksyon"
@@ -527,8 +533,8 @@ export function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
   const diferans     = montFizikNum - netSystem
   const hasMontant   = montantFizik !== '' && montFizikNum >= 0
   const exact        = Math.abs(diferans) < 0.01
-  const difColor = exact ? T.green : diferans > 0 ? T.orange : T.red
-  const difLabel = exact ? 'Balans kòrèk — kès la egal ak sistèm nan' : diferans > 0 ? `${fmt(diferans)} HTG anplis nan kès la` : `${fmt(Math.abs(diferans))} HTG ki manke nan kès la`
+  const difColor = exact ? '#4ade80' : diferans > 0 ? T.gold : '#ff7b7b'
+  const difLabel = exact ? 'Kès la egal ak sistèm nan' : diferans > 0 ? `${fmt(diferans)} HTG anplis nan kès la` : `${fmt(Math.abs(diferans))} HTG ki manke`
 
   const handleFemen = async () => {
     if (!hasMontant) return
@@ -545,33 +551,40 @@ export function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
   }
 
   const tiles = [
-    { label:'Depo Kanè',     val:`${fmt(depoJou)}`,  color:T.green  },
-    { label:'Retrè Kanè',    val:`${fmt(retrèJou)}`, color:T.red    },
-    { label:'Koleksyon Prè', val:`${fmt(kolPre)}`,   color:T.green  },
-    { label:'Dekèsman Prè',  val:`${fmt(desPre)}`,   color:T.orange },
-    { label:'Prè aktif',     val:`${preStats?.pretsActifs||0}`, color:T.blue },
-    { label:'An reta',       val:`${preStats?.totalEnReta||0}`, color:T.red  },
+    { l:'Depo Kanè',     v:fmt(depoJou),  c:T.green  },
+    { l:'Retrè Kanè',    v:fmt(retrèJou), c:T.red    },
+    { l:'Koleksyon Prè', v:fmt(kolPre),   c:T.teal   },
+    { l:'Dekèsman Prè',  v:fmt(desPre),   c:T.orange },
+    { l:'Prè aktif',     v:preStats?.pretsActifs || 0, c:T.blue },
+    { l:'An reta',       v:preStats?.totalEnReta || 0, c:T.red  },
   ]
+  const Summary = () => (
+    <div className="ke-summary" style={{ marginTop: 0 }}>
+      <div className="line"><span>Lajan ki rantre</span><b style={{ color: T.green }}>+{fmt(totalCashIn)}</b></div>
+      <div className="line"><span>Lajan ki soti</span><b style={{ color: T.red }}>−{fmt(totalCashOut)}</b></div>
+      <div className="total"><span>Nèt sistèm</span><b>{fmt(netSystem)} <small style={{ fontSize: 14, color: T.muted }}>HTG</small></b></div>
+    </div>
+  )
 
   const footer = rapo ? (
-    <button className="ke-btn-main gold" onClick={onClose}>Fèmen</button>
+    <button className="ke-fbtn main dark" onClick={onClose}>Fèmen</button>
   ) : etap === 1 ? (
     <>
-      <button className="ke-btn-ghost" onClick={onClose}>Anile</button>
-      <button className="ke-btn-main orange" onClick={() => setEtap(2)}>Kontinye <ArrowRight size={16} /></button>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main dark" onClick={() => setEtap(2)}>Kontinye <ArrowRight size={17} /></button>
     </>
   ) : (
     <>
-      <button className="ke-btn-ghost" onClick={() => setEtap(1)}>← Retou</button>
-      <button className="ke-btn-main danger" onClick={handleFemen} disabled={loading || !hasMontant}>
-        {loading ? <><Spinner /> Ap fèmen...</> : <><Lock size={16} /> Fèmen kès definitif</>}
+      <button className="ke-fbtn" onClick={() => setEtap(1)}>← Retou</button>
+      <button className="ke-fbtn main danger" onClick={handleFemen} disabled={loading || !hasMontant}>
+        {loading ? <><Spinner /> Ap fèmen...</> : <><Lock size={17} /> Fèmen kès definitif</>}
       </button>
     </>
   )
 
   return (
-    <Modal onClose={onClose} accent={rapo ? T.green : T.orange} width={540} footer={footer}
-      title="Fèmen Kès" subtitle={rapo ? 'Jounen an fini' : 'Rapò jounen an · Kanè + Prè'} icon={<ClipboardCheck size={19} />}>
+    <Modal onClose={onClose} width={560} footer={footer} accent={T.gold}
+      title="Fèmen kès" subtitle={rapo ? 'Jounen an fini' : 'Rapò jounen an · Kanè + Prè'} icon={<ClipboardCheck size={20} />}>
       {!rapo && (
         <div className="ke-steps">
           <div className={`ke-step ${etap === 1 ? 'on' : 'done'}`}><b>{etap > 1 ? '✓' : '1'}</b>Rezime</div>
@@ -581,21 +594,17 @@ export function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
       )}
 
       {etap === 1 && !rapo && (
-        <div className="ke-stackv">
-          <Alert color={T.orange}>Fèmen kès la ap <strong>bloke paj Kanè ak Prè</strong> jiskaske demen.</Alert>
-          <div className="ke-g3">
+        <div className="ke-col">
+          <Alert color={T.orange}>Fèmen kès la ap <b>bloke paj Kanè ak Prè</b> jiskaske demen.</Alert>
+          <div className="ke-three">
             {tiles.map((t, i) => (
-              <div key={t.label} className="ke-mtile" style={{ '--c': t.color, animationDelay: `${i * 0.05}s` }}>
-                <p className="l">{t.label}</p>
-                <p className="v">{t.val}</p>
+              <div key={t.l} className="ke-mtile" style={{ '--c': t.c, '--cbg': hexA(t.c, .07), animationDelay: `${i * 0.05}s` }}>
+                <p className="ke-label-s">{t.l}</p>
+                <p className="v" style={{ fontSize: 22 }}>{t.v}</p>
               </div>
             ))}
           </div>
-          <div className="ke-break" style={{ marginTop: 0 }}>
-            <div className="ke-ln"><span className="k">Lajan ki rantre</span><span className="v" style={{ color: T.green }}>+{fmt(totalCashIn)}</span></div>
-            <div className="ke-ln"><span className="k">Lajan ki soti</span><span className="v" style={{ color: T.red }}>−{fmt(totalCashOut)}</span></div>
-            <div className="ke-ln total"><span className="k">Nèt sistèm</span><span className="v" style={{ color: T.gold2 }}>{fmt(netSystem)} HTG</span></div>
-          </div>
+          <Summary />
           <Field label="Nòt (opsyonèl)">
             <textarea className="ke-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Obsèvasyon sou jounen an..." />
           </Field>
@@ -603,22 +612,18 @@ export function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
       )}
 
       {etap === 2 && !rapo && (
-        <div className="ke-stackv">
-          <Alert color={T.red} icon={<Lock size={16} />}>Etap final — aksyon sa a <strong>pa ka defèt</strong>.</Alert>
-          <div className="ke-break" style={{ marginTop: 0 }}>
-            <div className="ke-ln"><span className="k">Lajan ki rantre</span><span className="v" style={{ color: T.green }}>+{fmt(totalCashIn)}</span></div>
-            <div className="ke-ln"><span className="k">Lajan ki soti</span><span className="v" style={{ color: T.red }}>−{fmt(totalCashOut)}</span></div>
-            <div className="ke-ln total"><span className="k">Nèt sistèm</span><span className="v" style={{ color: T.gold2 }}>{fmt(netSystem)} HTG</span></div>
-          </div>
+        <div className="ke-col">
+          <Alert color={T.red} icon={<Lock size={17} />}>Etap final — aksyon sa a <b>pa ka defèt</b>.</Alert>
+          <Summary />
           <AmountField label="Montan fizik ki nan kès la *" value={montantFizik} onChange={setMontantFizik}
-            accent={T.blue} autoFocus quick={netSystem > 0 ? [Math.round(netSystem * 100) / 100] : []} />
+            accent={T.blueD} autoFocus quick={netSystem > 0 ? [Math.round(netSystem * 100) / 100] : []} />
           {hasMontant && (
             <div className="ke-diff" style={{ '--c': difColor }}>
-              <div className="top">
+              <div>
                 <span className="k">Diferans</span>
-                <span className="v">{diferans >= 0 ? '+' : ''}<AnimatedNumber value={diferans} duration={450} className="" /> HTG</span>
+                <p className="s">{difLabel}</p>
               </div>
-              <p className="s">{difLabel}</p>
+              <span className="v">{diferans >= 0 ? '+' : ''}<AnimatedNumber value={diferans} duration={450} /></span>
             </div>
           )}
         </div>
@@ -627,12 +632,12 @@ export function ModalRapoKesyeKane({ onClose, onKesFemen, statsKane }) {
       {rapo && (
         <div className="ke-success">
           <div className="ke-check">
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke={T.green} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke={T.gold} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 12.5l4.5 4.5L19 7.5" />
             </svg>
           </div>
           <h3>Kès fèmen</h3>
-          <p>Montan fizik: <b style={{ color: '#fff' }}>{fmt(montFizikNum)} HTG</b> · Diferans: <b style={{ color: difColor }}>{diferans >= 0 ? '+' : ''}{fmt(diferans)} HTG</b></p>
+          <p>Montan fizik: <b style={{ color: T.ink }}>{fmt(montFizikNum)} HTG</b> · Diferans: <b style={{ color: exact ? T.green : diferans > 0 ? T.orange : T.red }}>{diferans >= 0 ? '+' : ''}{fmt(diferans)} HTG</b></p>
         </div>
       )}
     </Modal>
