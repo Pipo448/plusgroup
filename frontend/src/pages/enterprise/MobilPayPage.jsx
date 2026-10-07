@@ -1,264 +1,262 @@
 // src/pages/enterprise/MobilPayPage.jsx
-// ✅ KOREKSYON: Retire blokaj plan Enterprise — aksè kontwole pa super admin via allowedPages
-import { useState } from 'react'
+// ✅ Design "Plus Fit" (menm konsèp ak Sabotay / Kanè Epay / Prè)
+// ✅ Aksè kontwole pa super admin via allowedPages (pa gen blokaj plan)
+// ✅ NOUVO: lyen peman parèt nan yon modal (Kopye / Pataje WhatsApp) — pa nan yon toast ki disparèt
+// ✅ NOUVO: konfimasyon manyèl nan yon modal pwòp (pa window.confirm)
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
-  Phone, Plus, Search, RefreshCw, CheckCircle,
-  XCircle, Copy, X, Wifi, WifiOff,
+  Phone, Plus, Search, RefreshCw, CheckCircle, XCircle, Copy, X, Wifi, WifiOff,
+  Settings, Smartphone, ShieldCheck, Link2, Share2, Clock, Wallet, Hash, Inbox, AlertCircle, Ban,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import api from '../../services/api'
+import { KANE_STYLES, T as K, hexA, todayLabel } from './kane-epay/kaneEpayConstants'
+import { Modal, StatCard, AnimatedNumber, Chip, Spinner, Field } from './kane-epay/KaneEpayComponents'
 
-const T = {
+const TR = {
   ht: {
     title: 'MonCash & NatCash', subtitle: 'Resevwa peman mobil ak verifye tranzaksyon',
-    newRequest: 'Nouvo Demann', newTab: 'Tranzaksyon', verifyTab: 'Verifye',
-    amount: 'Montan', phone: 'Nimewo Telefòn', provider: 'Pwovide',
-    description: 'Deskripsyon', reference: 'Referans', status: 'Statut',
+    newRequest: 'Nouvo demann', newTab: 'Tranzaksyon', verifyTab: 'Verifye',
+    amount: 'Montan', phone: 'Nimewo telefòn', provider: 'Pwovidè',
+    description: 'Deskripsyon', reference: 'Referans', status: 'Estati',
     pending: 'Annatant', confirmed: 'Konfime', failed: 'Echwe', cancelled: 'Anile',
-    cancel: 'Anile', create: 'Kreye Demann', verify: 'Verifye',
-    transactionId: 'ID Tranzaksyon', enterTransId: 'Antre ID tranzaksyon an',
-    checkTransaction: 'Verifye Tranzaksyon', verifyResult: 'Rezilta Verifikasyon',
-    noData: 'Pa gen tranzaksyon.', copyLink: 'Kopye Lyen', paymentLink: 'Lyen Peman',
-    totalReceived: 'Total Resevwa', totalPending: 'Annatant', countTx: 'Tranzaksyon',
+    cancel: 'Anile', create: 'Kreye demann', verify: 'Verifye',
+    transactionId: 'ID tranzaksyon', enterTransId: 'Antre ID tranzaksyon an',
+    checkTransaction: 'Verifye', verifyResult: 'Rezilta verifikasyon',
+    noData: 'Pa gen tranzaksyon.', copyLink: 'Kopye lyen', paymentLink: 'Lyen peman',
+    totalReceived: 'Total resevwa', totalPending: 'Annatant', countTx: 'Tranzaksyon',
     today: 'Jodi a', week: 'Semèn sa a', month: 'Mwa sa a',
     moncashConfig: 'Konfigirasyon MonCash', natcashConfig: 'Konfigirasyon NatCash',
-    clientKey: 'Client Key', clientSecret: 'Client Secret', mode: 'Mode',
-    sandbox: 'Sandbox (Tès)', production: 'Production', saveConfig: 'Sove',
-    testConn: 'Tès Koneksyon', connected: 'Konekte', disconnected: 'Dekonekte',
-    confirmMark: 'Konfime tranzaksyon sa a manyèlman?', manualConfirm: 'Konfime Manyèl',
-    copySuccess: 'Kopye!', apiError: 'Erè koneksyon ak sèvè a.',
-    all: 'Tout',
+    clientKey: 'Client Key', clientSecret: 'Client Secret', mode: 'Mòd',
+    sandbox: 'Sandbox (tès)', production: 'Production', saveConfig: 'Sove',
+    testConn: 'Tès koneksyon', connected: 'Konekte', disconnected: 'Dekonekte',
+    confirmMark: 'Konfime tranzaksyon sa a manyèlman?', manualConfirm: 'Konfime manyèl',
+    copySuccess: 'Kopye!', apiError: 'Erè koneksyon ak sèvè a.', all: 'Tout',
+    share: 'Pataje', done: 'Fini', linkReady: 'Lyen an pare', required: 'Telefòn ak montan obligatwa.',
   },
   fr: {
     title: 'MonCash & NatCash', subtitle: 'Recevez des paiements mobiles et vérifiez les transactions',
-    newRequest: 'Nouvelle Demande', newTab: 'Transactions', verifyTab: 'Vérifier',
-    amount: 'Montant', phone: 'Numéro de Téléphone', provider: 'Fournisseur',
+    newRequest: 'Nouvelle demande', newTab: 'Transactions', verifyTab: 'Vérifier',
+    amount: 'Montant', phone: 'Numéro de téléphone', provider: 'Fournisseur',
     description: 'Description', reference: 'Référence', status: 'Statut',
     pending: 'En attente', confirmed: 'Confirmé', failed: 'Échoué', cancelled: 'Annulé',
-    cancel: 'Annuler', create: 'Créer Demande', verify: 'Vérifier',
-    transactionId: 'ID Transaction', enterTransId: "Entrez l'ID de transaction",
-    checkTransaction: 'Vérifier Transaction', verifyResult: 'Résultat de Vérification',
-    noData: 'Aucune transaction.', copyLink: 'Copier Lien', paymentLink: 'Lien de Paiement',
-    totalReceived: 'Total Reçu', totalPending: 'En attente', countTx: 'Transactions',
+    cancel: 'Annuler', create: 'Créer demande', verify: 'Vérifier',
+    transactionId: 'ID transaction', enterTransId: "Entrez l'ID de transaction",
+    checkTransaction: 'Vérifier', verifyResult: 'Résultat de vérification',
+    noData: 'Aucune transaction.', copyLink: 'Copier lien', paymentLink: 'Lien de paiement',
+    totalReceived: 'Total reçu', totalPending: 'En attente', countTx: 'Transactions',
     today: "Aujourd'hui", week: 'Cette semaine', month: 'Ce mois',
     moncashConfig: 'Configuration MonCash', natcashConfig: 'Configuration NatCash',
     clientKey: 'Client Key', clientSecret: 'Client Secret', mode: 'Mode',
-    sandbox: 'Sandbox (Test)', production: 'Production', saveConfig: 'Sauvegarder',
+    sandbox: 'Sandbox (test)', production: 'Production', saveConfig: 'Sauvegarder',
     testConn: 'Tester', connected: 'Connecté', disconnected: 'Déconnecté',
-    confirmMark: 'Confirmer cette transaction manuellement?', manualConfirm: 'Confirmation Manuelle',
-    copySuccess: 'Copié!', apiError: 'Erreur de connexion au serveur.',
-    all: 'Tous',
+    confirmMark: 'Confirmer cette transaction manuellement ?', manualConfirm: 'Confirmation manuelle',
+    copySuccess: 'Copié !', apiError: 'Erreur de connexion au serveur.', all: 'Tous',
+    share: 'Partager', done: 'Terminé', linkReady: 'Lien prêt', required: 'Téléphone et montant obligatoires.',
   },
   en: {
     title: 'MonCash & NatCash', subtitle: 'Receive mobile payments and verify transactions',
-    newRequest: 'New Request', newTab: 'Transactions', verifyTab: 'Verify',
-    amount: 'Amount', phone: 'Phone Number', provider: 'Provider',
+    newRequest: 'New request', newTab: 'Transactions', verifyTab: 'Verify',
+    amount: 'Amount', phone: 'Phone number', provider: 'Provider',
     description: 'Description', reference: 'Reference', status: 'Status',
     pending: 'Pending', confirmed: 'Confirmed', failed: 'Failed', cancelled: 'Cancelled',
-    cancel: 'Cancel', create: 'Create Request', verify: 'Verify',
+    cancel: 'Cancel', create: 'Create request', verify: 'Verify',
     transactionId: 'Transaction ID', enterTransId: 'Enter transaction ID',
-    checkTransaction: 'Check Transaction', verifyResult: 'Verification Result',
-    noData: 'No transactions yet.', copyLink: 'Copy Link', paymentLink: 'Payment Link',
-    totalReceived: 'Total Received', totalPending: 'Pending', countTx: 'Transactions',
+    checkTransaction: 'Verify', verifyResult: 'Verification result',
+    noData: 'No transactions yet.', copyLink: 'Copy link', paymentLink: 'Payment link',
+    totalReceived: 'Total received', totalPending: 'Pending', countTx: 'Transactions',
     today: 'Today', week: 'This week', month: 'This month',
-    moncashConfig: 'MonCash Configuration', natcashConfig: 'NatCash Configuration',
+    moncashConfig: 'MonCash configuration', natcashConfig: 'NatCash configuration',
     clientKey: 'Client Key', clientSecret: 'Client Secret', mode: 'Mode',
-    sandbox: 'Sandbox (Test)', production: 'Production', saveConfig: 'Save',
-    testConn: 'Test Connection', connected: 'Connected', disconnected: 'Disconnected',
-    confirmMark: 'Manually confirm this transaction?', manualConfirm: 'Manual Confirm',
-    copySuccess: 'Copied!', apiError: 'Server connection error.',
-    all: 'All',
-  }
+    sandbox: 'Sandbox (test)', production: 'Production', saveConfig: 'Save',
+    testConn: 'Test connection', connected: 'Connected', disconnected: 'Disconnected',
+    confirmMark: 'Manually confirm this transaction?', manualConfirm: 'Manual confirm',
+    copySuccess: 'Copied!', apiError: 'Server connection error.', all: 'All',
+    share: 'Share', done: 'Done', linkReady: 'Link ready', required: 'Phone and amount are required.',
+  },
 }
 
-const COLORS = {
-  gold: '#C9A84C', card: 'rgba(255,255,255,0.04)', border: 'rgba(201,168,76,0.2)',
-  green: '#27ae60', red: '#C0392B',
+const PROV = {
+  MonCash: { color: '#e5322d', short: 'MC' },
+  NatCash: { color: '#2563eb', short: 'NC' },
 }
-
-const PROVIDER_COLORS = {
-  MonCash: { bg: 'rgba(229,62,62,0.15)', color: '#e53e3e' },
-  NatCash: { bg: 'rgba(43,108,176,0.15)', color: '#63b3ed' },
+const STATUS = {
+  pending:   { color: K.orange, icon: <Clock size={11} /> },
+  confirmed: { color: K.green,  icon: <CheckCircle size={11} /> },
+  failed:    { color: K.red,    icon: <XCircle size={11} /> },
+  cancelled: { color: K.muted,  icon: <Ban size={11} /> },
 }
+const money = (n) => Number(n || 0).toLocaleString('fr-HT')
 
-const STATUS_STYLE = {
-  pending:   { bg: 'rgba(201,168,76,0.15)',  color: '#C9A84C' },
-  confirmed: { bg: 'rgba(39,174,96,0.15)',   color: '#27ae60' },
-  failed:    { bg: 'rgba(192,57,43,0.15)',   color: '#C0392B' },
-  cancelled: { bg: 'rgba(100,116,139,0.15)', color: '#94a3b8' },
-}
+const MP_STYLES = `
+.mp-prov{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mp-prov button{position:relative;height:64px;border-radius:18px;border:1.5px solid var(--border);background:#fff;cursor:pointer;display:flex;align-items:center;gap:12px;padding:0 14px;font:800 16px var(--body);color:var(--muted);transition:all .25s;overflow:hidden}
+.mp-prov button .lg{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:16px;color:#fff;background:var(--pc);flex-shrink:0;opacity:.45;transition:opacity .25s}
+.mp-prov button.on{border-color:var(--pc);color:var(--ink);box-shadow:0 14px 28px -20px var(--pc)}
+.mp-prov button.on .lg{opacity:1}
+.mp-prov button .ck{margin-left:auto;color:var(--pc);opacity:0;transition:opacity .2s}
+.mp-prov button.on .ck{opacity:1}
+.mp-hero-prov{display:flex;gap:8px;flex-wrap:wrap}
+.mp-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media(max-width:820px){.mp-stats{grid-template-columns:1fr 1fr}.mp-stats>*:last-child{grid-column:1/-1}}
+.mp-list{display:flex;flex-direction:column;gap:10px}
+.mp-tx{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid var(--border);border-radius:20px;padding:14px 16px;flex-wrap:wrap;animation:keIn .45s cubic-bezier(.22,1,.36,1) backwards;transition:box-shadow .25s}
+.mp-tx:hover{box-shadow:0 16px 30px -24px rgba(20,21,26,.45)}
+.mp-tx .lg{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:17px;color:#fff;background:var(--pc);flex-shrink:0}
+.mp-tx .ph{font-family:var(--display);font-weight:800;font-size:20px;line-height:1;color:var(--ink)}
+.mp-tx .sub{font-size:12px;color:var(--muted);font-weight:600;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-tx .amt{font-family:var(--display);font-weight:800;font-size:24px;line-height:1;white-space:nowrap;text-align:right}
+.mp-tx .act{width:40px;height:40px;border-radius:13px;border:0;background:var(--night);color:#4ade80;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform .15s}
+.mp-tx .act:hover{transform:translateY(-2px)}
+@media(max-width:560px){.mp-tx .right{width:100%;display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px dashed var(--border)}}
+.mp-filters{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none}
+.mp-filters::-webkit-scrollbar{display:none}
+.mp-fchip{flex-shrink:0;height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font:700 12.5px var(--body);color:var(--muted);cursor:pointer;transition:all .2s}
+.mp-fchip.on{background:var(--night);border-color:var(--night);color:#f2f1ec}
+.mp-verify{background:#fff;border:1px solid var(--border);border-radius:24px;padding:20px;max-width:620px}
+.mp-kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.mp-kv span{color:var(--muted);font-weight:600}.mp-kv b{text-align:right;word-break:break-all}
+.mp-link{background:var(--soft);border-radius:14px;padding:12px 14px;font-weight:700;font-size:13px;color:var(--ink);word-break:break-all}
+.mp-seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;background:var(--soft);border-radius:14px}
+.mp-seg button{height:42px;border:0;border-radius:11px;background:transparent;font:700 13px var(--body);color:var(--muted);cursor:pointer}
+.mp-seg button.on{background:#fff;color:var(--ink);box-shadow:0 4px 12px -6px rgba(20,21,26,.3)}
+`
 
-// ── Modal Nouvo Demann
-function PaymentModal({ lang, onClose, onSave }) {
-  const t = T[lang] || T.ht
-  const [form, setForm] = useState({ provider: 'MonCash', phone: '', amount: '', description: '' })
-  const [generatedLink, setGeneratedLink] = useState(null)
+// ── Modal nouvo demann (2 etap: fòm → lyen) ───────────────────
+function PaymentModal({ t, defaultProvider, onClose, onSave, saving }) {
+  const [form, setForm] = useState({ provider: defaultProvider || 'MonCash', phone: '', amount: '', description: '' })
+  const [link, setLink] = useState(null)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const copyLink = () => {
-    if (!generatedLink) return
-    navigator.clipboard.writeText(generatedLink)
-    toast.success(t.copySuccess)
+  const submit = async () => {
+    if (!form.phone || !form.amount) return toast.error(t.required)
+    try {
+      const res = await onSave(form)
+      const pl = res?.data?.paymentLink
+      if (pl) setLink(pl); else onClose()
+    } catch { /* toast nan mutation */ }
+  }
+  const copy = () => navigator.clipboard?.writeText(link).then(() => toast.success(t.copySuccess)).catch(() => {})
+  const share = async () => {
+    const text = `${form.provider} · ${money(form.amount)} HTG\n${link}`
+    if (navigator.share) { try { await navigator.share({ title: t.paymentLink, text }) } catch { /* anile */ } }
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
   }
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-      <div style={{ background: '#0f172a', border: `1px solid ${COLORS.border}`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 440 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ color: COLORS.gold, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Phone size={18} />{t.newRequest}
-          </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
+  if (link) return (
+    <Modal onClose={onClose} title={t.linkReady} subtitle={`${form.provider} · ${form.phone}`} icon={<Link2 size={20} />} width={460} dismissible
+      footer={<>
+        <button className="ke-fbtn" onClick={copy}><Copy size={17} /> {t.copyLink}</button>
+        <button className="ke-fbtn main dark" onClick={share}><Share2 size={17} /> {t.share}</button>
+      </>}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div style={{ background: K.night, color: '#f2f1ec', borderRadius: 22, padding: 18, textAlign: 'center' }}>
+          <span className="ke-eyebrow" style={{ color: '#FFC83D' }}>{t.amount}</span>
+          <p style={{ margin: '6px 0 0', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 46, lineHeight: 1, color: '#FFC83D' }}>
+            {money(form.amount)}<small style={{ fontSize: 15, color: 'rgba(242,241,236,.55)', marginLeft: 6 }}>HTG</small>
+          </p>
         </div>
-
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.provider} *</label>
-          <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-            {['MonCash', 'NatCash'].map(p => {
-              const pc = PROVIDER_COLORS[p]
-              return (
-                <button key={p} onClick={() => set('provider', p)} style={{
-                  flex: 1, padding: '12px 8px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 14,
-                  border: `2px solid ${form.provider === p ? pc.color : 'rgba(255,255,255,0.1)'}`,
-                  background: form.provider === p ? pc.bg : 'transparent',
-                  color: form.provider === p ? pc.color : '#94a3b8', transition: 'all 0.2s'
-                }}>{p}</button>
-              )
-            })}
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.phone} *</label>
-          <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="509-XXXX-XXXX" type="tel"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 15, fontWeight: 700, marginTop: 4,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
-        </div>
-
-        <div style={{ marginBottom: 12 }}>
-          <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.amount} (HTG) *</label>
-          <input value={form.amount} onChange={e => set('amount', e.target.value)} type="number" placeholder="0.00"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, fontSize: 22, fontWeight: 800, marginTop: 4,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: COLORS.gold, boxSizing: 'border-box' }} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.description}</label>
-          <input value={form.description} onChange={e => set('description', e.target.value)}
-            style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginTop: 4,
-              background: 'rgba(255,255,255,0.06)', border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
-        </div>
-
-        {generatedLink && (
-          <div style={{ marginBottom: 14, padding: '10px 12px', borderRadius: 8, background: 'rgba(39,174,96,0.1)', border: '1px solid rgba(39,174,96,0.3)' }}>
-            <div style={{ color: '#94a3b8', fontSize: 11, marginBottom: 4 }}>{t.paymentLink}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ color: '#94a3b8', fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{generatedLink}</span>
-              <button onClick={copyLink} style={{ padding: '4px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', background: COLORS.green, color: '#fff', fontSize: 11 }}><Copy size={11} /></button>
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '10px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontWeight: 600 }}>{t.cancel}</button>
-          <button onClick={() => {
-            if (!form.phone || !form.amount) return toast.error('Telefòn ak montan obligatwa.')
-            onSave(form)
-          }} style={{ flex: 1, padding: '10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: `linear-gradient(135deg, ${COLORS.gold}, #a07830)`, color: '#000', fontWeight: 700 }}>{t.create}</button>
-        </div>
+        <Field label={t.paymentLink}><div className="mp-link">{link}</div></Field>
       </div>
-    </div>
+    </Modal>
+  )
+
+  return (
+    <Modal onClose={onClose} title={t.newRequest} subtitle="MonCash · NatCash" icon={<Smartphone size={20} />} width={480}
+      footer={<>
+        <button className="ke-fbtn" onClick={onClose}>{t.cancel}</button>
+        <button className="ke-fbtn main gold" onClick={submit} disabled={saving}>
+          {saving ? <Spinner size={16} /> : <Plus size={17} />} {t.create}
+        </button>
+      </>}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <Field label={`${t.provider} *`}>
+          <div className="mp-prov">
+            {Object.entries(PROV).map(([p, c]) => (
+              <button key={p} className={form.provider === p ? 'on' : ''} style={{ '--pc': c.color }} onClick={() => set('provider', p)}>
+                <span className="lg">{c.short}</span>{p}<CheckCircle size={18} className="ck" />
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label={`${t.phone} *`}>
+          <input className="ke-input" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="509-XXXX-XXXX" type="tel" inputMode="tel" />
+        </Field>
+        <Field label={`${t.amount} (HTG) *`}>
+          <input className="ke-input" value={form.amount} onChange={e => set('amount', e.target.value)} type="number" inputMode="decimal" placeholder="0"
+            style={{ height: 60, fontFamily: 'var(--display)', fontWeight: 800, fontSize: 30, textAlign: 'center' }} />
+        </Field>
+        <Field label={t.description}>
+          <input className="ke-input" value={form.description} onChange={e => set('description', e.target.value)} />
+        </Field>
+      </div>
+    </Modal>
   )
 }
 
-// ── Modal Konfigirasyon
-function ConfigModal({ lang, provider, onClose }) {
-  const t = T[lang] || T.ht
+// ── Modal konfigirasyon ───────────────────────────────────────
+function ConfigModal({ t, provider, onClose }) {
   const [form, setForm] = useState({ clientKey: '', clientSecret: '', mode: 'sandbox' })
   const [status, setStatus] = useState(null)
   const [testing, setTesting] = useState(false)
+  const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const endpoint = provider === 'MonCash' ? 'moncash' : 'natcash'
-  const pc = PROVIDER_COLORS[provider]
+  const pc = PROV[provider]
 
   const handleTest = async () => {
     setTesting(true)
-    try {
-      const res = await api.post(`/${endpoint}/test`, form)
-      setStatus(res.data?.connected ? 'connected' : 'disconnected')
-    } catch { setStatus('disconnected') }
+    try { const res = await api.post(`/${endpoint}/test`, form); setStatus(res.data?.connected ? 'connected' : 'disconnected') }
+    catch { setStatus('disconnected') }
     setTesting(false)
   }
-
   const handleSave = async () => {
-    try {
-      await api.post(`/${endpoint}/config`, form)
-      toast.success('Konfigirasyon sove!')
-      onClose()
-    } catch { toast.error('Erè sove') }
+    setSaving(true)
+    try { await api.post(`/${endpoint}/config`, form); toast.success('Konfigirasyon sove!'); onClose() }
+    catch { toast.error('Erè sove') }
+    setSaving(false)
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 }}>
-      <div style={{ background: '#0f172a', border: `1px solid ${pc.color}40`, borderRadius: 16, padding: 28, width: '100%', maxWidth: 400 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h3 style={{ color: pc.color, margin: 0 }}>{provider === 'MonCash' ? t.moncashConfig : t.natcashConfig}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={20} /></button>
+    <Modal onClose={onClose} title={provider === 'MonCash' ? t.moncashConfig : t.natcashConfig} subtitle="API" icon={<Settings size={20} />} width={460}
+      footer={<>
+        <button className="ke-fbtn" onClick={handleTest} disabled={testing}>{testing ? <Spinner size={16} /> : <Wifi size={17} />} {t.testConn}</button>
+        <button className="ke-fbtn main dark" onClick={handleSave} disabled={saving}>{saving ? <Spinner size={16} /> : <ShieldCheck size={17} />} {t.saveConfig}</button>
+      </>}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: hexA(pc.color, .07), border: `1px solid ${hexA(pc.color, .25)}`, borderRadius: 18, padding: 14 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: pc.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 18 }}>{pc.short}</div>
+          <b style={{ fontSize: 16 }}>{provider}</b>
+          {status && <span style={{ marginLeft: 'auto' }}><Chip color={status === 'connected' ? K.green : K.red} icon={status === 'connected' ? <Wifi size={11} /> : <WifiOff size={11} />}>{t[status]}</Chip></span>}
         </div>
-        {[{ k: 'clientKey', label: t.clientKey }, { k: 'clientSecret', label: t.clientSecret }].map(({ k, label }) => (
-          <div key={k} style={{ marginBottom: 12 }}>
-            <label style={{ color: '#94a3b8', fontSize: 12 }}>{label}</label>
-            <input value={form[k]} onChange={e => set(k, e.target.value)} type={k === 'clientSecret' ? 'password' : 'text'}
-              style={{ width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13, marginTop: 4,
-                background: 'rgba(255,255,255,0.06)', border: `1px solid ${pc.color}40`, color: '#fff', boxSizing: 'border-box' }} />
-          </div>
-        ))}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{ color: '#94a3b8', fontSize: 12 }}>{t.mode}</label>
-          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+        <Field label={t.clientKey}><input className="ke-input" value={form.clientKey} onChange={e => set('clientKey', e.target.value)} autoComplete="off" /></Field>
+        <Field label={t.clientSecret}><input className="ke-input" type="password" value={form.clientSecret} onChange={e => set('clientSecret', e.target.value)} autoComplete="new-password" /></Field>
+        <Field label={t.mode}>
+          <div className="mp-seg">
             {[{ v: 'sandbox', l: t.sandbox }, { v: 'production', l: t.production }].map(({ v, l }) => (
-              <button key={v} onClick={() => set('mode', v)} style={{
-                flex: 1, padding: '8px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                border: `1px solid ${form.mode === v ? pc.color : 'rgba(255,255,255,0.1)'}`,
-                background: form.mode === v ? `${pc.color}20` : 'transparent',
-                color: form.mode === v ? pc.color : '#64748b'
-              }}>{l}</button>
+              <button key={v} className={form.mode === v ? 'on' : ''} onClick={() => set('mode', v)}>{l}</button>
             ))}
           </div>
-        </div>
-        {status && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: status === 'connected' ? COLORS.green : COLORS.red }}>
-            {status === 'connected' ? <Wifi size={15} /> : <WifiOff size={15} />}
-            {t[status]}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={handleTest} disabled={testing} style={{ flex: 1, padding: '9px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${pc.color}40`, background: 'transparent', color: '#94a3b8', fontSize: 12 }}>
-            {testing ? '...' : t.testConn}
-          </button>
-          <button onClick={handleSave} style={{ flex: 1, padding: '9px', borderRadius: 8, border: 'none', cursor: 'pointer', background: pc.color, color: '#fff', fontWeight: 700 }}>{t.saveConfig}</button>
-        </div>
+        </Field>
       </div>
-    </div>
+    </Modal>
   )
 }
 
-// ── Tab Verifye
-function VerifyTab({ lang, provider }) {
-  const t = T[lang] || T.ht
+// ── Tab verifye ───────────────────────────────────────────────
+function VerifyTab({ t, provider }) {
   const [transId, setTransId] = useState('')
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
-  const pc = PROVIDER_COLORS[provider]
 
   const handleVerify = async () => {
     if (!transId.trim()) return
     setLoading(true)
     try {
       const endpoint = provider === 'MonCash' ? 'moncash' : 'natcash'
-      const res = await api.get(`/${endpoint}/verify/${transId.trim()}`)
+      const res = await api.get(`/${endpoint}/verify/${encodeURIComponent(transId.trim())}`)
       setResult(res.data)
     } catch (err) {
       setResult({ error: true, message: err?.response?.data?.message || 'Tranzaksyon pa jwenn' })
@@ -267,37 +265,33 @@ function VerifyTab({ lang, provider }) {
   }
 
   return (
-    <div style={{ maxWidth: 500 }}>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <input value={transId} onChange={e => setTransId(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleVerify()} placeholder={t.enterTransId}
-          style={{ flex: 1, padding: '10px 14px', borderRadius: 8, fontSize: 14, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: '#fff' }} />
-        <button onClick={handleVerify} disabled={loading || !transId.trim()} style={{
-          padding: '10px 20px', borderRadius: 8, border: 'none', cursor: 'pointer',
-          background: pc.color, color: '#fff', fontWeight: 700, fontSize: 13
-        }}>{loading ? '...' : t.checkTransaction}</button>
+    <div className="mp-verify ke-in">
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="ke-search" style={{ flex: '1 1 220px' }}>
+          <Hash size={18} className="lead" />
+          <input value={transId} onChange={e => setTransId(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleVerify()} placeholder={t.enterTransId} />
+        </div>
+        <button className="ke-btn ke-btn-dark" style={{ height: 52 }} onClick={handleVerify} disabled={loading || !transId.trim()}>
+          {loading ? <Spinner size={15} /> : <ShieldCheck size={17} />} {t.checkTransaction}
+        </button>
       </div>
       {result && (
-        <div style={{ padding: 20, borderRadius: 12, background: result.error ? 'rgba(192,57,43,0.1)' : 'rgba(39,174,96,0.1)', border: `1px solid ${result.error ? COLORS.red : COLORS.green}40` }}>
-          <div style={{ fontWeight: 700, color: result.error ? COLORS.red : COLORS.green, marginBottom: 12, fontSize: 15 }}>
-            {result.error ? '❌ ' : '✅ '}{t.verifyResult}
+        <div style={{ marginTop: 16 }}>
+          <div className="ke-alert" style={{ '--c': result.error ? K.red : K.green, '--cbg': hexA(result.error ? K.red : K.green, .07), '--cbd': hexA(result.error ? K.red : K.green, .25), margin: 0 }}>
+            {result.error ? <XCircle size={17} /> : <CheckCircle size={17} />}
+            <div><b>{t.verifyResult}</b>{result.error && <> — {result.message}</>}</div>
           </div>
-          {result.error ? (
-            <p style={{ color: '#94a3b8', margin: 0 }}>{result.message}</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!result.error && (
+            <div style={{ marginTop: 8 }}>
               {[
                 ['ID', result.transactionId],
-                [t.amount, `${Number(result.amount || 0).toLocaleString('fr-HT')} HTG`],
+                [t.amount, result.amount != null ? `${money(result.amount)} HTG` : null],
                 [t.phone, result.payer],
                 [t.status, result.status],
-                ['Date', result.createdAt ? new Date(result.createdAt).toLocaleString('fr-FR') : '—'],
+                ['Date', result.createdAt ? new Date(result.createdAt).toLocaleString('fr-FR') : null],
                 [t.reference, result.reference],
               ].filter(([, v]) => v).map(([k, v]) => (
-                <div key={k} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#64748b', fontSize: 13 }}>{k}</span>
-                  <span style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>{v}</span>
-                </div>
+                <div key={k} className="mp-kv"><span>{k}</span><b>{v}</b></div>
               ))}
             </div>
           )}
@@ -311,62 +305,56 @@ function VerifyTab({ lang, provider }) {
 // KONPOZAN PRENSIPAL
 // ══════════════════════════════════════════════
 export default function MobilPayPage() {
+  useEffect(() => {
+    const el = document.createElement('style')
+    el.id = 'mobilpay-styles'
+    el.textContent = KANE_STYLES + MP_STYLES
+    document.head.appendChild(el)
+    return () => document.getElementById('mobilpay-styles')?.remove()
+  }, [])
+
   const { tenant } = useAuthStore()
   const lang = tenant?.defaultLanguage || 'ht'
-  const t = T[lang] || T.ht
+  const t = TR[lang] || TR.ht
   const qc = useQueryClient()
 
   const [tab, setTab] = useState('transactions')
   const [provider, setProvider] = useState('MonCash')
   const [showNewModal, setShowNewModal] = useState(false)
   const [configModal, setConfigModal] = useState(null)
+  const [confirmTx, setConfirmTx] = useState(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
   const [period, setPeriod] = useState('today')
 
-  // ✅ KORIJE — retire blokaj plan, aksè kontwole pa super admin (allowedPages)
   const endpoint = provider === 'MonCash' ? 'moncash' : 'natcash'
-  const pc = PROVIDER_COLORS[provider]
+  const pc = PROV[provider]
 
-  const { data, isLoading, isError, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['mobilpay', provider, filter, period],
     queryFn: () => api.get(`/${endpoint}/transactions`, {
-      params: { status: filter !== 'all' ? filter : undefined, period }
+      params: { status: filter !== 'all' ? filter : undefined, period },
     }).then(r => r.data),
     retry: 1,
-    placeholderData: { transactions: [], stats: {} },
+    placeholderData: (prev) => prev,
   })
 
+  const q = search.toLowerCase()
   const transactions = Array.isArray(data?.transactions)
-    ? data.transactions.filter(tx =>
-        !tx ? false :
-        !search ||
+    ? data.transactions.filter(tx => tx && (!q ||
         tx.phone?.includes(search) ||
-        tx.reference?.toLowerCase().includes(search.toLowerCase()) ||
-        tx.transactionId?.toLowerCase().includes(search.toLowerCase())
-      )
+        tx.reference?.toLowerCase().includes(q) ||
+        tx.transactionId?.toLowerCase().includes(q)))
     : []
-
   const stats = data?.stats || {}
 
   const createMutation = useMutation({
-    mutationFn: (form) => api.post(`/${endpoint}/request`, form),
-    onSuccess: (res) => {
+    mutationFn: (form) => api.post(`/${form.provider === 'MonCash' ? 'moncash' : 'natcash'}/request`, form),
+    onSuccess: () => {
       toast.success('Demann kreye!')
       qc.invalidateQueries({ queryKey: ['mobilpay'] })
-      const paymentLink = res?.data?.paymentLink
-      setShowNewModal(false)
-      if (paymentLink) {
-        toast((tk) => (
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: 4 }}>Lyen Peman:</div>
-            <a href={paymentLink} target="_blank" rel="noreferrer"
-              style={{ color: COLORS.gold, fontSize: 12, wordBreak: 'break-all' }}>{paymentLink}</a>
-          </div>
-        ), { duration: 8000 })
-      }
     },
-    onError: err => toast.error(err?.response?.data?.message || 'Erè')
+    onError: err => toast.error(err?.response?.data?.message || 'Erè'),
   })
 
   const confirmMutation = useMutation({
@@ -376,163 +364,143 @@ export default function MobilPayPage() {
     },
     onSuccess: () => {
       toast.success('Konfime!')
+      setConfirmTx(null)
       qc.invalidateQueries({ queryKey: ['mobilpay'] })
     },
-    onError: err => toast.error(err?.response?.data?.message || err?.message || 'Erè')
+    onError: err => toast.error(err?.response?.data?.message || err?.message || 'Erè'),
   })
 
-  const handleConfirm = (tx) => {
-    if (!tx?.id) return toast.error('ID tranzaksyon manke')
-    if (window.confirm(t.confirmMark)) confirmMutation.mutate(tx.id)
-  }
+  const received = Number(stats.totalReceived || 0)
+  const pendingAmt = Number(stats.totalPending || 0)
 
   return (
-    <div style={{ padding: '24px', maxWidth: 920, margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ color: COLORS.gold, margin: 0, fontSize: 22, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Phone size={22} />{t.title}
-          </h1>
-          <p style={{ color: '#64748b', margin: '4px 0 0', fontSize: 13 }}>{t.subtitle}</p>
+    <div className="ke-scope ke-page">
+      {/* ════════ HERO ════════ */}
+      <section className="ke-hero ke-in">
+        <div className="ke-hero-glow" />
+        <div className="ke-hero-grid" />
+        <div className="ke-hero-body" style={{ gridTemplateColumns: '1fr' }}>
+          <div style={{ minWidth: 0 }}>
+            <div className="ke-hero-top">
+              <div className="ke-hero-head">
+                <div className="ke-logo"><Smartphone size={26} strokeWidth={2.4} /></div>
+                <div style={{ minWidth: 0 }}>
+                  <span className="ke-eyebrow"><span className="ke-live" />{todayLabel()}</span>
+                  <h1 className="ke-title">{t.title}</h1>
+                  <p className="ke-sub">{t.subtitle}</p>
+                </div>
+              </div>
+              <div className="ke-hero-actions">
+                <button className="ke-btn ke-btn-glass sq" title="Rafrechi" onClick={() => refetch()}><RefreshCw size={17} className={isFetching ? 'ke-spin' : ''} /></button>
+                {Object.keys(PROV).map(p => (
+                  <button key={p} className="ke-btn ke-btn-glass" onClick={() => setConfigModal(p)}><Settings size={15} /> {p}</button>
+                ))}
+                <button className="ke-btn ke-btn-gold ke-hide-sm" onClick={() => setShowNewModal(true)}><Plus size={17} /> {t.newRequest}</button>
+              </div>
+            </div>
+            <div className="ke-hero-bottom" style={{ gridTemplateColumns: '1fr' }}>
+              <div>
+                <span className="ke-big-l"><Wallet size={14} /> {t.totalReceived} · {provider} · {t[period]}</span>
+                <p className="ke-big"><AnimatedNumber value={received} format={money} duration={1300} /><small>HTG</small></p>
+                <span className="ke-net" style={{ color: '#FFC83D' }}><Clock size={14} /> {money(pendingAmt)} HTG {t.totalPending.toLowerCase()}</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {['MonCash', 'NatCash'].map(p => (
-            <button key={p} onClick={() => setConfigModal(p)} style={{
-              padding: '7px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-              border: `1px solid ${PROVIDER_COLORS[p].color}40`, background: 'transparent', color: PROVIDER_COLORS[p].color
-            }}>⚙ {p}</button>
-          ))}
-          <button onClick={() => refetch()} style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${COLORS.border}`, background: 'transparent', color: '#94a3b8', cursor: 'pointer' }}>
-            <RefreshCw size={14} />
-          </button>
-          <button onClick={() => setShowNewModal(true)} style={{
-            padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            background: `linear-gradient(135deg, ${COLORS.gold}, #a07830)`,
-            color: '#000', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6
-          }}><Plus size={15} />{t.newRequest}</button>
-        </div>
-      </div>
+      </section>
 
       {isError && (
-        <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(192,57,43,0.12)', border: '1px solid rgba(192,57,43,0.3)', color: '#C0392B', fontSize: 13 }}>
-          ⚠️ {t.apiError} — {error?.response?.data?.message || error?.message || '500'}
+        <div className="ke-alert" style={{ '--c': K.red, '--cbg': hexA(K.red, .07), '--cbd': hexA(K.red, .25), alignItems: 'center' }}>
+          <AlertCircle size={17} />
+          <div style={{ flex: 1 }}>{t.apiError} — {error?.response?.data?.message || error?.message || '500'}</div>
+          <button className="ke-btn ke-btn-soft" style={{ height: 38 }} onClick={() => refetch()}><RefreshCw size={14} /></button>
         </div>
       )}
 
-      {/* Pwovide Switcher */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        {['MonCash', 'NatCash'].map(p => {
-          const c = PROVIDER_COLORS[p]
-          return (
-            <button key={p} onClick={() => setProvider(p)} style={{
-              flex: 1, maxWidth: 180, padding: '12px 16px', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 15,
-              border: `2px solid ${provider === p ? c.color : 'rgba(255,255,255,0.1)'}`,
-              background: provider === p ? c.bg : 'transparent',
-              color: provider === p ? c.color : '#64748b', transition: 'all 0.2s'
-            }}>{p}</button>
-          )
-        })}
+      {/* Pwovidè */}
+      <div className="mp-prov ke-in" style={{ animationDelay: '.05s' }}>
+        {Object.entries(PROV).map(([p, c]) => (
+          <button key={p} className={provider === p ? 'on' : ''} style={{ '--pc': c.color }} onClick={() => setProvider(p)}>
+            <span className="lg">{c.short}</span>{p}<CheckCircle size={18} className="ck" />
+          </button>
+        ))}
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 20 }}>
-        {[
-          { label: t.totalReceived, val: `${Number(stats.totalReceived || 0).toLocaleString('fr-HT')} HTG`, color: COLORS.green },
-          { label: t.totalPending,  val: `${Number(stats.totalPending  || 0).toLocaleString('fr-HT')} HTG`, color: COLORS.gold },
-          { label: t.countTx,       val: stats.count || 0, color: '#fff' },
-        ].map(({ label, val, color }) => (
-          <div key={label} style={{ background: COLORS.card, border: `1px solid ${COLORS.border}`, borderRadius: 10, padding: 16, textAlign: 'center' }}>
-            <div style={{ color, fontWeight: 800, fontSize: 18 }}>{val}</div>
-            <div style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>{label}</div>
-          </div>
-        ))}
+      <div className="mp-stats">
+        <StatCard label={t.totalReceived} num={received} format={money} suffix="G" icon={<CheckCircle size={21} />} color={K.green}
+          pct={received + pendingAmt ? (received / (received + pendingAmt)) * 100 : 0} delay={.08} />
+        <StatCard label={t.totalPending} num={pendingAmt} format={money} suffix="G" icon={<Clock size={21} />} color={K.orange}
+          pct={received + pendingAmt ? (pendingAmt / (received + pendingAmt)) * 100 : 0} delay={.12} />
+        <StatCard label={t.countTx} num={Number(stats.count || 0)} icon={<Phone size={21} />} color={pc.color} pct={100} pill={t[period]} delay={.16} />
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', marginBottom: 16, borderBottom: `1px solid ${COLORS.border}` }}>
-        {[{ id: 'transactions', label: t.newTab }, { id: 'verify', label: t.verifyTab }].map(({ id, label }) => (
-          <button key={id} onClick={() => setTab(id)} style={{
-            padding: '10px 20px', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: tab === id ? 700 : 400,
-            background: 'transparent', color: tab === id ? COLORS.gold : '#64748b',
-            borderBottom: tab === id ? `2px solid ${COLORS.gold}` : '2px solid transparent', marginBottom: -1
-          }}>{label}</button>
-        ))}
+      <div className="ke-toolbar ke-in" style={{ animationDelay: '.2s' }}>
+        <div className="ke-tabs" role="tablist" style={{ gridTemplateColumns: 'repeat(2,1fr)' }}>
+          <span className="ke-tabs-pill" style={{ width: 'calc((100% - 10px)/2)', transform: `translateX(${tab === 'verify' ? 100 : 0}%)` }} />
+          <button className={tab === 'transactions' ? 'on' : ''} onClick={() => setTab('transactions')}>{t.newTab}</button>
+          <button className={tab === 'verify' ? 'on' : ''} onClick={() => setTab('verify')}>{t.verifyTab}</button>
+        </div>
+        {tab === 'transactions' && (
+          <div className="ke-search">
+            <Search size={19} className="lead" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`${t.phone}, ID...`} />
+            {search && <button className="clr" onClick={() => setSearch('')} aria-label="Efase"><X size={15} /></button>}
+          </div>
+        )}
       </div>
 
-      {tab === 'verify' ? (
-        <VerifyTab lang={lang} provider={provider} />
-      ) : (
+      {tab === 'verify' ? <VerifyTab t={t} provider={provider} /> : (
         <>
-          {/* Filtri */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
-              <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`${t.phone}...`}
-                style={{ width: '100%', padding: '8px 10px 8px 32px', borderRadius: 8, fontSize: 13, background: COLORS.card, border: `1px solid ${COLORS.border}`, color: '#fff', boxSizing: 'border-box' }} />
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div className="mp-filters">
+              {['all', 'pending', 'confirmed', 'failed'].map(s => (
+                <button key={s} className={`mp-fchip ${filter === s ? 'on' : ''}`} onClick={() => setFilter(s)}>{t[s] || s}</button>
+              ))}
             </div>
-            {['all', 'pending', 'confirmed', 'failed'].map(s => (
-              <button key={s} onClick={() => setFilter(s)} style={{
-                padding: '8px 12px', borderRadius: 8, fontSize: 12, cursor: 'pointer', fontWeight: filter === s ? 700 : 400,
-                border: `1px solid ${filter === s ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
-                background: filter === s ? 'rgba(201,168,76,0.15)' : 'transparent',
-                color: filter === s ? COLORS.gold : '#64748b'
-              }}>{t[s] || s}</button>
-            ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <div className="mp-filters">
               {['today', 'week', 'month'].map(p => (
-                <button key={p} onClick={() => setPeriod(p)} style={{
-                  padding: '6px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                  border: `1px solid ${period === p ? COLORS.gold : 'rgba(255,255,255,0.1)'}`,
-                  background: period === p ? 'rgba(201,168,76,0.1)' : 'transparent',
-                  color: period === p ? COLORS.gold : '#64748b'
-                }}>{t[p]}</button>
+                <button key={p} className={`mp-fchip ${period === p ? 'on' : ''}`} onClick={() => setPeriod(p)}>{t[p]}</button>
               ))}
             </div>
           </div>
 
           {isLoading ? (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 60 }}>Chajman...</div>
+            <div className="mp-list">{[0, 1, 2, 3].map(i => <div key={i} className="ke-skel" style={{ height: 76, borderRadius: 20 }} />)}</div>
           ) : transactions.length === 0 ? (
-            <div style={{ textAlign: 'center', color: '#64748b', padding: 60, background: COLORS.card, borderRadius: 12, border: `1px dashed ${COLORS.border}` }}>
-              <Phone size={40} color="#334155" style={{ marginBottom: 12 }} />
-              <p style={{ margin: 0 }}>{t.noData}</p>
+            <div className="ke-empty ke-in">
+              <div className="ke-empty-ic"><Inbox size={28} /></div>
+              <h3>{t.noData}</h3>
+              <p>{t.subtitle}</p>
+              <button className="ke-btn ke-btn-dark" onClick={() => setShowNewModal(true)}><Plus size={17} /> {t.newRequest}</button>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="mp-list">
               {transactions.map((tx, idx) => {
-                if (!tx) return null
-                const ss = STATUS_STYLE[tx.status] || STATUS_STYLE.pending
-                const prov = PROVIDER_COLORS[tx.provider] || pc
+                const st = STATUS[tx.status] || STATUS.pending
+                const prov = PROV[tx.provider] || pc
                 return (
-                  <div key={tx.id ?? `tx-${idx}`} style={{
-                    background: COLORS.card, border: `1px solid ${COLORS.border}`,
-                    borderRadius: 10, padding: '12px 16px',
-                    display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap'
-                  }}>
-                    <span style={{ padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700, background: prov.bg, color: prov.color, minWidth: 72, textAlign: 'center' }}>
-                      {tx.provider || provider}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 110 }}>
-                      <div style={{ color: '#fff', fontFamily: 'monospace', fontWeight: 700, fontSize: 14 }}>{tx.phone || '—'}</div>
-                      <div style={{ color: '#64748b', fontSize: 11 }}>
-                        {tx.transactionId ? `ID: ${tx.transactionId.substring(0, 12)}...` : tx.reference || ''}
+                  <div key={tx.id ?? `tx-${idx}`} className="mp-tx" style={{ '--pc': prov.color, animationDelay: `${Math.min(idx, 12) * .03}s` }}>
+                    <span className="lg">{prov.short}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ph">{tx.phone || '—'}</div>
+                      <div className="sub">
+                        {tx.transactionId ? `ID ${tx.transactionId}` : tx.reference || ''}{tx.description ? ` · ${tx.description}` : ''}
                       </div>
                     </div>
-                    {tx.description && <div style={{ color: '#94a3b8', fontSize: 12, flex: 1, minWidth: 100 }}>{tx.description}</div>}
-                    <div style={{ textAlign: 'right', minWidth: 100 }}>
-                      <div style={{ color: '#fff', fontWeight: 800, fontSize: 16 }}>{Number(tx.amount || 0).toLocaleString('fr-HT')} HTG</div>
-                      <div style={{ color: '#64748b', fontSize: 11 }}>{new Date(tx.createdAt || Date.now()).toLocaleDateString('fr-FR')}</div>
+                    <div className="right" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div>
+                        <div className="amt">{money(tx.amount)} <small style={{ fontSize: 12, color: K.muted }}>HTG</small></div>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center', marginTop: 5 }}>
+                          <span style={{ fontSize: 11.5, color: K.muted, fontWeight: 600 }}>{new Date(tx.createdAt || Date.now()).toLocaleDateString('fr-FR')}</span>
+                          <Chip color={st.color} icon={st.icon}>{t[tx.status] || tx.status}</Chip>
+                        </div>
+                      </div>
+                      {tx.status === 'pending' && (
+                        <button className="act" onClick={() => tx?.id ? setConfirmTx(tx) : toast.error('ID tranzaksyon manke')} title={t.manualConfirm}><CheckCircle size={18} /></button>
+                      )}
                     </div>
-                    <span style={{ padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: ss.bg, color: ss.color }}>
-                      {t[tx.status] || tx.status}
-                    </span>
-                    {tx.status === 'pending' && (
-                      <button onClick={() => handleConfirm(tx)} disabled={confirmMutation.isPending} title={t.manualConfirm} style={{
-                        padding: '6px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                        background: 'rgba(39,174,96,0.15)', color: COLORS.green, fontSize: 11, fontWeight: 700
-                      }}><CheckCircle size={13} /></button>
-                    )}
                   </div>
                 )
               })}
@@ -541,8 +509,31 @@ export default function MobilPayPage() {
         </>
       )}
 
-      {showNewModal && <PaymentModal lang={lang} onClose={() => setShowNewModal(false)} onSave={(form) => createMutation.mutate(form)} />}
-      {configModal && <ConfigModal lang={lang} provider={configModal} onClose={() => setConfigModal(null)} />}
+      <button className="ke-fab" onClick={() => setShowNewModal(true)}><Plus size={20} /> {t.newRequest}</button>
+
+      {showNewModal && (
+        <PaymentModal t={t} defaultProvider={provider} saving={createMutation.isPending}
+          onClose={() => setShowNewModal(false)} onSave={(form) => createMutation.mutateAsync(form)} />
+      )}
+      {configModal && <ConfigModal t={t} provider={configModal} onClose={() => setConfigModal(null)} />}
+      {confirmTx && (
+        <Modal onClose={() => setConfirmTx(null)} title={t.manualConfirm} subtitle={`${confirmTx.provider || provider} · ${confirmTx.phone || ''}`} icon={<CheckCircle size={20} />} width={420}
+          footer={<>
+            <button className="ke-fbtn" onClick={() => setConfirmTx(null)}>{t.cancel}</button>
+            <button className="ke-fbtn main green" disabled={confirmMutation.isPending} onClick={() => confirmMutation.mutate(confirmTx.id)}>
+              {confirmMutation.isPending ? <Spinner size={16} /> : <CheckCircle size={17} />} {t.manualConfirm}
+            </button>
+          </>}>
+          <div className="ke-col" style={{ gap: 12 }}>
+            <div style={{ background: K.night, color: '#f2f1ec', borderRadius: 20, padding: 18, textAlign: 'center' }}>
+              <p style={{ margin: 0, fontFamily: 'var(--display)', fontWeight: 800, fontSize: 44, lineHeight: 1, color: '#FFC83D' }}>
+                {money(confirmTx.amount)}<small style={{ fontSize: 14, color: 'rgba(242,241,236,.55)', marginLeft: 5 }}>HTG</small>
+              </p>
+            </div>
+            <p style={{ margin: 0, fontSize: 13.5, color: '#3a3d48', lineHeight: 1.6 }}>{t.confirmMark}</p>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

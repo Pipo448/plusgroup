@@ -114,11 +114,11 @@ export function StatCard({ label, num, format = fmtInt, suffix, icon, color = T.
 }
 
 // ─── Kat "glass" nan hero ────────────────────────────────────
-export function GlassStat({ label, icon, num, color, pct, sub, signed }) {
+export function GlassStat({ label, icon, num, color, pct, sub, signed, format }) {
   return (
     <div className="ke-glass">
       <p className="ke-glass-l">{icon}{label}</p>
-      <p className="ke-glass-v" style={{ color: color || '#fff' }}><AnimatedNumber value={num} signed={signed} /><small>HTG</small></p>
+      <p className="ke-glass-v" style={{ color: color || '#fff' }}><AnimatedNumber value={num} signed={signed} {...(format ? { format } : {})} /><small>HTG</small></p>
       <Track pct={pct} color={color} dark />
       {sub && <p className="ke-glass-s">{sub}</p>}
     </div>

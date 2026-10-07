@@ -1,14 +1,25 @@
 // ─────────────────────────────────────────────────────────────
 // sabotayAtoms.jsx — Helpers, usePrinterState, UI Atoms, Modal, Sec
+// ✅ Design "Plus Fit" (menm baz ak Kanè Epay / Prè)
 // ─────────────────────────────────────────────────────────────
-import { useState, useCallback } from 'react'
-import { X, CheckCircle, Clock, Bluetooth, BluetoothOff } from 'lucide-react'
+import { useState, useCallback, useRef, useLayoutEffect } from 'react'
+import {
+  CheckCircle, Clock, Bluetooth, BluetoothOff, Printer as PrinterIcon,
+  Image as ImageIcon, FileDown, Receipt, Share2,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt } from '../../services/printerService'
 import {
   D, MEMBER_STATUS, PLAN_STATUS,
   buildReceiptHTML, printReceiptBrowser,
+  buildSolShareHTML, shareSolReceipt, SOL_RECEIPT_WIDTH,
 } from './sabotayUtils'
+import { Modal as KeModal } from './kane-epay/KaneEpayComponents'
+
+const hexA = (hex, a) => {
+  const n = parseInt(String(hex).replace('#', ''), 16)
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`
+}
 
 // ─────────────────────────────────────────────────────────────
 // HELPERS — Konvèsyon 12h (AM/PM) ↔ 24h ("HH:MM")
@@ -35,27 +46,25 @@ export function format24ToDisplay12(value) {
 // ─────────────────────────────────────────────────────────────
 // TIME PICKER 12h
 // ─────────────────────────────────────────────────────────────
-export function TimePicker12h({ value, onChange, color }) {
+export function TimePicker12h({ value, onChange, color = D.text }) {
   const { h12, m, period } = parse24To12(value)
   const update = (newH12, newM, newPeriod) => onChange(format12To24(newH12, newM, newPeriod))
   const selStyle = {
-    background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.09)',
-    borderRadius: 8, color, padding: '8px 4px', fontWeight: 700, fontSize: 13,
-    textAlign: 'center', appearance: 'none', cursor: 'pointer', flex: 1, minWidth: 0,
+    background: D.soft, border: `1.5px solid ${D.border}`, borderRadius: 12, color,
+    padding: '11px 4px', fontWeight: 800, fontSize: 15, fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif",
+    textAlign: 'center', textAlignLast: 'center', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer', flex: 1, minWidth: 0, outline: 'none',
   }
   return (
-    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
       <select value={h12} onChange={e => update(Number(e.target.value), m, period)} style={selStyle}>
         {[12,1,2,3,4,5,6,7,8,9,10,11].map(n => <option key={n} value={n}>{n}</option>)}
       </select>
       <span style={{ color: D.muted, fontWeight: 800, flexShrink: 0 }}>:</span>
       <select value={m} onChange={e => update(h12, Number(e.target.value), period)} style={selStyle}>
-        {Array.from({ length: 60 }, (_, i) => i).map(n => (
-          <option key={n} value={n}>{String(n).padStart(2, '0')}</option>
-        ))}
+        {Array.from({ length: 60 }, (_, i) => i).map(n => <option key={n} value={n}>{String(n).padStart(2, '0')}</option>)}
       </select>
       <select value={period} onChange={e => update(h12, m, e.target.value)}
-        style={{ ...selStyle, color: period === 'AM' ? D.blue : D.gold }}>
+        style={{ ...selStyle, background: D.night, color: period === 'AM' ? '#6ec8ff' : '#FFC83D', border: 'none' }}>
         <option value="AM">AM</option>
         <option value="PM">PM</option>
       </select>
@@ -106,114 +115,164 @@ export function usePrinterState() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// UI ATOMS
+// UI ATOMS (chips)
 // ─────────────────────────────────────────────────────────────
+const chip = (color, small) => ({
+  display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap',
+  padding: small ? '3px 8px' : '5px 11px', borderRadius: 999,
+  fontSize: small ? 10.5 : 11.5, fontWeight: 800, letterSpacing: '.03em',
+  color, background: hexA(color, 0.1),
+})
+
 export function PayBadge({ paid, small }) {
-  const sz = small ? { padding: '2px 7px', fontSize: 9 } : { padding: '4px 10px', fontSize: 11 }
+  const c = paid ? D.green : D.red
   return (
-    <span style={{ ...sz, borderRadius: 20, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 4,
-      background: paid ? D.greenBg : D.redBg, color: paid ? D.green : D.red,
-      border: `1px solid ${paid ? D.green : D.red}25` }}>
-      {paid ? <CheckCircle size={small ? 9 : 11} /> : <Clock size={small ? 9 : 11} />}
-      {paid ? 'Peye' : 'Pa Peye'}
+    <span style={chip(c, small)}>
+      {paid ? <CheckCircle size={small ? 10 : 12} /> : <Clock size={small ? 10 : 12} />}
+      {paid ? 'Peye' : 'Pa peye'}
     </span>
   )
 }
 
+const STATUS_COLORS = { active: D.green, blocked: D.red, stopped: D.orange, finished: D.gold, late: D.orange }
 export function MemberStatusBadge({ status, small }) {
   const cfg = MEMBER_STATUS[status] || MEMBER_STATUS.active
-  const sz  = small ? { padding: '2px 6px', fontSize: 9 } : { padding: '3px 9px', fontSize: 11 }
-  return (
-    <span style={{ ...sz, borderRadius: 20, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 3,
-      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}25` }}>
-      {cfg.icon} {cfg.label}
-    </span>
-  )
+  return <span style={chip(STATUS_COLORS[status] || D.green, small)}>{cfg.icon} {cfg.label}</span>
 }
 
-export function PlanStatusBadge({ status }) {
+const PLAN_COLORS = { open: D.green, closed: D.red, finished: D.gold }
+export function PlanStatusBadge({ status, dark }) {
   const cfg = PLAN_STATUS[status] || PLAN_STATUS.open
+  const c = PLAN_COLORS[status] || D.green
   return (
-    <span style={{ padding: '3px 10px', borderRadius: 20, fontWeight: 800, fontSize: 10,
-      background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
-      {cfg.label}
+    <span style={dark
+      ? { ...chip(c), color: status === 'open' ? '#4ade80' : status === 'closed' ? '#ff7b7b' : '#FFC83D', background: 'rgba(255,255,255,0.08)' }
+      : chip(c)}>
+      <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'currentColor' }} />{cfg.label}
     </span>
   )
 }
 
+// Bouton "glass" pou hero nwa a
 export function ReceiptSizeBtn() {
-  const [size, setSize] = useState(() => localStorage.getItem('receipt_size') || '80mm')
+  const [size, setSize] = useState(() => { try { return localStorage.getItem('receipt_size') || '80mm' } catch { return '80mm' } })
   const toggle = () => {
     const next = size === '80mm' ? '57mm' : '80mm'
-    setSize(next); localStorage.setItem('receipt_size', next)
-    toast(`🖨️ Resi: ${next}`, { icon: '📄' })
+    setSize(next)
+    try { localStorage.setItem('receipt_size', next) } catch {}
+    toast(`Resi: ${next}`, { icon: '📄' })
   }
   return (
-    <button onClick={toggle} title={`Fòma resi: ${size}`} style={{
-      display: 'flex', alignItems: 'center', gap: 5, padding: '9px 11px', borderRadius: 10,
-      border: `1px solid ${size === '57mm' ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.09)'}`,
-      background: size === '57mm' ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.05)',
-      color: size === '57mm' ? '#3B82F6' : '#6b7a99',
-      cursor: 'pointer', fontWeight: 700, fontSize: 11, transition: 'all 0.2s', flexShrink: 0,
-    }}>
-      🖨️ {size}
+    <button onClick={toggle} title={`Fòma resi: ${size}`} className="ke-btn ke-btn-glass"
+      style={{ width: 'auto', padding: '0 14px', fontFamily: 'var(--display)', fontSize: 17, fontWeight: 800, letterSpacing: '.04em' }}>
+      {size.replace('mm', '')}<span style={{ fontSize: 12, opacity: .6 }}>mm</span>
     </button>
   )
 }
 
 export function PrinterBtn({ printer }) {
   return (
-    <button onClick={printer.connected ? printer.disconnect : printer.connect}
-      disabled={printer.connecting}
-      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '9px 13px', borderRadius: 10,
-        border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 12, transition: 'all 0.2s', flexShrink: 0,
-        background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)',
-        color: printer.connected ? D.green : D.muted }}>
+    <button onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}
+      className={`ke-btn ke-btn-glass${printer.connected ? ' on' : ''}`} title={printer.connected ? 'Dekonekte printer' : 'Konekte printer Bluetooth'}>
       {printer.connecting
-        ? <span style={{ width: 13, height: 13, border: `2px solid ${D.muted}40`, borderTopColor: D.muted, borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-        : printer.connected ? <Bluetooth size={14} /> : <BluetoothOff size={14} />}
-      <span className="printer-label">{printer.connected ? 'Printer OK' : 'Printer'}</span>
+        ? <span className="ke-spinner" style={{ width: 15, height: 15 }} />
+        : printer.connected ? <Bluetooth size={17} /> : <BluetoothOff size={17} />}
+      <span className="lbl">{printer.connected ? 'Printer OK' : 'Printer'}</span>
     </button>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-// MODAL WRAPPER
+// MODAL — itilize Modal Kanè Epay la (bottom-sheet sou mobil)
 // ─────────────────────────────────────────────────────────────
-export function Modal({ onClose, title, children, width = 540 }) {
+export function Modal({ onClose, title, children, width = 540, subtitle, icon, footer, dismissible }) {
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.88)',
-      backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div className="m-sheet" style={{ background: D.card, border: `1px solid ${D.border}`,
-        borderRadius: '20px 20px 0 0', width: '100%', maxWidth: width, maxHeight: '95vh',
-        overflowY: 'auto', boxShadow: '0 -8px 48px rgba(0,0,0,0.7)',
-        animation: 'sheetUp 0.26s cubic-bezier(0.32,0.72,0,1)' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 2px' }}>
-          <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.12)' }} />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 20px 14px', borderBottom: `1px solid ${D.border}`,
-          position: 'sticky', top: 0, background: D.card, zIndex: 1 }}>
-          <h2 className="modal-title" style={{ fontSize: 15, fontWeight: 800, color: '#fff', margin: 0 }}>{title}</h2>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 8, border: 'none',
-            background: 'rgba(255,255,255,0.06)', color: D.muted, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <X size={16} />
-          </button>
-        </div>
-        <div className="modal-body" style={{ padding: '18px 20px 28px' }}>{children}</div>
+    <KeModal onClose={onClose} title={title} subtitle={subtitle} icon={icon} width={width} footer={footer} dismissible={dismissible}>
+      {children}
+    </KeModal>
+  )
+}
+
+// Seksyon fòm — `col` = "r,g,b" (koulè aksan)
+export const Sec = ({ icon, title, children, col }) => {
+  const accent = col ? `rgb(${col})` : D.gold
+  return (
+    <div style={{ border: `1px solid ${D.border}`, borderRadius: 20, padding: 16, marginBottom: 14, background: D.card }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 14px' }}>
+        <span style={{ width: 30, height: 30, borderRadius: 10, background: D.night, color: col ? accent : '#FFC83D', display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{icon}</span>
+        <p style={{ margin: 0, fontFamily: "'Barlow Condensed','Arial Narrow',sans-serif", fontWeight: 800, fontSize: 18, letterSpacing: '.05em', textTransform: 'uppercase', color: D.text }}>{title}</p>
       </div>
+      {children}
     </div>
   )
 }
 
-export const Sec = ({ icon, title, children, col }) => (
-  <div style={{ background: `rgba(${col || '201,168,76'},0.03)`, border: `1px solid rgba(${col || '201,168,76'},0.12)`,
-    borderRadius: 12, padding: '13px 14px', marginBottom: 12 }}>
-    <p style={{ fontSize: 10, fontWeight: 800, color: col ? `rgb(${col})` : D.gold, textTransform: 'uppercase',
-      letterSpacing: '0.07em', margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span>{icon}</span>{title}
-    </p>
-    {children}
-  </div>
-)
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: Resi pou pataje (Imaj WhatsApp / PDF) + aperçu
+// ─────────────────────────────────────────────────────────────
+function HtmlPreview({ html, width = SOL_RECEIPT_WIDTH }) {
+  const wrapRef = useRef(null)
+  const innerRef = useRef(null)
+  const [box, setBox] = useState({ scale: 1, h: 0 })
+  useLayoutEffect(() => {
+    const measure = () => {
+      const w = wrapRef.current?.clientWidth || width
+      const scale = Math.min(1, w / width)
+      setBox({ scale, h: (innerRef.current?.scrollHeight || 0) * scale })
+    }
+    measure()
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null
+    ro?.observe(wrapRef.current)
+    document.fonts?.ready?.then(measure).catch(() => {})
+    return () => ro?.disconnect()
+  }, [html, width])
+  return (
+    <div ref={wrapRef} className="ke-rcpt-wrap" style={{ height: box.h || undefined }}>
+      <div ref={innerRef} className="ke-rcpt-inner" style={{ width, transform: `scale(${box.scale})`, margin: box.scale < 1 ? 0 : '0 auto' }}
+        dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  )
+}
+
+export function ModalSolReceipt({ data, onClose, printer }) {
+  const [busy, setBusy] = useState(false)
+  const run = async (fmtOut) => {
+    setBusy(fmtOut)
+    try { const ok = await shareSolReceipt(data, fmtOut); if (ok) toast.success(fmtOut === 'png' ? 'Imaj resi a pare!' : 'PDF la pare!') }
+    catch { toast.error('Erè pandan kreyasyon resi a.') }
+    finally { setBusy(false) }
+  }
+  const footer = (
+    <>
+      <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}
+        onClick={() => printer?.print(data.plan, data.member, data.paidDates || [], data.tenant, data.type || 'peman', data.allSlots || [])}>
+        {printer?.printing ? <span className="ke-spinner" style={{ width: 15, height: 15 }} /> : <PrinterIcon size={18} />}
+      </button>
+      <button className="ke-fbtn" onClick={() => run('pdf')} disabled={!!busy}>
+        {busy === 'pdf' ? <span className="ke-spinner" style={{ width: 15, height: 15 }} /> : <FileDown size={18} />} PDF
+      </button>
+      <button className="ke-fbtn main dark" onClick={() => run('png')} disabled={!!busy}>
+        {busy === 'png' ? <span className="ke-spinner" style={{ width: 15, height: 15 }} /> : <ImageIcon size={18} />} Pataje imaj
+      </button>
+    </>
+  )
+  return (
+    <Modal onClose={onClose} dismissible width={520} footer={footer} icon={<Receipt size={20} />}
+      title={data.type === 'kont' ? 'Kont manm' : 'Resi peman'} subtitle={`${data.plan?.name} · ${data.member?.name}`}>
+      <HtmlPreview html={buildSolShareHTML(data)} />
+      <p className="ke-rcpt-note"><Share2 size={14} /> Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
+    </Modal>
+  )
+}
+
+// Ti bouton switch (pou paramèt plan yo)
+export function Switch({ on, onClick, color = D.night, disabled }) {
+  return (
+    <button onClick={onClick} disabled={disabled} aria-pressed={on}
+      style={{ position: 'relative', width: 48, height: 28, borderRadius: 999, border: 'none', cursor: 'pointer', flexShrink: 0,
+        background: on ? color : 'rgba(20,21,26,0.12)', transition: 'background .25s' }}>
+      <span style={{ position: 'absolute', top: 3, left: on ? 23 : 3, width: 22, height: 22, borderRadius: '50%', background: on ? '#FFC83D' : '#fff',
+        transition: 'left .28s cubic-bezier(.3,1.3,.5,1)', boxShadow: '0 2px 6px rgba(0,0,0,.25)' }} />
+    </button>
+  )
+}

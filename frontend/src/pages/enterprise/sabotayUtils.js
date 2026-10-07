@@ -2,6 +2,10 @@
 // sabotayUtils.js — Constants, Helpers, Calc Functions
 // ─────────────────────────────────────────────────────────────
 
+import html2canvas from 'html2canvas'
+import { toCanvas } from 'html-to-image'
+import jsPDF from 'jspdf'
+
 export const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 export const API_URL = import.meta.env.VITE_API_URL     || 'https://plusgroup-backend.onrender.com/api/v1'
 
@@ -49,74 +53,46 @@ export const OWNER_SLOT_NAME = 'Pwopriyete Sol'
 
 // ─── DESIGN TOKENS ───────────────────────────────────────────
 export const D = {
-  bg:'#060f1e', card:'#0d1b2a', cardHov:'#112236',
-  border:'rgba(201,168,76,0.18)', borderSub:'rgba(255,255,255,0.07)',
-  gold:'#C9A84C', goldDk:'#8B6914',
-  goldBtn:'linear-gradient(135deg,#C9A84C,#8B6914)',
-  goldDim:'rgba(201,168,76,0.10)',
-  green:'#27ae60', greenBg:'rgba(39,174,96,0.12)',
-  red:'#e74c3c',   redBg:'rgba(231,76,60,0.10)',
-  blue:'#3B82F6',  blueBg:'rgba(59,130,246,0.10)',
-  orange:'#f39c12',orangeBg:'rgba(243,156,18,0.10)',
-  purple:'#9b59b6',purpleBg:'rgba(155,89,182,0.10)',
-  teal:'#14b8a6',  tealBg:'rgba(20,184,166,0.10)',
-  text:'#e8eaf0', muted:'#6b7a99',
-  label:'rgba(201,168,76,0.75)', input:'#060f1e',
+  // ✅ Tèm "Plus Fit" (menm ak Kanè Epay / Prè / Gym): kat blan, tèks nwa, aksan lò
+  bg:'transparent', card:'#ffffff', cardHov:'#fbfaf7', soft:'#f4f3ef', night:'#0b0c0f',
+  border:'rgba(20,21,26,0.08)', borderSub:'rgba(20,21,26,0.08)',
+  gold:'#9A7412', goldDk:'#8A6508',
+  goldBtn:'linear-gradient(135deg,#FFD45C,#E0A410)',
+  goldDim:'rgba(255,200,61,0.16)',
+  green:'#16a34a', greenBg:'rgba(22,163,74,0.09)',
+  red:'#dc2626',   redBg:'rgba(220,38,38,0.08)',
+  blue:'#2563eb',  blueBg:'rgba(37,99,235,0.08)',
+  orange:'#d97706',orangeBg:'rgba(217,119,6,0.10)',
+  purple:'#7c3aed',purpleBg:'rgba(124,58,237,0.08)',
+  teal:'#0d9488',  tealBg:'rgba(13,148,136,0.09)',
+  text:'#14151a', muted:'#6b7080',
+  label:'#6b7080', input:'#f4f3ef',
 }
 
 export const GLOBAL_STYLES = `
   @keyframes spin    { to{transform:rotate(360deg)} }
-  @keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
   @keyframes pop     { 0%{transform:scale(0.85);opacity:0} 70%{transform:scale(1.05)} 100%{transform:scale(1);opacity:1} }
-  @media(min-width:640px){ .m-sheet{border-radius:20px!important;margin:20px!important;max-height:88vh!important;} }
-  .m-sheet::-webkit-scrollbar{width:8px}
-  .m-sheet::-webkit-scrollbar-thumb{background:rgba(201,168,76,0.2);border-radius:2px}
-  .m-sheet input::placeholder,.m-sheet textarea::placeholder{color:#2a3a54}
-  .m-sheet select option{background:#0d1b2a;color:#e8eaf0}
-  .plan-card{transition:all 0.18s;}
-  .plan-card:hover{background:#112236!important;transform:translateY(-2px);}
+  @keyframes pulse   { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
+  .ke-scope input::placeholder,.ke-scope textarea::placeholder{color:#9a9eaa}
+  .ke-scope select option{background:#fff;color:#14151a}
+  .ke-scope input[type=date],.ke-scope input[type=time]{color-scheme:light}
+  .ke-scope input:focus,.ke-scope textarea:focus,.ke-scope select:focus{border-color:#0b0c0f!important;box-shadow:0 0 0 4px rgba(255,200,61,.45);background:#fff!important}
   @media(max-width:480px){
-    .page-head{flex-direction:column!important;align-items:stretch!important;gap:10px!important;}
-    .page-head-actions{justify-content:space-between!important;width:100%!important;}
-    .btn-new-plan{flex:1!important;justify-content:center!important;}
-    .top-stats{grid-template-columns:1fr 1fr!important;gap:8px!important;}
-    .stat-card{padding:10px 11px!important;}
-    .stat-icon{width:34px!important;height:34px!important;}
-    .stat-val{font-size:12px!important;}
-    .search-wrap{max-width:100%!important;}
-    .plan-card{padding:12px 13px!important;}
-    .detail-head{gap:8px!important;margin-bottom:14px!important;}
-    .detail-stats{grid-template-columns:1fr 1fr!important;gap:8px!important;}
-    .member-row{padding:10px 11px!important;}
-    .member-pos-badge{width:30px!important;height:30px!important;}
-    .member-name{font-size:12px!important;}
-    .member-phone{font-size:10px!important;}
-    .member-btns button{width:26px!important;height:26px!important;}
-    .m-sheet{border-radius:18px 18px 0 0!important;}
-    .modal-body{padding:14px 15px 24px!important;}
-    .modal-title{font-size:14px!important;}
     .freq-grid{grid-template-columns:1fr 1fr!important;gap:6px!important;}
-    .freq-btn{padding:8px 5px!important;font-size:10px!important;}
     .vacct-stats{grid-template-columns:1fr 1fr!important;gap:8px!important;}
-    .cal-day span{font-size:10px!important;}
-    .tab-btn{padding:7px 12px!important;font-size:11px!important;}
-    .pay-date-row{padding:9px 11px!important;}
-    .printer-label{display:none!important;}
-    .error-banner{flex-wrap:wrap!important;gap:8px!important;}
-    .error-banner button{margin-left:0!important;width:100%!important;}
+    .pay-date-row{padding:10px 12px!important;}
   }
-  @media(max-width:360px){ .top-stats{grid-template-columns:1fr!important;} }
 `
 
 // ─── SHARED INPUT STYLES ──────────────────────────────────────
 export const inp = {
-  width:'100%', padding:'10px 12px', borderRadius:10, fontSize:13,
-  border:'1.5px solid rgba(255,255,255,0.09)', outline:'none', fontFamily:'inherit',
-  color:D.text, background:D.input, transition:'border-color 0.15s', boxSizing:'border-box',
+  width:'100%', padding:'12px 14px', borderRadius:13, fontSize:14.5, fontWeight:600,
+  border:'1.5px solid rgba(20,21,26,0.08)', outline:'none', fontFamily:'inherit',
+  color:D.text, background:D.input, transition:'border-color .2s, box-shadow .2s, background .2s', boxSizing:'border-box',
 }
 export const lbl = {
-  display:'block', fontSize:10, fontWeight:700, color:D.label,
-  marginBottom:5, textTransform:'uppercase', letterSpacing:'0.06em',
+  display:'block', fontSize:11, fontWeight:800, color:D.label,
+  marginBottom:7, textTransform:'uppercase', letterSpacing:'0.09em',
 }
 
 // ─── FORMATTERS ───────────────────────────────────────────────
@@ -235,10 +211,23 @@ export function getPayoutDateMap(plan) {
  * Retounen dat ak lè aktyèl Ayiti (UTC-5)
  */
 export function getHaitiNow() {
-  const nowHaiti = new Date(Date.now() - 5 * 60 * 60 * 1000)
-  return {
-    today: nowHaiti.toISOString().split('T')[0],
-    currentTime: `${String(nowHaiti.getUTCHours()).padStart(2, '0')}:${String(nowHaiti.getUTCMinutes()).padStart(2, '0')}`,
+  // ✅ FIX: Ayiti swiv lè ete (UTC-4 mas→novanm, UTC-5 rès ane a).
+  // Ansyen kòd la te toujou retire 5è, kidonk pandan lè ete lè a te 1è an reta
+  // (fenèt peman, "an reta", jodi a chanje a 1è dimaten olye minwi).
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    }).formatToParts(new Date())
+    const g = (t) => parts.find(p => p.type === t)?.value
+    const hh = g('hour') === '24' ? '00' : g('hour')
+    return { today: `${g('year')}-${g('month')}-${g('day')}`, currentTime: `${hh}:${g('minute')}` }
+  } catch {
+    const nowHaiti = new Date(Date.now() - 5 * 60 * 60 * 1000)
+    return {
+      today: nowHaiti.toISOString().split('T')[0],
+      currentTime: `${String(nowHaiti.getUTCHours()).padStart(2, '0')}:${String(nowHaiti.getUTCMinutes()).padStart(2, '0')}`,
+    }
   }
 }
 
@@ -431,15 +420,9 @@ export function calcMemberDepoRezev(member, plan, today) {
 
 // ─── TIMING & SCORE ───────────────────────────────────────────
 export function getPaymentTiming(plan, paymentDate) {
-  const now = new Date()
-  const haitiOffset = -5 * 60
-  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes()
-  const nowMins = ((utcMins + haitiOffset) % (24 * 60) + 24 * 60) % (24 * 60)
-
-  const today = (() => {
-    const haitiTime = new Date(now.getTime() - 5 * 60 * 60 * 1000)
-    return haitiTime.toISOString().split('T')[0]
-  })()
+  const { today, currentTime } = getHaitiNow()
+  const [h, m] = currentTime.split(':').map(Number)
+  const nowMins = h * 60 + m
 
   if (paymentDate < today) return 'late'
 
@@ -662,4 +645,178 @@ export function printReceiptBrowser(html) {
   // ✅ Bouton "bak" Android (Capacitor) fèmen modal la olye kite l kole
   const onBack = (e) => { e?.preventDefault?.(); closeBtn.onclick() }
   document.addEventListener('backbutton', onBack)
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ NOUVO: RESI POU PATAJE (Imaj PNG + PDF) — menm design ak Kanè Epay / Prè
+// type: 'peman' (dat ki fèk peye) | 'kont' (rezime kont manm nan)
+// ═══════════════════════════════════════════════════════════════
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
+const RC = { bg:'#ECE8DF', night:'#0b0c0f', gold:'#FFC83D', goldInk:'#8A6508', ink:'#14151a', muted:'#6b7080', soft:'#f4f3ef', line:'#E6E3DB', green:'#16a34a', red:'#dc2626', teal:'#0d9488' }
+const DISPLAY = "'Barlow Condensed','Arial Narrow',Arial,sans-serif"
+const BODY    = "'Manrope','Segoe UI',Arial,sans-serif"
+export const SOL_RECEIPT_WIDTH = 460
+const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
+
+export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type = 'peman', allSlots = [] }) {
+  const LH       = 'line-height:1.25'
+  const slots    = allSlots.length ? allSlots : [member]
+  const nSlots   = slots.length
+  const isPay    = type === 'peman'
+  const amount   = Number(plan.amount || 0)
+  const allDates = getAllPaymentDates(plan)
+  const { today, currentTime } = getHaitiNow()
+  const paidCount = slots.reduce((a, sl) => a + allDates.filter(d => sl.payments?.[d]).length, 0)
+  const justPaid  = isPay ? paidDates.length * amount * nSlots : 0
+  const fineTotal = Object.values(member.fines || {}).reduce((a, b) => a + Number(b), 0)
+  const contribution = Math.max(paidCount * amount, justPaid)
+  const payout    = member.isOwnerSlot ? ownerPayout(plan) : memberPayout(plan)
+  const payoutDate = getPayoutDate(plan, member.position)
+  const bizRaw    = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const biz       = esc(bizRaw)
+  const bizSize   = bizRaw.length > 26 ? 18 : bizRaw.length > 18 ? 21 : 25
+  const bizIni    = esc(bizRaw.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
+  const ini       = esc(String(member.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
+  const posOff    = hasOwnerSlot(plan) ? 1 : 0
+  const posTxt    = slots.map(sl => sl.isOwnerSlot ? '★' : `#${sl.position - posOff}`).join(' · ')
+
+  const row = (k, v, color = RC.ink) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid ${RC.line}">
+      <span style="font-size:13px;font-weight:600;line-height:1.3;color:${RC.muted}">${k}</span>
+      <span style="font-size:13.5px;font-weight:800;line-height:1.3;color:${color};text-align:right">${v}</span>
+    </div>`
+
+  const dateRows = isPay ? paidDates.slice(0, 14).map(d => row(
+    `${dmy(d)}${d > today ? ' · <span style="color:' + RC.teal + '">Rezèv</span>' : ''}`,
+    `+${fmt(amount * nSlots)} HTG`, RC.green)).join('') + (paidDates.length > 14 ? row(`+ ${paidDates.length - 14} lòt dat`, '') : '') : ''
+
+  const logo = tenant?.logoUrl
+    ? `<img src="${esc(tenant.logoUrl)}" crossorigin="anonymous" style="width:50px;height:50px;border-radius:15px;object-fit:cover;background:#fff;display:block;flex:none"/>`
+    : `<div style="width:50px;height:50px;border-radius:15px;background:${RC.gold};display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};color:${RC.night}">${bizIni}</span></div>`
+
+  const big = isPay
+    ? { l: `MONTAN PEYE · ${paidDates.length} DAT${nSlots > 1 ? ` × ${nSlots} MEN` : ''}`, v: `+${fmt(justPaid + (isPay ? Object.entries(member.fines || {}).filter(([d]) => paidDates.includes(d)).reduce((a, [, v]) => a + Number(v), 0) : 0))}`, c: '#5ee59a', pill: 'PEMAN', pbg: '#4ade80' }
+    : { l: 'AP TOUCHE', v: fmt(payout), c: RC.gold, pill: 'KONT', pbg: RC.gold }
+
+  return `
+<div style="width:${SOL_RECEIPT_WIDTH}px;padding:22px;background:${RC.bg};font-family:${BODY};color:${RC.ink};box-sizing:border-box;${LH};text-align:left">
+  <div style="border-radius:28px;overflow:hidden;background:#fff;box-shadow:0 24px 40px -24px rgba(11,12,15,.45)">
+    <div style="position:relative;overflow:hidden;background:${RC.night};padding:16px 24px 24px;color:#f2f1ec">
+      <div style="position:absolute;width:340px;height:340px;right:-120px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,61,.32),rgba(255,200,61,0) 65%)"></div>
+      <div style="position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.1)">
+        <span style="font-size:13px;font-weight:800;${LH};color:#fff">${dmy(today)} ${currentTime}</span>
+        <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${isPay ? 'RESI PEMAN' : 'KONT MANM'}</span>
+      </div>
+      <div style="position:relative;display:flex;align-items:center;gap:12px">
+        ${logo}
+        <div style="min-width:0;flex:1">
+          <div style="font-family:${DISPLAY};font-weight:800;font-size:${bizSize}px;${LH};text-transform:uppercase;letter-spacing:.02em;color:#fff;word-break:break-word">${biz}</div>
+          <div style="font-size:10.5px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.55);margin-top:2px">SABOTAY SOL${tenant?.phone ? ` · ${esc(tenant.phone)}` : ''}</div>
+        </div>
+        <div style="height:32px;padding:0 13px;border-radius:999px;background:${big.pbg};display:flex;align-items:center;flex:none">
+          <span style="font-family:${DISPLAY};font-weight:800;font-size:15px;${LH};letter-spacing:.08em;color:${RC.night}">${big.pill}</span>
+        </div>
+      </div>
+      <div style="position:relative;margin-top:22px;font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${big.l}</div>
+      <div style="position:relative;margin-top:2px;white-space:nowrap">
+        <span style="font-family:${DISPLAY};font-weight:800;font-size:64px;line-height:1.15;color:${big.c}">${big.v}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;line-height:1.15;color:rgba(242,241,236,.55);margin-left:8px">HTG</span>
+      </div>
+    </div>
+
+    <div style="position:relative;height:24px;background:#fff">
+      <div style="position:absolute;left:-12px;top:0;width:24px;height:24px;border-radius:50%;background:${RC.bg}"></div>
+      <div style="position:absolute;right:-12px;top:0;width:24px;height:24px;border-radius:50%;background:${RC.bg}"></div>
+      <div style="position:absolute;left:22px;right:22px;top:11px;border-top:2px dashed ${RC.line}"></div>
+    </div>
+
+    <div style="padding:0 24px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:${RC.soft}">
+        <div style="width:48px;height:48px;border-radius:14px;background:${RC.night};display:flex;align-items:center;justify-content:center;flex:none">
+          <span style="font-family:${DISPLAY};font-weight:800;font-size:20px;${LH};color:${RC.gold}">${member.isOwnerSlot ? '★' : ini}</span>
+        </div>
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:800;font-size:16px;${LH};word-break:break-word">${esc(member.name)}</div>
+          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;${LH};letter-spacing:.06em;color:${RC.goldInk};margin-top:1px">${esc(plan.name)} · ${posTxt}</div>
+        </div>
+        ${member.phone ? `<div style="text-align:right;font-size:11.5px;font-weight:600;line-height:1.5;color:${RC.muted};flex:none">${esc(member.phone)}</div>` : ''}
+      </div>
+    </div>
+
+    <div style="padding:8px 24px 0">
+      ${dateRows}
+      ${row('Montan pa dat', `${fmt(amount)} HTG${nSlots > 1 ? ` × ${nSlots}` : ''}`)}
+      ${row('Kontribisyon total', `${fmt(contribution)} HTG`, RC.green)}
+      ${fineTotal > 0 ? row('Amand', `${fmt(fineTotal)} HTG`, RC.red) : ''}
+      ${row('Peman fèt', `${paidCount} / ${allDates.length * nSlots}`)}
+      ${payoutDate ? row('Dat touche', dmy(payoutDate)) : ''}
+    </div>
+
+    <div style="margin:16px 24px 0;padding:14px 18px;border-radius:18px;background:${RC.night};display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${isPay ? 'AP TOUCHE' : 'KONTRIBYE'}</span>
+      <span style="white-space:nowrap"><span style="font-family:${DISPLAY};font-weight:800;font-size:34px;line-height:1.2;color:${RC.gold}">${fmt(isPay ? payout : contribution)}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:14px;line-height:1.2;color:rgba(242,241,236,.55);margin-left:6px">HTG</span></span>
+    </div>
+
+    <div style="display:flex;justify-content:center;padding:18px 24px 0">
+      <div style="height:34px;padding:0 15px;border-radius:999px;background:rgba(22,163,74,.1);display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${RC.green}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <span style="font-size:12px;font-weight:800;${LH};letter-spacing:.04em;color:${RC.green}">${isPay ? 'PEMAN ANREJISTRE' : 'KONT AJOU'}</span>
+      </div>
+    </div>
+    <div style="text-align:center;padding:16px 26px 22px">
+      ${tenant?.receiptFooterNote ? `<div style="font-size:12px;color:${RC.muted};font-weight:600;margin-bottom:8px;line-height:1.45">${esc(tenant.receiptFooterNote)}</div>` : ''}
+      <div style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};letter-spacing:.04em;text-transform:uppercase;color:${RC.ink}">Mèsi! / Merci!</div>
+      <div style="font-size:11px;font-weight:700;${LH};color:${RC.muted};margin-top:4px">Produit par PLUS GROUP · Tel: +509 4244 9024</div>
+    </div>
+  </div>
+</div>`
+}
+
+async function captureNode(node, bg) {
+  try {
+    const opts = { pixelRatio: 2.5, backgroundColor: bg, cacheBust: true }
+    await toCanvas(node, opts)                 // premye apèl: chaje polis/imaj
+    const canvas = await toCanvas(node, opts)
+    if (canvas?.width > 0 && canvas?.height > 0) return canvas
+    throw new Error('canvas vid')
+  } catch (e) {
+    console.warn('[resi] html-to-image echwe, n ap itilize html2canvas:', e?.message)
+    return await html2canvas(node, { scale: 2.5, backgroundColor: bg, useCORS: true, logging: false })
+  }
+}
+
+export async function shareSolReceipt(data, fmtOut = 'png') {
+  const box = document.createElement('div')
+  box.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none;'
+  box.innerHTML = buildSolShareHTML(data)
+  document.body.appendChild(box)
+  let canvas
+  try {
+    try { await Promise.all([document.fonts?.load?.('800 60px "Barlow Condensed"'), document.fonts?.load?.('700 14px "Manrope"')]); await document.fonts?.ready } catch {}
+    const imgs = Array.from(box.querySelectorAll('img'))
+    await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r })))
+    canvas = await captureNode(box.firstElementChild, RC.bg)
+  } finally { document.body.removeChild(box) }
+
+  const isPng = fmtOut === 'png'
+  let blob
+  if (isPng) blob = await new Promise(r => canvas.toBlob(r, 'image/png'))
+  else {
+    const wMm = 100, hMm = (canvas.height * wMm) / canvas.width
+    const pdf = new jsPDF({ unit: 'mm', format: [wMm, Math.max(hMm, 60)] })
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, wMm, hMm)
+    blob = pdf.output('blob')
+  }
+  const safe = (x) => String(x || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+  const fileName = `Sol-${safe(data.plan?.name)}-${safe(data.member?.name)}-${getHaitiNow().today}.${isPng ? 'png' : 'pdf'}`
+  const file = new File([blob], fileName, { type: isPng ? 'image/png' : 'application/pdf' })
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: `Resi Sol — ${data.member?.name}` }); return true }
+    catch (e) { if (e?.name === 'AbortError') return false }
+  }
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = fileName
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
 }

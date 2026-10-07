@@ -1,230 +1,239 @@
 // ─────────────────────────────────────────────────────────────
 // sabotayModals.jsx — Modals: CreatePlan, BlindDraw, MarkPayment,
-//                    MemberAction, ClosePlan, Credentials, VirtualAccount
+//                    MemberAction, DeclarePayout, ClosePlan, Credentials, VirtualAccount
+// ✅ Design "Plus Fit" (menm modal ak Kanè Epay / Prè)
+// ✅ FIX: dat "jodi a" kounye a soti nan getHaitiNow() (DST-aware) — pa UTC-5 fiks ankò
+// ✅ NOUVO: apre peman → resi imaj/PDF pou pataje (WhatsApp), kont manm pataje
 // ─────────────────────────────────────────────────────────────
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import {
-  Clock, CheckCircle, Settings, Trophy, AlertCircle, Printer,
-  Key, Star, UserCheck, Loader, Shuffle, Info, AlertTriangle,
-  Lock, Unlock, UserMinus, StopCircle, Plus, TrendingUp, Calendar,
+  Clock, CheckCircle, Trophy, AlertCircle, Printer, Key, Star, UserCheck,
+  Shuffle, Info, AlertTriangle, Lock, Unlock, StopCircle, Plus, TrendingUp,
+  Calendar, Edit3, Wallet, FileText, Coins, Copy, Share2, PiggyBank, Receipt,
+  CalendarDays, ShieldAlert, Repeat, Phone, Hash, Link2, CircleDollarSign,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
-import { Modal, Sec, TimePicker12h, format24ToDisplay12 } from './sabotayAtoms'
-import { MemberStatusBadge, PayBadge } from './sabotayAtoms'
+import { Modal, Sec, TimePicker12h, format24ToDisplay12, MemberStatusBadge, ModalSolReceipt } from './sabotayAtoms'
 import {
-  D, inp, lbl, fmt, FREQ_LABELS, RELATIONSHIPS,
+  D, fmt, FREQ_LABELS,
   getAllPaymentDates, getPayoutDate, computeMemberStatus,
   memberPayout, ownerPayout, getMemberScore, getPaymentTiming,
-  calcMemberDepoRezev, buildReceiptHTML, printReceiptBrowser,
-  freqFullLabel, apiFetch, API_URL, calcDepoRezev, normalizePhone,
+  calcMemberDepoRezev, apiFetch, API_URL, normalizePhone, getHaitiNow, hasOwnerSlot,
 } from './sabotayUtils'
+import { T, hexA } from './kane-epay/kaneEpayConstants'
+import { Chip, Track, Spinner, Field } from './kane-epay/KaneEpayComponents'
+
+// Pozisyon jan admin wè l nan lis la (plas pwopriyetè a = ★, lòt yo dekale)
+const posLabel = (plan, m) => m?.isOwnerSlot ? '★' : `#${(m?.position || 0) - (hasOwnerSlot(plan) ? 1 : 0)}`
+const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
+
+// Ti CSS espesifik pou modal sabotay yo
+const SM_STYLES = `
+.sm-opt{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:8px}
+.sm-opt button{height:46px;border-radius:13px;border:1.5px solid var(--border);background:#fff;font:700 13px var(--body);color:var(--muted);cursor:pointer;transition:all .2s}
+.sm-opt button.on{background:var(--night);border-color:var(--night);color:#FFC83D}
+.sm-num{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sm-num button{width:46px;height:46px;border-radius:13px;border:1.5px solid var(--border);background:#fff;font-family:var(--display);font-weight:800;font-size:20px;color:var(--muted);cursor:pointer;transition:all .2s}
+.sm-num button.on{background:var(--night);border-color:var(--night);color:#FFC83D}
+.sm-dates{display:flex;flex-direction:column;gap:7px;max-height:260px;overflow-y:auto;padding-right:2px}
+.sm-date{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 13px;border-radius:15px;cursor:pointer;background:#fff;border:1.5px solid var(--border);transition:all .18s;user-select:none}
+.sm-date:hover{border-color:rgba(20,21,26,.2)}
+.sm-date.on{border-color:var(--dc);background:var(--dbg)}
+.sm-date .d{font-family:var(--display);font-weight:800;font-size:19px;line-height:1;color:var(--ink)}
+.sm-box{width:22px;height:22px;border-radius:7px;border:2px solid rgba(20,21,26,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s}
+.sm-date.on .sm-box,.sm-tog.on .sm-box{background:var(--dc);border-color:var(--dc)}
+.sm-tog{display:flex;align-items:center;gap:11px;padding:12px 14px;border-radius:15px;cursor:pointer;border:1.5px solid var(--border);background:#fff;transition:all .18s;user-select:none}
+.sm-tog.on{border-color:var(--dc);background:var(--dbg)}
+.sm-hero{position:relative;overflow:hidden;border-radius:22px;padding:18px;background:var(--night);color:#f2f1ec}
+.sm-hero::after{content:'';position:absolute;right:-50px;top:-70px;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,61,.28),transparent 65%);pointer-events:none}
+.sm-hero>*{position:relative;z-index:1}
+.sm-hero .big{font-family:var(--display);font-weight:800;font-size:40px;line-height:1;color:#FFC83D;margin:6px 0 0;white-space:nowrap}
+.sm-hero .big small{font-size:14px;color:rgba(242,241,236,.55);margin-left:5px}
+.sm-hero .nm{font-family:var(--display);font-weight:800;font-size:26px;line-height:1.05;text-transform:uppercase;margin:0;overflow-wrap:anywhere}
+.sm-hero .sub{font-size:12.5px;color:rgba(242,241,236,.6);font-weight:600;margin:4px 0 0}
+.sm-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.sm-kv>div{background:var(--soft);border-radius:16px;padding:12px 14px;min-width:0}
+.sm-kv .v{margin:6px 0 0;font-family:var(--display);font-weight:800;font-size:24px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sm-hist{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto;padding-right:2px}
+.sm-hrow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:14px;background:#fff;border:1px solid var(--border)}
+.sm-hrow .d{font-family:var(--display);font-weight:800;font-size:17px;line-height:1;color:var(--ink);flex-shrink:0}
+.sm-mini{width:30px;height:30px;border-radius:10px;border:0;background:var(--soft);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.sm-mini:hover{background:var(--night);color:#FFC83D}
+.sm-cred{background:var(--soft);border-radius:14px;padding:11px 14px;font-weight:800;color:var(--ink);word-break:break-all}
+.sm-draw{border-radius:22px;padding:26px 18px;text-align:center;min-height:150px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--soft);border:2px dashed rgba(20,21,26,.12);transition:all .3s}
+.sm-draw.done{background:var(--night);border:2px solid var(--night);color:#f2f1ec}
+.sm-slot{padding:0 13px;height:38px;border-radius:12px;border:1.5px solid var(--border);background:#fff;font:700 12.5px var(--body);color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px}
+.sm-slot.on{background:var(--night);border-color:var(--night);color:#f2f1ec}
+`
+function useSmStyles() {
+  useEffect(() => {
+    if (document.getElementById('sm-styles')) return
+    const el = document.createElement('style')
+    el.id = 'sm-styles'
+    el.textContent = SM_STYLES
+    document.head.appendChild(el)
+  }, [])
+}
 
 // ─────────────────────────────────────────────────────────────
 // MODAL: KREYE / EDITE PLAN
 // ─────────────────────────────────────────────────────────────
 export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }) {
+  useSmStyles()
   const isEdit = !!initialData
+  const { today } = getHaitiNow()
   const [form, setForm] = useState({
     name: '', amount: '', feePerMember: '', penalty: '', warningDelayDays: 3, stopPenaltyAmount: 0,
     frequency: 'daily', interval: 1, maxMembers: '', dueTime: '08:00',
-    dueTimeEnd: '15:00', regleman: '', startDate: '',
+    dueTimeEnd: '15:00', regleman: '',
     ...(initialData || {}),
-    startDate: initialData?.startDate
-      ? new Date(initialData.startDate).toISOString().split('T')[0]
-      : new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0],
+    startDate: initialData?.startDate ? String(initialData.startDate).split('T')[0] : today,
   })
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
 
-  const amt            = Number(form.amount) || 0
-  const fee            = Number(form.feePerMember) || 0
-  const intervalN      = Math.max(1, Number(form.interval) || 1)
-  const previewMembers = Number(form.maxMembers) || 0
-  const payoutM        = amt * previewMembers - fee
+  const amt             = Number(form.amount) || 0
+  const fee             = Number(form.feePerMember) || 0
+  const intervalN       = Math.max(1, Number(form.interval) || 1)
+  const previewMembers  = Number(form.maxMembers) || 0
+  const payoutM         = amt * previewMembers - fee
   const timeWindowValid = form.dueTime < form.dueTimeEnd
-  const windowDisplay  = timeWindowValid
+  const windowDisplay   = timeWindowValid
     ? `${format24ToDisplay12(form.dueTime)} → ${format24ToDisplay12(form.dueTimeEnd)}`
-    : '⚠️ Lè kòmansman dwe pi piti pase lè fen'
+    : 'Lè kòmansman dwe pi piti pase lè fen'
+
+  const submit = () => {
+    if (!form.name || !form.amount) return toast.error('Non ak montan obligatwa.')
+    if (form.dueTime >= form.dueTimeEnd) return toast.error('Lè kòmansman fenèt peman dwe pi piti pase lè fen.')
+    onSave({
+      ...form, amount: Number(form.amount), feePerMember: Number(form.feePerMember || 0),
+      penalty: Number(form.penalty || 0), warningDelayDays: Number(form.warningDelayDays || 0), stopPenaltyAmount: Number(form.stopPenaltyAmount || 0),
+      maxMembers: Number(form.maxMembers || 0), dueTime: form.dueTime || '08:00',
+      dueTimeEnd: form.dueTimeEnd || '15:00', interval: intervalN,
+      startDate: form.startDate || today,
+      status: initialData?.status || 'open',
+    })
+  }
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main gold" disabled={loading} onClick={submit}>
+        {loading ? <Spinner size={16} /> : isEdit ? <CheckCircle size={17} /> : <Plus size={17} />}
+        {loading ? 'Ap sove...' : (isEdit ? 'Sove chanjman' : 'Kreye plan')}
+      </button>
+    </>
+  )
 
   return (
-    <Modal onClose={onClose} title={isEdit ? '✏️ Modifye Plan' : '✚ Kreye Plan Sabotay'} width={560}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        <Sec icon="📋" title="Enfòmasyon Plan">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))', gap: 10 }}>
-            <div style={{ gridColumn: '1/-1' }}>
-              <label style={lbl}>Non Plan *</label>
-              <input style={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex: Sol 500 Samdi" />
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <label style={lbl}>Montan / Moun (HTG) *</label>
-              <input type="number" style={{ ...inp, color: D.gold, fontWeight: 800, fontSize: 16, textAlign: 'center' }}
-                value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="500" />
-            </div>
-            <div style={{ gridColumn: '1/-1' }}>
-              <label style={lbl}>Dat Kòmanse Sol *</label>
-              <input type="date" style={{ ...inp, color: D.teal, fontWeight: 700 }}
-                value={form.startDate} onChange={e => set('startDate', e.target.value)} />
-            </div>
-          </div>
+    <Modal onClose={onClose} title={isEdit ? 'Modifye plan' : 'Nouvo plan sol'} subtitle={isEdit ? initialData?.name : 'Sabotay · Konfigirasyon konplè'}
+      icon={isEdit ? <Edit3 size={20} /> : <Coins size={20} />} width={600} footer={footer}>
 
-          <div style={{ marginTop: 14, background: 'rgba(155,89,182,0.05)', border: `1px solid rgba(155,89,182,0.15)`, borderRadius: 12, padding: '13px 14px' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 11px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Clock size={11} /> Fenèt Peman (Lè Manm Dwe Peye)
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-              <div>
-                <label style={lbl}>🟢 Kòmansman *</label>
-                <TimePicker12h value={form.dueTime} onChange={v => set('dueTime', v)} color={D.purple} />
-              </div>
-              <div>
-                <label style={lbl}>🔴 Fen (Deadline) *</label>
-                <TimePicker12h value={form.dueTimeEnd} onChange={v => set('dueTimeEnd', v)} color={D.red} />
-              </div>
-            </div>
-            <div style={{ marginTop: 10, fontSize: 10, color: D.muted, lineHeight: 1.7, background: 'rgba(0,0,0,0.2)', borderRadius: 9, padding: '9px 12px' }}>
-              <div style={{ marginBottom: 5, fontWeight: 700, color: timeWindowValid ? D.teal : D.red }}>
-                Fenèt aktyèl: <strong>{windowDisplay}</strong>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span><strong style={{ color: '#00d084' }}>⚡ Avan {format24ToDisplay12(form.dueTime)}</strong> → "Avan lè" (+3 pwen)</span>
-                <span><strong style={{ color: D.green }}>✅ Nan fenèt la ({windowDisplay})</strong> → "Nan lè a" (+1 pwen)</span>
-                <span><strong style={{ color: D.orange }}>⚠️ Apre {format24ToDisplay12(form.dueTimeEnd)}</strong> → "Apre lè" (-1 pwen)</span>
-              </div>
-            </div>
+      {/* Previzyon an dirèk */}
+      <div className="sm-hero" style={{ marginBottom: 14 }}>
+        <span className="ke-eyebrow" style={{ color: '#FFC83D' }}>Previzyon</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0 }}>
+            <p className="nm">{form.name || 'Non plan an'}</p>
+            <p className="sub">{FREQ_LABELS[form.frequency]?.ht || form.frequency}{intervalN > 1 ? ` · touche chak ${intervalN} sik` : ''}</p>
           </div>
-
-          <div style={{ marginTop: 10, background: 'rgba(59,130,246,0.08)', border: `1px solid rgba(59,130,246,0.2)`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 11 }}>
-            <Info size={14} style={{ color: D.blue, flexShrink: 0, marginTop: 1 }} />
-            <div style={{ color: D.muted, lineHeight: 1.6 }}>
-              <strong style={{ color: D.blue }}>Sol Ouvè:</strong> Moun ka antre toutan.{' '}
-              Admin sèlman ka <strong style={{ color: D.text }}>fèmen plan la</strong> lè l vle.
-              {previewMembers > 0 && <><br /><span style={{ color: D.gold }}>Previw ak {previewMembers} manm: Payout = {fmt(payoutM)} HTG</span></>}
-            </div>
+          <div style={{ textAlign: 'right' }}>
+            <p className="big">{fmt(amt)}<small>HTG / moun</small></p>
           </div>
-          <div style={{ marginTop: 10 }}>
-            <label style={{ ...lbl, color: 'rgba(107,122,153,0.8)' }}>Previzyon (pa obligatwa)</label>
-            <input type="number" style={{ ...inp, color: D.muted, fontSize: 12 }}
-              value={form.maxMembers} onChange={e => set('maxMembers', e.target.value)} placeholder="Ex: 20 (previw sèlman)" />
-          </div>
-        </Sec>
-
-        <Sec icon="💰" title="Frè & Amand" col="243,156,18">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={lbl}>Frè pa Manm ki Touche (HTG)</label>
-              <input type="number" style={{ ...inp, color: D.orange }}
-                value={form.feePerMember} onChange={e => set('feePerMember', e.target.value)} placeholder="0" />
-              {fee > 0 && fee === amt && <p style={{ fontSize: 10, color: D.gold, margin: '4px 0 0', fontWeight: 700 }}>= Montan → Plas Pwopriyete Sol!</p>}
-            </div>
-            <div>
-              <label style={lbl}>Amand pou Reta (HTG)</label>
-              <input type="number" style={{ ...inp, color: D.red }}
-                value={form.penalty} onChange={e => set('penalty', e.target.value)} placeholder="0" />
-            </div>
-          </div>
-        </Sec>
-
-        <Sec icon="⚠️" title="Delay Avètisman & Blokaj" col="231,76,60">
-          <div style={{ marginBottom: 10, fontSize: 11, color: D.muted, lineHeight: 1.6 }}>
-            Si yon manm pa peye apre <strong style={{ color: D.text }}>X jou</strong> reta,
-            sistèm ap <strong style={{ color: D.red }}>bloke kont li otomatikman</strong>.
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div>
-              <label style={lbl}>Jou Reta Anvan Avètisman</label>
-              <input type="number" min="0" style={{ ...inp, color: D.orange }}
-                value={form.warningDelayDays}
-                onChange={e => set('warningDelayDays', Number(e.target.value) || 0)} placeholder="3" />
-              <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>0 = pa gen avètisman otomatik</p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', background: 'rgba(231,76,60,0.06)', borderRadius: 10, padding: '10px 12px', fontSize: 11, color: D.muted }}>
-              {Number(form.warningDelayDays) > 0 ? (
-                <>
-                  <span style={{ color: D.orange, fontWeight: 700, marginBottom: 4 }}>⚠️ Avètisman: +{form.warningDelayDays} jou reta</span>
-                  <span style={{ color: D.red, fontWeight: 700 }}>🔒 Blokaj: apre avètisman an</span>
-                </>
-              ) : <span>Blokaj manyèl sèlman</span>}
-            </div>
-          </div>
-        </Sec>
-
-        {/* ✅ NOUVO: Penalite Kanpe — montan fiks (HTG) sou kòb manm nan deja peye */}
-        <Sec icon="⏸️" title="Penalite Kanpe" col="243,156,18">
-          <div style={{ marginBottom: 10, fontSize: 11, color: D.muted, lineHeight: 1.6 }}>
-            Si w <strong style={{ color: D.text }}>kanpe</strong> yon manm ki pa peye pou lontan,
-            yon <strong style={{ color: D.text }}>montan fiks</strong> ap dedwi kòm penalite sou kòb li DEJA peye a.
-            Rès la ap tann li jiskaske plan an fèmen.
-          </div>
-          <label style={lbl}>Montan Penalite (HTG)</label>
-          <input type="number" min="0" style={{ ...inp, color: D.orange }}
-            value={form.stopPenaltyAmount}
-            onChange={e => set('stopPenaltyAmount', Number(e.target.value) || 0)} placeholder="0" />
-          <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0' }}>
-            0 = pa gen penalite — manm nan ap resevwa tout kòb li te peye a lè plan an fèmen.
-            (Si kòb li peye a pi piti pase montan sa a, se sèlman sa l peye a ki dedwi.)
-          </p>
-        </Sec>
-
-        <Sec icon="🗓" title="Frekans Peman">
-          <div className="freq-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(110px,1fr))', gap: 8 }}>
-            {Object.entries(FREQ_LABELS).map(([val, labels]) => (
-              <button key={val} onClick={() => set('frequency', val)} style={{
-                padding: '9px 6px', borderRadius: 9, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                border: `1.5px solid ${form.frequency === val ? D.gold : D.borderSub}`,
-                background: form.frequency === val ? D.goldDim : 'transparent',
-                color: form.frequency === val ? D.gold : D.muted, transition: 'all 0.15s' }}>
-                {labels.ht}
-              </button>
-            ))}
-          </div>
-          <div style={{ marginTop: 14, borderTop: `1px solid ${D.borderSub}`, paddingTop: 13 }}>
-            <label style={lbl}>Touche chak konbyen sik?</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-              {[1, 2, 3, 4].map(n => (
-                <button key={n} onClick={() => set('interval', n)} style={{
-                  width: 40, height: 40, borderRadius: 10, cursor: 'pointer', fontFamily: 'monospace', fontWeight: 800, fontSize: 14, flexShrink: 0,
-                  border: `1.5px solid ${intervalN === n ? D.gold : D.borderSub}`,
-                  background: intervalN === n ? D.goldDim : 'transparent',
-                  color: intervalN === n ? D.gold : D.muted, transition: 'all 0.15s' }}>
-                  {n}
-                </button>
-              ))}
-              <input type="number" min="1" max="52" value={form.interval}
-                onChange={e => set('interval', Math.max(1, Number(e.target.value) || 1))}
-                style={{ ...inp, width: 70, textAlign: 'center', fontFamily: 'monospace', fontWeight: 800,
-                  color: intervalN > 4 ? D.gold : D.muted, fontSize: 15, padding: '8px 6px' }} />
-            </div>
-          </div>
-        </Sec>
-
-        <Sec icon="📜" title="Regleman Sol (Opsyonèl)" col="20,184,166">
-          <textarea rows={3} style={{ ...inp, resize: 'vertical', lineHeight: 1.6, fontSize: 12 }}
-            value={form.regleman} onChange={e => set('regleman', e.target.value)}
-            placeholder="Ex: Tout manm dwe peye avan 8h. Peman anreta gen amand..." />
-        </Sec>
-
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button disabled={loading} onClick={() => {
-            if (!form.name || !form.amount) return toast.error('Non ak montan obligatwa.')
-            if (form.dueTime >= form.dueTimeEnd) return toast.error('⚠️ Lè kòmansman fenèt peman dwe pi piti pase lè fen.')
-            onSave({
-              ...form, amount: Number(form.amount), feePerMember: Number(form.feePerMember || 0),
-              penalty: Number(form.penalty || 0), warningDelayDays: Number(form.warningDelayDays || 0), stopPenaltyAmount: Number(form.stopPenaltyAmount || 0),
-              maxMembers: Number(form.maxMembers || 0), dueTime: form.dueTime || '08:00',
-              dueTimeEnd: form.dueTimeEnd || '15:00', interval: intervalN,
-              startDate: form.startDate || new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0],
-              status: 'open',
-            })
-          }} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer',
-            background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            boxShadow: '0 4px 16px rgba(201,168,76,0.28)' }}>
-            {loading ? <Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={15} />}
-            {loading ? 'Ap sove...' : (isEdit ? 'Sove Chanjman' : 'Kreye Plan')}
-          </button>
         </div>
+        {previewMembers > 0 && amt > 0 && (
+          <p style={{ margin: '12px 0 0', fontSize: 12.5, fontWeight: 700, color: 'rgba(242,241,236,.75)' }}>
+            Ak {previewMembers} manm → chak moun touche <b style={{ color: '#4ade80' }}>{fmt(payoutM)} HTG</b>
+          </p>
+        )}
       </div>
+
+      <Sec icon={<FileText size={15} />} title="Enfòmasyon plan">
+        <div className="ke-col" style={{ gap: 12 }}>
+          <Field label="Non plan *">
+            <input className="ke-input" value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex: Sol 500 Samdi" />
+          </Field>
+          <div className="ke-two-r">
+            <Field label="Montan / moun (HTG) *">
+              <input type="number" inputMode="decimal" className="ke-input" style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }}
+                value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="500" />
+            </Field>
+            <Field label="Dat kòmanse sol *">
+              <input type="date" className="ke-input" value={form.startDate} onChange={e => set('startDate', e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Kantite manm prevwa (opsyonèl)" hint="Pou previzyon sèlman — sol la rete ouvè, moun ka antre toutan.">
+            <input type="number" inputMode="numeric" className="ke-input" value={form.maxMembers} onChange={e => set('maxMembers', e.target.value)} placeholder="Ex: 20" />
+          </Field>
+        </div>
+      </Sec>
+
+      <Sec icon={<Clock size={15} />} title="Fenèt peman" col="124,58,237">
+        <div className="ke-two">
+          <Field label="Kòmansman *"><TimePicker12h value={form.dueTime} onChange={v => set('dueTime', v)} /></Field>
+          <Field label="Fen (limit) *"><TimePicker12h value={form.dueTimeEnd} onChange={v => set('dueTimeEnd', v)} /></Field>
+        </div>
+        <div className="ke-summary">
+          <div className="line"><span>Fenèt aktyèl</span><b style={{ color: timeWindowValid ? T.teal : T.red }}>{windowDisplay}</b></div>
+          <div className="line"><span>Avan {format24ToDisplay12(form.dueTime)}</span><b style={{ color: '#059669' }}>Avan lè · +3 pwen</b></div>
+          <div className="line"><span>Nan fenèt la</span><b style={{ color: T.green }}>Nan lè · +1 pwen</b></div>
+          <div className="line"><span>Apre {format24ToDisplay12(form.dueTimeEnd)}</span><b style={{ color: T.orange }}>Apre lè · -1 pwen</b></div>
+        </div>
+      </Sec>
+
+      <Sec icon={<Repeat size={15} />} title="Frekans peman">
+        <div className="sm-opt">
+          {Object.entries(FREQ_LABELS).map(([val, labels]) => (
+            <button key={val} className={form.frequency === val ? 'on' : ''} onClick={() => set('frequency', val)}>{labels.ht}</button>
+          ))}
+        </div>
+        <div style={{ marginTop: 14 }}>
+          <label className="ke-label">Touche chak konbyen sik?</label>
+          <div className="sm-num">
+            {[1, 2, 3, 4].map(n => (
+              <button key={n} className={intervalN === n ? 'on' : ''} onClick={() => set('interval', n)}>{n}</button>
+            ))}
+            <input type="number" min="1" max="52" value={form.interval} className="ke-input"
+              onChange={e => set('interval', Math.max(1, Number(e.target.value) || 1))}
+              style={{ width: 80, height: 46, textAlign: 'center', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 20 }} />
+          </div>
+        </div>
+      </Sec>
+
+      <Sec icon={<CircleDollarSign size={15} />} title="Frè & amand" col="217,119,6">
+        <div className="ke-two">
+          <Field label="Frè pa manm ki touche" hint={fee > 0 && fee === amt ? '= Montan → plas pwopriyetè sol!' : null}>
+            <input type="number" inputMode="decimal" className="ke-input" value={form.feePerMember} onChange={e => set('feePerMember', e.target.value)} placeholder="0" />
+          </Field>
+          <Field label="Amand pou reta">
+            <input type="number" inputMode="decimal" className="ke-input" value={form.penalty} onChange={e => set('penalty', e.target.value)} placeholder="0" />
+          </Field>
+        </div>
+      </Sec>
+
+      <Sec icon={<ShieldAlert size={15} />} title="Avètisman & blokaj" col="220,38,38">
+        <div className="ke-two-r">
+          <Field label="Jou reta anvan blokaj" hint="0 = blokaj manyèl sèlman">
+            <input type="number" min="0" className="ke-input" value={form.warningDelayDays}
+              onChange={e => set('warningDelayDays', Number(e.target.value) || 0)} placeholder="3" />
+          </Field>
+          <Field label="Penalite kanpe (HTG)" hint="Dedwi sou kòb manm nan deja peye si w kanpe l.">
+            <input type="number" min="0" className="ke-input" value={form.stopPenaltyAmount}
+              onChange={e => set('stopPenaltyAmount', Number(e.target.value) || 0)} placeholder="0" />
+          </Field>
+        </div>
+        {Number(form.warningDelayDays) > 0 && (
+          <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .06), '--cbd': hexA(T.red, .2), marginTop: 12 }}>
+            <Lock size={16} />
+            <div>Kont lan ap <b>bloke otomatikman</b> apre <b>{form.warningDelayDays} jou</b> reta.</div>
+          </div>
+        )}
+      </Sec>
+
+      <Sec icon={<FileText size={15} />} title="Regleman (opsyonèl)" col="13,148,136">
+        <textarea rows={4} className="ke-input" value={form.regleman} onChange={e => set('regleman', e.target.value)}
+          placeholder="Ex: Tout manm dwe peye avan 8h. Peman an reta gen amand..." />
+      </Sec>
     </Modal>
   )
 }
@@ -233,14 +242,15 @@ export function ModalCreatePlan({ onClose, onSave, loading, initialData = null }
 // MODAL: TIRAJ AVÈG
 // ─────────────────────────────────────────────────────────────
 export function ModalBlindDraw({ plan, onClose, onConfirm, loading }) {
+  useSmStyles()
   const eligible = (plan.members || []).filter(m => !m.hasWon && !m.isOwnerSlot && m.status === 'active')
-  const [chosen,   setChosen]  = useState(null)
-  const [drawn,    setDrawn]   = useState(false)
-  const [spinning, setSpin]    = useState(false)
+  const [chosen,   setChosen] = useState(null)
+  const [drawn,    setDrawn]  = useState(false)
+  const [spinning, setSpin]   = useState(false)
 
   const draw = () => {
     if (!eligible.length) return
-    setSpin(true)
+    setSpin(true); setDrawn(false)
     let count = 0
     const max = 20 + Math.floor(Math.random() * 10)
     const iv = setInterval(() => {
@@ -248,98 +258,86 @@ export function ModalBlindDraw({ plan, onClose, onConfirm, loading }) {
       count++
       if (count >= max) {
         clearInterval(iv)
-        const winner = eligible[Math.floor(Math.random() * eligible.length)]
-        setChosen(winner); setDrawn(true); setSpin(false)
+        setChosen(eligible[Math.floor(Math.random() * eligible.length)]); setDrawn(true); setSpin(false)
       }
     }, 80)
   }
 
+  const footer = eligible.length === 0 ? <button className="ke-fbtn" onClick={onClose}>Fèmen</button> : !drawn ? (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main dark" onClick={draw} disabled={spinning}>
+        {spinning ? <><Spinner size={16} /> Ap tire...</> : <><Shuffle size={17} /> Tire</>}
+      </button>
+    </>
+  ) : (
+    <>
+      <button className="ke-fbtn" onClick={draw}><Shuffle size={16} /> Ankò</button>
+      <button className="ke-fbtn main gold" onClick={() => onConfirm(chosen)} disabled={loading}>
+        {loading ? <Spinner size={16} /> : <Trophy size={17} />} {loading ? 'Ap konfime...' : `Konfime ${chosen.name}`}
+      </button>
+    </>
+  )
+
   return (
-    <Modal onClose={onClose} title="🎲 Tiraj Avèg — San Men" width={460}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {eligible.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '24px 0', color: D.muted }}>
-            <Trophy size={36} style={{ marginBottom: 10, opacity: 0.4, display: 'block', margin: '0 auto 10px' }} />
-            <p>Pa gen manm aktif disponib pou tiraj.</p>
+    <Modal onClose={onClose} title="Tiraj avèg" subtitle={`${plan.name} · ${eligible.length} moun kalifye`} icon={<Shuffle size={20} />} width={480} footer={footer}>
+      {eligible.length === 0 ? (
+        <div className="ke-empty" style={{ border: 0, padding: '20px 0' }}>
+          <div className="ke-empty-ic"><Trophy size={28} /></div>
+          <h3>Pa gen moun disponib</h3>
+          <p>Pa gen manm aktif ki poko touche pou tiraj la.</p>
+        </div>
+      ) : (
+        <div className="ke-col" style={{ gap: 14 }}>
+          <div className={`sm-draw ${drawn ? 'done' : ''}`}>
+            {!chosen && !spinning && <p style={{ color: D.muted, fontSize: 14, fontWeight: 700, margin: 0 }}>Peze « Tire » pou kòmanse</p>}
+            {chosen && (
+              <div style={{ animation: drawn ? 'pop .4s ease' : 'none' }}>
+                <span className="ke-eyebrow" style={{ color: drawn ? '#FFC83D' : D.muted }}>{spinning ? 'Ap tire...' : 'Moun chwazi'}</span>
+                <p style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 34, lineHeight: 1.05, textTransform: 'uppercase', margin: '8px 0 4px', filter: spinning ? 'blur(1.5px)' : 'none', color: drawn ? '#f2f1ec' : D.text }}>
+                  {chosen.name}
+                </p>
+                <p style={{ fontSize: 12.5, fontWeight: 700, margin: 0, color: drawn ? 'rgba(242,241,236,.6)' : D.muted }}>Pozisyon {posLabel(plan, chosen)} · {chosen.phone}</p>
+                {drawn && <p style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 36, lineHeight: 1, color: '#4ade80', margin: '12px 0 0' }}>{fmt(memberPayout(plan))} <small style={{ fontSize: 14, color: 'rgba(242,241,236,.55)' }}>HTG</small></p>}
+              </div>
+            )}
           </div>
-        ) : (
-          <>
-            <div style={{ background: D.blueBg, border: `1px solid ${D.blue}30`, borderRadius: 12, padding: '10px 14px', fontSize: 11, color: D.muted, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Shuffle size={14} style={{ color: D.blue, flexShrink: 0 }} />
-              <span>Sèlman manm AKTIF ki patisipe nan tiraj la ({eligible.length} moun).</span>
-            </div>
-            <div style={{ background: chosen ? D.goldDim : 'rgba(255,255,255,0.03)', border: `2px solid ${chosen && drawn ? D.gold : D.borderSub}`, borderRadius: 16, padding: '24px', textAlign: 'center', minHeight: 120, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              {!chosen && !spinning && <p style={{ color: D.muted, fontSize: 13, margin: 0 }}>Klike "Tire" pou kòmanse</p>}
-              {(chosen || spinning) && (
-                <div style={{ animation: drawn ? 'pop 0.4s ease' : 'none' }}>
-                  <p style={{ fontSize: 10, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 8px' }}>
-                    {spinning ? '🎲 Ap tire...' : '🏆 Moun Chwazi'}
-                  </p>
-                  <p style={{ fontSize: 22, fontWeight: 900, color: drawn ? D.gold : D.muted, margin: '0 0 4px', filter: spinning ? 'blur(2px)' : 'none' }}>
-                    {chosen.name}
-                  </p>
-                  <p style={{ fontSize: 12, color: D.muted, margin: '0 0 8px' }}>Pozisyon #{chosen.position} • {chosen.phone}</p>
-                  {drawn && (
-                    <div style={{ background: D.greenBg, border: `1px solid ${D.green}40`, borderRadius: 10, padding: '8px 16px', display: 'inline-block' }}>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, color: D.green }}>{fmt(memberPayout(plan))} HTG</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <div style={{ maxHeight: 160, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {eligible.map(m => (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '7px 11px', borderRadius: 8, background: chosen?.id === m.id ? D.goldDim : 'rgba(255,255,255,0.02)', border: `1px solid ${chosen?.id === m.id ? D.gold : 'transparent'}` }}>
-                  <span style={{ fontSize: 12, color: D.text, fontWeight: chosen?.id === m.id ? 800 : 400 }}>#{m.position} {m.name}</span>
-                  <span style={{ fontSize: 11, color: D.muted }}>{m.phone}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {!drawn ? (
-                <button onClick={draw} disabled={spinning} style={{ flex: 1, padding: '13px', borderRadius: 12, border: 'none', cursor: spinning ? 'default' : 'pointer', background: spinning ? 'rgba(59,130,246,0.3)' : `linear-gradient(135deg,${D.blue},#1d4ed8)`, color: '#fff', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                  {spinning ? <><span style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.5s linear infinite', display: 'inline-block' }} /> Ap tire...</> : <><Shuffle size={16} /> Tire</>}
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => { setChosen(null); setDrawn(false) }} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Tire Ankò</button>
-                  <button onClick={() => onConfirm(chosen)} disabled={loading} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer', background: loading ? 'rgba(201,168,76,0.3)' : D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-                    {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Trophy size={14} />}
-                    {loading ? 'Ap konfime...' : `Konfime ${chosen.name}`}
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+          <div className="sm-hist" style={{ maxHeight: 180 }}>
+            {eligible.map(m => (
+              <div key={m.id} className="sm-hrow" style={chosen?.id === m.id ? { borderColor: D.night, background: D.soft } : undefined}>
+                <span style={{ fontSize: 13, fontWeight: chosen?.id === m.id ? 800 : 600, color: D.text, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <b style={{ fontFamily: 'var(--display)', fontSize: 16, marginRight: 6 }}>{posLabel(plan, m)}</b>{m.name}
+                </span>
+                <span style={{ fontSize: 12, color: D.muted, flexShrink: 0 }}>{m.phone}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Modal>
   )
 }
 
 // ─────────────────────────────────────────────────────────────
-// MODAL: MARK PAYMENT
+// MODAL: MAKE PEMAN
+// ✅ Apre konfimasyon → resi (imaj / PDF / termik) pou pataje
 // ─────────────────────────────────────────────────────────────
 export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
+  useSmStyles()
   const { tenant } = useAuthStore()
-  const today    = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const { today, currentTime } = getHaitiNow()
   const allDates = useMemo(() => getAllPaymentDates(plan), [plan])
   const unpaid   = allDates.filter(d => !member.payments?.[d])
 
-  const [sel,      setSel]   = useState(unpaid.length === 1 ? [unpaid[0]] : [])
-  const [applyFine, setFine] = useState(false)
-  const [pdfReady, setPdfReady] = useState(false)
+  const [sel,       setSel]      = useState(unpaid.length === 1 ? [unpaid[0]] : unpaid.includes(today) ? [today] : [])
+  const [applyFine, setFine]     = useState(false)
+  const [receipt,   setReceipt]  = useState(null)
+  const [saving,    setSaving]   = useState(false)
 
-  // ✅ NOUVO: Lè Manyèl — si plan a aktive `manualPaymentTime`, kesye a ka
-  // antre lè kliyan an REYÈLMAN peye a (pa lè kesye a ap make peman an).
-  // Sa itil lè kliyan peye bonè men kesye a make peman an pita.
   const manualTimeOn = !!plan.manualPaymentTime
-  const nowHaiti = new Date(new Date().getTime() - 5 * 60 * 60 * 1000)
   const [useManualTime, setUseManualTime] = useState(false)
   const [manualDate, setManualDate] = useState(today)
-  const [manualHour, setManualHour] = useState(
-    `${String(nowHaiti.getUTCHours()).padStart(2, '0')}:${String(nowHaiti.getUTCMinutes()).padStart(2, '0')}`
-  )
+  const [manualHour, setManualHour] = useState(currentTime)
 
   const toggle = (d) => setSel(p => p.includes(d) ? p.filter(x => x !== d) : [...p, d])
 
@@ -351,178 +349,152 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 
   const hasPenalty = Number(plan.penalty) > 0
   const lateDates  = sel.filter(d => d < today)
+  const futureSel  = sel.filter(d => d > today)
   const fineAmt    = hasPenalty && applyFine ? lateDates.length * Number(plan.penalty) : 0
   const baseAmt    = sel.length * Number(plan.amount) * slotCount
   const totalAmt   = baseAmt + fineAmt
   const isBlocked  = member.status === 'blocked'
 
-  const handleDownloadPDF = () => {
-    const html     = buildReceiptHTML(plan, member, sel, tenant, 'peman', allPayingSlots)
-    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Resi ${member.name}</title><style>* { box-sizing: border-box; } body { font-family: 'Courier New', monospace; background: #fff; }</style></head><body>${html}</body></html>`
-    const blob = new Blob([fullHtml], { type: 'text/html' })
-    const url  = URL.createObjectURL(blob)
-    const win  = window.open(url, '_blank')
-    if (win) win.onload = () => { setTimeout(() => { win.print(); URL.revokeObjectURL(url) }, 500) }
-  }
-
   const handleConfirm = async () => {
     if (!sel.length) return toast.error('Chwazi omwen yon dat.')
+    setSaving(true)
     const timings = {}; sel.forEach(d => { timings[d] = getPaymentTiming(plan, d) })
     const fines = {}
     if (applyFine && hasPenalty) lateDates.forEach(d => { fines[d] = Number(plan.penalty) })
-    // ✅ NOUVO: si Lè Manyèl aktive epi kesye a chwazi bay lè reyèl la
     const paidAt = (manualTimeOn && useManualTime) ? `${manualDate}T${manualHour}:00` : null
-    onSave(member.id, sel, timings, fines, paidAt)
-    for (const other of samePhoneMembers) {
-      const otherUnpaid = sel.filter(d => !other.payments?.[d])
-      if (otherUnpaid.length > 0) {
-        const otherTimings = {}; otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
-        onSave(other.id, otherUnpaid, otherTimings, {}, paidAt)
+    try {
+      const jobs = [Promise.resolve(onSave(member.id, sel, timings, fines, paidAt))]
+      for (const other of samePhoneMembers) {
+        const otherUnpaid = sel.filter(d => !other.payments?.[d])
+        if (otherUnpaid.length > 0) {
+          const otherTimings = {}; otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
+          jobs.push(Promise.resolve(onSave(other.id, otherUnpaid, otherTimings, {}, paidAt)))
+        }
       }
+      await Promise.all(jobs)
+    } catch {
+      setSaving(false)
+      return  // toast deja parèt nan mutation an
     }
-    await printer.print(plan, member, sel, tenant, 'peman', allPayingSlots)
-    setPdfReady(true)
+    // Manm ak peman yo ajou pou resi a (cache a ka poko rafrechi)
+    const mark = (m, extraFines = {}) => ({
+      ...m,
+      payments: { ...(m.payments || {}), ...Object.fromEntries(sel.map(d => [d, true])) },
+      fines: { ...(m.fines || {}), ...extraFines },
+    })
+    const paidMember = mark(member, fines)
+    const paidSlots  = [paidMember, ...samePhoneMembers.map(o => mark(o))]
+    // Enprimant termik konekte → enprime otomatikman (menm jan anvan)
+    if (printer?.connected) await printer.print(plan, paidMember, sel, tenant, 'peman', paidSlots)
+    setSaving(false)
+    setReceipt({ plan, member: paidMember, paidDates: sel, tenant, type: 'peman', allSlots: paidSlots })
   }
 
+  if (receipt) return <ModalSolReceipt data={receipt} printer={printer} onClose={onClose} />
+
+  const footer = unpaid.length === 0 ? <button className="ke-fbtn" onClick={onClose}>Fèmen</button> : (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main green" onClick={handleConfirm} disabled={saving || printer?.printing || !sel.length}>
+        {saving || printer?.printing ? <Spinner size={16} /> : <CheckCircle size={17} />}
+        {saving ? 'Ap anrejistre...' : `Konfime ${sel.length ? fmt(totalAmt) + ' HTG' : ''}`}
+      </button>
+    </>
+  )
+
   return (
-    <Modal onClose={onClose} title={`✅ Mache Peye — ${member.name}`} width={480}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ background: D.goldDim, borderRadius: 10, padding: '10px 14px', fontSize: 12, color: D.muted }}>
-          <span style={{ color: D.gold, fontWeight: 700 }}>Plan: </span>{plan.name} •
-          <span style={{ color: D.gold, fontWeight: 700 }}> {fmt(plan.amount)} HTG / dat</span>
-          {slotCount > 1 && <span style={{ color: D.blue, fontWeight: 700 }}> × {slotCount} men = <strong>{fmt(plan.amount * slotCount)} HTG/dat</strong></span>}
-          {hasPenalty && <span style={{ color: D.red }}> • Amand reta: {fmt(plan.penalty)} HTG</span>}
+    <Modal onClose={onClose} title="Make peman" subtitle={`${member.name} · ${plan.name}`} icon={<Wallet size={20} />} width={520} footer={footer}>
+      <div className="ke-col" style={{ gap: 12 }}>
+        <div className="sm-hero" style={{ padding: '14px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <span className="ke-eyebrow" style={{ color: 'rgba(242,241,236,.6)' }}>Pa dat</span>
+              <p className="big" style={{ fontSize: 32, margin: '4px 0 0' }}>{fmt(plan.amount * slotCount)}<small>HTG</small></p>
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {slotCount > 1 && <Chip dark icon={<Hash size={11} />}>{slotCount} men × {fmt(plan.amount)}</Chip>}
+              {hasPenalty && <Chip dark icon={<AlertTriangle size={11} />}>Amand {fmt(plan.penalty)}</Chip>}
+              <Chip dark icon={<Clock size={11} />}>{unpaid.length} dat rete</Chip>
+            </div>
+          </div>
         </div>
 
         {isBlocked && (
-          <div style={{ background: D.orangeBg, border: `1px solid ${D.orange}40`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
-            <Lock size={14} style={{ color: D.orange, flexShrink: 0 }} />
-            <span style={{ color: D.orange, fontWeight: 700 }}>Kont sa a bloke. Peman an ap debloke l otomatikman.</span>
+          <div className="ke-alert" style={{ '--c': T.orange, '--cbg': hexA(T.orange, .08), '--cbd': hexA(T.orange, .3), margin: 0 }}>
+            <Lock size={16} /><div>Kont sa a <b>bloke</b>. Peman an ap debloke l otomatikman.</div>
           </div>
         )}
 
-        {/* ✅ NOUVO: Lè Manyèl — antre lè kliyan an REYÈLMAN peye a */}
         {manualTimeOn && unpaid.length > 0 && (
-          <div style={{ background: 'rgba(96,165,250,0.06)', border: `1px solid ${D.blue}30`, borderRadius: 10, padding: '10px 13px' }}>
-            <div onClick={() => setUseManualTime(v => !v)} style={{ display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer' }}>
-              <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: `2px solid ${useManualTime ? D.blue : D.borderSub}`, background: useManualTime ? D.blue : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {useManualTime && <CheckCircle size={11} color="#fff" />}
-              </div>
-              <span style={{ fontSize: 12, fontWeight: 700, color: useManualTime ? D.blue : D.muted, flex: 1 }}>
-                Antre lè kliyan an te REYÈLMAN peye a
-              </span>
+          <div>
+            <div className={`sm-tog ${useManualTime ? 'on' : ''}`} style={{ '--dc': T.violet, '--dbg': hexA(T.violet, .06) }} onClick={() => setUseManualTime(v => !v)}>
+              <div className="sm-box">{useManualTime && <CheckCircle size={13} color="#fff" />}</div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: useManualTime ? T.violet : D.muted, flex: 1 }}>Antre lè kliyan an te reyèlman peye a</span>
+              <Clock size={16} color={useManualTime ? T.violet : D.muted} />
             </div>
             {useManualTime && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)}
-                  style={{ ...inp, padding: '8px 10px', fontSize: 12, flex: 1 }} />
-                <TimePicker12h value={manualHour} onChange={setManualHour} color={D.blue} />
+              <div className="ke-two" style={{ marginTop: 10 }}>
+                <input type="date" className="ke-input" value={manualDate} onChange={e => setManualDate(e.target.value)} />
+                <TimePicker12h value={manualHour} onChange={setManualHour} />
               </div>
             )}
           </div>
         )}
 
         {unpaid.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '20px 0', color: D.green }}>
-            <CheckCircle size={36} style={{ marginBottom: 8, display: 'block', margin: '0 auto 8px' }} />
-            <p style={{ fontWeight: 700 }}>Kliyan sa a ajou nan tout peman l!</p>
+          <div className="ke-empty" style={{ border: 0, padding: '18px 0' }}>
+            <div className="ke-empty-ic" style={{ background: hexA(T.green, .1), color: T.green }}><CheckCircle size={28} /></div>
+            <h3>Kliyan an ajou</h3>
+            <p>Tout peman yo fèt deja.</p>
           </div>
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Chwazi dat ou vle mache kòm peye:</p>
-              <button onClick={() => setSel(unpaid)} style={{ fontSize: 10, color: D.blue, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>Tout chwazi</button>
+              <label className="ke-label" style={{ margin: 0 }}>Chwazi dat yo ({sel.length})</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {sel.length > 0 && <button className="ke-btn ke-btn-soft" style={{ height: 32, padding: '0 11px', fontSize: 12 }} onClick={() => setSel([])}>Retire</button>}
+                <button className="ke-btn ke-btn-soft" style={{ height: 32, padding: '0 11px', fontSize: 12 }} onClick={() => setSel(unpaid)}>Tout</button>
+              </div>
             </div>
 
-            {(() => {
-              const futureSel = sel.filter(d => d > today)
-              if (futureSel.length === 0) return null
-              const depoAmt = futureSel.length * Number(plan.amount) * slotCount
-              return (
-                <div style={{ background: 'rgba(20,184,166,0.08)', border: `1px solid ${D.teal}30`, borderRadius: 10, padding: '10px 13px', display: 'flex', alignItems: 'center', gap: 9, fontSize: 11 }}>
-                  <span style={{ fontSize: 16 }}>💰</span>
-                  <div>
-                    <span style={{ color: D.teal, fontWeight: 700 }}>Depo Rezèv: </span>
-                    <span style={{ color: D.text, fontWeight: 800 }}>{fmt(depoAmt)} HTG</span>
-                    <span style={{ color: D.muted }}> ({futureSel.length} dat alavans)</span>
-                  </div>
-                </div>
-              )
-            })()}
-
-            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <div className="sm-dates">
               {unpaid.map(d => {
-                const isLate   = d < today
-                const isFuture = d > today
-                const montanDat = plan.amount * slotCount
+                const isLate = d < today, isFuture = d > today, isToday = d === today
+                const c = isFuture ? T.teal : isLate ? T.orange : T.green
                 return (
-                  <div key={d} className="pay-date-row" onClick={() => toggle(d)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 13px', borderRadius: 9, cursor: 'pointer', background: sel.includes(d) ? (isFuture ? 'rgba(20,184,166,0.08)' : D.greenBg) : 'rgba(255,255,255,0.03)', border: `1px solid ${sel.includes(d) ? (isFuture ? `${D.teal}40` : `${D.green}40`) : D.borderSub}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontFamily: 'monospace', fontSize: 12, color: D.text }}>{d.split('-').reverse().join('/')}</span>
-                      {isLate && <span style={{ fontSize: 9, background: D.orangeBg, color: D.orange, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>⚠️ Reta</span>}
-                      {isFuture && <span style={{ fontSize: 9, background: 'rgba(20,184,166,0.12)', color: D.teal, padding: '1px 6px', borderRadius: 8, fontWeight: 700 }}>💰 Rezèv</span>}
+                  <div key={d} className={`sm-date ${sel.includes(d) ? 'on' : ''}`} style={{ '--dc': c, '--dbg': hexA(c, .06) }} onClick={() => toggle(d)}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flexWrap: 'wrap' }}>
+                      <div className="sm-box">{sel.includes(d) && <CheckCircle size={13} color="#fff" />}</div>
+                      <span className="d">{dmy(d)}</span>
+                      {isToday && <Chip color={T.green}>Jodi a</Chip>}
+                      {isLate && <Chip color={T.orange} icon={<AlertTriangle size={10} />}>Reta</Chip>}
+                      {isFuture && <Chip color={T.teal} icon={<PiggyBank size={10} />}>Rezèv</Chip>}
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      {slotCount > 1
-                        ? <span style={{ fontSize: 11, color: D.muted }}>{slotCount}×{fmt(plan.amount)} = <strong style={{ color: isFuture ? D.teal : D.gold, marginLeft: 4 }}>{fmt(montanDat)} HTG</strong></span>
-                        : <span style={{ fontSize: 12, fontWeight: 700, color: isFuture ? D.teal : D.gold }}>{fmt(plan.amount)} HTG</span>}
-                      <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: `2px solid ${sel.includes(d) ? (isFuture ? D.teal : D.green) : D.borderSub}`, background: sel.includes(d) ? (isFuture ? D.teal : D.green) : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {sel.includes(d) && <CheckCircle size={11} color="#fff" />}
-                      </div>
-                    </div>
+                    <b style={{ fontFamily: 'var(--display)', fontSize: 18, color: c, whiteSpace: 'nowrap' }}>{fmt(plan.amount * slotCount)}</b>
                   </div>
                 )
               })}
             </div>
 
-            {hasPenalty && lateDates.length > 0 && sel.some(d => d < today) && (
-              <div onClick={() => setFine(p => !p)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 13px', borderRadius: 10, cursor: 'pointer', background: applyFine ? D.redBg : 'rgba(255,255,255,0.03)', border: `1px solid ${applyFine ? `${D.red}40` : D.borderSub}` }}>
-                <div style={{ width: 18, height: 18, borderRadius: 5, flexShrink: 0, border: `2px solid ${applyFine ? D.red : D.borderSub}`, background: applyFine ? D.red : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {applyFine && <CheckCircle size={11} color="#fff" />}
+            {hasPenalty && lateDates.length > 0 && (
+              <div className={`sm-tog ${applyFine ? 'on' : ''}`} style={{ '--dc': T.red, '--dbg': hexA(T.red, .05) }} onClick={() => setFine(p => !p)}>
+                <div className="sm-box">{applyFine && <CheckCircle size={13} color="#fff" />}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: applyFine ? T.red : D.text }}>Ajoute amand reta</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: D.muted }}>{lateDates.length} dat × {fmt(plan.penalty)} = <b style={{ color: T.red }}>{fmt(lateDates.length * Number(plan.penalty))} HTG</b></p>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: applyFine ? D.red : D.muted }}>Ajoute Amand Reta</span>
-                  <span style={{ fontSize: 11, color: D.muted, marginLeft: 8 }}>
-                    {lateDates.length} dat × {fmt(plan.penalty)} = <strong style={{ color: D.red }}>{fmt(lateDates.length * Number(plan.penalty))} HTG</strong>
-                  </span>
-                </div>
-                <AlertTriangle size={14} style={{ color: D.red, flexShrink: 0 }} />
+                <AlertTriangle size={16} color={T.red} />
               </div>
             )}
 
-            <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: fineAmt > 0 ? 4 : 0 }}>
-                <span style={{ fontSize: 12, color: D.green, fontWeight: 700 }}>Peman ({sel.length} dat{slotCount > 1 ? ` × ${slotCount} men` : ''}):</span>
-                <span style={{ fontFamily: 'monospace', fontWeight: 800, color: D.green }}>{fmt(baseAmt)} HTG</span>
+            {sel.length > 0 && (
+              <div className="ke-summary" style={{ marginTop: 0 }}>
+                <div className="line"><span>Peman · {sel.length} dat{slotCount > 1 ? ` × ${slotCount} men` : ''}</span><b>{fmt(baseAmt)} HTG</b></div>
+                {futureSel.length > 0 && <div className="line"><span><PiggyBank size={13} /> Ladan l depo rezèv</span><b style={{ color: T.teal }}>{fmt(futureSel.length * Number(plan.amount) * slotCount)} HTG</b></div>}
+                {fineAmt > 0 && <div className="line"><span>+ Amand</span><b style={{ color: T.red }}>{fmt(fineAmt)} HTG</b></div>}
+                <div className="total"><span>Total</span><b style={{ color: T.green }}>{fmt(totalAmt)} <small style={{ fontSize: 14, color: D.muted }}>HTG</small></b></div>
               </div>
-              {fineAmt > 0 && (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, color: D.red }}>+ Amand:</span>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 700, color: D.red }}>{fmt(fineAmt)} HTG</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${D.green}30`, paddingTop: 6 }}>
-                    <span style={{ fontSize: 12, color: D.green, fontWeight: 800 }}>TOTAL:</span>
-                    <span style={{ fontFamily: 'monospace', fontWeight: 900, color: D.green, fontSize: 14 }}>{fmt(totalAmt)} HTG</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-              {pdfReady && (
-                <button onClick={handleDownloadPDF} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.blue}40`, background: D.blueBg, color: D.blue, cursor: 'pointer', fontWeight: 700, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  📄 PDF
-                </button>
-              )}
-              <button onClick={handleConfirm} disabled={printer.printing || !sel.length} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: printer.printing ? 0.6 : 1 }}>
-                {printer.printing
-                  ? <span style={{ width: 14, height: 14, border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#0a1222', borderRadius: '50%', animation: 'spin 0.8s linear infinite', display: 'inline-block' }} />
-                  : <><CheckCircle size={15} /><Printer size={13} /></>}
-                {printer.printing ? 'Ap enprime...' : 'Konfime + Enprime'}
-              </button>
-            </div>
+            )}
           </>
         )}
       </div>
@@ -536,50 +508,50 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 export function ModalMemberAction({ member, plan, action, onClose, onConfirm, loading }) {
   const [reason, setReason] = useState('')
   const configs = {
-    block:   { title: `🔒 Bloke — ${member.name}`,   color: D.red,    bg: D.redBg,    icon: <Lock size={22} style={{ color: D.red }} />,        desc: 'Kont manm sa a ap bloke.', btnLabel: 'Bloke Kont',          btnColor: `linear-gradient(135deg,${D.red},#8B1A1A)` },
-    unblock: { title: `🔓 Debloke — ${member.name}`, color: D.green,  bg: D.greenBg,  icon: <Unlock size={22} style={{ color: D.green }} />,    desc: 'Admin ap debloke kont manm sa a.',              btnLabel: 'Debloke Kont',        btnColor: `linear-gradient(135deg,${D.green},#145A32)` },
-    stop:    { title: `⏸️ Kanpe — ${member.name}`,   color: D.orange, bg: D.orangeBg, icon: <StopCircle size={22} style={{ color: D.orange }} />, desc: 'Manm sa a ap kanpe patisipasyon li.',           btnLabel: 'Kanpe Patisipasyon',  btnColor: `linear-gradient(135deg,${D.orange},#8B5A00)` },
-    resume:  { title: `▶️ Reprann — ${member.name}`, color: D.blue,   bg: D.blueBg,   icon: <UserCheck size={22} style={{ color: D.blue }} />,  desc: 'Manm sa a ap reprann patisipasyon aktif li.',  btnLabel: 'Reprann Patisipasyon', btnColor: `linear-gradient(135deg,${D.blue},#1A3A8B)` },
+    block:   { title: 'Bloke kont',          color: T.red,    icon: <Lock size={20} />,       desc: 'Kont manm sa a ap bloke. Li p ap ka kontinye san admin debloke l.', btn: 'Bloke kont',          cls: 'red'    },
+    unblock: { title: 'Debloke kont',        color: T.green,  icon: <Unlock size={20} />,     desc: 'Admin ap debloke kont manm sa a.',                                btn: 'Debloke kont',        cls: 'green'  },
+    stop:    { title: 'Kanpe patisipasyon',  color: T.orange, icon: <StopCircle size={20} />, desc: 'Manm sa a ap kanpe patisipasyon li nan sol la.',                   btn: 'Kanpe patisipasyon',  cls: 'orange' },
+    resume:  { title: 'Reprann patisipasyon', color: T.blue,  icon: <UserCheck size={20} />,  desc: 'Manm sa a ap reprann patisipasyon aktif li.',                      btn: 'Reprann',             cls: 'dark'   },
   }
-  const cfg = configs[action]; if (!cfg) return null
+  const cfg = configs[action]
   const stoppedPayout = useMemo(() => {
     if (action !== 'stop') return 0
-    const allDates = getAllPaymentDates(plan)
-    return allDates.filter(d => member.payments?.[d]).length * Number(plan.amount)
+    return getAllPaymentDates(plan).filter(d => member.payments?.[d]).length * Number(plan.amount)
   }, [action, plan, member])
+  if (!cfg) return null
+  const penalty = Math.min(stoppedPayout, Number(plan.stopPenaltyAmount || 0))
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className={`ke-fbtn main ${cfg.cls}`} onClick={() => onConfirm(action, reason)} disabled={loading}>
+        {loading ? <Spinner size={16} /> : cfg.icon} {loading ? 'Ap trete...' : cfg.btn}
+      </button>
+    </>
+  )
 
   return (
-    <Modal onClose={onClose} title={cfg.title} width={440}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: cfg.bg, border: `1px solid ${cfg.color}30`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          {cfg.icon}
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 800, color: cfg.color, margin: '0 0 4px' }}>{member.name}</p>
-            <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>Pozisyon #{member.position} • {member.phone}</p>
+    <Modal onClose={onClose} title={cfg.title} subtitle={`${member.name} · ${posLabel(plan, member)}`} icon={cfg.icon} width={460} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: hexA(cfg.color, .07), border: `1px solid ${hexA(cfg.color, .22)}`, borderRadius: 18, padding: 14 }}>
+          <div style={{ width: 46, height: 46, borderRadius: 15, background: cfg.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{cfg.icon}</div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ margin: 0, fontSize: 15, fontWeight: 800, color: D.text }}>{member.name}</p>
+            <p style={{ margin: '2px 0 0', fontSize: 12.5, color: D.muted, fontWeight: 600 }}>Pozisyon {posLabel(plan, member)} · {member.phone}</p>
           </div>
         </div>
-        <p style={{ fontSize: 12, color: D.muted, margin: 0, lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px' }}>{cfg.desc}</p>
+        <p style={{ fontSize: 13.5, color: '#3a3d48', margin: 0, lineHeight: 1.6 }}>{cfg.desc}</p>
         {action === 'stop' && stoppedPayout > 0 && (
-          <div style={{ background: D.goldDim, border: `1px solid ${D.gold}30`, borderRadius: 10, padding: '10px 14px', fontSize: 12 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: D.muted }}>Kontribisyon li deja fè:</span>
-              <span style={{ fontFamily: 'monospace', fontWeight: 800, color: D.gold }}>{fmt(stoppedPayout)} HTG</span>
-            </div>
-            <p style={{ fontSize: 10, color: D.muted, margin: '6px 0 0' }}>Li ap resevwa montan sa lè sol la fini.</p>
+          <div className="ke-summary" style={{ marginTop: 0 }}>
+            <div className="line"><span>Kontribisyon deja fèt</span><b>{fmt(stoppedPayout)} HTG</b></div>
+            {penalty > 0 && <div className="line"><span>− Penalite kanpe</span><b style={{ color: T.red }}>{fmt(penalty)} HTG</b></div>}
+            <div className="total"><span>L ap resevwa lè plan fèmen</span><b style={{ color: T.goldInk }}>{fmt(stoppedPayout - penalty)}</b></div>
           </div>
         )}
-        <div>
-          <label style={lbl}>Rezon (opsyonèl)</label>
-          <input style={inp} value={reason} onChange={e => setReason(e.target.value)}
+        <Field label="Rezon (opsyonèl)">
+          <input className="ke-input" value={reason} onChange={e => setReason(e.target.value)}
             placeholder={action === 'stop' ? 'Ex: Moun lan demenaje...' : 'Ex: Ariye regle...'} />
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button onClick={() => onConfirm(action, reason)} disabled={loading} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer', background: loading ? 'rgba(201,168,76,0.3)' : cfg.btnColor, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : null}
-            {loading ? 'Ap trete...' : cfg.btnLabel}
-          </button>
-        </div>
+        </Field>
       </div>
     </Modal>
   )
@@ -589,36 +561,33 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
 // MODAL: DEKLARE DAT PEMAN (pwomès — SEPARE de "Konfime Touche")
 // ─────────────────────────────────────────────────────────────
 export function ModalDeclarePayout({ member, plan, onClose, onConfirm, loading }) {
-  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const [date, setDate] = useState(member.declaredPayoutDate
-    ? String(member.declaredPayoutDate).split('T')[0]
-    : today)
+  const { today } = getHaitiNow()
+  const [date, setDate] = useState(member.declaredPayoutDate ? String(member.declaredPayoutDate).split('T')[0] : today)
+  const auto = getPayoutDate(plan, member.position)
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main dark" onClick={() => onConfirm(date)} disabled={loading || !date}>
+        {loading ? <Spinner size={16} /> : <Calendar size={17} />} {loading ? 'Ap sove...' : 'Deklare dat la'}
+      </button>
+    </>
+  )
 
   return (
-    <Modal onClose={onClose} title={`📅 Deklare Dat Peman — ${member.name}`} width={420}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: D.blueBg, border: `1px solid ${D.blue}30`, borderRadius: 12, padding: '14px 16px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <Calendar size={22} style={{ color: D.blue, flexShrink: 0 }} />
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 800, color: D.blue, margin: '0 0 4px' }}>{member.name}</p>
-            <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{member.phone}</p>
-          </div>
+    <Modal onClose={onClose} title="Deklare dat peman" subtitle={`${member.name} · ${member.phone}`} icon={<CalendarDays size={20} />} width={440} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div className="sm-hero" style={{ textAlign: 'center' }}>
+          <span className="ke-eyebrow" style={{ color: '#FFC83D' }}>Dat pwomès</span>
+          <p className="big" style={{ fontSize: 46, color: '#f2f1ec' }}>{date ? dmy(date) : '—'}</p>
+          {auto && <p className="sub">Dat otomatik pozisyon an: {dmy(auto)}</p>}
         </div>
-        <p style={{ fontSize: 12, color: D.muted, margin: 0, lineHeight: 1.7, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: '10px 13px' }}>
-          Sa a se yon <strong style={{ color: D.text }}>pwomès dat</strong> — li PA mache manm nan kòm touche.
-          Manm nan ap wè dat sa a nan kont sol li. Lè peman an fèt tout bon, itilize <strong style={{ color: D.gold }}>Konfime Touche</strong>.
-        </p>
-        <div>
-          <label style={lbl}>Dat li pral touche</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inp} />
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button onClick={() => onConfirm(date)} disabled={loading || !date}
-            style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: loading ? 'default' : 'pointer', background: loading ? 'rgba(96,165,250,0.3)' : `linear-gradient(135deg,${D.blue},#1A3A8B)`, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Calendar size={14} />}
-            {loading ? 'Ap sove...' : 'Deklare Dat la'}
-          </button>
+        <Field label="Dat li pral touche">
+          <input type="date" className="ke-input" value={date} onChange={e => setDate(e.target.value)} />
+        </Field>
+        <div className="ke-alert" style={{ '--c': T.blue, '--cbg': hexA(T.blue, .06), '--cbd': hexA(T.blue, .2), margin: 0 }}>
+          <Info size={16} />
+          <div>Sa a se yon <b>pwomès dat</b> — li PA make manm nan kòm touche. Manm nan ap wè dat la nan kont sol li. Lè peman an fèt tout bon, itilize <b>Konfime touche</b>.</div>
         </div>
       </div>
     </Modal>
@@ -630,50 +599,41 @@ export function ModalDeclarePayout({ member, plan, onClose, onConfirm, loading }
 // ─────────────────────────────────────────────────────────────
 export function ModalClosePlan({ plan, onClose, onConfirm, loading }) {
   const [confirm, setConfirm] = useState('')
-  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
-  const activeMembers    = (plan.members || []).filter(m => m.status !== 'stopped' && !m.hasWon)
-  const pendingPayout    = activeMembers.filter(m => !m.hasWon).length
-  const totalToDistribute = activeMembers.reduce((a, m) => {
-    const allD = getAllPaymentDates(plan)
-    return a + allD.filter(d => m.payments?.[d]).length * Number(plan.amount)
-  }, 0)
+  const allD              = useMemo(() => getAllPaymentDates(plan), [plan])
+  const activeMembers     = (plan.members || []).filter(m => m.status !== 'stopped' && !m.hasWon)
+  const pendingPayout     = activeMembers.length
+  const totalToDistribute = activeMembers.reduce((a, m) => a + allD.filter(d => m.payments?.[d]).length * Number(plan.amount), 0)
+  const ok = confirm === 'FEMEN'
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main red" onClick={onConfirm} disabled={loading || !ok}>
+        {loading ? <Spinner size={16} /> : <StopCircle size={17} />} {loading ? 'Ap fèmen...' : 'Fèmen definitivman'}
+      </button>
+    </>
+  )
 
   return (
-    <Modal onClose={onClose} title="🛑 Fèmen Plan Sol la" width={460}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: D.redBg, border: `1px solid ${D.red}30`, borderRadius: 12, padding: '12px 16px', fontSize: 12, color: D.muted, lineHeight: 1.7 }}>
-          <p style={{ color: D.red, fontWeight: 800, fontSize: 13, margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <AlertCircle size={15} /> Aksyon sa pa ka defèt!
-          </p>
-          Plan <strong style={{ color: D.text }}>{plan.name}</strong> ap fèmen definitiv.
+    <Modal onClose={onClose} title="Fèmen plan sol la" subtitle={plan.name} icon={<StopCircle size={20} />} width={480} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .07), '--cbd': hexA(T.red, .25), margin: 0 }}>
+          <AlertCircle size={17} /><div><b>Aksyon sa pa ka defèt!</b> Plan <b>{plan.name}</b> ap fèmen definitivman.</div>
         </div>
-        <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 12, padding: '12px 16px' }}>
-          <div style={{ fontSize: 11, color: D.muted, display: 'flex', flexDirection: 'column', gap: 7 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Total manm aktif:</span><span style={{ color: D.text, fontWeight: 700 }}>{activeMembers.length}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Manm ki poko touche:</span><span style={{ color: D.orange, fontWeight: 700 }}>{pendingPayout}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${D.border}`, paddingTop: 7 }}>
-              <span>Total kolekte:</span>
-              <span style={{ color: D.green, fontWeight: 800, fontFamily: 'monospace' }}>{fmt(totalToDistribute)} HTG</span>
-            </div>
-          </div>
+        <div className="sm-kv">
+          <div><p className="ke-label-s">Manm aktif</p><p className="v">{activeMembers.length}</p></div>
+          <div><p className="ke-label-s">Poko touche</p><p className="v" style={{ color: T.orange }}>{pendingPayout}</p></div>
+          <div><p className="ke-label-s">Total kolekte</p><p className="v" style={{ color: T.green }}>{fmt(totalToDistribute)}</p></div>
         </div>
         {pendingPayout > 0 && (
-          <div style={{ background: D.goldDim, border: `1px solid ${D.gold}30`, borderRadius: 10, padding: '10px 13px', fontSize: 11, color: D.muted }}>
-            <span style={{ color: D.gold, fontWeight: 700 }}>⚠️ Enpòtan:</span> {pendingPayout} manm poko touche.
+          <div className="ke-alert" style={{ '--c': T.orange, '--cbg': hexA(T.orange, .08), '--cbd': hexA(T.orange, .3), margin: 0 }}>
+            <AlertTriangle size={16} /><div><b>{pendingPayout} manm</b> poko touche.</div>
           </div>
         )}
-        <div>
-          <label style={lbl}>Tape "FEMEN" pou konfime</label>
-          <input style={{ ...inp, textAlign: 'center', fontWeight: 800, fontSize: 15, borderColor: confirm === 'FEMEN' ? D.red : undefined }}
+        <Field label='Tape "FEMEN" pou konfime'>
+          <input className={`ke-input ${confirm && !ok ? 'err' : ''}`} style={{ textAlign: 'center', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 24, letterSpacing: '.18em', borderColor: ok ? T.red : undefined }}
             value={confirm} onChange={e => setConfirm(e.target.value.toUpperCase())} placeholder="FEMEN" />
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button onClick={onConfirm} disabled={loading || confirm !== 'FEMEN'} style={{ flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: (loading || confirm !== 'FEMEN') ? 'not-allowed' : 'pointer', background: (loading || confirm !== 'FEMEN') ? 'rgba(231,76,60,0.3)' : `linear-gradient(135deg,${D.red},#8B1A1A)`, color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, opacity: confirm !== 'FEMEN' ? 0.5 : 1 }}>
-            {loading ? <Loader size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <StopCircle size={14} />}
-            {loading ? 'Ap fèmen...' : 'Fèmen Plan Definitiv'}
-          </button>
-        </div>
+        </Field>
       </div>
     </Modal>
   )
@@ -683,55 +643,67 @@ export function ModalClosePlan({ plan, onClose, onConfirm, loading }) {
 // MODAL: KREDANSYÈL
 // ─────────────────────────────────────────────────────────────
 export function ModalMemberCredentials({ member, credentials, onClose, positions, payoutDates }) {
+  useSmStyles()
   const [copied, setCopied] = useState(false)
   const isExisting = credentials?.isExisting
+  const url = 'https://app.plusgroupe.com/app/sol/login'
   const text = isExisting
-    ? `Non: ${member.name}\nItilizatè: ${credentials.username}\nURL: https://app.plusgroupe.com/app/sol/login`
-    : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: https://app.plusgroupe.com/app/sol/login`
-  const copy = () => navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000) })
+    ? `Non: ${member.name}\nItilizatè: ${credentials.username}\nURL: ${url}`
+    : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: ${url}`
+  const copy = () => navigator.clipboard?.writeText(text)
+    .then(() => { setCopied(true); toast.success('Kopye!'); setTimeout(() => setCopied(false), 2000) })
+    .catch(() => toast.error('Pa ka kopye.'))
+  const share = async () => {
+    if (navigator.share) { try { await navigator.share({ title: 'Kont Sol', text }) } catch { /* anile */ } }
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
+  }
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={copy}>{copied ? <CheckCircle size={17} color={T.green} /> : <Copy size={17} />} {copied ? 'Kopye' : 'Kopye'}</button>
+      <button className="ke-fbtn" onClick={share}><Share2 size={17} /> Voye</button>
+      <button className="ke-fbtn main gold" onClick={onClose}>Fini</button>
+    </>
+  )
 
   return (
-    <Modal onClose={onClose} title={isExisting ? '🔗 Pozisyon Ajoute!' : '🔑 Kont Kliyan Kreye!'} width={420}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: isExisting ? 'rgba(20,184,166,0.1)' : D.greenBg, border: `1px solid ${isExisting ? D.teal : D.green}30`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <UserCheck size={22} style={{ color: isExisting ? D.teal : D.green, flexShrink: 0 }} />
-          <p style={{ fontSize: 13, fontWeight: 800, color: isExisting ? D.teal : D.green, margin: 0 }}>
-            {isExisting ? `Men ajoute pou ${member.name}` : `Kont kreye pou ${member.name}`}
-          </p>
+    <Modal onClose={onClose} title={isExisting ? 'Pozisyon ajoute' : 'Kont kliyan kreye'} subtitle={member.name} icon={<Key size={20} />} width={460} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div className="sm-hero">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 15, background: '#4ade80', color: '#0b0c0f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><UserCheck size={22} /></div>
+            <div style={{ minWidth: 0 }}>
+              <p className="nm" style={{ fontSize: 22 }}>{member.name}</p>
+              <p className="sub">{isExisting ? 'Nouvo men ajoute sou kont li' : 'Kont sol la pare'}</p>
+            </div>
+          </div>
         </div>
+
         {positions && positions.length > 0 && (
-          <div style={{ background: D.goldDim, borderRadius: 12, padding: '11px 14px' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: D.gold, textTransform: 'uppercase', margin: '0 0 8px' }}>Men Enskri</p>
+          <div className="sm-hist" style={{ maxHeight: 160 }}>
             {positions.map(p => (
-              <div key={p} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '5px 8px', background: 'rgba(0,0,0,0.2)', borderRadius: 7, marginBottom: 4 }}>
-                <span style={{ color: D.text, fontWeight: 600 }}>Men #{p}</span>
-                <span style={{ color: D.muted }}>📅 {payoutDates?.[p]?.split('-').reverse().join('/') || '—'}</span>
+              <div key={p} className="sm-hrow">
+                <span className="d">Men #{p}</span>
+                <Chip color={T.blue} icon={<Calendar size={10} />}>{payoutDates?.[p] ? dmy(payoutDates[p]) : '—'}</Chip>
               </div>
             ))}
           </div>
         )}
-        <div style={{ background: D.purpleBg, border: `1px solid rgba(155,89,182,0.20)`, borderRadius: 14, padding: '16px' }}>
-          <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', margin: '0 0 12px', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Key size={11} /> Enfòmasyon Koneksyon
-          </p>
-          <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>URL Login</div>
-          <div style={{ fontFamily: 'monospace', fontSize: 11, color: D.teal, background: 'rgba(0,0,0,0.25)', padding: '7px 12px', borderRadius: 8, marginBottom: 10 }}>app.plusgroupe.com/app/sol/login</div>
-          <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Non Itilizatè</div>
-          <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.text, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, marginBottom: 10 }}>{credentials?.username}</div>
+
+        <div className="ke-col" style={{ gap: 10 }}>
+          <div><label className="ke-label"><Link2 size={11} style={{ verticalAlign: '-1px' }} /> URL koneksyon</label><div className="sm-cred" style={{ color: T.teal, fontSize: 13 }}>app.plusgroupe.com/app/sol/login</div></div>
+          <div><label className="ke-label">Non itilizatè</label><div className="sm-cred" style={{ fontSize: 18 }}>{credentials?.username}</div></div>
           {!isExisting && credentials?.password && (
-            <>
-              <div style={{ fontSize: 10, color: D.muted, marginBottom: 4 }}>Modpas Pwovizwa</div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 22, color: D.gold, background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: 8, letterSpacing: '0.15em', textAlign: 'center' }}>{credentials.password}</div>
-            </>
+            <div><label className="ke-label">Modpas pwovizwa</label>
+              <div className="sm-cred" style={{ background: D.night, color: '#FFC83D', fontFamily: 'var(--display)', fontSize: 30, letterSpacing: '.18em', textAlign: 'center' }}>{credentials.password}</div>
+            </div>
           )}
         </div>
-        {!isExisting && <p style={{ fontSize: 11, color: D.muted, margin: 0, background: D.redBg, borderRadius: 8, padding: '8px 12px' }}>⚠️ Note modpas sa kounye a. Kliyan dwe chanje l apre premye koneksyon.</p>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={copy} style={{ flex: 1, padding: '11px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'rgba(255,255,255,0.05)', color: copied ? D.green : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-            {copied ? '✅ Kopye!' : '📋 Kopye'}
-          </button>
-          <button onClick={onClose} style={{ flex: 2, padding: '11px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', cursor: 'pointer', fontWeight: 800, fontSize: 13 }}>Fèmen</button>
-        </div>
+        {!isExisting && (
+          <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .06), '--cbd': hexA(T.red, .2), margin: 0 }}>
+            <AlertTriangle size={16} /><div>Note modpas sa kounye a. Kliyan an dwe chanje l apre premye koneksyon.</div>
+          </div>
+        )}
       </div>
     </Modal>
   )
@@ -739,252 +711,209 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
 
 // ─────────────────────────────────────────────────────────────
 // KONT VITYÈL MANM
+// ✅ Pataje kont lan an imaj, pataje resi chak peman
 // ─────────────────────────────────────────────────────────────
 export function MemberVirtualAccount({ member, plan, onClose, printer, allMemberSlots }) {
+  useSmStyles()
   const { tenant } = useAuthStore()
   const allDates   = useMemo(() => getAllPaymentDates(plan), [plan])
   const multiSlots = allMemberSlots && allMemberSlots.length > 1
   const [activeSlotIdx, setActiveSlotIdx] = useState(0)
   const activeMember = multiSlots ? allMemberSlots[activeSlotIdx] : member
   const [solAccount, setSolAccount] = useState(null)
+  const [share, setShare] = useState(null)
+  const [showPass, setShowPass] = useState(false)
 
-  const today = new Date(new Date().getTime() - 5 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const { today, currentTime } = getHaitiNow()
 
   useEffect(() => {
+    let alive = true
     const fetchSolAccount = async () => {
       try {
         const { token } = useAuthStore.getState()
         const slug = localStorage.getItem('plusgroup-slug')
         const res  = await fetch(`${API_URL}/sol/members/${activeMember.id}/check`,
           { headers: { Authorization: `Bearer ${token}`, 'X-Tenant-Slug': slug || '' } })
-        if (res.ok) { const data = await res.json(); setSolAccount(data.account || null) }
-      } catch { }
+        if (res.ok && alive) { const data = await res.json(); setSolAccount(data.account || null) }
+      } catch { /* pa gen kont sol */ }
     }
     fetchSolAccount()
+    return () => { alive = false }
   }, [activeMember.id])
 
-  const isOwner    = activeMember.isOwnerSlot
-  const payoutDate = getPayoutDate(plan, activeMember.position)
+  const isOwner      = activeMember.isOwnerSlot
+  const payoutDate   = getPayoutDate(plan, activeMember.position)
   const allSlotsList = allMemberSlots || [activeMember]
 
-  const totalPaid = allSlotsList.reduce((acc, slot) =>
-    acc + allDates.filter(d => slot.payments?.[d] && d <= today).length, 0)
+  const totalPaid = allSlotsList.reduce((acc, slot) => acc + allDates.filter(d => slot.payments?.[d] && d <= today).length, 0)
   const totalDue  = allDates.filter(d => d <= today).length
   const amtPaid   = totalPaid * plan.amount
   const amtDue    = totalDue * plan.amount * allSlotsList.length
   const depoRezev = allSlotsList.reduce((acc, slot) => acc + calcMemberDepoRezev(slot, plan, today), 0)
   const payout    = isOwner ? ownerPayout(plan) : memberPayout(plan)
-  const progress  = allDates.length > 0 ? (totalPaid / allDates.length) * 100 : 0
+  const paidAll   = allDates.filter(d => activeMember.payments?.[d]).length
+  const progress  = allDates.length > 0 ? (paidAll / allDates.length) * 100 : 0
   const scoreData = getMemberScore(activeMember)
   const fineTotal = Object.values(activeMember.fines || {}).reduce((a, b) => a + Number(b), 0)
-  const memberStatus = computeMemberStatus(activeMember, plan, today)
+  const memberStatus = computeMemberStatus(activeMember, plan, today, currentTime)
 
-  const totalMbrs       = (plan.members || []).filter(m => m.status !== 'stopped').length
-  const totalPaidAll    = (plan.members || []).reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d] && d <= today).length * plan.amount, 0)
+  const totalMbrs        = (plan.members || []).filter(m => m.status !== 'stopped').length
+  const totalPaidAll     = (plan.members || []).filter(m => m.status !== 'stopped').reduce((acc, m) => acc + allDates.filter(d => m.payments?.[d] && d <= today).length * plan.amount, 0)
   const totalExpectedAll = totalMbrs * totalDue * plan.amount
-  const solProgress     = totalExpectedAll > 0 ? (totalPaidAll / totalExpectedAll) * 100 : 0
+  const solProgress      = totalExpectedAll > 0 ? (totalPaidAll / totalExpectedAll) * 100 : 0
 
-  const tBadge = (t) => {
-    if (t === 'early')  return <span style={{ fontSize: 8, background: 'rgba(0,208,132,0.15)', color: '#00d084', padding: '1px 5px', borderRadius: 8, fontWeight: 700 }}>⚡ Bonè</span>
-    if (t === 'onTime') return <span style={{ fontSize: 8, background: D.greenBg, color: D.green, padding: '1px 5px', borderRadius: 8, fontWeight: 700 }}>✅ Atètan</span>
-    if (t === 'late')   return <span style={{ fontSize: 8, background: D.orangeBg, color: D.orange, padding: '1px 5px', borderRadius: 8, fontWeight: 700 }}>⚠️ Reta</span>
+  const tChip = (t) => {
+    if (t === 'early')  return <Chip color="#059669">Bonè</Chip>
+    if (t === 'onTime') return <Chip color={T.green}>A lè</Chip>
+    if (t === 'late')   return <Chip color={T.orange}>Reta</Chip>
     return null
   }
 
-  return (
-    <Modal onClose={onClose} title={`💳 Kont — ${activeMember.name}`} width={540}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {multiSlots && (
-            <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 10, color: D.muted, fontWeight: 700, alignSelf: 'center', marginRight: 4 }}>MEN:</span>
-              {allMemberSlots.map((slot, idx) => (
-                <button key={slot.id || idx} onClick={() => setActiveSlotIdx(idx)} style={{ padding: '6px 13px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700, border: 'none', background: activeSlotIdx === idx ? D.blueBg : 'rgba(255,255,255,0.05)', color: activeSlotIdx === idx ? D.blue : D.muted, outline: activeSlotIdx === idx ? `1.5px solid ${D.blue}` : '1.5px solid transparent' }}>
-                  Men #{slot.position}
-                  {getPayoutDate(plan, slot.position) && (
-                    <span style={{ fontSize: 9, color: D.muted, marginLeft: 5 }}>📅 {getPayoutDate(plan, slot.position)?.split('-').reverse().join('/')}</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-          <MemberStatusBadge status={memberStatus} />
-        </div>
+  const shareData = (type, dates = []) => ({ plan, member: activeMember, paidDates: dates, tenant, type, allSlots: allMemberSlots || [activeMember] })
 
-        <div style={{ background: isOwner ? D.goldBtn : 'linear-gradient(135deg,#1B2A8F,#0d1b2a)', border: isOwner ? 'none' : `1px solid ${D.border}`, borderRadius: 14, padding: '16px 18px', color: isOwner ? '#0a1222' : D.text }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-            <div>
-              <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 2px' }}>{activeMember.name} {isOwner && '★'}</p>
-              <p style={{ fontSize: 11, opacity: 0.65, margin: 0 }}>{activeMember.phone}</p>
-              <p style={{ fontSize: 10, opacity: 0.6, margin: '3px 0 0' }}>Pozisyon #{activeMember.position} • {plan.name}</p>
+  if (share) return <ModalSolReceipt data={share} printer={printer} onClose={() => setShare(null)} />
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime kont" disabled={printer.printing}
+        onClick={() => printer.print(plan, activeMember, [], tenant, 'kont')}>
+        {printer.printing ? <Spinner size={16} /> : <Printer size={18} />}
+      </button>
+      <button className="ke-fbtn" onClick={onClose}>Fèmen</button>
+      <button className="ke-fbtn main dark" onClick={() => setShare(shareData('kont'))}><Share2 size={17} /> Pataje kont</button>
+    </>
+  )
+
+  return (
+    <Modal onClose={onClose} title="Kont manm" subtitle={`${plan.name} · ${activeMember.name}`} icon={<Wallet size={20} />} width={580} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        {multiSlots && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="ke-label-s" style={{ marginRight: 4 }}>Men</span>
+            {allMemberSlots.map((slot, idx) => (
+              <button key={slot.id || idx} className={`sm-slot ${activeSlotIdx === idx ? 'on' : ''}`} onClick={() => setActiveSlotIdx(idx)}>
+                {posLabel(plan, slot)}
+                {getPayoutDate(plan, slot.position) && <span style={{ fontSize: 11, opacity: .7 }}>· {dmy(getPayoutDate(plan, slot.position))}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Kat kont lan */}
+        <div className="sm-hero" style={isOwner ? { background: 'linear-gradient(135deg,#FFD45C,#E0A410)', color: '#0b0c0f' } : undefined}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ minWidth: 0 }}>
+              <p className="nm">{activeMember.name} {isOwner && '★'}</p>
+              <p className="sub" style={isOwner ? { color: 'rgba(11,12,15,.65)' } : undefined}>
+                <Phone size={11} style={{ verticalAlign: '-1px' }} /> {activeMember.phone} · Pozisyon {posLabel(plan, activeMember)}
+                {activeMember.permanentId ? ` · ID ${activeMember.permanentId}` : ''}
+              </p>
+              <div style={{ marginTop: 10 }}><MemberStatusBadge status={memberStatus} /></div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: 9, opacity: 0.6, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>Kontribisyon</p>
-              <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, margin: '0 0 2px' }}>{fmt(amtPaid)} HTG</p>
-              <p style={{ fontSize: 9, opacity: 0.5, margin: 0 }}>{totalPaid}/{allDates.length} peman</p>
+              <span className="ke-eyebrow" style={{ color: isOwner ? 'rgba(11,12,15,.6)' : 'rgba(242,241,236,.6)' }}>Kontribisyon</span>
+              <p className="big" style={isOwner ? { color: '#0b0c0f' } : undefined}>{fmt(amtPaid)}<small style={isOwner ? { color: 'rgba(11,12,15,.55)' } : undefined}>HTG</small></p>
+              <p className="sub" style={isOwner ? { color: 'rgba(11,12,15,.65)' } : undefined}>{paidAll}/{allDates.length} peman</p>
             </div>
           </div>
+          <div style={{ marginTop: 14 }}><Track pct={progress} color={isOwner ? '#0b0c0f' : '#FFC83D'} dark={!isOwner} /></div>
         </div>
-
-        {depoRezev > 0 && (
-          <div style={{ background: 'rgba(20,184,166,0.10)', border: `1px solid ${D.teal}35`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontSize: 22 }}>💰</span>
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 800, color: D.teal, margin: '0 0 2px' }}>Depo Rezèv Disponib</p>
-                <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>Kòb peye alavans pou jou ki vini</p>
-              </div>
-            </div>
-            <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 18, color: D.teal }}>{fmt(depoRezev)} HTG</div>
-              <div style={{ fontSize: 9, color: D.muted }}>alavans</div>
-            </div>
-          </div>
-        )}
 
         {memberStatus === 'blocked' && (
-          <div style={{ background: D.redBg, border: `1px solid ${D.red}40`, borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 9, fontSize: 12 }}>
-            <Lock size={16} style={{ color: D.red, flexShrink: 0 }} />
-            <div>
-              <p style={{ fontWeight: 800, color: D.red, margin: '0 0 2px' }}>🔒 Kont Bloke</p>
-              <p style={{ color: D.muted, margin: 0, fontSize: 11 }}>Manm sa dwe peye ariye. Sèlman admin ka debloke l.</p>
-            </div>
+          <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .07), '--cbd': hexA(T.red, .25), margin: 0 }}>
+            <Lock size={16} /><div><b>Kont bloke.</b> Manm sa dwe peye ariye. Sèlman admin ka debloke l.</div>
           </div>
         )}
-
         {activeMember.status === 'stopped' && (
-          <div style={{ background: D.orangeBg, border: `1px solid ${D.orange}40`, borderRadius: 12, padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 9, fontSize: 12 }}>
-            <StopCircle size={16} style={{ color: D.orange, flexShrink: 0 }} />
-            <div>
-              <p style={{ fontWeight: 800, color: D.orange, margin: '0 0 2px' }}>⏸️ Kanpe</p>
-              <p style={{ color: D.muted, margin: 0, fontSize: 11 }}>Li ap resevwa <strong style={{ color: D.gold }}>{fmt(amtPaid)} HTG</strong> lè sol la fini.</p>
-            </div>
+          <div className="ke-alert" style={{ '--c': T.orange, '--cbg': hexA(T.orange, .08), '--cbd': hexA(T.orange, .3), margin: 0 }}>
+            <StopCircle size={16} /><div><b>Kanpe.</b> Li ap resevwa <b>{fmt(Number(activeMember.stopRefundAmount ?? amtPaid))} HTG</b> lè sol la fini.</div>
           </div>
         )}
 
-        <div style={{ background: 'rgba(59,130,246,0.06)', border: `1px solid rgba(59,130,246,0.15)`, borderRadius: 12, padding: '12px 14px' }}>
-          <p style={{ fontSize: 10, fontWeight: 800, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <TrendingUp size={11} /> Evolisyon Sol la ({totalMbrs} manm aktif)
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: 11 }}>
-            <span style={{ color: D.muted }}>Total kolekte vs atann:</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: D.blue }}>{fmt(totalPaidAll)} / {fmt(totalExpectedAll)} HTG</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ height: '100%', width: `${Math.min(100, solProgress)}%`, background: 'linear-gradient(90deg,#3B82F6,#1B2A8F)', borderRadius: 8 }} />
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: D.muted }}>
-            <span>Sol la: <strong style={{ color: solProgress >= 90 ? D.green : solProgress >= 60 ? D.orange : D.red }}>{Math.round(solProgress)}% ajou</strong></span>
-            <span>Kalandriye: <strong style={{ color: D.text }}>{allDates.length} sik total</strong></span>
-          </div>
+        <div className="sm-kv">
+          <div><p className="ke-label-s">Deja peye</p><p className="v" style={{ color: T.green }}>{fmt(amtPaid)}</p></div>
+          <div><p className="ke-label-s">Rès pou peye</p><p className="v" style={{ color: T.red }}>{fmt(Math.max(0, amtDue - amtPaid))}</p></div>
+          <div><p className="ke-label-s">Ap touche</p><p className="v" style={{ color: T.goldInk }}>{fmt(payout)}</p></div>
+          <div><p className="ke-label-s">Dat touche</p><p className="v" style={{ color: T.blue }}>{payoutDate ? dmy(payoutDate) : '—'}</p></div>
+          {depoRezev > 0 && <div><p className="ke-label-s">Depo rezèv</p><p className="v" style={{ color: T.teal }}>{fmt(depoRezev)}</p></div>}
+          {fineTotal > 0 && <div><p className="ke-label-s">Amand</p><p className="v" style={{ color: T.red }}>{fmt(fineTotal)}</p></div>}
         </div>
 
-        <div className="vacct-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(100px,1fr))', gap: 8 }}>
-          {[
-            { label: 'Deja Peye',     val: `${fmt(amtPaid)} HTG`,                       color: D.green },
-            { label: 'Rès pou Peye', val: `${fmt(Math.max(0, amtDue - amtPaid))} HTG`, color: D.red   },
-            { label: 'Depo Rezèv 💰', val: `${fmt(depoRezev)} HTG`,                     color: D.teal  },
-            { label: 'Ap Touche',    val: `${fmt(payout)} HTG`,                         color: D.gold  },
-            { label: 'Dat Touche',   val: payoutDate ? payoutDate.split('-').reverse().join('/') : '—', color: D.blue },
-          ].map(({ label, val, color }) => (
-            <div key={label} style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 10, padding: '10px 12px', textAlign: 'center' }}>
-              <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', fontWeight: 700, marginBottom: 4 }}>{label}</div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 12, color, wordBreak: 'break-word' }}>{val}</div>
-            </div>
-          ))}
-        </div>
-
-        {fineTotal > 0 && (
-          <div style={{ background: D.redBg, border: `1px solid ${D.red}30`, borderRadius: 10, padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: D.red, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 7 }}><AlertTriangle size={14} /> Total Amand Reta</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 900, color: D.red }}>{fmt(fineTotal)} HTG</span>
+        {/* Evolisyon sol la */}
+        <div style={{ background: '#fff', border: `1px solid ${D.border}`, borderRadius: 18, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10, flexWrap: 'wrap' }}>
+            <span className="ke-label-s" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={13} /> Sol la · {totalMbrs} manm aktif</span>
+            <b style={{ fontFamily: 'var(--display)', fontSize: 20, color: solProgress >= 90 ? T.green : solProgress >= 60 ? T.orange : T.red }}>{Math.round(solProgress)}% ajou</b>
           </div>
-        )}
-
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-            <span style={{ fontSize: 10, color: D.muted, fontWeight: 700 }}>PWOGRÈ MANM</span>
-            <span style={{ fontSize: 10, color: D.gold, fontWeight: 800 }}>{Math.round(progress)}%</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${progress}%`, background: D.goldBtn, borderRadius: 8 }} />
+          <Track pct={solProgress} color={solProgress >= 90 ? T.green : solProgress >= 60 ? T.orange : T.red} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: D.muted, fontWeight: 600, gap: 8, flexWrap: 'wrap' }}>
+            <span>{fmt(totalPaidAll)} / {fmt(totalExpectedAll)} HTG</span>
+            <span>{allDates.length} sik total</span>
           </div>
         </div>
 
         {scoreData && (
-          <div style={{ background: D.blueBg, border: `1px solid rgba(59,130,246,0.15)`, borderRadius: 12, padding: '11px 14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 10, fontWeight: 800, color: D.blue, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Star size={11} />Pèfòmans
-              </span>
-              <span style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, color: scoreData.score >= 80 ? '#00d084' : scoreData.score >= 50 ? D.orange : D.red }}>{scoreData.score}%</span>
+          <div style={{ background: '#fff', border: `1px solid ${D.border}`, borderRadius: 18, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <span className="ke-label-s" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Star size={13} /> Pèfòmans</span>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                <Chip color="#059669">{scoreData.early} bonè</Chip>
+                <Chip color={T.green}>{scoreData.onTime} a lè</Chip>
+                <Chip color={T.orange}>{scoreData.late} reta</Chip>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, fontSize: 10, flexWrap: 'wrap' }}>
-              <span style={{ color: '#00d084', fontWeight: 700 }}>⚡ {scoreData.early} bonè</span>
-              <span style={{ color: D.green, fontWeight: 700 }}>✅ {scoreData.onTime} a lè</span>
-              <span style={{ color: D.orange, fontWeight: 700 }}>⚠️ {scoreData.late} reta</span>
-            </div>
+            <b style={{ fontFamily: 'var(--display)', fontSize: 40, lineHeight: 1, color: scoreData.score >= 80 ? T.green : scoreData.score >= 50 ? T.orange : T.red }}>{scoreData.score}%</b>
           </div>
         )}
 
-        <button onClick={() => printer.print(plan, activeMember, [], tenant, 'kont')} disabled={printer.printing}
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px', borderRadius: 10, border: `1px solid ${D.border}`, background: 'rgba(255,255,255,0.04)', color: D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-          <Printer size={14} /> Enprime Kont
-        </button>
-
         {solAccount && (
-          <div style={{ background: 'rgba(155,89,182,0.08)', border: `1px solid rgba(155,89,182,0.25)`, borderRadius: 12, padding: '14px 16px' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: D.purple, textTransform: 'uppercase', letterSpacing: '0.07em', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <Key size={11} /> Kont Sol — Enfòmasyon Koneksyon
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 10, color: D.muted, marginBottom: 3 }}>Non Itilizatè</div>
-                <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 15, color: D.text, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8 }}>{solAccount.username}</div>
-              </div>
+          <div style={{ background: D.soft, borderRadius: 18, padding: '14px 16px' }}>
+            <span className="ke-label-s" style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}><Key size={13} /> Kont sol — koneksyon</span>
+            <div className="ke-two-r">
+              <div><label className="ke-label">Itilizatè</label><div className="sm-cred" style={{ background: '#fff' }}>{solAccount.username}</div></div>
               {solAccount.plainPassword && (
-                <div>
-                  <div style={{ fontSize: 10, color: D.muted, marginBottom: 3 }}>Modpas</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 18, color: D.gold, background: 'rgba(0,0,0,0.25)', padding: '8px 12px', borderRadius: 8, letterSpacing: '0.12em', textAlign: 'center' }}>{solAccount.plainPassword}</div>
+                <div><label className="ke-label">Modpas</label>
+                  <div className="sm-cred" onClick={() => setShowPass(s => !s)} style={{ background: D.night, color: '#FFC83D', cursor: 'pointer', letterSpacing: '.12em', textAlign: 'center' }}>
+                    {showPass ? solAccount.plainPassword : '••••••  (peze pou wè)'}
+                  </div>
                 </div>
               )}
-              <div style={{ fontSize: 10, color: D.muted }}>🔗 app.plusgroupe.com/app/sol/login</div>
             </div>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: D.muted, fontWeight: 600 }}>app.plusgroupe.com/app/sol/login</p>
           </div>
         )}
 
         <div>
-          <p style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', color: D.muted, margin: '0 0 8px', letterSpacing: '0.06em' }}>
-            Istwa Peman ({totalPaid}/{allDates.length})
-          </p>
-          <div style={{ maxHeight: 220, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {allDates.slice(0, 60).map(d => {
-              const paid       = !!activeMember.payments?.[d]
-              const timing     = activeMember.paymentTimings?.[d]
-              const past       = d <= today
-              const isFuture   = d > today
-              const isPayoutDay = getPayoutDate(plan, activeMember.position) === d
-              const fine       = activeMember.fines?.[d]
-              const isDepo     = paid && isFuture
+          <label className="ke-label">Istwa peman ({paidAll}/{allDates.length})</label>
+          <div className="sm-hist">
+            {allDates.slice(0, 90).map(d => {
+              const paid        = !!activeMember.payments?.[d]
+              const timing      = activeMember.paymentTimings?.[d]
+              const past        = d <= today
+              const isFuture    = d > today
+              const isPayoutDay = payoutDate === d
+              const fine        = activeMember.fines?.[d]
+              const isDepo      = paid && isFuture
+              const c = paid ? (isDepo ? T.teal : T.green) : past ? T.red : D.muted
               return (
-                <div key={d} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 9, gap: 6, background: isPayoutDay ? D.goldDim : isDepo ? 'rgba(20,184,166,0.08)' : paid ? D.greenBg : past ? D.redBg : 'rgba(255,255,255,0.02)', border: `1px solid ${isPayoutDay ? D.border : isDepo ? `${D.teal}20` : paid ? `${D.green}20` : past ? `${D.red}20` : 'transparent'}` }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 10, fontFamily: 'monospace', color: D.muted, flexShrink: 0 }}>{d.split('-').reverse().join('/')}</span>
-                    {isPayoutDay && <span style={{ fontSize: 9, background: D.goldDim, color: D.gold, padding: '1px 6px', borderRadius: 10, fontWeight: 700, flexShrink: 0 }}>🏆 Touche</span>}
-                    {isDepo && <span style={{ fontSize: 9, background: 'rgba(20,184,166,0.12)', color: D.teal, padding: '1px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>💰 Rezèv</span>}
-                    {paid && !isDepo && tBadge(timing)}
-                    {fine && <span style={{ fontSize: 9, background: D.redBg, color: D.red, padding: '1px 6px', borderRadius: 8, fontWeight: 700, flexShrink: 0 }}>+{fmt(fine)} amand</span>}
+                <div key={d} className="sm-hrow" style={isPayoutDay ? { background: '#fffaf0', borderColor: hexA(T.goldDeep, .4) } : undefined}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, flexShrink: 0 }} />
+                    <span className="d">{dmy(d)}</span>
+                    {isPayoutDay && <Chip color={T.goldDeep} icon={<Trophy size={10} />}>Touche</Chip>}
+                    {isDepo && <Chip color={T.teal}>Rezèv</Chip>}
+                    {paid && !isDepo && tChip(timing)}
+                    {fine && <Chip color={T.red}>+{fmt(fine)} amand</Chip>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                    <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: paid ? (isDepo ? D.teal : D.green) : past ? D.red : D.muted }}>
-                      {paid ? `+${fmt(plan.amount)}` : past ? `-${fmt(plan.amount)}` : `${fmt(plan.amount)}`} HTG
-                    </span>
-                    <PayBadge paid={paid} small />
+                    <b style={{ fontFamily: 'var(--display)', fontSize: 17, color: c, whiteSpace: 'nowrap' }}>
+                      {paid ? `+${fmt(plan.amount)}` : past ? `−${fmt(plan.amount)}` : fmt(plan.amount)}
+                    </b>
                     {paid && (
-                      <button onClick={() => printer.print(plan, activeMember, [d], tenant, 'peman', allMemberSlots || [activeMember])}
-                        title="Re-enprime resi" style={{ width: 22, height: 22, borderRadius: 6, border: 'none', background: 'rgba(255,255,255,0.06)', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Printer size={11} />
-                      </button>
+                      <>
+                        <button className="sm-mini" title="Pataje resi" onClick={() => setShare(shareData('peman', [d]))}><Receipt size={14} /></button>
+                        <button className="sm-mini" title="Re-enprime resi" onClick={() => printer.print(plan, activeMember, [d], tenant, 'peman', allMemberSlots || [activeMember])}><Printer size={14} /></button>
+                      </>
                     )}
                   </div>
                 </div>

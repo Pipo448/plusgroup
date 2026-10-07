@@ -41,7 +41,7 @@ export function useSabotayMutations({
           Array.isArray(old) ? [{ ...newPlan, members: newPlan.members || [] }, ...old] : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       toast.success('✅ Plan kreye!')
       onCreateDone?.(newPlan)
@@ -65,7 +65,7 @@ export function useSabotayMutations({
             : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       toast.success('✅ Plan modifye!')
       onEditDone?.()
@@ -88,7 +88,7 @@ export function useSabotayMutations({
             : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       toast.success('✅ Plan fèmen!')
       onCloseDone?.()
@@ -163,7 +163,7 @@ export function useSabotayMutations({
             : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       if (saved && activePlan) printer.print(activePlan, saved, [], tenant, 'kont')
       if (typeof vars._cb === 'function') vars._cb(saved, credentials)
@@ -212,7 +212,7 @@ export function useSabotayMutations({
         // ✅ Filè sekirite — si fòma repons lan pa jan n te tann li,
         // retounen nan ansyen konpòtman an (refè demann lan) pou pa
         // kite done yo dezaktyalize.
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       toast.success('✅ Peman anrejistre!')
     },
@@ -244,7 +244,7 @@ export function useSabotayMutations({
             : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       const labels = {
         block: '🔒 Bloke!', unblock: '🔓 Debloke!',
@@ -276,7 +276,7 @@ export function useSabotayMutations({
             : old
         )
       } else {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       }
       toast.success(`🏆 ${r.winner?.name || 'Manm'} chwazi pa tiraj!`)
       if (activePlan) printer.print(activePlan, r.winner || {}, [], tenant, 'tirage')
@@ -294,7 +294,7 @@ export function useSabotayMutations({
       // patch san danje — refè demann. Si li DEZAKTIVE, se sèlman yon flag
       // ki chanje — patch lokal san danje.
       if (r?.dynamicPositions === true) {
-        qc.invalidateQueries(['sabotay-plans'])
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       } else {
         qc.setQueryData(['sabotay-plans'], (old) =>
           Array.isArray(old)
@@ -347,7 +347,7 @@ export function useSabotayMutations({
     mutationFn: (planId) =>
       apiFetch(`/sabotay/plans/${planId}/recalculate`, { method: 'POST' }),
     onSuccess: (r) => {
-      qc.invalidateQueries(['sabotay-plans'])
+      qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
       toast.success(`🔄 ${r.recalculated} manm reklase!`)
     },
     onError: (e) => toast.error(e.message),
@@ -364,7 +364,7 @@ export function useSabotayMutations({
       method: 'POST', body: JSON.stringify({ steps })
     }),
   onSuccess: (r) => {
-    qc.invalidateQueries(['sabotay-plans'])
+    qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
     toast.success(`✅ Pozisyon ajiste: #${r.oldPosition} → #${r.newPosition}`)
   },
   onError: (e) => toast.error(e.message),
