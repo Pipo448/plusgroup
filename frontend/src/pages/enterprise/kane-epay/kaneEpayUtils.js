@@ -133,8 +133,8 @@ export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouve
 
   const row = (k, v, color = RC.ink, strong = false) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid ${RC.line}">
-      <span style="font-size:13px;font-weight:600;color:${RC.muted}">${k}</span>
-      <span style="font-size:${strong ? 15 : 13.5}px;font-weight:800;color:${color};text-align:right">${v}</span>
+      <span style="font-size:13px;font-weight:600;line-height:1.3;color:${RC.muted}">${k}</span>
+      <span style="font-size:${strong ? 15 : 13.5}px;font-weight:800;line-height:1.3;color:${color};text-align:right">${v}</span>
     </div>`
 
   const rows = isOpen ? [
@@ -148,32 +148,48 @@ export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouve
     row(isW ? 'Retrè' : 'Depo', `${isW ? '−' : '+'} ${fmt(tx.amount)} HTG`, isW ? RC.red : RC.green, true),
     row('Metòd', esc(methodLabel(tx.method))),
     tx.reference ? row('Referans', esc(tx.reference)) : '',
-    tx.id ? row('No. tranzaksyon', `#${esc(String(tx.id).slice(-8).toUpperCase())}`) : '',
   ]
 
+  // ⚠️ html2canvas desann tèks ki gen line-height sere (< 1.15) — tout tèks isit la
+  // gen line-height eksplisit ≥ 1.15, epi okenn tèks pa gen overflow:hidden.
+  const LH = 'line-height:1.25'
+  const bizRaw  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
+  const bizSize = bizRaw.length > 26 ? 18 : bizRaw.length > 18 ? 21 : 25
+  const txNo    = tx.id ? `#${esc(String(tx.id).slice(-8).toUpperCase())}` : ''
+
   const logo = tenant?.logoUrl
-    ? `<img src="${esc(tenant.logoUrl)}" crossorigin="anonymous" style="width:46px;height:46px;border-radius:14px;object-fit:cover;background:#fff;display:block"/>`
-    : `<div style="width:46px;height:46px;border-radius:14px;background:${RC.gold};color:${RC.night};font-family:${DISPLAY};font-weight:800;font-size:22px;line-height:46px;text-align:center">${bizIni}</div>`
+    ? `<img src="${esc(tenant.logoUrl)}" crossorigin="anonymous" style="width:50px;height:50px;border-radius:15px;object-fit:cover;background:#fff;display:block;flex:none"/>`
+    : `<div style="width:50px;height:50px;border-radius:15px;background:${RC.gold};display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};color:${RC.night}">${bizIni}</span></div>`
 
   const footNote = tenant?.receiptFooterNote ? `<div style="font-size:12px;color:${RC.muted};font-weight:600;margin-bottom:8px;line-height:1.45">${esc(tenant.receiptFooterNote)}</div>` : ''
 
   return `
-<div style="width:${RECEIPT_WIDTH}px;padding:22px;background:${RC.bg};font-family:${BODY};color:${RC.ink};box-sizing:border-box">
+<div style="width:${RECEIPT_WIDTH}px;padding:22px;background:${RC.bg};font-family:${BODY};color:${RC.ink};box-sizing:border-box;${LH};text-align:left">
   <div style="border-radius:28px;overflow:hidden;background:#fff;box-shadow:0 24px 40px -24px rgba(11,12,15,.45)">
 
-    <div style="position:relative;overflow:hidden;background:${RC.night};padding:22px 24px 26px;color:#f2f1ec">
+    <div style="position:relative;overflow:hidden;background:${RC.night};padding:16px 24px 24px;color:#f2f1ec">
       <div style="position:absolute;width:340px;height:340px;right:-120px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,61,.32),rgba(255,200,61,0) 65%)"></div>
+
+      <div style="position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.1)">
+        <span style="font-size:13px;font-weight:800;${LH};color:#fff;letter-spacing:.02em">${date}</span>
+        <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">RESI ${txNo}</span>
+      </div>
+
       <div style="position:relative;display:flex;align-items:center;gap:12px">
         ${logo}
         <div style="min-width:0;flex:1">
-          <div style="font-family:${DISPLAY};font-weight:800;font-size:24px;line-height:1;text-transform:uppercase;letter-spacing:.02em;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${biz}</div>
-          <div style="font-size:10.5px;font-weight:800;letter-spacing:.16em;color:rgba(242,241,236,.55);margin-top:5px">KANÈ EPAY · RESI</div>
+          <div style="font-family:${DISPLAY};font-weight:800;font-size:${bizSize}px;${LH};text-transform:uppercase;letter-spacing:.02em;color:#fff;word-break:break-word">${biz}</div>
+          <div style="font-size:10.5px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.55);margin-top:2px">KANÈ EPAY${tenant?.phone ? ` · ${esc(tenant.phone)}` : ''}</div>
         </div>
-        <div style="padding:6px 12px;border-radius:999px;background:${pill.bg};color:${pill.c};font-family:${DISPLAY};font-weight:800;font-size:15px;letter-spacing:.08em">${pill.t}</div>
+        <div style="height:32px;padding:0 13px;border-radius:999px;background:${pill.bg};display:flex;align-items:center;flex:none">
+          <span style="font-family:${DISPLAY};font-weight:800;font-size:15px;${LH};letter-spacing:.08em;color:${pill.c}">${pill.t}</span>
+        </div>
       </div>
-      <div style="position:relative;margin-top:26px;font-size:11px;font-weight:800;letter-spacing:.14em;color:rgba(242,241,236,.6)">${bigLabel}</div>
-      <div style="position:relative;font-family:${DISPLAY};font-weight:800;font-size:66px;line-height:.9;color:${bigColor};margin-top:8px;white-space:nowrap">${bigVal}<span style="font-size:22px;color:rgba(242,241,236,.55);margin-left:8px;letter-spacing:.05em">HTG</span></div>
-      <div style="position:relative;font-size:12.5px;font-weight:600;color:rgba(242,241,236,.6);margin-top:10px">${date}${tenant?.phone ? ` · Tel: ${esc(tenant.phone)}` : ''}</div>
+
+      <div style="position:relative;margin-top:22px;font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${bigLabel}</div>
+      <div style="position:relative;margin-top:2px;white-space:nowrap">
+        <span style="font-family:${DISPLAY};font-weight:800;font-size:64px;line-height:1.15;color:${bigColor}">${bigVal}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;line-height:1.15;color:rgba(242,241,236,.55);margin-left:8px;letter-spacing:.05em">HTG</span>
+      </div>
     </div>
 
     <div style="position:relative;height:24px;background:#fff">
@@ -184,35 +200,38 @@ export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouve
 
     <div style="padding:0 24px">
       <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:${RC.soft}">
-        <div style="width:46px;height:46px;border-radius:14px;background:${RC.night};color:${RC.gold};font-family:${DISPLAY};font-weight:800;font-size:20px;line-height:46px;text-align:center;flex:none">${ini}</div>
+        <div style="width:48px;height:48px;border-radius:14px;background:${RC.night};display:flex;align-items:center;justify-content:center;flex:none">
+          <span style="font-family:${DISPLAY};font-weight:800;font-size:20px;${LH};color:${RC.gold}">${ini}</span>
+        </div>
         <div style="min-width:0;flex:1">
-          <div style="font-weight:800;font-size:16px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</div>
-          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;letter-spacing:.08em;color:${RC.goldInk};margin-top:2px">${esc(account.accountNumber)}</div>
+          <div style="font-weight:800;font-size:16px;${LH};word-break:break-word">${name}</div>
+          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;${LH};letter-spacing:.08em;color:${RC.goldInk};margin-top:1px">${esc(account.accountNumber)}</div>
         </div>
-        <div style="text-align:right;font-size:11.5px;font-weight:600;color:${RC.muted};line-height:1.5;flex:none">
+        ${account.phone || account.nifOrCin ? `<div style="text-align:right;font-size:11.5px;font-weight:600;color:${RC.muted};line-height:1.5;flex:none">
           ${account.phone ? esc(account.phone) : ''}${account.nifOrCin ? `<br/>NIF ${esc(account.nifOrCin)}` : ''}
-        </div>
+        </div>` : ''}
       </div>
     </div>
 
     <div style="padding:8px 24px 0">${rows.join('')}</div>
 
-    <div style="margin:16px 24px 0;padding:16px 18px;border-radius:18px;background:${RC.night};display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <span style="font-size:11px;font-weight:800;letter-spacing:.14em;color:rgba(242,241,236,.6)">${finalLbl}</span>
-      <span style="font-family:${DISPLAY};font-weight:800;font-size:34px;line-height:1;color:${RC.gold};white-space:nowrap">${finalVal}<span style="font-size:14px;color:rgba(242,241,236,.55);margin-left:6px">HTG</span></span>
+    <div style="margin:16px 24px 0;padding:14px 18px;border-radius:18px;background:${RC.night};display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${finalLbl}</span>
+      <span style="white-space:nowrap"><span style="font-family:${DISPLAY};font-weight:800;font-size:34px;line-height:1.2;color:${RC.gold}">${finalVal}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:14px;line-height:1.2;color:rgba(242,241,236,.55);margin-left:6px">HTG</span></span>
     </div>
-    ${locked > 0 && !isOpen ? `<div style="margin:8px 24px 0;font-size:12px;font-weight:700;color:${RC.orange};text-align:right">Bloke sou kont lan: ${fmt(locked)} HTG</div>` : ''}
+    ${locked > 0 && !isOpen ? `<div style="margin:8px 24px 0;font-size:12px;font-weight:700;${LH};color:${RC.orange};text-align:right">Bloke sou kont lan: ${fmt(locked)} HTG</div>` : ''}
 
-    <div style="text-align:center;padding:18px 24px 0">
-      <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:rgba(22,163,74,.1);color:${RC.green};font-size:12px;font-weight:800;letter-spacing:.04em">
-        <span style="display:inline-block;width:6px;height:10px;border:solid ${RC.green};border-width:0 2.5px 2.5px 0;transform:rotate(45deg);margin:0 8px 2px 0;vertical-align:middle"></span>TRANZAKSYON KONFIME
-      </span>
+    <div style="display:flex;justify-content:center;padding:18px 24px 0">
+      <div style="height:34px;padding:0 15px;border-radius:999px;background:rgba(22,163,74,.1);display:flex;align-items:center;gap:8px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${RC.green}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        <span style="font-size:12px;font-weight:800;${LH};letter-spacing:.04em;color:${RC.green}">TRANZAKSYON KONFIME</span>
+      </div>
     </div>
 
     <div style="text-align:center;padding:16px 26px 22px">
       ${footNote}
-      <div style="font-family:${DISPLAY};font-weight:800;font-size:22px;letter-spacing:.04em;text-transform:uppercase;color:${RC.ink}">Mèsi! / Merci!</div>
-      <div style="font-size:11px;font-weight:700;color:${RC.muted};margin-top:6px;letter-spacing:.02em">Produit par PLUS GROUP · Tel: +509 4244 9024</div>
+      <div style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};letter-spacing:.04em;text-transform:uppercase;color:${RC.ink}">Mèsi! / Merci!</div>
+      <div style="font-size:11px;font-weight:700;${LH};color:${RC.muted};margin-top:4px;letter-spacing:.02em">Produit par PLUS GROUP · Tel: +509 4244 9024</div>
     </div>
   </div>
 </div>`
