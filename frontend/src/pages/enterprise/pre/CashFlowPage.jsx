@@ -1,125 +1,181 @@
 // src/pages/enterprise/pre/CashFlowPage.jsx
-import { useState } from 'react'
+// ═══════════════════════════════════════════════════════════════
+// KÒB ANTRE / SOTI — Prè + Kanè Epay + Ti Kanè Kès (separe + global)
+// Menm konsèp ak Gym "Plus Fit" / Kanè Epay
+// ═══════════════════════════════════════════════════════════════
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowDownCircle, ArrowUpCircle, Wallet, RefreshCw, DollarSign } from 'lucide-react'
-import { D, fmt } from '../kaneShared.jsx'
+import {
+  ArrowDownCircle, ArrowUpCircle, RefreshCw, Landmark, CreditCard, PiggyBank,
+  TrendingUp, TrendingDown, ArrowLeftRight, Info, CalendarRange,
+} from 'lucide-react'
+import { fmt } from '../kane-epay/kaneEpayUtils'
+import { KANE_STYLES, T, hexA } from '../kane-epay/kaneEpayConstants'
+import { PRE_STYLES } from './preConstants'
 import { preAPI } from './preAPI'
+import { Spinner, GlassStat, AnimatedNumber, Alert } from './PreComponents'
 
-function todayISO() {
-  return new Date().toISOString().split('T')[0]
-}
-function firstOfMonthISO() {
-  const n = new Date()
-  return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-01`
-}
+// ✅ Dat lokal (pa UTC) — evite jou a chanje apre 8è diswa an Ayiti
+const iso = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+const today = () => iso(new Date())
+const firstOfMonth = () => { const n = new Date(); return iso(new Date(n.getFullYear(), n.getMonth(), 1)) }
+const fmtD = (s) => { try { return new Date(`${s}T12:00:00`).toLocaleDateString('fr-HT', { day: '2-digit', month: 'short', year: 'numeric' }) } catch { return s } }
 
-function FlowCard({ title, icon, antre, soti, nèt }) {
+const PRESETS = [
+  { k: 'jodi',  l: 'Jodi a',     r: () => [today(), today()] },
+  { k: '7j',    l: '7 jou',      r: () => { const d = new Date(); d.setDate(d.getDate() - 6); return [iso(d), today()] } },
+  { k: 'mwa',   l: 'Mwa sa',     r: () => [firstOfMonth(), today()] },
+  { k: 'mwa-1', l: 'Mwa pase',   r: () => { const n = new Date(); return [iso(new Date(n.getFullYear(), n.getMonth() - 1, 1)), iso(new Date(n.getFullYear(), n.getMonth(), 0))] } },
+]
+
+const MODULES = [
+  { key: 'pre',       title: 'Mikwo Kredi',  sub: 'Prè — koleksyon / dekèsman', icon: Landmark,   color: T.teal },
+  { key: 'kaneEpay',  title: 'Kanè Epay',    sub: 'Depo / retrè kont',          icon: CreditCard, color: T.orange },
+  { key: 'tikaneKes', title: 'Ti Kanè Kès',  sub: 'Epay jounalye',              icon: PiggyBank,  color: T.violet },
+]
+
+function FlowCard({ mod, data, delay }) {
+  const Ic    = mod.icon
+  const antre = Number(data?.antre || 0)
+  const soti  = Number(data?.soti  || 0)
+  const nèt   = Number(data?.nèt ?? antre - soti)
+  const sum   = antre + soti
+  const [w, setW] = useState(0)
+  useEffect(() => { const id = setTimeout(() => setW(sum > 0 ? (antre / sum) * 100 : 0), 150); return () => clearTimeout(id) }, [antre, sum])
+
   return (
-    <div style={{ background:D.card, borderRadius:14, padding:'16px 18px', border:`1px solid ${D.cardBorder}` }}>
-      <p style={{ fontSize:12, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 14px', letterSpacing:'0.06em', display:'flex', alignItems:'center', gap:6 }}>
-        {icon} {title}
-      </p>
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
-        <div style={{ background:D.greenBg, borderRadius:10, padding:'10px 12px', border:`1px solid ${D.green}20` }}>
-          <p style={{ fontSize:10, color:D.muted, margin:'0 0 3px', fontWeight:700, textTransform:'uppercase', display:'flex', alignItems:'center', gap:4 }}>
-            <ArrowDownCircle size={11}/> Antre
-          </p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color:D.green, margin:0 }}>{fmt(antre)} HTG</p>
+    <div className="cf-mod" style={{ '--cbg': hexA(mod.color, .09), animationDelay: `${delay}s` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div className="ke-stat-ic" style={{ '--c': mod.color, '--cbg': hexA(mod.color, .12) }}><Ic size={21} /></div>
+        <div style={{ minWidth: 0 }}><h3>{mod.title}</h3><p className="sub">{mod.sub}</p></div>
+      </div>
+      <div className="cf-io">
+        <div>
+          <p className="ke-label-s" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><ArrowDownCircle size={12} color={T.green} /> Antre</p>
+          <p className="v" style={{ color: T.green }}><AnimatedNumber value={antre} /></p>
         </div>
-        <div style={{ background:D.redBg, borderRadius:10, padding:'10px 12px', border:`1px solid ${D.red}20` }}>
-          <p style={{ fontSize:10, color:D.muted, margin:'0 0 3px', fontWeight:700, textTransform:'uppercase', display:'flex', alignItems:'center', gap:4 }}>
-            <ArrowUpCircle size={11}/> Soti
-          </p>
-          <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:15, color:D.red, margin:0 }}>{fmt(soti)} HTG</p>
+        <div>
+          <p className="ke-label-s" style={{ display: 'flex', alignItems: 'center', gap: 5 }}><ArrowUpCircle size={12} color={T.red} /> Soti</p>
+          <p className="v" style={{ color: T.red }}><AnimatedNumber value={soti} /></p>
         </div>
       </div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:10, borderTop:`1px solid ${D.cardBorder}` }}>
-        <span style={{ fontSize:12, fontWeight:700, color:D.muted }}>Nèt:</span>
-        <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:16, color: nèt >= 0 ? D.green : D.red }}>
-          {nèt >= 0 ? '+' : ''}{fmt(nèt)} HTG
-        </span>
+      <div className="cf-split" aria-label={`Antre ${Math.round(w)}%`}>
+        {sum > 0 ? (<><i style={{ width: `${w}%`, background: T.green }} /><i style={{ flex: 1, background: T.red, opacity: w ? 1 : 0 }} /></>) : null}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, fontWeight: 700, color: T.muted, marginTop: 7 }}>
+        <span>{sum > 0 ? Math.round((antre / sum) * 100) : 0}% antre</span>
+        <span>{sum > 0 ? Math.round((soti / sum) * 100) : 0}% soti</span>
+      </div>
+      <div className="cf-net">
+        <p className="ke-label-s">Nèt</p>
+        <b style={{ color: nèt >= 0 ? T.green : T.red }}><AnimatedNumber value={nèt} signed /><small>HTG</small></b>
       </div>
     </div>
   )
 }
 
 export default function CashFlowPage() {
-  const [debutDate, setDebutDate] = useState(firstOfMonthISO())
-  const [finDate, setFinDate]     = useState(todayISO())
+  const [debutDate, setDebutDate] = useState(firstOfMonth())
+  const [finDate, setFinDate]     = useState(today())
+
+  useEffect(() => {
+    const el = document.createElement('style')
+    el.setAttribute('data-cashflow', '')
+    el.textContent = KANE_STYLES + PRE_STYLES
+    document.head.appendChild(el)
+    return () => document.head.removeChild(el)
+  }, [])
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['pre-cash-flow', debutDate, finDate],
     queryFn:  () => preAPI.cashFlow({ debutDate, finDate }).then(r => r.data),
+    enabled:  !!debutDate && !!finDate && debutDate <= finDate,
+    placeholderData: (prev) => prev,
   })
 
+  const activePreset = PRESETS.find(p => { const [a, b] = p.r(); return a === debutDate && b === finDate })?.k
+  const g     = data?.global || {}
+  const gIn   = Number(g.antre || 0), gOut = Number(g.soti || 0)
+  const gNet  = Number(g.nèt ?? gIn - gOut)
+  const gSum  = gIn + gOut
+  const pct   = (a) => (gSum > 0 ? Math.round((a / gSum) * 100) : 0)
+  const badRange = debutDate > finDate
+
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:'DM Sans, sans-serif', padding:'14px 14px 80px', maxWidth:900, margin:'0 auto' }}>
-
-      <div className="ke-header">
-        <div>
-          <h1 style={{ fontSize:19, fontWeight:900, color:D.gold, margin:'0 0 2px', display:'flex', alignItems:'center', gap:7 }}>
-            <DollarSign size={19}/> Kòb Antre / Soti
-          </h1>
-          <p style={{ fontSize:11, color:D.muted, margin:0 }}>Mikwo Kredi (Prè) + Kanè Epay + Ti Kanè Kès — separe ak global</p>
-        </div>
-      </div>
-
-      {/* Selektè peryòd */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', background:D.card, borderRadius:12, padding:'10px 14px', border:`1px solid ${D.cardBorder}` }}>
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-          <span style={{ fontSize:11, color:D.muted, fontWeight:700 }}>Depi</span>
-          <input type="date" className="ke-input" value={debutDate} onChange={e => setDebutDate(e.target.value)}
-            style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${D.cardBorder}`, borderRadius:8, padding:'7px 10px', color:D.text, fontSize:12, colorScheme:'dark' }}/>
-        </div>
-        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-          <span style={{ fontSize:11, color:D.muted, fontWeight:700 }}>Jiska</span>
-          <input type="date" className="ke-input" value={finDate} onChange={e => setFinDate(e.target.value)}
-            style={{ background:'rgba(255,255,255,0.03)', border:`1px solid ${D.cardBorder}`, borderRadius:8, padding:'7px 10px', color:D.text, fontSize:12, colorScheme:'dark' }}/>
-        </div>
-        <button className="ke-btn" onClick={() => refetch()} disabled={isFetching}
-          style={{ display:'flex', alignItems:'center', gap:5, padding:'8px 12px', borderRadius:8, border:`1px solid ${D.gold}30`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:700, fontSize:12 }}>
-          <RefreshCw size={13}/> {isFetching ? 'Ap chaje...' : 'Rafrechi'}
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div style={{ textAlign:'center', color:D.muted, padding:40 }}>Ap chaje...</div>
-      ) : !data ? (
-        <div style={{ textAlign:'center', color:D.muted, padding:40 }}>Pa gen done.</div>
-      ) : (
-        <>
-          <FlowCard title="Mikwo Kredi (Prè)" icon={<Wallet size={14}/>} antre={data.pre.antre} soti={data.pre.soti} nèt={data.pre.nèt}/>
-          <FlowCard title="Kanè Epay" icon={<Wallet size={14}/>} antre={data.kaneEpay.antre} soti={data.kaneEpay.soti} nèt={data.kaneEpay.nèt}/>
-          <FlowCard title="Ti Kanè Kès (Epay Jounalye)" icon={<Wallet size={14}/>} antre={data.tikaneKes.antre} soti={data.tikaneKes.soti} nèt={data.tikaneKes.nèt}/>
-
-          {/* Global — mete aksan sou li */}
-          <div style={{ background:D.goldBtn, borderRadius:14, padding:'18px 20px', color:'#0a1222' }}>
-            <p style={{ fontSize:12, fontWeight:900, textTransform:'uppercase', margin:'0 0 14px', letterSpacing:'0.06em', opacity:0.85 }}>
-              ● Global — Tou Twa Modil Ansanm
-            </p>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14 }}>
-              <div>
-                <p style={{ fontSize:10, fontWeight:700, opacity:0.7, margin:'0 0 3px', textTransform:'uppercase' }}>Antre</p>
-                <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:18, margin:0 }}>{fmt(data.global.antre)}</p>
+    <div className="ke-scope ke-page">
+      {/* ════════ HERO ════════ */}
+      <section className="ke-hero ke-in">
+        <div className="ke-hero-glow" />
+        <div className="ke-hero-grid" />
+        <div className="ke-hero-body">
+          <div style={{ minWidth: 0 }}>
+            <div className="ke-hero-top">
+              <div className="ke-hero-head">
+                <div className="ke-logo"><ArrowLeftRight size={26} strokeWidth={2.4} /></div>
+                <div style={{ minWidth: 0 }}>
+                  <span className="ke-eyebrow"><span className="ke-live" />{fmtD(debutDate)} → {fmtD(finDate)}</span>
+                  <h1 className="ke-title">Kòb antre / soti</h1>
+                  <p className="ke-sub">Prè + Kanè Epay + Ti Kanè Kès — separe ak global</p>
+                </div>
               </div>
+            </div>
+            <div className="ke-hero-bottom cf-bottom">
               <div>
-                <p style={{ fontSize:10, fontWeight:700, opacity:0.7, margin:'0 0 3px', textTransform:'uppercase' }}>Soti</p>
-                <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:18, margin:0 }}>{fmt(data.global.soti)}</p>
-              </div>
-              <div>
-                <p style={{ fontSize:10, fontWeight:700, opacity:0.7, margin:'0 0 3px', textTransform:'uppercase' }}>Nèt</p>
-                <p style={{ fontFamily:'monospace', fontWeight:900, fontSize:18, margin:0 }}>
-                  {data.global.nèt >= 0 ? '+' : ''}{fmt(data.global.nèt)}
+                <span className="ke-big-l">{gNet >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />} Nèt global</span>
+                <p className="ke-big" style={{ color: gNet >= 0 ? T.gold : T.redD }}>
+                  {isLoading ? '—' : <AnimatedNumber value={gNet} signed duration={1400} />}<small>HTG</small>
                 </p>
+                <span className="ke-net" style={{ color: 'rgba(242,241,236,.75)' }}>Tou 3 modil yo ansanm</span>
               </div>
+              <GlassStat label="Antre global" icon={<ArrowDownCircle size={14} />} num={gIn}  color={T.greenD} pct={pct(gIn)}  sub={`${pct(gIn)}% mouvman`} />
+              <GlassStat label="Soti global"  icon={<ArrowUpCircle size={14} />}   num={gOut} color={T.redD}   pct={pct(gOut)} sub={`${pct(gOut)}% mouvman`} />
             </div>
           </div>
 
-          <p style={{ fontSize:10, color:D.muted, margin:0, textAlign:'center' }}>
-            Peryòd: {data.periode.debutDate} → {data.periode.finDate}. "Soti" pou Prè baze sou dat APWOBASYON an (lè lajan reyèlman dekèse), pa dat demand lan.
-            "Soti" pou Ti Kanè Kès enkli ranbousman kontra fini AK kontra kase (mwens penalite).
-          </p>
-        </>
+          {/* Peryòd */}
+          <div className="ke-hero-side" style={{ alignItems: 'stretch' }}>
+            <div className="cf-period">
+              <span className="ke-eyebrow"><CalendarRange size={14} /> Peryòd</span>
+              <div className="cf-presets">
+                {PRESETS.map(p => (
+                  <button key={p.k} className={activePreset === p.k ? 'on' : ''} onClick={() => { const [a, b] = p.r(); setDebutDate(a); setFinDate(b) }}>{p.l}</button>
+                ))}
+              </div>
+              <div className="cf-dates">
+                <div><label>Depi</label><input type="date" value={debutDate} max={finDate} onChange={e => setDebutDate(e.target.value)} /></div>
+                <div><label>Jiska</label><input type="date" value={finDate} min={debutDate} onChange={e => setFinDate(e.target.value)} /></div>
+              </div>
+              <button className="ke-btn ke-btn-gold" onClick={() => refetch()} disabled={isFetching || badRange}>
+                {isFetching ? <Spinner size={15} /> : <RefreshCw size={16} />} {isFetching ? 'Ap chaje...' : 'Rafrechi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {badRange && <Alert color={T.red}>Dat "Depi" a dwe vini anvan dat "Jiska" a.</Alert>}
+
+      <div className="ke-section-head ke-in" style={{ animationDelay: '.15s' }}>
+        <h2>Pa modil</h2><span className="ke-rule" />
+        {isFetching && !isLoading && <span className="ke-updating"><Spinner size={12} /> Ap mete ajou</span>}
+      </div>
+
+      {isLoading ? (
+        <div className="cf-mods">{[0, 1, 2].map(i => <div key={i} className="ke-skel" style={{ height: 290, borderRadius: 24 }} />)}</div>
+      ) : !data ? (
+        <div className="ke-empty"><div className="ke-empty-ic"><ArrowLeftRight size={28} /></div><h3>Pa gen done</h3><p>Chwazi yon lòt peryòd.</p></div>
+      ) : (
+        <div className="cf-mods">
+          {MODULES.map((m, i) => <FlowCard key={m.key} mod={m} data={data[m.key]} delay={.18 + i * .06} />)}
+        </div>
+      )}
+
+      {data && (
+        <Alert color={T.blue} icon={<Info size={17} />}>
+          Peryòd: <b>{fmtD(data.periode?.debutDate || debutDate)} → {fmtD(data.periode?.finDate || finDate)}</b>.
+          {' '}"Soti" pou Prè baze sou dat <b>apwobasyon</b> an (lè lajan an reyèlman dekèse), pa dat demand lan.
+          {' '}"Soti" pou Ti Kanè Kès gen ladan l ranbousman kontra ki fini <b>ak</b> kontra ki kase (mwens penalite).
+        </Alert>
       )}
     </div>
   )

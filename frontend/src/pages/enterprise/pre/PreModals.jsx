@@ -1,30 +1,52 @@
 // src/pages/enterprise/pre/PreModals.jsx
-// Modals: ModalCreePre, ModalPaieman, ModalKapital, ModalRapoKesye, ModalDetailPre
+// ═══════════════════════════════════════════════════════════════
+// PRÈ — Modal yo: Kreye, Peman, Kapital, Fèmen Kès, Detay, Resi
+// (design "Plus Fit" — menm baz ak Kanè Epay)
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
 import api from '../../../services/api'
 import toast from 'react-hot-toast'
 import {
-  Plus, X, Printer, CheckCircle, Clock, AlertCircle, DollarSign,
-  ShieldCheck, PiggyBank, FileText, Lock, ArrowDownCircle,
-  Home, UserPlus, Trash2, XCircle,
+  Printer, CheckCircle, Clock, Lock, ArrowDownCircle, ArrowRight, Trash2, XCircle,
+  PiggyBank, FileText, Coins, Landmark, BarChart3, TrendingDown, Ruler, Sun, Check,
+  Share2, Image as ImageIcon, FileDown, Receipt, ClipboardCheck, AlertTriangle, Phone,
+  Home, Pencil, Wallet, Users,
 } from 'lucide-react'
-import { D, fmt, fmtDate, inputStyle, labelStyle, PAYMENT_METHODS } from '../kaneShared.jsx'
-import { STATUTS, PERIODES, TIP_KALKIL } from './preConstants'
+import { fmt, fmtDate } from '../kane-epay/kaneEpayUtils'
+import { T, hexA } from '../kane-epay/kaneEpayConstants'
+import { PERIODES, TIP_KALKIL } from './preConstants'
 import { preAPI } from './preAPI'
 import { calcPreviewEcheances, calcNbrPeman } from './preCalc'
+import { usePreShare } from './preUtils'
 import {
-  Spinner, StatCard, Section, Modal, StatutBadge,
-  KalandriyeSection, KaneEpaySearch, AvalizelSection,
+  Spinner, Modal, Section, Field, AmountField, MethodPicker, Alert, Chip, AnimatedNumber,
+  StatutBadge, KalandriyeSection, KaneEpaySearch, AvalizelSection, PreReceiptPreview, NameAvatar,
 } from './PreComponents'
 import PinConfirmModal from '../../../components/PinConfirmModal'
+
+const TIP_ICONS = { flat: BarChart3, declining: TrendingDown, constant: Ruler, bous_soleil: Sun }
+const periodLabel = (p) => PERIODES.find(x => x.value === p)?.label || p
+
+// Ekran "kès fèmen" pou modal ki pa ka travay
+function KesFemenModal({ onClose, title, text }) {
+  return (
+    <Modal onClose={onClose} title={title} icon={<Lock size={20} />} accent={T.redD} width={440} dismissible
+      footer={<button className="ke-fbtn main dark" onClick={onClose}>Konprann</button>}>
+      <div className="ke-success">
+        <div className="ke-check" style={{ boxShadow: '0 0 0 10px rgba(220,38,38,.1)' }}><Lock size={38} color={T.redD} /></div>
+        <h3>Kès fèmen</h3>
+        <p>{text}</p>
+      </div>
+    </Modal>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MODAL: KREYE PRÈ
 // ═══════════════════════════════════════════════════════════════
 export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
-  const { tenant } = useAuthStore()
   const [kaneKont, setKaneKont] = useState(null)
   const [form, setForm] = useState({
     montant: '', tauxInteret: '', dureeEnMois: '6',
@@ -34,59 +56,47 @@ export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     garantiByens: '', avalize1Nom: '', avalize1Phone: '', avalize2Nom: '', avalize2Phone: '',
   })
   const [errors, setErrors] = useState({})
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
+  const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: undefined })) }
 
   const isBousSoleil = form.tipKalkil === 'bous_soleil'
   const kapital  = Number(form.montant || 0)
   const nbrPeman = isBousSoleil ? Number(form.nombreJou || 0) : calcNbrPeman(Number(form.dureeEnMois || 1), form.periode)
 
-  let previewData = { pmtMwayèn:0, pmt:0, premyePeman:0, dènyePeman:0, totalDu:0, totalInteret:0 }
+  let preview = { pmtMwayèn:0, pmt:0, premyePeman:0, dènyePeman:0, totalDu:0, totalInteret:0 }
   if (isBousSoleil) {
     const pjou = Number(form.pemaParJou || 0), njou = Number(form.nombreJou || 0)
     if (kapital > 0 && pjou > 0 && njou > 0) {
       const totalDu = Math.round(pjou * njou * 100) / 100
-      previewData = { pmtMwayèn: pjou, pmt: pjou, premyePeman: pjou, dènyePeman: pjou, totalDu, totalInteret: Math.round((totalDu - kapital)*100)/100 }
+      preview = { pmtMwayèn: pjou, pmt: pjou, premyePeman: pjou, dènyePeman: pjou, totalDu, totalInteret: Math.round((totalDu - kapital) * 100) / 100 }
     }
   } else {
-    previewData = calcPreviewEcheances(kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode, form.tipKalkil)
+    preview = calcPreviewEcheances(kapital, Number(form.tauxInteret || 0), nbrPeman, form.periode, form.tipKalkil)
   }
-  const { pmtMwayèn, premyePeman, dènyePeman, totalDu, totalInteret } = previewData
-  const tipCfg = TIP_KALKIL.find(t => t.value === form.tipKalkil) || TIP_KALKIL[1]
+  const { pmtMwayèn, premyePeman, dènyePeman, totalDu, totalInteret } = preview
 
-  // ✅ Hook anvan kondisyonèl
   const mutation = useMutation({
     mutationFn: (d) => preAPI.create(d),
-    onSuccess: async (res) => {
-      toast.success(`✅ Demand prè ${res.data.pre.numeroPre} voye pou apwobasyon!`)
-      onSuccess()
-      onClose()
+    onSuccess: (res) => {
+      toast.success(`Demand prè ${res.data.pre.numeroPre} voye pou apwobasyon!`)
+      onSuccess(); onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè kreyasyon prè.'),
   })
 
-  if (kesFemen) return (
-    <Modal onClose={onClose} title="💸 Nouvo Prè" width={420}>
-      <div style={{ textAlign: 'center', padding: '30px 20px' }}>
-        <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
-        <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
-        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou pa ka kreye nouvo prè jodi a.</p>
-        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
-      </div>
-    </Modal>
-  )
+  if (kesFemen) return <KesFemenModal onClose={onClose} title="Nouvo prè" text="Ou pa ka kreye nouvo prè jodi a. Kès la ap louvri demen." />
 
   const validate = () => {
     const e = {}
-    if (!kaneKont) e.kane = 'Chwazi yon kont Kanè Epay obligatwa'
+    if (!kaneKont) e.kane = 'Chwazi yon kont Kanè Epay — li obligatwa'
     if (isBousSoleil) {
-      if (kapital <= 0) e.montant = 'Kapital dwe > 0'
+      if (kapital <= 0) e.montant = 'Kapital dwe pi gran pase 0'
       if (!form.pemaParJou || Number(form.pemaParJou) <= 0) e.pemaParJou = 'Peman pa jou obligatwa'
-      if (!form.nombreJou  || Number(form.nombreJou)  <= 0) e.nombreJou  = 'Nombre jou obligatwa'
-      if (Number(form.pemaParJou) * Number(form.nombreJou) <= kapital) e.pemaParJou = 'Total peman dwe plis ke kapital'
+      if (!form.nombreJou  || Number(form.nombreJou)  <= 0) e.nombreJou  = 'Kantite jou obligatwa'
+      if (!e.pemaParJou && Number(form.pemaParJou) * Number(form.nombreJou) <= kapital) e.pemaParJou = 'Total peman yo dwe plis pase kapital la'
     } else {
-      if (kapital <= 0)      e.montant = 'Montan dwe > 0'
-      if (!form.tauxInteret) e.taux    = 'To enterè obligatwa'
-      if (!form.dureeEnMois) e.duree   = 'Dire obligatwa'
+      if (kapital <= 0)      e.montant     = 'Montan dwe pi gran pase 0'
+      if (!form.tauxInteret) e.tauxInteret = 'To enterè obligatwa'
+      if (!form.dureeEnMois) e.dureeEnMois = 'Dire obligatwa'
     }
     setErrors(e); return !Object.keys(e).length
   }
@@ -110,156 +120,118 @@ export function ModalCreePre({ onClose, onSuccess, printer, kesFemen }) {
     })
   }
 
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main gold" onClick={handleSubmit} disabled={mutation.isPending}>
+        {mutation.isPending ? <><Spinner /> Ap voye...</> : <><FileText size={17} /> Voye pou apwobasyon</>}
+      </button>
+    </>
+  )
+
   return (
-    <Modal onClose={onClose} title="💸 Nouvo Prè" width={600}>
-      <Section icon="🔗" title="Kont Kanè Epay (Obligatwa)">
-        <KaneEpaySearch selected={kaneKont} onSelect={setKaneKont} onClear={() => setKaneKont(null)} />
-        {errors.kane && <p style={{ fontSize: 10, color: D.red, margin: '6px 0 0' }}><AlertCircle size={11}/> {errors.kane}</p>}
+    <Modal onClose={onClose} title="Nouvo prè" subtitle="Demand la ap tann apwobasyon yon admin" icon={<Coins size={20} />} width={640} footer={footer}>
+      <Section n={1} title="Kont Kanè Epay" delay={0.04}>
+        <KaneEpaySearch selected={kaneKont} onSelect={(a) => { setKaneKont(a); setErrors(e => ({ ...e, kane: undefined })) }} onClear={() => setKaneKont(null)} error={errors.kane} />
       </Section>
 
-      <Section icon="⚙️" title="Tip Kalkil Enterè">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {TIP_KALKIL.map(tip => (
-            <button key={tip.value} onClick={() => set('tipKalkil', tip.value)}
-              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '10px 14px', borderRadius: 10, border: `1.5px solid ${form.tipKalkil===tip.value ? tip.color+'60' : D.cardBorder}`, background: form.tipKalkil===tip.value ? `${tip.color}10` : 'transparent', cursor: 'pointer', textAlign: 'left' }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>{tip.emoji}</span>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: form.tipKalkil===tip.value ? tip.color : D.text, margin: '0 0 2px' }}>{tip.label}</p>
-                <p style={{ fontSize: 11, color: D.muted, margin: 0 }}>{tip.desc}</p>
-              </div>
-              {form.tipKalkil===tip.value && <CheckCircle size={14} style={{ color: tip.color, flexShrink: 0, marginLeft: 'auto', marginTop: 2 }}/>}
-            </button>
-          ))}
+      <Section n={2} title="Tip kalkil enterè" delay={0.08}>
+        <div className="pre-tips">
+          {TIP_KALKIL.map(tip => {
+            const Ic = TIP_ICONS[tip.value] || BarChart3
+            const on = form.tipKalkil === tip.value
+            return (
+              <button key={tip.value} type="button" className={`pre-tip${on ? ' on' : ''}`} onClick={() => set('tipKalkil', tip.value)}
+                style={{ '--c': tip.color, '--cbg': hexA(tip.color, .1) }}>
+                <span className="ic"><Ic size={19} /></span>
+                <span><p className="t">{tip.label}</p><p className="d">{tip.desc}</p></span>
+                {on && <span className="ck"><Check size={13} strokeWidth={3} /></span>}
+              </button>
+            )
+          })}
         </div>
       </Section>
 
-      <Section icon="💰" title="Tèm Finansye">
+      <Section n={3} title="Tèm finansye" delay={0.12}>
+        <AmountField label="Kapital (montan prè a) *" value={form.montant} onChange={v => set('montant', v)} accent={T.gold}
+          quick={[5000, 10000, 25000, 50000]} error={errors.montant} />
+
         {isBousSoleil ? (
-          <>
-            <label style={labelStyle}>Kapital (HTG) *</label>
-            <input type="number" min="0" step="0.01" className="ke-input"
-              style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
-              value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="5,000.00" onFocus={e => e.target.select()}/>
-            {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
-            <div className="ke-form-row">
-              <div style={{ flex: 1 }}>
-                <label style={{ ...labelStyle, color: tipCfg.color }}>Peman Pa Jou (HTG) *</label>
-                <input type="number" min="1" step="0.01" className="ke-input"
-                  style={{ ...inputStyle, color: tipCfg.color, borderColor: errors.pemaParJou ? D.red : `${tipCfg.color}40` }}
-                  value={form.pemaParJou} onChange={e => set('pemaParJou', e.target.value)} placeholder="200" onFocus={e => e.target.select()}/>
-                {errors.pemaParJou && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.pemaParJou}</p>}
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ ...labelStyle, color: D.blue }}>Nombre Jou *</label>
-                <input type="number" min="1" max="365" className="ke-input"
-                  style={{ ...inputStyle, color: D.blue, borderColor: errors.nombreJou ? D.red : `${D.blue}40` }}
-                  value={form.nombreJou} onChange={e => set('nombreJou', e.target.value)} placeholder="30" onFocus={e => e.target.select()}/>
-                {errors.nombreJou && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.nombreJou}</p>}
-              </div>
-            </div>
-            {kapital > 0 && Number(form.pemaParJou) > 0 && Number(form.nombreJou) > 0 && (
-              <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30`, textAlign: 'center' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: tipCfg.color, margin: 0 }}>
-                  {fmt(Number(form.pemaParJou))} G × {form.nombreJou} jou = <strong style={{ fontSize: 15 }}>{fmt(totalDu)} G</strong>
-                </p>
-                <p style={{ fontSize: 11, color: D.orange, margin: '4px 0 0' }}>Enterè: {fmt(totalInteret)} G</p>
-              </div>
-            )}
-          </>
+          <div className="ke-two ke-mt">
+            <Field label="Peman pa jou (HTG) *" error={errors.pemaParJou}>
+              <input type="number" min="1" step="0.01" inputMode="decimal" className={`ke-input${errors.pemaParJou ? ' err' : ''}`} value={form.pemaParJou} onChange={e => set('pemaParJou', e.target.value)} placeholder="200" />
+            </Field>
+            <Field label="Kantite jou *" error={errors.nombreJou}>
+              <input type="number" min="1" max="365" inputMode="numeric" className={`ke-input${errors.nombreJou ? ' err' : ''}`} value={form.nombreJou} onChange={e => set('nombreJou', e.target.value)} placeholder="30" />
+            </Field>
+          </div>
         ) : (
-          <>
-            <input type="number" min="0" step="0.01" className="ke-input"
-              style={{ ...inputStyle, fontSize: 22, fontWeight: 800, textAlign: 'center', color: D.gold, marginBottom: 10, borderColor: errors.montant ? D.red : undefined }}
-              value={form.montant} onChange={e => set('montant', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()}/>
-            {errors.montant && <p style={{ fontSize: 10, color: D.red, margin: '-6px 0 8px' }}>{errors.montant}</p>}
-            <div className="ke-form-row">
-              <div style={{ flex: 1 }}>
-                <label style={{ ...labelStyle, color: D.orange }}>To Enterè (% / mwa) *</label>
-                <input type="number" min="0" max="100" step="0.1" className="ke-input"
-                  style={{ ...inputStyle, color: D.orange, borderColor: errors.taux ? D.red : `${D.orange}40` }}
-                  value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)} placeholder="ex: 3" onFocus={e => e.target.select()}/>
-                {errors.taux && <p style={{ fontSize: 10, color: D.red, margin: '3px 0 0' }}>{errors.taux}</p>}
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ ...labelStyle, color: D.blue }}>Dire (mwa) *</label>
-                <input type="number" min="1" max="120" className="ke-input"
-                  style={{ ...inputStyle, color: D.blue, borderColor: errors.duree ? D.red : `${D.blue}40` }}
-                  value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)} onFocus={e => e.target.select()}/>
-              </div>
+          <div className="ke-two ke-mt">
+            <Field label="To enterè (% / mwa) *" error={errors.tauxInteret}>
+              <input type="number" min="0" max="100" step="0.1" inputMode="decimal" className={`ke-input${errors.tauxInteret ? ' err' : ''}`} value={form.tauxInteret} onChange={e => set('tauxInteret', e.target.value)} placeholder="egz: 3" />
+            </Field>
+            <Field label="Dire (mwa) *" error={errors.dureeEnMois}>
+              <input type="number" min="1" max="120" inputMode="numeric" className={`ke-input${errors.dureeEnMois ? ' err' : ''}`} value={form.dureeEnMois} onChange={e => set('dureeEnMois', e.target.value)} />
+            </Field>
+          </div>
+        )}
+
+        {totalDu > 0 && (
+          <div className="ke-summary">
+            <div className="line"><span>Kapital</span><b>{fmt(kapital)} HTG</b></div>
+            <div className="line"><span>Enterè total</span><b style={{ color: T.orange }}>+ {fmt(totalInteret)} HTG</b></div>
+            <div className="line"><span>{isBousSoleil ? 'Peman pa jou' : form.tipKalkil === 'constant' ? 'Premye → dènye peman' : 'Chak peman'}</span>
+              <b>{form.tipKalkil === 'constant' && !isBousSoleil ? `${fmt(premyePeman)} → ${fmt(dènyePeman)}` : fmt(pmtMwayèn)} <span style={{ color: T.muted }}>× {nbrPeman}</span></b>
             </div>
-            {kapital > 0 && form.tauxInteret && pmtMwayèn > 0 && (
-              <div style={{ marginTop: 12, background: D.card, borderRadius: 10, padding: '12px 14px', border: `1px solid ${tipCfg.color}30` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                  <span style={{ color: D.gold }}>💰 {fmt(kapital)}</span>
-                  <span style={{ color: tipCfg.color }}>📈 +{fmt(totalInteret)}</span>
-                  <span style={{ color: D.green, fontWeight: 700 }}>= {fmt(totalDu)} G</span>
-                </div>
-              </div>
-            )}
-            <div style={{ marginTop: 10 }}>
-              <label style={{ ...labelStyle, color: D.gold }}>Garanti / Byens (opsyonèl)</label>
-              <textarea className="ke-input" style={{ ...inputStyle, height: 56, resize: 'vertical', fontSize: 12 }}
-                value={form.garantiByens} onChange={e => set('garantiByens', e.target.value)} placeholder="Kay, motosiklèt, tè..."/>
-            </div>
-            <div style={{ marginTop: 10 }}>
-              <label style={{ ...labelStyle, color: D.purple }}>Depozit Bloke (opsyonèl)</label>
-              <input type="number" min="0" step="0.01" className="ke-input"
-                style={{ ...inputStyle, color: D.purple }}
-                value={form.montantBloke} onChange={e => set('montantBloke', e.target.value)} placeholder="0.00" onFocus={e => e.target.select()}/>
-            </div>
-          </>
+            <div className="total"><span>Total pou remèt</span><b><AnimatedNumber value={totalDu} duration={500} /> <small style={{ fontSize: 14, color: T.muted }}>HTG</small></b></div>
+          </div>
+        )}
+
+        {!isBousSoleil && (
+          <div className="ke-two-r ke-mt">
+            <Field label="Garanti / byen (opsyonèl)">
+              <input className="ke-input" value={form.garantiByens} onChange={e => set('garantiByens', e.target.value)} placeholder="Kay, motosiklèt, tè..." />
+            </Field>
+            <Field label="Depozit bloke (opsyonèl)">
+              <input type="number" min="0" step="0.01" inputMode="decimal" className="ke-input" value={form.montantBloke} onChange={e => set('montantBloke', e.target.value)} placeholder="0,00" />
+            </Field>
+          </div>
         )}
       </Section>
 
-      <Section icon="📅" title="Kalandriye">
-        <div className="ke-form-row">
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Dat Premye Peman</label>
-            <input type="date" className="ke-input" style={{ ...inputStyle, colorScheme: 'dark' }} value={form.datDebut} onChange={e => set('datDebut', e.target.value)}/>
+      <Section n={4} title="Kalandriye" delay={0.16}>
+        <Field label="Dat premye peman">
+          <input type="date" className="ke-input" value={form.datDebut} onChange={e => set('datDebut', e.target.value)} />
+        </Field>
+        {!isBousSoleil && (
+          <div className="ke-mt">
+            <label className="ke-label">Frekans peman</label>
+            <div className="pre-pills">
+              {PERIODES.map(p => (
+                <button key={p.value} type="button" className={form.periode === p.value ? 'on' : ''} onClick={() => set('periode', p.value)}>{p.label}</button>
+              ))}
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Frekans Peman</label>
-            <select className="ke-input" style={{ ...inputStyle, cursor: 'pointer' }} value={form.periode} onChange={e => set('periode', e.target.value)}>
-              {PERIODES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-            </select>
-          </div>
-        </div>
+        )}
       </Section>
 
-      <AvalizelSection form={form} set={set} />
+      <AvalizelSection n={5} form={form} set={set} />
 
-      <div className="ke-form-row" style={{ marginBottom: 14 }}>
-        <div style={{ flex: 1 }}>
-          <label style={labelStyle}>Metod Dekèsman</label>
-          <select className="ke-input" style={{ ...inputStyle, cursor: 'pointer' }} value={form.method} onChange={e => set('method', e.target.value)}>
-            {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
+      <Section n={6} title="Dekèsman" delay={0.24}>
+        <MethodPicker value={form.method} onChange={v => set('method', v)} />
+        <div className="ke-two-r ke-mt">
+          <Field label="Referans"><input className="ke-input" value={form.reference} onChange={e => set('reference', e.target.value)} placeholder="Egz: MonCash #..." /></Field>
+          <div>
+            <label className="ke-label">Tay papye resi</label>
+            <div className="pre-pills">
+              {[57, 80].map(mm => <button key={mm} type="button" className={printer.largeur === mm ? 'on' : ''} onClick={() => printer.setLargeur(mm)}>{mm} mm</button>)}
+            </div>
+          </div>
         </div>
-        <div style={{ flex: 1 }}>
-          <label style={labelStyle}>Referans</label>
-          <input className="ke-input" style={inputStyle} value={form.reference} onChange={e => set('reference', e.target.value)} placeholder="MCash #..."/>
+        <div className="ke-mt">
+          <Field label="Nòt"><textarea className="ke-input" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Rezon prè a, lòt enfòmasyon..." /></Field>
         </div>
-      </div>
-      <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>Nòt</label>
-        <textarea className="ke-input" style={{ ...inputStyle, height: 56, resize: 'vertical' }} value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Rezon, lòt enfòmasyon..."/>
-      </div>
-      <div style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-        <span style={{ fontSize: 12, color: D.muted }}>Tay papye:</span>
-        {[57, 80].map(mm => (
-          <button key={mm} onClick={() => printer.setLargeur(mm)}
-            style={{ padding: '6px 14px', borderRadius: 8, border: `1px solid ${printer.largeur===mm ? D.gold+'60' : D.cardBorder}`, background: printer.largeur===mm ? D.goldDim : 'transparent', color: printer.largeur===mm ? D.gold : D.muted, cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
-            {mm}mm
-          </button>
-        ))}
-      </div>
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-        <button className="ke-btn" onClick={handleSubmit} disabled={mutation.isPending}
-          style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: 'pointer', background: D.goldBtn, color: '#0a1222', fontWeight: 800, fontSize: 14, opacity: mutation.isPending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-          {mutation.isPending ? <><Spinner color="#0a1222"/> Ap voye...</> : <><FileText size={15}/> Voye Demand pou Apwobasyon</>}
-        </button>
-      </div>
+      </Section>
     </Modal>
   )
 }
@@ -273,13 +245,13 @@ export function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   const [form, setForm] = useState({ montant: '', method: 'cash', reference: '' })
   const amt         = Number(form.montant || 0)
   const resteAPayer = Math.max(0, Number(pre.totalDu||0) - Number(pre.totalPaye||0))
+  const apre        = Math.max(0, resteAPayer - amt)
 
-  // ✅ Hook anvan kondisyonèl
   const mutation = useMutation({
     mutationFn: (d) => preAPI.paiement(pre.id, d),
     onSuccess: async (res) => {
-      toast.success(`✅ Peman ${fmt(amt)} HTG anrejistre!`)
-      qc.invalidateQueries(['pre-echeances', pre.id])
+      toast.success(`Peman ${fmt(amt)} HTG anrejistre!`)
+      qc.invalidateQueries({ queryKey: ['pre-echeances', pre.id] })
       onSuccess()
       try {
         const preAjou = res.data?.pre || { ...pre, totalPaye: Number(pre.totalPaye) + amt }
@@ -291,265 +263,162 @@ export function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
     onError: (e) => toast.error(e.response?.data?.message || 'Erè peman.'),
   })
 
-  if (kesFemen) return (
-    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={420}>
-      <div style={{ textAlign: 'center', padding: '30px 20px' }}>
-        <Lock size={40} style={{ color: D.red, margin: '0 auto 16px', display: 'block' }} />
-        <p style={{ fontSize: 15, fontWeight: 800, color: D.red, margin: '0 0 8px' }}>Kès Fèmen</p>
-        <p style={{ fontSize: 13, color: D.muted, margin: '0 0 20px' }}>Ou pa ka anrejistre peman apre ou fèmen kès la.</p>
-        <button className="ke-btn" onClick={onClose} style={{ padding: '12px 24px', borderRadius: 10, border: 'none', background: D.goldBtn, color: '#0a1222', fontWeight: 800, cursor: 'pointer' }}>Konprann</button>
-      </div>
-    </Modal>
+  if (kesFemen) return <KesFemenModal onClose={onClose} title={`Peman — ${pre.numeroPre}`} text="Ou pa ka anrejistre peman apre kès la fèmen." />
+
+  const submit = () => { if (!mutation.isPending && amt > 0) mutation.mutate({ montant: amt, method: form.method, reference: form.reference||undefined }) }
+  const quick = [{ l: 'Tout', v: resteAPayer }, { l: '½', v: resteAPayer / 2 }, { l: '¼', v: resteAPayer / 4 }].filter(q => q.v > 0)
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main green" onClick={submit} disabled={mutation.isPending || amt <= 0}>
+        {mutation.isPending ? <><Spinner /> Ap anrejistre...</> : <><ArrowDownCircle size={18} /> {amt > 0 ? `Konfime ${fmt(amt)} G` : 'Konfime peman'}</>}
+      </button>
+    </>
   )
 
   return (
-    <Modal onClose={onClose} title={`💳 Peman — ${pre.numeroPre}`} width={440}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ background: D.goldBtn, borderRadius: 12, padding: '12px 14px', color: '#0a1222', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <p style={{ fontSize: 15, fontWeight: 900, margin: '0 0 2px' }}>{pre.clientNom}</p>
-            <p style={{ fontSize: 10, opacity: 0.7, margin: 0, fontFamily: 'monospace' }}>{pre.numeroPre}</p>
+    <Modal onClose={onClose} title="Peman prè" subtitle={`${pre.numeroPre} · ${pre.clientNom}`} icon={<ArrowDownCircle size={20} />} accent={T.greenD} width={480} footer={footer}>
+      <div className="ke-col">
+        <div className="ke-mini">
+          <NameAvatar nom={pre.clientNom} size={46} radius={15} />
+          <div style={{ minWidth: 0 }}>
+            <p className="ke-acc-no">{pre.numeroPre}</p>
+            <p className="ke-acc-name">{pre.clientNom}</p>
           </div>
-          <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 16, margin: 0 }}>{fmt(pre.montant)} HTG</p>
+          <div className="r"><p className="ke-label-s">Kapital</p><p className="v">{fmt(pre.montant)}</p></div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.green}20` }}>
-            <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', fontWeight: 700, textTransform: 'uppercase' }}>Deja Peye</p>
-            <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.green, margin: 0 }}>{fmt(pre.totalPaye||0)} HTG</p>
-          </div>
-          <div style={{ background: D.redBg, borderRadius: 10, padding: '10px 12px', border: `1px solid ${D.red}20` }}>
-            <p style={{ fontSize: 10, color: D.muted, margin: '0 0 3px', fontWeight: 700, textTransform: 'uppercase' }}>Rete Pou Peye</p>
-            <p style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: D.red, margin: 0 }}>{fmt(resteAPayer)} HTG</p>
-          </div>
+        <div className="ke-two">
+          <div className="ke-mtile" style={{ '--c': T.green, '--cbg': hexA(T.green, .07) }}><p className="ke-label-s">Deja peye</p><p className="v">{fmt(pre.totalPaye || 0)}</p></div>
+          <div className="ke-mtile" style={{ '--c': T.red, '--cbg': hexA(T.red, .07) }}><p className="ke-label-s">Rete pou peye</p><p className="v">{fmt(resteAPayer)}</p></div>
         </div>
         <div>
-          <label style={{ ...labelStyle, color: D.green }}>Montan Peman (HTG) *</label>
-          <input type="number" min="0.01" step="0.01" className="ke-input"
-            style={{ ...inputStyle, fontSize: 26, fontWeight: 800, textAlign: 'center', borderColor: `${D.green}50`, color: D.green }}
-            value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))}
-            placeholder="0.00" onFocus={e => e.target.select()} autoFocus/>
+          <AmountField label="Montan peman *" value={form.montant} onChange={v => setForm(p => ({ ...p, montant: v }))} accent={T.greenD} autoFocus onEnter={submit} />
+          {quick.length > 0 && (
+            <div className="pre-quick">
+              {quick.map(q => (
+                <button key={q.l} type="button" className={Math.abs(amt - q.v) < 0.01 ? 'on' : ''} onClick={() => setForm(p => ({ ...p, montant: q.v.toFixed(2) }))}>
+                  {q.l}<small>{fmt(q.v)}</small>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        {resteAPayer > 0 && (
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {[resteAPayer, resteAPayer/2, resteAPayer/4].filter(v => v > 0).map((v, i) => (
-              <button key={i} className="ke-btn" onClick={() => setForm(p => ({ ...p, montant: v.toFixed(2) }))}
-                style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${D.green}30`, background: D.greenBg, color: D.green, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                {i===0 ? 'Tout' : i===1 ? '½' : '¼'} ({fmt(v)})
-              </button>
-            ))}
-          </div>
-        )}
         {amt > 0 && (
-          <div style={{ background: D.greenBg, borderRadius: 10, padding: '10px 14px', border: `1px solid ${D.green}25`, display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: D.green }}>Rete apre peman:</span>
-            <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 14, color: resteAPayer-amt<=0 ? D.gold : D.green }}>
-              {fmt(Math.max(0, resteAPayer-amt))} HTG {resteAPayer-amt<=0 && '🎉'}
-            </span>
+          <div className="ke-preview" style={{ '--cbg': hexA(T.green, .06), '--cbd': hexA(T.green, .25) }}>
+            <div><p className="ke-label-s">Rete kounye a</p><p className="v" style={{ color: T.muted }}>{fmt(resteAPayer)}</p></div>
+            <div className="arrow"><ArrowRight size={16} /></div>
+            <div style={{ textAlign: 'right' }}>
+              <p className="ke-label-s">Rete apre peman</p>
+              <p className="v" style={{ color: apre <= 0 ? T.goldInk : T.green }}>{apre <= 0 ? 'KONPLÈ' : <AnimatedNumber value={apre} duration={450} />}</p>
+            </div>
           </div>
         )}
-        <div className="ke-form-row">
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Metod</label>
-            <select className="ke-input" style={{ ...inputStyle, cursor: 'pointer' }} value={form.method} onChange={e => setForm(p => ({ ...p, method: e.target.value }))}>
-              {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>Referans</label>
-            <input className="ke-input" style={inputStyle} value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))} placeholder="MCash #..."/>
-          </div>
+        <div>
+          <label className="ke-label">Metòd peman</label>
+          <MethodPicker value={form.method} onChange={v => setForm(p => ({ ...p, method: v }))} />
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button className="ke-btn" onClick={onClose} style={{ flex: 1, padding: '13px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.1)', background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 700 }}>Anile</button>
-          <button className="ke-btn" onClick={() => mutation.mutate({ montant: amt, method: form.method, reference: form.reference||undefined })}
-            disabled={mutation.isPending || amt <= 0}
-            style={{ flex: 2, padding: '13px', borderRadius: 12, border: 'none', cursor: mutation.isPending||amt<=0 ? 'not-allowed' : 'pointer', background: `linear-gradient(135deg,${D.green},${D.green}bb)`, color: '#fff', fontWeight: 800, fontSize: 14, opacity: mutation.isPending||amt<=0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
-            {mutation.isPending ? <><Spinner/> Ap anrejistre...</> : <><ArrowDownCircle size={15}/> Konfime Peman</>}
-          </button>
-        </div>
+        <Field label="Referans (opsyonèl)">
+          <input className="ke-input" value={form.reference} onChange={e => setForm(p => ({ ...p, reference: e.target.value }))} placeholder="Egz: MonCash #..." />
+        </Field>
       </div>
     </Modal>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: ENJEKTE KAPITAL — ✅ Edit 5 minit apre kreye
+// MODAL: ENJEKTE KAPITAL — korije nan 5 minit
 // ═══════════════════════════════════════════════════════════════
 export function ModalKapital({ onClose, onSuccess }) {
-  const [form, setForm]     = useState({ montant: '', notes: '' })
-  const [phase, setPhase]   = useState('create')   // 'create' | 'edit'
-  const [lastId, setLastId] = useState(null)
-  const [sekon,  setSekon]  = useState(0)
+  const [form, setForm]         = useState({ montant: '', notes: '' })
+  const [phase, setPhase]       = useState('create')
+  const [lastId, setLastId]     = useState(null)
+  const [sekon, setSekon]       = useState(0)
   const [savedAmt, setSavedAmt] = useState(0)
-
   const amt = Number(form.montant || 0)
+  const VIOLET = '#a78bfa'
 
-  // Countdown timer
   useEffect(() => {
     if (sekon <= 0 || phase !== 'edit') return
-    const t = setInterval(() => setSekon(s => {
-      if (s <= 1) { clearInterval(t); return 0 }
-      return s - 1
-    }), 1000)
+    const t = setInterval(() => setSekon(s => (s <= 1 ? 0 : s - 1)), 1000)
     return () => clearInterval(t)
-  }, [sekon, phase])
+  }, [sekon > 0, phase])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const fmtTimer = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
-  const timerColor = sekon > 120 ? D.green : sekon > 30 ? D.orange : D.red
+  const fmtTimer   = (s) => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`
+  const timerColor = sekon > 120 ? T.greenD : sekon > 30 ? T.gold : T.redD
 
-  // ── Kreye enjeksyon ──
   const mutation = useMutation({
     mutationFn: (d) => preAPI.enjekteKapital(d),
     onSuccess: (res) => {
-      toast.success(`✅ ${fmt(amt)} HTG enjekte!`)
-      onSuccess()
-      setSavedAmt(amt)
-      if (res.data?.id) {
-        setLastId(res.data.id)
-        setSekon(300)
-        setPhase('edit')  // ← rete nan modal, montre edit form
-      } else {
-        onClose()
-      }
+      toast.success(`${fmt(amt)} HTG enjekte!`)
+      onSuccess(); setSavedAmt(amt)
+      if (res.data?.id) { setLastId(res.data.id); setSekon(300); setPhase('edit'); setForm({ montant: '', notes: '' }) }
+      else onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè enjeksyon.'),
   })
-
-  // ── Modifye enjeksyon ──
   const mutEdit = useMutation({
     mutationFn: (d) => preAPI.updateKapital(lastId, d),
-    onSuccess: () => {
-      toast.success(`✅ Enjeksyon korije — ${fmt(amt)} HTG!`)
-      onSuccess()
-      onClose()
-    },
-    onError: (e) => {
-      toast.error(e.response?.data?.message || 'Erè modifikasyon.')
-      if (e.response?.data?.expired) onClose()
-    },
+    onSuccess: () => { toast.success(`Enjeksyon korije — ${fmt(amt || savedAmt)} HTG!`); onSuccess(); onClose() },
+    onError: (e) => { toast.error(e.response?.data?.message || 'Erè modifikasyon.'); if (e.response?.data?.expired) onClose() },
   })
 
+  const footer = phase === 'create' ? (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main dark" onClick={() => mutation.mutate({ montant: amt, notes: form.notes||undefined })} disabled={mutation.isPending || amt <= 0}>
+        {mutation.isPending ? <><Spinner /> Ap enjekte...</> : <><PiggyBank size={18} /> Konfime enjeksyon</>}
+      </button>
+    </>
+  ) : sekon > 0 ? (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Pa korije</button>
+      <button className="ke-fbtn main orange" onClick={() => mutEdit.mutate({ montant: amt || savedAmt, notes: form.notes||undefined })} disabled={mutEdit.isPending}>
+        {mutEdit.isPending ? <><Spinner /> Ap korije...</> : <><Pencil size={17} /> Korije montan</>}
+      </button>
+    </>
+  ) : <button className="ke-fbtn main dark" onClick={onClose}>Fèmen</button>
+
   return (
-    <Modal onClose={onClose} title={phase === 'edit' ? '✏️ Korije Enjeksyon' : '💼 Enjekte Kapital'} width={420}>
-      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-
-        {/* ── FAZE EDIT: Konfirmasyon + Countdown ── */}
-        {phase === 'edit' && (
+    <Modal onClose={onClose} title={phase === 'edit' ? 'Korije enjeksyon' : 'Enjekte kapital'} subtitle="Lajan disponib pou prète kliyan"
+      icon={phase === 'edit' ? <Pencil size={19} /> : <PiggyBank size={20} />} accent={VIOLET} width={460} footer={footer}>
+      <div className="ke-col">
+        {phase === 'create' ? (
           <>
-            {/* Enjeksyon konfime */}
-            <div style={{ background:D.greenBg, border:`1px solid ${D.green}30`, borderRadius:12, padding:'14px 16px' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                <CheckCircle size={20} style={{ color:D.green, flexShrink:0 }}/>
-                <div>
-                  <p style={{ fontSize:14, fontWeight:800, color:D.green, margin:0 }}>✅ Enjeksyon Konfime!</p>
-                  <p style={{ fontSize:12, color:D.muted, margin:'2px 0 0' }}>
-                    <strong style={{ color:D.gold }}>{fmt(savedAmt)} HTG</strong> enjekte avèk siksè.
-                  </p>
-                </div>
+            <Alert color={T.violet} icon={<PiggyBank size={17} />}>Kesye yo ap ka prète lajan sa a bay kliyan. <b>Ou gen 5 minit pou korije si gen erè.</b></Alert>
+            <AmountField label="Montan pou enjekte *" value={form.montant} onChange={v => setForm(p => ({ ...p, montant: v }))} accent={VIOLET} autoFocus quick={[10000, 25000, 50000, 100000]} />
+            <Field label="Nòt (opsyonèl)"><input className="ke-input" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Sous lajan an, rezon..." /></Field>
+          </>
+        ) : (
+          <>
+            <div className="ke-success" style={{ padding: 0 }}>
+              <div className="ke-check" style={{ width: 80, height: 80 }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={T.gold} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
               </div>
+              <h3 style={{ fontSize: 28 }}>{fmt(savedAmt)} HTG enjekte</h3>
             </div>
-
-            {/* Countdown */}
-            {sekon > 0 ? (
-              <div style={{ background:`${timerColor}12`, border:`1px solid ${timerColor}35`, borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                <div>
-                  <p style={{ fontSize:11, fontWeight:700, color:timerColor, margin:'0 0 2px', textTransform:'uppercase' }}>⏱ Tan pou korije si gen erè</p>
-                  <p style={{ fontSize:11, color:D.muted, margin:0 }}>Chanje montan an anba a epi klike "Korije"</p>
-                </div>
-                <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:24, color:timerColor, flexShrink:0 }}>
-                  {fmtTimer(sekon)}
-                </span>
+            <div className="pre-timer" style={{ '--c': timerColor }}>
+              <div>
+                <span className="ke-eyebrow"><Clock size={13} /> {sekon > 0 ? 'Tan pou korije' : 'Tan an fini'}</span>
+                <p style={{ margin: '5px 0 0', fontSize: 12.5, color: 'rgba(242,241,236,.6)', fontWeight: 600 }}>{sekon > 0 ? 'Chanje montan an anba a si te gen erè.' : 'Limit 5 minit lan depase — ou pa ka korije ankò.'}</p>
               </div>
-            ) : (
-              <div style={{ background:D.redBg, border:`1px solid ${D.red}35`, borderRadius:10, padding:'10px 14px' }}>
-                <p style={{ fontSize:12, color:D.red, margin:0, fontWeight:700 }}>⛔ Limite 5 minit depase — pa ka korije ankò.</p>
-              </div>
-            )}
-
-            {/* Edit form */}
+              <span className="v">{fmtTimer(sekon)}</span>
+            </div>
             {sekon > 0 && (
               <>
-                <div>
-                  <label style={{ ...labelStyle, color:D.orange }}>Nouvo Montan (HTG)</label>
-                  <input type="number" min="0.01" step="0.01" className="ke-input"
-                    style={{ ...inputStyle, fontSize:24, fontWeight:800, textAlign:'center', color:D.orange, borderColor:`${D.orange}50` }}
-                    value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))}
-                    placeholder={fmt(savedAmt)} onFocus={e => e.target.select()} autoFocus/>
-                </div>
-                <div>
-                  <label style={labelStyle}>Nòt (opsyonèl)</label>
-                  <input className="ke-input" style={inputStyle}
-                    value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                    placeholder="Ajoute nòt si bezwen..."/>
-                </div>
-                <div style={{ display:'flex', gap:10 }}>
-                  <button className="ke-btn" onClick={onClose}
-                    style={{ flex:1, padding:'13px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>
-                    Kite — Pa Korije
-                  </button>
-                  <button className="ke-btn"
-                    onClick={() => mutEdit.mutate({ montant: amt||savedAmt, notes: form.notes||undefined })}
-                    disabled={mutEdit.isPending}
-                    style={{ flex:2, padding:'13px', borderRadius:12, border:'none', cursor:mutEdit.isPending?'not-allowed':'pointer', background:`linear-gradient(135deg,${D.orange},${D.orange}bb)`, color:'#fff', fontWeight:800, fontSize:14, opacity:mutEdit.isPending?0.6:1, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-                    {mutEdit.isPending ? <><Spinner/> Ap korije...</> : <>✏️ Korije Montan</>}
-                  </button>
-                </div>
+                <AmountField label="Nouvo montan" value={form.montant} onChange={v => setForm(p => ({ ...p, montant: v }))} accent={T.gold} autoFocus />
+                <Field label="Nòt (opsyonèl)"><input className="ke-input" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Ajoute yon nòt si bezwen..." /></Field>
               </>
             )}
-
-            {sekon === 0 && (
-              <button className="ke-btn" onClick={onClose}
-                style={{ padding:'13px', borderRadius:12, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, cursor:'pointer' }}>
-                Fèmen
-              </button>
-            )}
           </>
         )}
-
-        {/* ── FAZE CREATE ── */}
-        {phase === 'create' && (
-          <>
-            <div style={{ background:`${D.purple}10`, border:`1px solid ${D.purple}25`, borderRadius:10, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
-              <PiggyBank size={16} style={{ color:D.purple, flexShrink:0 }}/>
-              <p style={{ fontSize:12, color:D.purple, margin:0 }}>
-                Lajan ou enjekte a ap disponib pou kesye yo ka prète kliyan.
-                <strong style={{ color:D.orange }}> Ou ap gen 5 minit pou korije si gen erè.</strong>
-              </p>
-            </div>
-            <div>
-              <label style={{ ...labelStyle, color:D.purple }}>Montan (HTG) *</label>
-              <input type="number" min="0.01" step="0.01" className="ke-input"
-                style={{ ...inputStyle, fontSize:26, fontWeight:800, textAlign:'center', color:D.purple, borderColor:`${D.purple}50` }}
-                value={form.montant} onChange={e => setForm(p => ({ ...p, montant: e.target.value }))}
-                placeholder="0.00" onFocus={e => e.target.select()} autoFocus/>
-            </div>
-            <div>
-              <label style={labelStyle}>Nòt (opsyonèl)</label>
-              <input className="ke-input" style={inputStyle}
-                value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
-                placeholder="Sous lajan, rezon..."/>
-            </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="ke-btn" onClick={onClose}
-                style={{ flex:1, padding:'13px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>
-                Anile
-              </button>
-              <button className="ke-btn"
-                onClick={() => mutation.mutate({ montant: amt, notes: form.notes||undefined })}
-                disabled={mutation.isPending || amt <= 0}
-                style={{ flex:2, padding:'13px', borderRadius:12, border:'none', cursor:mutation.isPending||amt<=0?'not-allowed':'pointer', background:`linear-gradient(135deg,${D.purple},${D.purple}bb)`, color:'#fff', fontWeight:800, fontSize:14, opacity:mutation.isPending||amt<=0?0.5:1, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-                {mutation.isPending ? <><Spinner/> Ap enjekte...</> : <><PiggyBank size={15}/> Konfime Enjeksyon</>}
-              </button>
-            </div>
-          </>
-        )}
-
       </div>
     </Modal>
   )
 }
+
 // ═══════════════════════════════════════════════════════════════
-// MODAL: FEMEN KÈS
+// MODAL: FÈMEN KÈS
 // ═══════════════════════════════════════════════════════════════
 export function ModalRapoKesye({ onClose, onKesFemen }) {
   const qc = useQueryClient()
@@ -575,9 +444,10 @@ export function ModalRapoKesye({ onClose, onKesFemen }) {
   const netSystem    = totalCashIn - totalCashOut
   const montFizikNum = Number(montantFizik || 0)
   const diferans     = montFizikNum - netSystem
-  const hasMontant   = montFizikNum > 0
-  const difColor = Math.abs(diferans) < 0.01 ? D.green : diferans > 0 ? D.orange : D.red
-  const difLabel = Math.abs(diferans) < 0.01 ? '✅ Balans kòrèkt' : diferans > 0 ? `📈 ${fmt(diferans)} HTG anplis` : `📉 ${fmt(Math.abs(diferans))} HTG mank`
+  const hasMontant   = montantFizik !== '' && montFizikNum >= 0
+  const exact        = Math.abs(diferans) < 0.01
+  const difColor = exact ? '#4ade80' : diferans > 0 ? T.gold : '#ff7b7b'
+  const difLabel = exact ? 'Kès la egal ak sistèm nan' : diferans > 0 ? `${fmt(diferans)} HTG anplis nan kès la` : `${fmt(Math.abs(diferans))} HTG ki manke`
 
   const handleFemen = async () => {
     if (!hasMontant) return
@@ -585,175 +455,161 @@ export function ModalRapoKesye({ onClose, onKesFemen }) {
     try {
       const notesFinale = [notes||'', `Montan fizik: ${fmt(montFizikNum)} HTG`, `Nèt sistèm: ${fmt(netSystem)} HTG`, `Diferans: ${diferans>=0?'+':''}${fmt(diferans)} HTG`].filter(Boolean).join(' | ')
       const res = await preAPI.femenKes({ notes: notesFinale })
-      setRapo(res.data.rapo)
-      toast.success('✅ Kès fèmen!')
-      qc.invalidateQueries(['kes-status'])
+      setRapo(res.data.rapo || { ok: true })
+      toast.success('Kès fèmen!')
+      qc.invalidateQueries({ queryKey: ['kes-status'] })
       onKesFemen()
     } catch (e) { toast.error(e.response?.data?.message || 'Erè fèmen kès.') }
     finally { setLoading(false) }
   }
 
+  const Summary = () => (
+    <div className="ke-summary" style={{ marginTop: 0 }}>
+      <div className="line"><span>Lajan ki rantre</span><b style={{ color: T.green }}>+{fmt(totalCashIn)}</b></div>
+      <div className="line"><span>Lajan ki soti</span><b style={{ color: T.red }}>−{fmt(totalCashOut)}</b></div>
+      <div className="total"><span>Nèt sistèm</span><b>{fmt(netSystem)} <small style={{ fontSize: 14, color: T.muted }}>HTG</small></b></div>
+    </div>
+  )
+
+  const footer = rapo ? <button className="ke-fbtn main dark" onClick={onClose}>Fèmen</button>
+    : etap === 1 ? (<><button className="ke-fbtn" onClick={onClose}>Anile</button><button className="ke-fbtn main dark" onClick={() => setEtap(2)}>Kontinye <ArrowRight size={17} /></button></>)
+    : (<><button className="ke-fbtn" onClick={() => setEtap(1)}>← Retou</button>
+        <button className="ke-fbtn main danger" onClick={handleFemen} disabled={loading || !hasMontant}>{loading ? <><Spinner /> Ap fèmen...</> : <><Lock size={17} /> Fèmen kès definitif</>}</button></>)
+
   return (
-    <Modal onClose={onClose} title={`📊 Fèmen Kès${etap===2?' — Etap 2/2':''}`} width={500}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {etap === 1 && !rapo && (
-          <>
-            <div style={{ background:`${D.orange}10`, border:`1px solid ${D.orange}25`, borderRadius:10, padding:'10px 14px' }}>
-              <p style={{ fontSize:12, color:D.orange, margin:0 }}>⚠️ Fèmen kès la ap <strong>bloke tou 2 paj yo</strong> jiskaske demen.</p>
-            </div>
-            {kaneStats && (
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                {[
-                  { label:'Depo Kane',   val:`${fmt(depoJou)} HTG`,  color:D.green },
-                  { label:'Retrè Kane',  val:`${fmt(retrèJou)} HTG`, color:D.red   },
-                  { label:'Koleksyon Prè', val:`${fmt(kolPre)} HTG`, color:D.green },
-                  { label:'Dekèsman Prè', val:`${fmt(desPre)} HTG`,  color:D.orange},
-                ].map(item => (
-                  <div key={item.label} style={{ background:`${item.color}10`, borderRadius:10, padding:'10px 12px', border:`1px solid ${item.color}20` }}>
-                    <p style={{ fontSize:10, color:D.muted, margin:'0 0 3px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
-                    <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:13, color:item.color, margin:0 }}>{item.val}</p>
-                  </div>
-                ))}
+    <Modal onClose={onClose} width={560} footer={footer} title="Fèmen kès" subtitle={rapo ? 'Jounen an fini' : 'Rapò jounen an · Kanè + Prè'} icon={<ClipboardCheck size={20} />}>
+      {!rapo && (
+        <div className="ke-steps">
+          <div className={`ke-step ${etap === 1 ? 'on' : 'done'}`}><b>{etap > 1 ? '✓' : '1'}</b>Rezime</div>
+          <div className="ke-step-line"><i style={{ width: etap > 1 ? '100%' : '0%' }} /></div>
+          <div className={`ke-step ${etap === 2 ? 'on' : ''}`}><b>2</b>Konfimasyon</div>
+        </div>
+      )}
+      {etap === 1 && !rapo && (
+        <div className="ke-col">
+          <Alert color={T.orange}>Fèmen kès la ap <b>bloke paj Kanè ak Prè</b> jiskaske demen.</Alert>
+          <div className="ke-two">
+            {[
+              { l:'Depo Kanè',     v:fmt(depoJou),  c:T.green  },
+              { l:'Retrè Kanè',    v:fmt(retrèJou), c:T.red    },
+              { l:'Koleksyon Prè', v:fmt(kolPre),   c:T.teal   },
+              { l:'Dekèsman Prè',  v:fmt(desPre),   c:T.orange },
+            ].map((t, i) => (
+              <div key={t.l} className="ke-mtile" style={{ '--c': t.c, '--cbg': hexA(t.c, .07), animationDelay: `${i * .05}s` }}>
+                <p className="ke-label-s">{t.l}</p><p className="v" style={{ fontSize: 22 }}>{t.v}</p>
               </div>
-            )}
-            <div>
-              <label style={labelStyle}>Nòt (opsyonèl)</label>
-              <textarea className="ke-input" style={{ ...inputStyle, height:52, resize:'vertical' }} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Obsèvasyon jounen an..."/>
+            ))}
+          </div>
+          <Summary />
+          <Field label="Nòt (opsyonèl)"><textarea className="ke-input" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Obsèvasyon sou jounen an..." /></Field>
+        </div>
+      )}
+      {etap === 2 && !rapo && (
+        <div className="ke-col">
+          <Alert color={T.red} icon={<Lock size={17} />}>Etap final — aksyon sa a <b>pa ka defèt</b>.</Alert>
+          <Summary />
+          <AmountField label="Montan fizik ki nan kès la *" value={montantFizik} onChange={setMontantFizik} accent={T.blueD} autoFocus quick={netSystem > 0 ? [Math.round(netSystem * 100) / 100] : []} />
+          {hasMontant && (
+            <div className="ke-diff" style={{ '--c': difColor }}>
+              <div><span className="k">Diferans</span><p className="s">{difLabel}</p></div>
+              <span className="v">{diferans >= 0 ? '+' : ''}<AnimatedNumber value={diferans} duration={450} /></span>
             </div>
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="ke-btn" onClick={onClose} style={{ flex:1, padding:'13px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>Anile</button>
-              <button className="ke-btn" onClick={() => setEtap(2)}
-                style={{ flex:2, padding:'13px', borderRadius:12, border:'none', cursor:'pointer', background:`linear-gradient(135deg,${D.orange},${D.orange}bb)`, color:'#fff', fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-                <FileText size={15}/> Kontinye → Konfimasyon
-              </button>
-            </div>
-          </>
-        )}
-        {etap === 2 && !rapo && (
-          <>
-            <div style={{ background:`${D.red}10`, border:`1px solid ${D.red}30`, borderRadius:10, padding:'10px 14px' }}>
-              <p style={{ fontSize:12, color:D.red, margin:0, fontWeight:700 }}>🔒 Etap final — Aksyon sa a <strong>p ap ka defèt</strong>.</p>
-            </div>
-            <div>
-              <label style={labelStyle}>Nèt Sistèm (Kalkile Otomatikman)</label>
-              <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:10, padding:'12px 14px', border:`1px solid ${D.cardBorder}`, fontSize:12 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
-                  <span style={{ color:D.muted }}>Lajan Rantre:</span>
-                  <span style={{ color:D.green, fontFamily:'monospace', fontWeight:700 }}>+{fmt(totalCashIn)}</span>
-                </div>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-                  <span style={{ color:D.muted }}>Lajan Soti:</span>
-                  <span style={{ color:D.red, fontFamily:'monospace', fontWeight:700 }}>−{fmt(totalCashOut)}</span>
-                </div>
-                <div style={{ display:'flex', justifyContent:'space-between', borderTop:`1px solid ${D.cardBorder}`, paddingTop:8 }}>
-                  <span style={{ fontWeight:800, color:D.text }}>Nèt Sistèm:</span>
-                  <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:15, color:D.gold }}>{fmt(netSystem)} HTG</span>
-                </div>
-              </div>
-            </div>
-            <div>
-              <label style={{ ...labelStyle, color:D.blue }}>Montan Fizik nan Kès (HTG) *</label>
-              <input type="number" min="0" step="0.01" className="ke-input"
-                style={{ ...inputStyle, fontSize:24, fontWeight:800, textAlign:'center', color:D.blue, borderColor:`${D.blue}50` }}
-                value={montantFizik} onChange={e => setMontantFizik(e.target.value)} placeholder="0.00" onFocus={e => e.target.select()} autoFocus/>
-            </div>
-            {hasMontant && (
-              <div style={{ background:`${difColor}12`, borderRadius:10, padding:'12px 14px', border:`1px solid ${difColor}35` }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontSize:13, fontWeight:800, color:difColor }}>Diferans:</span>
-                  <span style={{ fontFamily:'monospace', fontWeight:900, fontSize:18, color:difColor }}>{diferans>=0?'+':''}{fmt(diferans)} HTG</span>
-                </div>
-                <p style={{ fontSize:11, color:D.muted, margin:'3px 0 0' }}>{difLabel}</p>
-              </div>
-            )}
-            <div style={{ display:'flex', gap:10 }}>
-              <button className="ke-btn" onClick={() => setEtap(1)} style={{ flex:1, padding:'13px', borderRadius:12, border:'1px solid rgba(255,255,255,0.1)', background:'transparent', color:D.muted, cursor:'pointer', fontWeight:700 }}>← Retou</button>
-              <button className="ke-btn" onClick={handleFemen} disabled={loading||!hasMontant}
-                style={{ flex:2, padding:'13px', borderRadius:12, border:'none', cursor:loading||!hasMontant?'not-allowed':'pointer', background:'linear-gradient(135deg,#dc2626,#a00)', color:'#fff', fontWeight:800, fontSize:14, opacity:loading||!hasMontant?0.6:1, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-                {loading ? <><Spinner/> Ap fèmen...</> : <><Lock size={15}/> Fèmen Kès Definitiv</>}
-              </button>
-            </div>
-          </>
-        )}
-        {rapo && (
-          <>
-            <div style={{ background:D.greenBg, border:`1px solid ${D.green}30`, borderRadius:12, padding:'14px', textAlign:'center' }}>
-              <CheckCircle size={28} style={{ color:D.green, margin:'0 auto 8px', display:'block' }}/>
-              <p style={{ fontSize:15, fontWeight:800, color:D.green, margin:'0 0 4px' }}>Kès Fèmen ✅</p>
-            </div>
-            <button className="ke-btn" onClick={onClose} style={{ padding:'13px', borderRadius:12, border:'none', background:D.goldBtn, color:'#0a1222', fontWeight:800, fontSize:14, cursor:'pointer' }}>Fèmen</button>
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+      {rapo && (
+        <div className="ke-success">
+          <div className="ke-check"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke={T.gold} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg></div>
+          <h3>Kès fèmen</h3>
+          <p>Montan fizik: <b style={{ color: T.ink }}>{fmt(montFizikNum)} HTG</b> · Diferans: <b style={{ color: exact ? T.green : diferans > 0 ? T.orange : T.red }}>{diferans >= 0 ? '+' : ''}{fmt(diferans)} HTG</b></p>
+        </div>
+      )}
     </Modal>
   )
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MODAL: DETAY PRÈ — ✅ Admin delete prè + peman
+// MODAL: RESI PRÈ — Aperçu + Imaj / PDF + Enprime
 // ═══════════════════════════════════════════════════════════════
-export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
+export function ModalPreReceipt({ data, onClose, printer }) {
+  const share = usePreShare()
+  const isPay = data.type === 'paiement'
+  const footer = (
+    <>
+      <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}
+        onClick={() => printer?.printPre({ pre: data.pre, echeances: data.echeances || [], tenant: data.tenant, type: data.type, paiement: data.paiement })}>
+        {printer?.printing ? <Spinner /> : <Printer size={18} />}
+      </button>
+      <button className="ke-fbtn" onClick={() => share.share(data, 'pdf')} disabled={!!share.generating}>
+        {share.generating === 'pdf' ? <Spinner /> : <FileDown size={18} />} PDF
+      </button>
+      <button className="ke-fbtn main dark" onClick={() => share.share(data, 'png')} disabled={!!share.generating}>
+        {share.generating === 'png' ? <Spinner /> : <ImageIcon size={18} />} Pataje imaj
+      </button>
+    </>
+  )
+  return (
+    <Modal onClose={onClose} dismissible width={520} footer={footer} icon={<Receipt size={20} />}
+      title={isPay ? 'Resi peman' : 'Kontra prè'} subtitle={`${data.pre.numeroPre} · ${data.pre.clientNom}`}>
+      <PreReceiptPreview {...data} />
+      <p className="ke-rcpt-note"><Share2 size={14} /> Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
+    </Modal>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL: DETAY PRÈ — apwobasyon, peman, kalandriye, admin
+// ═══════════════════════════════════════════════════════════════
+export function ModalDetailPre({ preId, onClose, onPaieman, printer, kesFemen = false }) {
   const { tenant, user } = useAuthStore()
   const qc = useQueryClient()
   const isAdminUser = user?.role === 'admin'
+  const [receipt, setReceipt]   = useState(null)
+  const [loadingKontra, setLoadingKontra] = useState(false)
+  const [showReject, setShowReject] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
 
   const { data: preData, isLoading } = useQuery({
     queryKey: ['pre-one', preId],
     queryFn:  () => preAPI.getOne(preId).then(r => r.data),
     enabled:  !!preId,
   })
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['pre-list'] }); qc.invalidateQueries({ queryKey: ['pre-stats'] }); qc.invalidateQueries({ queryKey: ['pre-one', preId] })
+  }
 
-  // ✅ Admin: efase prè — mande PIN
+  const [showDeletePreConfirm, setShowDeletePreConfirm] = useState(false)
   const mutDeletePre = useMutation({
     mutationFn: (pin) => preAPI.deletePre(preId, pin),
-    onSuccess: () => {
-      toast.success('✅ Prè efase avèk siksè.')
-      qc.invalidateQueries(['pre-list'])
-      qc.invalidateQueries(['pre-stats'])
-      onClose()
-    },
+    onSuccess: () => { toast.success('Prè efase.'); qc.invalidateQueries({ queryKey: ['pre-list'] }); qc.invalidateQueries({ queryKey: ['pre-stats'] }); setShowDeletePreConfirm(false); onClose() },
     onError: e => toast.error(e.response?.data?.message || 'Erè efase prè.'),
   })
-  const [showDeletePreConfirm, setShowDeletePreConfirm] = useState(false)
 
-  // ✅ Apwobasyon
   const [showApproveConfirm, setShowApproveConfirm] = useState(false)
   const mutApprove = useMutation({
     mutationFn: (pin) => preAPI.approve(preId, pin),
-    onSuccess: () => {
-      toast.success('✅ Prè apwouve epi lajan dekèse!')
-      qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']); qc.invalidateQueries(['pre-one', preId])
-      setShowApproveConfirm(false)
-    },
+    onSuccess: () => { toast.success('Prè apwouve epi lajan dekèse!'); invalidate(); setShowApproveConfirm(false) },
     onError: e => toast.error(e.response?.data?.message || 'Erè apwobasyon.'),
   })
   const mutReject = useMutation({
     mutationFn: (reason) => preAPI.reject(preId, reason),
-    onSuccess: () => {
-      toast.success('Prè rejte.')
-      qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats']); qc.invalidateQueries(['pre-one', preId])
-    },
+    onSuccess: () => { toast.success('Prè rejte.'); invalidate(); setShowReject(false) },
     onError: e => toast.error(e.response?.data?.message || 'Erè rejè.'),
   })
-  const handleReject = () => {
-    const reason = window.prompt('Rezon rejè a (opsyonèl):')
-    if (reason === null) return
-    mutReject.mutate(reason || undefined)
-  }
-
   const mutCloture = useMutation({
     mutationFn: () => preAPI.cloture(preId),
-    onSuccess: () => { toast.success('Prè klotire ✅'); qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-one', preId]); onClose() },
-    onError:   (e) => toast.error(e.response?.data?.message || 'Erè klotire.'),
+    onSuccess: () => { toast.success('Prè klotire!'); qc.invalidateQueries({ queryKey: ['pre-list'] }); qc.invalidateQueries({ queryKey: ['pre-one', preId] }); onClose() },
+    onError: (e) => toast.error(e.response?.data?.message || 'Erè klotire.'),
   })
 
-  // ✅ Admin: efase peman — mande PIN (hook la dwe rete anvan early return anba a)
   const [pixDeleteTarget, setPixDeleteTarget] = useState(null)
 
   if (isLoading || !preData?.pre) return (
-    <Modal onClose={onClose} title="Detay Prè" width={600}>
-      <div style={{ textAlign: 'center', padding: 40, color: D.muted, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-        <Spinner color={D.gold} size={18}/> Ap chaje...
+    <Modal onClose={onClose} title="Detay prè" subtitle="Ap chaje..." icon={<Landmark size={20} />} width={660} dismissible>
+      <div className="ke-col">
+        <div className="ke-skel" style={{ height: 220, borderRadius: 24 }} />
+        <div className="ke-three">{[0,1,2,3,4,5].map(i => <div key={i} className="ke-skel" style={{ height: 70, borderRadius: 18 }} />)}</div>
+        <div className="ke-skel" style={{ height: 50, borderRadius: 15 }} />
       </div>
     </Modal>
   )
@@ -762,221 +618,189 @@ export function ModalDetailPre({ preId, onClose, onPaieman, printer }) {
   const resteAPayer  = Math.max(0, Number(pre.totalDu||0) - Number(pre.totalPaye||0))
   const pctPaye      = pre.totalDu > 0 ? Math.min((Number(pre.totalPaye)/Number(pre.totalDu))*100, 100) : 0
   const interetKouru = Number(pre.interetKouruTotal || 0)
+  const canPay       = !['cloture', 'attente', 'annule'].includes(pre.statut)
+  const paiements    = pre.paiements || []
 
-  const handlePrintKontra = async () => {
-    try { const r = await preAPI.echeances(preId); printer.printPre({ pre, echeances: r.data.echeances||[], tenant, type: 'ouverture' }) }
-    catch { printer.printPre({ pre, echeances: [], tenant, type: 'ouverture' }) }
-  }
+  const fetchEch = async () => { try { const r = await preAPI.echeances(preId); return r.data.echeances || [] } catch { return [] } }
+  const handlePrintKontra = async () => printer.printPre({ pre, echeances: await fetchEch(), tenant, type: 'ouverture' })
+  const handleShareKontra = async () => { setLoadingKontra(true); const echeances = await fetchEch(); setLoadingKontra(false); setReceipt({ pre, tenant, type: 'ouverture', echeances }) }
 
-  const handleDeletePaiement = (px) => setPixDeleteTarget(px)
   const confirmDeletePaiement = async (pin) => {
-    await preAPI.deletePaiement(pre.id, pixDeleteTarget.id, pin)
-    toast.success('✅ Peman efase!')
-    qc.invalidateQueries(['pre-one', pre.id]); qc.invalidateQueries(['pre-list']); qc.invalidateQueries(['pre-stats'])
-    setPixDeleteTarget(null)
+    try {
+      await preAPI.deletePaiement(pre.id, pixDeleteTarget.id, pin)
+      toast.success('Peman efase!')
+      invalidate(); setPixDeleteTarget(null)
+    } catch (e) { toast.error(e.response?.data?.message || 'Erè efase peman.'); throw e }
   }
+
+  const tiles = [
+    { l:'Kapital',    v:fmt(pre.montant),        c:T.goldInk },
+    { l:'To enterè',  v:`${pre.tauxInteret}%`,   c:T.orange },
+    { l:'Dire',       v:`${pre.dureeEnMois} mwa`, c:T.blue },
+    { l:'Total dwe',  v:fmt(pre.totalDu),        c:T.red },
+    { l:'Total peye', v:fmt(pre.totalPaye || 0), c:T.green },
+    { l:'Int. kouru', v:fmt(interetKouru),       c:interetKouru > 0 ? T.red : T.muted },
+  ]
 
   return (
-    <Modal onClose={onClose} title={`📋 ${pre.numeroPre}`} width={600}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-        {/* Bannè */}
-        <div style={{ background: D.goldBtn, borderRadius: 14, padding: '14px 16px', color: '#0a1222', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 10 }}>
-          <div>
-            <p style={{ fontSize: 17, fontWeight: 900, margin: '0 0 3px' }}>{pre.clientNom}</p>
-            <p style={{ fontSize: 10, opacity: 0.7, margin: 0, fontFamily: 'monospace' }}>{pre.numeroPre}</p>
-            {pre.clientPhone  && <p style={{ fontSize: 10, opacity: 0.65, margin: '2px 0 0' }}>📱 {pre.clientPhone}</p>}
-            {pre.garantiByens && <p style={{ fontSize: 10, opacity: 0.8,  margin: '2px 0 0' }}>🏠 {pre.garantiByens}</p>}
+    <>
+      <Modal onClose={onClose} title={pre.clientNom} subtitle={`Prè ${pre.numeroPre}`} icon={<Landmark size={20} />} width={660}
+        dismissible={!showDeletePreConfirm && !showApproveConfirm && !pixDeleteTarget && !receipt}>
+        <div className="ke-col">
+          {/* Kat prensipal */}
+          <div className="ke-pass">
+            <div className="ke-pass-top">
+              <div className="ke-pass-ph">{(pre.clientNom || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()}</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <p className="ke-pass-name">{pre.clientNom}</p>
+                <p className="ke-pass-no">{pre.numeroPre}</p>
+              </div>
+              <StatutBadge statut={pre.statut} />
+            </div>
+            <div className="ke-pass-bal">
+              <div>
+                <span className="ke-eyebrow"><Wallet size={13} /> Kapital prè</span>
+                <p className="v"><AnimatedNumber value={pre.montant} /><small>HTG</small></p>
+              </div>
+            </div>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, color: 'rgba(242,241,236,.65)', marginBottom: 8 }}>
+                <span>Peye {fmt(pre.totalPaye || 0)}</span>
+                <span className="ke-d" style={{ fontSize: 20, color: '#fff' }}>{Math.round(pctPaye)}%</span>
+                <span style={{ color: interetKouru > 0 ? T.redD : undefined }}>Rete {fmt(resteAPayer + interetKouru)}</span>
+              </div>
+              <div className="ke-dtrack" style={{ margin: 0 }}><i style={{ width: `${pctPaye}%`, background: pctPaye >= 100 ? T.gold : T.greenD }} /></div>
+            </div>
+            <div className="ke-pass-meta">
+              <span>{pre.tauxInteret}% / mwa</span>
+              <span>{pre.dureeEnMois} mwa · {periodLabel(pre.periode)}</span>
+              {pre.clientPhone && <span><Phone size={12} /> {pre.clientPhone}</span>}
+              {pre.garantiByens && <span><Home size={12} /> {pre.garantiByens}</span>}
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <StatutBadge statut={pre.statut}/>
-            <p style={{ fontFamily: 'monospace', fontWeight: 900, fontSize: 20, margin: '6px 0 0' }}>{fmt(pre.montant)} HTG</p>
-            <p style={{ fontSize: 10, opacity: 0.6, margin: '1px 0 0' }}>{pre.tauxInteret}% / mwa • {pre.dureeEnMois} mwa • {PERIODES.find(p=>p.value===pre.periode)?.label}</p>
-          </div>
-        </div>
 
-        {/* Avalize */}
-        {(pre.avalize1Nom || pre.avalize2Nom) && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[{ nom: pre.avalize1Nom, tel: pre.avalize1Phone, label: 'Avalize 1' }, { nom: pre.avalize2Nom, tel: pre.avalize2Phone, label: 'Avalize 2' }]
-              .filter(a => a.nom).map(a => (
-              <div key={a.label} style={{ flex: 1, padding: '8px 12px', background: `${D.blue}10`, borderRadius: 10, border: `1px solid ${D.blue}20`, minWidth: 140 }}>
-                <p style={{ fontSize: 9, color: D.muted, margin: '0 0 2px', textTransform: 'uppercase', fontWeight: 700 }}>{a.label}</p>
-                <p style={{ fontSize: 12, fontWeight: 700, color: D.blue, margin: 0 }}>{a.nom}</p>
-                {a.tel && <p style={{ fontSize: 10, color: D.muted, margin: '1px 0 0' }}>{a.tel}</p>}
+          <div className="ke-three">
+            {tiles.map((t, i) => (
+              <div key={t.l} className="ke-mtile" style={{ '--c': t.c, '--cbg': hexA(t.c, .07), animationDelay: `${i * .04}s` }}>
+                <p className="ke-label-s">{t.l}</p><p className="v" style={{ fontSize: 22 }}>{t.v}</p>
               </div>
             ))}
           </div>
-        )}
 
-        {/* Barre pwogresyon */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: D.muted, marginBottom: 5 }}>
-            <span style={{ color: D.green }}>Peye: {fmt(pre.totalPaye||0)} HTG</span>
-            <span style={{ fontWeight: 700, color: D.text }}>{Math.round(pctPaye)}%</span>
-            <span style={{ color: interetKouru > 0 ? D.red : D.muted }}>Rete: {fmt(resteAPayer+interetKouru)} HTG</span>
-          </div>
-          <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex' }}>
-            <div style={{ width: `${pctPaye}%`, background: pctPaye>=100 ? D.gold : D.green, transition: 'width 0.4s' }}/>
-          </div>
-        </div>
-
-        {/* Griy detay */}
-        <div className="pre-detail-grid">
-          {[
-            { label:'Kapital',    val:`${fmt(pre.montant)} HTG`,      color:D.gold   },
-            { label:'To Enterè', val:`${pre.tauxInteret}% / mwa`,   color:D.orange },
-            { label:'Dire',       val:`${pre.dureeEnMois} mwa`,      color:D.blue   },
-            { label:'Total Dwe',  val:`${fmt(pre.totalDu)} HTG`,     color:D.red    },
-            { label:'Total Peye', val:`${fmt(pre.totalPaye||0)} HTG`, color:D.green },
-            { label:'Int. Kouru', val:`${fmt(interetKouru)} HTG`,    color:interetKouru>0?D.red:D.muted },
-          ].map(item => (
-            <div key={item.label} style={{ background:`${item.color}0f`, borderRadius:10, padding:'10px 12px', border:`1px solid ${item.color}20` }}>
-              <p style={{ fontSize:10, color:D.muted, margin:'0 0 3px', textTransform:'uppercase', fontWeight:700 }}>{item.label}</p>
-              <p style={{ fontFamily:'monospace', fontWeight:800, fontSize:13, color:item.color, margin:0 }}>{item.val}</p>
-            </div>
-          ))}
-        </div>
-
-        {pre.notes && (
-          <div style={{ background:'rgba(255,255,255,0.03)', borderRadius:10, padding:'10px 12px', border:`1px solid ${D.cardBorder}` }}>
-            <p style={{ fontSize:10, color:D.muted, margin:'0 0 4px', fontWeight:700, textTransform:'uppercase' }}>Nòt</p>
-            <p style={{ fontSize:13, color:D.text, margin:0 }}>{pre.notes}</p>
-          </div>
-        )}
-
-        {/* ✅ Prè an atant apwobasyon */}
-        {pre.statut === 'attente' && isAdminUser && (
-          <div style={{ background:`${D.orange}10`, border:`1px solid ${D.orange}30`, borderRadius:12, padding:'12px 14px' }}>
-            <p style={{ fontSize:12, fontWeight:700, color:D.orange, margin:'0 0 10px', display:'flex', alignItems:'center', gap:6 }}>
-              <Clock size={14}/> Prè sa an atant apwobasyon — okenn lajan poko dekèse.
-            </p>
-            <div style={{ display:'flex', gap:8 }}>
-              <button className="ke-btn" onClick={() => setShowApproveConfirm(true)} disabled={mutApprove.isPending}
-                style={{ flex:1, padding:'10px', borderRadius:10, border:'none', background:`linear-gradient(135deg,${D.green},${D.green}bb)`, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-                {mutApprove.isPending ? <Spinner size={13}/> : <CheckCircle size={14}/>} Apwouve + Dekèse
-              </button>
-              <button className="ke-btn" onClick={handleReject} disabled={mutReject.isPending}
-                style={{ flex:1, padding:'10px', borderRadius:10, border:`1px solid ${D.red}40`, background:D.redBg, color:D.red, fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-                {mutReject.isPending ? <Spinner size={13} color={D.red}/> : <XCircle size={14}/>} Rejte
-              </button>
-            </div>
-          </div>
-        )}
-        {pre.statut === 'attente' && !isAdminUser && (
-          <div style={{ background:`${D.orange}10`, border:`1px solid ${D.orange}30`, borderRadius:12, padding:'12px 14px' }}>
-            <p style={{ fontSize:12, fontWeight:700, color:D.orange, margin:0, display:'flex', alignItems:'center', gap:6 }}>
-              <Clock size={14}/> Prè sa an atant apwobasyon yon admin.
-            </p>
-          </div>
-        )}
-
-        {/* Boutons aksyon */}
-        {pre.statut !== 'cloture' && pre.statut !== 'attente' && pre.statut !== 'annule' && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="ke-btn" onClick={onPaieman}
-              style={{ flex:2, padding:'11px', borderRadius:10, border:`1px solid ${D.green}30`, background:D.greenBg, color:D.green, fontWeight:800, fontSize:13, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:5 }}>
-              <ArrowDownCircle size={14}/> Anrejistre Peman
-            </button>
-            <button className="ke-btn" onClick={handlePrintKontra}
-              style={{ padding:'11px 14px', borderRadius:10, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', gap:4, fontSize:11 }}>
-              <Printer size={13}/> Kontra
-            </button>
-            {resteAPayer <= 0.01 && interetKouru <= 0 && (
-              <button className="ke-btn" onClick={() => mutCloture.mutate()} disabled={mutCloture.isPending}
-                style={{ padding:'11px 14px', borderRadius:10, border:`1px solid ${D.gold}30`, background:D.goldDim, color:D.gold, cursor:'pointer', fontWeight:700, fontSize:12, display:'flex', alignItems:'center', gap:4 }}>
-                {mutCloture.isPending ? <Spinner size={12} color={D.gold}/> : <CheckCircle size={13}/>} Klotire
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* ✅ Admin — Efase Prè */}
-        {isAdminUser && (
-          <div style={{ borderTop:`1px solid ${D.red}25`, paddingTop:10, marginTop:2 }}>
-            <p style={{ fontSize:10, fontWeight:700, color:D.red, textTransform:'uppercase', margin:'0 0 8px', letterSpacing:'0.06em' }}>⚠️ Zone Admin — Aksyon Ireversib</p>
-            <button className="ke-btn" onClick={() => setShowDeletePreConfirm(true)} disabled={mutDeletePre.isPending}
-              style={{ width:'100%', padding:'10px', borderRadius:10, border:`1px solid ${D.red}40`, background:D.redBg, color:D.red, cursor:'pointer', fontWeight:800, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', gap:7 }}>
-              {mutDeletePre.isPending ? <Spinner size={13} color={D.red}/> : <Trash2 size={14}/>}
-              {mutDeletePre.isPending ? 'Ap efase...' : `Efase Prè ${pre.numeroPre}`}
-            </button>
-          </div>
-        )}
-
-        {/* Kalandriye */}
-        <KalandriyeSection preId={preId}/>
-
-        {/* Istwa Peman */}
-        <div>
-          <p style={{ fontSize:11, fontWeight:800, textTransform:'uppercase', color:D.muted, margin:'0 0 8px', letterSpacing:'0.06em' }}>
-            Istwa Peman ({pre.paiements?.length || 0})
-          </p>
-          <div style={{ display:'flex', flexDirection:'column', gap:6, maxHeight:220, overflowY:'auto' }}>
-            {!pre.paiements?.length
-              ? <p style={{ textAlign:'center', color:D.muted, fontSize:12, padding:20 }}>Pa gen peman toujou</p>
-              : pre.paiements.map(px => (
-                <div key={px.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 11px', borderRadius:10, background:D.greenBg, border:`1px solid ${D.green}20` }}>
-                  <div style={{ width:30, height:30, borderRadius:8, background:`${D.green}20`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <ArrowDownCircle size={13} style={{ color:D.green }}/>
+          {(pre.avalize1Nom || pre.avalize2Nom) && (
+            <div className="pre-aval">
+              {[{ nom: pre.avalize1Nom, tel: pre.avalize1Phone, l: 'Avalize 1' }, { nom: pre.avalize2Nom, tel: pre.avalize2Phone, l: 'Avalize 2' }].filter(a => a.nom).map(a => (
+                <div key={a.l}>
+                  <span className="ke-stat-ic" style={{ width: 38, height: 38, borderRadius: 12, background: T.soft, color: T.ink }}><Users size={16} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <p className="ke-label-s">{a.l}</p>
+                    <p style={{ margin: '3px 0 0', fontWeight: 800, fontSize: 14 }}>{a.nom}</p>
+                    {a.tel && <p style={{ margin: '1px 0 0', fontSize: 12, color: T.muted, fontWeight: 600 }}>{a.tel}</p>}
                   </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontSize:12, fontWeight:700, color:D.green }}>Peman</span>
-                      <span style={{ fontFamily:'monospace', fontWeight:800, fontSize:12, color:D.green }}>+{fmt(px.montant)} HTG</span>
-                    </div>
-                    <p style={{ fontSize:10, color:D.muted, margin:'2px 0 0' }}>
-                      {fmtDate(px.createdAt)} • {px.method}{px.reference ? ` • ${px.reference}` : ''}
-                    </p>
-                  </div>
-                  {/* Enprime */}
-                  <button className="ke-btn" onClick={() => printer.printPre({ pre:{ ...pre, totalPaye:Number(px.balanceAvant||0) }, paiement:px, tenant, type:'paiement' })}
-                    style={{ width:26, height:26, borderRadius:6, border:'none', background:'rgba(255,255,255,0.05)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    <Printer size={11}/>
-                  </button>
-                  {/* ✅ Admin: Efase peman */}
-                  {isAdminUser && (
-                    <button className="ke-btn" title="Admin: Efase peman" onClick={() => handleDeletePaiement(px)}
-                      style={{ width:26, height:26, borderRadius:6, border:'none', background:'rgba(251,113,133,0.12)', color:'#FB7185', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <Trash2 size={11}/>
-                    </button>
-                  )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {pre.notes && <Alert color={T.blue} icon={<FileText size={16} />}>{pre.notes}</Alert>}
+
+          {/* Apwobasyon */}
+          {pre.statut === 'attente' && isAdminUser && (
+            <div className="pre-approve">
+              <p><Clock size={16} color={T.orange} /> Prè sa ap tann apwobasyon — okenn lajan poko dekèse.</p>
+              {!showReject ? (
+                <div className="ke-two">
+                  <button className="ke-fbtn main green" onClick={() => setShowApproveConfirm(true)} disabled={mutApprove.isPending}>
+                    {mutApprove.isPending ? <Spinner /> : <CheckCircle size={17} />} Apwouve + dekèse
+                  </button>
+                  <button className="ke-fbtn" style={{ color: T.red, borderColor: hexA(T.red, .3) }} onClick={() => setShowReject(true)}>
+                    <XCircle size={17} /> Rejte
+                  </button>
+                </div>
+              ) : (
+                <div className="ke-col" style={{ gap: 10 }}>
+                  <textarea className="ke-input" autoFocus value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Rezon rejè a (opsyonèl)..." />
+                  <div className="ke-two">
+                    <button className="ke-fbtn" onClick={() => { setShowReject(false); setRejectReason('') }}>Anile</button>
+                    <button className="ke-fbtn main red" onClick={() => mutReject.mutate(rejectReason.trim() || undefined)} disabled={mutReject.isPending}>
+                      {mutReject.isPending ? <Spinner /> : <XCircle size={17} />} Konfime rejè
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {pre.statut === 'attente' && !isAdminUser && <Alert color={T.orange} icon={<Clock size={17} />}>Prè sa ap tann apwobasyon yon admin.</Alert>}
+
+          {/* Aksyon */}
+          {canPay && (
+            <div className="ke-detail-acts" style={{ gridTemplateColumns: resteAPayer <= 0.01 && interetKouru <= 0 ? '1fr auto auto auto' : '1fr auto auto' }}>
+              <button className="ke-act dep" onClick={() => onPaieman(pre)} disabled={kesFemen}>{kesFemen ? <Lock size={14} /> : <ArrowDownCircle size={17} />} Anrejistre peman</button>
+              <button className="ke-act ic" title="Enprime kontra" onClick={handlePrintKontra} disabled={printer.printing}>{printer.printing ? <Spinner size={14} /> : <Printer size={17} />}</button>
+              <button className="ke-act ic goldy" title="Pataje kontra (Imaj / PDF)" onClick={handleShareKontra} disabled={loadingKontra}>{loadingKontra ? <Spinner size={14} /> : <Share2 size={17} />}</button>
+              {resteAPayer <= 0.01 && interetKouru <= 0 && (
+                <button className="ke-act ic" title="Klotire prè a" style={{ width: 'auto', padding: '0 14px', color: T.goldInk }} onClick={() => mutCloture.mutate()} disabled={mutCloture.isPending}>
+                  {mutCloture.isPending ? <Spinner size={14} /> : <CheckCircle size={16} />} Klotire
+                </button>
+              )}
+            </div>
+          )}
+
+          <KalandriyeSection preId={preId} />
+
+          {/* Istwa peman */}
+          <div>
+            <div className="ke-sh"><h3>Istwa peman</h3><span className="ke-count">{paiements.length}</span><span className="ke-rule" /></div>
+            <div className="ke-tl">
+              {!paiements.length
+                ? <div className="ke-empty" style={{ padding: 26 }}>Pa gen peman toujou</div>
+                : paiements.map((px, i) => {
+                    const preAt = { ...pre, totalPaye: Number(px.balanceAvant || 0) }
+                    return (
+                      <div key={px.id} className="ke-tx" style={{ '--c': T.green, '--cbg': hexA(T.green, .09), animationDelay: `${Math.min(i, 10) * .04}s` }}>
+                        <div className="ke-tx-ic"><ArrowDownCircle size={18} /></div>
+                        <div className="ke-tx-mid">
+                          <div className="ke-tx-t"><span>Peman</span><span className="ke-tx-amt">+{fmt(px.montant)}</span></div>
+                          <p className="ke-tx-s">{fmtDate(px.createdAt)} · {String(px.method || '').toUpperCase()}{px.reference ? ` · ${px.reference}` : ''}</p>
+                        </div>
+                        <button className="ke-ibtn" title="Enprime" onClick={() => printer.printPre({ pre: preAt, paiement: px, tenant, type: 'paiement' })}><Printer size={15} /></button>
+                        <button className="ke-ibtn goldy" title="Pataje resi" onClick={() => setReceipt({ pre: preAt, tenant, type: 'paiement', paiement: px })}><Share2 size={15} /></button>
+                        {isAdminUser && <button className="ke-ibtn danger" title="Efase peman" onClick={() => setPixDeleteTarget(px)}><Trash2 size={15} /></button>}
+                      </div>
+                    )
+                  })}
+            </div>
           </div>
+
+          {isAdminUser && (
+            <div className="ke-danger">
+              <p><AlertTriangle size={13} /> Zòn admin — aksyon irevèsib</p>
+              <button onClick={() => setShowDeletePreConfirm(true)} disabled={mutDeletePre.isPending}>
+                {mutDeletePre.isPending ? <Spinner size={14} /> : <Trash2 size={16} />}
+                {mutDeletePre.isPending ? 'Ap efase...' : `Efase prè ${pre.numeroPre}`}
+              </button>
+            </div>
+          )}
         </div>
-      </div>
+      </Modal>
 
-      {/* ✅ PIN — apwouve prè */}
+      {receipt && <ModalPreReceipt data={receipt} printer={printer} onClose={() => setReceipt(null)} />}
+
       {showApproveConfirm && (
-        <PinConfirmModal
-          title="Apwouve Prè"
+        <PinConfirmModal title="Apwouve Prè"
           message={`Apwouve prè ${pre.numeroPre} — ${fmt(pre.montant)} HTG ap dekèse pou ${pre.clientNom}. Kontinye?`}
-          loading={mutApprove.isPending}
-          onConfirm={(pin) => mutApprove.mutateAsync(pin)}
-          onClose={() => setShowApproveConfirm(false)}
-        />
+          loading={mutApprove.isPending} onConfirm={(pin) => mutApprove.mutateAsync(pin)} onClose={() => setShowApproveConfirm(false)} />
       )}
-
-      {/* ✅ PIN — efase prè */}
       {showDeletePreConfirm && (
-        <PinConfirmModal
-          title="Efase Prè"
-          message={`Efase prè ${pre.numeroPre} — ${pre.clientNom}? Aksyon sa IREVERSIB.`}
-          loading={mutDeletePre.isPending}
-          onConfirm={(pin) => mutDeletePre.mutateAsync(pin)}
-          onClose={() => setShowDeletePreConfirm(false)}
-        />
+        <PinConfirmModal title="Efase Prè"
+          message={`Efase prè ${pre.numeroPre} — ${pre.clientNom}? Aksyon sa IREVÈSIB.`}
+          loading={mutDeletePre.isPending} onConfirm={(pin) => mutDeletePre.mutateAsync(pin)} onClose={() => setShowDeletePreConfirm(false)} />
       )}
-
-      {/* ✅ PIN — efase peman */}
       {pixDeleteTarget && (
-        <PinConfirmModal
-          title="Efase Peman"
-          message={`Efase peman ${fmt(pixDeleteTarget.montant)} HTG? total_paye ap korije otomatikman.`}
-          onConfirm={confirmDeletePaiement}
-          onClose={() => setPixDeleteTarget(null)}
-        />
+        <PinConfirmModal title="Efase Peman"
+          message={`Efase peman ${fmt(pixDeleteTarget.montant)} HTG? Total peye a ap korije otomatikman.`}
+          onConfirm={confirmDeletePaiement} onClose={() => setPixDeleteTarget(null)} />
       )}
-    </Modal>
+    </>
   )
 }
