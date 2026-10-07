@@ -1,42 +1,98 @@
 // src/pages/enterprise/kane-epay/KaneEpayPage.jsx
+// ═══════════════════════════════════════════════════════════════
+// KANÈ EPAY — Paj prensipal (design premium, anime, responsive)
+// ═══════════════════════════════════════════════════════════════
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../stores/authStore'
 import toast from 'react-hot-toast'
 import {
-  Search, ArrowDownCircle, ArrowUpCircle, Eye,
-  ChevronLeft, ChevronRight, Users, Wallet,
-  TrendingUp, Activity, CreditCard, UserPlus,
-  Bluetooth, BluetoothOff, RefreshCw, Lock, FileText, Trash2,
+  Search, ArrowDownCircle, ArrowUpCircle, Eye, X,
+  ChevronLeft, ChevronRight, Users, Wallet, TrendingUp, TrendingDown,
+  Activity, CreditCard, UserPlus, Bluetooth, BluetoothOff, RefreshCw,
+  Lock, FileText, Trash2, Phone, ShieldCheck, ShieldAlert, Inbox, Layers,
+  CheckCircle2, MinusCircle,
 } from 'lucide-react'
-import { D } from '../kaneShared.jsx'
-import { fmt, fmtShort, usePrinter } from './kaneEpayUtils'
-import { KANE_STYLES } from './kaneEpayConstants'
+import { fmt, usePrinter } from './kaneEpayUtils'
+import { KANE_STYLES, T } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
-import { Spinner, StatCard } from './KaneEpayComponents'
+import { Spinner, StatCard, TodayTile, AnimatedNumber, AnimatedInt, Avatar, AccountSkeleton } from './KaneEpayComponents'
 import { ModalCreate, ModalTx, ModalDetail, ModalRapoKesyeKane } from './KaneEpayModals'
+import PinConfirmModal from '../../../components/PinConfirmModal'
 
-// ✅ Responsive styles ajoute
-const EXTRA_STYLES = `
-  .ke-acc-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  @media (min-width: 640px) { .ke-acc-grid { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 900px) { .ke-acc-grid { grid-template-columns: 1fr 1fr 1fr; } }
-  .ke-page-pad { padding: 12px 10px 80px; }
-  @media (min-width: 480px) { .ke-page-pad { padding: 14px 16px 80px; } }
-  @media (min-width: 900px) { .ke-page-pad { padding: 16px 20px 80px; } }
-`
+const PAGE_SIZE = 15
+const FILTERS = [
+  { val: null,  label: 'Tout',    icon: Layers },
+  { val: true,  label: 'Aktif',   icon: CheckCircle2 },
+  { val: false, label: 'Inaktif', icon: MinusCircle },
+]
 
-const inputStyle = {
-  width:'100%', padding:'11px 13px', borderRadius:10, fontSize:14,
-  border:'1.5px solid rgba(255,255,255,0.09)', outline:'none',
-  color: D.text, background:'#060f1e', transition:'border-color 0.15s',
-  boxSizing:'border-box', fontFamily:'inherit',
+// Lis paj ak "…" (1 … 4 5 6 … 12)
+function pageList(cur, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const out = [1]
+  const s = Math.max(2, cur - 1), e = Math.min(total - 1, cur + 1)
+  if (s > 2) out.push('…a')
+  for (let i = s; i <= e; i++) out.push(i)
+  if (e < total - 1) out.push('…b')
+  out.push(total)
+  return out
 }
 
+// ─── Kat yon kont ────────────────────────────────────────────
+function AccountCard({ acc, index, kesFemen, isAdmin, onOpen, onDepo, onRetrait, onDelete }) {
+  const hasKyc  = !!acc.idPhotoUrl
+  const locked  = Number(acc.lockedAmount) > 0
+  const off     = acc.isActive === false
+  const stop    = (fn) => (e) => { e.stopPropagation(); fn(acc) }
+
+  return (
+    <div className={`ke-acc${off ? ' off' : ''}`} tabIndex={0} role="button"
+      style={{ animationDelay: `${Math.min(index, 12) * 0.045}s` }}
+      onClick={() => onOpen(acc)}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen(acc) }}>
+      <div className="ke-acc-head">
+        <Avatar account={acc} />
+        <div className="ke-acc-id">
+          <p className="ke-acc-no">{acc.accountNumber}</p>
+          <p className="ke-acc-name">{acc.firstName} {acc.lastName}</p>
+          {acc.phone && <p className="ke-acc-phone"><Phone size={11} /> {acc.phone}</p>}
+        </div>
+        <div className="ke-badges">
+          <span className="ke-badge" style={{ '--c': hasKyc ? T.green : T.orange }}>
+            {hasKyc ? <ShieldCheck size={11} /> : <ShieldAlert size={11} />} KYC
+          </span>
+          {off && <span className="ke-badge" style={{ '--c': T.muted }}>Inaktif</span>}
+        </div>
+      </div>
+
+      <div className="ke-acc-bal">
+        <div style={{ minWidth: 0 }}>
+          <p className="l">Balans</p>
+          <p className="v ke-num">{fmt(acc.balance)}<small>HTG</small></p>
+        </div>
+        {locked && <span className="ke-lock"><Lock size={11} /> {fmt(acc.lockedAmount)}</span>}
+      </div>
+
+      <div className={`ke-acc-acts${isAdmin ? ' adm' : ''}`}>
+        <button className="ke-act dep" onClick={stop(onDepo)} disabled={kesFemen}>
+          {kesFemen ? <Lock size={13} /> : <ArrowDownCircle size={15} />} Depo
+        </button>
+        <button className="ke-act ret" onClick={stop(onRetrait)} disabled={kesFemen}>
+          {kesFemen ? <Lock size={13} /> : <ArrowUpCircle size={15} />} Retrè
+        </button>
+        <button className="ke-act ghost" title="Wè detay" onClick={stop(onOpen)}><Eye size={16} /></button>
+        {isAdmin && <button className="ke-act del" title="Efase kont" onClick={stop(onDelete)}><Trash2 size={15} /></button>}
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
 export default function KaneEpayPage() {
   const qc      = useQueryClient()
   const printer = usePrinter()
-  const { tenant, user } = useAuthStore()
+  const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin'
 
   const [search,          setSearch]          = useState('')
@@ -45,16 +101,18 @@ export default function KaneEpayPage() {
   const [modal,           setModal]           = useState(null)
   const [selAcc,          setSelAcc]          = useState(null)
   const [filterActive,    setFilterActive]    = useState(null)
+  const [delTarget,       setDelTarget]       = useState(null)
   const searchTimeout = useRef(null)
+  const gridRef       = useRef(null)
 
   useEffect(() => {
     const el = document.createElement('style')
-    el.textContent = KANE_STYLES + EXTRA_STYLES
+    el.setAttribute('data-kane-epay', '')
+    el.textContent = KANE_STYLES
     document.head.appendChild(el)
-    return () => document.head.removeChild(el)
+    return () => { document.head.removeChild(el); clearTimeout(searchTimeout.current) }
   }, [])
 
-  // ✅ staleTime ajoute — evite refetch inutil
   const { data: kesData } = useQuery({
     queryKey:        ['kes-status'],
     queryFn:         () => kaneAPI.checkKesFemen().then(r => r.data),
@@ -63,28 +121,31 @@ export default function KaneEpayPage() {
   })
   const kesFemen = kesData?.kesFemen === true
 
-  const { data: statsData, refetch: refetchStats } = useQuery({
+  const { data: statsData, refetch: refetchStats, isFetching: statsFetching } = useQuery({
     queryKey:        ['kane-stats'],
     queryFn:         () => kaneAPI.getStats().then(r => r.data.stats),
-    staleTime:       60000,   // ✅ 1 minit
-    refetchInterval: 60000,   // ✅ 30s → 60s
+    staleTime:       60000,
+    refetchInterval: 60000,
   })
 
-  const { data: listData, isLoading } = useQuery({
-    queryKey:         ['kane-accounts', debouncedSearch, page, filterActive],
-    queryFn:          () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit:15, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
-    staleTime:        30000,   // ✅ pa refetch si done frèch
-    keepPreviousData: true,
+  const { data: listData, isLoading, isFetching } = useQuery({
+    queryKey:        ['kane-accounts', debouncedSearch, page, filterActive],
+    queryFn:         () => kaneAPI.getAll({ search: debouncedSearch||undefined, page, limit: PAGE_SIZE, ...(filterActive!==null && { isActive: filterActive }) }).then(r => r.data),
+    staleTime:       30000,
+    placeholderData: (prev) => prev,   // ✅ React Query v5 (ranplase keepPreviousData)
   })
 
   const accounts   = listData?.accounts || []
   const total      = listData?.total    || 0
-  const totalPages = Math.ceil(total / 15) || 1
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1
+
+  // ✅ Toujou itilize vèsyon kont ki pi fre a (balans ajou apre depo/retrè)
+  const liveSel = (selAcc && accounts.find(a => a.id === selAcc.id)) || selAcc
 
   const refresh = () => {
-    qc.invalidateQueries(['kane-accounts'])
-    qc.invalidateQueries(['kane-stats'])
-    if (selAcc) qc.invalidateQueries(['kane-account', selAcc.id])
+    qc.invalidateQueries({ queryKey: ['kane-accounts'] })
+    qc.invalidateQueries({ queryKey: ['kane-stats'] })
+    if (selAcc) qc.invalidateQueries({ queryKey: ['kane-account', selAcc.id] })
   }
 
   const openDetail  = (acc) => { setSelAcc(acc); setModal('detail')  }
@@ -96,181 +157,222 @@ export default function KaneEpayPage() {
     clearTimeout(searchTimeout.current)
     searchTimeout.current = setTimeout(() => { setDebouncedSearch(val); setPage(1) }, 400)
   }
+  const clearSearch = () => { setSearch(''); setDebouncedSearch(''); setPage(1) }
 
-  const handleDeleteAccount = (e, acc) => {
-    e.stopPropagation()
-    if (!window.confirm(`Efase kont ${acc.accountNumber} — ${acc.firstName} ${acc.lastName}?\n⚠️ IREVERSIB.`)) return
-    kaneAPI.deleteAccount(acc.id)
-      .then(() => { toast.success('✅ Kont efase!'); refresh() })
-      .catch(err => toast.error(err.response?.data?.message || 'Erè.'))
+  const goPage = (p) => {
+    setPage(p)
+    gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const todayNet = (statsData?.todayDepositAmount||0) - (statsData?.todayWithdrawAmount||0)
+  // ✅ Efase kont depi lis la — mande PIN (backend la egzije l)
+  const confirmDelete = async (pin) => {
+    try {
+      await kaneAPI.deleteAccount(delTarget.id, pin)
+      toast.success('Kont efase!')
+      setDelTarget(null)
+      refresh()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Erè efase kont.')
+      throw err
+    }
+  }
+
+  // ── Kalkil stats ──
+  const s          = statsData || {}
+  const dep        = Number(s.todayDepositAmount  || 0)
+  const ret        = Number(s.todayWithdrawAmount || 0)
+  const todayNet   = dep - ret
+  const flowTotal  = dep + ret
+  const depPct     = flowTotal > 0 ? (dep / flowTotal) * 100 : 0
+  const totalAcc   = Number(s.totalAccounts  || 0)
+  const activeAcc  = Number(s.activeAccounts || 0)
+  const activeRat  = totalAcc ? activeAcc / totalAcc : 0
+  const avgBal     = totalAcc ? Number(s.totalBalance || 0) / totalAcc : 0
+  const filterIdx  = FILTERS.findIndex(f => f.val === filterActive)
 
   return (
-    <div className="ke-page-pad" style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:'DM Sans, sans-serif', maxWidth:960, margin:'0 auto' }}>
+    <div className="ke-scope ke-page">
 
-      {/* Bannè kès fèmen */}
+      {/* ── Bannè kès fèmen ── */}
       {kesFemen && (
-        <div style={{ background:`${D.red}15`, border:`1px solid ${D.red}40`, borderRadius:12, padding:'12px 16px', display:'flex', alignItems:'center', gap:10 }}>
-          <Lock size={16} style={{ color:D.red, flexShrink:0 }}/>
-          <p style={{ fontSize:13, color:D.red, margin:0, fontWeight:700 }}>Kès fèmen jodi a — Okenn nouvo tranzaksyon p ap aksepte jiskaske demen.</p>
+        <div className="ke-lockbar" role="status">
+          <div className="ke-lockbar-ic"><Lock size={17} /></div>
+          <p><b>Kès fèmen jodi a.</b> Okenn nouvo tranzaksyon p ap aksepte jiskaske demen.</p>
         </div>
       )}
 
-      {/* Header */}
-      <div className="ke-header">
-        <div>
-          <h1 className="ke-header-title" style={{ fontSize:19, fontWeight:900, color:D.gold, margin:'0 0 2px', display:'flex', alignItems:'center', gap:7 }}>
-            <CreditCard size={19}/> Kanè Epay
-          </h1>
-          <p style={{ fontSize:11, color:D.muted, margin:0 }}>Kont depo ak retrè</p>
-        </div>
-        <div className="ke-header-right">
-          <button className="ke-btn" onClick={() => { refresh(); refetchStats() }}
-            style={{ width:36, height:36, borderRadius:10, border:`1px solid ${D.cardBorder}`, background:D.card, color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <RefreshCw size={14}/>
-          </button>
-          <button className="ke-btn" onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}
-            style={{ display:'flex', alignItems:'center', gap:5, padding:'9px 11px', borderRadius:10, border:'none', cursor:'pointer', background: printer.connected ? 'rgba(39,174,96,0.15)' : 'rgba(255,255,255,0.06)', color: printer.connected ? D.green : D.muted, fontWeight:700, fontSize:12 }}>
-            {printer.connecting ? <Spinner size={13} color={D.muted}/> : printer.connected ? <Bluetooth size={14}/> : <BluetoothOff size={14}/>}
-          </button>
-          {!kesFemen && (
-            <button className="ke-btn" onClick={() => setModal('rapo')}
-              style={{ display:'flex', alignItems:'center', gap:5, padding:'9px 12px', borderRadius:10, border:`1px solid ${D.orange}30`, background:`${D.orange}10`, color:D.orange, cursor:'pointer', fontWeight:700, fontSize:12 }}>
-              <FileText size={14}/> <span style={{ display:'none' }} className="ke-btn-label">Fèmen Kès</span>
-            </button>
-          )}
-          <button className="ke-btn" onClick={() => !kesFemen && setModal('create')}
-            style={{ display:'flex', alignItems:'center', gap:6, padding:'10px 15px', borderRadius:12, border:'none', cursor:kesFemen?'not-allowed':'pointer', background:kesFemen?'rgba(255,255,255,0.08)':D.goldBtn, color:kesFemen?D.muted:'#0a1222', fontWeight:800, fontSize:13, whiteSpace:'nowrap', opacity:kesFemen?0.5:1 }}>
-            {kesFemen ? <Lock size={15}/> : <UserPlus size={15}/>} {kesFemen ? 'Kès Fèmen' : 'Nouvo Kont'}
-          </button>
-        </div>
-      </div>
+      {/* ── HERO ── */}
+      <section className="ke-hero">
+        <span className="ke-orb a" /><span className="ke-orb b" />
+        <div className="ke-hero-in">
+          <div className="ke-hero-top">
+            <div className="ke-brand">
+              <div className="ke-brand-ic"><CreditCard size={22} /></div>
+              <div style={{ minWidth: 0 }}>
+                <h1 className="ke-title">Kanè Epay</h1>
+                <p className="ke-sub">
+                  <span className={`ke-live${kesFemen ? ' off' : ''}`} />
+                  {kesFemen ? 'Kès fèmen' : 'Kès louvri'} · Kont depo ak retrè
+                </p>
+              </div>
+            </div>
+            <div className="ke-actions">
+              <button className="ke-icbtn" title="Rafrechi" onClick={() => { refresh(); refetchStats() }}>
+                <RefreshCw size={16} className={isFetching || statsFetching ? 'ke-spin' : ''} />
+              </button>
+              <button className={`ke-icbtn${printer.connected ? ' on' : ''}`} title={printer.connected ? 'Dekonekte printer' : 'Konekte printer Bluetooth'}
+                onClick={printer.connected ? printer.disconnect : printer.connect} disabled={printer.connecting}>
+                {printer.connecting ? <Spinner size={14} /> : printer.connected ? <Bluetooth size={16} /> : <BluetoothOff size={16} />}
+                <span className="lbl">{printer.connected ? 'Printer OK' : 'Printer'}</span>
+              </button>
+              {!kesFemen && (
+                <button className="ke-icbtn warn" title="Fèmen kès" onClick={() => setModal('rapo')}>
+                  <FileText size={16} /><span className="lbl">Fèmen Kès</span>
+                </button>
+              )}
+              <button className="ke-btn-gold ke-hide-sm" disabled={kesFemen} onClick={() => !kesFemen && setModal('create')}>
+                {kesFemen ? <Lock size={16} /> : <UserPlus size={16} />} {kesFemen ? 'Kès Fèmen' : 'Nouvo Kont'}
+              </button>
+            </div>
+          </div>
 
-      {/* Stats grid — responsive */}
-      <div className="ke-stats-grid">
-        <StatCard label="Total Kont"   value={statsData?.totalAccounts   ||0}           icon={<Users size={17}/>}     color={D.gold}  />
-        <StatCard label="Kont Aktif"   value={statsData?.activeAccounts  ||0}           icon={<Activity size={17}/>}  color={D.green} />
-        <StatCard label="Total Balans" value={`${fmt(statsData?.totalBalance||0)} G`}   icon={<Wallet size={17}/>}    color={D.blue}  />
-        <StatCard label="Kont Jodi a"  value={statsData?.todayNewAccounts||0}           icon={<UserPlus size={17}/>}  color="#8B5CF6" />
-      </div>
-
-      {/* Aktivite jodi a */}
-      <div style={{ background:D.card, borderRadius:14, padding:'12px 14px', border:`1px solid ${D.cardBorder}` }}>
-        <p style={{ fontSize:10, fontWeight:800, textTransform:'uppercase', color:D.gold, margin:'0 0 10px', letterSpacing:'0.08em' }}>● Aktivite Jodi a</p>
-        <div className="ke-today-grid">
-          <StatCard label="Depo Jodi a"  value={`${fmt(statsData?.todayDepositAmount ||0)} G`} sub={`${statsData?.todayTransactions||0} tx`} icon={<ArrowDownCircle size={17}/>} color={D.green} highlight/>
-          <StatCard label="Retrè Jodi a" value={`${fmt(statsData?.todayWithdrawAmount||0)} G`}                                                icon={<ArrowUpCircle size={17}/>}   color={D.red}   highlight/>
-          <StatCard label="Nèt Jodi a"   value={`${todayNet>=0?'+':''}${fmt(todayNet)} G`}      sub="Depo − Retrè"                            icon={<TrendingUp size={17}/>}      color={todayNet>=0?D.green:D.red} highlight/>
-        </div>
-      </div>
-
-      {/* Rechèch + Filtre */}
-      <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
-        <div style={{ position:'relative', flex:'1 1 180px', minWidth:140 }}>
-          <Search size={14} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted, pointerEvents:'none' }}/>
-          <input className="ke-input" style={{ ...inputStyle, paddingLeft:36 }} placeholder="Chèche non, nimewo..." value={search} onChange={handleSearch}/>
-        </div>
-        <div style={{ display:'flex', gap:5, flexShrink:0 }}>
-          {[{val:null,label:'Tout'},{val:true,label:'✅'},{val:false,label:'⛔'}].map(f => (
-            <button key={String(f.val)} className="ke-tab-btn ke-btn" onClick={() => { setFilterActive(f.val); setPage(1) }}
-              style={{ padding:'8px 10px', borderRadius:8, border:`1px solid ${filterActive===f.val ? D.gold+'60' : D.cardBorder}`, background:filterActive===f.val ? D.goldDim : 'transparent', color:filterActive===f.val ? D.gold : D.muted, cursor:'pointer', fontWeight:700, fontSize:12 }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Lis kont */}
-      {isLoading ? (
-        <div style={{ textAlign:'center', color:D.muted, padding:40, display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
-          <Spinner color={D.gold} size={18}/> Ap chaje...
-        </div>
-      ) : !accounts.length ? (
-        <div style={{ textAlign:'center', color:D.muted, padding:50, background:D.card, borderRadius:16, border:`1px dashed ${D.cardBorder}` }}>
-          <CreditCard size={34} style={{ opacity:0.25, margin:'0 auto 10px', display:'block' }}/>
-          <p style={{ fontSize:13, fontWeight:700, margin:0 }}>{search ? 'Pa jwenn rezilta' : 'Pa gen kont Kanè Epay'}</p>
-        </div>
-      ) : (
-        <>
-          <p style={{ fontSize:11, color:D.muted, margin:0 }}>{total} kont • paj {page}/{totalPages}</p>
-          {/* ✅ Grid responsive: 1 kolòn mobil, 2 tablet, 3 desktop */}
-          <div className="ke-acc-grid">
-            {accounts.map(acc => (
-              <div key={acc.id} className="ke-row" onClick={() => openDetail(acc)}
-                style={{ background:D.card, border:`1px solid ${D.cardBorder}`, borderRadius:14, padding:'12px 13px', cursor:'pointer', boxShadow:D.shadow, transition:'background 0.15s', animation:'fadeUp 0.2s ease', display:'flex', flexDirection:'column' }}>
-                {/* Top: avatar + info + balans */}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:10 }}>
-                  <div style={{ display:'flex', gap:10, alignItems:'flex-start', minWidth:0, flex:1 }}>
-                    {/* ✅ Pa montre foto nan lis — sèlman inisyal (foto retire nan backend) */}
-                    <div style={{ width:38, height:38, borderRadius:10, flexShrink:0, background:D.goldDim, border:`1px solid ${D.cardBorder}`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color:D.gold }}>
-                      {acc.firstName?.[0]?.toUpperCase()}{acc.lastName?.[0]?.toUpperCase()}
-                    </div>
-                    <div style={{ minWidth:0 }}>
-                      <p className="ke-acc-num" style={{ fontFamily:'monospace', fontWeight:800, color:D.gold, fontSize:10, margin:'0 0 1px' }}>{acc.accountNumber}</p>
-                      <p className="ke-acc-name" style={{ fontSize:13, fontWeight:700, color:D.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{acc.firstName} {acc.lastName}</p>
-                      {acc.phone && <p style={{ fontSize:11, color:D.muted, margin:'1px 0 0' }}>{acc.phone}</p>}
-                    </div>
-                  </div>
-                  <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <p style={{ fontFamily:'monospace', fontSize:15, fontWeight:900, color:D.green, margin:0 }}>{fmt(acc.balance)}</p>
-                    <p style={{ fontSize:9, color:D.muted, margin:'1px 0 0' }}>HTG</p>
-                    {Number(acc.lockedAmount) > 0 && <p style={{ fontSize:9, color:D.orange, margin:'1px 0 0' }}>🔒 {fmt(acc.lockedAmount)}</p>}
-                    <p style={{ fontSize:9, margin:'2px 0 0', fontWeight:700, color: acc.idPhotoUrl ? D.green : D.orange }}>{acc.idPhotoUrl ? '✅ KYC' : '⚠ KYC'}</p>
-                  </div>
+          <div className="ke-hero-mid">
+            <div>
+              <div className="ke-bal-lbl"><Wallet size={13} /> Total balans · tout kont</div>
+              <div className="ke-bal">
+                <AnimatedNumber value={s.totalBalance} duration={1400} />
+                <small>HTG</small>
+              </div>
+              <div className="ke-bal-meta">
+                <span><b><AnimatedInt value={totalAcc} /></b> kont</span>
+                <span>Mwayèn <b>{fmt(avgBal)} G</b> / kont</span>
+              </div>
+              <div className="ke-flow">
+                <div className="ke-flow-head"><span>Mouvman jodi a</span><span>{s.todayTransactions || 0} tranzaksyon</span></div>
+                <div className="ke-flow-bar">
+                  {flowTotal > 0 ? (
+                    <>
+                      {dep > 0 && <i style={{ width: `${depPct}%`, background: `linear-gradient(90deg,#17A86C,${T.green})` }} />}
+                      {ret > 0 && <i style={{ flex: 1, background: `linear-gradient(90deg,${T.red},#FF8F9B)` }} />}
+                    </>
+                  ) : <i style={{ width: '100%', background: 'rgba(255,255,255,.06)', animation: 'none' }} />}
                 </div>
-
-                {/* Boutons aksyon */}
-                <div className="ke-acc-row-btns" style={{ marginTop:'auto' }}>
-                  <button className="ke-btn" onClick={e => { e.stopPropagation(); openDepo(acc) }}
-                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.greenBg, color:kesFemen?D.muted:D.green, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
-                    {kesFemen ? <Lock size={11}/> : <ArrowDownCircle size={12}/>} Depo
-                  </button>
-                  <button className="ke-btn" onClick={e => { e.stopPropagation(); openRetrait(acc) }}
-                    style={{ flex:1, padding:'7px 4px', borderRadius:8, border:'none', background:kesFemen?'rgba(255,255,255,0.05)':D.redBg, color:kesFemen?D.muted:D.red, cursor:kesFemen?'not-allowed':'pointer', fontWeight:700, fontSize:11, display:'flex', alignItems:'center', justifyContent:'center', gap:3 }}>
-                    {kesFemen ? <Lock size={11}/> : <ArrowUpCircle size={12}/>} Retrè
-                  </button>
-                  <button className="ke-btn" onClick={e => { e.stopPropagation(); openDetail(acc) }}
-                    style={{ padding:'7px 10px', borderRadius:8, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center' }}>
-                    <Eye size={12}/>
-                  </button>
-                  {isAdmin && (
-                    <button className="ke-btn" title="Efase kont" onClick={e => handleDeleteAccount(e, acc)}
-                      style={{ padding:'7px 9px', borderRadius:8, border:'1px solid rgba(251,113,133,0.3)', background:'rgba(251,113,133,0.08)', color:'#FB7185', cursor:'pointer', display:'flex', alignItems:'center' }}>
-                      <Trash2 size={12}/>
-                    </button>
-                  )}
+                <div className="ke-legend">
+                  <span style={{ color: T.green }}>Depo {Math.round(depPct)}%</span>
+                  <span style={{ color: T.red }}>Retrè {flowTotal > 0 ? 100 - Math.round(depPct) : 0}%</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="ke-today">
+              <TodayTile label="Depo jodi a"  num={dep} color={T.green} icon={<ArrowDownCircle size={15} />} sub={`${s.todayTransactions || 0} tx total`} delay={0.12} />
+              <TodayTile label="Retrè jodi a" num={ret} color={T.red}   icon={<ArrowUpCircle size={15} />}   sub="Lajan ki soti" delay={0.2} />
+              <TodayTile label="Nèt jodi a"   num={todayNet} signed color={todayNet >= 0 ? T.green : T.red}
+                icon={todayNet >= 0 ? <TrendingUp size={15} /> : <TrendingDown size={15} />} sub="Depo − Retrè" delay={0.28} />
+            </div>
           </div>
-        </>
+        </div>
+      </section>
+
+      {/* ── KPI ── */}
+      <div className="ke-kpis">
+        <StatCard label="Total kont"   num={totalAcc}  format={n => Math.round(n)} icon={<Users size={17} />}    color={T.gold}   sub="Tout kont Kanè"    delay={0.06} />
+        <StatCard label="Kont aktif"   num={activeAcc} format={n => Math.round(n)} icon={<Activity size={17} />} color={T.green}  sub={`${totalAcc - activeAcc} inaktif`} ring={activeRat} delay={0.12} />
+        <StatCard label="Mwayèn balans" num={avgBal} suffix="G" icon={<Wallet size={17} />} color={T.blue} sub="Pa kont" delay={0.18} />
+        <StatCard label="Nouvo jodi a" num={Number(s.todayNewAccounts || 0)} format={n => Math.round(n)} icon={<UserPlus size={17} />} color={T.violet} sub="Kont kreye jodi a" delay={0.24} />
+      </div>
+
+      {/* ── Rechèch + Filtre ── */}
+      <div className="ke-toolbar">
+        <div className="ke-search">
+          <input placeholder="Chèche non, nimewo kont, telefòn..." value={search} onChange={handleSearch} aria-label="Chèche kont" />
+          <Search size={17} className="ic" />
+          {search && <button className="clr" onClick={clearSearch} aria-label="Efase rechèch"><X size={14} /></button>}
+        </div>
+        <div className="ke-seg" role="tablist">
+          <span className="ke-seg-pill" style={{ transform: `translateX(${filterIdx * 100}%)` }} />
+          {FILTERS.map(f => {
+            const Ic = f.icon
+            return (
+              <button key={String(f.val)} role="tab" aria-selected={filterActive === f.val}
+                className={filterActive === f.val ? 'on' : ''} onClick={() => { setFilterActive(f.val); setPage(1) }}>
+                <Ic size={14} />{f.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="ke-meta">
+          <span>
+            <b>{total}</b> kont{debouncedSearch ? <> pou « <b>{debouncedSearch}</b> »</> : ''} · paj {page}/{totalPages}
+          </span>
+          {isFetching && !isLoading && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: T.gold2 }}><Spinner size={11} /> Ap mete ajou</span>}
+        </div>
+      </div>
+
+      {/* ── Lis kont ── */}
+      {isLoading ? (
+        <div className="ke-grid">{Array.from({ length: 6 }).map((_, i) => <AccountSkeleton key={i} i={i} />)}</div>
+      ) : !accounts.length ? (
+        <div className="ke-empty">
+          <div className="ke-empty-ic">{search ? <Search size={30} /> : <Inbox size={30} />}</div>
+          <h3>{search ? 'Pa jwenn rezilta' : 'Pa gen kont Kanè Epay ankò'}</h3>
+          <p>{search ? 'Eseye yon lòt non oswa nimewo kont.' : 'Kreye premye kont lan pou kòmanse.'}</p>
+          {search
+            ? <button className="ke-icbtn" onClick={clearSearch} style={{ margin: '0 auto' }}><X size={15} /> Efase rechèch</button>
+            : !kesFemen && <button className="ke-btn-gold" onClick={() => setModal('create')}><UserPlus size={16} /> Nouvo Kont</button>}
+        </div>
+      ) : (
+        <div className="ke-grid" ref={gridRef}>
+          {accounts.map((acc, i) => (
+            <AccountCard key={acc.id} acc={acc} index={i} kesFemen={kesFemen} isAdmin={isAdmin}
+              onOpen={openDetail} onDepo={openDepo} onRetrait={openRetrait} onDelete={setDelTarget} />
+          ))}
+        </div>
       )}
 
-      {/* Pagination */}
+      {/* ── Pajinasyon ── */}
       {totalPages > 1 && (
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'8px 2px' }}>
-          <span style={{ fontSize:12, color:D.muted }}>{total} kont</span>
-          <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-            <button className="ke-btn" onClick={() => setPage(p => Math.max(1,p-1))} disabled={page===1}
-              style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.cardBorder}`, background:D.card, color:D.muted, cursor:page===1?'default':'pointer', opacity:page===1?0.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronLeft size={14}/>
-            </button>
-            <span style={{ fontSize:12, fontWeight:700, color:D.text, minWidth:50, textAlign:'center' }}>{page} / {totalPages}</span>
-            <button className="ke-btn" onClick={() => setPage(p => Math.min(totalPages,p+1))} disabled={page===totalPages}
-              style={{ width:32, height:32, borderRadius:8, border:`1px solid ${D.cardBorder}`, background:D.card, color:D.muted, cursor:page===totalPages?'default':'pointer', opacity:page===totalPages?0.4:1, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronRight size={14}/>
-            </button>
+        <div className="ke-pager">
+          <span>{total} kont</span>
+          <div className="ke-pages">
+            <button className="ke-pg" onClick={() => goPage(Math.max(1, page - 1))} disabled={page === 1} aria-label="Paj anvan"><ChevronLeft size={16} /></button>
+            <span className="ke-pcur">{page} / {totalPages}</span>
+            <div className="ke-pnums">
+              {pageList(page, totalPages).map(p => typeof p === 'number'
+                ? <button key={p} className={`ke-pg${p === page ? ' on' : ''}`} onClick={() => p !== page && goPage(p)}>{p}</button>
+                : <span key={p} className="ke-pg dots">…</span>)}
+            </div>
+            <button className="ke-pg" onClick={() => goPage(Math.min(totalPages, page + 1))} disabled={page === totalPages} aria-label="Paj apre"><ChevronRight size={16} /></button>
           </div>
         </div>
       )}
 
-      {/* Modals */}
-      {modal==='create' && <ModalCreate onClose={() => setModal(null)} onSuccess={refresh} printer={printer}/>}
-      {modal==='rapo'   && <ModalRapoKesyeKane onClose={() => setModal(null)} onKesFemen={() => qc.invalidateQueries(['kes-status'])} statsKane={statsData}/>}
-      {modal==='detail' && selAcc && <ModalDetail accountId={selAcc.id} onClose={() => setModal(null)} onDepo={() => !kesFemen && setModal('depot')} onRetrait={() => !kesFemen && setModal('retrait')} printer={printer}/>}
-      {(modal==='depot'||modal==='retrait') && selAcc && !kesFemen && <ModalTx account={selAcc} type={modal} onClose={() => setModal(null)} onSuccess={refresh} printer={printer}/>}
+      {/* ── FAB mobil ── */}
+      {!kesFemen && (
+        <button className="ke-fab" onClick={() => setModal('create')}><UserPlus size={19} /> Nouvo Kont</button>
+      )}
+
+      {/* ── Modal yo ── */}
+      {modal==='create' && <ModalCreate onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />}
+      {modal==='rapo'   && <ModalRapoKesyeKane onClose={() => setModal(null)} onKesFemen={() => qc.invalidateQueries({ queryKey: ['kes-status'] })} statsKane={statsData} />}
+      {modal==='detail' && selAcc && (
+        <ModalDetail accountId={selAcc.id} kesFemen={kesFemen} printer={printer}
+          onClose={() => setModal(null)}
+          onDepo={() => !kesFemen && setModal('depot')}
+          onRetrait={() => !kesFemen && setModal('retrait')} />
+      )}
+      {(modal==='depot'||modal==='retrait') && liveSel && !kesFemen && (
+        <ModalTx account={liveSel} type={modal} onClose={() => setModal(null)} onSuccess={refresh} printer={printer} />
+      )}
+
+      {delTarget && (
+        <PinConfirmModal
+          title="Efase Kont"
+          message={`Efase kont ${delTarget.accountNumber} — ${delTarget.firstName} ${delTarget.lastName}? Tout tranzaksyon ap efase. IREVÈSIB.`}
+          onConfirm={confirmDelete}
+          onClose={() => setDelTarget(null)}
+        />
+      )}
     </div>
   )
 }
