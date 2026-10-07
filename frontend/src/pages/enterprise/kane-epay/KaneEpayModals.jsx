@@ -6,10 +6,10 @@ import api from '../../../services/api'
 import toast from 'react-hot-toast'
 import {
   Printer, ArrowDownCircle, ArrowUpCircle, AlertCircle,
-  Lock, FileText, CheckCircle, DollarSign, Trash2,
+  Lock, FileText, CheckCircle, DollarSign, Trash2, Share2,
 } from 'lucide-react'
 import { D, inputStyle, labelStyle } from '../kaneShared.jsx'
-import { fmt, fmtDate, getAccountPrefix } from './kaneEpayUtils'
+import { fmt, fmtDate, getAccountPrefix, usePDFReceipt } from './kaneEpayUtils'
 import { PAYMENT_METHODS, FAMILY_RELATIONS, TX_STYLES } from './kaneEpayConstants'
 import { kaneAPI } from './kaneEpayAPI'
 import { Spinner, Section, Modal, PhotoBox } from './KaneEpayComponents'
@@ -312,6 +312,7 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
   const { tenant, user } = useAuthStore()
   const qc = useQueryClient()
   const isAdminUser = user?.role === 'admin'
+  const pdf = usePDFReceipt()
 
   const { data: account, isLoading } = useQuery({
     queryKey: ['kane-account', accountId],
@@ -403,6 +404,10 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
             style={{ padding:'11px 14px', borderRadius:10, border:`1px solid ${D.cardBorder}`, background:'rgba(255,255,255,0.04)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center' }}>
             <Printer size={14}/>
           </button>
+          <button className="ke-btn" title="Pataje PDF (WhatsApp, Imèl...)" onClick={() => pdf.share(account, account.transactions?.[0], tenant, 'ouverture')} disabled={pdf.generating}
+            style={{ padding:'11px 14px', borderRadius:10, border:`1px solid ${D.gold}30`, background:D.goldDim, color:D.gold, cursor:'pointer', display:'flex', alignItems:'center' }}>
+            {pdf.generating ? <Spinner size={14} color={D.gold}/> : <Share2 size={14}/>}
+          </button>
         </div>
         {/* Admin: efase kont */}
         {isAdminUser && (
@@ -435,9 +440,13 @@ export function ModalDetail({ accountId, onClose, onDepo, onRetrait, printer }) 
                         </div>
                         <p style={{ fontSize:10, color:D.muted, margin:'2px 0 0', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{fmtDate(tx.createdAt)} • {tx.method}{tx.reference?` • ${tx.reference}`:''}</p>
                       </div>
-                      <button className="ke-btn" onClick={() => printer.print(account, tx, tenant, tx.type)} disabled={printer.printing}
+                      <button className="ke-btn" title="Enprime" onClick={() => printer.print(account, tx, tenant, tx.type)} disabled={printer.printing}
                         style={{ width:24, height:24, borderRadius:6, border:'none', background:'rgba(255,255,255,0.05)', color:D.muted, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                         <Printer size={10}/>
+                      </button>
+                      <button className="ke-btn" title="Pataje PDF" onClick={() => pdf.share(account, tx, tenant, tx.type)} disabled={pdf.generating}
+                        style={{ width:24, height:24, borderRadius:6, border:'none', background:`${D.gold}15`, color:D.gold, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        {pdf.generating ? <Spinner size={10} color={D.gold}/> : <Share2 size={10}/>}
                       </button>
                       {isAdminUser && (
                         <button className="ke-btn" title="Efase" onClick={() => handleDeleteTx(tx)}

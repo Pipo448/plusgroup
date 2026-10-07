@@ -3,6 +3,8 @@ import { format } from 'date-fns'
 import { fr }     from 'date-fns/locale'
 import toast      from 'react-hot-toast'
 import { useState, useCallback } from 'react'
+import jsPDF       from 'jspdf'
+import html2canvas from 'html2canvas'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt } from '../../../services/printerService'
 
 export const fmt = (n) =>
@@ -81,6 +83,102 @@ export function printReceiptBrowser(html) {
     </head><body>${html}</body></html>`)
   w.document.close()
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2000) }, 300)
+}
+
+// ─── PDF Resi — pou telechaje / pataje (WhatsApp, Imèl, elatriye) ──
+// ✅ Itilize menm HTML ki sèvi pou enprime a (buildReceiptHTML), fè yon "screenshot"
+// (html2canvas) epi mete l nan yon PDF 80mm — konsa PDF la gen menm aparans ak resi a.
+function fileSafe(s) {
+  return String(s || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+export function receiptFileName(account, type) {
+  const labels = { ouverture: 'Enskripsyon', depot: 'Depo', retrait: 'Retre' }
+  const d = new Date()
+  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`
+  return `KaneEpay-${fileSafe(account.accountNumber)}-${labels[type] || 'Resi'}-${stamp}.pdf`
+}
+
+export async function generateReceiptPDFBlob(account, transaction, tenant, type = 'ouverture') {
+  const html = buildReceiptHTML(account, transaction, tenant, type)
+
+  // Rann HTML la an deyò ekran an (pa vizib) pou html2canvas ka "fotograf" li
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '80mm'
+  container.style.background = '#ffffff'
+  container.innerHTML = html
+  document.body.appendChild(container)
+
+  try {
+    // Tann foto/logo yo fini chaje anvan screenshot la (si gen youn)
+    const imgs = Array.from(container.querySelectorAll('img'))
+    await Promise.all(imgs.map(img => img.complete
+      ? Promise.resolve()
+      : new Promise(res => { img.onload = res; img.onerror = res })
+    ))
+
+    const canvas = await html2canvas(container, { scale: 3, backgroundColor: '#ffffff', useCORS: true })
+    const imgData = canvas.toDataURL('image/png')
+
+    const pdfWidthMm  = 80
+    const pdfHeightMm = (canvas.height * pdfWidthMm) / canvas.width
+    const pdf = new jsPDF({ unit: 'mm', format: [pdfWidthMm, Math.max(pdfHeightMm, 40)] })
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMm, pdfHeightMm)
+    return pdf.output('blob')
+  } finally {
+    document.body.removeChild(container)
+  }
+}
+
+// ✅ Sou mobil: louvri meni pataje natif la (WhatsApp, Imèl...). Sou PC: telechaje fichye a.
+export async function downloadOrShareReceiptPDF(account, transaction, tenant, type = 'ouverture') {
+  const blob = await generateReceiptPDFBlob(account, transaction, tenant, type)
+  const fileName = receiptFileName(account, type)
+  const file = new File([blob], fileName, { type: 'application/pdf' })
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: `Resi Kanè Epay — ${account.accountNumber}`,
+        text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
+      })
+      return true
+    } catch (e) {
+      if (e?.name === 'AbortError') return false // moun nan anile pataj la, se pa yon erè
+      // si pataj la echwe pou yon lòt rezon, n ap tonbe sou telechajman an anba a
+    }
+  }
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = fileName
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
+}
+
+export function usePDFReceipt() {
+  const [generating, setGenerating] = useState(false)
+
+  const share = useCallback(async (account, transaction, tenant, type) => {
+    setGenerating(true)
+    try {
+      const ok = await downloadOrShareReceiptPDF(account, transaction, tenant, type)
+      if (ok) toast.success('PDF prè pou pataje!')
+      return ok
+    } catch (e) {
+      toast.error('Erè pandan kreyasyon PDF la.')
+      return false
+    } finally {
+      setGenerating(false)
+    }
+  }, [])
+
+  return { generating, share }
 }
 
 export function usePrinter() {
