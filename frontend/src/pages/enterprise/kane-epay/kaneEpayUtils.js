@@ -5,6 +5,7 @@ import toast      from 'react-hot-toast'
 import { useState, useCallback } from 'react'
 import jsPDF       from 'jspdf'
 import html2canvas from 'html2canvas'
+import { toCanvas } from 'html-to-image'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt } from '../../../services/printerService'
 import { PAYMENT_METHODS, FRE_OUVERTURE } from './kaneEpayConstants'
 
@@ -150,8 +151,8 @@ export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouve
     tx.reference ? row('Referans', esc(tx.reference)) : '',
   ]
 
-  // ⚠️ html2canvas desann tèks ki gen line-height sere (< 1.15) — tout tèks isit la
-  // gen line-height eksplisit ≥ 1.15, epi okenn tèks pa gen overflow:hidden.
+  // Tout tèks gen line-height eksplisit ≥ 1.15 epi pa gen overflow:hidden sou tèks —
+  // konsa resi a rete pwòp menm si se rezèv html2canvas la ki fè imaj la.
   const LH = 'line-height:1.25'
   const bizRaw  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const bizSize = bizRaw.length > 26 ? 18 : bizRaw.length > 18 ? 21 : 25
@@ -237,6 +238,22 @@ export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouve
 </div>`
 }
 
+// ✅ Kaptire resi a an imaj. Premye chwa: html-to-image — se navigatè a menm ki desine l,
+// kidonk imaj la idantik ak aperçu a. Si li echwe, n ap itilize html2canvas kòm rezèv.
+async function captureNode(node, bg) {
+  try {
+    const opts = { pixelRatio: 2.5, backgroundColor: bg, cacheBust: true }
+    // Premye apèl la chaje polis ak imaj yo (sitou sou iPhone/Safari), dezyèm nan bon
+    await toCanvas(node, opts)
+    const canvas = await toCanvas(node, opts)
+    if (canvas?.width > 0 && canvas?.height > 0) return canvas
+    throw new Error('canvas vid')
+  } catch (e) {
+    console.warn('[resi] html-to-image echwe, n ap itilize html2canvas:', e?.message)
+    return await html2canvas(node, { scale: 2.5, backgroundColor: bg, useCORS: true, logging: false })
+  }
+}
+
 // Rann resi a nan yon canvas (an deyò ekran an)
 async function renderReceiptCanvas(account, transaction, tenant, type) {
   const container = document.createElement('div')
@@ -255,7 +272,7 @@ async function renderReceiptCanvas(account, transaction, tenant, type) {
     } catch { /* polis pa disponib (offline) — n ap itilize polis sistèm */ }
     const imgs = Array.from(container.querySelectorAll('img'))
     await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res })))
-    return await html2canvas(container.firstElementChild, { scale: 2.5, backgroundColor: RC.bg, useCORS: true, logging: false })
+    return await captureNode(container.firstElementChild, RC.bg)
   } finally {
     document.body.removeChild(container)
   }
