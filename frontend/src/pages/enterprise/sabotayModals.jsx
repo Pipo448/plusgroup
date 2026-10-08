@@ -329,7 +329,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const allDates = useMemo(() => getAllPaymentDates(plan), [plan])
   const unpaid   = allDates.filter(d => !member.payments?.[d])
 
-  const [sel,       setSel]      = useState(unpaid.length === 1 ? [unpaid[0]] : unpaid.includes(today) ? [today] : [])
+  const [sel,       setSel]      = useState([])  // ✅ Pa gen okenn dat ki tcheke otomatikman — kesye a chwazi
   const [applyFine, setFine]     = useState(false)
   const [receipt,   setReceipt]  = useState(null)
   const [saving,    setSaving]   = useState(false)
@@ -380,6 +380,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
     const mark = (m, extraFines = {}) => ({
       ...m,
       payments: { ...(m.payments || {}), ...Object.fromEntries(sel.map(d => [d, true])) },
+      paymentTimings: { ...(m.paymentTimings || {}), ...timings },
       fines: { ...(m.fines || {}), ...extraFines },
     })
     const paidMember = mark(member, fines)

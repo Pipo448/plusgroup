@@ -687,9 +687,31 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
       <span style="font-size:13.5px;font-weight:800;line-height:1.3;color:${color};text-align:right">${v}</span>
     </div>`
 
-  const dateRows = isPay ? paidDates.slice(0, 14).map(d => row(
-    `${dmy(d)}${d > today ? ' · <span style="color:' + RC.teal + '">Rezèv</span>' : ''}`,
-    `+${fmt(amount * nSlots)} HTG`, RC.green)).join('') + (paidDates.length > 14 ? row(`+ ${paidDates.length - 14} lòt dat`, '') : '') : ''
+  // ✅ Chak dat ak badj li: Reta (wouj) · Bonè / A lè (vèt) · Depo rezèv (teal)
+  const badge = (txt, c, bg) =>
+    `<span style="display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 9px;border-radius:999px;background:${bg};color:${c};font-size:10.5px;font-weight:800;line-height:1;letter-spacing:.03em;white-space:nowrap">${txt}</span>`
+  const dateInfo = (d) => {
+    const tm = member.paymentTimings?.[d]
+    if (d > today)                    return { c: RC.teal,  b: badge('DEPO REZÈV', RC.teal, 'rgba(13,148,136,.12)') }
+    if (d < today || tm === 'late')   return { c: RC.red,   b: badge('RETA', RC.red, 'rgba(220,38,38,.10)') }
+    if (tm === 'early')               return { c: RC.green, b: badge('BONÈ', '#059669', 'rgba(5,150,105,.12)') }
+    return                                   { c: RC.green, b: badge('A LÈ', RC.green, 'rgba(22,163,74,.12)') }
+  }
+  const sortedDates = [...paidDates].sort()
+  const dateRows = isPay ? sortedDates.slice(0, 14).map(d => {
+    const { c, b } = dateInfo(d)
+    const fine = Number(member.fines?.[d] || 0)
+    return `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid ${RC.line}">
+      <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:13.5px;font-weight:800;line-height:1.3;color:${c}">${dmy(d)}</span>${b}
+      </span>
+      <span style="text-align:right">
+        <span style="display:block;font-size:13.5px;font-weight:800;line-height:1.3;color:${c}">+${fmt(amount * nSlots)} HTG</span>
+        ${fine > 0 ? `<span style="display:block;font-size:11px;font-weight:700;line-height:1.3;color:${RC.red}">+${fmt(fine)} amand</span>` : ''}
+      </span>
+    </div>`
+  }).join('') + (sortedDates.length > 14 ? row(`+ ${sortedDates.length - 14} lòt dat`, '') : '') : ''
 
   const logo = tenant?.logoUrl
     ? `<img src="${esc(tenant.logoUrl)}" crossorigin="anonymous" style="width:50px;height:50px;border-radius:15px;object-fit:cover;background:#fff;display:block;flex:none"/>`
@@ -749,7 +771,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
       ${row('Kontribisyon total', `${fmt(contribution)} HTG`, RC.green)}
       ${fineTotal > 0 ? row('Amand', `${fmt(fineTotal)} HTG`, RC.red) : ''}
       ${row('Peman fèt', `${paidCount} / ${allDates.length * nSlots}`)}
-      ${payoutDate ? row('Dat touche', dmy(payoutDate)) : ''}
+      ${!isPay && payoutDate ? row('Dat touche', dmy(payoutDate)) : ''}
     </div>
 
     <div style="margin:16px 24px 0;padding:14px 18px;border-radius:18px;background:${RC.night};display:flex;justify-content:space-between;align-items:center;gap:10px">
