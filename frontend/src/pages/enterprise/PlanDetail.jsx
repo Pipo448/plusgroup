@@ -79,11 +79,14 @@ const PD_STYLES = `
 .pd-scale b{font-family:var(--display);font-size:13px}
 
 .pd-list{display:flex;flex-direction:column;gap:10px}
-.pd-row{position:relative;background:#fff;border:1px solid var(--border);border-radius:20px;padding:14px 16px;animation:keIn .45s cubic-bezier(.22,1,.36,1) backwards;transition:box-shadow .25s,border-color .25s}
-.pd-row:hover{box-shadow:0 16px 30px -24px rgba(20,21,26,.4);border-color:rgba(20,21,26,.13)}
-.pd-row.own{background:linear-gradient(135deg,#fffaf0,#fff);border-color:rgba(224,164,16,.35)}
-.pd-row.win{background:linear-gradient(135deg,#f0fbf4,#fff);border-color:rgba(22,163,74,.35)}
-.pd-row.stop{background:#fdf8f0;opacity:.82}
+.pd-row{position:relative;border-radius:20px;padding:14px 16px 14px 20px;border:2px solid transparent;background:linear-gradient(var(--rbg,#fff),var(--rbg,#fff)) padding-box,var(--rg) border-box;box-shadow:0 10px 24px -22px var(--rc);animation:keIn .45s cubic-bezier(.22,1,.36,1) backwards;transition:box-shadow .25s,transform .25s}
+.pd-row::before{content:'';position:absolute;left:6px;top:14px;bottom:14px;width:4px;border-radius:4px;background:var(--rg)}
+.pd-row::after{content:'';position:absolute;inset:0;border-radius:18px;pointer-events:none;background:radial-gradient(120% 90% at 0% 0%,var(--rt),transparent 55%)}
+.pd-row>*{position:relative;z-index:1}
+.pd-row:hover{box-shadow:0 18px 32px -20px var(--rc);transform:translateY(-1px)}
+.pd-row.own{--rbg:#fffaf0}
+.pd-row.win{--rbg:#f3fcf6}
+.pd-row.stop{--rbg:#fdf8f0;opacity:.85}
 .pd-row-in{display:flex;align-items:flex-start;gap:12px}
 .pd-info{flex:1;min-width:0}
 .pd-name{font-size:15px;font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -216,6 +219,19 @@ function PosBadge({ member, plan, dynamic }) {
       )}
     </div>
   )
+}
+
+// ✅ Koulè kouwòn chak kat manm — menm moun (menm telefòn) = menm koulè
+const ROW_COLORS = [
+  ['#FFC83D', '#E0A410'], ['#3b82f6', '#06b6d4'], ['#8b5cf6', '#ec4899'], ['#10b981', '#84cc16'],
+  ['#f97316', '#ef4444'], ['#06b6d4', '#6366f1'], ['#ec4899', '#f59e0b'], ['#14b8a6', '#3b82f6'],
+  ['#a855f7', '#6366f1'], ['#ef4444', '#f97316'], ['#22c55e', '#14b8a6'], ['#0ea5e9', '#8b5cf6'],
+]
+const rowColor = (m) => {
+  const key = String(m.phone || '').replace(/\D/g, '') || String(m.id || m.name || '')
+  let h = 0
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
+  return ROW_COLORS[h % ROW_COLORS.length]
 }
 
 const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
@@ -541,9 +557,10 @@ export default function PlanDetail({
             const perfC      = perf >= 80 ? T.green : perf >= 50 ? T.orange : T.red
             const pct        = totalDates ? Math.min(100, (paid / totalDates) * 100) : 0
 
+            const [rc1, rc2] = isOwn ? ['#FFD45C', '#E0A410'] : rowColor(m)
             return (
               <div key={m._virtualKey || m.id} className={`pd-row ${isStopped ? 'stop' : isOwn ? 'own' : isWin ? 'win' : ''}`}
-                style={{ animationDelay: `${Math.min(idx, 14) * .03}s` }}>
+                style={{ animationDelay: `${Math.min(idx, 14) * .03}s`, '--rg': `linear-gradient(135deg,${rc1},${rc2})`, '--rc': hexA(rc1, .55), '--rt': hexA(rc1, .07) }}>
                 <div className="pd-row-in">
                   <PosBadge member={m} plan={plan} dynamic={isDynamic} />
 
