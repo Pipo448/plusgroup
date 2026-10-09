@@ -203,14 +203,27 @@ export const isNativeApp = () => {
   try { return !!window.Capacitor?.isNativePlatform?.() } catch { return false }
 }
 
-export const getNativePrinter = async () => {
-  if (_nativePlugin) return _nativePlugin
-  if (!isNativeApp()) return null
+// ⚠️ ENPÒTAN: yon plugin Capacitor se yon « Proxy » — si yon fonksyon `async`
+// RETOUNEN l, JavaScript rele `.then()` sou li, Capacitor konprann se yon metòd
+// natif « then », epi Promise la PA JANM fini (bouton an woule san kanpe).
+// Donk: loadNativePrinter() retounen sèlman true/false, epi nativePrinter() bay
+// plugin lan an SENKRON.
+export const loadNativePrinter = async () => {
+  if (_nativePlugin) return true
+  if (!isNativeApp()) return false
   try {
     const mod = await import('@capacitor-plus/universal-printer')
     _nativePlugin = mod?.UniversalPrinter || null
   } catch (e) { console.warn('[NATIVE PRINTER]', e?.message || e) }
-  return _nativePlugin
+  return !!_nativePlugin
+}
+export const nativePrinter = () => _nativePlugin
+
+// Pa janm kite yon apèl natif bloke bouton an pou toutan
+const withTimeout = (promise, ms, msg = 'TIMEOUT') => {
+  let t
+  return Promise.race([promise, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms) })])
+    .finally(() => clearTimeout(t))
 }
 
 export const saveNativePrinter  = (device) => { try { localStorage.setItem(NATIVE_KEY, JSON.stringify({ address: device.address, name: device.name || '' })) } catch {} }
@@ -218,15 +231,15 @@ export const forgetNativePrinter = () => { try { localStorage.removeItem(NATIVE_
 
 // Verifye enprimant natif la prè; si se Bluetooth e li dekonekte, rekonekte l ak dènye aparèy la
 export const ensureNativePrinter = async () => {
-  const P = await getNativePrinter()
-  if (!P) { _nativeReady = false; return false }
-  let info = await P.getInfo().catch(() => null)
+  if (!(await loadNativePrinter())) { _nativeReady = false; return false }
+  const P = nativePrinter()
+  let info = await withTimeout(P.getInfo(), 8000).catch(() => null)
   if (!info?.isReady) {
     let saved = null
     try { saved = JSON.parse(localStorage.getItem(NATIVE_KEY) || 'null') } catch {}
     if (saved?.address) {
-      try { await P.connectBluetoothPrinter({ address: saved.address }) } catch {}
-      info = await P.getInfo().catch(() => null)
+      try { await withTimeout(P.connectBluetoothPrinter({ address: saved.address }), 15000) } catch {}
+      info = await withTimeout(P.getInfo(), 8000).catch(() => null)
     }
   }
   const was = _nativeReady
@@ -697,8 +710,8 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
 
   // ✅ APK ANDROID → plugin natif (menm jan ak paj Tès Enprimant)
   if (isNativeApp()) {
-    const P = await getNativePrinter()
-    if (!P) throw new Error('NATIVE_PLUGIN_MISSING')
+    if (!(await loadNativePrinter())) throw new Error('NATIVE_PLUGIN_MISSING')
+    const P = nativePrinter()
     const info = await ensureNativePrinter()
     if (!info) throw new Error('NATIVE_PRINTER_NOT_READY')
     const NW  = Number(info.paperWidth) && Number(info.paperWidth) < 70 ? 32 : 48
@@ -764,7 +777,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       T('PlusGroup Tel: +50942449024', { align: 'center', size: 'small' }),
       { type: 'space', lines: 3 },
     ]
-    const res = await P.print({ lines })
+    const res = await withTimeout(P.print({ lines }), 30000, 'Enprimant lan pa reponn (30s)')
     if (res && res.success === false) throw new Error(res.message || 'Erè enprime')
     return
   }

@@ -10,7 +10,7 @@ import {
 import toast from 'react-hot-toast'
 import {
   connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt, onPrinterStatus,
-  isNativeApp, ensureNativePrinter, getNativePrinter, forgetNativePrinter,
+  isNativeApp, ensureNativePrinter, loadNativePrinter, nativePrinter, forgetNativePrinter,
 } from '../../services/printerService'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -119,7 +119,7 @@ export function usePrinterState() {
 
   const disconnect = useCallback(async () => {
     if (native) {
-      try { const P = await getNativePrinter(); await P?.disconnectBluetoothPrinter?.() } catch { /* */ }
+      try { if (await loadNativePrinter()) await nativePrinter().disconnectBluetoothPrinter() } catch { /* */ }
       forgetNativePrinter()
       setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
       return
