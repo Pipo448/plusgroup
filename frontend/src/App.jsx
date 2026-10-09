@@ -5,6 +5,8 @@ import { useAuthStore } from './stores/authStore'
 import AppLayout from './components/layout/AppLayout'
 // ⚠️ NOUVO — Ekran chajman branded (animasyon siy "+") pou tout app la
 import LoadingScreen from './components/common/LoadingScreen'
+// ✅ NOUVO — Sonje dènye paj la (APK: pa retounen sou tableau de bò lè Android rechaje app la)
+import { RouteMemory, getLastRoute } from './hooks/useRestoreLastRoute'
 
 import LoginPage      from './pages/auth/LoginPage'
 import WelcomePage    from './pages/WelcomePage'
@@ -121,12 +123,14 @@ const RootRedirect = () => {
   const token   = useAuthStore(s => s.token)
   const loading = useAuthStore(s => s.loading)
   if (loading) return <Spinner />
-  return token ? <Navigate to="/app/dashboard" replace /> : <WelcomePage />
+  // ✅ Si app la rechaje (APK), retounen sou dènye paj ou te ye a (max 12è)
+  return token ? <Navigate to={getLastRoute() || '/app/dashboard'} replace /> : <WelcomePage />
 }
 
 export default function App() {
   return (
     <BrowserRouter>
+      <RouteMemory />
       <Suspense fallback={<Spinner />}>
         <Routes>
           <Route path="/" element={<RootRedirect />} />
@@ -154,7 +158,7 @@ export default function App() {
           <Route path="/agent/dashboard" element={<AgentRoute><AgentDashboardPage /></AgentRoute>} />
 
           <Route path="/app" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
-            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route index element={<Navigate to={getLastRoute() || '/app/dashboard'} replace />} />
             {/* ✅ KORIJE — DashboardRouter deside si se Dashboard jeneral Stock/POS
                 la oswa dashboard SÈL modil aktive a (Hotel/Restoran/Gym/Prese)
                 ki parèt kòm tableau de bò prensipal la. */}

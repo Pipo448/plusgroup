@@ -607,6 +607,55 @@ export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'p
 // Android — itilizatè a te kole. Kounye a resi a afiche kòm yon overlay
 // DOM nòmal (fèmab), epi enprime a fèt sou paj aktyèl la (@media print
 // kache tout rès la, montre sèlman resi a) — pa gen popup ditou.
+// ✅ NOUVO: enprime DIREK (san fenèt previzyon) — sèvi ak sèvis enpresyon Android
+// la (RawBT, enprimant Bluetooth, elatriye). Resi a envizib sou ekran an; li parèt
+// sèlman nan enpresyon an. Netwaye apre enpresyon an (afterprint / retou nan app la).
+export async function printReceiptDirect(html, receiptSize = '80mm') {
+  document.getElementById('sab-direct-print')?.remove()
+  document.getElementById('sab-direct-print-style')?.remove()
+  const W = (receiptSize === '57mm' || receiptSize === '58mm') ? '58mm' : '80mm'
+
+  const style = document.createElement('style')
+  style.id = 'sab-direct-print-style'
+  style.textContent = `
+    #sab-direct-print{position:fixed;left:-10000px;top:0;width:${W};background:#fff}
+    @media print{
+      @page{size:${W} auto;margin:0}
+      html,body{background:#fff!important;height:auto!important;overflow:visible!important}
+      body>*:not(#sab-direct-print){display:none!important}
+      #sab-direct-print{display:block!important;position:static!important;left:auto!important;width:${W}!important}
+    }`
+  document.head.appendChild(style)
+
+  const box = document.createElement('div')
+  box.id = 'sab-direct-print'
+  box.innerHTML = html
+  document.body.appendChild(box)
+
+  // Tann logo a chaje (max 2.5s) pou l parèt sou papye a
+  const imgs = Array.from(box.querySelectorAll('img'))
+  await Promise.race([
+    Promise.all(imgs.map(img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r }))),
+    new Promise(r => setTimeout(r, 2500)),
+  ])
+
+  let done = false
+  const cleanup = () => {
+    if (done) return
+    done = true
+    box.remove(); style.remove()
+    window.removeEventListener('afterprint', cleanup)
+    document.removeEventListener('resume', onResume)
+  }
+  // Sou Android, window.print() pa bloke — nou netwaye lè enpresyon an fini oswa lè w tounen nan app la
+  const onResume = () => setTimeout(cleanup, 1500)
+  window.addEventListener('afterprint', cleanup)
+  document.addEventListener('resume', onResume)
+  setTimeout(cleanup, 120000)
+
+  window.print()
+}
+
 export function printReceiptBrowser(html) {
   // Netwaye ansyen overlay si li te rete la pou yon rezon
   document.getElementById('sabotay-receipt-overlay')?.remove()

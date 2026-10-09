@@ -11,7 +11,7 @@ import toast from 'react-hot-toast'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt } from '../../services/printerService'
 import {
   D, MEMBER_STATUS, PLAN_STATUS,
-  buildReceiptHTML, printReceiptBrowser,
+  buildReceiptHTML, printReceiptBrowser, printReceiptDirect,
   buildSolShareHTML, shareSolReceipt, SOL_RECEIPT_WIDTH,
 } from './sabotayUtils'
 import { Modal as KeModal } from './kane-epay/KaneEpayComponents'
@@ -107,7 +107,10 @@ export function usePrinterState() {
         setConnected(false); toast.error('Erè printer.'); return false
       } finally { setPrinting(false) }
     }
-    printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots, paidAt))
+    // ✅ Enprime DIREK (pa gen fenèt previzyon ankò — pou pataje, gen bèl imaj la)
+    let size = '80mm'
+    try { size = localStorage.getItem('receipt_size') || tenant?.receiptSize || '80mm' } catch { /* */ }
+    await printReceiptDirect(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots, paidAt), size)
     return true
   }, [])
 

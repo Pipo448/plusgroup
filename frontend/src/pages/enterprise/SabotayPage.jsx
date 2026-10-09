@@ -68,7 +68,19 @@ export default function SabotayPage() {
   const { tenant } = useAuthStore()
   const printer    = usePrinterState()
 
-  const [selectedPlan,  setSelected]    = useState(null)
+  // ✅ Plan ki louvri a sonje (localStorage) — si APK a rechaje lè w tounen sou li,
+  // ou retounen sou menm plan an olye lis la. Ekspire apre 12è.
+  const [selectedId, setSelectedId] = useState(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('sab-open-plan') || 'null')
+      return v && Date.now() - v.t < 12 * 3600e3 ? v.id : null
+    } catch { return null }
+  })
+  const setSelected = (plan) => {
+    const id = plan?.id ?? null
+    setSelectedId(id)
+    try { id ? localStorage.setItem('sab-open-plan', JSON.stringify({ id, t: Date.now() })) : localStorage.removeItem('sab-open-plan') } catch { /* */ }
+  }
   const [showCreate,    setShowCreate]  = useState(false)
   const [editingPlan,   setEditing]     = useState(null)
   const [showAddMember, setAddMember]   = useState(false)
@@ -87,7 +99,7 @@ export default function SabotayPage() {
     }),
   })
 
-  const activePlan = selectedPlan ? plans.find(p => p.id === selectedPlan.id) || selectedPlan : null
+  const activePlan = selectedId != null ? plans.find(p => String(p.id) === String(selectedId)) || null : null
 
   const mutations = useSabotayMutations({
     activePlan, tenant, printer,

@@ -106,11 +106,22 @@ const PD_STYLES = `
 .pd-pos-in b{font-family:var(--display);font-weight:800;font-size:19px;line-height:1}
 .pd-pos-in i{font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.04em;opacity:.8}
 .pd-dot{position:absolute;top:-3px;right:-3px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center}
+/* ✅ MOBIL: kat la an 3 etaj — (1) pozisyon + non + chip, (2) bann chif, (3) bouton yo.
+   Bouton « Peye » pran tout lajè a, lòt ikòn yo pataje liy anba a. */
 @media(max-width:620px){
-  .pd-row-in{flex-wrap:wrap}
-  .pd-acts{width:100%;max-width:none;justify-content:flex-start;flex-wrap:nowrap;gap:5px;padding-top:10px;margin-top:2px;border-top:1px dashed var(--border)}
-  .pd-act{width:38px;height:40px;flex-shrink:0}
-  .pd-act.pay{flex:1 1 64px;min-width:0;justify-content:center;padding:0 8px}
+  .pd-row{padding:12px 12px 12px 18px}
+  .pd-row-in{flex-wrap:wrap;gap:10px}
+  .pd-pos{width:46px;height:46px}
+  .pd-pos-in b{font-size:17px}
+  .pd-info{flex:1 1 calc(100% - 60px)}
+  .pd-name{font-size:15.5px;white-space:normal}
+  .pd-meta{gap:5px}
+  .pd-mstat{order:3;width:100%;min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;text-align:left;padding:9px 12px;border-radius:13px;background:var(--soft)}
+  .pd-mstat .s{margin-top:0}
+  .pd-acts{order:4;width:100%;max-width:none;display:flex;flex-wrap:wrap;justify-content:stretch;gap:6px;padding-top:2px}
+  .pd-act{flex:1 1 0;min-width:40px;width:auto;height:42px}
+  .pd-act.pay{flex:1 1 100%;height:46px;font-size:14px;justify-content:center}
+  .pd-acts .ke-chip{flex:1 1 100%;justify-content:center}
 }
 .pd-tip{position:absolute;right:0;top:30px;z-index:100;background:#fff;border:1px solid var(--border);border-radius:18px;padding:14px 16px;min-width:250px;box-shadow:0 24px 50px -18px rgba(20,21,26,.35);animation:keIn .25s ease backwards}
 .pd-steps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
@@ -249,7 +260,10 @@ export default function PlanDetail({
   const [actionModal,      setAction]           = useState(null)
   const [confirmingPayout, setConfirmingPayout] = useState(null)
   const [declaringPayout,  setDeclaringPayout]  = useState(null)
-  const [tab,              setTab]              = useState('members')
+  // ✅ Tab la sonje (si app la rechaje, ou retounen nan menm tab la)
+  const tabKey = `sab-tab-${plan.id}`
+  const [tab, setTabState] = useState(() => { try { return localStorage.getItem(tabKey) || 'members' } catch { return 'members' } })
+  const setTab = (t) => { setTabState(t); try { localStorage.setItem(tabKey, t) } catch { /* */ } }
   const [memberSearch,     setMemberSearch]     = useState('')
   const [memberFilter,     setMemberFilter]     = useState('all')
   const [adjustPos,        setAdjustPos]        = useState(null)
