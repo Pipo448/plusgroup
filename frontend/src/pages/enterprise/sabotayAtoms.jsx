@@ -13,10 +13,11 @@ import {
   isNativeApp, ensureNativePrinter, loadNativePrinter, nativePrinter, forgetNativePrinter, withTimeout, PRINTER_BUILD,
 } from '../../services/printerService'
 import { useNavigate } from 'react-router-dom'
+import { shareMessage } from '../../services/shareFile'
 import {
   D, MEMBER_STATUS, PLAN_STATUS,
   buildReceiptHTML, printReceiptBrowser, printReceiptDirect,
-  buildSolShareHTML, shareSolReceipt, SOL_RECEIPT_WIDTH,
+  buildSolShareHTML, shareSolReceipt, prepareSolReceipt, SOL_RECEIPT_WIDTH,
 } from './sabotayUtils'
 import { Modal as KeModal } from './kane-epay/KaneEpayComponents'
 
@@ -286,10 +287,14 @@ function HtmlPreview({ html, width = SOL_RECEIPT_WIDTH }) {
 
 export function ModalSolReceipt({ data, onClose, printer }) {
   const [busy, setBusy] = useState(false)
+  // ✅ Prepare imaj la depi fenèt la louvri → « Pataje imaj » pataje imedyatman
+  useEffect(() => { prepareSolReceipt(data, 'png') }, [data])
   const run = async (fmtOut) => {
     setBusy(fmtOut)
-    try { const ok = await shareSolReceipt(data, fmtOut); if (ok) toast.success(fmtOut === 'png' ? 'Imaj resi a pare!' : 'PDF la pare!') }
-    catch { toast.error('Erè pandan kreyasyon resi a.') }
+    try {
+      const r = shareMessage(await shareSolReceipt(data, fmtOut), fmtOut)
+      if (r.msg) (r.ok ? toast.success : toast)(r.msg)
+    } catch { toast.error('Erè pandan kreyasyon resi a.') }
     finally { setBusy(false) }
   }
   const footer = (

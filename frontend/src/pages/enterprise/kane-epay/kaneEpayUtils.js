@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react'
 import jsPDF       from 'jspdf'
 import html2canvas from 'html2canvas'
 import { toCanvas } from 'html-to-image'
+import { prepareShare, shareCached, shareMessage } from '../../../services/shareFile'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt } from '../../../services/printerService'
 import { PAYMENT_METHODS, FRE_OUVERTURE } from './kaneEpayConstants'
 
@@ -306,33 +307,27 @@ export async function generateReceiptPDFBlob(account, transaction, tenant, type 
 
 // ✅ Mobil: meni pataje natif (WhatsApp, Imèl...). PC: telechaje.
 // format: 'png' (imaj — parèt dirèk nan WhatsApp) oswa 'pdf'
-export async function shareReceipt(account, transaction, tenant, type = 'ouverture', fmtOut = 'pdf') {
+export async function buildReceiptFile(account, transaction, tenant, type = 'ouverture', fmtOut = 'pdf') {
   const isPng = fmtOut === 'png'
   const blob  = isPng
     ? await generateReceiptImageBlob(account, transaction, tenant, type)
     : await generateReceiptPDFBlob(account, transaction, tenant, type)
-  const fileName = receiptFileName(account, type, isPng ? 'png' : 'pdf')
-  const file = new File([blob], fileName, { type: isPng ? 'image/png' : 'application/pdf' })
-
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: `Resi Kanè Epay — ${account.accountNumber}`,
-        text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
-      })
-      return true
-    } catch (e) {
-      if (e?.name === 'AbortError') return false
-    }
+  return {
+    blob, fileName: receiptFileName(account, type, isPng ? 'png' : 'pdf'),
+    mime: isPng ? 'image/png' : 'application/pdf',
+    title: `Resi Kanè Epay — ${account.accountNumber}`,
+    text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
   }
+}
+const kaneShareKey = (account, transaction, type, fmtOut) =>
+  `kane-${account?.id}-${transaction?.id || transaction?.createdAt || ''}-${type}-${fmtOut}`
 
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = fileName
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
-  return true
+export const prepareReceipt = (account, transaction, tenant, type = 'ouverture', fmtOut = 'png') =>
+  prepareShare(kaneShareKey(account, transaction, type, fmtOut), () => buildReceiptFile(account, transaction, tenant, type, fmtOut))
+
+// Retounen: 'shared' | 'cancel' | 'downloaded' | 'needs-gesture'
+export async function shareReceipt(account, transaction, tenant, type = 'ouverture', fmtOut = 'pdf') {
+  return shareCached(kaneShareKey(account, transaction, type, fmtOut), () => buildReceiptFile(account, transaction, tenant, type, fmtOut))
 }
 
 // Konpatibilite ak ansyen non an
@@ -344,9 +339,9 @@ export function usePDFReceipt() {
   const share = useCallback(async (account, transaction, tenant, type, fmtOut = 'pdf') => {
     setGenerating(fmtOut)
     try {
-      const ok = await shareReceipt(account, transaction, tenant, type, fmtOut)
-      if (ok) toast.success(fmtOut === 'png' ? 'Imaj resi a pare!' : 'PDF la pare!')
-      return ok
+      const r = shareMessage(await shareReceipt(account, transaction, tenant, type, fmtOut), fmtOut)
+      if (r.msg) (r.ok ? toast.success : toast)(r.msg)
+      return r.ok
     } catch (e) {
       toast.error('Erè pandan kreyasyon resi a.')
       return false
@@ -355,7 +350,7 @@ export function usePDFReceipt() {
     }
   }, [])
 
-  return { generating, share }
+  return { generating, share, prepare: prepareReceipt }
 }
 
 export function usePrinter() {

@@ -5,6 +5,7 @@
 import html2canvas from 'html2canvas'
 import { toCanvas } from 'html-to-image'
 import jsPDF from 'jspdf'
+import { prepareShare, shareCached } from '../../services/shareFile'
 
 export const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 export const API_URL = import.meta.env.VITE_API_URL     || 'https://plusgroup-backend.onrender.com/api/v1'
@@ -877,7 +878,8 @@ async function captureNode(node, bg) {
   }
 }
 
-export async function shareSolReceipt(data, fmtOut = 'png') {
+// Kreye fichye resi a (PNG oswa PDF) — san pataje
+export async function buildSolFile(data, fmtOut = 'png') {
   const box = document.createElement('div')
   box.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none;'
   box.innerHTML = buildSolShareHTML(data)
@@ -901,14 +903,16 @@ export async function shareSolReceipt(data, fmtOut = 'png') {
   }
   const safe = (x) => String(x || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
   const fileName = `Sol-${safe(data.plan?.name)}-${safe(data.member?.name)}-${getHaitiNow().today}.${isPng ? 'png' : 'pdf'}`
-  const file = new File([blob], fileName, { type: isPng ? 'image/png' : 'application/pdf' })
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: `Resi Sol — ${data.member?.name}` }); return true }
-    catch (e) { if (e?.name === 'AbortError') return false }
-  }
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = fileName
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
-  return true
+  return { blob, fileName, mime: isPng ? 'image/png' : 'application/pdf', title: `Resi Sol — ${data.member?.name || ''}` }
+}
+
+const solShareKey = (data, fmtOut) =>
+  `sol-${data.type || 'peman'}-${data.member?.id || data.member?.name}-${(data.paidDates || []).join(',')}-${data.paidAt || ''}-${fmtOut}`
+
+// Prepare imaj la davans (lè fenèt resi a louvri) — klik « Pataje » vin imedya
+export const prepareSolReceipt = (data, fmtOut = 'png') => prepareShare(solShareKey(data, fmtOut), () => buildSolFile(data, fmtOut))
+
+// Retounen: 'shared' | 'cancel' | 'downloaded' | 'needs-gesture'
+export async function shareSolReceipt(data, fmtOut = 'png') {
+  return shareCached(solShareKey(data, fmtOut), () => buildSolFile(data, fmtOut))
 }

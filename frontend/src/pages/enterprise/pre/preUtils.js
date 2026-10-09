@@ -5,6 +5,7 @@ import toast        from 'react-hot-toast'
 import jsPDF        from 'jspdf'
 import html2canvas  from 'html2canvas'
 import { toCanvas } from 'html-to-image'
+import { prepareShare, shareCached, shareMessage } from '../../../services/shareFile'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printPreReceipt } from '../../../services/printerService'
 import { useState, useCallback } from 'react'
 
@@ -310,7 +311,7 @@ async function renderHtmlCanvas(html) {
 
 const fileSafe = (s) => String(s || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
 
-export async function sharePreReceipt({ pre, tenant, type = 'paiement', paiement = null, echeances = [] }, fmtOut = 'png') {
+export async function buildPreFile({ pre, tenant, type = 'paiement', paiement = null, echeances = [] }, fmtOut = 'png') {
   const canvas = await renderHtmlCanvas(buildPreShareHTML({ pre, tenant, type, paiement, echeances }))
   const isPng  = fmtOut === 'png'
   let blob
@@ -325,20 +326,17 @@ export async function sharePreReceipt({ pre, tenant, type = 'paiement', paiement
   const d = new Date()
   const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`
   const fileName = `Pre-${fileSafe(pre.numeroPre)}-${type === 'paiement' ? 'Peman' : 'Kontra'}-${stamp}.${isPng ? 'png' : 'pdf'}`
-  const file = new File([blob], fileName, { type: isPng ? 'image/png' : 'application/pdf' })
+  return { blob, fileName, mime: isPng ? 'image/png' : 'application/pdf', title: `Resi Prè — ${pre.numeroPre}`, text: `${pre.clientNom} — ${pre.numeroPre}` }
+}
 
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], title: `Resi Prè — ${pre.numeroPre}`, text: `${pre.clientNom} — ${pre.numeroPre}` })
-      return true
-    } catch (e) { if (e?.name === 'AbortError') return false }
-  }
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url; a.download = fileName
-  document.body.appendChild(a); a.click(); document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 4000)
-  return true
+const preShareKey = (data, fmtOut) =>
+  `pre-${data.pre?.id}-${data.type || 'paiement'}-${data.paiement?.id || data.paiement?.createdAt || ''}-${fmtOut}`
+
+export const preparePreReceipt = (data, fmtOut = 'png') => prepareShare(preShareKey(data, fmtOut), () => buildPreFile(data, fmtOut))
+
+// Retounen: 'shared' | 'cancel' | 'downloaded' | 'needs-gesture'
+export async function sharePreReceipt(data, fmtOut = 'png') {
+  return shareCached(preShareKey(data, fmtOut), () => buildPreFile(data, fmtOut))
 }
 
 export function usePreShare() {
@@ -346,13 +344,13 @@ export function usePreShare() {
   const share = useCallback(async (data, fmtOut = 'png') => {
     setGenerating(fmtOut)
     try {
-      const ok = await sharePreReceipt(data, fmtOut)
-      if (ok) toast.success(fmtOut === 'png' ? 'Imaj resi a pare!' : 'PDF la pare!')
-      return ok
+      const r = shareMessage(await sharePreReceipt(data, fmtOut), fmtOut)
+      if (r.msg) (r.ok ? toast.success : toast)(r.msg)
+      return r.ok
     } catch { toast.error('Erè pandan kreyasyon resi a.'); return false }
     finally { setGenerating(false) }
   }, [])
-  return { generating, share }
+  return { generating, share, prepare: preparePreReceipt }
 }
 
 // ═══════════════════════════════════════════════════════════════

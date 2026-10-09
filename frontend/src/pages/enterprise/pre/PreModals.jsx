@@ -534,6 +534,8 @@ export function ModalRapoKesye({ onClose, onKesFemen }) {
 export function ModalPreReceipt({ data, onClose, printer }) {
   const share = usePreShare()
   const isPay = data.type === 'paiement'
+  // ✅ Prepare imaj la depi fenèt la louvri → « Pataje imaj » imedya (pa ekspire)
+  useEffect(() => { share.prepare(data, 'png') }, [data]) // eslint-disable-line
   const footer = (
     <>
       <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}

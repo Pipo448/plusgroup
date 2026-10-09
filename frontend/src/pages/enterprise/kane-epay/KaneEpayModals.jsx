@@ -272,6 +272,8 @@ export function ModalReceipt({ account, transaction, type, onClose, printer }) {
   const { tenant } = useAuthStore()
   const pdf = usePDFReceipt()
   const label = TX_STYLES[type]?.label || 'Resi'
+  // ✅ Prepare imaj la depi fenèt la louvri → « Pataje imaj » imedya (pa ekspire)
+  useEffect(() => { pdf.prepare(account, transaction, tenant, type, 'png') }, [account?.id, transaction?.id, type]) // eslint-disable-line
 
   const footer = (
     <>
