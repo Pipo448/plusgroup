@@ -505,19 +505,41 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   await dispatch(lines)
 }
 
-export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) => {
+// ✅ paidAt (opsyonèl, 'YYYY-MM-DDTHH:MM') = lè kliyan an te REYÈLMAN peye a (mòd « Lè manyèl »)
+export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = [], paidAt = null) => {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
   const savedSize   = typeof localStorage !== 'undefined' ? localStorage.getItem('receipt_size') : null
   const receiptSize = savedSize || tenant?.receiptSize || '80mm'
   const W           = (receiptSize === '57mm' || receiptSize === '58mm') ? 32 : 48
-  const txDate      = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
+  // ✅ Lè Ayiti (DST-aware) — oswa lè manyèl la si kesye a te antre l
+  const haitiNow = (() => {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date()).map(x => [x.type, x.value]))
+      return { day: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
+    } catch { const d = new Date(); return { day: d.toISOString().slice(0, 10), time: d.toTimeString().slice(0, 5) } }
+  })()
+  const paidDay  = paidAt ? String(paidAt).slice(0, 10) : haitiNow.day
+  const paidTime = paidAt ? String(paidAt).slice(11, 16) : haitiNow.time
+  const txDate   = paidDay.split('-').reverse().join('/') + ' ' + paidTime
   const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0
   const payout      = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
 
   const slotCount   = allSlots.length > 0 ? allSlots.length : 1
-  const posLabel    = allSlots.length > 1
-    ? allSlots.map(s => '#' + s.position).join(' / ')
-    : '#' + member.position
+  // ✅ Pozisyon jan admin wè l (plas pwopriyetè = ★) — kache nèt si « Kache pozisyon » aktif
+  const hidePos  = !!plan.hidePositionInSol
+  const posOff   = (plan.members || []).some(m => m.isOwnerSlot) ? 1 : 0
+  const posOf    = (s) => s.isOwnerSlot ? '*' : '#' + (s.position - posOff)
+  const posLabel = allSlots.length > 1 ? allSlots.map(posOf).join(' / ') : posOf(member)
+
+  // ✅ Badj chak dat: RETA / BONE / A LE / REZEV
+  const dateTag = (d) => {
+    const tm = member.paymentTimings?.[d]
+    if (d > paidDay) return 'REZEV'
+    if (tm === 'late' || (!tm && d < paidDay)) return 'RETA'
+    if (tm === 'early') return 'BONE'
+    return 'A LE'
+  }
 
   const amtPaid = allSlots.length > 1
     ? allSlots.reduce((acc, slot) => {
@@ -553,18 +575,22 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...divider('-', W), LF,
     ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
     ...(member.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...makeLine('Pozisyon:', posLabel, W), LF,
+    ...(hidePos ? [] : [...makeLine('Pozisyon:', posLabel, W), LF]),
     ...(slotCount > 1 ? [...makeLine('Men:', slotCount + ' (' + fmt(plan.amount * slotCount) + ' G/sik)', W), LF] : []),
     ...makeLine('Frekans:', FREQ[plan.frequency] || plan.frequency, W), LF,
     ...divider('-', W), LF,
     ...(type === 'peman' ? [
       ...CMD.BOLD_ON, ...encodeText('Dat Peye:\n'), ...CMD.BOLD_OFF,
-      ...paidDates.flatMap(d => [
-        ...CMD.SMALL_FONT,
-        ...encodeText('  ' + d.split('-').reverse().join('/') + ' — ' +
-          (slotCount > 1 ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount) : fmt(plan.amount)) + ' G\n'),
-        ...CMD.NORMAL_FONT,
-      ]),
+      ...[...paidDates].sort().flatMap(d => {
+        const fine = Number(member.fines?.[d] || 0)
+        return [
+          ...CMD.SMALL_FONT,
+          ...makeLine('  ' + d.split('-').reverse().join('/') + ' [' + dateTag(d) + ']',
+            (slotCount > 1 ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount) : fmt(plan.amount)) + ' G', W), LF,
+          ...(fine > 0 ? [...makeLine('    + amand', fmt(fine) + ' G', W), LF] : []),
+          ...CMD.NORMAL_FONT,
+        ]
+      }),
       ...divider('=', W), LF,
       ...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
       ...makeLine('TOTAL PEYE:', fmt(totalAmt) + ' G', W), LF, ...CMD.BOLD_OFF,
@@ -573,7 +599,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...CMD.ALIGN_CENTER,
       ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
       ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
-      ...CMD.SMALL_FONT, ...encodeText('Pozisyon #' + member.position + '\n'), ...CMD.NORMAL_FONT,
+      ...(hidePos ? [] : [...CMD.SMALL_FONT, ...encodeText('Pozisyon ' + posOf(member) + '\n'), ...CMD.NORMAL_FONT]),
       ...divider('=', W), LF,
       ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
       ...CMD.ALIGN_LEFT,

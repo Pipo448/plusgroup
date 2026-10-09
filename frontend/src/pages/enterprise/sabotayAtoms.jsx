@@ -96,18 +96,18 @@ export function usePrinterState() {
     disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
   }, [])
 
-  const print = useCallback(async (plan, member, paidDates, tenant, type, allSlots = []) => {
+  const print = useCallback(async (plan, member, paidDates, tenant, type, allSlots = [], paidAt = null) => {
     if (isPrinterConnected()) {
       setPrinting(true)
       try {
-        await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots)
+        await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots, paidAt)
         toast.success('Resi enprime!')
         return true
       } catch {
         setConnected(false); toast.error('Erè printer.'); return false
       } finally { setPrinting(false) }
     }
-    printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots))
+    printReceiptBrowser(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots, paidAt))
     return true
   }, [])
 
@@ -245,7 +245,7 @@ export function ModalSolReceipt({ data, onClose, printer }) {
   const footer = (
     <>
       <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}
-        onClick={() => printer?.print(data.plan, data.member, data.paidDates || [], data.tenant, data.type || 'peman', data.allSlots || [])}>
+        onClick={() => printer?.print(data.plan, data.member, data.paidDates || [], data.tenant, data.type || 'peman', data.allSlots || [], data.paidAt || null)}>
         {printer?.printing ? <span className="ke-spinner" style={{ width: 15, height: 15 }} /> : <PrinterIcon size={18} />}
       </button>
       <button className="ke-fbtn" onClick={() => run('pdf')} disabled={!!busy}>

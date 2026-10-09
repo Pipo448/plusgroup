@@ -419,8 +419,12 @@ export function calcMemberDepoRezev(member, plan, today) {
 }
 
 // ─── TIMING & SCORE ───────────────────────────────────────────
-export function getPaymentTiming(plan, paymentDate) {
-  const { today, currentTime } = getHaitiNow()
+// ✅ `at` (opsyonèl) = { date:'YYYY-MM-DD', time:'HH:MM' } — lè kliyan an te REYÈLMAN peye
+// (mòd « Lè manyèl »). San `at`, se lè kounye a (Ayiti) ki konte, menm jan anvan.
+export function getPaymentTiming(plan, paymentDate, at = null) {
+  const now = getHaitiNow()
+  const today       = at?.date || now.today
+  const currentTime = at?.time || now.currentTime
   const [h, m] = currentTime.split(':').map(Number)
   const nowMins = h * 60 + m
 
@@ -483,7 +487,7 @@ export async function apiFetch(path, options = {}) {
 }
 
 // ─── RECEIPT BUILDER ──────────────────────────────────────────
-export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) {
+export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'peman', allSlots = [], paidAt = null) {
   const slotCount    = allSlots.length > 0 ? allSlots.length : 1
   const receiptSize  = tenant?.receiptSize || '80mm'
   const W            = (receiptSize === '57mm' || receiptSize === '58mm') ? '64mm' : '80mm'
@@ -491,7 +495,18 @@ export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'p
   const logo         = tenant?.logoUrl
     ? `<img src="${tenant.logoUrl}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`
     : `<div style="font-size:20px;text-align:center">🏦</div>`
-  const txDate       = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })
+  const _hn          = getHaitiNow()
+  const paidDay      = paidAt ? String(paidAt).slice(0, 10) : _hn.today
+  const txDate       = `${paidDay.split('-').reverse().join('/')} ${paidAt ? String(paidAt).slice(11, 16) : _hn.currentTime}`
+  const posOff       = hasOwnerSlot(plan) ? 1 : 0
+  const posOf        = (s) => s.isOwnerSlot ? '★' : '#' + (s.position - posOff)
+  const tagOf        = (d) => {
+    const tm = member.paymentTimings?.[d]
+    if (d > paidDay) return ['REZÈV', '#0d9488']
+    if (tm === 'late' || (!tm && d < paidDay)) return ['RETA', '#dc2626']
+    if (tm === 'early') return ['BONÈ', '#059669']
+    return ['A LÈ', '#16a34a']
+  }
   const isOwner      = member.isOwnerSlot
   const payout       = isOwner ? ownerPayout(plan) : memberPayout(plan)
   const allDates     = getAllPaymentDates(plan)
@@ -535,16 +550,16 @@ export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'p
   <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid ${isOwner ? '#C9A84C' : '#ccc'};margin-bottom:5px;font-size:9px">
     <div style="font-weight:700">${member.name}${isOwner ? ' ★' : ''}</div>
     ${member.phone ? `<div>${member.phone}</div>` : ''}
-    <div>Pozisyon: ${allSlots.length > 1 ? allSlots.map(s => '#' + s.position).join(' • ') : '#' + member.position}</div>
+    ${plan.hidePositionInSol ? '' : `<div>Pozisyon: ${allSlots.length > 1 ? allSlots.map(posOf).join(' • ') : posOf(member)}</div>`}
     ${slotCount > 1 ? `<div style="color:#C9A84C;font-weight:700">${slotCount} Men • ${fmt(plan.amount * slotCount)} HTG/sik</div>` : ''}
   </div>
   <div style="border-top:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
     ${type === 'peman' ? `
       <div style="font-weight:700;margin-bottom:3px">Dat Peye:</div>
       <table style="width:100%;border-collapse:collapse">
-        ${paidDates.map(d => `
+        ${[...paidDates].sort().map(d => `
           <tr>
-            <td style="font-family:monospace">${d.split('-').reverse().join('/')}</td>
+            <td style="font-family:monospace">${d.split('-').reverse().join('/')} <b style="color:${tagOf(d)[1]};font-family:Arial;font-size:8px">[${tagOf(d)[0]}]</b></td>
             <td style="text-align:right;font-weight:600;color:#16a34a">
               ${slotCount > 1 ? `${slotCount} × ${fmtAmt(plan.amount)} = +${fmtAmt(plan.amount * slotCount)}` : `+${fmtAmt(plan.amount)}`} HTG
             </td>
@@ -659,14 +674,19 @@ const BODY    = "'Manrope','Segoe UI',Arial,sans-serif"
 export const SOL_RECEIPT_WIDTH = 460
 const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
 
-export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type = 'peman', allSlots = [] }) {
+export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type = 'peman', allSlots = [], paidAt = null }) {
   const LH       = 'line-height:1.25'
   const slots    = allSlots.length ? allSlots : [member]
   const nSlots   = slots.length
   const isPay    = type === 'peman'
   const amount   = Number(plan.amount || 0)
   const allDates = getAllPaymentDates(plan)
-  const { today, currentTime } = getHaitiNow()
+  const nowH = getHaitiNow()
+  const today = nowH.today
+  // ✅ Lè manyèl: resi a montre lè kliyan an te peye a, epi badj yo baze sou lè sa a
+  const paidDay  = paidAt ? String(paidAt).slice(0, 10) : today
+  const paidTime = paidAt ? String(paidAt).slice(11, 16) : nowH.currentTime
+  const currentTime = paidTime
   const paidCount = slots.reduce((a, sl) => a + allDates.filter(d => sl.payments?.[d]).length, 0)
   const justPaid  = isPay ? paidDates.length * amount * nSlots : 0
   const fineTotal = Object.values(member.fines || {}).reduce((a, b) => a + Number(b), 0)
@@ -679,7 +699,8 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
   const bizIni    = esc(bizRaw.trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
   const ini       = esc(String(member.name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
   const posOff    = hasOwnerSlot(plan) ? 1 : 0
-  const posTxt    = slots.map(sl => sl.isOwnerSlot ? '★' : `#${sl.position - posOff}`).join(' · ')
+  // ✅ Mòd « Kache pozisyon » aktif → pa montre okenn pozisyon sou resi a
+  const posTxt    = plan.hidePositionInSol ? '' : slots.map(sl => sl.isOwnerSlot ? '★' : `#${sl.position - posOff}`).join(' · ')
 
   const row = (k, v, color = RC.ink) => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid ${RC.line}">
@@ -692,10 +713,10 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
     `<span style="display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 9px;border-radius:999px;background:${bg};color:${c};font-size:10.5px;font-weight:800;line-height:1;letter-spacing:.03em;white-space:nowrap">${txt}</span>`
   const dateInfo = (d) => {
     const tm = member.paymentTimings?.[d]
-    if (d > today)                    return { c: RC.teal,  b: badge('DEPO REZÈV', RC.teal, 'rgba(13,148,136,.12)') }
-    if (d < today || tm === 'late')   return { c: RC.red,   b: badge('RETA', RC.red, 'rgba(220,38,38,.10)') }
-    if (tm === 'early')               return { c: RC.green, b: badge('BONÈ', '#059669', 'rgba(5,150,105,.12)') }
-    return                                   { c: RC.green, b: badge('A LÈ', RC.green, 'rgba(22,163,74,.12)') }
+    if (d > paidDay)                            return { c: RC.teal,  b: badge('DEPO REZÈV', RC.teal, 'rgba(13,148,136,.12)') }
+    if (tm === 'late' || (!tm && d < paidDay))  return { c: RC.red,   b: badge('RETA', RC.red, 'rgba(220,38,38,.10)') }
+    if (tm === 'early')                         return { c: RC.green, b: badge('BONÈ', '#059669', 'rgba(5,150,105,.12)') }
+    return                                             { c: RC.green, b: badge('A LÈ', RC.green, 'rgba(22,163,74,.12)') }
   }
   const sortedDates = [...paidDates].sort()
   const dateRows = isPay ? sortedDates.slice(0, 14).map(d => {
@@ -727,7 +748,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
     <div style="position:relative;overflow:hidden;background:${RC.night};padding:16px 24px 24px;color:#f2f1ec">
       <div style="position:absolute;width:340px;height:340px;right:-120px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,61,.32),rgba(255,200,61,0) 65%)"></div>
       <div style="position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.1)">
-        <span style="font-size:13px;font-weight:800;${LH};color:#fff">${dmy(today)} ${currentTime}</span>
+        <span style="font-size:13px;font-weight:800;${LH};color:#fff">${dmy(paidDay)} ${currentTime}</span>
         <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${isPay ? 'RESI PEMAN' : 'KONT MANM'}</span>
       </div>
       <div style="position:relative;display:flex;align-items:center;gap:12px">
@@ -759,7 +780,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
         </div>
         <div style="min-width:0;flex:1">
           <div style="font-weight:800;font-size:16px;${LH};word-break:break-word">${esc(member.name)}</div>
-          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;${LH};letter-spacing:.06em;color:${RC.goldInk};margin-top:1px">${esc(plan.name)} · ${posTxt}</div>
+          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;${LH};letter-spacing:.06em;color:${RC.goldInk};margin-top:1px">${esc(plan.name)}${posTxt ? ` · ${posTxt}` : ''}</div>
         </div>
         ${member.phone ? `<div style="text-align:right;font-size:11.5px;font-weight:600;line-height:1.5;color:${RC.muted};flex:none">${esc(member.phone)}</div>` : ''}
       </div>

@@ -348,7 +348,9 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const slotCount = allPayingSlots.length
 
   const hasPenalty = Number(plan.penalty) > 0
-  const lateDates  = sel.filter(d => d < today)
+  // Jou referans: dat kliyan an te peye a (lè manyèl) oswa jodi a
+  const refDay     = (manualTimeOn && useManualTime && manualDate) ? manualDate : today
+  const lateDates  = sel.filter(d => d < refDay)
   const futureSel  = sel.filter(d => d > today)
   const fineAmt    = hasPenalty && applyFine ? lateDates.length * Number(plan.penalty) : 0
   const baseAmt    = sel.length * Number(plan.amount) * slotCount
@@ -358,7 +360,9 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const handleConfirm = async () => {
     if (!sel.length) return toast.error('Chwazi omwen yon dat.')
     setSaving(true)
-    const timings = {}; sel.forEach(d => { timings[d] = getPaymentTiming(plan, d) })
+    // ✅ Lè manyèl → badj (bonè / a lè / reta) kalkile ak lè kliyan an te peye a
+    const at = (manualTimeOn && useManualTime) ? { date: manualDate, time: manualHour } : null
+    const timings = {}; sel.forEach(d => { timings[d] = getPaymentTiming(plan, d, at) })
     const fines = {}
     if (applyFine && hasPenalty) lateDates.forEach(d => { fines[d] = Number(plan.penalty) })
     const paidAt = (manualTimeOn && useManualTime) ? `${manualDate}T${manualHour}:00` : null
@@ -367,7 +371,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
       for (const other of samePhoneMembers) {
         const otherUnpaid = sel.filter(d => !other.payments?.[d])
         if (otherUnpaid.length > 0) {
-          const otherTimings = {}; otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d) })
+          const otherTimings = {}; otherUnpaid.forEach(d => { otherTimings[d] = getPaymentTiming(plan, d, at) })
           jobs.push(Promise.resolve(onSave(other.id, otherUnpaid, otherTimings, {}, paidAt)))
         }
       }
@@ -386,9 +390,9 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
     const paidMember = mark(member, fines)
     const paidSlots  = [paidMember, ...samePhoneMembers.map(o => mark(o))]
     // Enprimant termik konekte → enprime otomatikman (menm jan anvan)
-    if (printer?.connected) await printer.print(plan, paidMember, sel, tenant, 'peman', paidSlots)
+    if (printer?.connected) await printer.print(plan, paidMember, sel, tenant, 'peman', paidSlots, paidAt)
     setSaving(false)
-    setReceipt({ plan, member: paidMember, paidDates: sel, tenant, type: 'peman', allSlots: paidSlots })
+    setReceipt({ plan, member: paidMember, paidDates: sel, tenant, type: 'peman', allSlots: paidSlots, paidAt })
   }
 
   if (receipt) return <ModalSolReceipt data={receipt} printer={printer} onClose={onClose} />
@@ -460,7 +464,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 
             <div className="sm-dates">
               {unpaid.map(d => {
-                const isLate = d < today, isFuture = d > today, isToday = d === today
+                const isLate = d < refDay, isFuture = d > refDay, isToday = d === today
                 const c = isFuture ? T.teal : isLate ? T.orange : T.green
                 return (
                   <div key={d} className={`sm-date ${sel.includes(d) ? 'on' : ''}`} style={{ '--dc': c, '--dbg': hexA(c, .06) }} onClick={() => toggle(d)}>
