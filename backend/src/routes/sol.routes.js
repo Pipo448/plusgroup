@@ -48,6 +48,112 @@ function buildPaymentMaps(sabotayPayments) {
   return { payments, paymentTimings }
 }
 
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO — BLOKAJ OTOMATIK POU RETA
+// Depi sistèm nan wè manm nan AN RETA (menm règ ak panel admin lan:
+// yon dat ki pase — oswa jodi a apre lè limit `dueTimeEnd` — ki pa peye),
+// manm nan PA KA konekte nan kont sol li. Li debloke OTOMATIKMAN depi
+// kesye a make peman ki an reta yo.
+// ══════════════════════════════════════════════════════════════
+
+// Lè Ayiti ak lè ete (UTC-4 / UTC-5)
+function haitiNow() {
+  try {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date()).map(x => [x.type, x.value]))
+    return { today: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
+  } catch {
+    const d = new Date(Date.now() - 5 * 3600e3)
+    return { today: d.toISOString().slice(0, 10), time: d.toISOString().slice(11, 16) }
+  }
+}
+
+// Menm jenerasyon dat ak frontend (sabotayUtils.getPaymentDates) — sispann apre `untilDay`
+function paymentDatesUntil(frequency, startDate, count, untilDay) {
+  const out = []
+  if (!count || count <= 0) return out
+  const [y, m, d] = String(startDate).split('T')[0].split('-').map(Number)
+  const cur = new Date(Date.UTC(y, m - 1, d))
+  const key = (dt) => dt.toISOString().slice(0, 10)
+  const advance = () => {
+    const dow = cur.getUTCDay()
+    switch (frequency) {
+      case 'weekly_saturday': cur.setUTCDate(cur.getUTCDate() + (((6 - dow + 7) % 7) || 7)); break
+      case 'weekly_monday':   cur.setUTCDate(cur.getUTCDate() + (((1 - dow + 7) % 7) || 7)); break
+      case 'biweekly':        cur.setUTCDate(cur.getUTCDate() + 14); break
+      case 'monthly':         cur.setUTCMonth(cur.getUTCMonth() + 1); break
+      case 'weekdays':        do { cur.setUTCDate(cur.getUTCDate() + 1) } while ([0, 6].includes(cur.getUTCDay())); break
+      default:                cur.setUTCDate(cur.getUTCDate() + 1)
+    }
+  }
+  for (let i = 0; i < count; i++) {
+    if (i > 0) advance()
+    const k = key(cur)
+    if (k > untilDay) break
+    out.push(k)
+  }
+  return out
+}
+
+// Retounen { late, count, amount, planName } pou manm (ak tout "men" li yo menm telefòn)
+async function getLateStatus(account) {
+  try {
+    if (!account?.memberId) return { late: false }
+    const { today, time } = haitiNow()
+    const digits = normalizePhone(account.memberPhone)
+    const last8  = digits.slice(-8)
+
+    const select = {
+      id: true, phone: true, hasWon: true, status: true, isActive: true, planId: true,
+      payments: { select: { dueDate: true } },
+      plan: { select: { id: true, name: true, amount: true, frequency: true, startDate: true, interval: true, dueTimeEnd: true, status: true, tenantId: true } },
+    }
+    let members = []
+    if (last8.length >= 6) {
+      members = await prisma.sabotayMember.findMany({
+        where: { phone: { contains: last8 }, isActive: true, plan: { tenantId: account.tenantId } },
+        select,
+      })
+      members = members.filter(m => normalizePhone(m.phone).endsWith(last8))
+    }
+    if (!members.some(m => m.id === account.memberId)) {
+      const own = await prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select }).catch(() => null)
+      if (own) members.push(own)
+    }
+
+    const countCache = {}
+    let lateDates = 0, lateAmount = 0, planName = null
+    for (const m of members) {
+      const plan = m.plan
+      if (!plan || plan.status === 'closed' || plan.status === 'finished') continue
+      if (m.status === 'stopped' || m.hasWon) continue   // menm règ ak panel admin lan
+      if (countCache[plan.id] === undefined) {
+        countCache[plan.id] = await prisma.sabotayMember.count({ where: { planId: plan.id, status: { not: 'stopped' } } }).catch(() => 0)
+      }
+      const totalCycles = Math.max(1, countCache[plan.id]) * Math.max(1, Math.floor(Number(plan.interval) || 1))
+      const dueTimeEnd  = plan.dueTimeEnd || '17:00'
+      const paid = new Set(m.payments.map(p => new Date(p.dueDate).toISOString().slice(0, 10)))
+      const dates = paymentDatesUntil(plan.frequency, plan.startDate.toISOString(), totalCycles, today)
+      const overdue = dates.filter(d => (d < today || (d === today && time > dueTimeEnd)) && !paid.has(d))
+      if (overdue.length) {
+        lateDates  += overdue.length
+        lateAmount += overdue.length * Number(plan.amount || 0)
+        planName    = planName || plan.name
+      }
+    }
+    return { late: lateDates > 0, count: lateDates, amount: lateAmount, planName }
+  } catch (e) {
+    console.warn('[SOL LATE CHECK]', e.message)
+    return { late: false }   // pa janm bloke moun akoz yon erè sèvè
+  }
+}
+
+const lateMessage = (st) =>
+  `🔒 Kont ou bloke: ou gen ${st.count} peman an reta (${Number(st.amount).toLocaleString('fr-HT')} HTG)` +
+  `${st.planName ? ` nan « ${st.planName} »` : ''}. Kontakte admin lan pou w regle peman yo — kont lan ap debloke otomatikman.`
+
 function authMember(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ message: 'Token manke' })
@@ -114,6 +220,12 @@ router.post('/auth/login', async (req, res) => {
           blocked: true
         })
       }
+    }
+
+    // ✅ NOUVO: blokaj otomatik si manm nan an reta
+    const lateSt = await getLateStatus(matchedAccount)
+    if (lateSt.late) {
+      return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
     }
 
     // ⚠️ KORIJE EGRESS — sa a se sous 1160.8KB `/sol/auth/login` a. `logoUrl`
@@ -300,6 +412,16 @@ router.get('/members/me', authMember, async (req, res) => {
     const account = await prisma.solMemberAccount.findUnique({ where: { id: req.solMember.accountId } })
     if (!account) return res.status(404).json({ message: 'Kont pa jwenn' })
     if (!account.memberId) return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
+
+    // ✅ NOUVO: si manm nan tonbe an reta pandan l te deja konekte → bloke aksè a tou
+    const blockedRow = await prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select: { isBlocked: true } }).catch(() => null)
+    if (blockedRow?.isBlocked) {
+      return res.status(403).json({ message: '🔒 Kont ou bloke poutèt reta peman. Kontakte admin pou debloke l.', blocked: true })
+    }
+    const lateSt = await getLateStatus(account)
+    if (lateSt.late) {
+      return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
+    }
 
     // ⚠️ KORIJE EGRESS — menm pwoblèm `logoUrl` a, men isit la l te menm
     // ANVLOPE: fonksyon sa a rele yon fwa pou chak plan/kont (allPlansData),

@@ -113,6 +113,15 @@ export default function SolDashboardPage() {
         navigate('/app/sol/login')
         return
       }
+      // ✅ NOUVO: kont bloke (an reta) → dekonekte manm nan ak mesaj la
+      if (res.status === 403) {
+        const j = await res.json().catch(() => ({}))
+        localStorage.removeItem('sol_token')
+        localStorage.removeItem('sol_member')
+        toast.error(j.message || '🔒 Kont ou bloke. Kontakte admin lan.', { duration: 8000 })
+        navigate('/app/sol/login')
+        return
+      }
       const json = await res.json()
       setData(json)
       // ✅ Functional update — pa gen depandans sou selectedPlanId, evite enfini lòp
@@ -134,12 +143,13 @@ export default function SolDashboardPage() {
       try {
         const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
         if (res.ok) setData(await res.json())
+        else if (res.status === 403 || res.status === 401) fetchData()   // bloke → fetchData dekonekte l ak mesaj la
       } catch { /* rezo */ }
     }
     document.addEventListener('visibilitychange', refresh)
     window.addEventListener('focus', refresh)
     return () => { document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh) }
-  }, [token])
+  }, [token, fetchData])
 
   // ─── DATA NORMALIZATION (memoized, null-safe) ──────────────
   const plans = useMemo(() => {
