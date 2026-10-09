@@ -7,6 +7,8 @@ import {
   ArrowLeft, Bluetooth, Printer, Search, CheckCircle2, XCircle,
   Radio, Zap, FileText, Loader
 } from 'lucide-react'
+// ✅ NOUVO — sonje enprimant lan pou lòt paj yo (Sabotay, elatriye) rekonekte l otomatikman
+import { saveNativePrinter, forgetNativePrinter, ensureNativePrinter } from '../../services/printerService'
 
 export default function PrinterTestPage() {
   const navigate = useNavigate()
@@ -91,6 +93,8 @@ export default function PrinterTestPage() {
     setConnecting(device.address)
     try {
       await printerRef.current.connectBluetoothPrinter({ address: device.address })
+      saveNativePrinter(device)            // ✅ rete konekte: lòt paj yo ap rekonekte l otomatikman
+      ensureNativePrinter().catch(() => {}) // ✅ notifye rès app la ke enprimant lan prè
       toast.success(`Konekte ak ${device.name}!`)
       await refreshInfo() // rafrechi enfo — kounye a enprimant Bluetooth aktif
     } catch (e) {
@@ -104,6 +108,8 @@ export default function PrinterTestPage() {
     if (!printerRef.current) return
     try {
       await printerRef.current.disconnectBluetoothPrinter()
+      forgetNativePrinter()                // ✅ se itilizatè a ki dekonekte l — pa rekonekte otomatikman
+      ensureNativePrinter().catch(() => {})
       toast.success('Dekonekte')
       await refreshInfo()
     } catch (e) {

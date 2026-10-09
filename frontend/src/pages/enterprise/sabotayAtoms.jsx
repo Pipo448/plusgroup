@@ -8,7 +8,11 @@ import {
   Image as ImageIcon, FileDown, Receipt, Share2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt, onPrinterStatus } from '../../services/printerService'
+import {
+  connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt, onPrinterStatus,
+  isNativeApp, ensureNativePrinter, getNativePrinter, forgetNativePrinter,
+} from '../../services/printerService'
+import { useNavigate } from 'react-router-dom'
 import {
   D, MEMBER_STATUS, PLAN_STATUS,
   buildReceiptHTML, printReceiptBrowser, printReceiptDirect,
@@ -76,6 +80,8 @@ export function TimePicker12h({ value, onChange, color = D.text }) {
 // PRINTER HOOK
 // ─────────────────────────────────────────────────────────────
 export function usePrinterState() {
+  const navigate = useNavigate()
+  const native   = isNativeApp()
   const [connected,  setConnected]  = useState(isPrinterConnected())
   const [connecting, setConnecting] = useState(false)
   const [printing,   setPrinting]   = useState(false)
@@ -83,26 +89,60 @@ export function usePrinterState() {
   // ✅ Swiv eta enprimant lan (rekoneksyon otomatik, dekoneksyon, lòt paj ki konekte l)
   useEffect(() => {
     setConnected(isPrinterConnected())
+    if (native) ensureNativePrinter().then(r => setConnected(!!r)).catch(() => {})
     return onPrinterStatus(setConnected)
-  }, [])
+  }, [native])
+
+  const goSetup = useCallback(() => {
+    toast('Konekte enprimant lan nan « Tès Enprimant » an premye.', { icon: '🖨️' })
+    navigate('/app/printer-test')
+  }, [navigate])
 
   const connect = useCallback(async () => {
     if (connecting || connected) return
     setConnecting(true)
     try {
+      if (native) {
+        // APK: rekonekte dènye enprimant lan; si pa genyen, ale nan paj konfigirasyon an
+        const info = await ensureNativePrinter()
+        if (info) { setConnected(true); toast.success('✅ Printer prè') }
+        else goSetup()
+        return
+      }
       const n = await connectPrinter()
       setConnected(true)
       toast.success(`✅ Printer konekte: ${n}`)
     } catch (e) {
       if (e.name !== 'NotFoundError') toast.error('Pa ka konekte printer.')
     } finally { setConnecting(false) }
-  }, [connecting, connected])
+  }, [connecting, connected, native, goSetup])
 
-  const disconnect = useCallback(() => {
+  const disconnect = useCallback(async () => {
+    if (native) {
+      try { const P = await getNativePrinter(); await P?.disconnectBluetoothPrinter?.() } catch { /* */ }
+      forgetNativePrinter()
+      setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
+      return
+    }
     disconnectPrinter(); setConnected(false); toast('Printer dekonekte', { icon: '🔌' })
-  }, [])
+  }, [native])
 
   const print = useCallback(async (plan, member, paidDates, tenant, type, allSlots = [], paidAt = null) => {
+    // ✅ APK ANDROID — toujou pase nan plugin natif la (window.print pa mache nan APK)
+    if (native) {
+      setPrinting(true)
+      try {
+        await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots, paidAt)
+        setConnected(true)
+        toast.success('Resi enprime!')
+        return true
+      } catch (e) {
+        setConnected(false)
+        if (e?.message === 'NATIVE_PRINTER_NOT_READY') goSetup()
+        else toast.error('Erè printer: ' + (e?.message || e))
+        return false
+      } finally { setPrinting(false) }
+    }
     if (isPrinterConnected()) {
       setPrinting(true)
       try {
@@ -113,12 +153,12 @@ export function usePrinterState() {
         setConnected(false); toast.error('Erè printer.'); return false
       } finally { setPrinting(false) }
     }
-    // ✅ Enprime DIREK (pa gen fenèt previzyon ankò — pou pataje, gen bèl imaj la)
+    // ✅ Navigatè san Bluetooth: enprime DIREK (pa gen fenèt previzyon)
     let size = '80mm'
     try { size = localStorage.getItem('receipt_size') || tenant?.receiptSize || '80mm' } catch { /* */ }
     await printReceiptDirect(buildReceiptHTML(plan, member, paidDates, tenant, type, allSlots, paidAt), size)
     return true
-  }, [])
+  }, [native, goSetup])
 
   return { connected, connecting, printing, connect, disconnect, print }
 }

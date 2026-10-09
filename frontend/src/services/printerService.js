@@ -189,6 +189,52 @@ const sendViaRawBT = (bytes) => {
   window.location.href = 'intent:' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'
 }
 
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO — APK ANDROID: plugin natif @capacitor-plus/universal-printer
+// (menm plugin ak paj « Tès Enprimant » nan Paramèt). Web Bluetooth ak
+// window.print() PA mache andedan WebView APK a — se sa ki te fè bouton
+// enprime Sabotay la pa enprime anyen.
+// ══════════════════════════════════════════════════════════════
+const NATIVE_KEY = 'pg-native-printer'   // { address, name } — sove pa PrinterTestPage
+let _nativePlugin = null
+let _nativeReady  = false
+
+export const isNativeApp = () => {
+  try { return !!window.Capacitor?.isNativePlatform?.() } catch { return false }
+}
+
+export const getNativePrinter = async () => {
+  if (_nativePlugin) return _nativePlugin
+  if (!isNativeApp()) return null
+  try {
+    const mod = await import('@capacitor-plus/universal-printer')
+    _nativePlugin = mod?.UniversalPrinter || null
+  } catch (e) { console.warn('[NATIVE PRINTER]', e?.message || e) }
+  return _nativePlugin
+}
+
+export const saveNativePrinter  = (device) => { try { localStorage.setItem(NATIVE_KEY, JSON.stringify({ address: device.address, name: device.name || '' })) } catch {} }
+export const forgetNativePrinter = () => { try { localStorage.removeItem(NATIVE_KEY) } catch {} }
+
+// Verifye enprimant natif la prè; si se Bluetooth e li dekonekte, rekonekte l ak dènye aparèy la
+export const ensureNativePrinter = async () => {
+  const P = await getNativePrinter()
+  if (!P) { _nativeReady = false; return false }
+  let info = await P.getInfo().catch(() => null)
+  if (!info?.isReady) {
+    let saved = null
+    try { saved = JSON.parse(localStorage.getItem(NATIVE_KEY) || 'null') } catch {}
+    if (saved?.address) {
+      try { await P.connectBluetoothPrinter({ address: saved.address }) } catch {}
+      info = await P.getInfo().catch(() => null)
+    }
+  }
+  const was = _nativeReady
+  _nativeReady = !!info?.isReady
+  if (was !== _nativeReady) emitStatus()
+  return _nativeReady ? info : false
+}
+
 // ── Bluetooth connect ─────────────────────────────────────────
 // ✅ NOUVO: koneksyon an RETE — enprimant lan rekonekte otomatikman:
 //   • si koneksyon an koupe (enprimant lan etenn/limen, twò lwen, elatriye)
@@ -310,15 +356,21 @@ export const disconnectPrinter = () => {
 }
 
 export const isPrinterConnected = () => {
+  if (isNativeApp()) return _nativeReady
   try { return !!_char && !!(_device?.gatt?.connected) } catch { return false }
 }
 
 // Eseye rekonekte otomatikman lè app la chaje (si te gen yon enprimant konekte anvan)
 if (typeof window !== 'undefined') {
-  setTimeout(() => { restorePrinter().catch(() => {}) }, 800)
+  setTimeout(() => {
+    if (isNativeApp()) ensureNativePrinter().catch(() => {})
+    else restorePrinter().catch(() => {})
+  }, 800)
   // Lè w tounen sou app la (onglet / APK), verifye koneksyon an
   document.addEventListener?.('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && _wanted && !isPrinterConnected()) scheduleReconnect()
+    if (document.visibilityState !== 'visible') return
+    if (isNativeApp()) { ensureNativePrinter().catch(() => {}); return }
+    if (_wanted && !isPrinterConnected()) scheduleReconnect()
   })
 }
 
@@ -642,6 +694,81 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const kontribisyonTotal = amtPaid + totalAmt
 
   const FREQ = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
+
+  // ✅ APK ANDROID → plugin natif (menm jan ak paj Tès Enprimant)
+  if (isNativeApp()) {
+    const P = await getNativePrinter()
+    if (!P) throw new Error('NATIVE_PLUGIN_MISSING')
+    const info = await ensureNativePrinter()
+    if (!info) throw new Error('NATIVE_PRINTER_NOT_READY')
+    const NW  = Number(info.paperWidth) && Number(info.paperWidth) < 70 ? 32 : 48
+    const asc = (t) => String.fromCharCode(...encodeText(t))
+    const lr  = (l, r) => {
+      l = asc(l); r = asc(r)
+      const sp = NW - l.length - r.length
+      return sp > 0 ? l + ' '.repeat(sp) + r : (l.substring(0, Math.max(0, NW - r.length - 1)) + ' ' + r)
+    }
+    const T   = (content, o = {}) => ({ type: 'text', content: asc(content), ...o })
+    const L   = (l, r, o = {}) => ({ type: 'text', content: lr(l, r), ...o })
+    const DIV = { type: 'divider' }
+    const title = type === 'peman' ? 'RESI PEMAN' : type === 'tiraj' || type === 'tirage' ? 'RESI TIRAJ AVEG' : type === 'kanpe' ? 'KANPE PATISIPASYON' : 'KONT MANM'
+    const lines = [
+      T(tenant?.businessName || tenant?.name || 'PLUS GROUP', { align: 'center', size: 'xlarge', bold: true }),
+      T('-- SABOTAY SOL --', { align: 'center', bold: true }),
+      ...(tenant?.phone   ? [T('Tel: ' + tenant.phone, { align: 'center', size: 'small' })] : []),
+      ...(tenant?.address ? [T(tenant.address, { align: 'center', size: 'small' })] : []),
+      DIV,
+      T(title, { align: 'center', size: 'large', bold: true }),
+      DIV,
+      L('Plan:', plan.name.substring(0, NW - 6)),
+      L('Dat:', txDate),
+      DIV,
+      T(member.name.substring(0, NW), { bold: true }),
+      ...(member.phone ? [T('Tel: ' + member.phone, { size: 'small' })] : []),
+      ...(hidePos ? [] : [L('Pozisyon:', posLabel)]),
+      ...(slotCount > 1 ? [L('Men:', slotCount + ' (' + fmt(plan.amount * slotCount) + ' G/sik)')] : []),
+      L('Frekans:', FREQ[plan.frequency] || plan.frequency),
+      DIV,
+      ...(type === 'peman' ? [
+        T('Dat Peye:', { bold: true }),
+        ...[...paidDates].sort().flatMap(d => {
+          const fine = Number(member.fines?.[d] || 0)
+          return [
+            L(d.split('-').reverse().join('/') + ' [' + dateTag(d) + ']', fmt(plan.amount * slotCount) + ' G'),
+            ...(fine > 0 ? [L('  + amand', fmt(fine) + ' G')] : []),
+          ]
+        }),
+        DIV,
+        L('TOTAL PEYE:', fmt(totalAmt) + ' G', { bold: true }),
+        L('Kontribisyon total:', fmt(kontribisyonTotal) + ' G'),
+      ] : (type === 'tiraj' || type === 'tirage') ? [
+        T('Moun chwazi pa tiraj:', { align: 'center', size: 'small' }),
+        T(member.name.substring(0, NW), { align: 'center', bold: true }),
+        ...(hidePos ? [] : [T('Pozisyon ' + posOf(member), { align: 'center', size: 'small' })]),
+        DIV,
+        T('PRIM SOL: ' + fmt(payout) + ' G', { align: 'center', size: 'large', bold: true }),
+      ] : type === 'kanpe' ? [
+        T('Manm sa a kanpe.', { align: 'center', bold: true }),
+        T('Li ka resevwa kob li le sol la fini.', { align: 'center', size: 'small' }),
+      ] : [
+        L('Montan / Peman:', fmt(plan.amount) + ' G'),
+        L('Total Kontribye:', fmt(amtPaid) + ' G'),
+        DIV,
+        T('PRIM SOL: ' + fmt(payout) + ' G', { align: 'center', size: 'large', bold: true }),
+      ]),
+      DIV,
+      T('Envite yon moun serye k ap fe biznis rejwenn nou, epi w ap benefisye yon bonis ki evalye soti 1% rive 5% de kob manm sa pral touche a.', { align: 'center', size: 'small' }),
+      T('Ekri nou sou WhatsApp: +50942449024', { align: 'center', size: 'small', bold: true }),
+      DIV,
+      T('Mesi! / Merci!', { align: 'center', bold: true }),
+      T('PlusGroup Tel: +50942449024', { align: 'center', size: 'small' }),
+      { type: 'space', lines: 3 },
+    ]
+    const res = await P.print({ lines })
+    if (res && res.success === false) throw new Error(res.message || 'Erè enprime')
+    return
+  }
+
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
 
   const bytes = [
