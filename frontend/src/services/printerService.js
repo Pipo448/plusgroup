@@ -1,4 +1,5 @@
 // src/services/printerService.js
+import { Capacitor } from '@capacitor/core'
 // RP327 80mm — ESC/POS via Web Bluetooth
 // ✅ FIX: Logo full width + tèks gwo + pa gen SMALL_FONT sou tèks enpòtan
 
@@ -199,8 +200,10 @@ const NATIVE_KEY = 'pg-native-printer'   // { address, name } — sove pa Printe
 let _nativePlugin = null
 let _nativeReady  = false
 
+// ✅ Menm deteksyon ak PrinterTestPage (Capacitor.isNativePlatform)
+export const PRINTER_BUILD = 'P4'   // vèsyon — parèt nan mesaj erè yo pou konfime APK a gen dènye kòd la
 export const isNativeApp = () => {
-  try { return !!window.Capacitor?.isNativePlatform?.() } catch { return false }
+  try { return Capacitor.isNativePlatform() || !!window.Capacitor?.isNativePlatform?.() } catch { return false }
 }
 
 // ⚠️ ENPÒTAN: yon plugin Capacitor se yon « Proxy » — si yon fonksyon `async`
@@ -220,7 +223,7 @@ export const loadNativePrinter = async () => {
 export const nativePrinter = () => _nativePlugin
 
 // Pa janm kite yon apèl natif bloke bouton an pou toutan
-const withTimeout = (promise, ms, msg = 'TIMEOUT') => {
+export const withTimeout = (promise, ms, msg = 'TIMEOUT') => {
   let t
   return Promise.race([promise, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms) })])
     .finally(() => clearTimeout(t))
@@ -233,13 +236,13 @@ export const forgetNativePrinter = () => { try { localStorage.removeItem(NATIVE_
 export const ensureNativePrinter = async () => {
   if (!(await loadNativePrinter())) { _nativeReady = false; return false }
   const P = nativePrinter()
-  let info = await withTimeout(P.getInfo(), 8000).catch(() => null)
+  let info = await withTimeout(P.getInfo(), 5000).catch(() => null)
   if (!info?.isReady) {
     let saved = null
     try { saved = JSON.parse(localStorage.getItem(NATIVE_KEY) || 'null') } catch {}
     if (saved?.address) {
-      try { await withTimeout(P.connectBluetoothPrinter({ address: saved.address }), 15000) } catch {}
-      info = await withTimeout(P.getInfo(), 8000).catch(() => null)
+      try { await withTimeout(P.connectBluetoothPrinter({ address: saved.address }), 12000) } catch {}
+      info = await withTimeout(P.getInfo(), 5000).catch(() => null)
     }
   }
   const was = _nativeReady
@@ -777,7 +780,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       T('PlusGroup Tel: +50942449024', { align: 'center', size: 'small' }),
       { type: 'space', lines: 3 },
     ]
-    const res = await withTimeout(P.print({ lines }), 30000, 'Enprimant lan pa reponn (30s)')
+    const res = await withTimeout(P.print({ lines }), 25000, 'Enprimant lan pa reponn (25s)')
     if (res && res.success === false) throw new Error(res.message || 'Erè enprime')
     return
   }

@@ -10,7 +10,7 @@ import {
 import toast from 'react-hot-toast'
 import {
   connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt, onPrinterStatus,
-  isNativeApp, ensureNativePrinter, loadNativePrinter, nativePrinter, forgetNativePrinter,
+  isNativeApp, ensureNativePrinter, loadNativePrinter, nativePrinter, forgetNativePrinter, withTimeout, PRINTER_BUILD,
 } from '../../services/printerService'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -132,14 +132,15 @@ export function usePrinterState() {
     if (native) {
       setPrinting(true)
       try {
-        await printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots, paidAt)
+        // Limit total 45s — bouton an PA KA woule pou toutan
+        await withTimeout(printSabotayReceipt(plan, member, paidDates, tenant, type, allSlots, paidAt), 45000, 'Enprimant lan pa reponn')
         setConnected(true)
         toast.success('Resi enprime!')
         return true
       } catch (e) {
         setConnected(false)
         if (e?.message === 'NATIVE_PRINTER_NOT_READY') goSetup()
-        else toast.error('Erè printer: ' + (e?.message || e))
+        else toast.error(`Erè printer [${PRINTER_BUILD}]: ` + (e?.message || e))
         return false
       } finally { setPrinting(false) }
     }
