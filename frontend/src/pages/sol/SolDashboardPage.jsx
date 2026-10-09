@@ -123,6 +123,24 @@ export default function SolDashboardPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // ✅ NOUVO: lè manm nan tounen sou app la (onglet / APK), rechaje done yo an silans
+  // pou peman kesye a fèk make yo parèt nan istwa a ak kalandriye a.
+  // ⚠️ EGRESS — maksimòm 1 fwa chak 60 segonn.
+  useEffect(() => {
+    let last = Date.now()
+    const refresh = async () => {
+      if (document.visibilityState !== 'visible' || Date.now() - last < 60000 || !token) return
+      last = Date.now()
+      try {
+        const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
+        if (res.ok) setData(await res.json())
+      } catch { /* rezo */ }
+    }
+    document.addEventListener('visibilitychange', refresh)
+    window.addEventListener('focus', refresh)
+    return () => { document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh) }
+  }, [token])
+
   // ─── DATA NORMALIZATION (memoized, null-safe) ──────────────
   const plans = useMemo(() => {
     if (!data) return []
@@ -145,9 +163,17 @@ export default function SolDashboardPage() {
   const member          = currentPlanData?.member || null
 
   // ─── LÈ AYITI (rekalkile chak render — tick fòse l chak 30s) ─
-  const nowHaiti       = new Date(Date.now() - 5 * 60 * 60 * 1000)
-  const today          = nowHaiti.toISOString().split('T')[0]
-  const currentTime    = `${String(nowHaiti.getUTCHours()).padStart(2,'0')}:${String(nowHaiti.getUTCMinutes()).padStart(2,'0')}`
+  // ✅ FIX: lè Ayiti ak lè ete (UTC-4 / UTC-5) — menm jan ak panel admin lan
+  const { today, currentTime } = (() => {
+    try {
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date()).map(x => [x.type, x.value]))
+      return { today: `${p.year}-${p.month}-${p.day}`, currentTime: `${p.hour}:${p.minute}` }
+    } catch {
+      const n = new Date(Date.now() - 5 * 60 * 60 * 1000)
+      return { today: n.toISOString().split('T')[0], currentTime: `${String(n.getUTCHours()).padStart(2,'0')}:${String(n.getUTCMinutes()).padStart(2,'0')}` }
+    }
+  })()
   const planDueTimeEnd = plan?.dueTimeEnd || '17:00'
 
   // ✅ FIX: yon dat anreta sèlman si:
@@ -171,15 +197,18 @@ export default function SolDashboardPage() {
     }]
   }, [member])
 
+  // ✅ FIX: menm kantite dat ak panel admin lan (manm ki pa "kanpe") — anvan sa,
+  // `currentPlanData.activeMemberCount` pa t egziste (se sou `plan` li ye), kidonk
+  // kalandriye manm nan pa t gen menm dat ak sa kesye a make yo.
   const totalSlotCount = useMemo(() => {
-    if (!plan && !currentPlanData) return 0
+    if (!plan) return 0
+    if (plan.nonStoppedMemberCount) return plan.nonStoppedMemberCount
     return Math.max(
-      currentPlanData?.activeMemberCount || 0,
-      currentPlanData?.totalMemberCount  || 0,
-      plan?.maxMembers                   || 0,
+      plan.activeMemberCount || 0,
+      plan.maxMembers        || 0,
       allSlots.reduce((max, s) => Math.max(max, s.position || 0), 0),
     )
-  }, [plan, currentPlanData, allSlots])
+  }, [plan, allSlots])
 
   const dates = useMemo(() => {
     if (!plan || !totalSlotCount) return []
@@ -187,8 +216,14 @@ export default function SolDashboardPage() {
     // "entèval" jou. Donk Istwa Peman an dwe gen PLIS jou total (jiska dat
     // dènye pozisyon an touche a), pa dat ki sote/espase.
     const totalDays = totalSlotCount * Math.max(1, Math.floor(plan.interval || 1))
-    return getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalDays)
-  }, [plan, totalSlotCount])
+    const base = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalDays)
+    // ✅ FIX: tout dat kesye a te make peye (menm si yo andeyò kalandriye kalkile a)
+    // parèt tou — konsa okenn peman pa "disparèt" pou manm nan.
+    const paidKeys = new Set()
+    for (const s of (member?.allSlots || [member || {}])) Object.keys(s?.payments || {}).forEach(d => s.payments[d] && paidKeys.add(d))
+    const extra = [...paidKeys].filter(d => !base.includes(d))
+    return extra.length ? [...base, ...extra].sort() : base
+  }, [plan, totalSlotCount, member])
 
   const totalPaid = useMemo(
     () => dates.filter(d => member?.payments?.[d]).length,
