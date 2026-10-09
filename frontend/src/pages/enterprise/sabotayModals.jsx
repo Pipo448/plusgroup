@@ -590,6 +590,12 @@ export function ModalDeclarePayout({ member, plan, onClose, onConfirm, loading }
         <Field label="Dat li pral touche">
           <input type="date" className="ke-input" value={date} onChange={e => setDate(e.target.value)} />
         </Field>
+        {date && date < today && (
+          <div className="ke-alert" style={{ '--c': T.orange, '--cbg': hexA(T.orange, .08), '--cbd': hexA(T.orange, .3), margin: 0 }}>
+            <CalendarDays size={16} />
+            <div>Dat sa a <b>deja pase</b> — li ap anrejistre kòm dat touche manm nan (menm si l gen reta).</div>
+          </div>
+        )}
         <div className="ke-alert" style={{ '--c': T.blue, '--cbg': hexA(T.blue, .06), '--cbd': hexA(T.blue, .2), margin: 0 }}>
           <Info size={16} />
           <div>Sa a se yon <b>pwomès dat</b> — li PA make manm nan kòm touche. Manm nan ap wè dat la nan kont sol li. Lè peman an fèt tout bon, itilize <b>Konfime touche</b>.</div>

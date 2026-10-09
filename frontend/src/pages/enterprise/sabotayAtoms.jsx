@@ -2,13 +2,13 @@
 // sabotayAtoms.jsx — Helpers, usePrinterState, UI Atoms, Modal, Sec
 // ✅ Design "Plus Fit" (menm baz ak Kanè Epay / Prè)
 // ─────────────────────────────────────────────────────────────
-import { useState, useCallback, useRef, useLayoutEffect } from 'react'
+import { useState, useCallback, useRef, useLayoutEffect, useEffect } from 'react'
 import {
   CheckCircle, Clock, Bluetooth, BluetoothOff, Printer as PrinterIcon,
   Image as ImageIcon, FileDown, Receipt, Share2,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt } from '../../services/printerService'
+import { connectPrinter, disconnectPrinter, isPrinterConnected, printSabotayReceipt, onPrinterStatus } from '../../services/printerService'
 import {
   D, MEMBER_STATUS, PLAN_STATUS,
   buildReceiptHTML, printReceiptBrowser, printReceiptDirect,
@@ -79,6 +79,12 @@ export function usePrinterState() {
   const [connected,  setConnected]  = useState(isPrinterConnected())
   const [connecting, setConnecting] = useState(false)
   const [printing,   setPrinting]   = useState(false)
+
+  // ✅ Swiv eta enprimant lan (rekoneksyon otomatik, dekoneksyon, lòt paj ki konekte l)
+  useEffect(() => {
+    setConnected(isPrinterConnected())
+    return onPrinterStatus(setConnected)
+  }, [])
 
   const connect = useCallback(async () => {
     if (connecting || connected) return

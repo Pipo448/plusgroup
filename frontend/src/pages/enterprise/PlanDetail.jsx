@@ -664,7 +664,8 @@ export default function PlanDetail({
                         <StopCircle size={14} />
                       </button>
                     )}
-                    {!isStopped && !m.hasWon && payoutDate && payoutDate <= today && (
+                    {/* ✅ Bouton touche a toujou disponib — menm si manm nan an reta (avètisman nan modal la) */}
+                    {!isStopped && !m.hasWon && (
                       <button onClick={() => setConfirmingPayout(m)} title="Konfime touche" aria-label="Konfime touche"
                         className="pd-act" style={{ '--ab': 'linear-gradient(135deg,#FFD45C,#E0A410)', '--ac': '#0b0c0f' }}>
                         <Trophy size={14} />
@@ -801,6 +802,28 @@ export default function PlanDetail({
                 {fmt(confirmingPayout.isOwnerSlot ? ownerPayout(plan) : memberPayout(plan))}<small style={{ fontSize: 15, color: 'rgba(242,241,236,.6)', marginLeft: 5 }}>HTG</small>
               </p>
             </div>
+            {(() => {
+              const cp = confirmingPayout
+              const owed = allDates.filter(d => isDateOverdue(d, today, currentTime, dueTimeEnd) && !cp.payments?.[d]).length
+              const pDate = payoutMap[cp.position]
+              const promise = String(cp.declaredPayoutDate || '').split('T')[0]
+              return (
+                <>
+                  {owed > 0 && (
+                    <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .07), '--cbd': hexA(T.red, .25), margin: 0 }}>
+                      <AlertTriangle size={16} />
+                      <div><b>{owed} dat an reta</b> ({fmt(owed * Number(plan.amount))} HTG pa peye). Ou ka toujou konfime touche a — asire w ou regle sa avè l.</div>
+                    </div>
+                  )}
+                  {(promise || pDate) && (promise || pDate) > today && (
+                    <div className="ke-alert" style={{ '--c': T.orange, '--cbg': hexA(T.orange, .08), '--cbd': hexA(T.orange, .3), margin: 0 }}>
+                      <Calendar size={16} />
+                      <div>Dat touche li se <b>{dmy(promise || pDate)}</b> — li poko rive.</div>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
             <p style={{ fontSize: 13, color: D.muted, margin: 0, lineHeight: 1.6 }}>
               Aksyon sa ap <b style={{ color: D.text }}>make manm sa kòm touche</b>.
               {isDynamic && <span style={{ color: T.blue }}> Plas li ap <b>enchanjab</b> pou toujou.</span>}

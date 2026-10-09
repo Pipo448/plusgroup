@@ -190,21 +190,31 @@ const sendViaRawBT = (bytes) => {
 }
 
 // ── Bluetooth connect ─────────────────────────────────────────
-export const connectPrinter = async () => {
-  if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
-  _device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: ALL_SERVICE_UUIDS,
-  })
-  const server = await _device.gatt.connect()
-  _device.addEventListener('gattserverdisconnected', () => { _char = null; _device = null })
+// ✅ NOUVO: koneksyon an RETE — enprimant lan rekonekte otomatikman:
+//   • si koneksyon an koupe (enprimant lan etenn/limen, twò lwen, elatriye)
+//   • apre ou rafrechi paj la (si navigatè a pèmèt navigator.bluetooth.getDevices)
+// Se SÈLMAN lè itilizatè a peze « Dekonekte » (disconnectPrinter) li sispann.
+const BT_KEY = 'pg-bt-printer'
+let _wanted      = false          // itilizatè a vle enprimant lan konekte
+let _retryTimer  = null
+let _retryDelay  = 2000
+const _status    = typeof EventTarget !== 'undefined' ? new EventTarget() : null
+const emitStatus = () => { try { _status?.dispatchEvent(new Event('change')) } catch {} }
+
+// Abòne pou konnen lè enprimant lan konekte / dekonekte — retounen fonksyon pou dezabòne
+export const onPrinterStatus = (cb) => {
+  if (!_status) return () => {}
+  const h = () => cb(isPrinterConnected())
+  _status.addEventListener('change', h)
+  return () => _status.removeEventListener('change', h)
+}
+
+const findWritableChar = async (server) => {
   for (const { svc, chr } of KNOWN_PAIRS) {
     try {
       const service   = await server.getPrimaryService(svc)
       const candidate = await service.getCharacteristic(chr)
-      if (candidate.properties.write || candidate.properties.writeWithoutResponse) {
-        _char = candidate; return _device.name || 'Bluetooth Printer'
-      }
+      if (candidate.properties.write || candidate.properties.writeWithoutResponse) return candidate
     } catch {}
   }
   try {
@@ -212,25 +222,104 @@ export const connectPrinter = async () => {
     for (const service of services) {
       try {
         const chars = await service.getCharacteristics()
-        for (const chr of chars) {
-          if (chr.properties.write || chr.properties.writeWithoutResponse) {
-            _char = chr; return _device.name || 'Bluetooth Printer'
-          }
-        }
+        for (const c of chars) if (c.properties.write || c.properties.writeWithoutResponse) return c
       } catch {}
     }
   } catch (e) { console.error('Auto-discovery echwe:', e) }
-  _char = null; _device = null
-  throw new Error('PRINTER_UUID_NOT_FOUND')
+  return null
+}
+
+const onGattDisconnected = () => {
+  _char = null
+  emitStatus()
+  if (_wanted) scheduleReconnect()
+}
+
+const setupDevice = async (device) => {
+  if (_device && _device !== device) _device.removeEventListener?.('gattserverdisconnected', onGattDisconnected)
+  _device = device
+  _device.removeEventListener?.('gattserverdisconnected', onGattDisconnected)
+  _device.addEventListener('gattserverdisconnected', onGattDisconnected)
+  const server = device.gatt.connected ? device.gatt : await device.gatt.connect()
+  const c = await findWritableChar(server)
+  if (!c) throw new Error('PRINTER_UUID_NOT_FOUND')
+  _char = c
+  _retryDelay = 2000
+  try { localStorage.setItem(BT_KEY, JSON.stringify({ id: device.id, name: device.name || '' })) } catch {}
+  emitStatus()
+  return device.name || 'Bluetooth Printer'
+}
+
+const scheduleReconnect = () => {
+  clearTimeout(_retryTimer)
+  _retryTimer = setTimeout(async () => {
+    if (!_wanted || isPrinterConnected()) return
+    try {
+      if (_device) await setupDevice(_device)
+      else await restorePrinter()
+    } catch {
+      _retryDelay = Math.min(_retryDelay * 1.6, 30000)   // 2s → 30s max
+      scheduleReconnect()
+    }
+  }, _retryDelay)
+}
+
+export const connectPrinter = async () => {
+  if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
+  const device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: ALL_SERVICE_UUIDS,
+  })
+  _wanted = true
+  try {
+    return await setupDevice(device)
+  } catch (e) {
+    _char = null; _device = null; _wanted = false
+    emitStatus()
+    throw e
+  }
+}
+
+// ✅ Rekonekte san fenèt chwa apre yon refresh (si navigatè a sipòte getDevices)
+export const restorePrinter = async () => {
+  if (isPrinterConnected()) return true
+  let saved = null
+  try { saved = JSON.parse(localStorage.getItem(BT_KEY) || 'null') } catch {}
+  if (!saved?.id || !navigator.bluetooth?.getDevices) return false
+  _wanted = true
+  const devices = await navigator.bluetooth.getDevices()
+  const device  = devices.find(d => d.id === saved.id) || devices.find(d => saved.name && d.name === saved.name)
+  if (!device) return false
+  try {
+    await setupDevice(device)
+    return true
+  } catch {
+    _device = device
+    scheduleReconnect()
+    return false
+  }
 }
 
 export const disconnectPrinter = () => {
+  _wanted = false
+  clearTimeout(_retryTimer)
+  try { localStorage.removeItem(BT_KEY) } catch {}
   try { if (_device?.gatt?.connected) _device.gatt.disconnect() } catch {}
   _char = null; _device = null
+  emitStatus()
 }
 
 export const isPrinterConnected = () => {
   try { return !!_char && !!(_device?.gatt?.connected) } catch { return false }
+}
+
+// Eseye rekonekte otomatikman lè app la chaje (si te gen yon enprimant konekte anvan)
+if (typeof window !== 'undefined') {
+  setTimeout(() => { restorePrinter().catch(() => {}) }, 800)
+  // Lè w tounen sou app la (onglet / APK), verifye koneksyon an
+  document.addEventListener?.('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && _wanted && !isPrinterConnected()) scheduleReconnect()
+  })
 }
 
 const sendViaBluetooth = async (bytes) => {
