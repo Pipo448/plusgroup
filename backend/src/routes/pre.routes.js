@@ -32,27 +32,6 @@ async function isKesFermen(tenantId, userId) {
   return r.length > 0
 }
 
-// ✅ Dat limit echeans #n = debi + n peryòd, an UTC → "YYYY-MM-DD"
-// (mwa yo "klanpe": 31 jan + 1 mwa = 28/29 fev, pa 3 mas)
-function addMoisUTC(d, n) {
-  const y = d.getUTCFullYear(), m = d.getUTCMonth() + n, day = d.getUTCDate()
-  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
-  return new Date(Date.UTC(y, m, Math.min(day, last)))
-}
-function datEcheans(debut, periode, n) {
-  const base = new Date(Date.UTC(debut.getUTCFullYear(), debut.getUTCMonth(), debut.getUTCDate()))
-  let d
-  switch (periode) {
-    case 'jounal':    d = new Date(base.getTime() + n * 86400000);      break
-    case 'semaine':   d = new Date(base.getTime() + n * 7 * 86400000);  break
-    case 'biweekly':  d = new Date(base.getTime() + n * 14 * 86400000); break
-    case 'trimestre': d = addMoisUTC(base, 3 * n);                       break
-    case 'mois':
-    default:          d = addMoisUTC(base, n)
-  }
-  return d.toISOString().split('T')[0]
-}
-
 async function genereNumeroPre(tenantId, kontKaneEpayId) {
 
   // 1. Jwenn accountNumber kont Kane Epay la
@@ -683,13 +662,15 @@ router.post('/', async (req, res) => {
 if (!kaneKont) return res.status(400).json({ message: 'Kont Kanè Epay pa jwenn.' })
 
 // ✅ numeroPre ap jenere ANNDAN transaction an kounye a (wè anba)
+// ✅ FIX MWA +1 (Bous Solèy) — Bous Solèy se peman CHAK JOU, men fòm nan
+// te voye periode = 'mois' → 1ye peman an te tonbe 1 MWA apre debi a
+// (kreye 12 okt → 1ye peman 12 NOV). Kounye a Bous Solèy toujou 'jounal'.
+const periodeEf = isBousSoleil ? 'jounal' : (periode || 'mois')
 const debut    = datDebut ? new Date(datDebut) : new Date()
-const datFin   = new Date(debut)
 const dureeNum = isBousSoleil ? Math.ceil(Number(nombreJou || 30) / 30) : Number(dureeEnMois)
-datFin.setMonth(datFin.getMonth() + dureeNum)
 
     const datPremyePeman = new Date(debut)
-    switch (periode) {
+    switch (periodeEf) {
       case 'jounal':    datPremyePeman.setDate(datPremyePeman.getDate() + 1);   break
       case 'semaine':   datPremyePeman.setDate(datPremyePeman.getDate() + 7);   break
       case 'biweekly':  datPremyePeman.setDate(datPremyePeman.getDate() + 14);  break
@@ -703,20 +684,16 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
 
     const result       = genereEcheances(
       Number(montant), Number(tauxInteret || 0), nbrPeman,
-      new Date(datPremyePeman), periode || 'mois',   // ✅ kopi — motè a pa ka modifye dat orijinal la
+      datPremyePeman, periodeEf,
       tipKalkil || 'declining',
       { pemaParJou: Number(pemaParJou || 0), nombreJou: Number(nombreJou || 0) }
     )
-    // ✅ FIX MWA +1 — motè a t ap bay dat echeans yo yon mwa twòp
-    // (prè kreye 11 okt → 1ye peman 12 NOV olye 12 okt). Kounye a dat
-    // limit CHAK echeans kalkile isit la, dirèkteman depi dat debi a:
-    //   echeans #n = datDebut + n × peryòd   (UTC, "YYYY-MM-DD")
-    // Montan yo (kapital/enterè/balans) rete sa motè a kalkile.
-    const echeances    = result.echeances.map((e, i) => ({
-      ...e,
-      datLimit: datEcheans(debut, periode || 'mois', Number(e.numero) || (i + 1)),
-    }))
+    const echeances    = result.echeances
     const totalDuRonde = result.totalDu
+    // ✅ Dat fen = dat dènye echeans lan (pa debi + X mwa)
+    const datFin = echeances.length
+      ? new Date(`${echeances[echeances.length - 1].datLimit}T00:00:00.000Z`)
+      : (() => { const d = new Date(debut); d.setMonth(d.getMonth() + dureeNum); return d })()
 
     // ✅ FIX: maxWait 15s, timeout 30s — evite "Transaction not found" sou cold start
     const pre = await prisma.$transaction(async (tx) => {
@@ -739,7 +716,7 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
           tauxInteret: Number(tauxInteret || 0), dureeEnMois: dureeNum,
           montantBloke: Number(montantBloke||0),
           totalDu: totalDuRonde, totalPaye: 0, totalDuAjou: totalDuRonde,
-          datDebut: debut, datFin, periode: periode||'mois',
+          datDebut: debut, datFin, periode: periodeEf,
           methodDeseman: method||'cash', referenceDeseman: reference||null,
           notes: notes||null, statut: 'attente', createdBy: userId,
           avalize1Nom:   req.body.avalize1Nom   || null,
