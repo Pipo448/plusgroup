@@ -93,7 +93,8 @@ export function KalandriyeSection({ preId }) {
   const pct             = echeances.length ? Math.round((totalPaye / echeances.length) * 100) : 0
   const interetKouruTot = echeances.reduce((s, e) => s + Number(e.interet_kouru || 0), 0)
   const prochèn         = echeances.find(e => e.statut !== 'paye')
-  const fmtD = (d, y = true) => new Date(d).toLocaleDateString('fr-HT', { day: '2-digit', month: 'short', ...(y && { year: 'numeric' }) })
+  // ✅ dat_limit = dat san lè ("2026-11-13T00:00:00Z") → afiche an UTC, sinon Ayiti (UTC-4) montre jou anvan an
+  const fmtD = (d, y = true) => new Date(d).toLocaleDateString('fr-HT', { day: '2-digit', month: 'short', timeZone: 'UTC', ...(y && { year: 'numeric' }) })
 
   return (
     <div>

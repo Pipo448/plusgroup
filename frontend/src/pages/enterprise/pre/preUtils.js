@@ -23,6 +23,8 @@ export function genHtmlResi({ pre, echeances = [], tenant, type = 'ouverture', p
   const fs    = largeur === 57 ? '8px'  : '10px'
   const fsBig = largeur === 57 ? '11px' : '13px'
   const fmtD  = (d) => d ? new Date(d).toLocaleDateString('fr-HT', { day:'2-digit', month:'short', year:'numeric' }) : ''
+  // ✅ dat echeans (san lè) → UTC, pou l pa montre jou anvan an
+  const fmtJ = (d) => d ? new Date(d).toLocaleDateString('fr-HT', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' }) : ''
 
   const ligneSignature = (label) => `
     <div style="margin-top:8px">
@@ -36,7 +38,7 @@ export function genHtmlResi({ pre, echeances = [], tenant, type = 'ouverture', p
     const lignes = echeances.map(e => `
       <tr>
         <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs}">${e.numero}</td>
-        <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs}">${fmtD(e.dat_limit || e.datLimit)}</td>
+        <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs}">${fmtJ(e.dat_limit || e.datLimit)}</td>
         <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs};text-align:right">${fmt(e.montant_capital || e.montantCapital)}</td>
         <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs};text-align:right">${fmt(e.montant_interet || e.montantInteret)}</td>
         <td style="padding:2px 3px;border-bottom:1px solid #eee;font-size:${fs};text-align:right;font-weight:700">${fmt(e.montant_total || e.montantTotal)}</td>
@@ -142,6 +144,8 @@ export function buildPreShareHTML({ pre, tenant, type = 'paiement', paiement = n
   const ini    = esc((pre.clientNom || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
   const isPay  = type === 'paiement'
   const fmtD   = (d) => d ? new Date(d).toLocaleDateString('fr-HT', { day:'2-digit', month:'short', year:'numeric' }) : ''
+  // ✅ dat echeans (san lè) → UTC, pou l pa montre jou anvan an
+  const fmtJ = (d) => d ? new Date(d).toLocaleDateString('fr-HT', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' }) : ''
   const dateTx = isPay && paiement?.createdAt ? new Date(paiement.createdAt) : new Date()
   const dateStr = `${fmtD(dateTx)} ${String(dateTx.getHours()).padStart(2,'0')}:${String(dateTx.getMinutes()).padStart(2,'0')}`
 
@@ -181,7 +185,7 @@ export function buildPreShareHTML({ pre, tenant, type = 'paiement', paiement = n
         </tr>
         ${echeances.map(e => `<tr style="border-top:1px solid ${RC.line}">
           <td style="padding:6px 14px;font-weight:800">${esc(e.numero)}</td>
-          <td style="padding:6px 4px;font-weight:600">${fmtD(e.dat_limit || e.datLimit)}</td>
+          <td style="padding:6px 4px;font-weight:600">${fmtJ(e.dat_limit || e.datLimit)}</td>
           <td style="padding:6px 14px;text-align:right;font-weight:800">${fmt(e.montant_total || e.montantTotal)}</td>
         </tr>`).join('')}
       </table>
