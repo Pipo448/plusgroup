@@ -21,6 +21,7 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 // ⚠️ Plugin Capacitor = Proxy → pa janm RETOUNEN yo nan yon fonksyon async.
 let _FS = null
 let _SH = null
+export const isNative = () => { try { return Capacitor.isNativePlatform() } catch { return false } }
 const nativeShareAvailable = () => {
   try {
     if (!Capacitor.isNativePlatform()) return false
@@ -48,7 +49,14 @@ export async function shareFile(f) {
     try {
       const data = await blobToBase64(f.blob)
       const res  = await _FS.writeFile({ path: f.fileName, data, directory: 'CACHE' })
-      await _SH.share({ title: f.title || f.fileName, text: f.text || '', files: [res.uri], dialogTitle: f.title || 'Pataje' })
+      try {
+        // @capacitor/share v5+ → `files`
+        await _SH.share({ title: f.title || f.fileName, files: [res.uri], dialogTitle: f.title || 'Pataje' })
+      } catch (e1) {
+        if (String(e1?.message || '').toLowerCase().includes('cancel')) return 'cancel'
+        // vèsyon pi ansyen → `url` (fichye file://)
+        await _SH.share({ title: f.title || f.fileName, url: res.uri, dialogTitle: f.title || 'Pataje' })
+      }
       return 'shared'
     } catch (e) {
       const msg = String(e?.message || e || '').toLowerCase()
@@ -72,7 +80,10 @@ export async function shareFile(f) {
     }
   } catch { /* File pa sipòte */ }
 
-  // 3) Telechaje (PC)
+  // 3) APK san plugin pataj natif → pa gen okenn fason pou pataje yon fichye
+  if (isNative()) return 'no-native-share'
+
+  // 4) Telechaje (PC)
   const url = URL.createObjectURL(f.blob)
   const a = document.createElement('a')
   a.href = url; a.download = f.fileName
@@ -111,5 +122,6 @@ export function shareMessage(result, fmtOut) {
   if (result === 'cancel')        return { ok: false, msg: null }
   if (result === 'downloaded')    return { ok: true,  msg: fmtOut === 'png' ? 'Imaj la telechaje!' : 'PDF la telechaje!' }
   if (result === 'needs-gesture') return { ok: false, msg: 'Fichye a pare — peze bouton an ankò pou pataje.' }
+  if (result === 'no-native-share') return { ok: false, msg: 'Pataj pa disponib nan APK sa a: plugin @capacitor/share ak @capacitor/filesystem pa enstale. Enstale yo epi rebati APK a.' }
   return { ok: false, msg: null }
 }

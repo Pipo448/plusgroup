@@ -32,6 +32,27 @@ async function isKesFermen(tenantId, userId) {
   return r.length > 0
 }
 
+// ✅ Dat limit echeans #n = debi + n peryòd, an UTC → "YYYY-MM-DD"
+// (mwa yo "klanpe": 31 jan + 1 mwa = 28/29 fev, pa 3 mas)
+function addMoisUTC(d, n) {
+  const y = d.getUTCFullYear(), m = d.getUTCMonth() + n, day = d.getUTCDate()
+  const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(y, m, Math.min(day, last)))
+}
+function datEcheans(debut, periode, n) {
+  const base = new Date(Date.UTC(debut.getUTCFullYear(), debut.getUTCMonth(), debut.getUTCDate()))
+  let d
+  switch (periode) {
+    case 'jounal':    d = new Date(base.getTime() + n * 86400000);      break
+    case 'semaine':   d = new Date(base.getTime() + n * 7 * 86400000);  break
+    case 'biweekly':  d = new Date(base.getTime() + n * 14 * 86400000); break
+    case 'trimestre': d = addMoisUTC(base, 3 * n);                       break
+    case 'mois':
+    default:          d = addMoisUTC(base, n)
+  }
+  return d.toISOString().split('T')[0]
+}
+
 async function genereNumeroPre(tenantId, kontKaneEpayId) {
 
   // 1. Jwenn accountNumber kont Kane Epay la
@@ -682,11 +703,19 @@ datFin.setMonth(datFin.getMonth() + dureeNum)
 
     const result       = genereEcheances(
       Number(montant), Number(tauxInteret || 0), nbrPeman,
-      datPremyePeman, periode || 'mois',
+      new Date(datPremyePeman), periode || 'mois',   // ✅ kopi — motè a pa ka modifye dat orijinal la
       tipKalkil || 'declining',
       { pemaParJou: Number(pemaParJou || 0), nombreJou: Number(nombreJou || 0) }
     )
-    const echeances    = result.echeances
+    // ✅ FIX MWA +1 — motè a t ap bay dat echeans yo yon mwa twòp
+    // (prè kreye 11 okt → 1ye peman 12 NOV olye 12 okt). Kounye a dat
+    // limit CHAK echeans kalkile isit la, dirèkteman depi dat debi a:
+    //   echeans #n = datDebut + n × peryòd   (UTC, "YYYY-MM-DD")
+    // Montan yo (kapital/enterè/balans) rete sa motè a kalkile.
+    const echeances    = result.echeances.map((e, i) => ({
+      ...e,
+      datLimit: datEcheans(debut, periode || 'mois', Number(e.numero) || (i + 1)),
+    }))
     const totalDuRonde = result.totalDu
 
     // ✅ FIX: maxWait 15s, timeout 30s — evite "Transaction not found" sou cold start
