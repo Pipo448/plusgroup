@@ -13,7 +13,7 @@ import {
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
   TrendingUp, Settings, Smartphone, Phone, Wallet,
    History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
-  Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark, Dumbbell,
+  Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark, Dumbbell, Truck,
 } from 'lucide-react'
 
 import InternetTab from './InternetTab'
@@ -92,6 +92,7 @@ const PAGE_DEFINITIONS = [
   { key:'gym',    label:'GYM FITNESS',                   icon:<Dumbbell size={14}/>,    group:'Modil'     },
   { key:'employees', label:'Anplwaye (RH)',                icon:<UserCog size={14}/>,     group:'RH & Finans' },
   { key:'expenses',   label:'Depans',                      icon:<TrendingDown size={14}/>,group:'RH & Finans' },
+  { key:'founise',    label:'Founisè (Achte)',              icon:<Truck size={14}/>,       group:'RH & Finans' },
 ]
 
 // ⚠️ KORIJE — default LOK pou tout paj (eksepte Tablo Bò) — Super Admin
