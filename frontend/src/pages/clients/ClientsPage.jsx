@@ -387,8 +387,8 @@ export default function ClientsPage() {
         <div className="iv-pager">
           <p>{tr(t, 'invoices.page', 'Paj')} <b style={{ color: 'var(--ink)' }}>{page}</b> / {pages} · <b style={{ color: 'var(--ink)' }}>{total}</b> kliyan</p>
           <div className="btns">
-            <button className="iv-pg" disabled={page <= 1} onClick={() => { setPage(p => p - 1); window.scrollTo({ top: 0, behavior: 'smooth' }) }} aria-label="Paj anvan"><ChevronLeft size={17}/></button>
-            <button className="iv-pg" disabled={page >= pages} onClick={() => { setPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }) }} aria-label="Paj apre"><ChevronRight size={17}/></button>
+            <button className="iv-pg" disabled={page <= 1} onClick={() => { setPage(p => p - 1); (document.getElementById('app-scroll') || window).scrollTo({ top: 0, behavior: 'smooth' }) }} aria-label="Paj anvan"><ChevronLeft size={17}/></button>
+            <button className="iv-pg" disabled={page >= pages} onClick={() => { setPage(p => p + 1); (document.getElementById('app-scroll') || window).scrollTo({ top: 0, behavior: 'smooth' }) }} aria-label="Paj apre"><ChevronRight size={17}/></button>
           </div>
         </div>
       )}

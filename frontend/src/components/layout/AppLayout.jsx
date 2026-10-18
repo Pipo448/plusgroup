@@ -1,389 +1,186 @@
-// src/components/layout/AppLayout.jsx
+// src/components/layout/AppLayout.jsx — Plus Fit redesign
+// ✅ KORIJE:
+//   • Lè w chanje paj, nouvo paj la te louvri nan menm pozisyon defilman ak ansyen an
+//     (egz. ou te anba nèt nan Pwodui → Kliyan te louvri anba tou) → kounye a li remonte anlè
+//   • « Rale pou rafrechi » te rechaje TOUT app la (window.reload) → tout done yo te
+//     telechaje ankò (kota Supabase!). Kounye a se sèlman done paj ou ap gade a ki rafrechi
+//   • Sou telefòn, header a te fè 2 liy (to yo + bouton yo) e li te manje plas paj la →
+//     kounye a se yon sèl liy; Lang ak Lajan an deplase nan meni an
+//   • Espas vid anba paj yo (pou ansyen bann ki te kole anba a) retire
+//   • localStorage ki pa disponib (navigatè prive) te ka kraze layout la
+//   • Kalkilatris: 0.1 + 0.2 te bay 0.30000000000000004; dat istorik la pa t an lè Ayiti
+//   • Meni mobil la pa t fèmen ak bouton Escape
+// ✅ NOUVO:
+//   • Animasyon antre pou chak paj + ba pwogresyon oranj anlè lè w chanje paj
+//   • Rechèch nan meni an (tape « fak » → Fakti) — rakousi Ctrl+K
+//   • Sidebar ka vin piti (sèlman ikòn) sou òdinatè, li sonje chwa ou
+//   • Glise meni an sou bò goch pou fèmen l sou telefòn
+//   • Kalkilatris: klavye òdinatè a mache (chif, + − × ÷, Enter, Backspace), klike sou yon
+//     kalkil nan istorik la pou reitilize rezilta a
+//   • Bann « Ou pa konekte ak entènèt » lè koneksyon an tonbe
+//   • Bouton « remonte anlè » lè w desann lwen nan yon paj
 import { createPortal } from 'react-dom'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import {
-  LayoutDashboard, Package, Users, FileText, Receipt,
-  Warehouse, TrendingUp, Settings, LogOut,
-  Menu, X, Globe, ChevronDown,
-  GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
-  Wallet, Hotel, CalendarDays, Tag,
-  Bluetooth, BluetoothOff, Printer, Scissors,
-  DollarSign, ChevronUp, BookOpen,
+  LayoutDashboard, Package, Users, FileText, Receipt, Warehouse, TrendingUp, Settings, LogOut,
+  Menu, X, Globe, ChevronDown, GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
+  Wallet, Hotel, CalendarDays, Tag, Bluetooth, BluetoothOff, Printer, Scissors, DollarSign, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
-  Dumbbell, LogIn, Banknote,
+  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
-import { authAPI, branchAPI } from '../../services/api'
-import api from '../../services/api'
+import api, { authAPI, branchAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
-import { isAndroid, isSunmi } from '../../services/printerService'
+import { isSunmi } from '../../services/printerService'
 import NotificationBell from '../NotificationBell'
+import './layout.css'
 
-const C = {
-  sidebarBg:   '#16192a',
-  sidebarTop:  '#0f1117',
-  navBg:       '#1e2235',
-  gold:        '#f5680c',
-  goldLt:      '#ff8534',
-  goldDim:     'rgba(245,104,12,0.12)',
-  goldBorder:  'rgba(245,104,12,0.20)',
-  enterprise:  '#C9A84C',
-  entDim:      'rgba(201,168,76,0.15)',
-  entBorder:   'rgba(201,168,76,0.28)',
-  hotel:       '#0EA5E9',
-  hotelDim:    'rgba(14,165,233,0.15)',
-  hotelBorder: 'rgba(14,165,233,0.28)',
-  // ✅ NOUVO — Restoran
-  restaurant:       '#DC2626',
-  restaurantDim:    'rgba(220,38,38,0.15)',
-  restaurantBorder: 'rgba(220,38,38,0.28)',
-  dry:         '#8B5CF6',
-  dryDim:      'rgba(139,92,246,0.15)',
-  dryBorder:   'rgba(139,92,246,0.28)',
-  // ✅ NOUVO — Jim/Gym
-  gym:         '#14B8A6',
-  gymDim:      'rgba(20,184,166,0.15)',
-  gymBorder:   'rgba(20,184,166,0.28)',
-  rh:          '#10B981',
-  rhDim:       'rgba(16,185,129,0.15)',
-  rhBorder:    'rgba(16,185,129,0.28)',
-  white:       '#FFFFFF',
-  muted:       'rgba(255,255,255,0.45)',
-  mutedMd:     'rgba(255,255,255,0.65)',
-  border:      'rgba(255,255,255,0.07)',
-  borderGold:  'rgba(245,104,12,0.18)',
-  red:         '#ef4444',
-  green:       '#22c55e',
+const TZ = 'America/Port-au-Prince'
+const COL_KEY = 'pg-sidebar-col'
+const ls = {
+  get: (k) => { try { return localStorage.getItem(k) } catch { return null } },
+  set: (k, v) => { try { localStorage.setItem(k, v) } catch {} },
+  del: (k) => { try { localStorage.removeItem(k) } catch {} },
 }
 
-const NAV = [
-  { to:'/app/dashboard', icon:LayoutDashboard, labelKey:'nav.dashboard', pageKey:'dashboard' },
-  { to:'/app/products',  icon:Package,         labelKey:'nav.products',  pageKey:'products'  },
-  { to:'/app/clients',   icon:Users,           labelKey:'nav.clients',   pageKey:'clients'   },
-  { to:'/app/quotes',    icon:FileText,        labelKey:'nav.quotes',    pageKey:'quotes'    },
-  // ✅ NOUVO — Devi Dirèk
-  { to:'/app/direct-quotes', icon:FileText,    labelKey:'nav.directQuotes', pageKey:'direct-quotes', label:'Devi Dirèk' },
-  { to:'/app/invoices',  icon:Receipt,         labelKey:'nav.invoices',  pageKey:'invoices'  },
-  { to:'/app/stock',     icon:Warehouse,       labelKey:'nav.stock',     pageKey:'stock'     },
-  { to:'/app/reports',   icon:TrendingUp,      labelKey:'nav.reports',   pageKey:'reports'   },
-  // ✅ NOUVO — Sesyon Kès + Kontwòl Estòk, nan meni prensipal la
-  { to:'/app/kes-sesyon',    icon:Wallet,          labelKey:'nav.kesSesyon',    pageKey:'kes-sesyon',    label:'Sesyon Kès'    },
-  { to:'/app/estok-kontwol', icon:ClipboardCheck,  labelKey:'nav.estokKontwol', pageKey:'estok-kontwol', label:'Kontwòl Estòk' },
-]
-
-const MIKWO_KREDI_ITEMS = [
-  { to:'/app/kane-epay',       icon:Wallet,     label:'Kanè Epay', pageKey:'kane-epay' },
-  { to:'/app/pre',             icon:DollarSign, label:'Prè',       pageKey:'pre'       },
-  { to:'/app/pre/cash-flow',   icon:RefreshCw,  label:'Rapò Antre/Soti', pageKey:'pre' },
-  { to:'/app/mikwo-kredi-gid', icon:BookOpen,   label:'Gid',       pageKey:null        },
-  { to:'/app/mikwo-profit',    icon:BarChart2,  label:'Pwofi/Pèt', pageKey:null        },
-]
-
-const ENTERPRISE_ITEMS = [
-  { to:'/app/sabotay',  icon:Smartphone, label:'Sabotay',           pageKey:'sabotay'   },
-  { to:'/app/mobilpay', icon:Phone,      label:'MonCash / NatCash', pageKey:'mobilpay'  },
-]
-
-const HOTEL_ITEMS = [
-  { to:'/app/hotel',              icon:Hotel,        label:'Dashboard Hotel', end:true  },
-  { to:'/app/hotel/reservations', icon:CalendarDays, label:'Rezèvasyon',      end:false },
-  { to:'/app/hotel/room-types',   icon:Tag,          label:'Tip Chanm',       end:false },
-]
-
-// ✅ NOUVO — Restoran
-const RESTAURANT_ITEMS = [
-  // ✅ NOUVO — Tab & Kòmand vin anlè, se sa sèvè a itilize chak jou
-  { to:'/app/restaurant/tables', icon:Users, labelKey:'nav.restaurantTables', label:'Tab & Kòmand', end:true },
-  { to:'/app/restaurant/menu', icon:UtensilsCrossed, labelKey:'nav.restaurant', label:'Meni Restoran', end:true },
-]
-
-// ✅ NOUVO — Jim/Gym
-const GYM_ITEMS = [
-  { to:'/app/gym',          icon:LayoutDashboard, labelKey:'gym.nav.dashboard',     end:true  },
-  { to:'/app/gym/members',  icon:Users,           labelKey:'gym.nav.members',       end:false },
-  { to:'/app/gym/classes',  icon:BookOpen,        labelKey:'gym.nav.classes',       end:false },
-  { to:'/app/gym/plans',    icon:CreditCard,      labelKey:'gym.nav.plans',         end:false },
-  { to:'/app/gym/daily-payment', icon:Banknote,   labelKey:'gym.nav.dailyPayment',  end:false },
-]
+const COLORS = { acc: '#f5680c', ent: '#C9A84C', hotel: '#0EA5E9', resto: '#DC2626', gym: '#14B8A6', dry: '#8B5CF6', rh: '#10B981' }
 
 const LANGS = [
-  { code:'ht', name:'Kreyòl',   flag:'🇭🇹' },
-  { code:'fr', name:'Français', flag:'🇫🇷' },
-  { code:'en', name:'English',  flag:'🇺🇸' },
-  { code:'es', name:'Español',  flag:'🇪🇸' },
+  { code: 'ht', name: 'Kreyòl', flag: '🇭🇹' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
 ]
+const ROLE_LABELS = { admin: 'Admin', cashier: 'Kesye', stock_manager: 'Jesyonè Estòk', viewer: 'Obsèvatè' }
 
-const ROLE_LABELS = {
-  admin:         'Admin',
-  cashier:       'Kesye',
-  stock_manager: 'Jesyonè Estòk',
-  viewer:        'Obsèvatè',
-}
+const logoSrc = (url) => !url ? null : (url.startsWith('data:') || url.startsWith('http')) ? url : (url.startsWith('/') ? url : `/${url}`)
+const tr = (t, k, fb) => { const v = t(k); return v && v !== k ? v : fb }
+const safeJson = (val, fb) => { if (!val) return fb; if (typeof val === 'object') return val; try { return JSON.parse(val) } catch { return fb } }
 
-const logoSrc = (url) => {
-  if (!url) return null
-  if (url.startsWith('data:')) return url
-  if (url.startsWith('http')) return url
-  return url.startsWith('/') ? url : `/${url}`
-}
+// ════════════════════════════════════════════════════════════
+// Kalkilatris
+// ════════════════════════════════════════════════════════════
+const fix = (n) => (Number.isFinite(n) ? +n.toPrecision(12) : 0)
 
-const safeJson = (val, fallback) => {
-  if (!val) return fallback
-  if (typeof val === 'object') return val
-  try { return JSON.parse(val) } catch { return fallback }
-}
-
-const navLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 14px', borderRadius:10, marginBottom:3,
-  textDecoration:'none',
-  background: isActive ? `linear-gradient(90deg,rgba(245,104,12,0.18) 0%,rgba(245,104,12,0.05) 100%)` : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13,
-})
-
-const enterpriseLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 14px', borderRadius:10, marginBottom:3,
-  textDecoration:'none',
-  background: isActive ? C.entDim : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
-})
-
-const hotelLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 14px', borderRadius:10, marginBottom:3,
-  textDecoration:'none',
-  background: isActive ? C.hotelDim : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.hotel}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
-})
-
-// ✅ NOUVO — Restoran
-const restaurantLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 14px', borderRadius:10, marginBottom:3,
-  textDecoration:'none',
-  background: isActive ? C.restaurantDim : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.restaurant}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
-})
-
-// ✅ NOUVO — Jim/Gym
-const gymLinkStyle = (isActive) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'9px 14px', borderRadius:10, marginBottom:3,
-  textDecoration:'none',
-  background: isActive ? C.gymDim : 'transparent',
-  color: isActive ? '#ffffff' : C.muted,
-  borderLeft: isActive ? `3px solid ${C.gym}` : '3px solid transparent',
-  fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer',
-})
-
-// ✅ NOUVO — Kalkilatris flotan globalize, disponib sou TOUT paj sistèm nan
-function CalculatorMenu({ isMobile }) {
+function CalculatorMenu() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
-  const [tab, setTab] = useState('pad') // 'pad' | 'history'
+  const [tab, setTab] = useState('pad')
   const [display, setDisplay] = useState('0')
   const [prevValue, setPrevValue] = useState(null)
   const [operator, setOperator] = useState(null)
   const [waiting, setWaiting] = useState(false)
-  const [history, setHistory] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('plusgroup-calc-history') || '[]') } catch { return [] }
-  })
-  const calcRef = useRef(null)
+  const [lastExpr, setLastExpr] = useState('')
+  const [hit, setHit] = useState(null)
+  const [history, setHistory] = useState(() => { try { return JSON.parse(ls.get('plusgroup-calc-history') || '[]') } catch { return [] } })
+  const ref = useRef(null)
+  const title = tr(t, 'calculator.title', 'Kalkilatris')
 
   useEffect(() => {
-    const onDoc = (e) => { if (calcRef.current && !calcRef.current.contains(e.target)) setOpen(false) }
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
   }, [])
 
-  const persistHistory = (next) => {
-    setHistory(next)
-    try { localStorage.setItem('plusgroup-calc-history', JSON.stringify(next.slice(0, 50))) } catch {}
-  }
+  const persist = (next) => { setHistory(next); ls.set('plusgroup-calc-history', JSON.stringify(next.slice(0, 50))) }
+  const calc = (a, b, op) => fix(op === '+' ? a + b : op === '-' ? a - b : op === '×' ? a * b : op === '÷' ? (b !== 0 ? a / b : 0) : b)
+  const liveExpr = operator && prevValue != null ? `${prevValue} ${operator} ${waiting ? '' : display}` : ''
 
-  const calc = (a, b, op) => {
-    switch (op) {
-      case '+': return a + b
-      case '-': return a - b
-      case '×': return a * b
-      case '÷': return b !== 0 ? a / b : 0
-      default:  return b
-    }
-  }
-
-  // ✅ NOUVO — ekspresyon konplè a, pou moun wè egzakteman sa l ap antre
-  // (egzanp: "6 × 9" pandan l ap tape, "6 × 9 = 54" apre li fin kalkile)
-  const [lastExpr, setLastExpr] = useState('')
-  const liveExpr = (operator && prevValue != null) ? `${prevValue} ${operator} ${display}` : ''
-
-  const handleBtn = (b) => {
+  const press = (b) => {
+    setHit(b); setTimeout(() => setHit(null), 120)
     if (b >= '0' && b <= '9') {
       if (waiting) { setDisplay(b); setWaiting(false); if (!operator) setLastExpr('') }
-      else setDisplay(display === '0' ? b : display + b)
+      else setDisplay(d => (d === '0' ? b : d.length >= 15 ? d : d + b))
       return
     }
-    if (b === '.') {
-      if (waiting) { setDisplay('0.'); setWaiting(false); return }
-      if (!display.includes('.')) setDisplay(display + '.')
-      return
-    }
+    if (b === '.') { if (waiting) { setDisplay('0.'); setWaiting(false); return } if (!display.includes('.')) setDisplay(display + '.'); return }
     if (b === 'C') { setDisplay('0'); setPrevValue(null); setOperator(null); setWaiting(false); setLastExpr(''); return }
-    if (b === '±') { setDisplay(String(parseFloat(display) * -1)); return }
-    if (b === '%') { setDisplay(String(parseFloat(display) / 100)); return }
+    if (b === '±') { setDisplay(String(fix(parseFloat(display) * -1))); return }
+    if (b === '%') { setDisplay(String(fix(parseFloat(display) / 100))); return }
     if (['+', '-', '×', '÷'].includes(b)) {
-      const inputValue = parseFloat(display)
-      if (prevValue == null) setPrevValue(inputValue)
-      else if (operator) {
-        const result = calc(prevValue, inputValue, operator)
-        setDisplay(String(result))
-        setPrevValue(result)
-      }
-      setWaiting(true)
-      setOperator(b)
-      return
+      const v = parseFloat(display)
+      if (prevValue == null) setPrevValue(v)
+      else if (operator && !waiting) { const r = calc(prevValue, v, operator); setDisplay(String(r)); setPrevValue(r) }
+      setWaiting(true); setOperator(b); return
     }
     if (b === '=') {
-      const inputValue = parseFloat(display)
+      const v = parseFloat(display)
       if (operator && prevValue != null) {
-        const result = calc(prevValue, inputValue, operator)
-        // ✅ Montre ekspresyon konplè a AK rezilta a apre "="
-        setLastExpr(`${prevValue} ${operator} ${inputValue} =`)
-        // ✅ NOUVO — anrejistre kalkil la nan istorik, ak dat
-        persistHistory([
-          { id: `${Date.now()}`, expr: `${prevValue} ${operator} ${inputValue}`, result, at: new Date().toISOString() },
-          ...history,
-        ])
-        setDisplay(String(result))
-        setPrevValue(null)
-        setOperator(null)
-        setWaiting(true)
+        const r = calc(prevValue, v, operator)
+        setLastExpr(`${prevValue} ${operator} ${v} =`)
+        persist([{ id: `${Date.now()}`, expr: `${prevValue} ${operator} ${v}`, result: r, at: new Date().toISOString() }, ...history])
+        setDisplay(String(r)); setPrevValue(null); setOperator(null); setWaiting(true)
       }
     }
   }
+  const back = () => { if (!waiting) setDisplay(d => (d.length > 1 ? d.slice(0, -1) : '0')) }
 
-  const clearHistory = () => persistHistory([])
+  // ✅ Klavye òdinatè a
+  useEffect(() => {
+    if (!open) return
+    const h = (e) => {
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable || e.ctrlKey || e.metaKey) return
+      const map = { '*': '×', x: '×', '/': '÷', '+': '+', '-': '-', Enter: '=', '=': '=', ',': '.', '.': '.', '%': '%', c: 'C', C: 'C', Delete: 'C' }
+      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); press(e.key) }
+      else if (map[e.key]) { e.preventDefault(); press(map[e.key]) }
+      else if (e.key === 'Backspace') { e.preventDefault(); back() }
+      else if (e.key === 'Escape') setOpen(false)
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  })
 
-  // ✅ NOUVO — Efase dènye chif la sèlman (pa tout ekran an tankou C)
-  const handleBackspace = () => {
-    if (waiting) return
-    setDisplay(d => (d.length > 1 ? d.slice(0, -1) : '0'))
-  }
-
-  const fmtDate = (iso) => {
-    const d = new Date(iso)
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) + ' · ' +
-      d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  }
-
+  const fmtDate = (iso) => new Date(iso).toLocaleString('fr-HT', { timeZone: TZ, day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
   const BTNS = ['C', '±', '%', '÷', '7', '8', '9', '×', '4', '5', '6', '-', '1', '2', '3', '+', '0', '.', '=']
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }} ref={calcRef}>
-      <button onClick={() => setOpen(o => !o)} title={t('calculator.title')} style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
-        borderRadius: 10, border: `1px solid ${open ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`,
-        background: open ? 'rgba(245,104,12,0.08)' : 'transparent',
-        color: open ? C.gold : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 700,
-      }}>
-        <Calculator size={15}/>
-        <span>{t('calculator.title')}</span>
+    <div style={{ position: 'relative', flexShrink: 0 }} ref={ref}>
+      <button className={`lay-hb ${open ? 'on' : ''}`} onClick={() => setOpen(o => !o)} title={title} aria-label={title}>
+        <Calculator size={16}/><span className="t">{title}</span>
       </button>
-
       {open && (
-        <div style={isMobile ? {
-          // ✅ KORIJE — sou mobil, panèl la te ankre a dwat bouton an, e li te
-          // depase bò goch ekran an nèt lè bouton an te tou pre bò goch la.
-          // Kounye a li fiks e santre sou ekran an, kèlkeswa kote bouton an ye.
-          position: 'fixed', top: 96, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 1000, width: 'min(280px, 92vw)',
-          background: '#1a1f35', borderRadius: 16,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
-          border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
-        } : {
-          position: 'absolute', top: 'calc(100% + 8px)', right: 0, zIndex: 100, width: 270,
-          background: '#1a1f35', borderRadius: 16,
-          boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
-          border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <button onClick={() => setTab('pad')} style={{
-              flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
-              background: tab === 'pad' ? 'rgba(245,104,12,0.12)' : 'transparent',
-              color: tab === 'pad' ? C.gold : 'rgba(255,255,255,0.5)',
-              fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
-            }}>{t('calculator.title').toUpperCase()}</button>
-            <button onClick={() => setTab('history')} style={{
-              flex: 1, padding: '10px 0', border: 'none', cursor: 'pointer',
-              background: tab === 'history' ? 'rgba(245,104,12,0.12)' : 'transparent',
-              color: tab === 'history' ? C.gold : 'rgba(255,255,255,0.5)',
-              fontSize: 11, fontWeight: 800, letterSpacing: '0.05em',
-            }}>{t('calculator.history').toUpperCase()}</button>
-            <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', padding: '0 10px' }}>
-              <X size={14}/>
-            </button>
+        <div className="lay-calc" role="dialog" aria-label={title}>
+          <div className="tabs">
+            <button className={tab === 'pad' ? 'on' : ''} onClick={() => setTab('pad')}>{title.toUpperCase()}</button>
+            <button className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>{tr(t, 'calculator.history', 'Istorik').toUpperCase()}{history.length ? ` · ${history.length}` : ''}</button>
+            <button className="x" onClick={() => setOpen(false)} aria-label="Fèmen"><X size={14}/></button>
           </div>
-
           {tab === 'pad' ? (
             <>
-              <div style={{ padding: '14px 14px 0', textAlign: 'right', fontSize: 12, color: 'rgba(255,255,255,0.45)', fontFamily: 'IBM Plex Mono,monospace', minHeight: 16, wordBreak: 'break-all' }}>
-                {liveExpr || lastExpr || ' '}
+              <div className="ex">{liveExpr || lastExpr || ' '}</div>
+              <div className="disp">
+                <button onClick={back} title="Efase dènye chif" aria-label="Efase"><Delete size={16}/></button>
+                <b>{display}</b>
               </div>
-              <div style={{ padding: '4px 14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                <button onClick={handleBackspace} title="Efase dènye chif" style={{
-                  background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: 8,
-                  padding: 7, cursor: 'pointer', color: '#fff', display: 'flex', flexShrink: 0,
-                }}>
-                  <Delete size={16}/>
-                </button>
-                <div style={{ flex: 1, textAlign: 'right', fontSize: 26, fontFamily: 'IBM Plex Mono,monospace', color: '#fff', fontWeight: 700, wordBreak: 'break-all' }}>
-                  {display}
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'rgba(255,255,255,0.05)' }}>
+              <div className="pad">
                 {BTNS.map((b, i) => (
-                  <button key={i} onClick={() => handleBtn(b)} style={{
-                    padding: '14px 0', border: 'none', cursor: 'pointer',
-                    background: ['÷', '×', '-', '+', '='].includes(b) ? C.gold : ['C', '±', '%'].includes(b) ? 'rgba(255,255,255,0.08)' : '#232841',
-                    color: '#fff', fontSize: 16, fontWeight: 700,
-                    gridColumn: b === '0' ? 'span 2' : 'span 1',
-                  }}>{b}</button>
+                  <button key={i} onClick={() => press(b)} className={`${['÷', '×', '-', '+', '='].includes(b) ? 'op' : ['C', '±', '%'].includes(b) ? 'fn' : ''} ${b === '0' ? 'z' : ''} ${hit === b ? 'hit' : ''}`}>{b}</button>
                 ))}
               </div>
+              <div className="kb">Klavye a mache: chif, + − * /, Enter, Backspace, C</div>
             </>
           ) : (
-            <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            <div className="hist">
               {!history.length ? (
-                <p style={{ padding: '24px 14px', textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                  {t('calculator.noHistory')}
-                </p>
+                <p style={{ padding: '24px 14px', textAlign: 'center', color: 'rgba(255,255,255,.4)', fontSize: 12, margin: 0 }}>{tr(t, 'calculator.noHistory', 'Pa gen kalkil ankò')}</p>
               ) : (
                 <>
                   {history.map(h => (
-                    <div key={h.id} style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontFamily: 'monospace' }}>{h.expr} =</span>
-                        <span style={{ fontSize: 15, color: '#fff', fontWeight: 700, fontFamily: 'IBM Plex Mono,monospace' }}>{h.result}</span>
+                    <div key={h.id} className="h" title="Itilize rezilta sa a" onClick={() => { setDisplay(String(h.result)); setPrevValue(null); setOperator(null); setWaiting(true); setLastExpr(`${h.expr} =`); setTab('pad') }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,.45)', fontFamily: 'monospace' }}>{h.expr} =</span>
+                        <span style={{ fontSize: 15, color: '#fff', fontWeight: 700, fontFamily: 'monospace' }}>{h.result}</span>
                       </div>
-                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 2 }}>{fmtDate(h.at)}</div>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,.3)', marginTop: 2 }}>{fmtDate(h.at)}</div>
                     </div>
                   ))}
-                  <button onClick={clearHistory} style={{
-                    width: '100%', padding: '10px 0', border: 'none', cursor: 'pointer',
-                    background: 'rgba(239,68,68,0.1)', color: '#f87171', fontSize: 12, fontWeight: 700,
-                  }}>
-                    {t('calculator.clearHistory')}
+                  <button onClick={() => persist([])} style={{ width: '100%', padding: '11px 0', border: 'none', cursor: 'pointer', background: 'rgba(239,68,68,.1)', color: '#f87171', fontSize: 12, fontWeight: 800 }}>
+                    {tr(t, 'calculator.clearHistory', 'Efase istorik la')}
                   </button>
                 </>
               )}
@@ -395,178 +192,149 @@ function CalculatorMenu({ isMobile }) {
   )
 }
 
-// ✅ NOUVO — Swipe pou refrechi (pull-to-refresh), mache sou APK AK web.
-// Detekte yon swipe soti anlè ekran an desann, lè kontni a deja tou anlè.
-function PullToRefresh({ children }) {
-  const [pullY, setPullY]           = useState(0)
-  const [refreshing, setRefreshing] = useState(false)
-  const startY   = useRef(0)
+// ════════════════════════════════════════════════════════════
+// Zòn defilman + « rale pou rafrechi » (rafrechi sèlman done yo)
+// ════════════════════════════════════════════════════════════
+function ScrollArea({ children, pathname }) {
+  const qc = useQueryClient()
+  const ref = useRef(null)
+  const startY = useRef(0)
   const dragging = useRef(false)
-  const scrollRef = useRef(null)
-
+  const pullRef = useRef(0)
+  const [pullY, setPullY] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const [showTop, setShowTop] = useState(false)
   const THRESHOLD = 70
 
-  const handleTouchStart = (e) => {
-    if (refreshing) return
-    if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
-      startY.current = e.touches[0].clientY
-      dragging.current = true
-    }
-  }
+  // ✅ Chak nouvo paj kòmanse anlè
+  useEffect(() => { ref.current?.scrollTo({ top: 0 }) }, [pathname])
 
-  const handleTouchMove = (e) => {
+  const onScroll = () => setShowTop((ref.current?.scrollTop || 0) > 700)
+  const setPull = (v) => { pullRef.current = v; setPullY(v) }
+
+  const onStart = (e) => {
+    if (refreshing || (ref.current?.scrollTop || 0) > 0) return
+    startY.current = e.touches[0].clientY
+    dragging.current = true
+  }
+  const onMove = (e) => {
     if (!dragging.current || refreshing) return
-    const delta = e.touches[0].clientY - startY.current
-    if (delta > 0) {
-      setPullY(Math.min(delta * 0.5, 110))
-    } else {
-      dragging.current = false
-      setPullY(0)
-    }
+    const d = e.touches[0].clientY - startY.current
+    if (d > 0) setPull(Math.min(d * 0.5, 110))
+    else { dragging.current = false; setPull(0) }
   }
-
-  const handleTouchEnd = () => {
+  const onEnd = async () => {
     if (!dragging.current) return
     dragging.current = false
-    if (pullY >= THRESHOLD) {
-      setRefreshing(true)
-      setPullY(THRESHOLD)
-      // ✅ Refrechi app la nèt — garanti tout done ajou, tankou yon relanse
-      setTimeout(() => window.location.reload(), 300)
-    } else {
-      setPullY(0)
-    }
+    if (pullRef.current >= THRESHOLD) {
+      setRefreshing(true); setPull(56)
+      try {
+        // ✅ Rafrechi SÈLMAN rekèt ki aktif sou paj la (pa tout app la)
+        await Promise.all([qc.invalidateQueries({ refetchType: 'active' }), new Promise(r => setTimeout(r, 500))])
+        toast.success('Done yo rafrechi', { id: 'ptr', duration: 1200 })
+      } finally { setRefreshing(false); setPull(0) }
+    } else setPull(0)
   }
 
   return (
-    <div
-      ref={scrollRef}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', position: 'relative' }}
-    >
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: pullY, overflow: 'hidden', transition: dragging.current ? 'none' : 'height 0.25s ease',
-        color: '#f5680c', flexShrink: 0,
-      }}>
-        {pullY > 6 && (
-          refreshing
-            ? <div style={{ width: 22, height: 22, border: '3px solid rgba(245,104,12,0.2)', borderTopColor: '#f5680c', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }}/>
-            : <RefreshCw size={20} style={{ transform: `rotate(${pullY * 2.4}deg)`, transition: 'transform 0.1s' }}/>
-        )}
+    <div ref={ref} id="app-scroll" className="lay-scroll" onScroll={onScroll} onTouchStart={onStart} onTouchMove={onMove} onTouchEnd={onEnd}>
+      <div className="lay-ptr" style={{ height: pullY, transition: dragging.current ? 'none' : 'height .25s ease' }}>
+        {pullY > 6 && (refreshing ? <div className="sp"/> : <RefreshCw size={20} style={{ transform: `rotate(${pullY * 2.6}deg)`, opacity: Math.min(1, pullY / THRESHOLD) }}/>)}
       </div>
       {children}
+      {showTop && <button className="lay-top" onClick={() => ref.current?.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Remonte anlè"><ArrowUp size={18}/></button>}
     </div>
   )
 }
 
+// ════════════════════════════════════════════════════════════
 export default function AppLayout() {
   const { user, tenant, token, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
   const { t, i18n } = useTranslation()
-  const navigate  = useNavigate()
-  const location  = useLocation()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const path = location.pathname
 
-  const [open, setOpen]                 = useState(false)
-  const [showLang, setShowLang]         = useState(false)
+  const [open, setOpen] = useState(false)
+  const [col, setCol] = useState(() => ls.get(COL_KEY) === '1')
+  const [showLang, setShowLang] = useState(false)
   const [showBranches, setShowBranches] = useState(false)
-  const [branches, setBranches]         = useState([])
-  const [isDesktop, setIsDesktop]       = useState(() => window.innerWidth >= 1024)
+  const [branches, setBranches] = useState([])
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024)
+  const [find, setFind] = useState('')
+  const [online, setOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine !== false))
+  const [openGroups, setOpenGroups] = useState({})
+  const [prog, setProg] = useState(0)
 
-  const isMikwoActive = location.pathname.startsWith('/app/kane-epay') ||
-                        location.pathname.startsWith('/app/pre') ||
-                        location.pathname.startsWith('/app/mikwo-kredi-gid')
-  const [mikwoOpen, setMikwoOpen] = useState(isMikwoActive)
-
-  const langRef       = useRef(null)
-  const branchRef     = useRef(null)
+  const langRef = useRef(null)
+  const branchRef = useRef(null)
   const branchMenuRef = useRef(null)
-  const meCalled      = useRef(false)
+  const findRef = useRef(null)
+  const meCalled = useRef(false)
+  const touchX = useRef(null)
   const [branchMenuPos, setBranchMenuPos] = useState({ top: 70, left: 16 })
 
-  const { connected:btConnected, connecting:btConnecting, printing:btPrinting, connect:btConnect, disconnect:btDisconnect, deviceName } = usePrinterStore()
-  const onSunmi      = useMemo(() => isSunmi(), [])
+  const { connected: btConnected, connecting: btConnecting, printing: btPrinting, connect: btConnect, disconnect: btDisconnect, deviceName } = usePrinterStore()
+  const onSunmi = useMemo(() => { try { return isSunmi() } catch { return false } }, [])
   const hasBluetooth = useMemo(() => typeof navigator !== 'undefined' && !!navigator.bluetooth, [])
-  const currentLang  = useMemo(() => LANGS.find(l => l.code === i18n.language) || LANGS[0], [i18n.language])
-
-  const isAdmin = useMemo(() => user?.role === 'admin' || user?.isAdmin === true, [user?.role, user?.isAdmin])
-
-  const isEnterprise = useMemo(() => {
-    const planName = tenant?.plan?.name || ''
-    return ['antepriz','antrepriz','entreprise','enterprise'].includes(planName.toLowerCase().trim())
-  }, [tenant?.plan?.name])
-
+  const lang = (i18n.language || 'ht').substring(0, 2)
+  const currentLang = LANGS.find(l => l.code === lang) || LANGS[0]
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true
   const planName = tenant?.plan?.name || ''
+  const isEnterprise = ['antepriz', 'antrepriz', 'entreprise', 'enterprise'].includes(planName.toLowerCase().trim())
+  const currentBranchId = useMemo(() => ls.get('plusgroup-branch-id'), [])
+  const currentBranchName = useMemo(() => ls.get('plusgroup-branch-name'), [])
 
   const isPageAllowed = useCallback((pageKey) => {
     if (pageKey === null || pageKey === undefined) return true
     const ap = tenant?.allowedPages
-    if (!ap || typeof ap !== 'object') return true
-    if (ap[pageKey] === false) return false
-    return true
+    return !(ap && typeof ap === 'object' && ap[pageKey] === false)
   }, [tenant?.allowedPages])
 
-  const currentBranchId   = useMemo(() => localStorage.getItem('plusgroup-branch-id'),   [])  // eslint-disable-line
-  const currentBranchName = useMemo(() => localStorage.getItem('plusgroup-branch-name'), [])  // eslint-disable-line
-
+  // ── Efè sistèm (header API, /me, branch) ──
   useEffect(() => {
-    const branchId = localStorage.getItem('plusgroup-branch-id')
-    if (branchId) api.defaults.headers.common['X-Branch-Id'] = branchId
+    const id = ls.get('plusgroup-branch-id')
+    if (id) api.defaults.headers.common['X-Branch-Id'] = id
     else delete api.defaults.headers.common['X-Branch-Id']
   }, [])
-
-  useEffect(() => {
-    if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug
-  }, [tenant?.slug])
-
+  useEffect(() => { if (tenant?.slug) api.defaults.headers.common['X-Tenant-Slug'] = tenant.slug }, [tenant?.slug])
   useEffect(() => {
     if (!token || meCalled.current) return
     meCalled.current = true
-    authAPI.me()
-      .then(res => {
-        if (res.data?.tenant?.slug) {
-          api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
-          useAuthStore.getState().refreshTenant(res.data.tenant)
-        }
-      })
-      .catch(err => {
-        if (err.response?.status === 401) { logout(); navigate('/login', { replace:true }) }
-      })
-  }, [token])  // eslint-disable-line
-
+    authAPI.me().then(res => {
+      if (res.data?.tenant?.slug) {
+        api.defaults.headers.common['X-Tenant-Slug'] = res.data.tenant.slug
+        useAuthStore.getState().refreshTenant?.(res.data.tenant)
+      }
+    }).catch(err => { if (err.response?.status === 401) { logout(); navigate('/login', { replace: true }) } })
+  }, [token]) // eslint-disable-line
   useEffect(() => {
     if (!isAdmin || !token) return
     branchAPI.getAll().then(r => setBranches(r.data?.branches || [])).catch(() => {})
   }, [isAdmin, token])
 
+  // ── Pozisyon meni branch ──
   const updateBranchMenuPos = useCallback(() => {
     if (!branchRef.current) return
     const rect = branchRef.current.getBoundingClientRect()
-    const menuWidth = 240
     let left = rect.left
-    if (left + menuWidth > window.innerWidth - 16) left = window.innerWidth - menuWidth - 16
+    if (left + 240 > window.innerWidth - 16) left = window.innerWidth - 256
     if (left < 16) left = 16
     setBranchMenuPos({ top: rect.bottom + 8, left })
   }, [])
-
   useEffect(() => {
     if (!showBranches) return
     updateBranchMenuPos()
     window.addEventListener('resize', updateBranchMenuPos)
     window.addEventListener('scroll', updateBranchMenuPos, true)
-    return () => {
-      window.removeEventListener('resize', updateBranchMenuPos)
-      window.removeEventListener('scroll', updateBranchMenuPos, true)
-    }
+    return () => { window.removeEventListener('resize', updateBranchMenuPos); window.removeEventListener('scroll', updateBranchMenuPos, true) }
   }, [showBranches, updateBranchMenuPos])
 
   useEffect(() => {
     const onDoc = (e) => {
-      if (branchRef.current && !branchRef.current.contains(e.target) &&
-          branchMenuRef.current && !branchMenuRef.current.contains(e.target)) setShowBranches(false)
-      if (langRef.current   && !langRef.current.contains(e.target))   setShowLang(false)
+      if (branchRef.current && !branchRef.current.contains(e.target) && branchMenuRef.current && !branchMenuRef.current.contains(e.target)) setShowBranches(false)
+      if (langRef.current && !langRef.current.contains(e.target)) setShowLang(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -574,8 +342,9 @@ export default function AppLayout() {
 
   useEffect(() => {
     const onResize = () => setIsDesktop(window.innerWidth >= 1024)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const on = () => setOnline(true), off = () => setOnline(false)
+    window.addEventListener('resize', onResize); window.addEventListener('online', on); window.addEventListener('offline', off)
+    return () => { window.removeEventListener('resize', onResize); window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
   useEffect(() => {
@@ -583,529 +352,333 @@ export default function AppLayout() {
     return () => { document.body.style.overflow = '' }
   }, [open, isDesktop])
 
-  useEffect(() => { if (isMikwoActive) setMikwoOpen(true) }, [isMikwoActive])
-  useEffect(() => { if (!isDesktop) setOpen(false) }, [location.pathname, isDesktop])
+  // Chanjman paj: fèmen meni mobil, ba pwogresyon
+  useEffect(() => { if (!isDesktop) setOpen(false); setProg(p => p + 1); setShowLang(false) }, [path]) // eslint-disable-line
+  useEffect(() => { ls.set(COL_KEY, col ? '1' : '0') }, [col])
+
+  // Escape fèmen meni an · Ctrl+K louvri rechèch meni an
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === 'Escape') { setOpen(false); setShowLang(false); setShowBranches(false) }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (isDesktop) setCol(false); else setOpen(true)
+        setTimeout(() => findRef.current?.focus(), 80)
+      }
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [isDesktop])
 
   const handleLogout = useCallback(() => {
-    localStorage.removeItem('plusgroup-branch-id')
-    localStorage.removeItem('plusgroup-branch-name')
+    ls.del('plusgroup-branch-id'); ls.del('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
-    logout(); toast.success(t('header.loggedOutSuccess')); navigate('/login')
-  }, [logout, navigate])
+    logout(); toast.success(tr(t, 'header.loggedOutSuccess', 'Ou dekonekte')); navigate('/login')
+  }, [logout, navigate, t])
 
-  const changeLanguage = useCallback((code) => {
-    i18n.changeLanguage(code); localStorage.setItem('plusgroup-lang', code); setShowLang(false)
-  }, [i18n])
+  const changeLanguage = useCallback((code) => { i18n.changeLanguage(code); ls.set('plusgroup-lang', code); setShowLang(false) }, [i18n])
 
   const handleSwitchBranch = useCallback((branch) => {
     if (!branch.isActive) { toast.error('Branch sa a bloke.'); return }
     if (branch.id === currentBranchId) { setShowBranches(false); return }
-    localStorage.setItem('plusgroup-branch-id', branch.id)
-    localStorage.setItem('plusgroup-branch-name', branch.name)
+    ls.set('plusgroup-branch-id', branch.id); ls.set('plusgroup-branch-name', branch.name)
     api.defaults.headers.common['X-Branch-Id'] = branch.id
     setShowBranches(false); toast.success(`Branch: ${branch.name}`)
     window.location.href = '/app/dashboard'
   }, [currentBranchId])
 
   const handleClearBranch = useCallback(() => {
-    localStorage.removeItem('plusgroup-branch-id'); localStorage.removeItem('plusgroup-branch-name')
+    ls.del('plusgroup-branch-id'); ls.del('plusgroup-branch-name')
     delete api.defaults.headers.common['X-Branch-Id']
     setShowBranches(false); toast.success('Wè tout branch yo')
     window.location.href = '/app/dashboard'
   }, [])
 
   const rateItems = useMemo(() => {
-    const exchangeRates     = safeJson(tenant?.exchangeRates, {})
-    const visibleCurrencies = safeJson(tenant?.visibleCurrencies, ['USD'])
-    return visibleCurrencies.map(cur => {
-      const rate = Number(exchangeRates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
-      if (!rate) return null
-      return { cur, rate }
+    const rates = safeJson(tenant?.exchangeRates, {})
+    const vis = safeJson(tenant?.visibleCurrencies, ['USD'])
+    return (Array.isArray(vis) ? vis : []).map(cur => {
+      const rate = Number(rates[cur] || (cur === 'USD' ? tenant?.exchangeRate : 0) || 0)
+      return rate ? { cur, rate } : null
     }).filter(Boolean)
   }, [tenant?.exchangeRates, tenant?.visibleCurrencies, tenant?.exchangeRate])
 
   const tenantLogoUrl = useMemo(() => logoSrc(tenant?.logoUrl), [tenant?.logoUrl])
 
+  // ── Estrikti meni an (done) ──
+  const L = (k, fb) => tr(t, k, fb)
+  const SECTIONS = useMemo(() => [
+    { key: 'main', title: L('nav.mainMenu', 'Meni prensipal'), color: COLORS.acc, items: [
+      { to: '/app/dashboard', icon: LayoutDashboard, label: L('nav.dashboard', 'Tablo bò'), pageKey: 'dashboard' },
+      { to: '/app/products', icon: Package, label: L('nav.products', 'Pwodui'), pageKey: 'products' },
+      { to: '/app/clients', icon: Users, label: L('nav.clients', 'Kliyan'), pageKey: 'clients' },
+      { to: '/app/quotes', icon: FileText, label: L('nav.quotes', 'Devi'), pageKey: 'quotes' },
+      { to: '/app/direct-quotes', icon: FilePlus2, label: L('nav.directQuotes', 'Devi Dirèk'), pageKey: 'direct-quotes' },
+      { to: '/app/invoices', icon: Receipt, label: L('nav.invoices', 'Fakti'), pageKey: 'invoices' },
+      { to: '/app/stock', icon: Warehouse, label: L('nav.stock', 'Estòk'), pageKey: 'stock' },
+      { to: '/app/reports', icon: TrendingUp, label: L('nav.reports', 'Rapò'), pageKey: 'reports' },
+      { to: '/app/kes-sesyon', icon: Wallet, label: L('nav.kesSesyon', 'Sesyon Kès'), pageKey: 'kes-sesyon' },
+      { to: '/app/estok-kontwol', icon: ClipboardCheck, label: L('nav.estokKontwol', 'Kontwòl Estòk'), pageKey: 'estok-kontwol' },
+      { to: '/app/branches', icon: GitBranch, label: L('nav.branches', 'Branch'), pageKey: 'branches', adminOnly: true, color: COLORS.ent },
+    ] },
+    { key: 'ent', title: '✦ Antrepriz', color: COLORS.ent, items: [
+      { to: '/app/kane', icon: CreditCard, label: 'Ti Kanè Kès', pageKey: 'kane' },
+      { group: 'mikwo', icon: Wallet, label: 'Mikwo Kredi', show: isPageAllowed('kane-epay') || isPageAllowed('pre'), match: ['/app/kane-epay', '/app/pre', '/app/mikwo-kredi-gid', '/app/mikwo-profit'], children: [
+        { to: '/app/kane-epay', icon: Wallet, label: 'Kanè Epay', pageKey: 'kane-epay', end: true },
+        { to: '/app/pre', icon: DollarSign, label: 'Prè', pageKey: 'pre', end: true },
+        { to: '/app/pre/cash-flow', icon: RefreshCw, label: 'Rapò Antre/Soti', pageKey: 'pre', end: true },
+        { to: '/app/mikwo-kredi-gid', icon: BookOpen, label: 'Gid', pageKey: null, end: true, color: '#3B82F6' },
+        { to: '/app/mikwo-profit', icon: BarChart2, label: 'Pwofi/Pèt', pageKey: null, end: true },
+      ] },
+      { to: '/app/sabotay', icon: Smartphone, label: 'Sabotay', pageKey: 'sabotay' },
+      { to: '/app/mobilpay', icon: Phone, label: 'MonCash / NatCash', pageKey: 'mobilpay' },
+    ] },
+    { key: 'hotel', title: '🏨 Hotel', color: COLORS.hotel, pageKey: 'hotel', items: [
+      { to: '/app/hotel', icon: Hotel, label: 'Dashboard Hotel', end: true },
+      { to: '/app/hotel/reservations', icon: CalendarDays, label: 'Rezèvasyon' },
+      { to: '/app/hotel/room-types', icon: Tag, label: 'Tip Chanm' },
+    ] },
+    { key: 'resto', title: `🍽️ ${L('nav.restaurant', 'Restoran')}`, color: COLORS.resto, pageKey: 'restaurant', items: [
+      { to: '/app/restaurant/tables', icon: Users, label: L('nav.restaurantTables', 'Tab & Kòmand'), end: true },
+      { to: '/app/restaurant/menu', icon: UtensilsCrossed, label: L('nav.restaurant', 'Meni Restoran'), end: true },
+    ] },
+    { key: 'gym', title: `💪 ${L('gym.title', 'Jim')}`, color: COLORS.gym, pageKey: 'gym', items: [
+      { to: '/app/gym', icon: LayoutDashboard, label: L('gym.nav.dashboard', 'Tablo Jim'), end: true },
+      { to: '/app/gym/members', icon: Users, label: L('gym.nav.members', 'Manm') },
+      { to: '/app/gym/classes', icon: BookOpen, label: L('gym.nav.classes', 'Kou') },
+      { to: '/app/gym/plans', icon: CreditCard, label: L('gym.nav.plans', 'Plan') },
+      { to: '/app/gym/daily-payment', icon: Banknote, label: L('gym.nav.dailyPayment', 'Peman jounen') },
+    ] },
+    { key: 'dry', title: '👔 Prese', color: COLORS.dry, pageKey: 'dry', items: [
+      { to: '/app/dry', icon: Scissors, label: 'Jestyon Prese' },
+    ] },
+    { key: 'rh', title: '💼 RH & Finans', color: COLORS.rh, items: [
+      { to: '/app/employees', icon: UserCog, label: 'Anplwaye', pageKey: 'employees' },
+      { to: '/app/expenses', icon: TrendingDown, label: 'Depans', pageKey: 'expenses', color: '#EF4444' },
+      { to: '/app/founise', icon: Truck, label: 'Founisè', pageKey: 'founise', color: '#FF6B00' },
+    ] },
+  ], [t, isPageAllowed]) // eslint-disable-line
+
+  const q = find.trim().toLowerCase()
+  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const visibleSections = useMemo(() => SECTIONS
+    .filter(s => isPageAllowed(s.pageKey))
+    .map(s => ({
+      ...s,
+      items: s.items.map(it => {
+        if (it.group) {
+          if (!it.show) return null
+          const kids = it.children.filter(c => isPageAllowed(c.pageKey) && (!q || norm(c.label).includes(norm(q)) || norm(it.label).includes(norm(q))))
+          return kids.length ? { ...it, children: kids } : null
+        }
+        if (!isPageAllowed(it.pageKey) || (it.adminOnly && !isAdmin)) return null
+        if (q && !norm(it.label).includes(norm(q))) return null
+        return it
+      }).filter(Boolean),
+    }))
+    .filter(s => s.items.length), [SECTIONS, isPageAllowed, isAdmin, q])
+
+  const firstMatch = useMemo(() => {
+    for (const s of visibleSections) for (const it of s.items) { if (it.to) return it.to; if (it.children?.[0]) return it.children[0].to }
+    return null
+  }, [visibleSections])
+
+  let delay = 0
+  const renderItem = (it, color) => {
+    const c = it.color || color
+    const d = Math.min(delay++, 25) * 18
+    if (it.group) {
+      const active = it.match.some(m => path.startsWith(m))
+      const opened = q ? true : (openGroups[it.group] ?? active)
+      return (
+        <div key={it.group}>
+          <button type="button" className={`lay-it ${active ? 'on' : ''}`} style={{ '--c': c, animationDelay: `${d}ms` }} data-tip={it.label} title={col && isDesktop ? it.label : undefined}
+            onClick={() => { if (col && isDesktop) { setCol(false); setOpenGroups(g => ({ ...g, [it.group]: true })) } else setOpenGroups(g => ({ ...g, [it.group]: !opened })) }}>
+            <it.icon size={16}/><span className="l">{it.label}</span><ChevronDown size={14} className={`chev ${opened ? 'op' : ''}`}/>
+          </button>
+          {opened && (
+            <div className="lay-sub" style={{ '--c': c }}>
+              {it.children.map(ch => renderItem(ch, c))}
+            </div>
+          )}
+        </div>
+      )
+    }
+    return (
+      <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': c, animationDelay: `${d}ms` }} data-tip={it.label} title={col && isDesktop ? it.label : undefined}
+        onClick={() => setFind('')}>
+        {({ isActive }) => (<><it.icon size={16}/><span className="l">{it.label}</span>{isActive && <span className="dot"/>}</>)}
+      </NavLink>
+    )
+  }
+
   if (loading) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:C.sidebarTop }}>
-      <div style={{ width:36, height:36, border:`3px solid ${C.goldDim}`, borderTop:`3px solid ${C.gold}`, borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0f1117' }}>
+      <div style={{ width: 38, height: 38, border: '3px solid rgba(245,104,12,.15)', borderTopColor: '#f5680c', borderRadius: '50%', animation: 'lay-spin .8s linear infinite' }}/>
+      <style>{'@keyframes lay-spin { to { transform: rotate(360deg) } }'}</style>
     </div>
   )
 
-  const sidebarStyle = {
-    position:      isDesktop ? 'relative' : 'fixed',
-    inset:         isDesktop ? 'auto' : '0 auto 0 0',
-    zIndex:        40,
-    width:         isDesktop ? 248 : 'min(248px, 85vw)',
-    // ✅ KORIJE — 100vh pa konte ba adrès Chrome mobil la, sa te fè bouton
-    // "Dekonekte" a rete kache anba ekran an san posiblite defile jwenn li.
-    // 100dvh ajiste otomatikman selon wotè REYÈL vizib navigatè a.
-    height:        isDesktop ? '100vh' : '100dvh',
-    minHeight:     isDesktop ? '100vh' : undefined,
-    // ✅ KORIJE — aside PA dwe defile pou kont pa li ankò. Anvan, li te gen
-    // overflowY:auto ki te "vòlè" defilman an nan men <nav> (paske aside a
-    // te vin conteneur ki defile a olye nav), e defilman aside a te kache
-    // (aside::-webkit-scrollbar display:none), kidonk kontni te disparèt
-    // san okenn bare vizib. Kounye a aside rete FIKS, e SÈLMAN <nav>
-    // anndan l defile — se la bare vizib la parèt kounye a.
-    overflowY:     'hidden',
-    background:    `linear-gradient(170deg,${C.sidebarTop} 0%,${C.sidebarBg} 50%,#1a1f35 100%)`,
-    display:       'flex',
-    flexDirection: 'column',
-    transform:     isDesktop ? 'none' : (open ? 'translateX(0)' : 'translateX(-100%)'),
-    transition:    'transform 0.25s ease',
-    boxShadow:     '4px 0 24px rgba(0,0,0,0.4)',
-    borderRight:   `1px solid ${C.border}`,
-    flexShrink:    0,
-  }
-
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#F5F0E8', fontFamily:'DM Sans, sans-serif' }}>
+    <div className={`lay ${col && isDesktop ? 'col' : ''} ${open ? 'open' : ''}`}>
+      {open && !isDesktop && <div className="lay-overlay" onClick={() => setOpen(false)}/>}
 
-      {open && !isDesktop && (
-        <div onClick={() => setOpen(false)} style={{ position:'fixed', inset:0, zIndex:35, background:'rgba(0,0,0,0.7)' }}/>
-      )}
+      {/* ════════════ SIDEBAR ════════════ */}
+      <aside className="lay-side"
+        onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+        onTouchEnd={e => { if (touchX.current != null && e.changedTouches[0].clientX - touchX.current < -60) setOpen(false); touchX.current = null }}>
+        <div className="bar"/>
 
-      <aside style={sidebarStyle}>
-        <div style={{ height:3, flexShrink:0, background:`linear-gradient(90deg,#b34200 0%,${C.gold} 35%,${C.goldLt} 50%,${C.gold} 65%,#b34200 100%)` }}/>
-
-        {!isDesktop && (
-          <button onClick={() => setOpen(false)} style={{ position:'absolute', top:12, right:12, zIndex:50, background:'rgba(255,255,255,0.07)', border:`1px solid ${C.border}`, borderRadius:8, padding:6, cursor:'pointer', color:C.muted, display:'flex' }}>
-            <X size={16}/>
-          </button>
-        )}
-
-        {/* LOGO */}
-        <div style={{ padding:'18px 16px 14px', borderBottom:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-            {tenantLogoUrl
-              ? <img src={tenantLogoUrl} alt="logo" style={{ width:44, height:44, borderRadius:12, objectFit:'contain', background:'rgba(255,255,255,0.06)', padding:4, flexShrink:0, boxShadow:`0 0 0 2px ${C.goldBorder}` }}/>
-              : <div style={{ width:44, height:44, borderRadius:12, flexShrink:0, background:`linear-gradient(135deg,${C.gold},${C.goldLt})`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:20, fontWeight:900, color:'#fff' }}>
-                  {tenant?.name?.charAt(0)?.toUpperCase() || 'P'}
-                </div>
-            }
-            <div style={{ minWidth:0, flex:1 }}>
-              <p style={{ color:C.white, fontWeight:800, fontSize:13, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                {tenant?.name || 'PLUS GROUP'}
-              </p>
-              {currentBranchName
-                ? <p style={{ color:C.green, fontSize:10, fontWeight:700, letterSpacing:'0.07em', margin:'3px 0 0', textTransform:'uppercase' }}>📍 {currentBranchName}</p>
-                : <p style={{ color:C.gold, fontSize:10, fontWeight:700, letterSpacing:'0.09em', margin:'3px 0 0', textTransform:'uppercase' }}>Innov@tion &amp; Tech</p>
-              }
+        <div className="lay-brand">
+          <div className="r">
+            <div className="lay-logo" title={tenant?.name || 'PLUS GROUP'}>
+              {tenantLogoUrl ? <img src={tenantLogoUrl} alt="logo" onError={e => { e.currentTarget.style.display = 'none' }}/> : (tenant?.name?.charAt(0)?.toUpperCase() || 'P')}
             </div>
-
+            <div className="nm">
+              <b>{tenant?.name || 'PLUS GROUP'}</b>
+              {currentBranchName ? <small className="br">📍 {currentBranchName}</small> : <small>Innov@tion &amp; Tech</small>}
+            </div>
             {isAdmin && branches.length > 0 && (
-              <div ref={branchRef} style={{ position:'relative', flexShrink:0 }}>
-                <button onClick={() => setShowBranches(!showBranches)} title="Chanje branch"
-                  style={{ background: showBranches ? `rgba(245,104,12,0.18)` : currentBranchId ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.06)', border:`1px solid ${showBranches ? C.goldBorder : currentBranchId ? 'rgba(34,197,94,0.25)' : C.border}`, borderRadius:8, padding:'5px 7px', cursor:'pointer', display:'flex', alignItems:'center', gap:3 }}>
-                  <GitBranch size={12} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted }}/>
-                  <ChevronDown size={11} style={{ color: showBranches ? C.gold : currentBranchId ? C.green : C.muted, transform: showBranches ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+              <div ref={branchRef} style={{ position: 'relative', flexShrink: 0 }}>
+                <button className={`lay-ib ${showBranches ? 'on' : currentBranchId ? 'grn' : ''}`} onClick={() => setShowBranches(s => !s)} title="Chanje branch" aria-label="Chanje branch">
+                  <GitBranch size={13}/>
                 </button>
-
                 {showBranches && createPortal(
-                  <div ref={branchMenuRef} style={{ position:'fixed', top:branchMenuPos.top, left:branchMenuPos.left, minWidth:220, maxWidth:'calc(100vw - 32px)', zIndex:9999, background:'#0f1117', border:`1px solid rgba(245,104,12,0.22)`, borderRadius:14, boxShadow:'0 16px 48px rgba(0,0,0,0.65)', overflow:'hidden' }}>
-                    <div style={{ padding:'10px 14px 8px', borderBottom:`1px solid rgba(245,104,12,0.10)`, display:'flex', alignItems:'center', gap:6 }}>
-                      <GitBranch size={12} style={{ color:C.gold }}/>
-                      <span style={{ color:C.gold, fontSize:11, fontWeight:700, letterSpacing:'0.08em', textTransform:'uppercase' }}>Chanje Branch</span>
+                  <div ref={branchMenuRef} style={{ position: 'fixed', top: branchMenuPos.top, left: branchMenuPos.left, minWidth: 230, maxWidth: 'calc(100vw - 32px)', zIndex: 9999, background: '#0f1117', border: '1px solid rgba(245,104,12,.22)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,.65)', overflow: 'hidden', fontFamily: 'Manrope, sans-serif', animation: 'lay-pop .18s both' }}>
+                    <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(245,104,12,.1)', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                      <GitBranch size={12}/> Chanje branch
                     </div>
-                    <button onClick={handleClearBranch} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor:'pointer', background: !currentBranchId ? `rgba(245,104,12,0.10)` : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
-                      <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background:C.gold }}/>
-                      <div style={{ flex:1, textAlign:'left' }}>
-                        <div style={{ color:'#fff', fontWeight: !currentBranchId ? 700 : 500, fontSize:13 }}>Tout branch yo</div>
-                        <div style={{ color:'#475569', fontSize:10 }}>Wè done global</div>
-                      </div>
-                      {!currentBranchId && <span style={{ fontSize:10, color:C.gold, fontWeight:700, flexShrink:0 }}>✓</span>}
+                    <button onClick={handleClearBranch} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(245,104,12,.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5680c' }}/>
+                      <span style={{ flex: 1, textAlign: 'left' }}><b style={{ display: 'block', color: '#fff', fontSize: 13 }}>Tout branch yo</b><small style={{ color: '#64748b', fontSize: 10 }}>Wè done global</small></span>
+                      {!currentBranchId && <span style={{ color: '#f5680c', fontSize: 11, fontWeight: 800 }}>✓</span>}
                     </button>
-                    {branches.map(branch => {
-                      const isCurrent = branch.id === currentBranchId
+                    {branches.map(b => {
+                      const cur = b.id === currentBranchId
                       return (
-                        <button key={branch.id} onClick={() => handleSwitchBranch(branch)} disabled={!branch.isActive}
-                          style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 14px', border:'none', cursor: branch.isActive ? 'pointer' : 'not-allowed', background: isCurrent ? 'rgba(34,197,94,0.10)' : 'transparent', borderBottom:`1px solid rgba(255,255,255,0.04)` }}>
-                          <div style={{ width:8, height:8, borderRadius:'50%', flexShrink:0, background: branch.isActive ? C.green : C.red }}/>
-                          <div style={{ flex:1, textAlign:'left', minWidth:0 }}>
-                            <div style={{ color: branch.isActive ? '#fff' : '#475569', fontWeight: isCurrent ? 700 : 500, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{branch.name}</div>
-                            <div style={{ color:'#475569', fontSize:10 }}>{branch.isActive ? 'Aktif' : 'Bloke'}</div>
-                          </div>
-                          {isCurrent ? <span style={{ fontSize:10, color:C.green, fontWeight:700, flexShrink:0 }}>✓</span>
-                            : !branch.isActive ? <Lock size={10} style={{ color:'#475569', flexShrink:0 }}/>
-                            : <ChevronRight size={12} style={{ color:'#475569', flexShrink:0 }}/>}
+                        <button key={b.id} onClick={() => handleSwitchBranch(b)} disabled={!b.isActive} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: b.isActive ? 'pointer' : 'not-allowed', background: cur ? 'rgba(34,197,94,.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.isActive ? '#22c55e' : '#ef4444', flexShrink: 0 }}/>
+                          <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}><b style={{ display: 'block', color: b.isActive ? '#fff' : '#64748b', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</b><small style={{ color: '#64748b', fontSize: 10 }}>{b.isActive ? 'Aktif' : 'Bloke'}</small></span>
+                          {cur ? <span style={{ color: '#22c55e', fontSize: 11, fontWeight: 800 }}>✓</span> : !b.isActive ? <Lock size={11} color="#64748b"/> : <ChevronRight size={13} color="#64748b"/>}
                         </button>
                       )
                     })}
-                    <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }}
-                      style={{ width:'100%', padding:'9px 14px', border:'none', borderTop:`1px solid rgba(245,104,12,0.10)`, background:'transparent', cursor:'pointer', display:'flex', alignItems:'center', gap:6, color:C.gold, fontSize:11, fontWeight:700 }}>
-                      <GitBranch size={11}/> Jere Branch yo →
+                    <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }} style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11.5, fontWeight: 800 }}>
+                      <GitBranch size={12}/> Jere branch yo →
                     </button>
                   </div>,
                   document.body
                 )}
               </div>
             )}
+            {!isDesktop && <button className="lay-ib" onClick={() => setOpen(false)} aria-label="Fèmen meni"><X size={15}/></button>}
           </div>
-
-          <div style={{ marginTop:10, display:'flex', alignItems:'center', justifyContent:'space-between', padding:'5px 10px', borderRadius:8, background: isEnterprise ? C.entDim : 'rgba(255,255,255,0.04)', border:`1px solid ${isEnterprise ? C.entBorder : C.border}` }}>
-            <span style={{ fontSize:11, color: isEnterprise ? C.enterprise : C.muted, fontWeight:700 }}>{planName || 'Free'}</span>
-            {!isEnterprise && <NavLink to="/app/plans" style={{ fontSize:10, color:C.enterprise, textDecoration:'none', fontWeight:700 }}>Upgrade →</NavLink>}
+          <div className={`lay-plan ${isEnterprise ? 'ent' : ''}`}>
+            <span>{isEnterprise && <Crown size={12}/>}{planName || 'Free'}</span>
+            {!isEnterprise && <NavLink to="/app/plans">Upgrade →</NavLink>}
           </div>
         </div>
 
-        {/* NAV */}
-        <nav style={{ flex:1, overflowY:'auto', padding:'10px 10px', position:'relative', zIndex:1, WebkitOverflowScrolling:'touch' }}>
-          <p style={{ fontSize:10, textTransform:'uppercase', letterSpacing:'0.10em', color:C.muted, padding:'6px 6px 6px', fontWeight:700, margin:'0 0 4px' }}>
-            Menu prensipal
-          </p>
+        <div className="lay-find">
+          <Search size={14}/>
+          <input ref={findRef} value={find} onChange={e => setFind(e.target.value)} placeholder="Chèche yon paj…"
+            onKeyDown={e => { if (e.key === 'Enter' && firstMatch) { navigate(firstMatch); setFind('') } if (e.key === 'Escape') setFind('') }}/>
+          {find ? <button onClick={() => setFind('')} aria-label="Efase"><X size={13}/></button> : isDesktop && <kbd>Ctrl K</kbd>}
+        </div>
 
-          {NAV.map(({ to, icon:Icon, labelKey, pageKey, label }) => {
-            if (!isPageAllowed(pageKey)) return null
-            return (
-              <NavLink key={to} to={to}
-                style={({ isActive }) => navLinkStyle(isActive)}>
-                {({ isActive }) => (<>
-                  <Icon size={15} style={{ flexShrink:0, color: isActive ? C.gold : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
-                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gold, flexShrink:0 }}/>}
-                </>)}
-              </NavLink>
-            )
-          })}
-
-          {isAdmin && isPageAllowed('branches') && (
-            <NavLink to="/app/branches"
-              style={({ isActive }) => ({ ...navLinkStyle(isActive), background: isActive ? C.entDim : 'transparent', borderLeft: isActive ? `3px solid ${C.enterprise}` : '3px solid transparent' })}>
-              {({ isActive }) => (<>
-                <GitBranch size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
-                <span style={{ flex:1 }}>{t('nav.branches') || 'Branches'}</span>
-                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
-              </>)}
-            </NavLink>
-          )}
-
-          {/* ═══ ANTREPRIZ ═══ */}
-          <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(201,168,76,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-            <span style={{ color:C.enterprise, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>✦ Antrepriz</span>
-            <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise }}/>
-          </div>
-
-          {isPageAllowed('kane') && (
-            <NavLink to="/app/kane"
-              style={({ isActive }) => enterpriseLinkStyle(isActive)}>
-              {({ isActive }) => (<>
-                <CreditCard size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
-                <span style={{ flex:1 }}>Ti Kanè Kès</span>
-                {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
-              </>)}
-            </NavLink>
-          )}
-
-          {/* Mikwo Kredi collapse */}
-          {(() => {
-            const kaneAllowed = isPageAllowed('kane-epay')
-            const preAllowed  = isPageAllowed('pre')
-            if (!kaneAllowed && !preAllowed) return null
-            return (
-              <div>
-                <button onClick={() => setMikwoOpen(v => !v)}
-                  style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, background: isMikwoActive ? C.entDim : 'transparent', color: isMikwoActive ? '#ffffff' : C.muted, borderLeft: isMikwoActive ? `3px solid ${C.enterprise}` : '3px solid transparent', fontWeight: isMikwoActive ? 700 : 500, fontSize:13, border:'none', cursor:'pointer', textAlign:'left' }}>
-                  <Wallet size={15} style={{ flexShrink:0, color: isMikwoActive ? C.enterprise : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>Mikwo Kredi</span>
-                  {mikwoOpen ? <ChevronUp size={13} style={{ color:C.enterprise, flexShrink:0 }}/>
-                    : <ChevronDown size={13} style={{ color:C.muted, flexShrink:0 }}/>}
-                </button>
-                {mikwoOpen && (
-                  <div style={{ marginLeft:14, paddingLeft:12, borderLeft:`2px solid rgba(201,168,76,0.25)`, marginBottom:4 }}>
-                    {MIKWO_KREDI_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
-                      if (!isPageAllowed(pageKey)) return null
-                      const isGid = to === '/app/mikwo-kredi-gid'
-                      return (
-                        <NavLink key={to} to={to} end
-                          style={({ isActive }) => ({
-                            display:'flex', alignItems:'center', gap:9,
-                            padding:'8px 12px', borderRadius:9, marginBottom:2,
-                            textDecoration:'none',
-                            background: isActive ? (isGid ? 'rgba(59,130,246,0.12)' : 'rgba(201,168,76,0.12)') : 'transparent',
-                            color: isActive ? '#ffffff' : isGid ? 'rgba(147,187,239,0.65)' : C.muted,
-                            borderLeft: isActive ? `2px solid ${isGid ? '#3B82F6' : C.enterprise}` : '2px solid transparent',
-                            fontWeight: isActive ? 700 : 400, fontSize:12, cursor:'pointer',
-                          })}>
-                          {({ isActive }) => (<>
-                            <Icon size={13} style={{ flexShrink:0, color: isActive ? (isGid ? '#3B82F6' : C.enterprise) : isGid ? 'rgba(147,187,239,0.5)' : C.mutedMd }}/>
-                            <span style={{ flex:1 }}>{label}</span>
-                            {isActive && <div style={{ width:5, height:5, borderRadius:'50%', background: isGid ? '#3B82F6' : C.enterprise, flexShrink:0 }}/>}
-                          </>)}
-                        </NavLink>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
-
-          {ENTERPRISE_ITEMS.map(({ to, icon:Icon, label, pageKey }) => {
-            if (!isPageAllowed(pageKey)) return null
-            return (
-              <NavLink key={to} to={to}
-                style={({ isActive }) => enterpriseLinkStyle(isActive)}>
-                {({ isActive }) => (<>
-                  <Icon size={15} style={{ flexShrink:0, color: isActive ? C.enterprise : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>{label}</span>
-                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.enterprise, flexShrink:0 }}/>}
-                </>)}
-              </NavLink>
-            )
-          })}
-
-          {/* ═══ HOTEL ═══ */}
-          {isPageAllowed('hotel') && (
-            <>
-              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(14,165,233,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.hotel, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🏨 Hotel</span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel }}/>
-              </div>
-              {HOTEL_ITEMS.map(({ to, icon:Icon, label, end }) => (
-                <NavLink key={to} to={to} end={end}
-                  style={({ isActive }) => hotelLinkStyle(isActive)}>
-                  {({ isActive }) => (<>
-                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.hotel : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>{label}</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.hotel, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {/* ═══ RESTORAN ═══ */}
-          {isPageAllowed('restaurant') && (
-            <>
-              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(220,38,38,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ {t('nav.restaurant')}</span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
-              </div>
-              {RESTAURANT_ITEMS.map(({ to, icon:Icon, labelKey, label, end }) => (
-                <NavLink key={to} to={to} end={end}
-                  style={({ isActive }) => restaurantLinkStyle(isActive)}>
-                  {({ isActive }) => (<>
-                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.restaurant : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {/* ═══ JIM (GYM) ═══ */}
-          {isPageAllowed('gym') && (
-            <>
-              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(20,184,166,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.gym, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💪 {t('gym.title')}</span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym }}/>
-              </div>
-              {GYM_ITEMS.map(({ to, icon:Icon, labelKey, end }) => (
-                <NavLink key={to} to={to} end={end}
-                  style={({ isActive }) => gymLinkStyle(isActive)}>
-                  {({ isActive }) => (<>
-                    <Icon size={15} style={{ flexShrink:0, color: isActive ? C.gym : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>{t(labelKey)}</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.gym, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {/* ═══ PRESE ═══ */}
-          {isPageAllowed('dry') && (
-            <>
-              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(139,92,246,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.dry, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>👔 Prese</span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry }}/>
-              </div>
-              <NavLink to="/app/dry"
-                style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? C.dryDim : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? `3px solid ${C.dry}` : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                {({ isActive }) => (<>
-                  <Scissors size={15} style={{ flexShrink:0, color: isActive ? C.dry : C.mutedMd }}/>
-                  <span style={{ flex:1 }}>Jestyon Prese</span>
-                  {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.dry, flexShrink:0 }}/>}
-                </>)}
-              </NavLink>
-            </>
-          )}
-
-          {/* ═══ RH & FINANS ═══ */}
-          {(isPageAllowed('employees') || isPageAllowed('expenses') || isPageAllowed('founise')) && (
-            <>
-              <div style={{ margin:'14px 4px 8px', paddingTop:12, borderTop:`1px solid rgba(16,185,129,0.15)`, display:'flex', alignItems:'center', gap:8 }}>
-                <span style={{ color:C.rh, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>💼 RH & Finans</span>
-                <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh }}/>
-              </div>
-
-              {/* Anplwaye */}
-              {isPageAllowed('employees') && (
-                <NavLink to="/app/employees"
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? C.rhDim : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? `3px solid ${C.rh}` : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                  {({ isActive }) => (<>
-                    <UserCog size={15} style={{ flexShrink:0, color: isActive ? C.rh : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Anplwaye</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.rh, flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              )}
-
-              {/* Depans */}
-              {isPageAllowed('expenses') && (
-                <NavLink to="/app/expenses"
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? 'rgba(239,68,68,0.12)' : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? '3px solid #EF4444' : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                  {({ isActive }) => (<>
-                    <TrendingDown size={15} style={{ flexShrink:0, color: isActive ? '#EF4444' : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Depans</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#EF4444', flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              )}
-
-              {/* ✅ NOUVO — Founisè (kapital, achte) */}
-              {isPageAllowed('founise') && (
-                <NavLink to="/app/founise"
-                  style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:3, textDecoration:'none', background: isActive ? 'rgba(255,107,0,0.12)' : 'transparent', color: isActive ? '#ffffff' : C.muted, borderLeft: isActive ? '3px solid #FF6B00' : '3px solid transparent', fontWeight: isActive ? 700 : 500, fontSize:13, cursor:'pointer' })}>
-                  {({ isActive }) => (<>
-                    <Truck size={15} style={{ flexShrink:0, color: isActive ? '#FF6B00' : C.mutedMd }}/>
-                    <span style={{ flex:1 }}>Founisè</span>
-                    {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:'#FF6B00', flexShrink:0 }}/>}
-                  </>)}
-                </NavLink>
-              )}
-            </>
-          )}
-
+        <nav className="lay-nav">
+          {visibleSections.length ? visibleSections.map(s => (
+            <div key={s.key}>
+              <div className="lay-sec" style={{ '--c': s.color }}>{s.title}</div>
+              {s.items.map(it => renderItem(it, s.color))}
+            </div>
+          )) : <div className="lay-empty">Okenn paj pa koresponn ak « {find} »</div>}
         </nav>
 
-        {/* SETTINGS + USER */}
-        <div style={{ padding:'10px 10px 12px', paddingBottom:38, borderTop:`1px solid ${C.border}`, position:'relative', zIndex:1 }}>
-          <NavLink to="/app/settings"
-            style={({ isActive }) => ({ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', borderRadius:10, marginBottom:8, textDecoration:'none', background: isActive ? `rgba(245,104,12,0.12)` : 'transparent', color: isActive ? '#fff' : C.muted, borderLeft: isActive ? `3px solid ${C.gold}` : '3px solid transparent', fontSize:13, fontWeight: isActive ? 700 : 500 })}>
-            {({ isActive }) => (<>
-              <Settings size={15} style={{ color: isActive ? C.gold : C.mutedMd, flexShrink:0 }}/>
-              <span>{t('nav.settings')}</span>
-            </>)}
-          </NavLink>
-
-          <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:12, background:`rgba(245,104,12,0.08)`, border:`1px solid ${C.goldBorder}` }}>
-            <div style={{ width:34, height:34, borderRadius:10, flexShrink:0, background:`linear-gradient(135deg,#ef4444,#dc2626)`, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:800, fontSize:14 }}>
-              {user?.fullName?.charAt(0)?.toUpperCase() || 'U'}
-            </div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <p style={{ color:'#fff', fontSize:12, fontWeight:700, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user?.fullName}</p>
-              <p style={{ color:C.gold, fontSize:10, fontWeight:600, textTransform:'capitalize', margin:'1px 0 0' }}>{ROLE_LABELS[user?.role] || user?.role}</p>
-            </div>
-            <button onClick={handleLogout} title="Dekonekte" style={{ background:'none', border:'none', cursor:'pointer', color:C.muted, padding:4, borderRadius:6, display:'flex' }}>
-              <LogOut size={15}/>
-            </button>
+        <div className="lay-foot">
+          {/* Lang + lajan — sou telefòn yo la (header a twò sere) */}
+          <div className="lay-mprefs">
+            {LANGS.map(l => <button key={l.code} className={lang === l.code ? 'on' : ''} onClick={() => changeLanguage(l.code)} title={l.name}>{l.flag} {l.code.toUpperCase()}</button>)}
+            <span>{tenant?.defaultCurrency || 'HTG'}</span>
           </div>
+          <NavLink to="/app/settings" className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': COLORS.acc }} data-tip={L('nav.settings', 'Paramèt')}>
+            <Settings size={16}/><span className="l">{L('nav.settings', 'Paramèt')}</span>
+          </NavLink>
+          <div className="lay-user" title={col ? user?.fullName : undefined}>
+            <div className="av">{user?.fullName?.trim()?.charAt(0)?.toUpperCase() || 'U'}</div>
+            <div className="who"><b>{user?.fullName || '—'}</b><small>{ROLE_LABELS[user?.role] || user?.role}</small></div>
+            <button className="lo" onClick={handleLogout} title="Dekonekte" aria-label="Dekonekte"><LogOut size={16}/></button>
+          </div>
+          {isDesktop && (
+            <button className="lay-collapse" onClick={() => setCol(c => !c)} title={col ? 'Agrandi meni an' : 'Redwi meni an'}>
+              <ChevronsLeft size={15}/><span>Redwi meni an</span>
+            </button>
+          )}
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'hidden' }}>
-        <header style={{ minHeight:58, background:'#fff', borderBottom:`1px solid rgba(245,104,12,0.15)`, boxShadow:'0 1px 8px rgba(0,0,0,0.06)', display:'flex', alignItems:'center', gap:6, padding:'0 12px', flexShrink:0, position:'relative', zIndex:10, flexWrap:'wrap' }}>
-          <div style={{ position:'absolute', bottom:0, left:0, right:0, height:2, background:`linear-gradient(90deg,transparent,#C0392B 20%,${C.gold} 50%,#C0392B 80%,transparent)` }}/>
+      {/* ════════════ PRENSIPAL ════════════ */}
+      <div className="lay-main">
+        <header className="lay-head">
+          {prog > 1 && <div key={prog} className="lay-prog"/>}
+          <button className="lay-burger" onClick={() => setOpen(o => !o)} aria-label="Meni"><Menu size={20}/></button>
 
-          {!isDesktop && (
-            <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color:'#1a0533', padding:6, borderRadius:8, display:'flex', flexShrink:0 }}>
-              <Menu size={20}/>
-            </button>
-          )}
+          <div className="lay-rates">
+            {rateItems.map(({ cur, rate }, i) => (
+              <div key={cur} className="lay-rate" style={{ animationDelay: `${i * 60}ms` }}>
+                <b>1 {cur}</b><i>=</i><span>{rate.toFixed(2)} HTG</span>
+              </div>
+            ))}
+          </div>
 
-          {rateItems.map(({ cur, rate }) => (
-            <div key={cur} style={{ display:'flex', alignItems:'center', gap:4, padding:'4px 8px', borderRadius:8, background:'linear-gradient(135deg,#FFF8E7,#FFF3D0)', border:'1px solid #f5680c40', fontSize:11, flexShrink:0 }}>
-              <span style={{ color:'#b34200', fontWeight:700 }}>1 {cur}</span>
-              <span style={{ color:C.gold }}>=</span>
-              <span style={{ fontFamily:'IBM Plex Mono,monospace', fontWeight:800, color:'#1a0533' }}>{rate.toFixed(2)} HTG</span>
-            </div>
-          ))}
-
-          <div style={{ flex:1 }}/>
+          <div className="lay-spacer"/>
 
           {onSunmi ? (
-            <div style={{ display:'flex', alignItems:'center', gap:5, padding:'4px 10px', borderRadius:10, background:'rgba(5,150,105,0.08)', border:'1px solid rgba(5,150,105,0.2)', flexShrink:0 }}>
-              <Printer size={13} style={{ color:'#059669' }}/>
-              <span style={{ fontSize:11, fontWeight:700, color:'#059669' }}>Sunmi</span>
-            </div>
+            <span className="lay-hb ok" title="Enprimant Sunmi"><Printer size={14}/><span className="t">Sunmi</span></span>
           ) : hasBluetooth ? (
-            <div style={{ display:'flex', alignItems:'center', gap:6, flexShrink:0 }}>
-              {!btConnected ? (
-                <button onClick={btConnect} disabled={btConnecting} title="Konekte printer Bluetooth"
-                  style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 12px', borderRadius:10, border:'1px solid rgba(27,42,143,0.2)', background: btConnecting ? 'rgba(27,42,143,0.05)' : 'transparent', color: btConnecting ? '#94a3b8' : '#1B2A8F', cursor: btConnecting ? 'not-allowed' : 'pointer', fontSize:12, fontWeight:700 }}>
-                  <Bluetooth size={14}/>
-                  {btConnecting ? 'Koneksyon...' : 'BT Printer'}
-                </button>
-              ) : (
-                <>
-                  <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, background:'rgba(5,150,105,0.08)', border:'1px solid rgba(5,150,105,0.25)' }}>
-                    <div style={{ width:7, height:7, borderRadius:'50%', background:'#059669', boxShadow:'0 0 6px rgba(5,150,105,0.6)' }}/>
-                    <span style={{ fontSize:11, fontWeight:700, color:'#059669', maxWidth:80, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{deviceName || 'Printer'}</span>
-                    {btPrinting && <div style={{ width:11, height:11, border:'2px solid rgba(5,150,105,0.25)', borderTopColor:'#059669', borderRadius:'50%', animation:'spin 0.8s linear infinite', flexShrink:0 }}/>}
-                  </div>
-                  <button onClick={btDisconnect} title="Dekonekte printer"
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer' }}>
-                    <BluetoothOff size={13}/>
-                  </button>
-                </>
-              )}
-            </div>
+            !btConnected ? (
+              <button className="lay-hb bt" onClick={btConnect} disabled={btConnecting} title="Konekte printer Bluetooth" aria-label="Konekte printer Bluetooth">
+                {btConnecting ? <RefreshCw size={14} style={{ animation: 'lay-spin 1s linear infinite' }}/> : <Bluetooth size={15}/>}
+                <span className="t">{btConnecting ? 'Koneksyon…' : 'BT Printer'}</span>
+              </button>
+            ) : (
+              <>
+                <span className="lay-hb ok" title={deviceName || 'Printer'}>
+                  <i/>{btPrinting ? <RefreshCw size={12} style={{ animation: 'lay-spin 1s linear infinite' }}/> : <Printer size={13}/>}
+                  <span className="t" style={{ maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis' }}>{deviceName || 'Printer'}</span>
+                </span>
+                <button className="lay-hb bad" onClick={btDisconnect} title="Dekonekte printer" aria-label="Dekonekte printer"><BluetoothOff size={14}/></button>
+              </>
+            )
           ) : null}
 
-          <div style={{ position:'relative', flexShrink:0 }} ref={langRef}>
-            <button onClick={() => setShowLang(!showLang)} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 10px', borderRadius:10, border:`1px solid ${showLang ? '#f5680c80' : 'rgba(0,0,0,0.1)'}`, background: showLang ? 'rgba(245,104,12,0.08)' : 'transparent', color: showLang ? C.gold : '#555', cursor:'pointer', fontSize:12, fontWeight:700 }}>
-              <Globe size={15}/>
-              <span style={{ fontSize:15 }}>{currentLang.flag}</span>
-              <span style={{ fontSize:10, fontWeight:800 }}>{currentLang.code.toUpperCase()}</span>
-              <ChevronDown size={13} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition:'transform 0.2s' }}/>
+          <div className="lay-hide-m" style={{ position: 'relative', flexShrink: 0 }} ref={langRef}>
+            <button className={`lay-hb ${showLang ? 'on' : ''}`} onClick={() => setShowLang(s => !s)} aria-label="Lang">
+              <Globe size={15}/><span style={{ fontSize: 15 }}>{currentLang.flag}</span><span style={{ fontSize: 10.5, fontWeight: 800 }}>{currentLang.code.toUpperCase()}</span>
+              <ChevronDown size={13} style={{ transform: showLang ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }}/>
             </button>
             {showLang && (
-              <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:100, background:'#fff', borderRadius:12, minWidth:175, boxShadow:'0 12px 40px rgba(0,0,0,0.15)', border:'1px solid rgba(245,104,12,0.2)', overflow:'hidden' }}>
-                {LANGS.map(lang => (
-                  <button key={lang.code} onClick={() => changeLanguage(lang.code)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'11px 14px', border:'none', cursor:'pointer', background: i18n.language === lang.code ? 'rgba(245,104,12,0.08)' : 'transparent', color: i18n.language === lang.code ? C.gold : '#333', fontWeight: i18n.language === lang.code ? 700 : 500, fontSize:13, borderBottom:'1px solid rgba(0,0,0,0.05)' }}>
-                    <span style={{ fontSize:18 }}>{lang.flag}</span>
-                    <span style={{ flex:1 }}>{lang.name}</span>
-                    {i18n.language === lang.code && <span style={{ color:C.gold }}>✓</span>}
+              <div className="lay-dd">
+                {LANGS.map(l => (
+                  <button key={l.code} className={lang === l.code ? 'on' : ''} onClick={() => changeLanguage(l.code)}>
+                    <span style={{ fontSize: 18 }}>{l.flag}</span><span style={{ flex: 1, textAlign: 'left' }}>{l.name}</span>{lang === l.code && <span>✓</span>}
                   </button>
                 ))}
               </div>
             )}
           </div>
 
-          <div style={{ fontSize:11, fontWeight:800, padding:'5px 10px', borderRadius:99, background:`linear-gradient(135deg,#1a0533,#2d0a4e)`, color:C.gold, letterSpacing:'0.08em', border:`1px solid rgba(245,104,12,0.3)`, flexShrink:0 }}>
-            {tenant?.defaultCurrency || 'HTG'}
-          </div>
-
-          {/* ✅ NOUVO — Kalkilatris, nan tèt paj la bò kote kloch notifikasyon */}
-          <CalculatorMenu isMobile={!isDesktop}/>
-
+          <div className="lay-cur lay-hide-m">{tenant?.defaultCurrency || 'HTG'}</div>
+          <CalculatorMenu/>
           <NotificationBell lang={i18n.language}/>
         </header>
 
-        <PullToRefresh>
-          <div style={{ padding:'16px', paddingBottom:46 }}><Outlet /></div>
-        </PullToRefresh>
+        {!online && <div className="lay-off"><WifiOff size={14}/> Ou pa konekte ak entènèt — kèk done ka pa ajou.</div>}
+
+        <ScrollArea pathname={path}>
+          <div key={path} className="lay-page"><Outlet/></div>
+        </ScrollArea>
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        aside::-webkit-scrollbar { display:none; }
-        /* ✅ KORIJE — barre defile gri, senp, vizib — menm estil ak sa ki
-           deja sou paj prensipal la, pou moun konnen yo ka desann wè plis
-           paj nan meni an (Restoran, Devi Dirèk, elatriye). */
-        nav::-webkit-scrollbar { width: 10px; display: block; }
-        nav::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
-        nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 10px; border: 2px solid transparent; background-clip: padding-box; }
-        nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.55); background-clip: padding-box; }
-        nav { scrollbar-width: auto; scrollbar-color: rgba(255,255,255,0.35) rgba(255,255,255,0.05); }
-      `}</style>
-
-      {/* Kalkilatris kounye a nan tèt paj la (gade header), pa gen bezwen bouton flotan ankò */}
     </div>
   )
 }
