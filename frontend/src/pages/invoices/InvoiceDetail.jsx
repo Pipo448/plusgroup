@@ -1,4 +1,4 @@
-// src/pages/invoices/InvoiceDetail.jsx
+// src/pages/invoices/InvoiceDetail.jsx — Plus Fit redesign
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
@@ -14,20 +14,64 @@ import { printInvoiceHTML } from '../../services/printReceiptHTML'
 import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
-import { ArrowLeft, Plus, XCircle, CheckCircle2, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff, Share2, Copy, Check, MessageCircle, X, RefreshCw } from 'lucide-react'
+import {
+  ArrowLeft, Plus, XCircle, CheckCircle, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff,
+  Share2, Copy, Check, MessageCircle, X, RefreshCw, Receipt, User, Phone, Calendar, Package,
+  Banknote, Smartphone, Wallet, CreditCard, ArrowLeftRight, FileText, RotateCcw, AlertCircle, Link2,
+} from 'lucide-react'
 import { format } from 'date-fns'
+import './invoices.css'
 
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const PAYMENT_METHODS = [
-  { value:'cash',     label:'Kach'      },
-  { value:'moncash',  label:'MonCash'   },
-  { value:'natcash',  label:'NatCash'   },
-  { value:'card',     label:'Kat Kredi' },
-  { value:'transfer', label:'Virement'  },
-  { value:'check',    label:'Chek'      },
-  { value:'credit',   label:'Kredi'     },
+  { value:'cash',     label:'Kach',      Icon: Banknote,       color:'#059669' },
+  { value:'moncash',  label:'MonCash',   Icon: Smartphone,     color:'#DC2626' },
+  { value:'natcash',  label:'NatCash',   Icon: Wallet,         color:'#FF6B00' },
+  { value:'card',     label:'Kat Kredi', Icon: CreditCard,     color:'#7C3AED' },
+  { value:'transfer', label:'Virement',  Icon: ArrowLeftRight, color:'#0284C7' },
+  { value:'check',    label:'Chek',      Icon: FileText,       color:'#475569' },
+  { value:'credit',   label:'Kredi',     Icon: Clock,          color:'#1B2A8F' },
 ]
+
+// ✅ Estati fakti (koulè + etikèt)
+const STATUS = {
+  paid:      { label:'Peye',    color:'#34D399', ink:'#059669', Icon: CheckCircle },
+  partial:   { label:'Depo',    color:'#FBBF24', ink:'#D97706', Icon: Clock },
+  unpaid:    { label:'Pa peye', color:'#F87171', ink:'#DC2626', Icon: AlertCircle },
+  cancelled: { label:'Anile',   color:'#CBD5E1', ink:'#64748B', Icon: XCircle },
+  refunded:  { label:'Remèt',   color:'#93C5FD', ink:'#2D3FBF', Icon: RotateCcw },
+}
+
+// ✅ Chif ki konte jiska valè a
+function useCountUp(value, ms = 800) {
+  const [v, setV] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0 }) {
+  const v = useCountUp(value)
+  return (
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{Number(v).toLocaleString('fr-HT', { maximumFractionDigits: 0 })}<small>HTG</small></div>
+    </div>
+  )
+}
 
 const PDF_SIZES = [
   { value: '80mm', label: '80mm', desc: 'Enprimant normal (80x80)' },
@@ -602,7 +646,8 @@ export default function InvoiceDetail() {
     mutationFn: (data) => invoiceAPI.addPayment(id, data),
     onSuccess: () => {
       toast.success('Peman anrejistre!')
-      qc.invalidateQueries(['invoice', id])
+      qc.invalidateQueries({ queryKey: ['invoice', id] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
       setShowPayment(false)
       setPayData({ amountHtg: '', method: 'cash', reference: '', dueDate: '' })
     },
@@ -611,7 +656,7 @@ export default function InvoiceDetail() {
 
   const cancelMutation = useMutation({
     mutationFn: (reason) => invoiceAPI.cancel(id, { reason }),
-    onSuccess: () => { toast.success('Facture anile.'); qc.invalidateQueries(['invoice', id]) }
+    onSuccess: () => { toast.success('Facture anile.'); qc.invalidateQueries({ queryKey: ['invoice', id] }) }
   })
 
   const openPaymentModal = () => {
@@ -620,7 +665,18 @@ export default function InvoiceDetail() {
     setShowPayment(true)
   }
 
-  if (isLoading) return <div className="flex justify-center py-20"><div className="spinner" /></div>
+  if (isLoading) return (
+    <div className="iv">
+      <div className="iv-hero" style={{ minHeight: 190 }}>
+        <div className="iv-sk" style={{ width: '30%', height: 14, opacity: .25 }}/>
+        <div className="iv-sk" style={{ width: '45%', height: 34, marginTop: 12, opacity: .25 }}/>
+      </div>
+      <div className="iv-layout">
+        <div className="iv-sec">{[70, 50, 90, 60].map((w, i) => <div key={i} className="iv-sk" style={{ width: `${w}%`, marginBottom: 14 }}/>)}</div>
+        <div className="iv-sec">{[60, 80, 40].map((w, i) => <div key={i} className="iv-sk" style={{ width: `${w}%`, marginBottom: 14 }}/>)}</div>
+      </div>
+    </div>
+  )
   if (!invoice)  return null
 
   const snap        = invoice.clientSnapshot || {}
@@ -630,8 +686,44 @@ export default function InvoiceDetail() {
   const amtNum      = Number(payData.amountHtg || 0)
   const monnen      = amtNum > balance && balance > 0 ? amtNum - balance : 0
 
+  const st          = STATUS[invoice.status] || STATUS.unpaid
+  const totalNum    = Number(invoice.totalHtg || 0)
+  const paidNum     = Number(invoice.amountPaidHtg || 0)
+  const paidPct     = totalNum > 0 ? Math.min(100, (paidNum / totalNum) * 100) : 0
+  const canPay      = !isCancelled && !isPaid && hasRole(['admin','cashier'])
+  const nativeOk    = isNativePrinterAvailable()
+  const sortedPays  = [...(invoice.payments || [])].sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate))
+
+  // ✅ Bouton enprime selon anviwònman an (web USB / APK native / Sunmi / BT web)
+  const PrintButtons = ({ big }) => (
+    <>
+      {!nativeOk && (
+        <button onClick={handlePrint} disabled={printing} className={big ? 'iv-btn-main' : 'iv-act'} style={big ? { width: '100%', minHeight: 50 } : undefined}>
+          {printing ? <RefreshCw size={15} className="spin"/> : <Printer size={15}/>}
+          {printing ? 'Ap enprime...' : isUsbPrinter ? 'Enprime (USB)' : 'Enprime Resi'}
+        </button>
+      )}
+      {nativeOk && (
+        <>
+          <button onClick={() => handlePrintNative(1)} disabled={printingNative} className={big ? 'iv-btn-main' : 'iv-act sky'} style={big ? { width: '100%', minHeight: 50 } : undefined}>
+            {printingNative ? <RefreshCw size={15} className="spin"/> : <Bluetooth size={15}/>}
+            {printingNative ? 'Ap enprime...' : 'Enprime (POS)'}
+          </button>
+          <button onClick={() => handlePrintNative(2)} disabled={printingNative} className="iv-act sky" title="Enprime 2 kopi (1 pou kliyan, 1 pou achiv)" style={big ? { width: '100%' } : undefined}>
+            <Bluetooth size={15}/> {big ? 'Enprime 2 kopi' : '×2'}
+          </button>
+        </>
+      )}
+      {onSunmi && (
+        <button onClick={handleSunmiPrint} disabled={btPrinting} className="iv-act green" style={big ? { width: '100%' } : undefined}>
+          <Printer size={15}/> {btPrinting ? 'Ap enprime...' : 'Sunmi'}
+        </button>
+      )}
+    </>
+  )
+
   return (
-    <div className="animate-fade-in max-w-4xl">
+    <div className="iv" style={{ maxWidth: 1240, paddingBottom: 80 }}>
 
       <PrintableReceipt
         invoice={invoice}
@@ -643,8 +735,6 @@ export default function InvoiceDetail() {
       />
 
       <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @media print {
           @page { margin: 0; }
           #root > * { display: none !important; }
@@ -653,572 +743,409 @@ export default function InvoiceDetail() {
         }
       `}</style>
 
-      {/* ══════════ HEADER ══════════ */}
-      <div style={{ marginBottom: 24 }}>
+      {/* ══════════ HERO ══════════ */}
+      <section className="iv-hero">
+        <div className="glow"/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#FF6B00" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FFC83D" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
 
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-          <button onClick={() => navigate('/app/invoices')} className="btn-ghost p-2">
-            <ArrowLeft size={18} />
-          </button>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
-              <h1 className="text-2xl font-display font-bold" style={{ margin:0 }}>{invoice.invoiceNumber}</h1>
-              <span className={`badge ${isPaid ? 'badge-green' : isCancelled ? 'badge-gray' : invoice.status === 'partial' ? 'badge-yellow' : 'badge-red'}`}>
-                {isPaid ? 'Peye' : isCancelled ? 'Anile' : invoice.status === 'partial' ? 'Pasyèl' : 'Impaye'}
-              </span>
+        <div className="row">
+          <button className="back" onClick={() => navigate('/app/invoices')} aria-label="Retounen"><ArrowLeft size={18}/></button>
+          <div className="ico"><Receipt size={24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">Fakti</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <h1>{invoice.invoiceNumber}</h1>
+              <span className="stamp" style={{ '--sc': st.color }}><i/> {st.label}</span>
             </div>
-            {invoice.quoteId && (
-              <p className="text-slate-500 text-sm" style={{ margin:'2px 0 0' }}>
-                Soti devis:{' '}
-                <Link to={`/app/quotes/${invoice.quoteId}`} className="text-brand-600 hover:underline">
-                  {invoice.quote?.quoteNumber}
-                </Link>
-              </p>
-            )}
+            <div className="meta-line">
+              <span><User size={12}/> {snap.name || 'Vant kontwa'}</span>
+              <span><Calendar size={12}/> {toHaitiDate(invoice.issueDate, 'dd/MM/yyyy HH:mm')}</span>
+              {invoice.quoteId && (
+                <span>Soti devi: <Link to={`/app/quotes/${invoice.quoteId}`}>{invoice.quote?.quoteNumber}</Link></span>
+              )}
+            </div>
           </div>
+          {canPay && (
+            <button onClick={openPaymentModal} className="iv-btn-main pulse">
+              <Plus size={17}/> Anrejistre peman
+            </button>
+          )}
         </div>
 
-        {isUsbPrinter && (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            padding: '3px 10px', marginBottom: 10, borderRadius: 20,
-            background: 'rgba(37,99,235,0.07)', border: '1px solid rgba(37,99,235,0.2)',
-            fontSize: 11, color: '#2563eb', fontWeight: 700,
-          }}>
-            🖨 Mode USB — Windows Driver (RP327)
+        <div className="iv-kpis">
+          <Kpi label="Total"  value={totalNum} icon={Receipt}     delay={80}/>
+          <Kpi label={balance > 0 ? 'Depo peye' : 'Peye'} value={paidNum} icon={CheckCircle} delay={160} tone="green"/>
+          <Kpi label="Balans" value={balance}  icon={AlertCircle} delay={240} tone={balance > 0 ? 'red' : ''}/>
+        </div>
+
+        {!isCancelled && totalNum > 0 && (
+          <div className="iv-hero-prog">
+            <div className="bar"><i style={{ width: `${paidPct}%` }}/></div>
+            <div className="lbl"><span>{paidPct.toFixed(0)}% peye</span><span>{balance > 0 ? `${fmt(balance)} HTG rete` : '✓ Fini'}</span></div>
           </div>
         )}
+      </section>
 
-        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+      {/* ══════════ AKSYON ══════════ */}
+      <div className="iv-actions a-up" style={{ animationDelay: '100ms' }}>
+        {PrintButtons({})}
 
-          {/* ✅ KORIJE — bouton USB (window.print) sèlman sou web, PA sou APK
-              (window.print() lanse yon aktivite separe ki ka fè app la disparèt lè peze back) */}
-          {!isNativePrinterAvailable() && (
-            <button
-              onClick={handlePrint}
-              disabled={printing}
-              className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6 }}
-            >
-              <Printer size={14} />
-              {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
+        {btSupported && (
+          !connected ? (
+            <button onClick={handleConnect} disabled={connecting} className="iv-act">
+              {connecting ? <RefreshCw size={15} className="spin"/> : <Bluetooth size={15}/>}
+              {connecting ? 'Ap konekte...' : 'Konekte BT'}
             </button>
-          )}
-
-          {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman parèt nan APK */}
-          {isNativePrinterAvailable() && (
+          ) : (
             <>
-              <button
-                onClick={() => handlePrintNative(1)}
-                disabled={printingNative}
-                className="btn-secondary btn-sm"
-                style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)' }}
-              >
-                <Bluetooth size={14} />
-                {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
+              <button onClick={() => { try { print(invoice, tenant, user) } catch { toast.error('Erè BT print') } }} disabled={btPrinting} className="iv-act green">
+                <Printer size={15}/> {btPrinting ? 'Ap enprime...' : `BT${deviceName ? ` (${deviceName.slice(0, 10)})` : ''}`}
               </button>
-              {/* ✅ NOUVO — Enprime 2 kopi (1 pou kliyan, 1 pou achiv) */}
-              <button
-                onClick={() => handlePrintNative(2)}
-                disabled={printingNative}
-                title="Enprime 2 kopi (1 pou kliyan, 1 pou achiv)"
-                className="btn-secondary btn-sm"
-                style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', padding:'8px 10px' }}
-              >
-                <Bluetooth size={14} />×2
+              <button onClick={() => { try { disconnect() } catch (e) { console.error(e) } }} title="Dekonekte printer" className="iv-act danger icon">
+                <BluetoothOff size={15}/>
               </button>
             </>
-          )}
+          )
+        )}
 
-          {onSunmi && (
-            <button
-              onClick={handleSunmiPrint}
-              disabled={btPrinting}
-              className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}
-            >
-              <Printer size={14} />
-              {btPrinting ? 'Ap enprime...' : '🖨 Sunmi'}
-            </button>
-          )}
+        <button onClick={() => setShareOpen(true)} className="iv-act"><Share2 size={15}/> Pataje</button>
 
-          {btSupported && (
-            <>
-              {!connected ? (
-                <button
-                  onClick={handleConnect}
-                  disabled={connecting}
-                  className="btn-secondary btn-sm"
-                  style={{ display:'flex', alignItems:'center', gap:6 }}
-                >
-                  <Bluetooth size={14} />
-                  {connecting
-                    ? <span style={{ display:'flex', alignItems:'center', gap:5 }}>
-                        <span style={{ width:10, height:10, border:'2px solid #94a3b8', borderTopColor:'#1B2A8F', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
-                        Ap konekte...
-                      </span>
-                    : 'Konekte BT'
-                  }
-                </button>
-              ) : (
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <button
-                    onClick={() => { try { print(invoice, tenant, user) } catch(e) { toast.error('Erè BT print') } }}
-                    disabled={btPrinting}
-                    className="btn-secondary btn-sm"
-                    style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)' }}
-                  >
-                    <Printer size={14} />
-                    {btPrinting ? 'Ap enprime...' : `BT${deviceName ? ` (${deviceName.slice(0,10)})` : ''}`}
-                  </button>
-                  <button
-                    onClick={() => { try { disconnect() } catch(e) { console.error(e) } }}
-                    title="Dekonekte printer"
-                    style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:8, background:'rgba(192,57,43,0.07)', border:'1px solid rgba(192,57,43,0.2)', color:'#C0392B', cursor:'pointer', flexShrink:0 }}
-                  >
-                    <BluetoothOff size={13}/>
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ✅ NOUVO — Pataje Fakti pa WhatsApp */}
-          <button onClick={() => setShareOpen(true)} className="btn-secondary btn-sm"
-            style={{ display:'flex', alignItems:'center', gap:6 }}>
-            <Share2 size={14}/> Pataje
+        <div style={{ position: 'relative' }} ref={pdfMenuRef}>
+          <button onClick={() => setShowPdfMenu(v => !v)} className="iv-act">
+            <Download size={15}/> PDF
+            <ChevronDown size={13} style={{ transition: 'transform .2s', transform: showPdfMenu ? 'rotate(180deg)' : 'none' }}/>
           </button>
-
-          <div className="relative" ref={pdfMenuRef}>
-            <button onClick={() => setShowPdfMenu(v => !v)} className="btn-secondary btn-sm"
-              style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <Download size={14} />
-              PDF
-              <ChevronDown size={12} style={{ transition:'transform 0.2s', transform: showPdfMenu ? 'rotate(180deg)' : 'rotate(0deg)' }} />
-            </button>
-            {showPdfMenu && (
-              <div style={{ position:'absolute', top:'calc(100% + 6px)', right:0, zIndex:50, background:'#fff', borderRadius:12, minWidth:210, boxShadow:'0 8px 32px rgba(0,0,0,0.15)', border:'1px solid #e2e8f0', overflow:'hidden' }}>
-                <div style={{ padding:'8px 14px 5px', fontSize:10, fontWeight:800, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-                  Foma enprimant
-                </div>
-                {PDF_SIZES.map((s, i) => (
-                  <button key={s.value} onClick={() => downloadPdf(s.value)}
-                    style={{ width:'100%', textAlign:'left', padding:'10px 14px', background:'none', border:'none', cursor:'pointer', borderBottom: i < PDF_SIZES.length - 1 ? '1px solid #f1f5f9' : 'none' }}
-                    onMouseEnter={e => e.currentTarget.style.background='#f8fafc'}
-                    onMouseLeave={e => e.currentTarget.style.background='none'}>
-                    <div style={{ fontWeight:700, fontSize:13, color:'#1e293b', fontFamily:'DM Sans,sans-serif' }}>🖨 {s.label}</div>
-                    <div style={{ fontSize:11, color:'#94a3b8', marginTop:1 }}>{s.desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {!isCancelled && !isPaid && hasRole(['admin','cashier']) && (
-            <button onClick={openPaymentModal} className="btn-primary" style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <Plus size={16} /> Anrejistre Peman
-            </button>
-          )}
-
-          {!isCancelled && hasRole('admin') && (
-            <button onClick={() => {
-              const reason = prompt('Rezon anilasyon:')
-              if (reason !== null) cancelMutation.mutate(reason)
-            }} className="btn-danger btn-sm" style={{ display:'flex', alignItems:'center', gap:6 }}>
-              <XCircle size={14} /> Anile
-            </button>
+          {showPdfMenu && (
+            <div className="iv-menu">
+              <div className="h">Fòma enprimant</div>
+              {PDF_SIZES.map(s => (
+                <button key={s.value} onClick={() => downloadPdf(s.value)}>
+                  <b>🖨 {s.label}</b><small>{s.desc}</small>
+                </button>
+              ))}
+            </div>
           )}
         </div>
+
+        <span className="sp"/>
+        {isUsbPrinter && !nativeOk && <span className="iv-mode">🖨 Mode USB — Windows Driver (RP327)</span>}
+
+        {!isCancelled && hasRole('admin') && (
+          <button onClick={() => {
+            const reason = prompt('Rezon anilasyon:')
+            if (reason !== null) cancelMutation.mutate(reason)
+          }} className="iv-act danger">
+            <XCircle size={15}/> Anile
+          </button>
+        )}
       </div>
 
       {btSupported && connected && (
-        <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 14px', background:'rgba(5,150,105,0.07)', border:'1px solid rgba(5,150,105,0.2)', borderRadius:10, marginBottom:16, fontSize:12, color:'#059669', fontWeight:600, flexWrap:'wrap' }}>
-          <div style={{ width:8, height:8, borderRadius:'50%', background:'#059669', animation:'pulse-dot 1.5s infinite', flexShrink:0 }}/>
-          Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} — Klike "BT" pou enprime
+        <div className="iv-bt-on">
+          <span className="d"/> Printer BT konekte{deviceName ? ` — ${deviceName}` : ''} · klike « BT » pou enprime
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+      <div className="iv-layout">
+        <div className="iv-col">
 
-          <div className="card p-5">
-            <h3 className="section-title">Kliyan</h3>
-            {snap.name
-              ? <div>
-                  <p className="font-semibold text-slate-800">{snap.name}</p>
-                  {snap.phone && <p className="text-sm text-slate-500">{snap.phone}</p>}
-                  {snap.email && <p className="text-sm text-slate-500">{snap.email}</p>}
-                  {snap.nif   && <p className="text-xs text-slate-400">NIF: {snap.nif}</p>}
-                </div>
-              : <p className="text-slate-400 italic">San kliyan</p>
-            }
-          </div>
-
-          <div className="card overflow-hidden">
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">Atik yo</h3>
+          {/* ── Kliyan ── */}
+          <section className="iv-sec a-up" style={{ animationDelay: '140ms' }}>
+            <div className="iv-sec-h" style={{ marginBottom: snap.name ? 14 : 0 }}>
+              <div className="n"><User size={17}/></div>
+              <div>
+                <p className="eb">Kliyan</p>
+                <h3>{snap.name || 'Vant kontwa'}</h3>
+              </div>
+              {!snap.name && <div className="r"><span className="iv-pill muted">San kliyan</span></div>}
             </div>
-            <table className="table">
-              <thead>
-                <tr><th>Pwodui</th><th className="text-center">Qte</th><th className="text-right">Pri U.</th><th className="text-right">Rabè</th><th className="text-right">Total</th></tr>
-              </thead>
-              <tbody>
-                {invoice.items?.map((item, i) => {
-                  const tierLabel = item.productSnapshot?.tierLabel
-                  const unit = item.product?.unit || item.productSnapshot?.unit
-                  return (
-                  <tr key={i}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
-                        {/* ✅ NOUVO — Badj ki montre non nivo pri a (Detay, Gwo, Bwat, elatriye) */}
-                        {tierLabel && (
-                          <span style={{
-                            fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                            background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
-                            color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
-                          }}>{tierLabel}</span>
-                        )}
+            {snap.name && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {snap.phone && <span className="iv-pill muted" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}><Phone size={11}/> {snap.phone}</span>}
+                {snap.email && <span className="iv-pill muted" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>{snap.email}</span>}
+                {snap.nif   && <span className="iv-pill muted" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>NIF: {snap.nif}</span>}
+              </div>
+            )}
+          </section>
+
+          {/* ── Atik ── */}
+          <section className="iv-sec a-up" style={{ animationDelay: '200ms' }}>
+            <div className="iv-sec-h">
+              <div className="n"><Package size={17}/></div>
+              <div>
+                <p className="eb">Detay</p>
+                <h3>Atik yo</h3>
+              </div>
+              <div className="r"><span className="iv-pill muted">{invoice.items?.length || 0} atik</span></div>
+            </div>
+
+            <div className="iv-dl-head">
+              <span>Pwodui</span><span style={{ textAlign: 'center' }}>Qte</span><span style={{ textAlign: 'right' }}>Pri U.</span>
+              <span style={{ textAlign: 'right' }}>Rabè</span><span style={{ textAlign: 'right' }}>Total</span>
+            </div>
+            {invoice.items?.map((item, i) => {
+              const tierLabel = item.productSnapshot?.tierLabel
+              const unit = item.product?.unit || item.productSnapshot?.unit
+              const code = item.product?.code || item.productSnapshot?.code
+              const disc = Number(item.discountPct) > 0
+                ? (Number(item.unitPriceHtg) * Number(item.quantity)) * (Number(item.discountPct) / 100)
+                : 0
+              return (
+                <div key={i} className="iv-dl-row" style={{ animationDelay: `${Math.min(i, 10) * 40 + 220}ms` }}>
+                  <div className="nm">
+                    <span className="iv-thumb" style={{ backgroundImage: item.product?.imageUrl ? `url(${item.product.imageUrl})` : undefined }}>
+                      {!item.product?.imageUrl && <Package size={15} color="#1B2A8F"/>}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <b>{item.product?.name || item.productSnapshot?.name}</b>
+                        {tierLabel && <span className={`iv-tier ${tierLabel === 'Detay' ? 'det' : ''}`}>{tierLabel}</span>}
                       </div>
-                      <p className="text-xs text-slate-400 font-mono">{item.product?.code || item.productSnapshot?.code}</p>
-                    </td>
-                    <td className="text-center font-mono">
-                      {Number(item.quantity)}
-                      {/* ✅ NOUVO — Montre inite a (pyès, galon, elatriye) sitou lè se pri Detay */}
-                      {unit && <span className="text-xs text-slate-400 font-sans ml-1">{unit}</span>}
-                    </td>
-                    <td className="text-right font-mono">{fmt(item.unitPriceHtg)}</td>
-                  <td className="text-right text-slate-500 font-mono">
-  {Number(item.discountPct) > 0
-    ? fmt((Number(item.unitPriceHtg) * Number(item.quantity)) * (Number(item.discountPct) / 100))
-    : '-'}
-</td>
-                    <td className="text-right font-mono font-semibold">{fmt(item.totalHtg)}</td>
-                  </tr>
+                      {code && <small>{code}</small>}
+                    </div>
+                  </div>
+                  <div className="c">
+                    <span className="k">Qte</span>
+                    <span className="num" style={{ fontSize: 17, fontWeight: 700 }}>{Number(item.quantity)}</span>
+                    {unit && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>{unit}</span>}
+                  </div>
+                  <div className="r">
+                    <span className="k">Pri U.</span>
+                    <span className="num" style={{ fontSize: 16, fontWeight: 600 }}>{fmt(item.unitPriceHtg)}</span>
+                  </div>
+                  <div className={`r ${disc > 0 ? '' : 'disc'}`}>
+                    <span className="k">Rabè</span>
+                    <span className="num" style={{ fontSize: 16, color: disc > 0 ? 'var(--bad)' : 'var(--muted)' }}>{disc > 0 ? `−${fmt(disc)}` : '—'}</span>
+                  </div>
+                  <div className="r">
+                    <span className="k">Total</span>
+                    <span className="num" style={{ fontSize: 19, fontWeight: 800 }}>{fmt(item.totalHtg)}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </section>
+
+          {/* ── Istwa peman (tan liy) ── */}
+          <section className="iv-sec a-up" style={{ animationDelay: '260ms' }}>
+            <div className="iv-sec-h">
+              <div className={`n ${isPaid ? 'ok' : ''}`}><Banknote size={17}/></div>
+              <div>
+                <p className="eb">Istwa</p>
+                <h3>Peman ({invoice.payments?.length || 0})</h3>
+              </div>
+              {canPay && (
+                <div className="r">
+                  <button className="iv-act" onClick={openPaymentModal} style={{ minHeight: 36 }}><Plus size={14}/> Peman</button>
+                </div>
+              )}
+            </div>
+
+            {sortedPays.length ? (
+              <div className="iv-tl">
+                {sortedPays.map((p, idx) => {
+                  // ✅ Depo oswa peman final
+                  const totalBeforeMe = sortedPays.slice(0, idx + 1).reduce((acc, x) => acc + Number(x.amountHtg || 0), 0)
+                  const isFinalPay    = totalBeforeMe >= totalNum - 0.01
+                  const isOnlyPayment = sortedPays.length === 1
+                  const tipLabel      = isFinalPay && !isOnlyPayment ? 'Peman final'
+                                      : isFinalPay && isOnlyPayment  ? 'Peman konplè'
+                                      : `Depo #${idx + 1}`
+                  const m   = PAYMENT_METHODS.find(x => x.value === p.method)
+                  const MI  = m?.Icon || Banknote
+                  const tc  = isFinalPay ? '#059669' : '#D97706'
+                  return (
+                    <div key={p.id} className="iv-tl-it" style={{ '--tc': tc, animationDelay: `${idx * 70 + 300}ms` }}>
+                      <span className="ic"><MI size={17}/></span>
+                      <div className="bd">
+                        <b>{tipLabel}</b>
+                        <small>
+                          {toHaitiDate(p.paymentDate, 'dd/MM/yyyy HH:mm')} · {m?.label || p.method}
+                          {p.reference ? ` · Ref: ${p.reference}` : ''}
+                        </small>
+                      </div>
+                      <span className="num">+{fmt(p.amountHtg)}</span>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
-
-          {invoice.payments?.length > 0 && (
-            <div className="card overflow-hidden">
-              <div className="p-4 border-b border-slate-100">
-                <h3 className="font-display font-bold text-slate-800">Istwa Peman ({invoice.payments.length})</h3>
               </div>
-              <table className="table">
-                <thead><tr><th>Tip</th><th>Dat</th><th>Metod</th><th>Referans</th><th className="text-right">Montan HTG</th></tr></thead>
-                <tbody>
-                  {invoice.payments.map((p, idx) => {
-                    // ✅ NOUVO — kalkile si peman sa se yon depo oswa peman final
-                    const sortedPayments = [...invoice.payments].sort((a, b) => new Date(a.paymentDate) - new Date(b.paymentDate))
-                    const myIndex        = sortedPayments.findIndex(x => x.id === p.id)
-                    const totalBeforeMe  = sortedPayments.slice(0, myIndex + 1).reduce((acc, x) => acc + Number(x.amountHtg || 0), 0)
-                    const isFinalPay     = totalBeforeMe >= Number(invoice.totalHtg) - 0.01
-                    const isOnlyPayment  = sortedPayments.length === 1
-                    const tipLabel       = isFinalPay && !isOnlyPayment ? 'Peman final'
-                                         : isFinalPay && isOnlyPayment  ? 'Peman konplè'
-                                         : `Depo #${myIndex + 1}`
-                    const tipColor       = isFinalPay ? '#16a34a' : '#d97706'
-                    const tipBg          = isFinalPay ? 'rgba(22,163,74,0.10)' : 'rgba(217,119,6,0.10)'
-                    return (
-                      <tr key={p.id}>
-                        <td>
-                          <span style={{ fontSize:11, fontWeight:800, padding:'3px 9px', borderRadius:99, background:tipBg, color:tipColor }}>
-                            {tipLabel}
-                          </span>
-                        </td>
-                        <td className="text-xs text-slate-500">{toHaitiDate(p.paymentDate, 'dd/MM/yyyy')}</td>
-                        <td><span className="badge-blue">{PAYMENT_METHODS.find(m=>m.value===p.method)?.label || p.method}</span></td>
-                        <td className="text-xs text-slate-400 font-mono">{p.reference || '-'}</td>
-                        <td className="text-right font-mono font-semibold text-emerald-600">{fmt(p.amountHtg)}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+            ) : (
+              <p className="iv-note" style={{ margin: 0 }}>Pa gen okenn peman anrejistre pou fakti sa a.</p>
+            )}
 
-          {invoice.dueDate && balance > 0 && (
-            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'12px 16px', background:'rgba(217,119,6,0.07)', border:'1px solid rgba(217,119,6,0.3)', borderRadius:12 }}>
-              <span style={{ fontSize:20 }}>📅</span>
-              <div>
-                <p style={{ fontSize:12, fontWeight:800, color:'#d97706', margin:0 }}>Dat limit peman kredi</p>
-                <p style={{ fontSize:14, fontWeight:700, color:'#92400e', margin:'2px 0 0', fontFamily:'monospace' }}>
-                  {toHaitiDate(invoice.dueDate, 'dd MMMM yyyy')}
-                </p>
+            {invoice.dueDate && balance > 0 && (
+              <div className="iv-due-card" style={{ marginTop: 6 }}>
+                <span className="ic"><Calendar size={19}/></span>
+                <div>
+                  <div style={{ font: "800 11px 'Manrope', sans-serif", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--warn)' }}>Dat limit peman kredi</div>
+                  <div className="num" style={{ fontSize: 22, fontWeight: 800, color: '#92400E' }}>{toHaitiDate(invoice.dueDate, 'dd/MM/yyyy')}</div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </section>
         </div>
 
-        {/* Kolòn dwat */}
-        <div className="space-y-4">
-          <div className="card p-5">
-            <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-500">Sous-total</span><span className="font-mono">{fmt(invoice.subtotalHtg)}</span></div>
-              {Number(invoice.discountHtg) > 0 && <div className="flex justify-between text-red-600"><span>Remiz</span><span className="font-mono">-{fmt(invoice.discountHtg)}</span></div>}
-              {Number(invoice.taxHtg) > 0 && <div className="flex justify-between"><span>TVA</span><span className="font-mono">{fmt(invoice.taxHtg)}</span></div>}
-              <div className="flex justify-between font-bold text-base pt-2 border-t border-slate-200">
-                <span>TOTAL</span><span className="font-mono text-brand-700">{fmt(invoice.totalHtg)} HTG</span>
-              </div>
+        {/* ══════════ RESI / TOTAL ══════════ */}
+        <aside className="iv-aside">
+          <div className="iv-receipt">
+            <div className="rh">
+              <span className="brand">{tenant?.businessName || tenant?.name || 'Fakti'}</span>
+              {(isPaid || isCancelled)
+                ? <span className="iv-seal" style={{ '--sc': isPaid ? '#059669' : '#94A3B8' }}>{isPaid ? 'PEYE' : 'ANILE'}</span>
+                : <span className="tag">Resi</span>}
             </div>
-            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2 text-sm">
-              {/* ✅ KORIJE — "Depo peye" si gen balans, "Peye" si konplè */}
-              <div className="flex justify-between text-emerald-600">
-                <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={14} /> {balance > 0 ? 'Depo peye' : 'Peye'}
-                </span>
-                <span className="font-mono font-semibold">{fmt(invoice.amountPaidHtg)} HTG</span>
-              </div>
-              {balance > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span className="flex items-center gap-1.5"><Clock size={14} /> Balans pou peye</span>
-                  <span className="font-mono font-bold">-{fmt(balance)} HTG</span>
-                </div>
-              )}
-              {/* ✅ NOUVO — Mesaj klè lè kliyan an peye tout balans la */}
-              {isPaid && Number(invoice.amountPaidHtg) > 0 && (
-                <div style={{ marginTop:8, padding:'8px 12px', background:'rgba(22,163,74,0.08)', border:'1px solid rgba(22,163,74,0.3)', borderRadius:10, textAlign:'center' }}>
-                  <span style={{ fontSize:12, fontWeight:800, color:'#15803d' }}>
-                    ✓ Kliyan an pa dwe ankò
-                  </span>
-                </div>
-              )}
+            <div className="meta">
+              <div><span>Kliyan</span><b>{snap.name || 'Vant kontwa'}</b></div>
+              <div style={{ textAlign: 'right' }}><span>Dat</span><b>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</b></div>
             </div>
-            {!isCancelled && Number(invoice.totalHtg) > 0 && (
-              <div className="mt-4">
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (Number(invoice.amountPaidHtg)/Number(invoice.totalHtg))*100)}%` }} />
-                </div>
-                <p className="text-xs text-slate-400 mt-1 text-right">
-                  {((Number(invoice.amountPaidHtg)/Number(invoice.totalHtg))*100).toFixed(0)}% peye
-                </p>
+
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+              <div className="iv-rrow"><span>Sou-total</span><span className="num">{fmt(invoice.subtotalHtg)}</span></div>
+              {Number(invoice.discountHtg) > 0 && <div className="iv-rrow disc"><span>Remiz</span><span className="num">−{fmt(invoice.discountHtg)}</span></div>}
+              {Number(invoice.taxHtg) > 0 && <div className="iv-rrow"><span>TVA ({Number(invoice.taxRate || 0)}%)</span><span className="num">+{fmt(invoice.taxHtg)}</span></div>}
+            </div>
+
+            <div className="iv-rtotal">
+              <span>Total</span>
+              <span className="num">{fmt(invoice.totalHtg)}<small>HTG</small></span>
+            </div>
+
+            <div className="iv-paidbox ok">
+              <span><CheckCircle size={14}/> {balance > 0 ? 'Depo peye' : 'Peye'}</span>
+              <span className="num">{fmt(invoice.amountPaidHtg)}</span>
+            </div>
+            {balance > 0 && (
+              <div className="iv-paidbox bad">
+                <span><Clock size={14}/> Balans pou peye</span>
+                <span className="num">{fmt(balance)}</span>
               </div>
             )}
-            <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-              <div className="flex justify-between">
-                <span>Dat:</span><span>{toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')}</span>
-              </div>
+            {isPaid && paidNum > 0 && <div className="iv-clear">✓ Kliyan an pa dwe ankò</div>}
+
+            <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1.5px dashed var(--line2)', fontSize: 11, color: 'var(--muted)' }}>
               {invoice.dueDate && balance > 0 && (
-                <div className="flex justify-between" style={{ color:'#d97706', fontWeight:700 }}>
-                  <span>📅 Limit:</span>
-                  <span className="font-mono">{toHaitiDate(invoice.dueDate, 'dd/MM/yyyy')}</span>
-                </div>
+                <div className="iv-rrow" style={{ color: 'var(--warn)', fontWeight: 800 }}><span>📅 Limit</span><span>{toHaitiDate(invoice.dueDate, 'dd/MM/yyyy')}</span></div>
               )}
-              <div className="flex justify-between">
-                <span>Taux:</span>
-                <span className="font-mono">1 USD = {Number(invoice.exchangeRate||132).toFixed(2)} HTG</span>
-              </div>
+              <div className="iv-rrow"><span>Taux</span><span className="mono">1 USD = {Number(invoice.exchangeRate || 132).toFixed(2)} HTG</span></div>
             </div>
-
-            {/* ✅ KORIJE — bouton USB sèlman sou web, PA sou APK */}
-            {!isNativePrinterAvailable() && (
-              <button
-                onClick={handlePrint}
-                disabled={printing}
-                className="btn-primary w-full mt-4"
-                style={{ justifyContent:'center', display:'flex', alignItems:'center', gap:6 }}
-              >
-                <Printer size={15} />
-                {printing ? 'Ap enprime...' : isUsbPrinter ? '🖨 Enprime (USB)' : 'Enprime Resi'}
-              </button>
-            )}
-
-            {/* ✅ NOUVO — Enprime native (Bluetooth/Sunmi/iMin/Telpo) — sèlman nan APK */}
-            {isNativePrinterAvailable() && (
-              <>
-                <button
-                  onClick={() => handlePrintNative(1)}
-                  disabled={printingNative}
-                  className="w-full mt-4"
-                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
-                >
-                  <Bluetooth size={15} />
-                  {printingNative ? 'Ap enprime...' : '🖨 Enprime Bluetooth (POS)'}
-                </button>
-                {/* ✅ NOUVO — Enprime 2 kopi (1 pou kliyan, 1 pou achiv) */}
-                <button
-                  onClick={() => handlePrintNative(2)}
-                  disabled={printingNative}
-                  className="w-full mt-2"
-                  style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(14,165,233,0.08)', color:'#0EA5E9', border:'1px solid rgba(14,165,233,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
-                >
-                  <Bluetooth size={15} /> Enprime 2 Kopi
-                </button>
-              </>
-            )}
-
-            {onSunmi && (
-              <button
-                onClick={handleSunmiPrint}
-                disabled={btPrinting}
-                className="w-full mt-2"
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
-              >
-                <Printer size={15} />
-                {btPrinting ? 'Ap enprime...' : '🖨 Enprime Sunmi'}
-              </button>
-            )}
-
-            {btSupported && connected && (
-              <button
-                onClick={() => { try { print(invoice, tenant, user) } catch(e) { toast.error('Erè BT print') } }}
-                disabled={btPrinting}
-                className="w-full mt-2"
-                style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'10px', borderRadius:10, background:'rgba(5,150,105,0.08)', color:'#059669', border:'1px solid rgba(5,150,105,0.3)', fontWeight:600, fontSize:13, cursor:'pointer' }}
-              >
-                <Printer size={15} />
-                {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
-              </button>
-            )}
 
             {showQrCode && qrDataUrl && (
-              <div style={{ marginTop:16, paddingTop:16, borderTop:'1px solid #f1f5f9', textAlign:'center' }}>
-                <p style={{ fontSize:10, color:'#94a3b8', marginBottom:6, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.06em' }}>QR Verifikasyon</p>
-                <img src={qrDataUrl} alt="QR Code" style={{ width:90, height:90, margin:'0 auto', display:'block', borderRadius:8, border:'1px solid #e2e8f0' }} />
-                <p style={{ fontSize:9, color:'#cbd5e1', marginTop:4 }}>{invoice.invoiceNumber}</p>
+              <div className="iv-qr">
+                <img src={qrDataUrl} alt="QR Code"/>
+                <div style={{ fontSize: 9, color: 'var(--muted)', marginTop: 4, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 800 }}>QR verifikasyon</div>
               </div>
             )}
           </div>
-        </div>
+
+          <div className="iv-printbtns">
+            {PrintButtons({ big: true })}
+            {btSupported && connected && (
+              <button onClick={() => { try { print(invoice, tenant, user) } catch { toast.error('Erè BT print') } }} disabled={btPrinting} className="iv-act green" style={{ width: '100%' }}>
+                <Printer size={15}/> {btPrinting ? 'Ap enprime...' : 'Enprime BT'}
+              </button>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* ══════════ MODAL PEMAN ══════════ */}
       {showPayment && (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowPayment(false)}>
-          <div className="modal max-w-md">
-            <div className="flex items-center justify-between p-5 border-b border-slate-100">
-              <div>
-                {/* ✅ KORIJE — tit dinamik: Depo si pasyèl ap rete, Peman Final si li ranpli */}
-                <h2 className="text-lg font-display font-bold">
-                  {Number(invoice.amountPaidHtg) > 0
-                    ? 'Ajoute lòt depo / Peye balans'
-                    : (amtNum > 0 && amtNum < balance)
-                      ? 'Anrejistre Depo (Avans)'
-                      : 'Anrejistre Peman'}
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">{invoice.invoiceNumber}</p>
-              </div>
-              <button onClick={() => setShowPayment(false)} className="text-slate-400 hover:text-slate-600 p-1 text-xl leading-none">x</button>
+        <div className="iv-overlay sheet" onClick={e => e.target === e.currentTarget && !paymentMutation.isPending && setShowPayment(false)}>
+          <div className="iv-sheet">
+            <div className="iv-sheet-h">
+              <h3>
+                {paidNum > 0
+                  ? 'Lòt depo / Peye balans'
+                  : (amtNum > 0 && amtNum < balance) ? 'Anrejistre depo (avans)' : 'Anrejistre peman'}
+              </h3>
+              <p>{invoice.invoiceNumber} · {snap.name || 'Vant kontwa'}</p>
+              <button className="x" onClick={() => setShowPayment(false)} aria-label="Fèmen"><X size={17}/></button>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div style={{ background:'linear-gradient(135deg,#fef2f2,#fff5f5)', borderRadius:12, padding:'12px 16px', border:'1px solid #fecaca' }}>
-                <div className="flex justify-between items-center">
-                  <span style={{ fontSize:12, color:'#6b7280', fontWeight:600 }}>Total Fakti:</span>
-                  <span style={{ fontFamily:'monospace', fontWeight:700, color:'#374151' }}>{fmt(invoice.totalHtg)} HTG</span>
-                </div>
-                {Number(invoice.amountPaidHtg) > 0 && (
-                  <div className="flex justify-between items-center mt-1">
-                    {/* ✅ KORIJE — "Depo deja peye" olye "Deja peye" */}
-                    <span style={{ fontSize:12, color:'#6b7280' }}>💰 Depo deja peye:</span>
-                    <span style={{ fontFamily:'monospace', color:'#16a34a', fontWeight:600 }}>-{fmt(invoice.amountPaidHtg)} HTG</span>
-                  </div>
-                )}
-                <div style={{ borderTop:'1px solid #fecaca', marginTop:8, paddingTop:8 }} className="flex justify-between items-center">
-                  <span style={{ fontSize:13, color:'#dc2626', fontWeight:700 }}>Balans pou peye:</span>
-                  <span style={{ fontFamily:'monospace', fontSize:18, fontWeight:800, color:'#dc2626' }}>-{fmt(balance)} HTG</span>
-                </div>
+            <div className="iv-sheet-b">
+              <div className="iv-balbox">
+                <div className="rw"><span>Total fakti</span><span className="num">{fmt(invoice.totalHtg)} HTG</span></div>
+                {paidNum > 0 && <div className="rw"><span>💰 Depo deja peye</span><span className="num" style={{ color: 'var(--ok)' }}>−{fmt(invoice.amountPaidHtg)}</span></div>}
+                <div className="big"><span>Balans pou peye</span><span className="num">{fmt(balance)} HTG</span></div>
               </div>
 
               <div>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                  <label className="label mb-0">Montan kliyan bay (HTG) *</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <label className="iv-lbl" style={{ margin: 0 }}>Montan kliyan bay (HTG) *</label>
                   {amtNum !== balance && balance > 0 && (
-                    <button type="button"
-                      onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}
-                      style={{ fontSize:10, color:'#2563eb', fontWeight:700, background:'#eff6ff', border:'none', cursor:'pointer', padding:'2px 8px', borderRadius:4 }}>
+                    <button type="button" className="iv-pill" style={{ border: 'none', cursor: 'pointer', background: 'rgba(27,42,143,.08)', color: 'var(--blue)' }}
+                      onClick={() => setPayData(d => ({ ...d, amountHtg: String(balance) }))}>
                       Ranpli tout
                     </button>
                   )}
                 </div>
-                <input type="number" step="0.01" min="0.01" className="input"
+                <input type="number" step="0.01" min="0.01" className="iv-inp money big center"
                   value={payData.amountHtg}
                   onFocus={e => e.target.select()}
                   onChange={e => setPayData(d => ({ ...d, amountHtg: e.target.value }))}
-                  style={{ fontSize:22, fontWeight:800, textAlign:'center' }}
-                />
-                {amtNum > 0 && amtNum < balance && (
-                  <div style={{ marginTop:8, padding:'10px 12px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:10 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                      <span style={{ fontSize:12, color:'#d97706', fontWeight:800 }}>💰 Depo (avans)</span>
-                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>+ {fmt(amtNum)} HTG</span>
-                    </div>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontSize:11, color:'#92400e', fontWeight:600 }}>Balans ap rete pou peye:</span>
-                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#d97706' }}>{fmt(balance - amtNum)} HTG</span>
-                    </div>
-                  </div>
-                )}
-                {amtNum === balance && amtNum > 0 && (
-                  <div style={{ marginTop:8, padding:'10px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:10 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
-                      <span style={{ fontSize:12, color:'#16a34a', fontWeight:800 }}>✓ Peman final — Balans peye nèt</span>
-                      <span style={{ fontFamily:'monospace', fontSize:13, fontWeight:800, color:'#16a34a' }}>Pa gen monnen</span>
-                    </div>
-                    <div style={{ fontSize:11, color:'#15803d', fontWeight:600 }}>
-                      Kliyan an pa pral dwe anyen apre peman sa.
-                    </div>
-                  </div>
-                )}
-                {monnen > 0 && (
-                  <div style={{ marginTop:8, borderRadius:12, overflow:'hidden', border:'2px solid #16a34a' }}>
-                    <div style={{ background:'#16a34a', padding:'8px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontSize:11, fontWeight:800, color:'rgba(255,255,255,0.9)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Monnen pou remet</span>
-                      <span style={{ fontSize:11, color:'rgba(255,255,255,0.7)', fontFamily:'monospace' }}>{fmt(amtNum)} - {fmt(balance)}</span>
-                    </div>
-                    <div style={{ background:'#f0fdf4', padding:'14px', textAlign:'center' }}>
-                      <p style={{ fontFamily:'monospace', fontSize:36, fontWeight:900, color:'#15803d', margin:0 }}>
-                        {fmt(monnen)} <span style={{ fontSize:18, color:'#16a34a' }}>HTG</span>
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="label">Metod peman</label>
-                <select className="input" value={payData.method} onChange={e => setPayData(d => ({ ...d, method: e.target.value }))}>
-                  {PAYMENT_METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Referans (opsyonel)</label>
-                <input className="input" placeholder="ex: MCash #12345"
-                  value={payData.reference}
-                  onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))} />
+                  autoFocus/>
               </div>
 
               {amtNum > 0 && amtNum < balance && (
-                <div>
-                  <label className="label" style={{ display:'flex', alignItems:'center', gap:6 }}>
-                    <span>📅</span> Dat kliyan ap vin peye balans la
-                  </label>
-                  <input
-                    type="date"
-                    className="input"
+                <div className="iv-state dep">
+                  <div className="rw"><b>💰 Depo (avans)</b><span className="num" style={{ color: 'var(--ok)' }}>+{fmt(amtNum)}</span></div>
+                  <div className="rw" style={{ marginTop: 4 }}><span style={{ fontSize: 12, fontWeight: 700, color: '#92400E' }}>Balans ap rete</span><span className="num">{fmt(balance - amtNum)} HTG</span></div>
+                </div>
+              )}
+              {amtNum === balance && amtNum > 0 && (
+                <div className="iv-state fin">
+                  <div className="rw"><b>✓ Peman final — balans peye nèt</b><span style={{ fontSize: 11, fontWeight: 800 }}>Pa gen monnen</span></div>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>Kliyan an pa pral dwe anyen apre peman sa.</div>
+                </div>
+              )}
+              {monnen > 0 && (
+                <div className="iv-state chg">
+                  <div style={{ font: "800 11px 'Manrope', sans-serif", letterSpacing: '.1em', textTransform: 'uppercase', opacity: .85 }}>Monnen pou remèt</div>
+                  <div className="num">{fmt(monnen)} <small style={{ fontSize: 16 }}>HTG</small></div>
+                  <div className="mono" style={{ fontSize: 11, opacity: .8 }}>{fmt(amtNum)} − {fmt(balance)}</div>
+                </div>
+              )}
+
+              <div>
+                <label className="iv-lbl">Metòd peman</label>
+                <div className="iv-pay seven">
+                  {PAYMENT_METHODS.map(({ value, label, Icon, color }) => (
+                    <button key={value} type="button" onClick={() => setPayData(d => ({ ...d, method: value }))}
+                      className={`iv-paybtn ${payData.method === value ? 'on' : ''}`} style={{ '--pc': color }}>
+                      {payData.method === value && <span className="ck"><Check size={10} strokeWidth={3}/></span>}
+                      <span className="pi"><Icon size={16}/></span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="iv-lbl">Referans (opsyonèl)</label>
+                <input className="iv-inp" placeholder="ex: MCash #12345"
+                  value={payData.reference}
+                  onChange={e => setPayData(d => ({ ...d, reference: e.target.value }))}/>
+              </div>
+
+              {amtNum > 0 && amtNum < balance && (
+                <div className="a-up">
+                  <label className="iv-lbl">📅 Dat kliyan ap vin peye balans la</label>
+                  <input type="date" className="iv-inp"
                     value={payData.dueDate}
                     min={new Date().toISOString().split('T')[0]}
-                    onChange={e => setPayData(d => ({ ...d, dueDate: e.target.value }))}
-                  />
+                    onChange={e => setPayData(d => ({ ...d, dueDate: e.target.value }))}/>
                   {!payData.dueDate && (
-                    <p style={{ fontSize:11, color:'#d97706', marginTop:4, display:'flex', alignItems:'center', gap:4 }}>
-                      <span>⚠️</span> Rekòmande pou kredi — bay dat limit peman an
-                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--warn)', margin: '6px 0 0', fontWeight: 700 }}>⚠️ Rekòmande pou kredi — bay dat limit peman an</p>
                   )}
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                <button type="button" onClick={() => setShowPayment(false)} className="btn-secondary" disabled={paymentMutation.isPending}>
-                  Anile
-                </button>
-                <button type="button"
+              <div className="iv-sheet-f">
+                <button type="button" className="iv-act" onClick={() => setShowPayment(false)} disabled={paymentMutation.isPending}>Anile</button>
+                <button type="button" className="iv-btn-main"
                   onClick={() => {
                     if (!amtNum || amtNum <= 0) return toast.error('Montan dwe plis ke 0.')
                     const amtToRecord = monnen > 0 ? balance : amtNum
@@ -1230,17 +1157,10 @@ export default function InvoiceDetail() {
                       dueDate:      payData.dueDate || undefined,
                     })
                   }}
-                  disabled={paymentMutation.isPending || amtNum <= 0}
-                  className="btn-primary"
-                  style={{ minWidth:160 }}
-                >
+                  disabled={paymentMutation.isPending || amtNum <= 0}>
                   {paymentMutation.isPending
-                    ? <span style={{ display:'flex', alignItems:'center', gap:6 }}>
-                        <span style={{ width:14, height:14, border:'2px solid rgba(255,255,255,0.3)', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite', display:'inline-block' }}/>
-                        Ap anrejistre...
-                      </span>
-                    : monnen > 0 ? `Konfime ${fmt(balance)} HTG` : `Konfime ${fmt(amtNum)} HTG`
-                  }
+                    ? <><RefreshCw size={16} className="spin"/> Ap anrejistre...</>
+                    : <><Check size={16}/> Konfime {fmt(monnen > 0 ? balance : amtNum)} HTG</>}
                 </button>
               </div>
             </div>
@@ -1248,7 +1168,7 @@ export default function InvoiceDetail() {
         </div>
       )}
 
-      {/* ✅ NOUVO — Modal Pataje pa WhatsApp */}
+      {/* ✅ Modal Pataje pa WhatsApp */}
       {shareOpen && (
         <InvoiceShareModal
           invoice={invoice}
@@ -1277,39 +1197,45 @@ function InvoiceShareModal({ invoice, onClose, shareMutation, revokeMutation }) 
     : null
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display font-bold text-slate-800 flex items-center gap-2">
-            <Share2 size={17}/> Pataje Fakti
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18}/></button>
+    <div className="iv-overlay sheet" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="iv-sheet" style={{ maxWidth: 440 }}>
+        <div className="iv-sheet-h">
+          <h3><Share2 size={18} style={{ verticalAlign: '-2px' }}/> Pataje fakti</h3>
+          <p>{invoice.invoiceNumber}</p>
+          <button className="x" onClick={onClose} aria-label="Fèmen"><X size={17}/></button>
         </div>
 
-        {!invoice.publicToken ? (
-          <div className="text-center py-6">
-            <p className="text-sm text-slate-500 mb-4">Kreye yon lyen pou kliyan an ka wè fakti a nan fòm elektwonik, ak tout enfo peman li yo, dirèkteman, san kòd.</p>
-            <button onClick={() => shareMutation.mutate()} disabled={shareMutation.isPending} className="btn-primary">
-              <Share2 size={15}/> {shareMutation.isPending ? 'Kreyasyon...' : 'Kreye Lyen Pataj'}
-            </button>
-          </div>
-        ) : (
-          <>
-            <div className="flex gap-2 mb-4">
-              <input readOnly value={shareUrl} className="input flex-1 text-xs font-mono"/>
-              <button onClick={handleCopy} className="btn-secondary p-2.5">
-                {copied ? <Check size={16} className="text-green-600"/> : <Copy size={16}/>}
+        <div className="iv-sheet-b">
+          {!invoice.publicToken ? (
+            <div style={{ textAlign: 'center', padding: '8px 0' }}>
+              <div className="iv-okring" style={{ background: 'linear-gradient(135deg,#1B2A8F,#2D3FBF)', boxShadow: '0 0 0 10px rgba(27,42,143,.1), 0 16px 34px rgba(27,42,143,.3)', width: 78, height: 78 }}>
+                <Link2 size={32} color="#fff"/>
+              </div>
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 16px' }}>
+                Kreye yon lyen pou kliyan an ka wè fakti a nan fòm elektwonik, ak tout enfo peman li yo, dirèkteman, san kòd.
+              </p>
+              <button onClick={() => shareMutation.mutate()} disabled={shareMutation.isPending} className="iv-btn-main" style={{ width: '100%' }}>
+                {shareMutation.isPending ? <RefreshCw size={16} className="spin"/> : <Share2 size={16}/>}
+                {shareMutation.isPending ? 'Kreyasyon...' : 'Kreye lyen pataj'}
               </button>
             </div>
-            <a href={waUrl} target="_blank" rel="noreferrer" className="btn-primary w-full mb-3" style={{ justifyContent:'center', background:'#25D366' }}>
-              <MessageCircle size={16}/> Voye sou WhatsApp
-            </a>
-            <button onClick={() => revokeMutation.mutate()} disabled={revokeMutation.isPending}
-              className="text-red-500 text-sm font-medium flex items-center gap-1.5 mx-auto hover:text-red-700">
-              <RefreshCw size={13}/> Revoke lyen sa a
-            </button>
-          </>
-        )}
+          ) : (
+            <>
+              <div className="iv-share-url">
+                <input readOnly value={shareUrl} className="iv-inp" onFocus={e => e.target.select()}/>
+                <button onClick={handleCopy} className={`iv-act icon ${copied ? 'green' : ''}`} style={{ minHeight: 44, width: 44 }}>
+                  {copied ? <Check size={17}/> : <Copy size={17}/>}
+                </button>
+              </div>
+              <a href={waUrl} target="_blank" rel="noreferrer" className="iv-wa">
+                <MessageCircle size={18}/> Voye sou WhatsApp
+              </a>
+              <button onClick={() => revokeMutation.mutate()} disabled={revokeMutation.isPending} className="iv-link-btn">
+                <RefreshCw size={13}/> Revoke lyen sa a
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )
