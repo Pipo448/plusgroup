@@ -1073,16 +1073,8 @@
   .pf-row .ben { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
 }
 @media (max-width: 640px) {
-  .db-hk { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; margin: 18px -22px 0; padding: 0 22px 2px; }
-  .db-hk::-webkit-scrollbar { display: none; }
-  .db-hk .iv-kpi { flex: 0 0 64%; scroll-snap-align: start; }
   .db-acts { width: 100%; }
   .db-acts a { flex: 1; justify-content: center; padding: 0 10px; }
-  .db-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .db-tile { flex-direction: column; text-align: center; padding: 12px 6px 10px; gap: 7px; }
-  .db-tile b { font-size: 11.5px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .db-tile small { font-size: 9.5px; }
-  .db-tile .ti { width: 44px; height: 44px; }
   .db-h2 h2 { font-size: 19px; }
   .db-mini b { font-size: 16px; }
   .pf-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -1095,3 +1087,39 @@
   .db-h2 { flex-wrap: wrap; }
   .db-h2 > .r.iv-search { flex: 1 1 100% !important; margin-left: 0; }
 }
+
+/* ── v2: tuil gwo ak koulè (tankou ansyen yo), KPI an griy sou telefòn, pa gen debòdman ── */
+.rp-cols > *, .db-grid2 > *, .set-grid > * { min-width: 0; }
+@media (max-width: 1023px) { .rp-cols, .db-grid2 { grid-template-columns: minmax(0, 1fr) !important; } }
+.db-tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.db-tile { flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 8px; min-height: 128px; padding: 18px 10px 14px;
+  background: var(--g); border: none; border-radius: 20px; color: #fff; overflow: hidden; box-shadow: 0 8px 20px rgba(15,26,92,.16); }
+.db-tile::before { content: ''; position: absolute; inset: 0 0 55% 0; background: linear-gradient(180deg, rgba(255,255,255,.18), transparent); pointer-events: none; }
+.db-tile::after { content: ''; position: absolute; width: 90px; height: 90px; right: -30px; bottom: -40px; border-radius: 50%; background: rgba(255,255,255,.08); pointer-events: none; }
+.db-tile .ti { width: auto; height: auto; background: none; box-shadow: none; font-size: 34px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.2)); position: relative; z-index: 1; transition: transform .2s cubic-bezier(.2,.8,.2,1); }
+.db-tile b { font-size: 13px; font-weight: 800; color: #fff; white-space: normal; line-height: 1.25; position: relative; z-index: 1; }
+.db-tile small { display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 99px; background: rgba(0,0,0,.22); color: rgba(255,255,255,.88); font-size: 10.5px; position: relative; z-index: 1; }
+.db-tile .dot { top: 10px; right: 10px; z-index: 2; background: #fff; color: var(--bad); box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+@media (hover: hover) and (pointer: fine) { .db-tile:hover { transform: translateY(-4px); box-shadow: 0 16px 30px rgba(15,26,92,.28); } .db-tile:hover .ti { transform: scale(1.12) rotate(-4deg); } }
+@media (max-width: 640px) {
+  .db-hk { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+  .db-hk .iv-kpi { padding: 11px 12px; }
+  .db-hk .iv-kpi .v { font-size: 22px; }
+  .db-hk .iv-kpi:first-child { grid-column: 1 / -1; }
+  .db-hk .iv-kpi:first-child .v { font-size: 30px; }
+  .db-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+  .db-tile { min-height: 112px; padding: 14px 6px 10px; border-radius: 18px; gap: 6px; }
+  .db-tile .ti { font-size: 30px; }
+  .db-tile b { font-size: 11.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .db-tile small { font-size: 9.5px; padding: 2px 8px; margin-top: 4px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .iv-sec { padding: 18px 16px; border-radius: 20px; }
+}
+@media (max-width: 360px) { .db-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rp-kpis > *, .rp-cols > section, .pf-sum > *, .db-kpi4 > *, .db-hk > * { min-width: 0; }
+@media (max-width: 480px) { .rp-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rp-kpi .v { font-size: 19px; } }
+.iv-rtotal { flex-wrap: wrap; gap: 4px 10px; }
+.iv-rtotal .num { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .iv-rtotal .num { font-size: 28px !important; } }
+.rp-cols > div, .rp-cols > aside, .set-grid > div, .set-grid > aside, .db-grid2 > div { grid-template-columns: minmax(0, 1fr); }
+/* Sekirite: anyen pa ka fè paj la glise sou kote */
+.iv { max-width: 100%; overflow-x: clip; }
