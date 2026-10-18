@@ -1,49 +1,70 @@
-// src/pages/estok-kontwol/EstokKontwolPage.jsx
-import { useState, useEffect } from 'react'
+// src/pages/estok-kontwol/EstokKontwolPage.jsx — Plus Fit redesign
+// ✅ KORIJE: fòma kantite a te montre « 10,000 » pou 10 (sanble 10 mil!); filt rechèch la
+//            te rechaje jiska 500 pwodwi pou CHAK lèt (gwo egress) → kounye a filt lokal;
+//            sèvis yo (san stòk) pa parèt ankò; kantite sistèm nan rafrechi apre konfimasyon
+// ✅ NOUVO:  diferans an dirèk sou chak liy (+ valè HTG manko a), rezime Siplis/Manko,
+//            konte yo sove otomatikman (si paj la fèmen, ou pa pèdi travay ou), avètisman
+//            si w kite paj la san konfime, filt « sèlman sa m konte » / « sèlman diferans »
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { estokKontwolAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { printReportUSB, printReportBluetooth } from '../../utils/printReport'
 import toast from 'react-hot-toast'
-import { ArrowLeft, ClipboardCheck, Printer, Search, Zap, Bluetooth, RefreshCw } from 'lucide-react'
+import {
+  ArrowLeft, ClipboardCheck, Printer, Search, Zap, Bluetooth, RefreshCw, Package, Check,
+  TrendingUp, TrendingDown, Eraser, Filter, History, AlertTriangle,
+} from 'lucide-react'
+import '../invoices/invoices.css'
 
-const D = {
-  blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
-  blueDim:'rgba(27,42,143,0.07)',
-  gold:'#C9A84C', orange:'#FF6B00', orangeLt:'#FF8C33',
-  white:'#FFFFFF', bg:'#F4F6FF',
-  border:'rgba(27,42,143,0.18)',
-  text:'#0F1A5C', muted:'#6B7AAB',
-  success:'#059669', red:'#C0392B',
-  shadow:'0 2px 14px rgba(27,42,143,0.06)',
-  heroGrad:'linear-gradient(115deg,#0F1A5C 0%,#1B2A8F 55%,#2D3FBF 100%)',
-  shadowLift:'0 10px 24px rgba(27,42,143,0.16)',
-}
-const inp = {
-  width:'100%', padding:'10px 14px', borderRadius:10,
-  border:`1.5px solid rgba(27,42,143,0.20)`, outline:'none',
-  fontSize:13, color:D.text, background:'#FFFFFF',
-  fontFamily:'DM Sans,sans-serif', boxSizing:'border-box',
-}
-const inpMoney = { ...inp, border:`1.5px solid rgba(27,42,143,0.28)`, fontFamily:'monospace', fontWeight:800, color:D.blueDk, background:'#F7F8FF' }
-const label = (txt) => (
-  <label style={{ display:'block', fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:6 }}>{txt}</label>
-)
-// ✅ KORIJE — menm fix ak KesSesyonPage.jsx (retire espas san koupe ki
-// koze "?" sou enprimant tèmik la)
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 3 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ').replace(/\.?0+$/, m => m.includes('.') ? '' : m)
-const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'
+const DRAFT_KEY = 'pg-kontwol-draft'
+const clean = (s) => String(s).replace(/ /g, ' ').replace(/ /g, ' ')
+// ✅ KORIJE — 10 → « 10 » (pa « 10,000 »), 12.5 → « 12,5 »; espas nòmal pou enprimant tèmik la
+const fmt  = (n) => clean(Number(n || 0).toLocaleString('fr-HT', { maximumFractionDigits: 3 }))
+const fmtM = (n) => clean(Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+const fmtDate = (d) => d ? new Date(d).toLocaleString('fr-HT', { timeZone: 'America/Port-au-Prince', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
 
-// ✅ NOUVO — Hook responsive, menm modèl ak lòt paj yo
+const ekaColor = (e) => e > 0 ? 'var(--ok)' : e < 0 ? 'var(--bad)' : 'var(--muted)'
+const ekaLabel = (e) => e > 0 ? 'Siplis' : e < 0 ? 'Manko' : 'Ekzat'
+
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [m, setM] = useState(() => window.innerWidth < 768)
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth < 768)
+    const fn = () => setM(window.innerWidth < 768)
     window.addEventListener('resize', fn)
     return () => window.removeEventListener('resize', fn)
   }, [])
-  return isMobile
+  return m
+}
+
+function useCountUp(value, ms = 600) {
+  const [v, setV] = useState(value)
+  const from = useRef(value)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0, unit }) {
+  const v = useCountUp(value)
+  return (
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{unit ? fmtM(Math.round(v)).replace(',00', '') : Math.round(v)}{unit && <small>{unit}</small>}</div>
+    </div>
+  )
 }
 
 export default function EstokKontwolPage() {
@@ -52,43 +73,94 @@ export default function EstokKontwolPage() {
   const qc = useQueryClient()
   const isMobile = useIsMobile()
 
-  // ✅ NOUVO — olye de chèche/tape yon pwodwi alafwa, kounye a nou chaje TOUT
-  // lis pwodwi yo yon sèl kou; kesye a jis tape kantite a nan chak liy li
-  // vle kontwole (kite lòt yo vid — yo pa antre nan konfimasyon an).
   const [filtreKategori, setFiltreKategori] = useState('')
-  const [filtreChèche, setFiltreChèche] = useState('')
-  const [konte, setKonte] = useState({}) // { [productId]: '12.5' }
+  const [filtreChèche, setFiltreChèche]     = useState('')
+  const [vi, setVi]                         = useState('tout')   // tout | konte | diferans
+  const [konte, setKonte]                   = useState(() => {
+    // ✅ NOUVO — rekipere konte ki pa t konfime (24è)
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null')
+      if (d && Date.now() - d.t < 864e5 && Object.keys(d.konte || {}).length) return d.konte
+    } catch { /* */ }
+    return {}
+  })
   const [dènyeRezime, setDènyeRezime] = useState(null)
+  const [sèlmanDiferans, setSèlmanDiferans] = useState(false)
 
-  const { data: categoriesData } = useQuery({ queryKey: ['product-categories'], queryFn: () => productAPI.getCategories() })
+  useEffect(() => {
+    const n = Object.values(konte).filter(v => v !== '' && v != null).length
+    if (n) toast(`${n} kantite ou te konte deja rekipere.`, { icon: '📋' })
+  }, []) // eslint-disable-line
+
+  // Sove konte yo otomatikman
+  useEffect(() => {
+    try {
+      if (Object.keys(konte).length) localStorage.setItem(DRAFT_KEY, JSON.stringify({ t: Date.now(), konte }))
+      else localStorage.removeItem(DRAFT_KEY)
+    } catch { /* */ }
+  }, [konte])
+
+  const { data: categoriesData } = useQuery({ queryKey: ['product-categories'], queryFn: () => productAPI.getCategories(), staleTime: 5 * 60_000 })
   const categories = categoriesData?.data?.categories || []
 
-  const { data: productsData, isLoading: loadingProducts, refetch: refetchProducts, isRefetching: refetchingProducts } = useQuery({
-    queryKey: ['products-all-kontwol', filtreKategori, filtreChèche],
-    queryFn: () => productAPI.getAll({ categoryId: filtreKategori || undefined, search: filtreChèche || undefined, limit: 500 }),
-    // ✅ KORIJE — si 2 kesye pataje menm aparèy/navigatè a (yon dekonekte,
-    // yon lòt konekte san rechajman konplè), oswa si paj la rete "ouvri"
-    // depi lontan san okenn navigasyon, chif yo te ka rete "kole" nan
-    // memwa navigatè a. Kounye a paj sa a: (1) toujou chèche fre lè l
-    // louvri, (2) rafrechi otomatikman chak 60s pandan l ouvri, (3)
-    // rafrechi lè moun retounen sou tab la — menm si paj la pa navige ankò.
-    // ⚠️ KORIJE — te gen `refetchInterval: 60000` ak `refetchOnWindowFocus:
-    // true` isit la, ki te fè paj sa a rechèche jiska 500 pwodwi chak 60
-    // segond otomatikman toutotan l te ouvri. Sa te koze yon depasman
-    // egzajere nan egress Supabase (chak aparèy ki kite paj la ouvri tout
-    // jounen an te "manje" plizyè GB pa jou). Kounye a nou depann sèlman
-    // sou (1) yon rechèch FRÈ lè paj la reyèlman louvri (`refetchOnMount`,
-    // yon sèl kou, pa repete) ak (2) bouton "🔄 Rafrechi" manyèl anba a.
+  // ✅ KORIJE — rechèch la pa nan kle a ankò: lis la chaje YON FWA pa kategori,
+  // epi filt pa non an fèt lokalman (anvan sa: jiska 500 pwodwi pou chak lèt tape)
+  const { data: productsData, isLoading: loadingProducts, refetch: refetchProducts, isRefetching } = useQuery({
+    queryKey: ['products-all-kontwol', filtreKategori],
+    queryFn: () => productAPI.getAll({ categoryId: filtreKategori || undefined, limit: 500 }),
     staleTime: 0,
     refetchOnMount: 'always',
   })
-  const products = productsData?.data?.products || []
+  const allProducts = useMemo(() => (productsData?.data?.products || []).filter(p => !p.isService), [productsData])
+
+  const rowOf = (p) => {
+    const raw = konte[p.id]
+    const gen = raw !== '' && raw != null
+    const eka = gen ? Number(raw) - Number(p.quantity || 0) : null
+    const unitVal = Number(p.costPriceHtg || p.priceHtg || 0)
+    return { gen, eka, val: eka != null ? eka * unitVal : 0 }
+  }
+
+  const products = useMemo(() => {
+    const q = filtreChèche.trim().toLowerCase()
+    return allProducts.filter(p => {
+      if (q && !(`${p.name} ${p.code || ''}`.toLowerCase().includes(q))) return false
+      const r = rowOf(p)
+      if (vi === 'konte' && !r.gen) return false
+      if (vi === 'diferans' && !(r.gen && r.eka !== 0)) return false
+      return true
+    })
+  }, [allProducts, filtreChèche, vi, konte]) // eslint-disable-line
+
+  // Rezime tout sa ki konte (menm si yo pa vizib ak filt la)
+  const sum = useMemo(() => {
+    const byId = Object.fromEntries(allProducts.map(p => [p.id, p]))
+    const s = { konte: 0, ekzat: 0, siplis: 0, manko: 0, valManko: 0 }
+    Object.entries(konte).forEach(([id, v]) => {
+      if (v === '' || v == null) return
+      s.konte += 1
+      const p = byId[id]
+      if (!p) return
+      const r = rowOf(p)
+      if (r.eka === 0) s.ekzat += 1
+      else if (r.eka > 0) s.siplis += 1
+      else { s.manko += 1; s.valManko += Math.abs(r.val) }
+    })
+    return s
+  }, [konte, allProducts]) // eslint-disable-line
+
+  const kantiteRanpli = Object.entries(konte).filter(([, v]) => v !== '' && v != null)
+
+  // ✅ NOUVO — avèti si moun nan kite paj la ak konte ki pa konfime
+  useEffect(() => {
+    if (!kantiteRanpli.length) return
+    const h = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [kantiteRanpli.length])
 
   const { data: histData } = useQuery({ queryKey: ['estok-kontwol-list'], queryFn: () => estokKontwolAPI.getAll({ limit: 40 }) })
   const historik = histData?.data?.kontwol || []
-  // ✅ NOUVO — kache liy ki pa gen okenn diferans (0 ekà), pou lis la pa
-  // vin twò long apre yon gwo kontwòl batch kote pifò pwodwi te ekzat.
-  const [sèlmanDiferans, setSèlmanDiferans] = useState(false)
   const historikAfiche = sèlmanDiferans ? historik.filter(k => Number(k.eka) !== 0) : historik
 
   const batchMutation = useMutation({
@@ -99,37 +171,34 @@ export default function EstokKontwolPage() {
       setDènyeRezime(kontwol)
       setKonte({})
       qc.invalidateQueries({ queryKey: ['estok-kontwol-list'] })
+      // ✅ kantite sistèm yo ka chanje apre kontwòl la
+      qc.invalidateQueries({ queryKey: ['products-all-kontwol'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['stock-movements'] })
+      setTimeout(() => document.getElementById('kc-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200)
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan anrejistreman an.'),
   })
 
-  const kantiteRanpli = Object.entries(konte).filter(([, v]) => v !== '' && v != null)
-
   const handleSubmit = () => {
     if (!kantiteRanpli.length) return toast.error('Antre kantite pou omwen yon pwodwi.')
-    batchMutation.mutate({
-      lignes: kantiteRanpli.map(([productId, v]) => ({ productId, kantiteKonte: Number(v) })),
-    })
+    const msg = `Konfime ${sum.konte} kontwòl?\n\n✓ Ekzat: ${sum.ekzat}\n▲ Siplis: ${sum.siplis}\n▼ Manko: ${sum.manko}${sum.valManko ? ` (≈ ${fmtM(sum.valManko)} HTG)` : ''}`
+    if (!confirm(msg)) return
+    batchMutation.mutate({ lignes: kantiteRanpli.map(([productId, v]) => ({ productId, kantiteKonte: Number(v) })) })
   }
 
-  // ✅ NOUVO — Yon sèl klik: ranpli chan "Konte" a pou TOUT pwodwi (nan lis
-  // filtre kounye a) ak kantite sistèm nan deja genyen. Konsa kesye a jis
-  // "konfime" li kòmanse travay ak sa a, epi li ajiste SÈLMAN pwodwi ki
-  // diferan — olye l tape chak kantite alamen youn pa youn.
   const ranpliAkSistèm = () => {
     if (!products.length) return
     setKonte(k => {
       const nouvo = { ...k }
-      products.forEach(p => { nouvo[p.id] = String(p.quantity) })
+      products.forEach(p => { if (nouvo[p.id] === undefined || nouvo[p.id] === '') nouvo[p.id] = String(Number(p.quantity || 0)) })
       return nouvo
     })
-    toast.success(`${products.length} pwodwi ranpli ak kantite sistèm nan.`)
+    toast.success(`${products.length} pwodwi ranpli ak kantite sistèm nan — chanje sèlman sa ki diferan.`)
   }
 
-  const ekaColor = (eka) => eka > 0 ? D.success : eka < 0 ? D.red : D.muted
-  const ekaLabel = (eka) => eka > 0 ? 'Siplis' : eka < 0 ? 'Manko' : 'Ekzat'
+  const efaseTout = () => { if (confirm('Efase tout kantite ou konte yo?')) setKonte({}) }
 
-  // ✅ KORIJE — konstwi done fich la yon sèl fwa, DE bouton eksplisit (USB/BT)
   const buildKontwolFiche = (k) => {
     const eka = Number(k.eka)
     return {
@@ -147,181 +216,175 @@ export default function EstokKontwolPage() {
   const printKontwolUSB = (k) => printReportUSB(buildKontwolFiche(k))
   const printKontwolBT  = (k) => printReportBluetooth(buildKontwolFiche(k)).catch(e => toast.error(e.message || 'Pa gen enprimant Bluetooth konekte.'))
 
+  const histManko = historik.filter(k => Number(k.eka) < 0).length
+
   return (
-    <div style={{ maxWidth:1000, margin:'0 auto', padding: isMobile ? '16px' : '24px' }}>
-      <div style={{ position:'relative', overflow:'hidden', background: D.heroGrad, borderRadius: isMobile ? 18 : 22, padding: isMobile ? '18px 18px' : '26px 30px', marginBottom: isMobile ? 18 : 26, boxShadow:'0 14px 34px rgba(15,26,92,0.28)' }}>
-        <svg viewBox="0 0 600 200" preserveAspectRatio="none" style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.9, pointerEvents:'none' }}>
-          <path d="M -20 150 C 140 60, 340 210, 620 70" stroke={D.orange} strokeWidth="3" fill="none" opacity="0.55"/>
-          <path d="M -20 180 C 160 100, 360 240, 620 110" stroke={D.gold} strokeWidth="2" fill="none" opacity="0.3"/>
+    <div className="iv" style={{ maxWidth: 1100, margin: '0 auto', paddingBottom: isMobile ? 90 : 24 }}>
+      <section className="iv-hero">
+        <div className="glow" style={{ background: 'radial-gradient(circle, rgba(20,184,166,.5), transparent 65%)' }}/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#2DD4BF" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FFC83D" strokeWidth="2" fill="none" opacity="0.3"/>
         </svg>
-        <div style={{ position:'relative', display:'flex', alignItems:'center', gap: isMobile ? 12 : 16 }}>
-          <button onClick={() => navigate(-1)} style={{ width: isMobile ? 38 : 42, height: isMobile ? 38 : 42, borderRadius:12, background:'rgba(255,255,255,0.12)', border:'1px solid rgba(255,255,255,0.22)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', flexShrink:0 }}>
-            <ArrowLeft size={17}/>
-          </button>
-          <div style={{ width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius:14, flexShrink:0, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 8px 18px rgba(255,107,0,0.35)' }}>
-            <ClipboardCheck size={isMobile ? 19 : 23} color="#fff"/>
-          </div>
-          <div style={{ minWidth:0 }}>
-            <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || 'Estòk'}</p>
-            <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0 }}>Kontwòl Estòk</h1>
-            <p style={{ color:'rgba(255,255,255,0.65)', fontSize: isMobile ? 11 : 13, margin:'3px 0 0' }}>Konte fizik, konpare ak sistèm nan</p>
+        <div className="row">
+          <button className="back" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/app'))} aria-label="Retounen"><ArrowLeft size={18}/></button>
+          <div className="ico teal"><ClipboardCheck size={24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">{tenant?.name || 'Estòk'}</p>
+            <h1>Kontwòl estòk</h1>
+            <p className="sub">Konte fizik — konpare ak sa sistèm nan genyen, epi jwenn manko yo.</p>
           </div>
         </div>
-      </div>
+        <div className="iv-kpis">
+          <Kpi label="Konte"  value={sum.konte}  icon={ClipboardCheck} delay={80}/>
+          <Kpi label="Siplis" value={sum.siplis} icon={TrendingUp}     delay={160} tone="green"/>
+          <Kpi label={sum.valManko ? `Manko · ${fmtM(sum.valManko).replace(',00', '')} HTG` : 'Manko'} value={sum.manko} icon={TrendingDown} delay={240} tone={sum.manko ? 'red' : ''}/>
+        </div>
+      </section>
 
-      <div style={{ display:'flex', flexDirection:'column', gap: isMobile ? 16 : 20 }}>
-        {/* Nouvo kontwòl — lis konplè, tape kantite dirèkteman nan chak liy */}
-        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
-          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', gap: isMobile ? 14 : 10, marginBottom:18 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-              <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><ClipboardCheck size={14} color={D.blue}/></div>
-              <div>
-                <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Nouvo Kontwòl</h3>
-                <p style={{ fontSize:11, color:D.muted, margin:'2px 0 0' }}>Tape kantite a nan liy chak pwodwi, oswa kòmanse ak sistèm nan</p>
-              </div>
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              {/* ✅ NOUVO — rafrechi manyèl, pou kesye a ka fòse yon chif fre
-                  anvan l konfime, si l pa sèten paj la ajou */}
-              <button onClick={() => refetchProducts()} disabled={refetchingProducts}
-                title="Rafrechi kantite yo"
-                style={{ padding:'9px 12px', borderRadius:10, border:`1.5px solid ${D.border}`, background:'#fff', color:D.muted, fontWeight:800, fontSize:12, cursor: refetchingProducts ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <RefreshCw size={14} style={refetchingProducts ? { animation:'spin 1s linear infinite' } : undefined}/>
-              </button>
-              {/* ✅ NOUVO — yon sèl klik pou ranpli tout ak kantite sistèm nan */}
-              <button onClick={ranpliAkSistèm} disabled={!products.length}
-                style={{ padding:'9px 16px', borderRadius:10, border:`1.5px solid ${D.gold}`, background:'rgba(201,168,76,0.08)', color:D.goldDk || D.gold, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', gap:6, whiteSpace:'nowrap' }}>
-                <Zap size={14}/> Kòmanse ak Sistèm nan
-              </button>
-            </div>
-          </div>
-
-          {/* Filt — pou jwenn yon seksyon pwodwi rapid nan yon gwo katalòg */}
-          <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
-            <div style={{ position:'relative', flex:'1 1 220px' }}>
-              <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
-              <input style={{ ...inp, paddingLeft:34 }} value={filtreChèche} onChange={e => setFiltreChèche(e.target.value)} placeholder="Filtre pa non pwodwi..."/>
-            </div>
-            <select style={{ ...inp, flex: isMobile ? '1 1 100%' : '0 1 200px' }} value={filtreKategori} onChange={e => setFiltreKategori(e.target.value)}>
-              <option value="">Tout kategori</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-
-          {/* Antèt kolòn */}
-          <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr 56px 78px' : '1fr 110px 130px', gap: isMobile ? 6 : 10, padding:'0 4px 8px', borderBottom:`2px solid ${D.border}`, marginBottom:4 }}>
-            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Pwodwi</span>
-            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Sist.</span>
-            <span style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', textAlign:'right' }}>Konte</span>
-          </div>
-
-          {/* Lis pwodwi — defile, tape sèlman sa w ap kontwole a */}
-          <div style={{ maxHeight:420, overflowY:'auto' }}>
-            {loadingProducts ? (
-              <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>N ap chaje pwodwi yo...</p>
-            ) : products.length === 0 ? (
-              <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen pwodwi ki matche filt la.</p>
-            ) : (
-              products.map(p => {
-                const valè = konte[p.id] ?? ''
-                const gen = valè !== ''
-                return (
-                  <div key={p.id} style={{
-                    display:'grid', gridTemplateColumns: isMobile ? '1fr 56px 78px' : '1fr 110px 130px', gap: isMobile ? 6 : 10, alignItems:'center',
-                    padding: isMobile ? '8px 4px' : '9px 4px', borderRadius:8,
-                    background: gen ? D.blueDim : 'transparent',
-                  }}>
-                    <span style={{ fontSize: isMobile ? 12 : 13, fontWeight: gen ? 700 : 500, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.name}</span>
-                    <span style={{ fontSize: isMobile ? 10 : 12, color:D.muted, fontFamily:'monospace', textAlign:'right' }}>{fmt(p.quantity)}</span>
-                    <input type="number" step="0.001" min="0" value={valè}
-                      onChange={e => setKonte(k => ({ ...k, [p.id]: e.target.value }))}
-                      placeholder="—"
-                      style={{ ...inpMoney, padding: isMobile ? '6px 6px' : '6px 10px', fontSize: isMobile ? 11 : 12, textAlign:'right' }}/>
-                  </div>
-                )
-              })
-            )}
-          </div>
-
-          {/* Ba konfimasyon — rete vizib, montre konbyen liy ranpli */}
-          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 10 : 0, justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', marginTop:16, paddingTop:16, borderTop:`1px dashed ${D.border}` }}>
-            <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>
-              {kantiteRanpli.length > 0 ? `${kantiteRanpli.length} pwodwi pare pou konfime` : 'Poko gen kantite antre'}
-            </span>
-            <button onClick={handleSubmit} disabled={batchMutation.isPending || !kantiteRanpli.length}
-              style={{ padding:'12px 22px', borderRadius:12, border:'none',
-                background: kantiteRanpli.length ? D.orange : D.blueDim, color: kantiteRanpli.length ? '#fff' : D.muted,
-                fontWeight:800, fontSize:13, cursor: kantiteRanpli.length ? 'pointer' : 'not-allowed', boxShadow: kantiteRanpli.length ? D.shadowLift : 'none' }}>
-              {batchMutation.isPending ? 'N ap sove...' : `Konfime Tout (${kantiteRanpli.length})`}
+      {/* ══════════ NOUVO KONTWÒL ══════════ */}
+      <section className="iv-sec a-up" style={{ animationDelay: '80ms', marginBottom: 18 }}>
+        <div className="iv-sec-h" style={{ flexWrap: 'wrap' }}>
+          <div className="n"><ClipboardCheck size={17}/></div>
+          <div><p className="eb">Etap 1 · Konte</p><h3>Nouvo kontwòl</h3></div>
+          <div className="r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="iv-act icon" onClick={() => refetchProducts()} disabled={isRefetching} title="Rafrechi kantite sistèm yo">
+              <RefreshCw size={15} className={isRefetching ? 'spin' : ''}/>
+            </button>
+            {sum.konte > 0 && <button className="iv-act danger" onClick={efaseTout}><Eraser size={14}/> Efase</button>}
+            <button className="iv-act" style={{ borderColor: '#C9A84C', color: '#8B6914', background: 'rgba(201,168,76,.08)' }} onClick={ranpliAkSistèm} disabled={!products.length}>
+              <Zap size={14}/> Kòmanse ak sistèm nan
             </button>
           </div>
         </div>
 
-        {/* Rezilta dènye batch */}
-        {dènyeRezime && dènyeRezime.length > 0 && (
-          <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
-            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:'0 0 16px' }}>Rezilta Dènye Kontwòl yo</h3>
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {dènyeRezime.map(k => {
-                const eka = Number(k.eka)
-                return (
-                  <div key={k.id} style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 6 : 0, justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', padding:'10px 14px', borderRadius:10, border:`1px solid ${ekaColor(eka)}` }}>
-                    <span style={{ fontSize:13, fontWeight:700, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{k.product?.name}</span>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent: isMobile ? 'space-between' : 'flex-start', gap:10 }}>
-                      <span style={{ fontSize:12, fontFamily:'monospace', color:D.muted }}>{fmt(k.kantite_sistem)} → {fmt(k.kantite_konte)}</span>
-                      <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(eka) }}>{eka > 0 ? '+' : ''}{fmt(eka)}</span>
-                      <button onClick={() => printKontwolUSB(k)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
-                        <Printer size={12}/>
-                      </button>
-                      <button onClick={() => printKontwolBT(k)} title="Enprime BT" style={{ background:D.blueDim, border:'none', borderRadius:8, width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer', flexShrink:0 }}>
-                        <Bluetooth size={12}/>
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <div className="iv-search" style={{ flex: '1 1 220px' }}>
+            <Search size={16}/>
+            <input value={filtreChèche} onChange={e => setFiltreChèche(e.target.value)} placeholder="Filtre pa non oswa kòd..."/>
           </div>
-        )}
+          <select className="iv-inp" style={{ flex: isMobile ? '1 1 100%' : '0 1 220px' }} value={filtreKategori} onChange={e => setFiltreKategori(e.target.value)}>
+            <option value="">Tout kategori</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
 
-        {/* Istorik */}
-        <div style={{ background:D.white, borderRadius: isMobile ? 16 : 20, padding: isMobile ? 18 : 26, boxShadow:D.shadow }}>
-          <div style={{ display:'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent:'space-between', alignItems: isMobile ? 'stretch' : 'center', gap:10, marginBottom:16 }}>
-            <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Istorik Kontwòl</h3>
-            {/* ✅ NOUVO — kache liy ki gen 0 ekà, pou wè sèlman sa ki gen yon vrè diferans */}
-            <button onClick={() => setSèlmanDiferans(v => !v)}
-              style={{ padding:'8px 14px', borderRadius:10, border:`1.5px solid ${sèlmanDiferans ? D.orange : D.border}`, background: sèlmanDiferans ? 'rgba(255,107,0,0.08)' : '#fff', color: sèlmanDiferans ? D.orange : D.muted, fontWeight:800, fontSize:12, cursor:'pointer', whiteSpace:'nowrap' }}>
-              {sèlmanDiferans ? '✓ Sèlman diferans yo' : 'Montre sèlman diferans yo'}
+        <div className="iv-chips" style={{ marginBottom: 12 }}>
+          {[{ v: 'tout', l: `Tout (${allProducts.length})` }, { v: 'konte', l: `Sa m konte (${sum.konte})` }, { v: 'diferans', l: `Diferans (${sum.siplis + sum.manko})` }].map(o => (
+            <button key={o.v} type="button" className={`iv-chip ${vi === o.v ? 'on' : ''}`} onClick={() => setVi(o.v)}>
+              {o.v === 'diferans' ? <AlertTriangle size={12}/> : <Filter size={12}/>} {o.l}
             </button>
-          </div>
-          {historikAfiche.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>
-              {sèlmanDiferans ? 'Pa gen okenn diferans nan istorik la — tout kontwòl te ekzat.' : 'Pa gen kontwòl anrejistre ankò.'}
-            </p>
-          ) : (
-            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-              {historikAfiche.map(k => (
-                <div key={k.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
-                  <div style={{ minWidth:0 }}>
-                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{k.product?.name}</p>
-                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>{fmtDate(k.created_at)} · {k.creator?.fullName || '—'}</p>
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                    <span style={{ fontWeight:900, fontSize:13, fontFamily:'monospace', color:ekaColor(Number(k.eka)) }}>
-                      {Number(k.eka) > 0 ? '+' : ''}{fmt(k.eka)}
-                    </span>
-                    <button onClick={() => printKontwolUSB(k)} title="Enprime (USB)" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
-                      <Printer size={13}/>
-                    </button>
-                    <button onClick={() => printKontwolBT(k)} title="Enprime BT" style={{ background:D.blueDim, border:'none', borderRadius:8, width:30, height:30, display:'flex', alignItems:'center', justifyContent:'center', color:D.blue, cursor:'pointer' }}>
-                      <Bluetooth size={13}/>
-                    </button>
-                  </div>
+          ))}
+        </div>
+
+        <div className="kc-head"><span>Pwodwi</span><span style={{ textAlign: 'right' }}>Sistèm</span><span style={{ textAlign: 'right' }}>Konte</span><span style={{ textAlign: 'right' }}>Diferans</span></div>
+        <div className="kc-list">
+          {loadingProducts ? (
+            Array(6).fill(0).map((_, i) => <div key={i} className="kc-row"><div className="iv-sk" style={{ width: '60%' }}/><div className="iv-sk"/><div className="iv-sk"/><div className="iv-sk"/></div>)
+          ) : products.length === 0 ? (
+            <p className="iv-note" style={{ textAlign: 'center' }}>{vi !== 'tout' ? 'Pa gen pwodwi nan vi sa a.' : 'Pa gen pwodwi ki matche filt la.'}</p>
+          ) : products.map(p => {
+            const r = rowOf(p)
+            const cls = !r.gen ? '' : r.eka > 0 ? 'plus' : r.eka < 0 ? 'minus' : 'set'
+            return (
+              <div key={p.id} className={`kc-row ${cls}`}>
+                <div className="nm">
+                  <span className="iv-thumb" style={{ backgroundImage: p.imageUrl ? `url(${p.imageUrl})` : undefined }}>{!p.imageUrl && <Package size={14} color="#0F766E"/>}</span>
+                  <div style={{ minWidth: 0 }}><b>{p.name}</b><small>{[p.code, p.unit].filter(Boolean).join(' · ')}</small></div>
                 </div>
-              ))}
-            </div>
-          )}
+                <span className="sys">{fmt(p.quantity)}</span>
+                <input type="number" step="0.001" min="0" inputMode="decimal" className="iv-inp money" value={konte[p.id] ?? ''} placeholder="—"
+                  onFocus={e => e.target.select()}
+                  onChange={e => setKonte(k => ({ ...k, [p.id]: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') { const all = [...document.querySelectorAll('.kc-row input')]; all[all.indexOf(e.target) + 1]?.focus() } }}/>
+                <div className={`kc-diff ${r.gen ? '' : 'empty'}`} style={{ color: r.gen ? ekaColor(r.eka) : 'var(--line2)' }}>
+                  {r.gen ? `${r.eka > 0 ? '+' : ''}${fmt(r.eka)}` : '—'}
+                  {r.gen && r.eka !== 0 && r.val !== 0 && <small>{r.val > 0 ? '+' : '−'}{fmtM(Math.abs(r.val))} HTG</small>}
+                  {r.gen && r.eka === 0 && <small>Ekzat ✓</small>}
+                </div>
+              </div>
+            )
+          })}
         </div>
+        {allProducts.length >= 500 && <p className="iv-note">ℹ️ Se 500 premye pwodwi yo ki afiche — chwazi yon kategori pou wè rès yo.</p>}
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1.5px dashed var(--line2)' }}>
+          <div className="kc-sum">
+            <div><small>Konte</small><span className="num">{sum.konte}</span></div>
+            <div><small>Ekzat</small><span className="num" style={{ color: 'var(--muted)' }}>{sum.ekzat}</span></div>
+            <div><small>Siplis</small><span className="num" style={{ color: 'var(--ok)' }}>{sum.siplis}</span></div>
+            <div><small>Manko</small><span className="num" style={{ color: 'var(--bad)' }}>{sum.manko}</span></div>
+          </div>
+          {!isMobile && (
+            <button onClick={handleSubmit} disabled={batchMutation.isPending || !kantiteRanpli.length} className={`iv-btn-main ${kantiteRanpli.length ? 'pulse' : ''}`} style={{ width: '100%', minHeight: 52, marginTop: 12 }}>
+              {batchMutation.isPending ? <RefreshCw size={16} className="spin"/> : <Check size={16}/>}
+              {batchMutation.isPending ? 'N ap sove...' : `Konfime tout (${kantiteRanpli.length})`}
+            </button>
+          )}
+          {kantiteRanpli.length > 0 && <p style={{ fontSize: 11, color: 'var(--muted)', textAlign: 'center', margin: '8px 0 0' }}>💾 Konte yo sove otomatikman sou aparèy sa a jiskaske w konfime.</p>}
+        </div>
+      </section>
+
+      {/* ══════════ REZILTA ══════════ */}
+      {dènyeRezime?.length > 0 && (
+        <section id="kc-result" className="iv-sec a-up" style={{ marginBottom: 18, borderColor: 'rgba(5,150,105,.35)' }}>
+          <div className="iv-sec-h">
+            <div className="n ok"><Check size={18}/></div>
+            <div><p className="eb">Etap 2 · Rezilta</p><h3>Dènye kontwòl yo</h3></div>
+            <div className="r"><span className="iv-pill">{dènyeRezime.length} anrejistre</span></div>
+          </div>
+          {dènyeRezime.map((k, i) => <HistRow key={k.id} k={k} i={i} onUSB={printKontwolUSB} onBT={printKontwolBT}/>)}
+        </section>
+      )}
+
+      {/* ══════════ ISTORIK ══════════ */}
+      <section className="iv-sec a-up" style={{ animationDelay: '140ms' }}>
+        <div className="iv-sec-h" style={{ flexWrap: 'wrap' }}>
+          <div className="n"><History size={17}/></div>
+          <div><p className="eb">{historik.length} dènye · {histManko} manko</p><h3>Istorik kontwòl</h3></div>
+          <div className="r">
+            <button className={`iv-chip ${sèlmanDiferans ? 'on' : ''}`} onClick={() => setSèlmanDiferans(v => !v)}>
+              <AlertTriangle size={12}/> {sèlmanDiferans ? 'Sèlman diferans' : 'Montre sèlman diferans'}
+            </button>
+          </div>
+        </div>
+        {historikAfiche.length === 0 ? (
+          <p className="iv-note" style={{ textAlign: 'center', margin: 0 }}>{sèlmanDiferans ? 'Pa gen okenn diferans — tout kontwòl te ekzat. 🎉' : 'Pa gen kontwòl anrejistre ankò.'}</p>
+        ) : historikAfiche.map((k, i) => <HistRow key={k.id} k={k} i={i} onUSB={printKontwolUSB} onBT={printKontwolBT} showDate/>)}
+      </section>
+
+      {isMobile && (
+        <div className="iv-mbar">
+          <div className="l">
+            <small>{sum.konte} konte · {sum.manko} manko</small>
+            <span className="num" style={{ display: 'inline-block', color: sum.manko ? '#FCA5A5' : '#FFC83D' }}>{sum.siplis + sum.manko} diferans</span>
+          </div>
+          <button onClick={handleSubmit} disabled={batchMutation.isPending || !kantiteRanpli.length} className="iv-btn-main" style={{ minHeight: 50 }}>
+            {batchMutation.isPending ? <RefreshCw size={16} className="spin"/> : <Check size={16}/>} Konfime
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HistRow({ k, i, onUSB, onBT, showDate }) {
+  const eka = Number(k.eka)
+  return (
+    <div className="kc-hist" style={{ animationDelay: `${Math.min(i, 12) * 30}ms`, borderLeft: `4px solid ${eka > 0 ? '#059669' : eka < 0 ? '#DC2626' : '#CBD5E1'}` }}>
+      <div style={{ minWidth: 0 }}>
+        <b style={{ fontSize: 13, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.product?.name}</b>
+        <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+          <span className="mono">{fmt(k.kantite_sistem)} → {fmt(k.kantite_konte)}</span>
+          {showDate && <> · {fmtDate(k.created_at)} · {k.creator?.fullName || '—'}</>}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <span className="iv-badge" style={{ background: eka > 0 ? 'var(--okBg)' : eka < 0 ? 'var(--badBg)' : 'var(--grayBg)', color: ekaColor(eka), fontSize: 12 }}>
+          {eka > 0 ? '+' : ''}{fmt(eka)} · {ekaLabel(eka)}
+        </span>
+        <button className="iv-mini" title="Enprime (USB)" onClick={() => onUSB(k)}><Printer size={13}/></button>
+        <button className="iv-mini" title="Enprime BT" onClick={() => onBT(k)}><Bluetooth size={13}/></button>
       </div>
     </div>
   )
