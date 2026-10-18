@@ -537,3 +537,27 @@
   .iv-qthead, .iv-qtr { grid-template-columns: 1.2fr 1.6fr 1.2fr 100px 80px 120px; }
   .iv-qthead .exp, .iv-qtr .exp { display: none; }
 }
+
+/* ════════════════ DEVI DIRÈK ════════════════ */
+.iv-hero .ico.violet { background: linear-gradient(135deg, #8B5CF6, #6D28D9); box-shadow: 0 10px 22px rgba(124,58,237,.45); }
+.iv-banner.pend { background: linear-gradient(90deg, rgba(217,119,6,.10), rgba(251,191,36,.12)); border: 1.5px solid rgba(217,119,6,.3); color: #92400E; }
+.iv-banner.auth { background: rgba(124,58,237,.07); border: 1.5px solid rgba(124,58,237,.22); color: #5B21B6; }
+.iv-banner .ic { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: #fff; flex-shrink: 0; }
+.iv-pin { display: flex; justify-content: center; gap: 10px; position: relative; }
+.iv-pin span { width: 54px; height: 64px; border-radius: 14px; display: grid; place-items: center; border: 2px solid var(--line2); background: var(--soft);
+  font: 800 30px 'Barlow Condensed', sans-serif; color: var(--navy); transition: all .18s; }
+.iv-pin span.on { border-color: #7C3AED; background: #fff; box-shadow: 0 6px 16px rgba(124,58,237,.2); animation: iv-pop .25s both; }
+.iv-pin span.cur { border-color: #7C3AED; box-shadow: 0 0 0 4px rgba(124,58,237,.12); }
+.iv-pin input { position: absolute; inset: 0; opacity: 0; width: 100%; font-size: 16px; }
+.iv-photo { position: relative; width: 64px; height: 64px; border-radius: 14px; flex-shrink: 0; cursor: pointer; overflow: hidden; display: grid; place-items: center;
+  background: var(--soft) center/cover no-repeat; border: 2px dashed var(--line2); color: var(--muted); transition: border-color .15s, transform .15s; }
+.iv-photo:hover { border-color: #7C3AED; transform: scale(1.03); }
+.iv-photo.has { border-style: solid; border-color: transparent; box-shadow: 0 6px 14px rgba(15,26,92,.15); }
+.iv-photo .cam { position: absolute; right: 3px; bottom: 3px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: #7C3AED; color: #fff; border: 2px solid #fff; }
+.iv-photo input { display: none; }
+.iv-lightbox { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 20px; background: rgba(15,26,92,.85); backdrop-filter: blur(6px); animation: iv-in .2s both; cursor: zoom-out; }
+.iv-lightbox img { max-width: 100%; max-height: 82vh; border-radius: 16px; box-shadow: 0 30px 70px rgba(0,0,0,.5); animation: iv-pop .3s both; }
+.iv-lightbox p { color: #fff; font-weight: 800; margin: 12px 0 0; text-align: center; }
+.iv-draft { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.75); margin-top: 8px; }
+.iv-draft i { width: 7px; height: 7px; border-radius: 50%; background: #34D399; box-shadow: 0 0 0 3px rgba(52,211,153,.25); }
+.iv-dqthead, .iv-dqtr { grid-template-columns: 1.1fr 1.7fr 1.3fr 1.1fr 120px 80px 46px; }

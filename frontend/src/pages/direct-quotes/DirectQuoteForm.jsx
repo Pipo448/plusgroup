@@ -1,87 +1,111 @@
-// src/pages/direct-quotes/DirectQuoteForm.jsx
-import { useState, useEffect, useCallback, memo } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@tanstack/react-query'
+// src/pages/direct-quotes/DirectQuoteForm.jsx — Plus Fit redesign
+// ✅ NOUVO: etap vizib, aperçu an dirèk, bouyon sove otomatikman, dipliké liy,
+//           foto ki retire, dat validite rapid, dipliké yon devi (soti nan detay la)
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import api, { clientAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
 import { compressImage } from '../../utils/imageCompression'
 import {
-  Plus, Trash2, Search, ArrowLeft, Save, X, Lock, User, Camera, Image as ImageIcon,
+  Plus, Trash2, Search, ArrowLeft, Save, X, Lock, User, Camera, Image as ImageIcon, Check,
+  Copy, Calendar, RefreshCw, FileSignature, StickyNote, RotateCcw,
 } from 'lucide-react'
+import '../invoices/invoices.css'
+
+const fmt2 = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const tr = (t, key, fallback, opts) => { const v = t(key, opts); return v && v !== key ? v : fallback }
+
+const DRAFT_KEY = 'pg-dq-draft'
+const newItem = () => ({ _id: Date.now() + Math.random(), description: '', imageUrl: null, size: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 })
+const lineTotal = (it) => Math.max(0, Number(it.quantity || 0) * Number(it.unitPriceHtg || 0) - Number(it.discountAmt || 0))
+const isValid = (it) => !!it.description?.trim() && Number(it.quantity) > 0
 
 function useDebounce(value, delay = 400) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debouncedValue
+  const [v, setV] = useState(value)
+  useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t) }, [value, delay])
+  return v
 }
 
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
+  const [m, setM] = useState(() => window.innerWidth < 768)
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth < 640)
+    const fn = () => setM(window.innerWidth < 768)
     window.addEventListener('resize', fn)
     return () => window.removeEventListener('resize', fn)
   }, [])
-  return isMobile
+  return m
 }
 
-const fmt2 = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+function useCountUp(value, ms = 450) {
+  const [v, setV] = useState(value)
+  const from = useRef(value)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
 
-// ── Rechèch kliyan (opsyonèl — Devi Dirèk ka fèt san kliyan)
+// ── Kliyan (opsyonèl): chwazi nan lis la OSWA tape yon non
 const ClientSearch = memo(function ClientSearch({ value, onChange }) {
   const { t } = useTranslation()
-  const [search, setSearch] = useState('')
-  const [open, setOpen]     = useState(false)
-  const debouncedSearch = useDebounce(search, 400)
+  const [open, setOpen] = useState(false)
+  const debounced = useDebounce(value?.id ? '' : (value?.name || ''), 400)
 
   const { data } = useQuery({
-    queryKey: ['clients-search-dq', debouncedSearch],
-    queryFn:  () => clientAPI.getAll({ search: debouncedSearch, limit: 8 }).then(r => r.data.clients),
-    enabled:  debouncedSearch.length >= 1,
+    queryKey: ['clients-search-dq', debounced],
+    queryFn:  () => clientAPI.getAll({ search: debounced, limit: 8 }).then(r => r.data.clients || []),
+    enabled:  debounced.length >= 1,
     staleTime: 30_000,
   })
 
-  const handleSelect = useCallback((c) => {
-    onChange(c)
-    setSearch('')
-    setOpen(false)
-  }, [onChange])
+  if (value?.id) {
+    return (
+      <div className="iv-client-card">
+        <div className="iv-avatar" style={{ background: '#7C3AED', width: 42, height: 42 }}>{value.name?.trim()?.[0]?.toUpperCase() || <User size={16}/>}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 15 }}>{value.name}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{value.phone || 'Kliyan anrejistre'}</div>
+        </div>
+        <button type="button" className="iv-del" style={{ background: '#fff' }} onClick={() => onChange(null)}>Chanje</button>
+      </div>
+    )
+  }
 
   return (
-    <div className="relative">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"/>
-          <input
-            className="input pl-9"
-            placeholder={t('directQuotes.searchClient')}
-            value={value ? value.name : search}
-            onFocus={() => setOpen(true)}
-            onChange={e => { setSearch(e.target.value); if (value) onChange(null) }}
-          />
-        </div>
-        {value && (
-          <button type="button" onClick={() => onChange(null)} className="btn-ghost p-2">
-            <X size={15}/>
-          </button>
-        )}
+    <div style={{ position: 'relative' }}>
+      <label className="iv-lbl">{tr(t, 'directQuotes.searchClient', 'Chèche oswa tape non kliyan an')}</label>
+      <div className="iv-icon-inp">
+        <Search size={15}/>
+        <input className="iv-inp" placeholder="Non, telefòn... (kite vid = san kliyan)"
+          value={value?.name || ''}
+          onChange={e => { onChange(e.target.value ? { name: e.target.value } : null); setOpen(true) }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 200)}/>
+        {value?.name && <button type="button" className="iv-x" onClick={() => onChange(null)}>×</button>}
       </div>
-      {open && !value && data?.length > 0 && (
-        <div className="absolute z-20 top-full mt-1 w-full bg-white rounded-xl shadow-lg border border-slate-100 max-h-56 overflow-y-auto">
+      {open && data?.length > 0 && (
+        <div className="iv-drop">
           {data.map(c => (
-            <button key={c.id} type="button" onClick={() => handleSelect(c)}
-              className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50 last:border-0">
-              <User size={14} className="text-slate-400"/>
-              <div>
-                <p className="text-sm font-medium text-slate-800">{c.name}</p>
-                {c.phone && <p className="text-xs text-slate-400">{c.phone}</p>}
+            <div key={c.id} className="iv-opt" onMouseDown={() => { onChange(c); setOpen(false) }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className="iv-avatar" style={{ background: '#7C3AED', width: 32, height: 32, fontSize: 12 }}>{c.name?.[0]?.toUpperCase()}</span>
+                <span style={{ fontWeight: 700, fontSize: 13 }}>{c.name}</span>
               </div>
-            </button>
+              <span style={{ color: 'var(--muted)', fontSize: 12 }}>{c.phone || ''}</span>
+            </div>
           ))}
         </div>
       )}
@@ -89,79 +113,94 @@ const ClientSearch = memo(function ClientSearch({ value, onChange }) {
   )
 })
 
-// ── Liy atik (desktop)
-// ── Atik (foto + deskripsyon + gwosè + kantite/pri/rabè + total)
-// Yon sèl konpozan pou ni web ni mobil — pi klè ak foto/gwosè ladan l
-const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
+// ── Atik: foto + deskripsyon + gwosè + kantite/pri/rabè
+const ItemEntry = memo(function ItemEntry({ item, index, count, onChange, onRemove, onDuplicate }) {
   const { t } = useTranslation()
-  const total = Math.max(0, Number(item.quantity || 0) * Number(item.unitPriceHtg || 0) - Number(item.discountAmt || 0))
+  const total = lineTotal(item)
+  const shown = useCountUp(total, 300)
+  const [busy, setBusy] = useState(false)
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error(t('directQuotes.imageOnlyError')); return }
-    if (file.size > 2 * 1024 * 1024) { toast.error(t('directQuotes.imageTooLarge')); return }
+    if (!file.type.startsWith('image/')) { toast.error(tr(t, 'directQuotes.imageOnlyError', 'Se sèlman foto ki aksepte.')); return }
+    // ✅ KORIJE — foto telefòn yo gen 3-8 MB; nou konprese yo kanmenm, kidonk
+    // limit 2 MB la te bloke prèske tout foto kamera. Kounye a: 15 MB.
+    if (file.size > 15 * 1024 * 1024) { toast.error(tr(t, 'directQuotes.imageTooLarge', 'Foto a twò gwo (maks 15 MB).')); return }
+    setBusy(true)
     try {
-      // ✅ NOUVO — konprese foto atik la anvan l vin base64
       const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
       onChange(index, { imageUrl: compressed })
     } catch {
-      toast.error(t('directQuotes.errorCreating'))
+      toast.error('Pa t ka prepare foto a.')
+    } finally {
+      setBusy(false)
     }
   }
 
+  const ok = isValid(item)
+
   return (
-    <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/40">
-      <div className="flex items-start gap-3 mb-3">
-        {/* ✅ NOUVO — Foto pwodui a (opsyonèl), klikab pou ajoute/chanje */}
-        <label className="relative flex-shrink-0 cursor-pointer group">
-          <div style={{
-            width: 56, height: 56, borderRadius: 10,
-            background: item.imageUrl ? `url(${item.imageUrl}) center/cover no-repeat` : '#eef1f6',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '1.5px dashed #cbd5e1', overflow: 'hidden',
-          }}>
-            {!item.imageUrl && <ImageIcon size={20} className="text-slate-400"/>}
-          </div>
-          <input type="file" accept="image/*" onChange={handleImageChange} className="hidden"/>
-          <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-brand-600 flex items-center justify-center border-2 border-white">
-            <Camera size={10} className="text-white"/>
-          </div>
-        </label>
-
-        <div className="flex-1 min-w-0">
-          <input className="input py-1.5 text-sm w-full" placeholder={t('directQuotes.itemNamePlaceholder')}
-            value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
-          <input className="input py-1 text-xs mt-1.5 w-32" placeholder={t('directQuotes.sizePlaceholder')}
-            value={item.size || ''} onChange={e => onChange(index, { size: e.target.value })}/>
-        </div>
-
-        <button type="button" onClick={() => onRemove(index)} className="text-slate-300 hover:text-red-500 p-1 flex-shrink-0">
-          <Trash2 size={15}/>
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.quantity')}</label>
-          <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-center font-mono"
-            value={item.quantity} onFocus={e => e.target.select()}
-            onChange={e => onChange(index, { quantity: e.target.value })}/>
-        </div>
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.unitPrice')}</label>
-          <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
-            value={item.unitPriceHtg} onFocus={e => e.target.select()}
-            onChange={e => onChange(index, { unitPriceHtg: e.target.value })}/>
-        </div>
-        <div>
-          <label className="text-[10px] text-slate-400 uppercase font-semibold">{t('directQuotes.discount')}</label>
-          <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono"
-            value={item.discountAmt} onFocus={e => e.target.select()}
-            onChange={e => onChange(index, { discountAmt: e.target.value })}/>
+    <div className={`iv-line ${ok ? 'ok' : ''}`}>
+      <div className="iv-line-h">
+        <span className="t">Atik #{index + 1} {ok && <Check size={13} color="#059669"/>}</span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button type="button" className="iv-del" style={{ background: 'rgba(27,42,143,.06)', color: 'var(--blue)', borderColor: 'var(--line2)' }} onClick={() => onDuplicate(index)} title="Dipliké liy sa a">
+            <Copy size={12}/> Kopi
+          </button>
+          {count > 1 && <button type="button" className="iv-del" onClick={() => onRemove(index)}><Trash2 size={12}/> Retire</button>}
         </div>
       </div>
-      <div className="text-right mt-2 text-sm font-mono font-bold text-slate-700">{fmt2(total)} HTG</div>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+          <label className={`iv-photo ${item.imageUrl ? 'has' : ''}`} style={{ backgroundImage: item.imageUrl ? `url(${item.imageUrl})` : undefined }}>
+            {busy ? <RefreshCw size={18} className="spin"/> : !item.imageUrl && <ImageIcon size={20}/>}
+            <span className="cam"><Camera size={10}/></span>
+            <input type="file" accept="image/*" onChange={handleImageChange}/>
+          </label>
+          {item.imageUrl && (
+            <button type="button" onClick={() => onChange(index, { imageUrl: null })}
+              style={{ background: 'none', border: 'none', color: 'var(--bad)', fontSize: 10, fontWeight: 800, cursor: 'pointer' }}>Retire foto</button>
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: 8 }}>
+          <div>
+            <label className="iv-lbl">Pwodwi / sèvis</label>
+            <input className="iv-inp" placeholder={tr(t, 'directQuotes.itemNamePlaceholder', 'Egz: Pòt an bwa, Tablo...')}
+              value={item.description} onChange={e => onChange(index, { description: e.target.value })}/>
+          </div>
+          <div style={{ maxWidth: 200 }}>
+            <label className="iv-lbl">{tr(t, 'directQuotes.size', 'Gwosè')}</label>
+            <input className="iv-inp" placeholder={tr(t, 'directQuotes.sizePlaceholder', 'Egz: 2m x 1m, XL...')}
+              value={item.size || ''} onChange={e => onChange(index, { size: e.target.value })}/>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+        <div>
+          <label className="iv-lbl">{tr(t, 'directQuotes.quantity', 'Qte')}</label>
+          <input type="number" min="0" step="0.01" className="iv-inp money center" value={item.quantity}
+            onFocus={e => e.target.select()} onChange={e => onChange(index, { quantity: e.target.value })}/>
+        </div>
+        <div>
+          <label className="iv-lbl">Pri U. HTG</label>
+          <input type="number" min="0" step="0.01" className="iv-inp money" value={item.unitPriceHtg}
+            onFocus={e => e.target.select()} onChange={e => onChange(index, { unitPriceHtg: e.target.value })}/>
+        </div>
+        <div>
+          <label className="iv-lbl">Rabè HTG</label>
+          <input type="number" min="0" step="0.01" className="iv-inp money" value={item.discountAmt}
+            onFocus={e => e.target.select()} onChange={e => onChange(index, { discountAmt: e.target.value })}/>
+        </div>
+      </div>
+
+      <div className="iv-line-total">
+        <span>Total liy</span>
+        <span className="num">{fmt2(shown)} <small style={{ fontSize: 12, opacity: .6 }}>HTG</small></span>
+      </div>
     </div>
   )
 })
@@ -170,193 +209,298 @@ const ItemEntry = memo(function ItemEntry({ item, index, onChange, onRemove }) {
 export default function DirectQuoteForm() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { id } = useParams()
+  const location = useLocation()
+  const qc = useQueryClient()
   const { tenant, user } = useAuthStore()
   const isMobile = useIsMobile()
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true
+  // ✅ KORIJE — to a soti nan exchangeRates.USD (tenant.exchangeRate pa egziste → toujou 132)
+  const rate = Number(tenant?.exchangeRates?.USD || tenant?.exchangeRate || 132)
 
-  const [client, setClient]           = useState(null)
-  const [expiryDate, setExpiryDate]   = useState('')
-  const [notes, setNotes]             = useState('')
-  const [terms, setTerms]             = useState('')
-  const [discountValue, setDiscountValue] = useState(0)
-  const [items, setItems] = useState([
-    { description: '', imageUrl: null, size: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }
-  ])
+  const dup = location.state?.duplicate || null   // ✅ NOUVO — "Dipliké" soti nan paj detay la
 
-  const updateItem = useCallback((idx, changes) => {
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...changes } : it))
-  }, [])
-  const removeItem = useCallback((idx) => {
-    setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== idx))
-  }, [])
-  const addItem = useCallback(() => {
-    setItems(prev => [...prev, { description: '', imageUrl: null, size: '', quantity: 1, unitPriceHtg: 0, discountAmt: 0 }])
-  }, [])
+  const [client, setClient]               = useState(dup?.client || null)
+  const [expiryDate, setExpiryDate]       = useState('')
+  const [notes, setNotes]                 = useState(dup?.notes || '')
+  const [terms, setTerms]                 = useState(dup?.terms || '')
+  const [discountValue, setDiscountValue] = useState(dup?.discountValue || 0)
+  const [items, setItems]                 = useState(() => dup?.items?.length ? dup.items.map(it => ({ ...newItem(), ...it, _id: Date.now() + Math.random() })) : [newItem()])
+  const [showNotes, setShowNotes]         = useState(!!(dup?.notes || dup?.terms))
+  const [draft, setDraft]                 = useState(null)   // bouyon ki ka rekipere
+  const [savedAt, setSavedAt]             = useState(null)
 
-  const subtotal = items.reduce((sum, it) =>
-    sum + Math.max(0, Number(it.quantity || 0) * Number(it.unitPriceHtg || 0) - Number(it.discountAmt || 0)), 0)
-  const total = Math.max(0, subtotal - Number(discountValue || 0))
+  const secRefs = { client: useRef(null), items: useRef(null), terms: useRef(null), save: useRef(null) }
+
+  // ✅ NOUVO — Bouyon: si paj la fèmen pa aksidan (batri, apèl...), devi a pa pèdi
+  useEffect(() => {
+    if (dup) return
+    try {
+      const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null')
+      if (d && Date.now() - d.t < 3 * 864e5 && d.items?.some(isValid)) setDraft(d)
+    } catch { /* */ }
+  }, []) // eslint-disable-line
+
+  const dirty = items.some(it => it.description?.trim()) || !!client
+  useEffect(() => {
+    if (!dirty || draft) return
+    const h = setTimeout(() => {
+      const payload = { t: Date.now(), client, expiryDate, notes, terms, discountValue, items }
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(payload)); setSavedAt(new Date()) }
+      catch {
+        // foto yo ka depase espas la → sove san foto
+        try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...payload, items: items.map(i => ({ ...i, imageUrl: null })) })); setSavedAt(new Date()) } catch { /* */ }
+      }
+    }, 800)
+    return () => clearTimeout(h)
+  }, [client, expiryDate, notes, terms, discountValue, items, dirty, draft])
+
+  const restoreDraft = () => {
+    setClient(draft.client || null); setExpiryDate(draft.expiryDate || ''); setNotes(draft.notes || '')
+    setTerms(draft.terms || ''); setDiscountValue(draft.discountValue || 0)
+    setItems(draft.items?.length ? draft.items : [newItem()])
+    if (draft.notes || draft.terms) setShowNotes(true)
+    setDraft(null)
+    toast.success('Bouyon an rekipere!')
+  }
+  const dropDraft = () => { try { localStorage.removeItem(DRAFT_KEY) } catch { /* */ } setDraft(null) }
+
+  const updateItem    = useCallback((idx, ch) => setItems(prev => prev.map((it, i) => i === idx ? { ...it, ...ch } : it)), [])
+  const removeItem    = useCallback((idx) => setItems(prev => prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)), [])
+  const addItem       = useCallback(() => setItems(prev => [...prev, newItem()]), [])
+  const duplicateItem = useCallback((idx) => setItems(prev => {
+    const copy = { ...prev[idx], _id: Date.now() + Math.random() }
+    return [...prev.slice(0, idx + 1), copy, ...prev.slice(idx + 1)]
+  }), [])
+
+  const validItems = useMemo(() => items.filter(isValid), [items])
+  const subtotal   = useMemo(() => items.reduce((s, it) => s + lineTotal(it), 0), [items])
+  const discount   = Math.min(Number(discountValue || 0), subtotal)   // ✅ pa ka depase sou-total la
+  const total      = Math.max(0, subtotal - discount)
+  const shownTotal = useCountUp(total)
+
+  const itemsOk = validItems.length > 0
+  const STEPS = [
+    { key: 'client', label: 'Kliyan',    done: !!client?.name || itemsOk },
+    { key: 'items',  label: 'Atik',      done: itemsOk },
+    { key: 'terms',  label: 'Kondisyon', done: itemsOk && (!!expiryDate || !!notes || !!terms) },
+    { key: 'save',   label: 'Sove',      done: false },
+  ]
+  const curIdx = Math.max(0, STEPS.findIndex(s => !s.done))
+  const goStep = (k) => secRefs[k]?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 
   const mutation = useMutation({
     mutationFn: (payload) => api.post('/direct-quotes', payload).then(r => r.data),
     onSuccess: (res) => {
-      toast.success(
-        isAdmin
-          ? t('directQuotes.createdSuccessAdmin')
-          : t('directQuotes.createdSuccessCashier')
-      )
+      try { localStorage.removeItem(DRAFT_KEY) } catch { /* */ }
+      qc.invalidateQueries({ queryKey: ['direct-quotes'] })
+      toast.success(isAdmin
+        ? tr(t, 'directQuotes.createdSuccessAdmin', 'Devi dirèk kreye!')
+        : tr(t, 'directQuotes.createdSuccessCashier', 'Devi a sove — admin yo resevwa yon notifikasyon pou otorize l.'))
       navigate(`/app/direct-quotes/${res.directQuote.id}`)
     },
-    onError: (e) => toast.error(e.response?.data?.message || t('directQuotes.errorCreating'))
+    onError: (e) => toast.error(e.response?.data?.message || tr(t, 'directQuotes.errorCreating', 'Erè pandan kreyasyon devi a.')),
   })
 
-  const buildPayload = () => ({
-    clientId: client?.id || null,
-    clientSnapshot: client
-      ? { name: client.name, phone: client.phone, address: client.address }
-      : { name: t('directQuotes.noClient') },
-    currency: 'HTG',
-    exchangeRate: Number(tenant?.exchangeRate || 132),
-    discountType: 'amount',
-    discountValue: Number(discountValue || 0),
-    expiryDate: expiryDate || null,
-    notes, terms,
-    items: items
-      .filter(it => it.description.trim())
-      .map(it => ({
+  const handleSave = () => {
+    if (!validItems.length) { toast.error(tr(t, 'directQuotes.addAtLeastOneItem', 'Ajoute omwen yon atik.')); goStep('items'); return }
+    if (items.some(it => it.description?.trim() && Number(it.quantity) <= 0)) {
+      toast.error(tr(t, 'directQuotes.quantityMustBePositive', 'Kantite dwe plis pase 0.')); goStep('items'); return
+    }
+    mutation.mutate({
+      clientId: client?.id || null,
+      clientSnapshot: client?.name
+        ? { name: client.name, phone: client.phone, address: client.address }
+        : { name: 'San kliyan' },   // ✅ anvan sa: kle i18n la te ka sove kòm non kliyan
+      currency: 'HTG',
+      exchangeRate: rate,
+      discountType: 'amount',
+      discountValue: discount,
+      expiryDate: expiryDate || null,
+      notes, terms,
+      items: validItems.map(it => ({
         description: it.description.trim(),
-        // ✅ NOUVO
         imageUrl: it.imageUrl || null,
         size: it.size ? it.size.trim() : null,
         quantity: Number(it.quantity || 0),
         unitPriceHtg: Number(it.unitPriceHtg || 0),
         discountAmt: Number(it.discountAmt || 0),
       })),
-  })
-
-  const validate = () => {
-    const valid = items.filter(it => it.description.trim())
-    if (!valid.length) { toast.error(t('directQuotes.addAtLeastOneItem')); return false }
-    if (valid.some(it => Number(it.quantity) <= 0)) { toast.error(t('directQuotes.quantityMustBePositive')); return false }
-    return true
+    })
   }
 
-  // ✅ MODIFYE — Kesye a anrejistre DIRÈKTEMAN, san PIN. Yon notifikasyon
-  // otomatik ap voye bay tout admin yo pou yo otorize devi a apre sa.
-  const handleSaveClick = () => {
-    if (!validate()) return
-    mutation.mutate(buildPayload())
-  }
+  const minDate = new Date().toISOString().split('T')[0]
+  const saveText = mutation.isPending ? tr(t, 'directQuotes.saving', 'Ap sove...') : tr(t, 'directQuotes.createDirectQuote', 'Kreye devi dirèk')
 
   return (
-    <div className="animate-fade-in max-w-5xl">
-      <div className="flex items-center justify-between mb-6" style={{ flexWrap: 'wrap', gap: 12 }}>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => navigate('/app/direct-quotes')} className="btn-ghost p-2">
-            <ArrowLeft size={18}/>
-          </button>
-          <div>
-            <h1 className="page-title">{t('directQuotes.newDirectQuote')}</h1>
-            <p className="text-slate-500 text-sm">{t('directQuotes.subtitle')}</p>
+    <div className="iv" style={{ maxWidth: 1240, paddingBottom: isMobile ? 80 : 24 }}>
+      <section className="iv-hero">
+        <div className="glow" style={{ background: 'radial-gradient(circle, rgba(139,92,246,.5), transparent 65%)' }}/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#A78BFA" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FF6B00" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+        <div className="row">
+          <button type="button" className="back" onClick={() => navigate('/app/direct-quotes')} aria-label="Retounen"><ArrowLeft size={18}/></button>
+          <div className="ico violet"><FileSignature size={isMobile ? 20 : 24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">{dup ? 'Kopi yon devi' : (tenant?.name || 'Devi dirèk')}</p>
+            <h1>{tr(t, 'directQuotes.newDirectQuote', 'Nouvo devi dirèk')}</h1>
+            {savedAt && !draft && <div className="iv-draft"><i/> Bouyon sove otomatikman · {savedAt.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit' })}</div>}
           </div>
         </div>
-        {!isMobile && (
-          <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary">
-            <Save size={16}/> {mutation.isPending ? t('directQuotes.saving') : t('directQuotes.createDirectQuote')}
-          </button>
-        )}
-      </div>
+        <div className="iv-steps">
+          {STEPS.map((s, i) => (
+            <div key={s.key} style={{ display: 'contents' }}>
+              <button type="button" onClick={() => goStep(s.key)} className={`iv-step ${i === curIdx ? 'cur' : ''} ${s.done ? 'done' : ''}`}>
+                <span className="b">{s.done ? <Check size={16} strokeWidth={3}/> : i + 1}</span>
+                <span className="lb">{s.label}</span>
+              </button>
+              {i < STEPS.length - 1 && <div className={`iv-link ${s.done ? 'full' : ''}`}><i/></div>}
+            </div>
+          ))}
+        </div>
+      </section>
 
-      {!isAdmin && (
-        <div className="mb-5 p-3 rounded-xl bg-violet-50 border border-violet-100 flex items-center gap-2 text-sm text-violet-700">
-          <Lock size={15}/>
-          {t('directQuotes.authWarningCashier')}
+      {draft && (
+        <div className="iv-banner sync">
+          <span className="ic"><RotateCcw size={17} color="#1B2A8F"/></span>
+          <div className="grow">
+            <div style={{ fontSize: 13, fontWeight: 800 }}>Ou gen yon bouyon ki pa t fini</div>
+            <div style={{ fontWeight: 600, color: 'var(--muted)' }}>{draft.items.filter(isValid).length} atik · {new Date(draft.t).toLocaleString('fr-HT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+          <button type="button" onClick={restoreDraft}>Rekipere</button>
+          <button type="button" onClick={dropDraft} style={{ background: '#fff', color: 'var(--bad)', border: '1px solid rgba(220,38,38,.25)' }}>Efase</button>
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+      {!isAdmin && (
+        <div className="iv-banner auth">
+          <span className="ic"><Lock size={16} color="#7C3AED"/></span>
+          <div className="grow">{tr(t, 'directQuotes.authWarningCashier', 'Devi sa a ap bezwen otorizasyon yon admin anvan ou ka enprime, pataje oswa konvèti l.')}</div>
+        </div>
+      )}
 
-          <div className="card p-5">
-            <h3 className="section-title">{t('directQuotes.clientAndDate')}</h3>
-            <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
-              <div className={isMobile ? '' : 'col-span-2'}>
-                <label className="label">{t('directQuotes.searchClient')}</label>
-                <ClientSearch value={client} onChange={setClient}/>
-              </div>
-              <div>
-                <label className="label">{t('directQuotes.expiryDate')}</label>
-                <input type="date" className="input" value={expiryDate} onChange={e => setExpiryDate(e.target.value)}/>
-              </div>
+      <div className="iv-layout">
+        <div className="iv-col">
+          <section ref={secRefs.client} className={`iv-sec a-up ${curIdx === 0 ? 'focus' : ''}`} style={{ animationDelay: '60ms' }}>
+            <div className="iv-sec-h">
+              <div className={`n ${client?.name ? 'ok' : ''}`}>{client?.name ? <Check size={18}/> : 1}</div>
+              <div><p className="eb">Etap 1</p><h3>Kliyan</h3></div>
+              <div className="r">{client?.name ? <span className="iv-pill"><Check size={11}/> Chwazi</span> : <span className="iv-pill muted">Opsyonèl</span>}</div>
             </div>
-          </div>
+            <ClientSearch value={client} onChange={setClient}/>
+          </section>
 
-          <div className="card overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">{t('directQuotes.itemsTitle')}</h3>
-              <button type="button" onClick={addItem} className="btn-secondary btn-sm">
-                <Plus size={14}/> {t('directQuotes.addLine')}
-              </button>
+          <section ref={secRefs.items} className={`iv-sec a-up ${curIdx === 1 ? 'focus' : ''}`} style={{ animationDelay: '120ms' }}>
+            <div className="iv-sec-h">
+              <div className={`n ${itemsOk ? 'ok' : ''}`}>{itemsOk ? <Check size={18}/> : 2}</div>
+              <div><p className="eb">Etap 2</p><h3>{tr(t, 'directQuotes.itemsTitle', 'Atik yo')}</h3></div>
+              <div className="r"><span className={`iv-pill ${itemsOk ? '' : 'muted'}`}>{validItems.length} atik</span></div>
             </div>
+            {items.map((item, idx) => (
+              <ItemEntry key={item._id} item={item} index={idx} count={items.length} onChange={updateItem} onRemove={removeItem} onDuplicate={duplicateItem}/>
+            ))}
+            <button type="button" className="iv-add" onClick={addItem}><Plus size={16}/> {tr(t, 'directQuotes.addAnotherItem', 'Ajoute yon lòt atik')}</button>
+          </section>
 
-            <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {items.map((item, idx) => (
-                <ItemEntry key={idx} item={item} index={idx} onChange={updateItem} onRemove={removeItem}/>
+          <section ref={secRefs.terms} className={`iv-sec a-up ${curIdx === 2 ? 'focus' : ''}`} style={{ animationDelay: '180ms' }}>
+            <div className="iv-sec-h">
+              <div className={`n ${STEPS[2].done ? 'ok' : ''}`}>{STEPS[2].done ? <Check size={18}/> : 3}</div>
+              <div><p className="eb">Etap 3</p><h3>Kondisyon</h3></div>
+              <div className="r"><span className="iv-pill muted">Opsyonèl</span></div>
+            </div>
+            <div style={{ maxWidth: 220 }}>
+              <label className="iv-lbl"><Calendar size={10} style={{ verticalAlign: '-1px' }}/> {tr(t, 'directQuotes.expiryDate', 'Valab jiska')}</label>
+              <input type="date" className="iv-inp" min={minDate} value={expiryDate} onChange={e => setExpiryDate(e.target.value)}/>
+            </div>
+            <div className="iv-quick" style={{ marginTop: 8 }}>
+              {[7, 15, 30].map(d => (
+                <button key={d} type="button" onClick={() => setExpiryDate(new Date(Date.now() + d * 864e5).toISOString().split('T')[0])}>Valab {d} jou</button>
               ))}
+              {expiryDate && <button type="button" onClick={() => setExpiryDate('')} style={{ color: 'var(--bad)' }}>Retire dat</button>}
             </div>
-
-            <div className="p-3 border-t border-slate-100">
-              <button type="button" onClick={addItem}
-                className="text-brand-600 hover:text-brand-800 text-sm font-medium flex items-center gap-1.5 transition-colors">
-                <Plus size={15}/> {t('directQuotes.addAnotherItem')}
-              </button>
-            </div>
-          </div>
-
-          <div className="card p-5">
-            <div className={isMobile ? 'flex flex-col gap-4' : 'grid grid-cols-2 gap-4'}>
-              <div>
-                <label className="label">{t('directQuotes.notesForClient')}</label>
-                <textarea className="input" rows={3} value={notes} onChange={e => setNotes(e.target.value)}/>
+            <button type="button" className="iv-act" style={{ marginTop: 14 }} onClick={() => setShowNotes(v => !v)}>
+              <StickyNote size={14}/> {showNotes ? 'Kache nòt ak kondisyon' : 'Ajoute nòt / kondisyon'}
+            </button>
+            {showNotes && (
+              <div className="a-up" style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10, marginTop: 12 }}>
+                <div>
+                  <label className="iv-lbl">{tr(t, 'directQuotes.notesForClient', 'Nòt pou kliyan an')}</label>
+                  <textarea className="iv-textarea" value={notes} onChange={e => setNotes(e.target.value)}/>
+                </div>
+                <div>
+                  <label className="iv-lbl">{tr(t, 'directQuotes.generalTerms', 'Kondisyon jeneral')}</label>
+                  <textarea className="iv-textarea" value={terms} onChange={e => setTerms(e.target.value)}/>
+                </div>
               </div>
-              <div>
-                <label className="label">{t('directQuotes.generalTerms')}</label>
-                <textarea className="input" rows={3} value={terms} onChange={e => setTerms(e.target.value)}/>
-              </div>
-            </div>
-          </div>
+            )}
+          </section>
         </div>
 
-        {/* Rezime */}
-        <div className="card p-5 h-fit lg:sticky lg:top-5">
-          <h3 className="section-title">{t('directQuotes.summary')}</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm text-slate-600">
-              <span>{t('directQuotes.subtotalLabel')}</span>
-              <span className="font-mono">{fmt2(subtotal)} HTG</span>
+        <aside ref={secRefs.save} className="iv-aside">
+          <div className="iv-receipt">
+            <div className="rh">
+              <span className="brand">{tenant?.name || 'Devi dirèk'}</span>
+              <span className="tag" style={{ color: '#6D28D9', background: 'rgba(124,58,237,.12)' }}>Aperçu</span>
             </div>
-            <div className="border-t border-slate-100 pt-3">
-              <label className="label">{t('directQuotes.generalDiscount')}</label>
-              <input type="number" min="0" step="0.01" className="input py-1.5 text-sm text-right font-mono w-full"
-                value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)}
-                placeholder="0.00"/>
+            <div className="meta">
+              <div><span>Kliyan</span><b>{client?.name || 'San kliyan'}</b></div>
+              <div style={{ textAlign: 'right' }}><span>Valab jiska</span><b>{expiryDate ? expiryDate.split('-').reverse().join('/') : '—'}</b></div>
             </div>
-            <div className="border-t-2 border-brand-200 pt-3 mt-1">
-              <div className="flex justify-between items-start">
-                <span className="font-display font-bold text-slate-800 text-lg">{t('directQuotes.totalLabel')}</span>
-                <p className="font-bold text-brand-700 text-xl font-mono">{fmt2(total)} HTG</p>
+            <div className="iv-rlines">
+              {validItems.length ? validItems.map(it => (
+                <div key={it._id} className="iv-rline" style={{ alignItems: 'center' }}>
+                  <div className="d" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {it.imageUrl && <span className="iv-thumb" style={{ width: 30, height: 30, borderRadius: 8, backgroundImage: `url(${it.imageUrl})` }}/>}
+                    <div style={{ minWidth: 0 }}>
+                      <b>{it.description}{it.size ? ` · ${it.size}` : ''}</b>
+                      <small>{Number(it.quantity)} × {fmt2(it.unitPriceHtg)}{Number(it.discountAmt) > 0 ? ` − ${fmt2(it.discountAmt)}` : ''}</small>
+                    </div>
+                  </div>
+                  <span className="num">{fmt2(lineTotal(it))}</span>
+                </div>
+              )) : <div className="iv-rempty">🖼️ Atik ou ajoute yo ap parèt la a</div>}
+            </div>
+            <div style={{ paddingTop: 8 }}>
+              <div className="iv-rrow"><span>Sou-total</span><span className="num">{fmt2(subtotal)}</span></div>
+              <div className="iv-rinline">
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{tr(t, 'directQuotes.generalDiscount', 'Rabè global')} (HTG)</span>
+                <input type="number" min="0" step="0.01" className="iv-inp money" value={discountValue} onFocus={e => e.target.select()} onChange={e => setDiscountValue(e.target.value)} placeholder="0.00"/>
               </div>
+              {discount > 0 && <div className="iv-rrow disc"><span>− Rabè aplike</span><span className="num">− {fmt2(discount)}</span></div>}
             </div>
+            <div className="iv-rtotal">
+              <span>Total</span>
+              <span className="num">{fmt2(shownTotal)}<small>HTG</small></span>
+            </div>
+            <div className="iv-rrow" style={{ marginTop: 6 }}><span>≈ USD</span><span className="mono" style={{ fontSize: 12 }}>${fmt2(total / rate)}</span></div>
           </div>
 
-          {isMobile && (
-            <button type="button" onClick={handleSaveClick} disabled={mutation.isPending} className="btn-primary w-full mt-4" style={{ justifyContent: 'center' }}>
-              <Save size={16}/> {mutation.isPending ? t('directQuotes.saving') : t('directQuotes.createDirectQuote')}
+          <div className="iv-check">
+            <div className={itemsOk ? 'ok' : ''}><i>{itemsOk && <Check size={11} strokeWidth={3}/>}</i> Omwen yon atik valab</div>
+            <div className={client?.name ? 'ok' : ''}><i>{client?.name && <Check size={11} strokeWidth={3}/>}</i> Kliyan {client?.name ? '' : '(opsyonèl)'}</div>
+            <div className={isAdmin ? 'ok' : ''}><i>{isAdmin && <Check size={11} strokeWidth={3}/>}</i> {isAdmin ? 'Admin — ou ka otorize l touswit' : 'Ap tann otorizasyon admin'}</div>
+          </div>
+
+          {!isMobile && (
+            <button type="button" onClick={handleSave} disabled={mutation.isPending} className={`iv-btn-main ${itemsOk && !mutation.isPending ? 'pulse' : ''}`} style={{ width: '100%', minHeight: 54, fontSize: 15 }}>
+              {mutation.isPending ? <RefreshCw size={17} className="spin"/> : <Save size={17}/>} {saveText}
             </button>
           )}
-        </div>
+        </aside>
       </div>
+
+      {isMobile && (
+        <div className="iv-mbar">
+          <div className="l">
+            <small>{validItems.length} atik · Total</small>
+            <span className="num" style={{ display: 'inline-block' }}>{fmt2(shownTotal)}</span>
+          </div>
+          <button type="button" onClick={handleSave} disabled={mutation.isPending} className="iv-btn-main" style={{ minHeight: 50 }}>
+            {mutation.isPending ? <RefreshCw size={16} className="spin"/> : <Save size={16}/>} {mutation.isPending ? 'Ap sove...' : 'Kreye'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
