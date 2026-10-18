@@ -134,7 +134,7 @@ export default function InvoicesPage() {
         pages:    d.pages || 1,
       }
     }),
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,   // ✅ react-query v5
     staleTime: 20_000,
   })
 

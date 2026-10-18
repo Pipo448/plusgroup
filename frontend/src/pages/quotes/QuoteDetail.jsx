@@ -1,21 +1,23 @@
-// src/pages/quotes/QuoteDetail.jsx
+// src/pages/quotes/QuoteDetail.jsx — Plus Fit redesign
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { quoteAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { useMemo, memo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import {
-  ArrowLeft, Edit2, FileCheck, Share2, Copy, Check, MessageCircle,
-  Lock, Eye, RefreshCw, Trash2, X, ExternalLink, Link2, KeyRound, Printer
+  ArrowLeft, Edit2, FileCheck, Share2, Copy, Check, MessageCircle, Eye, RefreshCw, Trash2, X,
+  ExternalLink, KeyRound, Printer, FileText, User, Phone, Calendar, Package, XCircle, Send,
+  CheckCircle, Clock, PenLine, StickyNote, Layers, DollarSign,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { printQuoteNative, isNativePrinterAvailable } from '../../services/printerNative'
+import '../invoices/invoices.css'
 
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmt  = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt0 = (n) => Number(n || 0).toLocaleString('fr-HT', { maximumFractionDigits: 0 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
-// ✅ Deyò component — pa rekrye
 const parseCurrencies = (raw) => {
   if (Array.isArray(raw)) return raw
   if (typeof raw === 'string') {
@@ -40,92 +42,144 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
   return parts.length ? parts : null
 }
 
-const STATUS_BADGES = { draft:'badge-gray', sent:'badge-blue', accepted:'badge-green', converted:'badge-purple', cancelled:'badge-red' }
-const STATUS_LABELS = { draft:'Bouyon', sent:'Voye', accepted:'Aksepte', converted:'Konvèti', cancelled:'Anile' }
+// ✅ Dat an lè Ayiti, fòma nimerik (pa "October" an anglè)
+const toHaitiDate = (dateStr, fmt2) => {
+  try {
+    return format(new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })), fmt2)
+  } catch { return '' }
+}
 
-// ✅ WithConv — deyò component prensipal, memo
-const WithConv = memo(function WithConv({ htg, showRate, exchangeRates, visibleCurrs, large }) {
-  const lines = useMemo(
-    () => showRate ? fmtConv(Number(htg), exchangeRates, visibleCurrs) : null,
-    [htg, showRate, exchangeRates, visibleCurrs]
-  )
+const STATUS = {
+  draft:     { label: 'Bouyon',  color: '#CBD5E1', Icon: PenLine },
+  sent:      { label: 'Voye',    color: '#93C5FD', Icon: Send },
+  accepted:  { label: 'Aksepte', color: '#34D399', Icon: CheckCircle },
+  converted: { label: 'Konvèti', color: '#C4B5FD', Icon: FileCheck },
+  cancelled: { label: 'Anile',   color: '#F87171', Icon: XCircle },
+  expired:   { label: 'Ekspire', color: '#FBBF24', Icon: Clock },
+}
+
+function useCountUp(value, ms = 800) {
+  const [v, setV] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0, unit = 'HTG', dec = 0 }) {
+  const v = useCountUp(value)
   return (
-    <div style={{ textAlign:'right' }}>
-      <span className={`font-mono${large ? ' font-bold text-brand-700' : ''}`}>{fmt(htg)} HTG</span>
-      {lines && lines.map((line, i) => (
-        <div key={i} style={{ fontSize:11, color:'#94a3b8', fontFamily:'monospace', marginTop:1 }}>{line}</div>
-      ))}
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{dec ? fmt(v) : fmt0(v)}{unit && <small>{unit}</small>}</div>
     </div>
   )
-})
+}
 
 export default function QuoteDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
-  const { tenant } = useAuthStore()
+  const { tenant, hasRole } = useAuthStore()
   const qc         = useQueryClient()
 
-  // ✅ NOUVO — eta modal pataj
   const [shareOpen, setShareOpen] = useState(false)
-  // ✅ NOUVO — eta pandan y ap enprime sou enprimant native (APK)
-  const [printing, setPrinting] = useState(false)
+  const [printing, setPrinting]   = useState(false)
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates || {}
-  // ✅ parseCurrencies — jere string ak array
-  const visibleCurrs  = useMemo(
-    () => parseCurrencies(tenant?.visibleCurrencies),
-    [tenant?.visibleCurrencies]
-  )
+  const visibleCurrs  = useMemo(() => parseCurrencies(tenant?.visibleCurrencies), [tenant?.visibleCurrencies])
 
   const { data: quote, isLoading } = useQuery({
     queryKey: ['quote', id],
     queryFn:  () => quoteAPI.getOne(id).then(r => r.data.quote),
-    staleTime: 30_000, // ✅ cache 30 sèk
+    staleTime: 30_000,
   })
+
+  const onErr = (e) => toast.error(e?.response?.data?.message || 'Erè sèvè. Eseye ankò.')
 
   const convertMutation = useMutation({
     mutationFn: () => quoteAPI.convert(id),
     onSuccess:  (res) => {
-      toast.success('Devis konvèti an facture!')
-      // ✅ Kòrèk path
+      toast.success('Devi konvèti an fakti!')
+      qc.invalidateQueries({ queryKey: ['quotes'] })
+      qc.invalidateQueries({ queryKey: ['quote', id] })
+      qc.invalidateQueries({ queryKey: ['invoices'] })
       navigate(`/app/invoices/${res.data.invoice.id}`)
-    }
+    },
+    onError: onErr,
   })
 
+  // ✅ KORIJE — invalidateQueries({ queryKey }) (v5); anvan sa paj la pa t rafrechi apre anilasyon
   const cancelMutation = useMutation({
     mutationFn: () => quoteAPI.cancel(id),
-    onSuccess:  () => { toast.success('Devis anile.'); qc.invalidateQueries(['quote', id]) }
+    onSuccess:  () => {
+      toast.success('Devi anile.')
+      qc.invalidateQueries({ queryKey: ['quote', id] })
+      qc.invalidateQueries({ queryKey: ['quotes'] })
+    },
+    onError: onErr,
   })
 
-  // ✅ NOUVO — Mutation pou jenere lyen pataj + kòd akse
+  const sendMutation = useMutation({
+    mutationFn: () => quoteAPI.send(id),
+    onSuccess:  () => {
+      toast.success('Devi make voye.')
+      qc.invalidateQueries({ queryKey: ['quote', id] })
+      qc.invalidateQueries({ queryKey: ['quotes'] })
+    },
+    onError: onErr,
+  })
+
   const shareMutation = useMutation({
     mutationFn: () => quoteAPI.share(id),
-    onSuccess:  () => {
-      toast.success('Lyen ak kòd akse kreye!')
-      qc.invalidateQueries({ queryKey: ['quote', id] })
-    },
-    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan kreye lyen.')
+    onSuccess:  () => { toast.success('Lyen ak kòd akse kreye!'); qc.invalidateQueries({ queryKey: ['quote', id] }) },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan kreye lyen.'),
   })
 
-  // ✅ NOUVO — Mutation pou revoke lyen
   const revokeMutation = useMutation({
     mutationFn: () => quoteAPI.revokeShare(id),
-    onSuccess:  () => {
-      toast.success('Lyen revoke.')
-      qc.invalidateQueries({ queryKey: ['quote', id] })
-    },
-    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan revoke lyen.')
+    onSuccess:  () => { toast.success('Lyen revoke.'); qc.invalidateQueries({ queryKey: ['quote', id] }) },
+    onError:    (e) => toast.error(e.response?.data?.message || 'Erè pandan revoke lyen.'),
   })
 
-  if (isLoading) return <div className="flex justify-center py-20"><div className="spinner"/></div>
-  if (!quote)    return null
+  if (isLoading) return (
+    <div className="iv">
+      <div className="iv-hero" style={{ minHeight: 190 }}>
+        <div className="iv-sk" style={{ width: '30%', height: 14, opacity: .25 }}/>
+        <div className="iv-sk" style={{ width: '45%', height: 34, marginTop: 12, opacity: .25 }}/>
+      </div>
+      <div className="iv-layout">
+        <div className="iv-sec">{[70, 50, 90, 60].map((w, i) => <div key={i} className="iv-sk" style={{ width: `${w}%`, marginBottom: 14 }}/>)}</div>
+        <div className="iv-sec">{[60, 80, 40].map((w, i) => <div key={i} className="iv-sk" style={{ width: `${w}%`, marginBottom: 14 }}/>)}</div>
+      </div>
+    </div>
+  )
+  if (!quote) return null
 
-  const snap = quote.clientSnapshot || {}
-  const canShare = !['cancelled'].includes(quote.status)
+  const snap       = quote.clientSnapshot || {}
+  const clientName = snap.name || quote.client?.name || ''
+  const st         = STATUS[quote.status] || STATUS.draft
+  const canShare   = quote.status !== 'cancelled'
+  const canEdit    = ['draft', 'sent'].includes(quote.status)
+  const canConvert = ['draft', 'sent', 'accepted'].includes(quote.status)
+  const canCancel  = !['converted', 'cancelled'].includes(quote.status)
+  const usdRate    = Number(exchangeRates.USD || quote.exchangeRate || 132)
+  const totalUsd   = Number(quote.totalHtg || 0) / usdRate
+  const isExpired  = quote.expiryDate && new Date(quote.expiryDate) < new Date() && canCancel
+  const daysLeft   = quote.expiryDate ? Math.ceil((new Date(quote.expiryDate) - new Date()) / 864e5) : null
 
-  // ✅ NOUVO — Enprime devi a: si nou nan APK (Bluetooth/Sunmi/iMin/Telpo konfigire),
-  // voye dirèkteman bay enprimant thermal la. Sinon (navigatè web), itilize dyalòg enprime navigatè a.
+  // ✅ Enprime: APK → enprimant natif; navigatè → dyalòg enprime (bouton yo kache)
   const handlePrint = async () => {
     if (isNativePrinterAvailable()) {
       setPrinting(true)
@@ -142,239 +196,249 @@ export default function QuoteDetail() {
     }
   }
 
+  const doConvert = () => { if (confirm('Konvèti devi sa an fakti?')) convertMutation.mutate() }
+  const doCancel  = () => { if (confirm('Anile devi sa? Ou pa ka defèt sa.')) cancelMutation.mutate() }
+
   return (
-    <div className="animate-fade-in max-w-4xl">
+    <div className="iv" style={{ maxWidth: 1240, paddingBottom: 80 }}>
 
-      {/* ✅ NOUVO — Estil enprime: kache bouton yo, gade sèlman kontni devi a */}
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { background: #fff !important; }
-          .card { box-shadow: none !important; border: 1px solid #e2e8f0 !important; }
-        }
-      `}</style>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6" style={{ flexWrap:'wrap', gap:12 }}>
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/app/quotes')} className="btn-ghost p-2 no-print">
-            <ArrowLeft size={18}/>
-          </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-display font-bold">{quote.quoteNumber}</h1>
-              <span className={STATUS_BADGES[quote.status] || 'badge-gray'}>
-                {STATUS_LABELS[quote.status]}
-              </span>
+      {/* ══════════ HERO ══════════ */}
+      <section className="iv-hero">
+        <div className="glow"/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#FFC83D" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FF6B00" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+        <div className="row">
+          <button className="back" onClick={() => navigate('/app/quotes')} aria-label="Retounen"><ArrowLeft size={18}/></button>
+          <div className="ico gold"><FileText size={24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">Devi · Pwofòma</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <h1>{quote.quoteNumber}</h1>
+              <span className="stamp" style={{ '--sc': st.color }}><i/> {st.label}</span>
             </div>
-            <p className="text-slate-500 text-sm">{format(new Date(quote.issueDate), 'dd MMMM yyyy')}</p>
-          </div>
-        </div>
-        <div className="flex gap-2 no-print" style={{ flexWrap:'wrap' }}>
-
-          {/* ✅ NOUVO — Bouton Enprime Devi */}
-          <button onClick={handlePrint} disabled={printing} className="btn-secondary btn-sm">
-            <Printer size={14}/> {printing ? 'Ap enprime...' : 'Enprime Devi'}
-          </button>
-
-          {/* ✅ NOUVO — Bouton Pataje */}
-          {canShare && (
-            <button
-              onClick={() => setShareOpen(true)}
-              className="btn-secondary btn-sm"
-              style={{
-                background: quote.publicToken ? 'linear-gradient(135deg,#25D366,#1da851)' : undefined,
-                color: quote.publicToken ? '#fff' : undefined,
-                border: quote.publicToken ? 'none' : undefined,
-                position: 'relative',
-              }}>
-              <Share2 size={14}/>
-              {quote.publicToken ? 'Lyen Aktif' : 'Pataje'}
-              {quote.publicViewCount > 0 && (
-                <span style={{
-                  position:'absolute', top:-6, right:-6,
-                  background:'#dc2626', color:'#fff',
-                  borderRadius:99, padding:'1px 6px',
-                  fontSize:10, fontWeight:800,
-                }}>
-                  👁 {quote.publicViewCount}
+            <div className="meta-line">
+              <span><User size={12}/> {clientName || 'San kliyan'}</span>
+              <span><Calendar size={12}/> {toHaitiDate(quote.issueDate || quote.createdAt, 'dd/MM/yyyy')}</span>
+              {quote.expiryDate && (
+                <span style={isExpired ? { color: '#FCA5A5', fontWeight: 800 } : undefined}>
+                  <Clock size={12}/> {isExpired ? 'Ekspire' : 'Valab jiska'} {toHaitiDate(quote.expiryDate, 'dd/MM/yyyy')}
                 </span>
               )}
-            </button>
-          )}
-
-          {['draft','sent'].includes(quote.status) && (
-            <Link to={`/app/quotes/${id}/edit`} className="btn-secondary btn-sm">
-              <Edit2 size={14}/> Modifye
-            </Link>
-          )}
-          {['draft','sent','accepted'].includes(quote.status) && (
-            <button
-              onClick={() => { if (confirm('Konvèti an facture?')) convertMutation.mutate() }}
-              disabled={convertMutation.isPending}
-              className="btn-primary">
-              <FileCheck size={16}/> Konvèti an Facture
+            </div>
+          </div>
+          {canConvert && (
+            <button onClick={doConvert} disabled={convertMutation.isPending} className="iv-btn-main pulse no-print">
+              {convertMutation.isPending ? <RefreshCw size={17} className="spin"/> : <FileCheck size={17}/>} Konvèti an fakti
             </button>
           )}
           {quote.status === 'converted' && quote.invoice && (
-            <Link to={`/app/invoices/${quote.invoice.id}`} className="btn-primary">
-              <FileCheck size={16}/> Wè Facture {quote.invoice.invoiceNumber}
+            <Link to={`/app/invoices/${quote.invoice.id}`} className="iv-btn-main no-print">
+              <FileCheck size={17}/> Wè fakti {quote.invoice.invoiceNumber}
             </Link>
           )}
         </div>
+
+        <div className="iv-kpis">
+          <Kpi label="Total"   value={quote.totalHtg} icon={DollarSign} delay={80}  tone="gold"/>
+          <Kpi label="≈ USD"   value={totalUsd}       icon={DollarSign} delay={160} unit="USD" dec={2}/>
+          {daysLeft != null && canCancel
+            ? <Kpi label={isExpired ? 'Ekspire depi' : 'Jou ki rete'} value={Math.abs(daysLeft)} icon={Clock} delay={240} unit="jou" tone={isExpired || daysLeft <= 3 ? 'red' : 'green'}/>
+            : <Kpi label="Atik" value={quote.items?.length || 0} icon={Layers} delay={240} unit=""/>}
+        </div>
+      </section>
+
+      {/* ══════════ AKSYON ══════════ */}
+      <div className="iv-actions a-up no-print" style={{ animationDelay: '100ms' }}>
+        <button onClick={handlePrint} disabled={printing} className={isNativePrinterAvailable() ? 'iv-act sky' : 'iv-act'}>
+          {printing ? <RefreshCw size={15} className="spin"/> : <Printer size={15}/>} {printing ? 'Ap enprime...' : 'Enprime'}
+        </button>
+        {canShare && (
+          <button onClick={() => setShareOpen(true)} className={`iv-act ${quote.publicToken ? 'green' : ''}`} style={{ position: 'relative' }}>
+            <Share2 size={15}/> {quote.publicToken ? 'Lyen aktif' : 'Pataje'}
+            {quote.publicViewCount > 0 && <span className="iv-badge-dot">👁 {quote.publicViewCount}</span>}
+          </button>
+        )}
+        {canEdit && <Link to={`/app/quotes/${id}/edit`} className="iv-act"><Edit2 size={15}/> Modifye</Link>}
+        {quote.status === 'draft' && (
+          <button onClick={() => sendMutation.mutate()} disabled={sendMutation.isPending} className="iv-act sky">
+            <Send size={15}/> Make voye
+          </button>
+        )}
+        <span className="sp"/>
+        {/* ✅ NOUVO — bouton Anile (mutation an te egziste men pa t gen bouton) */}
+        {canCancel && (hasRole ? hasRole(['admin', 'cashier']) : true) && (
+          <button onClick={doCancel} disabled={cancelMutation.isPending} className="iv-act danger"><XCircle size={15}/> Anile</button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 space-y-5">
+      <div className="iv-layout">
+        <div className="iv-col">
 
-          {/* Kliyan */}
-          <div className="card p-5">
-            <h3 className="section-title">Kliyan</h3>
-            {snap.name
-              ? <div>
-                  <p className="font-semibold text-slate-800">{snap.name}</p>
-                  {snap.phone && <p className="text-sm text-slate-500">{snap.phone}</p>}
-                  {snap.email && <p className="text-sm text-slate-500">{snap.email}</p>}
+          <section className="iv-sec a-up" style={{ animationDelay: '140ms' }}>
+            <div className="iv-sec-h" style={{ marginBottom: clientName ? 14 : 0 }}>
+              <div className="n"><User size={17}/></div>
+              <div><p className="eb">Kliyan</p><h3>{clientName || 'San kliyan'}</h3></div>
+            </div>
+            {clientName && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {snap.phone && <span className="iv-pill muted" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}><Phone size={11}/> {snap.phone}</span>}
+                {snap.email && <span className="iv-pill muted" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>{snap.email}</span>}
+              </div>
+            )}
+          </section>
+
+          <section className="iv-sec a-up" style={{ animationDelay: '200ms' }}>
+            <div className="iv-sec-h">
+              <div className="n"><Package size={17}/></div>
+              <div><p className="eb">Detay</p><h3>Atik yo</h3></div>
+              <div className="r"><span className="iv-pill muted">{quote.items?.length || 0} atik</span></div>
+            </div>
+            <div className="iv-dl-head">
+              <span>Pwodui</span><span style={{ textAlign: 'center' }}>Qte</span><span style={{ textAlign: 'right' }}>Pri U.</span>
+              <span style={{ textAlign: 'right' }}>Rabè</span><span style={{ textAlign: 'right' }}>Total</span>
+            </div>
+            {quote.items?.map((item, i) => {
+              const tierLabel = item.productSnapshot?.tierLabel
+              const code = item.product?.code || item.productSnapshot?.code
+              const unit = item.product?.unit || item.productSnapshot?.unit
+              // ✅ KORIJE — montre rabè a an MONTAN (discountAmt), pa "7.75%"
+              const disc = item.discountAmt != null
+                ? Number(item.discountAmt)
+                : Number(item.unitPriceHtg) * Number(item.quantity) * Number(item.discountPct || 0) / 100
+              const conv = showRate ? fmtConv(Number(item.totalHtg), exchangeRates, visibleCurrs) : null
+              return (
+                <div key={item.id || i} className="iv-dl-row" style={{ animationDelay: `${Math.min(i, 10) * 40 + 220}ms` }}>
+                  <div className="nm">
+                    <span className="iv-thumb" style={{ backgroundImage: item.product?.imageUrl ? `url(${item.product.imageUrl})` : undefined }}>
+                      {!item.product?.imageUrl && <Package size={15} color="#1B2A8F"/>}
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <b>{item.product?.name || item.productSnapshot?.name}</b>
+                        {tierLabel && <span className={`iv-tier ${tierLabel === 'Detay' ? 'det' : ''}`}>{tierLabel}</span>}
+                      </div>
+                      {code && <small>{code}</small>}
+                    </div>
+                  </div>
+                  <div className="c">
+                    <span className="k">Qte</span>
+                    <span className="num" style={{ fontSize: 17, fontWeight: 700 }}>{Number(item.quantity)}</span>
+                    {unit && <span style={{ fontSize: 11, color: 'var(--muted)', marginLeft: 4 }}>{unit}</span>}
+                  </div>
+                  <div className="r"><span className="k">Pri U.</span><span className="num" style={{ fontSize: 16, fontWeight: 600 }}>{fmt(item.unitPriceHtg)}</span></div>
+                  <div className={`r ${disc > 0 ? '' : 'disc'}`}>
+                    <span className="k">Rabè</span>
+                    <span className="num" style={{ fontSize: 16, color: disc > 0 ? 'var(--bad)' : 'var(--muted)' }}>{disc > 0 ? `−${fmt(disc)}` : '—'}</span>
+                  </div>
+                  <div className="r">
+                    <span className="k">Total</span>
+                    <span className="num" style={{ fontSize: 19, fontWeight: 800 }}>{fmt(item.totalHtg)}</span>
+                    {conv && conv.map((l, j) => <div key={j} className="iv-conv">{l}</div>)}
+                  </div>
                 </div>
-              : <p className="text-slate-400 italic">San kliyan</p>
-            }
-          </div>
+              )
+            })}
+          </section>
 
-          {/* Atik yo */}
-          <div className="card overflow-hidden">
-            <div className="p-4 border-b border-slate-100">
-              <h3 className="font-display font-bold text-slate-800">
-                Atik yo ({quote.items?.length || 0})
-              </h3>
-            </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Pwodui</th>
-                  <th className="text-center">Qte</th>
-                  <th className="text-right">Pri U.</th>
-                  <th className="text-center">Rem.</th>
-                  <th className="text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quote.items?.map((item, i) => (
-                  // ✅ QuoteItemRow — memo pou evite re-render
-                  <QuoteItemRow
-                    key={item.id || i}
-                    item={item}
-                    showRate={showRate}
-                    exchangeRates={exchangeRates}
-                    visibleCurrs={visibleCurrs}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {quote.notes && (
-            <div className="card p-4">
-              <p className="text-xs font-semibold text-slate-500 uppercase mb-1">Nòt</p>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{quote.notes}</p>
-            </div>
+          {(quote.notes || quote.terms) && (
+            <section className="iv-sec a-up" style={{ animationDelay: '260ms' }}>
+              <div className="iv-sec-h">
+                <div className="n"><StickyNote size={17}/></div>
+                <div><p className="eb">Pou kliyan an</p><h3>Nòt ak kondisyon</h3></div>
+              </div>
+              {quote.notes && (
+                <div style={{ marginBottom: quote.terms ? 12 : 0 }}>
+                  <label className="iv-lbl">Nòt</label>
+                  <p className="iv-note" style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>{quote.notes}</p>
+                </div>
+              )}
+              {quote.terms && (
+                <div>
+                  <label className="iv-lbl">Kondisyon</label>
+                  <p className="iv-note" style={{ margin: 0, whiteSpace: 'pre-wrap', color: 'var(--ink)' }}>{quote.terms}</p>
+                </div>
+              )}
+            </section>
           )}
         </div>
 
-        {/* Totaux */}
-        <div>
-          <div className="card p-5">
-            <h3 className="font-display font-bold text-slate-800 mb-4">Totaux</h3>
-            <div className="space-y-2.5 text-sm">
-
-              <div className="flex justify-between items-start">
-                <span className="text-slate-500">Sous-total</span>
-                <WithConv htg={quote.subtotalHtg} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
-              </div>
-
-              {Number(quote.discountHtg) > 0 && (
-                <div className="flex justify-between items-start text-red-600">
-                  <span>Remiz</span>
-                  <div style={{ textAlign:'right' }}>
-                    <span className="font-mono">-{fmt(quote.discountHtg)} HTG</span>
-                    {showRate && fmtConv(Number(quote.discountHtg), exchangeRates, visibleCurrs)?.map((line, i) => (
-                      <div key={i} style={{ fontSize:10, color:'#f87171', fontFamily:'monospace' }}>
-                        -{line.replace('≈ ', '')}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {Number(quote.taxHtg) > 0 && (
-                <div className="flex justify-between items-start">
-                  <span>TVA ({Number(quote.taxRate)}%)</span>
-                  <WithConv htg={quote.taxHtg} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
-                </div>
-              )}
-
-              <div className="flex justify-between items-start font-bold text-base pt-2 border-t border-slate-200 mt-2">
-                <span>TOTAL</span>
-                <WithConv htg={quote.totalHtg} large showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
-              </div>
+        {/* ══════════ PWOFÒMA ══════════ */}
+        <aside className="iv-aside">
+          <div className="iv-receipt">
+            <div className="rh">
+              <span className="brand">{tenant?.businessName || tenant?.name || 'Pwofòma'}</span>
+              {['converted', 'cancelled'].includes(quote.status)
+                ? <span className="iv-seal" style={{ '--sc': quote.status === 'converted' ? '#7C3AED' : '#DC2626' }}>{quote.status === 'converted' ? 'KONVÈTI' : 'ANILE'}</span>
+                : <span className="tag" style={{ color: '#A87B12', background: 'rgba(201,168,76,.15)' }}>Pwofòma</span>}
+            </div>
+            <div className="meta">
+              <div><span>Kliyan</span><b>{clientName || 'San kliyan'}</b></div>
+              <div style={{ textAlign: 'right' }}><span>Deviz</span><b>{quote.currency || 'HTG'}</b></div>
             </div>
 
-            {/* Taux reference */}
-            <div className="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400 space-y-1">
-              <div className="flex justify-between">
-                <span>Devise:</span><span>{quote.currency}</span>
-              </div>
+            <div style={{ borderTop: '1px solid var(--line)', paddingTop: 8 }}>
+              <div className="iv-rrow"><span>Sou-total</span><span className="num">{fmt(quote.subtotalHtg)}</span></div>
+              {Number(quote.discountHtg) > 0 && <div className="iv-rrow disc"><span>Remiz</span><span className="num">−{fmt(quote.discountHtg)}</span></div>}
+              {Number(quote.taxHtg) > 0 && <div className="iv-rrow"><span>TVA ({Number(quote.taxRate)}%)</span><span className="num">+{fmt(quote.taxHtg)}</span></div>}
+            </div>
+
+            <div className="iv-rtotal">
+              <span>Total</span>
+              <span className="num">{fmt(quote.totalHtg)}<small>HTG</small></span>
+            </div>
+            {showRate && fmtConv(Number(quote.totalHtg), exchangeRates, visibleCurrs)?.map((l, i) => (
+              <div key={i} className="iv-rrow" style={{ justifyContent: 'flex-end' }}><span className="mono" style={{ fontSize: 12, color: 'var(--ink)', fontWeight: 700 }}>{l}</span></div>
+            ))}
+
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1.5px dashed var(--line2)', fontSize: 11 }}>
               {showRate && visibleCurrs.map(cur => {
                 const r = Number(exchangeRates[cur])
                 if (!r) return null
-                return (
-                  <div key={cur} className="flex justify-between">
-                    <span>1 {cur} =</span>
-                    <span className="font-mono">{r.toFixed(2)} HTG</span>
-                  </div>
-                )
+                return <div key={cur} className="iv-rrow"><span>1 {cur}</span><span className="mono">{r.toFixed(2)} HTG</span></div>
               })}
               {(!showRate || !visibleCurrs.length) && (
-                <div className="flex justify-between">
-                  <span>Taux:</span>
-                  <span className="font-mono">1 USD = {Number(quote.exchangeRate || 132).toFixed(2)} HTG</span>
-                </div>
+                <div className="iv-rrow"><span>To</span><span className="mono">1 USD = {Number(quote.exchangeRate || 132).toFixed(2)} HTG</span></div>
               )}
               {quote.expiryDate && (
-                <div className="flex justify-between">
-                  <span>Ekspire:</span>
-                  <span>{format(new Date(quote.expiryDate), 'dd/MM/yyyy')}</span>
+                <div className="iv-rrow" style={isExpired ? { color: 'var(--bad)', fontWeight: 800 } : undefined}>
+                  <span>{isExpired ? '⚠ Ekspire' : 'Valab jiska'}</span><span>{toHaitiDate(quote.expiryDate, 'dd/MM/yyyy')}</span>
                 </div>
               )}
             </div>
           </div>
-        </div>
+
+          <div className="iv-printbtns no-print">
+            {canConvert && (
+              <button onClick={doConvert} disabled={convertMutation.isPending} className="iv-btn-main" style={{ width: '100%', minHeight: 50 }}>
+                {convertMutation.isPending ? <RefreshCw size={16} className="spin"/> : <FileCheck size={16}/>} Konvèti an fakti
+              </button>
+            )}
+            <button onClick={handlePrint} disabled={printing} className="iv-act" style={{ width: '100%' }}>
+              <Printer size={15}/> {printing ? 'Ap enprime...' : 'Enprime devi a'}
+            </button>
+          </div>
+        </aside>
       </div>
 
-      {/* ✅ NOUVO — Modal Pataje */}
       {shareOpen && (
-        <ShareModal
-          quote={quote}
-          tenant={tenant}
-          onClose={() => setShareOpen(false)}
-          shareMutation={shareMutation}
-          revokeMutation={revokeMutation}
-        />
+        <ShareModal quote={quote} tenant={tenant} onClose={() => setShareOpen(false)} shareMutation={shareMutation} revokeMutation={revokeMutation}/>
       )}
     </div>
   )
 }
 
 // ════════════════════════════════════════════════════════════
-// ✅ NOUVO — MODAL PATAJE AK KÒD AKSE
+// MODAL PATAJE AK KÒD AKSE
 // ════════════════════════════════════════════════════════════
-
 function ShareModal({ quote, tenant, onClose, shareMutation, revokeMutation }) {
-  const [copied,     setCopied]     = useState(false)
+  const [copied, setCopied]         = useState(false)
   const [codeCopied, setCodeCopied] = useState(false)
 
   const hasActive = !!quote.publicToken && !!quote.accessCode
   const publicUrl = quote.publicToken ? `${window.location.origin}/proforma/${quote.publicToken}` : ''
-  const code      = quote.accessCode || ''
+  const code      = String(quote.accessCode || '')
 
   const handleCopy = async (text, setter) => {
     try {
@@ -399,163 +463,95 @@ function ShareModal({ quote, tenant, onClose, shareMutation, revokeMutation }) {
     `🔐 Code d'accès : ${code}\n\n` +
     `Merci !\n${tenant?.name || ''}`
   )
-  const waUrl = cleanPhone
-    ? `https://wa.me/${cleanPhone}?text=${waMessage}`
-    : `https://wa.me/?text=${waMessage}`
-
+  const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${waMessage}` : `https://wa.me/?text=${waMessage}`
   const isPending = shareMutation.isPending || revokeMutation.isPending
 
   return (
-    <div style={overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div style={modalBox}>
-
-        {/* Header */}
-        <div style={modalHeader}>
-          <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
-            <div style={iconBoxStyle(hasActive ? '#25D366' : '#1B2A8F')}>
-              <Share2 size={18} color="#fff"/>
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <h2 style={{ fontSize:17, fontWeight:900, color:'#0F1A5C', margin:0 }}>Pataje pwoforma</h2>
-              <p style={{ fontSize:12, color:'#6B7AAB', margin:'2px 0 0' }}>
-                {quote.quoteNumber} · {fmt(quote.totalHtg)} HTG
-              </p>
-            </div>
-          </div>
-          <button onClick={onClose} style={closeBtn}>
-            <X size={18}/>
-          </button>
+    <div className="iv-overlay sheet" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="iv-sheet" style={{ maxWidth: 500 }}>
+        <div className="iv-sheet-h">
+          <h3><Share2 size={18} style={{ verticalAlign: '-2px' }}/> Pataje pwofòma</h3>
+          <p>{quote.quoteNumber} · {fmt(quote.totalHtg)} HTG</p>
+          <button className="x" onClick={onClose} aria-label="Fèmen"><X size={17}/></button>
         </div>
 
-        {/* Kontni */}
-        <div style={{ padding:'20px 22px' }}>
-
+        <div className="iv-sheet-b">
           {hasActive ? (
             <>
-              {/* Banyè aktif */}
-              <div style={statusBanner('#25D366', 'rgba(37,211,102,0.08)')}>
-                <Check size={16} color="#16a34a"/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:13, fontWeight:800, color:'#15803d', margin:0 }}>
-                    Lyen ak kòd akse aktif
-                  </p>
-                  <p style={{ fontSize:11, color:'#16a34a', margin:'2px 0 0' }}>
-                    Kliyan an dwe antre kòd la pou wè pwoforma a.
-                  </p>
-                </div>
+              <div className="iv-paidbox ok" style={{ marginTop: 0 }}>
+                <span><Check size={14}/> Lyen ak kòd akse aktif</span>
               </div>
 
-              {/* Stati vizit */}
               {quote.publicViewCount > 0 ? (
-                <div style={viewStats}>
+                <div className="iv-views" style={{ background: 'rgba(27,42,143,.06)', color: 'var(--ink)' }}>
                   <Eye size={14} color="#1B2A8F"/>
-                  <span style={{ fontSize:12, color:'#0F1A5C', fontWeight:600 }}>
-                    Kliyan an wè pwoforma a <strong>{quote.publicViewCount}</strong> fwa
-                    {quote.publicViewedAt && (
-                      <> · premye fwa {format(new Date(quote.publicViewedAt), 'dd/MM/yyyy HH:mm')}</>
-                    )}
+                  <span>Kliyan an wè pwofòma a <b>{quote.publicViewCount}</b> fwa
+                    {quote.publicViewedAt && <> · premye fwa {toHaitiDate(quote.publicViewedAt, 'dd/MM/yyyy HH:mm')}</>}
                   </span>
                 </div>
               ) : (
-                <div style={{ ...viewStats, background:'rgba(217,119,6,0.06)' }}>
-                  <Eye size={14} color="#D97706"/>
-                  <span style={{ fontSize:12, color:'#92400e', fontWeight:600 }}>
-                    Kliyan an poko wè pwoforma a
-                  </span>
+                <div className="iv-views" style={{ background: 'var(--warnBg)', color: '#92400E' }}>
+                  <Eye size={14}/> Kliyan an poko wè pwofòma a
                 </div>
               )}
 
-              {/* URL */}
-              <div style={{ marginTop:14 }}>
-                <p style={inputLabel}>🔗 Lyen d'akse</p>
-                <div style={{ display:'flex', gap:8 }}>
-                  <input
-                    type="text"
-                    value={publicUrl}
-                    readOnly
-                    onFocus={(e) => e.target.select()}
-                    style={urlInputStyle}
-                  />
-                  <button onClick={() => handleCopy(publicUrl, setCopied)} style={iconBtnStyle('#1B2A8F')}>
-                    {copied ? <Check size={16}/> : <Copy size={16}/>}
+              <div>
+                <label className="iv-lbl">🔗 Lyen akse</label>
+                <div className="iv-share-url">
+                  <input readOnly value={publicUrl} className="iv-inp" onFocus={e => e.target.select()}/>
+                  <button onClick={() => handleCopy(publicUrl, setCopied)} className={`iv-act icon ${copied ? 'green' : ''}`} style={{ minHeight: 44, width: 44 }}>
+                    {copied ? <Check size={17}/> : <Copy size={17}/>}
                   </button>
                 </div>
               </div>
 
-              {/* Kòd akse (KÒM GWO ELEMAN) */}
-              <div style={{ marginTop:14 }}>
-                <p style={inputLabel}>🔐 Kòd akse 4 chif</p>
-                <div style={codeContainer}>
-                  <div style={{ display:'flex', gap:6 }}>
-                    {code.split('').map((digit, i) => (
-                      <div key={i} style={codeDigit}>{digit}</div>
-                    ))}
-                  </div>
-                  <button onClick={() => handleCopy(code, setCodeCopied)} style={iconBtnStyle('#FF6B00')}>
-                    {codeCopied ? <Check size={16}/> : <Copy size={16}/>}
+              <div>
+                <label className="iv-lbl">🔐 Kòd akse</label>
+                <div className="iv-code">
+                  <div className="dg">{code.split('').map((d, i) => <span key={i} style={{ animationDelay: `${i * 80}ms` }}>{d}</span>)}</div>
+                  <button onClick={() => handleCopy(code, setCodeCopied)} className="iv-act icon" style={{ minHeight: 44, width: 44, background: '#FF6B00', color: '#fff', borderColor: '#FF6B00' }}>
+                    {codeCopied ? <Check size={17}/> : <Copy size={17}/>}
                   </button>
                 </div>
-                <p style={{ fontSize:11, color:'#92400e', margin:'8px 0 0', fontWeight:600, lineHeight:1.4 }}>
-                  ⚠️ Voye kòd sa ak kliyan an separeman pou pi gwo konfidansyalite.
-                </p>
+                <p style={{ fontSize: 11, color: '#92400E', margin: '8px 0 0', fontWeight: 700 }}>⚠️ Voye kòd sa ak kliyan an separeman pou plis konfidansyalite.</p>
               </div>
 
-              {/* Aksyon prensipal */}
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:18 }}>
-                <a href={waUrl} target="_blank" rel="noreferrer" style={waBtn}>
-                  <MessageCircle size={16}/> WhatsApp
-                </a>
-                <a href={publicUrl} target="_blank" rel="noreferrer" style={previewBtn}>
-                  <ExternalLink size={16}/> Wè kòm Kliyan
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <a href={waUrl} target="_blank" rel="noreferrer" className="iv-wa"><MessageCircle size={17}/> WhatsApp</a>
+                <a href={publicUrl} target="_blank" rel="noreferrer" className="iv-btn-main" style={{ background: 'linear-gradient(135deg,#1B2A8F,#2D3FBF)', boxShadow: '0 10px 24px rgba(27,42,143,.3)' }}>
+                  <ExternalLink size={16}/> Wè kòm kliyan
                 </a>
               </div>
 
-              {/* Aksyon segondè */}
-              <div style={{ display:'flex', gap:8, marginTop:10 }}>
-                <button
-                  onClick={() => { if (confirm('Re-jenere lyen + nouvo kòd?')) shareMutation.mutate() }}
-                  disabled={isPending}
-                  style={secondaryBtnStyle('#D97706')}>
-                  <RefreshCw size={13}/> Re-jenere
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => { if (confirm('Re-jenere lyen + nouvo kòd?')) shareMutation.mutate() }} disabled={isPending} className="iv-act" style={{ flex: 1, color: '#D97706' }}>
+                  <RefreshCw size={14}/> Re-jenere
                 </button>
-                <button
-                  onClick={() => {
-                    if (confirm('Revoke lyen sa? Kliyan an pap ka wè pwoforma a ankò.')) {
-                      revokeMutation.mutate()
-                    }
-                  }}
-                  disabled={isPending}
-                  style={secondaryBtnStyle('#DC2626')}>
-                  <Trash2 size={13}/> Revoke
+                <button onClick={() => { if (confirm('Revoke lyen sa? Kliyan an p ap ka wè pwofòma a ankò.')) revokeMutation.mutate() }} disabled={isPending} className="iv-act danger" style={{ flex: 1 }}>
+                  <Trash2 size={14}/> Revoke
                 </button>
               </div>
             </>
           ) : (
             <>
-              <p style={{ fontSize:13, color:'#475569', margin:'0 0 14px', lineHeight:1.5 }}>
-                Kreye yon <strong>lyen sekrè</strong> ak yon <strong>kòd akse 4 chif</strong> pou pataje pwoforma sa ak kliyan an.
+              <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0, lineHeight: 1.5 }}>
+                Kreye yon <b style={{ color: 'var(--ink)' }}>lyen sekrè</b> ak yon <b style={{ color: 'var(--ink)' }}>kòd akse</b> pou pataje pwofòma sa ak kliyan an.
               </p>
-
-              <div style={infoBox('#1B2A8F')}>
-                <KeyRound size={14} color="#1B2A8F"/>
-                <div style={{ flex:1 }}>
-                  <p style={{ fontSize:12, fontWeight:700, color:'#0F1A5C', margin:0 }}>
-                    Kijan sa ap fonksyone:
-                  </p>
-                  <ul style={{ fontSize:11, color:'#475569', margin:'4px 0 0', paddingLeft:18, lineHeight:1.6 }}>
+              <div className="iv-info">
+                <KeyRound size={16} color="#1B2A8F" style={{ flexShrink: 0, marginTop: 2 }}/>
+                <div>
+                  <b>Kijan sa mache</b>
+                  <ol>
                     <li>Kliyan an klike sou lyen an</li>
-                    <li>Yo antre kòd akse 4 chif la</li>
-                    <li>Si kòd la kòrèk, yo wè pwoforma a</li>
+                    <li>Li antre kòd akse a</li>
+                    <li>Si kòd la bon, li wè pwofòma a</li>
                     <li>Ou ka revoke lyen an nenpòt ki lè</li>
-                  </ul>
+                  </ol>
                 </div>
               </div>
-
-              <button
-                onClick={() => shareMutation.mutate()}
-                disabled={isPending}
-                style={primaryBtnStyle}>
-                {shareMutation.isPending ? '⏳ Ap kreye...' : <><Share2 size={16}/> Jenere Lyen + Kòd Akse</>}
+              <button onClick={() => shareMutation.mutate()} disabled={isPending} className="iv-btn-main" style={{ width: '100%', minHeight: 52 }}>
+                {shareMutation.isPending ? <RefreshCw size={16} className="spin"/> : <Share2 size={16}/>}
+                {shareMutation.isPending ? 'Ap kreye...' : 'Jenere lyen + kòd akse'}
               </button>
             </>
           )}
@@ -564,160 +560,3 @@ function ShareModal({ quote, tenant, onClose, shareMutation, revokeMutation }) {
     </div>
   )
 }
-
-// ════════════════════════════════════════════════════════════
-// STIL MODAL
-// ════════════════════════════════════════════════════════════
-
-const overlay = {
-  position:'fixed', inset:0, zIndex:1000,
-  background:'rgba(15,26,92,0.5)', backdropFilter:'blur(4px)',
-  display:'flex', alignItems:'center', justifyContent:'center',
-  padding:16,
-}
-
-const modalBox = {
-  background:'#fff', borderRadius:18, width:'100%', maxWidth:520,
-  maxHeight:'90vh', overflowY:'auto',
-  boxShadow:'0 20px 60px rgba(0,0,0,0.3)',
-  fontFamily:'DM Sans,sans-serif',
-}
-
-const modalHeader = {
-  padding:'18px 22px',
-  borderBottom:'1px solid #eef0ff',
-  display:'flex', alignItems:'center', justifyContent:'space-between',
-  gap:12,
-}
-
-const closeBtn = {
-  width:34, height:34, borderRadius:9,
-  background:'#f1f5f9', border:'none', cursor:'pointer',
-  display:'flex', alignItems:'center', justifyContent:'center',
-  color:'#64748b', flexShrink:0,
-}
-
-const iconBoxStyle = (color) => ({
-  width:40, height:40, borderRadius:11,
-  background:`linear-gradient(135deg,${color},${color}CC)`,
-  display:'flex', alignItems:'center', justifyContent:'center',
-  flexShrink:0,
-})
-
-const statusBanner = (border, bg) => ({
-  display:'flex', alignItems:'center', gap:10,
-  padding:'10px 14px', background:bg,
-  border:`1px solid ${border}40`,
-  borderRadius:10, marginBottom:12,
-})
-
-const viewStats = {
-  display:'flex', alignItems:'center', gap:8,
-  padding:'8px 12px',
-  background:'rgba(27,42,143,0.06)',
-  borderRadius:9,
-}
-
-const inputLabel = {
-  fontSize:11, fontWeight:800, color:'#6B7AAB',
-  textTransform:'uppercase', letterSpacing:'0.05em',
-  margin:'0 0 6px',
-}
-
-const urlInputStyle = {
-  flex:1, padding:'10px 12px',
-  border:'1.5px solid #eef0ff', borderRadius:10,
-  fontFamily:'monospace', fontSize:12, color:'#0F1A5C',
-  background:'#F8F9FF', outline:'none', minWidth:0,
-}
-
-const iconBtnStyle = (color) => ({
-  width:42, height:42, borderRadius:10,
-  background:color, color:'#fff', border:'none', cursor:'pointer',
-  display:'flex', alignItems:'center', justifyContent:'center',
-  flexShrink:0,
-})
-
-const codeContainer = {
-  display:'flex', alignItems:'center', justifyContent:'space-between', gap:10,
-  padding:'14px 14px',
-  background:'linear-gradient(135deg, rgba(255,107,0,0.08), rgba(255,140,51,0.06))',
-  border:'1.5px solid rgba(255,107,0,0.3)',
-  borderRadius:12,
-}
-
-const codeDigit = {
-  width:42, height:50,
-  background:'#fff', border:'2px solid #FF6B00',
-  borderRadius:9,
-  display:'flex', alignItems:'center', justifyContent:'center',
-  fontSize:22, fontWeight:900, color:'#FF6B00',
-  fontFamily:'monospace',
-  boxShadow:'0 2px 8px rgba(255,107,0,0.2)',
-}
-
-const waBtn = {
-  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-  padding:'12px', borderRadius:10, textDecoration:'none',
-  background:'linear-gradient(135deg,#25D366,#1da851)',
-  color:'#fff', fontWeight:800, fontSize:13,
-  boxShadow:'0 4px 14px rgba(37,211,102,0.3)',
-}
-
-const previewBtn = {
-  display:'flex', alignItems:'center', justifyContent:'center', gap:6,
-  padding:'12px', borderRadius:10, textDecoration:'none',
-  background:'linear-gradient(135deg,#1B2A8F,#2D3FBF)',
-  color:'#fff', fontWeight:800, fontSize:13,
-}
-
-const secondaryBtnStyle = (color) => ({
-  flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5,
-  padding:'9px', borderRadius:9,
-  background:'transparent', border:`1.5px solid ${color}40`,
-  color, fontWeight:700, fontSize:11.5, cursor:'pointer',
-})
-
-const infoBox = (color) => ({
-  display:'flex', gap:10, alignItems:'flex-start',
-  padding:'12px 14px', borderRadius:10,
-  background:`${color}08`, border:`1px solid ${color}25`,
-  marginBottom:14,
-})
-
-const primaryBtnStyle = {
-  width:'100%',
-  display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-  padding:'14px', borderRadius:11,
-  background:'linear-gradient(135deg,#FF6B00,#FF8C33)',
-  color:'#fff', border:'none', cursor:'pointer',
-  fontWeight:800, fontSize:14,
-  boxShadow:'0 4px 16px rgba(255,107,0,0.35)',
-}
-
-// ✅ Separe row — memo pou evite re-render tout tablo
-const QuoteItemRow = memo(function QuoteItemRow({ item, showRate, exchangeRates, visibleCurrs }) {
-  const lines = useMemo(
-    () => showRate ? fmtConv(Number(item.totalHtg), exchangeRates, visibleCurrs) : null,
-    [item.totalHtg, showRate, exchangeRates, visibleCurrs]
-  )
-  return (
-    <tr>
-      <td>
-        <p className="font-medium">{item.product?.name || item.productSnapshot?.name}</p>
-        <p className="text-xs text-slate-400 font-mono">{item.product?.code || item.productSnapshot?.code}</p>
-      </td>
-      <td className="text-center font-mono">{Number(item.quantity)}</td>
-      <td className="text-right font-mono">{fmt(item.unitPriceHtg)} HTG</td>
-      <td className="text-center text-slate-500">
-        {Number(item.discountPct) > 0 ? `${item.discountPct}%` : '—'}
-      </td>
-      <td className="text-right">
-        <span className="font-mono font-semibold">{fmt(item.totalHtg)} HTG</span>
-        {lines && lines.map((line, j) => (
-          <div key={j} style={{ fontSize:10, color:'#94a3b8', fontFamily:'monospace' }}>{line}</div>
-        ))}
-      </td>
-    </tr>
-  )
-})

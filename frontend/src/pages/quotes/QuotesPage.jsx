@@ -1,47 +1,35 @@
-// src/pages/quotes/QuotesPage.jsx
-import { useState, useEffect, useCallback, useMemo, memo } from 'react'
+// src/pages/quotes/QuotesPage.jsx — Plus Fit redesign
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
 import { quoteAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
-import { Plus, Search, FileText, Eye, Edit2, Send, XCircle, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Plus, Search, FileText, Eye, Edit2, Send, XCircle, CheckCircle, ChevronLeft, ChevronRight,
+  Layers, TrendingUp, Clock, FileCheck, PenLine,
+} from 'lucide-react'
 import { format } from 'date-fns'
+import '../invoices/invoices.css'
 
-const D = {
-  blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
-  blueDim:'rgba(27,42,143,0.07)', blueDim2:'rgba(27,42,143,0.13)',
-  gold:'#C9A84C', goldDk:'#8B6914', goldDim:'rgba(201,168,76,0.12)',
-  red:'#C0392B', redDim:'rgba(192,57,43,0.08)',
-  white:'#FFFFFF', bg:'#F4F6FF', border:'rgba(27,42,143,0.10)',
-  text:'#0F1A5C', muted:'#6B7AAB',
-  success:'#059669', successBg:'rgba(5,150,105,0.08)',
-  warning:'#D97706', warningBg:'rgba(217,119,6,0.10)',
-  shadow:'0 4px 20px rgba(27,42,143,0.10)',
-}
-
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmt  = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmt0 = (n) => Number(n || 0).toLocaleString('fr-HT', { maximumFractionDigits: 0 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
-// ✅ Tout konstant deyò component — pa rekrye chak render
-const STATUS_KEYS = {
-  draft:     'quotes.statusDraft',
-  sent:      'quotes.statusSent',
-  accepted:  'quotes.statusAccepted',
-  converted: 'quotes.statusConverted',
-  cancelled: 'quotes.statusCancelled',
-  expired:   'quotes.statusExpired',
+// ✅ Estati devi — kle i18n + etikèt Kreyòl si tradiksyon an manke
+const STATUS = {
+  draft:     { key: 'quotes.statusDraft',     label: 'Bouyon',  color: '#64748B', bg: 'rgba(100,116,139,0.10)', Icon: PenLine },
+  sent:      { key: 'quotes.statusSent',      label: 'Voye',    color: '#1B2A8F', bg: 'rgba(27,42,143,0.08)',   Icon: Send },
+  accepted:  { key: 'quotes.statusAccepted',  label: 'Aksepte', color: '#059669', bg: 'rgba(5,150,105,0.10)',   Icon: CheckCircle },
+  converted: { key: 'quotes.statusConverted', label: 'Konvèti', color: '#7C3AED', bg: 'rgba(124,58,237,0.10)',  Icon: FileCheck },
+  cancelled: { key: 'quotes.statusCancelled', label: 'Anile',   color: '#DC2626', bg: 'rgba(220,38,38,0.09)',   Icon: XCircle },
+  expired:   { key: 'quotes.statusExpired',   label: 'Ekspire', color: '#D97706', bg: 'rgba(217,119,6,0.12)',   Icon: Clock },
 }
 
-const STATUS_COLORS = {
-  draft:     { color:'#64748B', bg:'rgba(100,116,139,0.08)' },
-  sent:      { color:'#1B2A8F', bg:'rgba(27,42,143,0.07)'  },
-  accepted:  { color:'#059669', bg:'rgba(5,150,105,0.08)'  },
-  converted: { color:'#7C3AED', bg:'rgba(124,58,237,0.08)' },
-  cancelled: { color:'#C0392B', bg:'rgba(192,57,43,0.08)'  },
-  expired:   { color:'#D97706', bg:'rgba(217,119,6,0.10)'  },
-}
+const AVATAR_COLORS = ['#1B2A8F', '#FF6B00', '#059669', '#7C3AED', '#0284C7', '#DB2777', '#B45309', '#0F766E']
+const avatarColor = (s = '') => AVATAR_COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length]
+const initials = (s = '') => s.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 
 const parseCurrencies = (raw) => {
   if (Array.isArray(raw)) return raw
@@ -69,32 +57,63 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
 
 const toHaitiDate = (dateStr, fmt2) => {
   try {
-    return format(
-      new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
-      fmt2
-    )
+    return format(new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })), fmt2)
   } catch { return '' }
 }
 
-// ✅ useDebounce
-function useDebounce(value, delay = 400) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debouncedValue
+// ✅ Tradiksyon ak repli Kreyòl (evite montre kle a si li pa tradui)
+const tr = (t, key, fallback) => {
+  const v = t(key)
+  return v && v !== key ? v : fallback
 }
 
-// ✅ useIsMobile — KÒRÈKT avèk useEffect ak listener
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 640)
+function useDebounce(value, delay = 400) {
+  const [v, setV] = useState(value)
+  useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t) }, [value, delay])
+  return v
+}
+
+function useScreen() {
+  const get = () => {
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1024
+    return { isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 }
+  }
+  const [s, setS] = useState(get)
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth < 640)
-    window.addEventListener('resize', fn)
-    return () => window.removeEventListener('resize', fn)
+    const h = () => setS(get())
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
   }, [])
-  return isMobile
+  return s
+}
+
+function useCountUp(value, ms = 700) {
+  const [v, setV] = useState(value)
+  const from = useRef(value)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0, money }) {
+  const v = useCountUp(value)
+  return (
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{money ? fmt0(v) : Math.round(v)}{money && <small>HTG</small>}</div>
+    </div>
+  )
 }
 
 export default function QuotesPage() {
@@ -102,314 +121,273 @@ export default function QuotesPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage]     = useState(1)
-  const navigate    = useNavigate()
-  const qc          = useQueryClient()
-  const isMobile    = useIsMobile()
-  const { tenant }  = useAuthStore()
+  const navigate = useNavigate()
+  const qc       = useQueryClient()
+  const { isMobile, isTablet, isDesktop } = useScreen()
+  const { tenant } = useAuthStore()
 
-  // ✅ DEBOUNCE — tann 400ms anvan API call
   const debouncedSearch = useDebounce(search, 400)
 
   const showRate      = tenant?.showExchangeRate !== false
   const exchangeRates = tenant?.exchangeRates || {}
-  const visibleCurrs  = useMemo(
-    () => parseCurrencies(tenant?.visibleCurrencies),
-    [tenant?.visibleCurrencies]
-  )
+  const visibleCurrs  = useMemo(() => parseCurrencies(tenant?.visibleCurrencies), [tenant?.visibleCurrencies])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['quotes', debouncedSearch, status, page], // ✅ debounced
+    queryKey: ['quotes', debouncedSearch, status, page],
     queryFn:  () => quoteAPI.getAll({ search: debouncedSearch, status, page, limit: 15 }).then(r => {
       const d = r.data || {}
-      return {
-        quotes: Array.isArray(d.quotes) ? d.quotes : [],
-        total:  d.total || 0,
-        pages:  d.pages || 1,
-      }
+      return { quotes: Array.isArray(d.quotes) ? d.quotes : [], total: d.total || 0, pages: d.pages || 1 }
     }),
-    keepPreviousData: true,
-    staleTime: 20_000, // ✅ cache 20 sèk
+    placeholderData: (prev) => prev,   // ✅ react-query v5 (ranplase keepPreviousData)
+    staleTime: 20_000,
   })
+
+  // ✅ react-query v5: invalidateQueries bezwen { queryKey } — anvan sa lis la pa t rafrechi
+  const refresh = () => qc.invalidateQueries({ queryKey: ['quotes'] })
+  const onErr   = (e) => toast.error(e?.response?.data?.message || 'Erè sèvè. Eseye ankò.')
 
   const convertMutation = useMutation({
     mutationFn: (id) => quoteAPI.convert(id),
     onSuccess:  (res) => {
-      toast.success(t('quotes.converted'))
-      qc.invalidateQueries(['quotes'])
+      toast.success(tr(t, 'quotes.converted', 'Devi konvèti an fakti!'))
+      refresh()
+      qc.invalidateQueries({ queryKey: ['invoices'] })
       navigate(`/app/invoices/${res.data.invoice.id}`)
-    }
+    },
+    onError: onErr,
   })
   const cancelMutation = useMutation({
     mutationFn: (id) => quoteAPI.cancel(id),
-    onSuccess:  () => { toast.success(t('quotes.cancelled')); qc.invalidateQueries(['quotes']) }
+    onSuccess:  () => { toast.success(tr(t, 'quotes.cancelled', 'Devi anile.')); refresh() },
+    onError: onErr,
   })
   const sendMutation = useMutation({
     mutationFn: (id) => quoteAPI.send(id),
-    onSuccess:  () => { toast.success(t('quotes.sent')); qc.invalidateQueries(['quotes']) }
+    onSuccess:  () => { toast.success(tr(t, 'quotes.sent', 'Devi make voye.')); refresh() },
+    onError: onErr,
   })
 
-  // ✅ useCallback sou handlers
-  const handleSearchChange = useCallback((e) => {
-    setSearch(e.target.value)
-    setPage(1)
-  }, [])
+  const handleSearchChange = useCallback((e) => { setSearch(e.target.value); setPage(1) }, [])
+  const handleStatusChange = useCallback((v) => { setStatus(v); setPage(1) }, [])
 
-  const handleStatusChange = useCallback((v) => {
-    setStatus(v)
-    setPage(1)
-  }, [])
-
-  // ✅ useMemo — pa rekrye chak render
-  const FILTER_OPTIONS = useMemo(() => [
-    { v:'', l: t('invoices.all') },
-    ...Object.keys(STATUS_KEYS).map(k => ({ v: k, l: t(STATUS_KEYS[k]) }))
-  ], [t])
-
-  const COL_HEADERS = useMemo(() => [
-    t('quotes.colNumber'), t('quotes.colClient'), t('quotes.colTotal'),
-    t('quotes.colStatus'), t('quotes.colDate'), t('quotes.colExpiry'),
-    t('quotes.colAction')
+  const FILTERS = useMemo(() => [
+    { v: '', l: tr(t, 'invoices.all', 'Tout'), color: '#1B2A8F' },
+    ...Object.entries(STATUS).map(([k, s]) => ({ v: k, l: tr(t, s.key, s.label), color: s.color })),
   ], [t])
 
   const quotes = data?.quotes || []
 
+  // ✅ Total paj la + konbyen ki ka konvèti
+  const { pageValue, open } = useMemo(() => quotes.reduce((acc, q) => {
+    if (q.status !== 'cancelled') acc.pageValue += Number(q.totalHtg || 0)
+    if (['draft', 'sent', 'accepted'].includes(q.status)) acc.open += 1
+    return acc
+  }, { pageValue: 0, open: 0 }), [quotes])
+
+  const rowProps = { t, showRate, exchangeRates, visibleCurrs, convertMutation, cancelMutation, sendMutation, navigate }
+
   return (
-    <div style={{ fontFamily:'DM Sans,sans-serif' }}>
+    <div className="iv" style={{ paddingBottom: isMobile ? 80 : 24 }}>
 
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:24, flexWrap:'wrap', gap:12 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <div style={{ width:48, height:48, borderRadius:14, background:`linear-gradient(135deg,${D.gold},${D.goldDk})`, display:'flex', alignItems:'center', justifyContent:'center', boxShadow:`0 4px 16px ${D.gold}50` }}>
-            <FileText size={22} color="#fff"/>
+      <section className="iv-hero">
+        <div className="glow"/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#FFC83D" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FF6B00" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+        <div className="row">
+          <div className="ico gold"><FileText size={isMobile ? 20 : 24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">{tenant?.name || 'Plus Group'}</p>
+            <h1>{tr(t, 'nav.quotes', 'Devi')}</h1>
+            <p className="sub">Pwofòma pou kliyan yo — voye, pataje, epi konvèti an fakti an yon klik.</p>
           </div>
-          <div>
-            <h1 style={{ color:D.text, fontSize:22, fontWeight:900, margin:0 }}>{t('nav.quotes')}</h1>
-            <p style={{ color:D.muted, fontSize:13, margin:'2px 0 0' }}>{data?.total || 0} {t('quotes.totalCount')}</p>
-          </div>
+          <Link to="/app/quotes/new" className="iv-btn-main pulse newbtn">
+            <Plus size={17}/> {tr(t, 'quotes.newQuote', 'Nouvo devi')}
+          </Link>
         </div>
-        <Link to="/app/quotes/new"
-          style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 20px', borderRadius:12, textDecoration:'none', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', fontWeight:800, fontSize:14, boxShadow:`0 4px 16px ${D.blue}45` }}>
-          <Plus size={16}/> {t('quotes.newQuote')}
-        </Link>
-      </div>
+        <div className="iv-kpis">
+          <Kpi label="Devi"           value={data?.total || 0} icon={Layers}     delay={80}/>
+          <Kpi label="Valè paj la"    value={pageValue}        icon={TrendingUp} delay={160} tone="gold" money/>
+          <Kpi label="Ka konvèti"     value={open}             icon={FileCheck}  delay={240} tone="green"/>
+        </div>
+      </section>
 
-      {/* Filtres */}
-      <div style={{ background:D.white, borderRadius:14, padding:'14px 18px', border:`1px solid ${D.border}`, marginBottom:16, display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', boxShadow:D.shadow }}>
-        <div style={{ position:'relative', flex:1, minWidth:180 }}>
-          <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
-          <input
-            placeholder={t('quotes.searchPlaceholder')}
-            value={search}
-            onChange={handleSearchChange}
-            style={{ width:'100%', padding:'9px 14px 9px 36px', borderRadius:10, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, color:D.text, background:'#F8F9FF', boxSizing:'border-box' }}
-            onFocus={e => e.target.style.borderColor = D.blue}
-            onBlur={e => e.target.style.borderColor = D.border}
-          />
+      <div className="iv-bar a-up" style={{ animationDelay: '120ms' }}>
+        <div className="iv-search">
+          <Search size={16}/>
+          <input placeholder={tr(t, 'quotes.searchPlaceholder', 'Chèche nimewo oswa kliyan...')} value={search} onChange={handleSearchChange}/>
         </div>
-        <div style={{ display:'flex', gap:6, flexWrap:'nowrap', overflowX:'auto', paddingBottom:2 }}>
-          {FILTER_OPTIONS.map(opt => (
-            <button key={opt.v} onClick={() => handleStatusChange(opt.v)}
-              style={{ padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer', background:status === opt.v ? D.gold : '#F4F6FF', color:status === opt.v ? '#fff' : D.muted, border:`1.5px solid ${status === opt.v ? D.gold : D.border}`, whiteSpace:'nowrap', flexShrink:0 }}>
+        <div className="iv-chips">
+          {FILTERS.map(opt => (
+            <button key={opt.v} type="button" onClick={() => handleStatusChange(opt.v)} className={`iv-chip ${status === opt.v ? 'on' : ''}`}>
+              <span className="dot" style={{ background: status === opt.v ? '#fff' : opt.color }}/>
               {opt.l}
             </button>
           ))}
         </div>
       </div>
 
-      {/* MOBIL */}
-      {isMobile ? (
-        <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+      {!isDesktop ? (
+        <div className="iv-grid" style={{ gridTemplateColumns: isTablet ? 'repeat(2, 1fr)' : '1fr' }}>
           {isLoading
-            ? Array(4).fill(0).map((_, i) => (
-                <div key={i} style={{ background:D.white, borderRadius:14, padding:16, border:`1px solid ${D.border}` }}>
-                  {Array(4).fill(0).map((_, j) => (
-                    <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, marginBottom:10, animation:'pulse 1.5s infinite' }}/>
-                  ))}
+            ? Array(isTablet ? 6 : 4).fill(0).map((_, i) => (
+                <div key={i} className="iv-card" style={{ animationDelay: `${i * 60}ms` }}>
+                  {[60, 40, 85, 70].map((w, j) => <div key={j} className="iv-sk" style={{ width: `${w}%`, marginBottom: 10 }}/>)}
                 </div>
               ))
             : !quotes.length
-            ? <QuotesEmpty D={D} t={t}/>
-            : quotes.map(q => (
-                <QuoteCard
-                  key={q.id} q={q} D={D} fmt={fmt} t={t}
-                  showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}
-                  convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}
-                />
-              ))
+            ? <div style={{ gridColumn: '1 / -1' }} className="iv-table"><QuotesEmpty t={t} filtered={!!(status || debouncedSearch)}/></div>
+            : quotes.map((q, i) => <QuoteCard key={q.id} q={q} i={i} {...rowProps}/>)
           }
         </div>
       ) : (
-        /* DESKTOP */
-        <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1.2fr 100px 90px 90px 100px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
-            {COL_HEADERS.map((h, i) => (
-              <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign:i >= 2 && i <= 5 ? 'center' : 'left' }}>{h}</span>
-            ))}
+        <div className="iv-table">
+          <div className="iv-thead iv-qthead">
+            {[tr(t, 'quotes.colNumber', 'Nimewo'), tr(t, 'quotes.colClient', 'Kliyan'), tr(t, 'quotes.colTotal', 'Total'),
+              tr(t, 'quotes.colStatus', 'Stati'), tr(t, 'quotes.colDate', 'Dat'), tr(t, 'quotes.colExpiry', 'Ekspire'), tr(t, 'quotes.colAction', 'Aksyon')]
+              .map((h, i) => <span key={i} className={i === 5 ? 'exp' : ''} style={{ textAlign: i >= 2 && i <= 5 ? 'center' : i === 6 ? 'right' : 'left' }}>{h}</span>)}
           </div>
           {isLoading
             ? Array(5).fill(0).map((_, i) => (
-                <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1.2fr 100px 90px 90px 100px', gap:8 }}>
-                  {Array(7).fill(0).map((_, j) => (
-                    <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, animation:'pulse 1.5s infinite' }}/>
-                  ))}
+                <div key={i} className="iv-tr iv-qtr" style={{ animationDelay: `${i * 50}ms` }}>
+                  {Array(7).fill(0).map((_, j) => <div key={j} className="iv-sk"/>)}
                 </div>
               ))
             : !quotes.length
-            ? <QuotesEmpty D={D} t={t} desktop/>
-            : quotes.map((q, idx) => (
-                <QuoteRow
-                  key={q.id} q={q} idx={idx} D={D} fmt={fmt} t={t}
-                  showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}
-                  navigate={navigate}
-                  convertMutation={convertMutation} cancelMutation={cancelMutation} sendMutation={sendMutation}
-                />
-              ))
+            ? <QuotesEmpty t={t} filtered={!!(status || debouncedSearch)}/>
+            : quotes.map((q, i) => <QuoteRow key={q.id} q={q} i={i} {...rowProps}/>)
           }
         </div>
       )}
 
-      {/* Paginasyon */}
       {data?.pages > 1 && (
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:16 }}>
-          <p style={{ color:D.muted, fontSize:13 }}>
-            {t('invoices.page')} <strong style={{ color:D.text }}>{page}</strong> / {data.pages}
-          </p>
-          <div style={{ display:'flex', gap:6 }}>
-            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-              style={{ width:36, height:36, borderRadius:10, cursor:page <= 1 ? 'not-allowed' : 'pointer', background:page <= 1 ? '#F4F6FF' : D.blue, border:`1px solid ${page <= 1 ? D.border : D.blue}`, color:page <= 1 ? D.muted : '#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronLeft size={16}/>
-            </button>
-            <button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}
-              style={{ width:36, height:36, borderRadius:10, cursor:page >= data.pages ? 'not-allowed' : 'pointer', background:page >= data.pages ? '#F4F6FF' : D.blue, border:`1px solid ${page >= data.pages ? D.border : D.blue}`, color:page >= data.pages ? D.muted : '#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronRight size={16}/>
-            </button>
+        <div className="iv-pager">
+          <p>{tr(t, 'invoices.page', 'Paj')} <b style={{ color: 'var(--ink)' }}>{page}</b> / {data.pages} · <b style={{ color: 'var(--ink)' }}>{data.total}</b> devi</p>
+          <div className="btns">
+            <button className="iv-pg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={17}/></button>
+            <button className="iv-pg" disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={17}/></button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        /* ✅ CSS hover olye useState */
-        .quote-row { transition: background 0.15s; }
-        .quote-row:hover { background: rgba(27,42,143,0.07) !important; }
-        .quote-row:hover .q-action-btn { background: rgba(27,42,143,0.1) !important; }
-      `}</style>
     </div>
   )
 }
 
-// ✅ EmptyState — separe, evite duplika
-function QuotesEmpty({ D, t, desktop }) {
+function QuotesEmpty({ t, filtered }) {
   return (
-    <div style={{ padding:'60px 20px', textAlign:'center', ...(!desktop ? { background:D.white, borderRadius:16, border:`1px solid ${D.border}` } : {}) }}>
-      {desktop
-        ? <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.goldDim, marginBottom:16 }}>
-            <FileText size={32} color={D.gold}/>
-          </div>
-        : <FileText size={32} color={D.gold} style={{ marginBottom:12 }}/>
-      }
-      <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:'0 0 16px' }}>{t('quotes.noQuotes')}</p>
-      <Link to="/app/quotes/new"
-        style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 20px', borderRadius:12, textDecoration:'none', fontSize:13, fontWeight:800, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff' }}>
-        <Plus size={14}/> {t('quotes.createFirst')}
-      </Link>
+    <div className="iv-empty">
+      <div className="art">
+        <div className="paper"><i/><i/><i/><i/><i/></div>
+        <div className="bubble" style={{ background: 'linear-gradient(135deg,#E0B84C,#A87B12)' }}>{filtered ? <Search size={18}/> : <Plus size={20}/>}</div>
+      </div>
+      <h3>{filtered ? 'Anyen pa koresponn' : tr(t, 'quotes.noQuotes', 'Pa gen devi')}</h3>
+      <p>{filtered ? 'Eseye yon lòt rechèch oswa chanje filt la.' : 'Kreye yon pwofòma pou yon kliyan, epi konvèti l an fakti lè l aksepte.'}</p>
+      {!filtered && <Link to="/app/quotes/new" className="iv-btn-main"><Plus size={16}/> {tr(t, 'quotes.createFirst', 'Kreye premye devi a')}</Link>}
     </div>
   )
 }
 
-// ✅ memo + useMemo pou konvèsyon
-const QuoteCard = memo(function QuoteCard({ q, D, fmt, t, showRate, exchangeRates, visibleCurrs, convertMutation, cancelMutation, sendMutation }) {
-  const sc = STATUS_COLORS[q.status] || STATUS_COLORS.draft
+function useQuoteView(q, showRate, exchangeRates, visibleCurrs) {
+  return useMemo(() => {
+    const clientName = q.client?.name || q.clientSnapshot?.name || ''
+    const isExpired  = q.expiryDate ? new Date(q.expiryDate) < new Date() : false
+    const items = q.items || []
+    return {
+      s:          STATUS[q.status] || STATUS.draft,
+      convStr:    showRate ? fmtConv(Number(q.totalHtg), exchangeRates, visibleCurrs) : null,
+      dateStr:    toHaitiDate(q.issueDate || q.createdAt, 'dd/MM/yy'),
+      expStr:     q.expiryDate ? toHaitiDate(q.expiryDate, 'dd/MM/yy') : null,
+      isExpired:  isExpired && !['converted', 'cancelled'].includes(q.status),
+      clientName: clientName || 'San kliyan',
+      isWalkIn:   !clientName,
+      itemBadges: items.slice(0, 2),
+      extraItems: Math.max(0, items.length - 2),
+      canEdit:    ['draft', 'sent'].includes(q.status),
+      canSend:    q.status === 'draft',
+      canConvert: ['draft', 'sent', 'accepted'].includes(q.status),
+      canCancel:  !['converted', 'cancelled'].includes(q.status),
+    }
+  }, [q, showRate, exchangeRates, visibleCurrs])
+}
 
-  // ✅ useMemo — pa recalcule chak render
-  const convStr   = useMemo(() => showRate ? fmtConv(Number(q.totalHtg), exchangeRates, visibleCurrs) : null, [q.totalHtg, showRate, exchangeRates, visibleCurrs])
-  const dateStr   = useMemo(() => toHaitiDate(q.issueDate || q.createdAt, 'dd/MM/yy'), [q.issueDate, q.createdAt])
-  const expStr    = useMemo(() => q.expiryDate ? toHaitiDate(q.expiryDate, 'dd/MM/yy') : null, [q.expiryDate])
-  // ✅ isExpired — 1 sèl fwa, pa chak render
-  const isExpired = useMemo(() => q.expiryDate ? new Date(q.expiryDate) < new Date() : false, [q.expiryDate])
-
+function Items({ v }) {
+  if (!v.itemBadges.length) return null
   return (
-    <div style={{ background:D.white, borderRadius:14, border:`1px solid ${D.border}`, boxShadow:D.shadow, padding:'14px 16px', display:'flex', flexDirection:'column', gap:10 }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <span style={{ fontFamily:'monospace', fontWeight:900, color:D.gold, fontSize:13 }}>{q.quoteNumber}</span>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:sc.bg, color:sc.color, textTransform:'uppercase' }}>
-            {t(STATUS_KEYS[q.status] || STATUS_KEYS.draft)}
+    <div className="iv-items">
+      {v.itemBadges.map((it, k) => {
+        const tierLabel = it.productSnapshot?.tierLabel
+        return (
+          <span key={it.id || k} className="iv-item">
+            {it.product?.name || it.productSnapshot?.name || 'Atik'}
+            {tierLabel && <span className={`iv-tier ${tierLabel === 'Detay' ? 'det' : ''}`}>{tierLabel}</span>}
           </span>
-          <Link to={`/app/quotes/${q.id}`}
-            style={{ width:34, height:34, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none' }}>
-            <Eye size={15}/>
-          </Link>
-        </div>
+        )
+      })}
+      {v.extraItems > 0 && <span className="iv-item">+{v.extraItems} lòt</span>}
+    </div>
+  )
+}
+
+function Badge({ s, t }) {
+  const I = s.Icon
+  return <span className="iv-badge" style={{ background: s.bg, color: s.color }}><I size={11}/>{tr(t, s.key, s.label)}</span>
+}
+
+function Avatar({ v }) {
+  return (
+    <div className="iv-avatar" style={{ background: v.isWalkIn ? '#CBD2E6' : avatarColor(v.clientName) }}>
+      {v.isWalkIn ? <FileText size={15}/> : initials(v.clientName)}
+    </div>
+  )
+}
+
+// ✅ Aksyon yo pa dwe louvri detay la lè yo klike (stopPropagation)
+const stop = (fn) => (e) => { e.preventDefault(); e.stopPropagation(); fn() }
+
+const QuoteCard = memo(function QuoteCard({ q, i, t, showRate, exchangeRates, visibleCurrs, convertMutation, cancelMutation, sendMutation, navigate }) {
+  const v = useQuoteView(q, showRate, exchangeRates, visibleCurrs)
+  return (
+    <div className="iv-card" style={{ '--acc': v.s.color, animationDelay: `${Math.min(i, 10) * 45}ms`, cursor: 'pointer' }} onClick={() => navigate(`/app/quotes/${q.id}`)}>
+      <div className="top">
+        <span className="iv-num" style={{ color: '#A87B12' }}>{q.quoteNumber}</span>
+        <Badge s={v.s} t={t}/>
       </div>
-
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-        <span style={{ fontSize:14, fontWeight:700, color:D.text }}>
-          {q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}
-        </span>
-        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace' }}>{dateStr}</span>
-      </div>
-      {/* ✅ NOUVO — Badj atik yo (non nivo pri: Detay, Gwo, Bwat...) */}
-      {q.items?.length > 0 && (
-        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:-6, flexWrap:'wrap' }}>
-          {q.items.slice(0, 2).map(it => {
-            const tierLabel = it.productSnapshot?.tierLabel
-            const name = it.product?.name || it.productSnapshot?.name || 'Atik'
-            return (
-              <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
-                {name}
-                {tierLabel && (
-                  <span style={{
-                    fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
-                    background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
-                    color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
-                  }}>{tierLabel}</span>
-                )}
-              </span>
-            )
-          })}
-          {q.items.length > 2 && <span style={{ fontSize:10, color:D.muted }}>+{q.items.length - 2} lòt</span>}
+      <div className="mid">
+        <div className="iv-client">
+          <Avatar v={v}/>
+          <div style={{ minWidth: 0 }}>
+            <span className={`name ${v.isWalkIn ? 'walk' : ''}`}>{v.clientName}</span>
+            <Items v={v}/>
+          </div>
         </div>
-      )}
-
-      <div style={{ height:1, background:D.border }}/>
-
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+        <span className="iv-date" style={{ flexShrink: 0 }}>{v.dateStr}</span>
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: 10, borderTop: '1px dashed var(--line2)' }}>
         <div>
-          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>{t('common.total')}</p>
-          <p style={{ fontFamily:'monospace', fontWeight:900, color:D.text, fontSize:15, margin:0 }}>{fmt(q.totalHtg)} HTG</p>
-          {convStr && <p style={{ fontFamily:'monospace', fontSize:11, color:D.muted, margin:'2px 0 0' }}>{convStr}</p>}
+          <div style={{ font: "800 9px 'Manrope', sans-serif", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>Total</div>
+          <div className="iv-money" style={{ fontSize: 22 }}>{fmt(q.totalHtg)} <small style={{ fontSize: 11, color: 'var(--muted)' }}>HTG</small></div>
+          {v.convStr && <div className="iv-conv">{v.convStr}</div>}
         </div>
-        {expStr && (
-          <div style={{ textAlign:'right' }}>
-            <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 2px' }}>{t('quotes.colExpiry')}</p>
-            <p style={{ fontFamily:'monospace', fontSize:12, color: isExpired ? D.red : D.muted, margin:0 }}>{expStr}</p>
+        {v.expStr && (
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ font: "800 9px 'Manrope', sans-serif", letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>Ekspire</div>
+            <div className={`iv-exp ${v.isExpired ? 'late' : ''}`}>{v.isExpired ? '⚠ ' : ''}{v.expStr}</div>
           </div>
         )}
       </div>
-
-      {!['converted','cancelled'].includes(q.status) && (
-        <div style={{ display:'flex', gap:8, borderTop:`1px solid ${D.border}`, paddingTop:10 }}>
-          {['draft','sent'].includes(q.status) && (
-            <Link to={`/app/quotes/${q.id}/edit`}
-              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, textDecoration:'none', background:D.blueDim, color:D.blue, fontWeight:700, fontSize:12 }}>
-              <Edit2 size={13}/> {t('common.edit')}
-            </Link>
-          )}
-          {q.status === 'draft' && (
-            <button onClick={() => sendMutation.mutate(q.id)}
-              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:'none', background:'rgba(2,132,199,0.1)', color:'#0284C7', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-              <Send size={13}/> {t('quotes.send')}
+      {v.canCancel && (
+        <div className="iv-qact">
+          {v.canEdit && <button className="iv-act" onClick={stop(() => navigate(`/app/quotes/${q.id}/edit`))}><Edit2 size={13}/> Modifye</button>}
+          {v.canSend && <button className="iv-act sky" disabled={sendMutation.isPending} onClick={stop(() => sendMutation.mutate(q.id))}><Send size={13}/> Voye</button>}
+          {v.canConvert && (
+            <button className="iv-act green" disabled={convertMutation.isPending}
+              onClick={stop(() => { if (confirm(tr(t, 'quotes.convertConfirm', 'Konvèti devi sa an fakti?'))) convertMutation.mutate(q.id) })}>
+              <CheckCircle size={13}/> Fakti
             </button>
           )}
-          {['draft','sent','accepted'].includes(q.status) && (
-            <button onClick={() => { if (confirm(t('quotes.convertConfirm'))) convertMutation.mutate(q.id) }}
-              style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px', borderRadius:10, border:'none', background:D.successBg, color:D.success, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-              <CheckCircle size={13}/> {t('quotes.convert')}
-            </button>
-          )}
-          <button onClick={() => { if (confirm(t('quotes.cancelConfirm'))) cancelMutation.mutate(q.id) }}
-            style={{ width:36, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:10, border:'none', background:D.redDim, color:D.red, cursor:'pointer' }}>
+          <button className="iv-act danger icon" title="Anile" disabled={cancelMutation.isPending}
+            onClick={stop(() => { if (confirm(tr(t, 'quotes.cancelConfirm', 'Anile devi sa?'))) cancelMutation.mutate(q.id) })}>
             <XCircle size={15}/>
           </button>
         </div>
@@ -418,99 +396,39 @@ const QuoteCard = memo(function QuoteCard({ q, D, fmt, t, showRate, exchangeRate
   )
 })
 
-// ✅ memo + RETIRE useState hover — CSS .quote-row:hover
-const QuoteRow = memo(function QuoteRow({ q, idx, D, fmt, t, showRate, exchangeRates, visibleCurrs, navigate, convertMutation, cancelMutation, sendMutation }) {
-  const sc = STATUS_COLORS[q.status] || STATUS_COLORS.draft
-
-  const convStr   = useMemo(() => showRate ? fmtConv(Number(q.totalHtg), exchangeRates, visibleCurrs) : null, [q.totalHtg, showRate, exchangeRates, visibleCurrs])
-  const dateStr   = useMemo(() => toHaitiDate(q.issueDate || q.createdAt, 'dd/MM/yy'), [q.issueDate, q.createdAt])
-  const expStr    = useMemo(() => q.expiryDate ? toHaitiDate(q.expiryDate, 'dd/MM/yy') : '-', [q.expiryDate])
-  const isExpired = useMemo(() => q.expiryDate ? new Date(q.expiryDate) < new Date() : false, [q.expiryDate])
-
+const QuoteRow = memo(function QuoteRow({ q, i, t, showRate, exchangeRates, visibleCurrs, convertMutation, cancelMutation, sendMutation, navigate }) {
+  const v = useQuoteView(q, showRate, exchangeRates, visibleCurrs)
   return (
-    // ✅ CSS class pou hover — pa useState
-    <div className="quote-row"
-      style={{ display:'grid', gridTemplateColumns:'1.2fr 1.5fr 1.2fr 100px 90px 90px 100px', padding:'12px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx%2===0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
-
-      <span style={{ fontFamily:'monospace', fontWeight:800, color:D.gold, fontSize:12 }}>{q.quoteNumber}</span>
-      <div style={{ minWidth: 0 }}>
-        <span style={{ fontSize:13, fontWeight:600, color:D.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'block' }}>
-          {q.client?.name || <span style={{ color:D.muted, fontStyle:'italic' }}>{t('quotes.noClient')}</span>}
-        </span>
-        {/* ✅ NOUVO — Badj atik yo, menm lojik ak QuoteCard */}
-        {q.items?.length > 0 && (
-          <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
-            {q.items.slice(0, 2).map(it => {
-              const tierLabel = it.productSnapshot?.tierLabel
-              const name = it.product?.name || it.productSnapshot?.name || 'Atik'
-              return (
-                <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
-                  {name}
-                  {tierLabel && (
-                    <span style={{
-                      fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
-                      background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
-                      color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
-                    }}>{tierLabel}</span>
-                  )}
-                </span>
-              )
-            })}
-            {q.items.length > 2 && <span style={{ fontSize:10, color:D.muted }}>+{q.items.length - 2} lòt</span>}
-          </div>
-        )}
+    <div className="iv-tr iv-qtr" style={{ '--acc': v.s.color, animationDelay: `${Math.min(i, 14) * 35}ms`, cursor: 'pointer' }} onClick={() => navigate(`/app/quotes/${q.id}`)}>
+      <span className="iv-num" style={{ color: '#A87B12' }}>{q.quoteNumber}</span>
+      <div className="iv-client">
+        <Avatar v={v}/>
+        <div style={{ minWidth: 0 }}>
+          <span className={`name ${v.isWalkIn ? 'walk' : ''}`}>{v.clientName}</span>
+          <Items v={v}/>
+        </div>
       </div>
-
-      <div style={{ textAlign:'center' }}>
-        <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(q.totalHtg)} HTG</span>
-        {convStr && <div style={{ fontSize:10, color:D.muted, fontFamily:'monospace', marginTop:2 }}>{convStr}</div>}
+      <div style={{ textAlign: 'center' }}>
+        <div className="iv-money">{fmt(q.totalHtg)}</div>
+        {v.convStr && <div className="iv-conv">{v.convStr}</div>}
       </div>
-
-      <div style={{ textAlign:'center' }}>
-        <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:sc.bg, color:sc.color, textTransform:'uppercase' }}>
-          {t(STATUS_KEYS[q.status] || STATUS_KEYS.draft)}
-        </span>
-      </div>
-
-      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{dateStr}</span>
-      <span style={{ fontSize:11, fontFamily:'monospace', textAlign:'center', color:isExpired ? D.red : D.muted }}>{expStr}</span>
-
-      <div style={{ display:'flex', alignItems:'center', gap:4, justifyContent:'flex-end' }}>
-        <Link to={`/app/quotes/${q.id}`}
-          className="q-action-btn"
-          style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}>
-          <Eye size={13}/>
-        </Link>
-        {['draft','sent'].includes(q.status) && (
-          <button className="q-action-btn"
-            onClick={() => navigate(`/app/quotes/${q.id}/edit`)}
-            style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.blue, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-            title={t('common.edit')}>
-            <Edit2 size={12}/>
+      <div style={{ textAlign: 'center' }}><Badge s={v.s} t={t}/></div>
+      <span className="iv-date" style={{ textAlign: 'center' }}>{v.dateStr}</span>
+      <span className={`iv-exp exp ${v.isExpired ? 'late' : ''}`} style={{ textAlign: 'center' }}>{v.expStr || '—'}</span>
+      <div className="iv-rowacts">
+        <Link to={`/app/quotes/${q.id}`} className="iv-mini" title="Wè" onClick={e => e.stopPropagation()}><Eye size={14}/></Link>
+        {v.canEdit && <button className="iv-mini" title="Modifye" onClick={stop(() => navigate(`/app/quotes/${q.id}/edit`))}><Edit2 size={13}/></button>}
+        {v.canSend && <button className="iv-mini" style={{ '--c': '#0284C7' }} title="Make voye" onClick={stop(() => sendMutation.mutate(q.id))}><Send size={13}/></button>}
+        {v.canConvert && (
+          <button className="iv-mini" style={{ '--c': '#059669' }} title="Konvèti an fakti"
+            onClick={stop(() => { if (confirm(tr(t, 'quotes.convertConfirm', 'Konvèti devi sa an fakti?'))) convertMutation.mutate(q.id) })}>
+            <CheckCircle size={13}/>
           </button>
         )}
-        {q.status === 'draft' && (
-          <button className="q-action-btn"
-            onClick={() => sendMutation.mutate(q.id)}
-            style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:'#0284C7', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-            title={t('quotes.send')}>
-            <Send size={12}/>
-          </button>
-        )}
-        {['draft','sent','accepted'].includes(q.status) && (
-          <button className="q-action-btn"
-            onClick={() => { if (confirm(t('quotes.convertConfirm'))) convertMutation.mutate(q.id) }}
-            style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.success, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-            title={t('quotes.convert')}>
-            <CheckCircle size={12}/>
-          </button>
-        )}
-        {!['converted','cancelled'].includes(q.status) && (
-          <button className="q-action-btn"
-            onClick={() => { if (confirm(t('quotes.cancelConfirm'))) cancelMutation.mutate(q.id) }}
-            style={{ width:28, height:28, borderRadius:7, border:`1px solid ${D.border}`, background:'#F4F6FF', color:D.red, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}
-            title={t('common.cancel')}>
-            <XCircle size={12}/>
+        {v.canCancel && (
+          <button className="iv-mini" style={{ '--c': '#DC2626' }} title="Anile"
+            onClick={stop(() => { if (confirm(tr(t, 'quotes.cancelConfirm', 'Anile devi sa?'))) cancelMutation.mutate(q.id) })}>
+            <XCircle size={13}/>
           </button>
         )}
       </div>
