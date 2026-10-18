@@ -1,45 +1,43 @@
-// src/pages/invoices/InvoicesPage.jsx
-import { useState, useEffect, useCallback, useMemo, memo } from 'react'
+// src/pages/invoices/InvoicesPage.jsx — Plus Fit redesign
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
-import { Search, Receipt, Eye, ChevronLeft, ChevronRight, Plus, FileText, AlertCircle } from 'lucide-react'
+import {
+  Search, Receipt, Eye, ChevronLeft, ChevronRight, Plus, FileText,
+  AlertCircle, Clock, CheckCircle, XCircle, RotateCcw, TrendingUp, Layers,
+} from 'lucide-react'
 import { format } from 'date-fns'
-
-const D = {
-  blue:'#1B2A8F', blueLt:'#2D3FBF', blueDk:'#0F1A5C',
-  blueDim:'rgba(27,42,143,0.07)', blueDim2:'rgba(27,42,143,0.13)',
-  gold:'#C9A84C', goldDim:'rgba(201,168,76,0.12)',
-  red:'#C0392B', redDim:'rgba(192,57,43,0.08)',
-  white:'#FFFFFF', bg:'#F4F6FF',
-  border:'rgba(27,42,143,0.10)',
-  text:'#0F1A5C', muted:'#6B7AAB',
-  success:'#059669', successBg:'rgba(5,150,105,0.08)',
-  warning:'#D97706', warningBg:'rgba(217,119,6,0.10)',
-  orange:'#FF6B00', orangeLt:'#FF8C33',
-  shadow:'0 4px 20px rgba(27,42,143,0.10)',
-}
+import './invoices.css'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+const fmt0 = (n) => Number(n || 0).toLocaleString('fr-HT', { maximumFractionDigits: 0 })
 const CURRENCY_SYMBOLS = { USD: '$', DOP: 'RD$', EUR: '€', CAD: 'CA$' }
 
-// ✅ NOUVO — etikèt Kreyòl konsistan ak ReportsPage
-const STATUS_LABELS = {
-  unpaid:    'Pa peye',
-  partial:   'Depo',
-  paid:      'Peye',
-  cancelled: 'Anile',
-  refunded:  'Remèt',
+// ✅ Etikèt Kreyòl konsistan ak ReportsPage
+const STATUS = {
+  unpaid:    { label: 'Pa peye', color: '#DC2626', bg: 'rgba(220,38,38,0.09)',  Icon: AlertCircle },
+  partial:   { label: 'Depo',    color: '#D97706', bg: 'rgba(217,119,6,0.12)',  Icon: Clock },
+  paid:      { label: 'Peye',    color: '#059669', bg: 'rgba(5,150,105,0.10)',  Icon: CheckCircle },
+  cancelled: { label: 'Anile',   color: '#64748B', bg: 'rgba(100,116,139,0.10)', Icon: XCircle },
+  refunded:  { label: 'Remèt',   color: '#2D3FBF', bg: 'rgba(45,63,191,0.09)',  Icon: RotateCcw },
 }
+
+const FILTERS = [
+  { v: '', l: 'Tout', color: '#1B2A8F' },
+  ...['unpaid', 'partial', 'paid', 'cancelled', 'refunded'].map(k => ({ v: k, l: STATUS[k].label, color: STATUS[k].color })),
+]
+
+const AVATAR_COLORS = ['#1B2A8F', '#FF6B00', '#059669', '#7C3AED', '#0284C7', '#DB2777', '#B45309', '#0F766E']
+const avatarColor = (s = '') => AVATAR_COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_COLORS.length]
+const initials = (s = '') => s.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 
 const parseCurrencies = (raw) => {
   if (Array.isArray(raw)) return raw
   if (typeof raw === 'string') {
-    if (raw.startsWith('[')) {
-      try { return JSON.parse(raw) } catch { return [] }
-    }
+    if (raw.startsWith('[')) { try { return JSON.parse(raw) } catch { return [] } }
     if (raw.trim().length > 0) return [raw.trim()]
   }
   return []
@@ -61,29 +59,54 @@ const fmtConv = (amountHTG, exchangeRates, visibleCurrencies = []) => {
 }
 
 function useDebounce(value, delay = 400) {
-  const [debouncedValue, setDebouncedValue] = useState(value)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedValue(value), delay)
-    return () => clearTimeout(timer)
-  }, [value, delay])
-  return debouncedValue
+  const [v, setV] = useState(value)
+  useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t) }, [value, delay])
+  return v
 }
 
-// ✅ Hook responsive — kounye a 3 nivo: mobile / tablet / desktop
 function useScreenSize() {
-  const [size, setSize] = useState(() => {
+  const get = () => {
     const w = typeof window !== 'undefined' ? window.innerWidth : 1024
     return { isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 }
-  })
+  }
+  const [size, setSize] = useState(get)
   useEffect(() => {
-    const handler = () => {
-      const w = window.innerWidth
-      setSize({ isMobile: w < 640, isTablet: w >= 640 && w < 1024, isDesktop: w >= 1024 })
-    }
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
+    const h = () => setSize(get())
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
   }, [])
   return size
+}
+
+// ✅ Chif ki "konte" jiska valè a (animasyon)
+function useCountUp(value, ms = 700) {
+  const [v, setV] = useState(value)
+  const from = useRef(value)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      const e = 1 - Math.pow(1 - p, 3)
+      setV(a + (b - a) * e)
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0, money }) {
+  const v = useCountUp(value)
+  return (
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{money ? fmt0(v) : Math.round(v)}{money && <small>HTG</small>}</div>
+    </div>
+  )
 }
 
 export default function InvoicesPage() {
@@ -101,15 +124,6 @@ export default function InvoicesPage() {
   const visibleCurrs  = useMemo(() => parseCurrencies(tenant?.visibleCurrencies), [tenant?.visibleCurrencies])
   const requireQuote  = tenant?.requireQuote === true
 
-  // ✅ KORIJE — etikèt hardcode an Kreyòl pou konsistans (pa depann sou i18n)
-  const STATUS_MAP = useMemo(() => ({
-    unpaid:    { label: STATUS_LABELS.unpaid,    color: D.red,     bg: D.redDim },
-    partial:   { label: STATUS_LABELS.partial,   color: D.warning, bg: D.warningBg },
-    paid:      { label: STATUS_LABELS.paid,      color: D.success, bg: D.successBg },
-    cancelled: { label: STATUS_LABELS.cancelled, color: '#666',    bg: 'rgba(100,100,100,0.08)' },
-    refunded:  { label: STATUS_LABELS.refunded,  color: D.blue,    bg: D.blueDim },
-  }), [])
-
   const { data: rawData, isLoading } = useQuery({
     queryKey: ['invoices', debouncedSearch, status, page],
     queryFn: () => invoiceAPI.getAll({ search: debouncedSearch, status, page, limit: 15 }).then(r => {
@@ -126,172 +140,91 @@ export default function InvoicesPage() {
 
   const data = rawData || { invoices: [], total: 0, pages: 1 }
 
-  // ✅ NOUVO — kalkile total dèt sou fakti vizib yo
-  const totalDebt = useMemo(() => {
-    return data.invoices.reduce((acc, inv) => acc + Number(inv.balanceDueHtg || 0), 0)
-  }, [data.invoices])
+  // ✅ Total sou fakti vizib yo (paj sa a)
+  const { pageValue, totalDebt } = useMemo(() => data.invoices.reduce((acc, inv) => {
+    if (inv.status !== 'cancelled') acc.pageValue += Number(inv.totalHtg || 0)
+    acc.totalDebt += Number(inv.balanceDueHtg || 0)
+    return acc
+  }, { pageValue: 0, totalDebt: 0 }), [data.invoices])
 
-  const handleSearchChange = useCallback((e) => {
-    setSearch(e.target.value)
-    setPage(1)
-  }, [])
+  const handleSearchChange = useCallback((e) => { setSearch(e.target.value); setPage(1) }, [])
+  const handleStatusChange = useCallback((v) => { setStatus(v); setPage(1) }, [])
 
-  const handleStatusChange = useCallback((v) => {
-    setStatus(v)
-    setPage(1)
-  }, [])
-
-  // ✅ Filtè chips ak etikèt konsistan
-  const FILTER_OPTIONS = [
-    { v: '',          l: 'Tout' },
-    { v: 'unpaid',    l: STATUS_LABELS.unpaid },
-    { v: 'partial',   l: STATUS_LABELS.partial },
-    { v: 'paid',      l: STATUS_LABELS.paid },
-    { v: 'cancelled', l: STATUS_LABELS.cancelled },
-    { v: 'refunded',  l: STATUS_LABELS.refunded },
-  ]
+  const rowProps = { showRate, exchangeRates, visibleCurrs }
 
   return (
-    <div style={{ fontFamily:'DM Sans,sans-serif', paddingBottom: isMobile ? 80 : 24 }}>
+    <div className="iv" style={{ paddingBottom: isMobile ? 80 : 24 }}>
 
-      {/* Header */}
-      <div style={{
-        display:'flex',
-        alignItems: isMobile ? 'flex-start' : 'center',
-        justifyContent:'space-between',
-        marginBottom: isMobile ? 16 : 24,
-        flexWrap:'wrap', gap:12,
-        flexDirection: isMobile ? 'column' : 'row',
-      }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, minWidth: 0, flex: 1 }}>
-          <div style={{
-            width: isMobile ? 42 : 48, height: isMobile ? 42 : 48,
-            borderRadius:14, background:`linear-gradient(135deg,${D.blue},${D.blueLt})`,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            boxShadow:`0 4px 16px ${D.blue}40`, flexShrink: 0,
-          }}>
-            <Receipt size={isMobile ? 18 : 22} color="#fff"/>
+      {/* ── Hero ── */}
+      <section className="iv-hero">
+        <div className="glow"/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#FF6B00" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FFC83D" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+
+        <div className="row">
+          <div className="ico"><Receipt size={isMobile ? 20 : 24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">{tenant?.name || 'Plus Group'}</p>
+            <h1>{t('invoices.title') || 'Fakti'}</h1>
+            <p className="sub">Tout vant ou yo, estati peman yo ak sa ki rete pou touche.</p>
           </div>
-          <div style={{ minWidth: 0 }}>
-            <h1 style={{ color:D.text, fontSize: isMobile ? 18 : 22, fontWeight:900, margin:0 }}>
-              {t('invoices.title')}
-            </h1>
-            <p style={{ color:D.muted, fontSize: isMobile ? 12 : 13, margin:'2px 0 0' }}>
-              {data.total} {t('invoices.total') || 'fakti'}
-              {totalDebt > 0 && (
-                <span style={{ color: D.red, fontWeight: 700, marginLeft: 8 }}>
-                  · {fmt(totalDebt)} HTG dèt
-                </span>
-              )}
-            </p>
-          </div>
+          {!requireQuote ? (
+            <Link to="/app/invoices/new" className="iv-btn-main pulse newbtn">
+              <Plus size={17}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
+            </Link>
+          ) : (
+            <div className="iv-hint newbtn">
+              <FileText size={14}/> {t('invoices.requireQuoteHint') || 'Pase pa Devi → Konvèti pou kreye fakti'}
+            </div>
+          )}
         </div>
 
-        {!requireQuote && (
-          <Link to="/app/invoices/new"
-            style={{
-              display:'flex', alignItems:'center', gap:8,
-              padding: isMobile ? '12px 20px' : '10px 20px',
-              borderRadius:12, background:`linear-gradient(135deg,${D.orange},${D.orangeLt})`,
-              color:'#fff', fontWeight:800, fontSize:14, textDecoration:'none',
-              boxShadow:`0 4px 16px ${D.orange}45`,
-              width: isMobile ? '100%' : 'auto',
-              justifyContent: 'center',
-              minHeight: 44,
-            }}>
-            <Plus size={16}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
-          </Link>
-        )}
+        <div className="iv-kpis">
+          <Kpi label="Fakti"       value={data.total} icon={Layers}      delay={80}/>
+          <Kpi label="Valè paj la" value={pageValue}  icon={TrendingUp}  delay={160} tone="gold" money/>
+          <Kpi label="Pou touche"  value={totalDebt}  icon={AlertCircle} delay={240} tone={totalDebt > 0 ? 'red' : ''} money/>
+        </div>
+      </section>
 
-        {requireQuote && (
-          <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 16px', borderRadius:12, background:'rgba(27,42,143,0.06)', border:`1px dashed ${D.border}`, color:D.muted, fontSize:12, fontWeight:600 }}>
-            <FileText size={14} color={D.muted}/>
-            {t('invoices.requireQuoteHint') || 'Pase pa Devi → Konvèti pou kreye fakti'}
-          </div>
-        )}
-      </div>
-
-      {/* Filtres */}
-      <div style={{
-        background:D.white, borderRadius:14,
-        padding: isMobile ? '12px 14px' : '14px 18px',
-        border:`1px solid ${D.border}`,
-        marginBottom:16,
-        display:'flex', alignItems:'center', gap:10, flexWrap:'wrap',
-        boxShadow:D.shadow,
-        flexDirection: isMobile ? 'column' : 'row',
-      }}>
-        <div style={{ position:'relative', flex:1, minWidth: isMobile ? '100%' : 180, width: isMobile ? '100%' : 'auto' }}>
-          <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
+      {/* ── Rechèch + filt ── */}
+      <div className="iv-bar a-up" style={{ animationDelay: '120ms' }}>
+        <div className="iv-search">
+          <Search size={16}/>
           <input
             placeholder={t('invoices.searchPlaceholder') || 'Chèche nimewo oswa kliyan...'}
             value={search}
             onChange={handleSearchChange}
-            style={{
-              width:'100%', paddingLeft:36, padding:'10px 14px 10px 36px',
-              borderRadius:10, border:`1.5px solid ${D.border}`, outline:'none',
-              fontSize:14, color:D.text, background:'#F8F9FF', boxSizing:'border-box',
-              fontFamily:'DM Sans,sans-serif',
-              minHeight: 42,
-            }}
-            onFocus={e => e.target.style.borderColor = D.blue}
-            onBlur={e => e.target.style.borderColor = D.border}
           />
         </div>
-        <div style={{
-          display:'flex', gap:6,
-          flexWrap: isMobile ? 'nowrap' : 'wrap',
-          overflowX: isMobile ? 'auto' : 'visible',
-          paddingBottom: isMobile ? 4 : 0,
-          width: isMobile ? '100%' : 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}>
-          {FILTER_OPTIONS.map(opt => (
-            <button key={opt.v} onClick={() => handleStatusChange(opt.v)}
-              style={{
-                padding: isMobile ? '8px 14px' : '6px 14px',
-                borderRadius:20, fontSize:12, fontWeight:700, cursor:'pointer',
-                background: status === opt.v ? D.blue : '#F4F6FF',
-                color: status === opt.v ? '#fff' : D.muted,
-                border: `1.5px solid ${status === opt.v ? D.blue : D.border}`,
-                boxShadow: status === opt.v ? `0 3px 10px ${D.blue}35` : 'none',
-                whiteSpace:'nowrap', flexShrink:0,
-                minHeight: 36,
-                transition: 'all 0.15s',
-              }}>
+        <div className="iv-chips">
+          {FILTERS.map(opt => (
+            <button key={opt.v} type="button" onClick={() => handleStatusChange(opt.v)} className={`iv-chip ${status === opt.v ? 'on' : ''}`}>
+              <span className="dot" style={{ background: status === opt.v ? '#fff' : opt.color }}/>
               {opt.l}
             </button>
           ))}
         </div>
       </div>
 
-      {/* MOBIL ak TABLET: Kat (mobile=1 kolòn, tablet=2 kolòn) */}
+      {/* ── Lis ── */}
       {!isDesktop ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isTablet ? 'repeat(2, 1fr)' : '1fr',
-          gap: isMobile ? 10 : 12,
-        }}>
+        <div className="iv-grid" style={{ gridTemplateColumns: isTablet ? 'repeat(2, 1fr)' : '1fr' }}>
           {isLoading
             ? Array(isTablet ? 6 : 4).fill(0).map((_, i) => (
-                <div key={i} style={{ background:D.white, borderRadius:14, padding:16, border:`1px solid ${D.border}` }}>
-                  {Array(4).fill(0).map((_, j) => (
-                    <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, marginBottom:10, animation:'pulse 1.5s infinite', width: j === 0 ? '60%' : j === 1 ? '40%' : '80%' }}/>
-                  ))}
+                <div key={i} className="iv-card" style={{ animationDelay: `${i * 60}ms` }}>
+                  {[60, 40, 85, 70].map((w, j) => <div key={j} className="iv-sk" style={{ width: `${w}%`, marginBottom: 10 }}/>)}
                 </div>
               ))
             : !data.invoices.length
-            ? <div style={{ gridColumn: '1 / -1' }}><EmptyState requireQuote={requireQuote} D={D} t={t}/></div>
-            : data.invoices.map(inv => {
-                const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
-                return <InvCard key={inv.id} inv={inv} s={s} D={D} fmt={fmt} t={t} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs} isMobile={isMobile}/>
-              })
+            ? <div style={{ gridColumn: '1 / -1' }} className="iv-table"><EmptyState requireQuote={requireQuote} t={t} filtered={!!(status || debouncedSearch)}/></div>
+            : data.invoices.map((inv, i) => <InvCard key={inv.id} inv={inv} i={i} t={t} {...rowProps}/>)
           }
         </div>
       ) : (
-        /* DESKTOP: Tablo */
-        <div style={{ background:D.white, borderRadius:16, border:`1px solid ${D.border}`, boxShadow:D.shadow, overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'1.3fr 1.5fr 1.1fr 1.1fr 1.3fr 90px 80px 50px', padding:'11px 20px', background:D.blueDim, borderBottom:`1px solid ${D.border}` }}>
+        <div className="iv-table">
+          <div className="iv-thead">
             {[
               t('invoices.colNumber')  || 'Nimewo',
               t('invoices.colClient')  || 'Kliyan',
@@ -300,339 +233,198 @@ export default function InvoicesPage() {
               t('invoices.colBalance') || 'Balans',
               t('invoices.colStatus')  || 'Stati',
               t('invoices.colDate')    || 'Dat',
-              ''
+              '',
             ].map((h, i) => (
-              <span key={i} style={{ color:D.blue, fontSize:10, fontWeight:800, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: i >= 2 && i < 7 ? 'center' : i === 7 ? 'right' : 'left' }}>{h}</span>
+              <span key={i} style={{ textAlign: i >= 2 && i < 7 ? 'center' : i === 7 ? 'right' : 'left' }}>{h}</span>
             ))}
           </div>
 
           {isLoading
             ? Array(6).fill(0).map((_, i) => (
-                <div key={i} style={{ padding:'14px 20px', borderBottom:`1px solid ${D.border}`, display:'grid', gridTemplateColumns:'1.3fr 1.5fr 1.1fr 1.1fr 1.3fr 90px 80px 50px', gap:8, alignItems:'center' }}>
-                  {Array(8).fill(0).map((_, j) => <div key={j} style={{ height:14, background:'#EEF0FF', borderRadius:6, animation:'pulse 1.5s infinite' }}/>)}
+                <div key={i} className="iv-tr" style={{ animationDelay: `${i * 50}ms` }}>
+                  {Array(8).fill(0).map((_, j) => <div key={j} className="iv-sk"/>)}
                 </div>
               ))
             : !data.invoices.length
-            ? <EmptyState requireQuote={requireQuote} D={D} t={t} desktop/>
-            : data.invoices.map((inv, idx) => {
-                const s = STATUS_MAP[inv.status] || STATUS_MAP.unpaid
-                return <InvRow key={inv.id} inv={inv} idx={idx} s={s} D={D} fmt={fmt} showRate={showRate} exchangeRates={exchangeRates} visibleCurrs={visibleCurrs}/>
-              })
+            ? <EmptyState requireQuote={requireQuote} t={t} filtered={!!(status || debouncedSearch)}/>
+            : data.invoices.map((inv, i) => <InvRow key={inv.id} inv={inv} i={i} {...rowProps}/>)
           }
         </div>
       )}
 
-      {/* Paginasyon */}
+      {/* ── Paginasyon ── */}
       {data.pages > 1 && (
-        <div style={{
-          display:'flex', alignItems:'center',
-          justifyContent: isMobile ? 'center' : 'space-between',
-          marginTop:16, flexWrap: 'wrap', gap: 8,
-          flexDirection: isMobile ? 'column' : 'row',
-        }}>
-          <p style={{ color:D.muted, fontSize:13, margin: 0, textAlign: isMobile ? 'center' : 'left' }}>
-            {t('invoices.page') || 'Paj'} <strong style={{ color:D.text }}>{page}</strong> / {data.pages} · <strong style={{ color:D.text }}>{data.total}</strong> {t('invoices.total') || 'fakti'}
+        <div className="iv-pager">
+          <p>
+            {t('invoices.page') || 'Paj'} <b style={{ color: 'var(--ink)' }}>{page}</b> / {data.pages} · <b style={{ color: 'var(--ink)' }}>{data.total}</b> {t('invoices.total') || 'fakti'}
           </p>
-          <div style={{ display:'flex', gap:6 }}>
-            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-              style={{ width:40, height:40, borderRadius:10, cursor:page <= 1 ? 'not-allowed' : 'pointer', background:page <= 1 ? '#F4F6FF' : D.blue, border:`1px solid ${page <= 1 ? D.border : D.blue}`, color:page <= 1 ? D.muted : '#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronLeft size={16}/>
-            </button>
-            <button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}
-              style={{ width:40, height:40, borderRadius:10, cursor:page >= data.pages ? 'not-allowed' : 'pointer', background:page >= data.pages ? '#F4F6FF' : D.blue, border:`1px solid ${page >= data.pages ? D.border : D.blue}`, color:page >= data.pages ? D.muted : '#fff', display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <ChevronRight size={16}/>
-            </button>
+          <div className="btns">
+            <button className="iv-pg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={17}/></button>
+            <button className="iv-pg" disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={17}/></button>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-        ::-webkit-scrollbar{height:4px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:rgba(27,42,143,0.2);border-radius:99px}
-        .inv-row { transition: background 0.15s; }
-        .inv-row:hover { background: rgba(27,42,143,0.07) !important; }
-        .inv-row:hover .inv-eye {
-          background: linear-gradient(135deg,#1B2A8F,#2D3FBF) !important;
-          color: #fff !important;
-        }
-      `}</style>
     </div>
   )
 }
 
-function EmptyState({ requireQuote, D, t, desktop }) {
+function EmptyState({ requireQuote, t, filtered }) {
   return (
-    <div style={{ padding:'60px 20px', textAlign:'center', ...(desktop ? {} : { background:D.white, borderRadius:16, border:`1px solid ${D.border}` }) }}>
-      {desktop && (
-        <div style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', width:72, height:72, borderRadius:20, background:D.blueDim, marginBottom:16 }}>
-          <Receipt size={32} color={D.blue}/>
-        </div>
-      )}
-      {!desktop && <Receipt size={32} color={D.blue} style={{ marginBottom:12 }}/>}
-      <p style={{ color:D.muted, fontSize:15, fontWeight:600, margin:0 }}>{t('invoices.noInvoices') || 'Pa gen fakti'}</p>
-      {!requireQuote && (
-        <Link to="/app/invoices/new"
-          style={{ display:'inline-flex', alignItems:'center', gap:8, marginTop:16, padding:'10px 20px', borderRadius:12, background:`linear-gradient(135deg,${D.orange || '#FF6B00'},${D.orangeLt || '#FF8C33'})`, color:'#fff', fontWeight:800, fontSize:13, textDecoration:'none' }}>
-          <Plus size={14}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}
-        </Link>
+    <div className="iv-empty">
+      <div className="art">
+        <div className="paper"><i/><i/><i/><i/><i/></div>
+        <div className="bubble">{filtered ? <Search size={18}/> : <Plus size={20}/>}</div>
+      </div>
+      <h3>{filtered ? 'Anyen pa koresponn' : (t('invoices.noInvoices') || 'Pa gen fakti')}</h3>
+      <p>{filtered ? 'Eseye yon lòt rechèch oswa chanje filt la.' : 'Kreye premye fakti ou — li pran mwens pase yon minit.'}</p>
+      {!requireQuote && !filtered && (
+        <Link to="/app/invoices/new" className="iv-btn-main"><Plus size={16}/> {t('invoices.newInvoice') || 'Nouvo Fakti'}</Link>
       )}
     </div>
   )
 }
 
-// ✅ InvCard — mobil + tablet (responsive total)
-const InvCard = memo(function InvCard({ inv, s, D, fmt, t, showRate, exchangeRates, visibleCurrs, isMobile }) {
-  const { totalConv, payedConv, balanceConv } = useMemo(() => ({
-    totalConv:   showRate ? fmtConv(Number(inv.totalHtg),      exchangeRates, visibleCurrs) : null,
-    payedConv:   showRate ? fmtConv(Number(inv.amountPaidHtg), exchangeRates, visibleCurrs) : null,
-    balanceConv: showRate ? fmtConv(Number(inv.balanceDueHtg), exchangeRates, visibleCurrs) : null,
-  }), [inv.totalHtg, inv.amountPaidHtg, inv.balanceDueHtg, showRate, exchangeRates, visibleCurrs])
+// ✅ Done komen pou kat ak ranje
+function useInvView(inv, showRate, exchangeRates, visibleCurrs) {
+  return useMemo(() => {
+    const total = Number(inv.totalHtg) || 0
+    const paid  = Number(inv.amountPaidHtg) || 0
+    const clientName = inv.client?.name || inv.clientSnapshot?.name || ''
+    const items = inv.items || []
+    return {
+      s:           STATUS[inv.status] || STATUS.unpaid,
+      totalConv:   showRate ? fmtConv(total, exchangeRates, visibleCurrs) : null,
+      payedConv:   showRate ? fmtConv(paid, exchangeRates, visibleCurrs) : null,
+      balanceConv: showRate ? fmtConv(Number(inv.balanceDueHtg), exchangeRates, visibleCurrs) : null,
+      dateStr:     inv.issueDate ? format(new Date(inv.issueDate), 'dd/MM/yy') : '',
+      hasBalance:  Number(inv.balanceDueHtg) > 0,
+      isCancelled: inv.status === 'cancelled',
+      isPartial:   inv.status === 'partial',
+      paidPct:     total > 0 ? Math.min(100, (paid / total) * 100) : 0,
+      clientName:  clientName || 'Vant kontwa',
+      isWalkIn:    !clientName,
+      itemBadges:  items.slice(0, 2),
+      extraItems:  Math.max(0, items.length - 2),
+    }
+  }, [inv, showRate, exchangeRates, visibleCurrs])
+}
 
-  const dateStr    = useMemo(() => format(new Date(inv.issueDate), 'dd/MM/yy'), [inv.issueDate])
-  const hasBalance = Number(inv.balanceDueHtg) > 0
-  const isCancelled = inv.status === 'cancelled'
-
-  // ✅ NOUVO — pousantaj peye (pou progress bar)
-  const total      = Number(inv.totalHtg) || 0
-  const paid       = Number(inv.amountPaidHtg) || 0
-  const paidPct    = total > 0 ? Math.min(100, (paid / total) * 100) : 0
-  const isPartial  = inv.status === 'partial'
-
-  // ✅ Fallback non kliyan
-  const clientName = inv.client?.name || inv.clientSnapshot?.name || 'Vant kontwa'
-  // ✅ NOUVO — Badj atik yo, menm lojik ak vèsyon dezktòp la
-  const itemBadges = (inv.items || []).slice(0, 2)
-  const extraItemCount = (inv.items?.length || 0) - itemBadges.length
-
+function Items({ v }) {
+  if (!v.itemBadges.length) return null
   return (
-    <div style={{
-      background:D.white, borderRadius:14,
-      border:`1px solid ${D.border}`, boxShadow:D.shadow,
-      padding:'14px 16px',
-      display:'flex', flexDirection:'column', gap:10,
-    }}>
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap: 8 }}>
-        <span style={{ fontFamily:'monospace', fontWeight:900, color:D.blue, fontSize:13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {inv.invoiceNumber}
-        </span>
-        <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink: 0 }}>
-          <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase', whiteSpace: 'nowrap' }}>
-            {s.label}
+    <div className="iv-items">
+      {v.itemBadges.map(it => {
+        const tierLabel = it.productSnapshot?.tierLabel
+        const name = it.product?.name || it.productSnapshot?.name || 'Atik'
+        return (
+          <span key={it.id} className="iv-item">
+            {name}
+            {tierLabel && <span className={`iv-tier ${tierLabel === 'Detay' ? 'det' : ''}`}>{tierLabel}</span>}
           </span>
-          <Link to={`/app/invoices/${inv.id}`}
-            style={{ width:36, height:36, borderRadius:10, display:'inline-flex', alignItems:'center', justifyContent:'center', background:`linear-gradient(135deg,${D.blue},${D.blueLt})`, color:'#fff', textDecoration:'none' }}>
-            <Eye size={15}/>
-          </Link>
-        </div>
-      </div>
-
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap: 8 }}>
-        <span style={{ fontSize:14, fontWeight:700, color:D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-          {clientName}
-        </span>
-        <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', flexShrink: 0 }}>{dateStr}</span>
-      </div>
-      {itemBadges.length > 0 && (
-        <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:-4, flexWrap:'wrap' }}>
-          {itemBadges.map(it => {
-            const tierLabel = it.productSnapshot?.tierLabel
-            const name = it.product?.name || it.productSnapshot?.name || 'Atik'
-            return (
-              <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
-                {name}
-                {tierLabel && (
-                  <span style={{
-                    fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
-                    background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
-                    color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
-                  }}>{tierLabel}</span>
-                )}
-              </span>
-            )
-          })}
-          {extraItemCount > 0 && <span style={{ fontSize:10, color:D.muted }}>+{extraItemCount} lòt</span>}
-        </div>
-      )}
-
-      <div style={{ height:1, background:D.border }}/>
-
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6 }}>
-
-        <div style={{ textAlign:'center' }}>
-          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{t('invoices.colTotal') || 'Total'}</p>
-          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
-            <p style={{ fontFamily:'monospace', fontWeight:800, color:D.text, fontSize:13, margin:0 }}>{fmt(inv.totalHtg)}</p>
-            {totalConv && <span style={{ fontFamily:'monospace', fontSize:9, color:D.muted }}>{totalConv}</span>}
-          </div>
-        </div>
-
-        <div style={{ textAlign:'center', borderLeft:`1px solid ${D.border}`, borderRight:`1px solid ${D.border}` }}>
-          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{isPartial ? 'Depo' : (t('invoices.colPaid') || 'Peye')}</p>
-          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
-            <p style={{ fontFamily:'monospace', fontWeight:800, color:D.success, fontSize:13, margin:0 }}>{fmt(inv.amountPaidHtg)}</p>
-            {payedConv && <span style={{ fontFamily:'monospace', fontSize:9, color:D.muted }}>{payedConv}</span>}
-          </div>
-        </div>
-
-        {/* ✅ KORIJE — Balans pozitif ak ti tèks "pou peye" anba */}
-        <div style={{ textAlign:'center' }}>
-          <p style={{ fontSize:10, color:D.muted, fontWeight:700, textTransform:'uppercase', margin:'0 0 3px', letterSpacing:'0.04em' }}>{t('invoices.colBalance') || 'Balans'}</p>
-          <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:4, flexWrap:'wrap' }}>
-            <p style={{ fontFamily:'monospace', fontWeight:800, color: hasBalance ? D.red : D.muted, fontSize:13, margin:0 }}>
-              {fmt(inv.balanceDueHtg)}
-            </p>
-            {balanceConv && hasBalance && (
-              <span style={{ fontFamily:'monospace', fontSize:9, color:D.red, opacity:0.7 }}>{balanceConv}</span>
-            )}
-          </div>
-          {hasBalance && !isCancelled && (
-            <p style={{ fontSize: 9, color: D.red, fontWeight: 700, margin: '2px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              pou peye
-            </p>
-          )}
-        </div>
-
-      </div>
-
-      {/* ✅ NOUVO — Progress bar pou pasyèl */}
-      {isPartial && total > 0 && (
-        <div>
-          <div style={{ height: 6, background: '#F1F5F9', borderRadius: 99, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${paidPct}%`,
-              background: `linear-gradient(90deg, ${D.warning}, ${D.success})`,
-              borderRadius: 99,
-              transition: 'width 0.3s',
-            }}/>
-          </div>
-          <p style={{ fontSize: 10, color: D.muted, margin: '4px 0 0', textAlign: 'right', fontWeight: 600 }}>
-            {paidPct.toFixed(0)}% peye
-          </p>
-        </div>
-      )}
+        )
+      })}
+      {v.extraItems > 0 && <span className="iv-item">+{v.extraItems} lòt</span>}
     </div>
+  )
+}
+
+function Badge({ s }) {
+  const I = s.Icon
+  return <span className="iv-badge" style={{ background: s.bg, color: s.color }}><I size={11}/>{s.label}</span>
+}
+
+function Avatar({ v }) {
+  return (
+    <div className="iv-avatar" style={{ background: v.isWalkIn ? '#CBD2E6' : avatarColor(v.clientName) }}>
+      {v.isWalkIn ? <Receipt size={15}/> : initials(v.clientName)}
+    </div>
+  )
+}
+
+// ✅ Kat — mobil + tablèt (tout kat la klikab)
+const InvCard = memo(function InvCard({ inv, i, t, showRate, exchangeRates, visibleCurrs }) {
+  const v = useInvView(inv, showRate, exchangeRates, visibleCurrs)
+  return (
+    <Link to={`/app/invoices/${inv.id}`} className="iv-card" style={{ '--acc': v.s.color, animationDelay: `${Math.min(i, 10) * 45}ms` }}>
+      <div className="top">
+        <span className="iv-num">{inv.invoiceNumber}</span>
+        <Badge s={v.s}/>
+      </div>
+
+      <div className="mid">
+        <div className="iv-client">
+          <Avatar v={v}/>
+          <div style={{ minWidth: 0 }}>
+            <span className={`name ${v.isWalkIn ? 'walk' : ''}`}>{v.clientName}</span>
+            <Items v={v}/>
+          </div>
+        </div>
+        <span className="iv-date" style={{ flexShrink: 0 }}>{v.dateStr}</span>
+      </div>
+
+      <div className="sums">
+        <div>
+          <div className="k">{t('invoices.colTotal') || 'Total'}</div>
+          <div className="iv-money">{fmt(inv.totalHtg)}</div>
+          {v.totalConv && <div className="iv-conv">{v.totalConv}</div>}
+        </div>
+        <div>
+          <div className="k">{v.isPartial ? 'Depo' : (t('invoices.colPaid') || 'Peye')}</div>
+          <div className="iv-money" style={{ color: 'var(--ok)' }}>{fmt(inv.amountPaidHtg)}</div>
+          {v.payedConv && <div className="iv-conv">{v.payedConv}</div>}
+        </div>
+        <div>
+          <div className="k">{t('invoices.colBalance') || 'Balans'}</div>
+          <div className="iv-money" style={{ color: v.hasBalance ? 'var(--bad)' : 'var(--muted)' }}>{fmt(inv.balanceDueHtg)}</div>
+          {v.hasBalance && !v.isCancelled && <div className="iv-due">pou peye</div>}
+        </div>
+      </div>
+
+      {v.isPartial && (
+        <div style={{ marginTop: 10 }}>
+          <div className="iv-prog"><i style={{ width: `${v.paidPct}%` }}/></div>
+          <div style={{ fontSize: 10, color: 'var(--muted)', textAlign: 'right', fontWeight: 700, marginTop: 4 }}>{v.paidPct.toFixed(0)}% peye</div>
+        </div>
+      )}
+    </Link>
   )
 })
 
-// ✅ InvRow — desktop sèlman (>= 1024px)
-const InvRow = memo(function InvRow({ inv, idx, s, D, fmt, showRate, exchangeRates, visibleCurrs }) {
-  const { totalConv, payedConv, balanceConv } = useMemo(() => ({
-    totalConv:   showRate ? fmtConv(Number(inv.totalHtg),      exchangeRates, visibleCurrs) : null,
-    payedConv:   showRate ? fmtConv(Number(inv.amountPaidHtg), exchangeRates, visibleCurrs) : null,
-    balanceConv: showRate ? fmtConv(Number(inv.balanceDueHtg), exchangeRates, visibleCurrs) : null,
-  }), [inv.totalHtg, inv.amountPaidHtg, inv.balanceDueHtg, showRate, exchangeRates, visibleCurrs])
-
-  const dateStr     = useMemo(() => format(new Date(inv.issueDate), 'dd/MM/yy'), [inv.issueDate])
-  const hasBalance  = Number(inv.balanceDueHtg) > 0
-  const isCancelled = inv.status === 'cancelled'
-  const isPartial   = inv.status === 'partial'
-
-  const total   = Number(inv.totalHtg) || 0
-  const paid    = Number(inv.amountPaidHtg) || 0
-  const paidPct = total > 0 ? Math.min(100, (paid / total) * 100) : 0
-
-  const clientName = inv.client?.name || inv.clientSnapshot?.name || 'Vant kontwa'
-  const isWalkIn   = !inv.client?.name && !inv.clientSnapshot?.name
-
-  // ✅ NOUVO — Badj atik yo (non nivo pri: Detay, Gwo, Bwat...), pou wè
-  // rapid ki jan pwodwi yo te vann san bezwen ouvri detay Fakti a
-  const itemBadges = (inv.items || []).slice(0, 2)
-  const extraItemCount = (inv.items?.length || 0) - itemBadges.length
-
+// ✅ Ranje — desktop (>= 1024px)
+const InvRow = memo(function InvRow({ inv, i, showRate, exchangeRates, visibleCurrs }) {
+  const v = useInvView(inv, showRate, exchangeRates, visibleCurrs)
   return (
-    <div className="inv-row"
-      style={{ display:'grid', gridTemplateColumns:'1.3fr 1.5fr 1.1fr 1.1fr 1.3fr 90px 80px 50px', padding:'13px 20px', alignItems:'center', borderBottom:`1px solid ${D.border}`, background: idx % 2 === 0 ? '#fff' : 'rgba(244,246,255,0.4)' }}>
+    <Link to={`/app/invoices/${inv.id}`} className="iv-tr" style={{ '--acc': v.s.color, animationDelay: `${Math.min(i, 14) * 35}ms` }}>
+      <span className="iv-num">{inv.invoiceNumber}</span>
 
-      <span style={{ fontFamily:'monospace', fontWeight:800, color:D.blue, fontSize:12 }}>{inv.invoiceNumber}</span>
-
-      <div style={{ minWidth: 0 }}>
-        <span style={{
-          fontSize:13, fontWeight:600,
-          color: isWalkIn ? D.muted : D.text,
-          fontStyle: isWalkIn ? 'italic' : 'normal',
-          overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
-          display: 'block',
-        }}>
-          {clientName}
-        </span>
-        {itemBadges.length > 0 && (
-          <div style={{ display:'flex', alignItems:'center', gap:4, marginTop:3, flexWrap:'wrap' }}>
-            {itemBadges.map(it => {
-              const tierLabel = it.productSnapshot?.tierLabel
-              const name = it.product?.name || it.productSnapshot?.name || 'Atik'
-              return (
-                <span key={it.id} style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:10, color:D.muted, whiteSpace:'nowrap' }}>
-                  {name}
-                  {tierLabel && (
-                    <span style={{
-                      fontSize:9, fontWeight:800, padding:'1px 6px', borderRadius:99,
-                      background: tierLabel === 'Detay' ? 'rgba(100,100,100,0.08)' : 'rgba(255,107,0,0.12)',
-                      color: tierLabel === 'Detay' ? '#6B7AAB' : '#FF6B00',
-                    }}>{tierLabel}</span>
-                  )}
-                </span>
-              )
-            })}
-            {extraItemCount > 0 && <span style={{ fontSize:10, color:D.muted }}>+{extraItemCount} lòt</span>}
-          </div>
-        )}
-      </div>
-
-      <div style={{ textAlign:'center' }}>
-        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:'monospace', fontWeight:700, color:D.text, fontSize:13 }}>{fmt(inv.totalHtg)}</span>
-          {totalConv && <span style={{ fontSize:10, color:D.muted, fontFamily:'monospace' }}>{totalConv}</span>}
+      <div className="iv-client">
+        <Avatar v={v}/>
+        <div style={{ minWidth: 0 }}>
+          <span className={`name ${v.isWalkIn ? 'walk' : ''}`}>{v.clientName}</span>
+          <Items v={v}/>
         </div>
       </div>
 
-      <div style={{ textAlign:'center' }}>
-        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:'monospace', color:D.success, fontWeight:700, fontSize:12 }}>{fmt(inv.amountPaidHtg)}</span>
-          {payedConv && <span style={{ fontSize:10, color:D.muted, fontFamily:'monospace' }}>{payedConv}</span>}
-        </div>
-        {/* ✅ NOUVO — Progress bar mini pou pasyèl */}
-        {isPartial && total > 0 && (
-          <div style={{ marginTop: 4, height: 4, background: '#F1F5F9', borderRadius: 99, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: `${paidPct}%`,
-              background: `linear-gradient(90deg, ${D.warning}, ${D.success})`, borderRadius: 99,
-            }}/>
-          </div>
-        )}
+      <div style={{ textAlign: 'center' }}>
+        <div className="iv-money">{fmt(inv.totalHtg)}</div>
+        {v.totalConv && <div className="iv-conv">{v.totalConv}</div>}
       </div>
 
-      {/* ✅ KORIJE — Balans pozitif ak "pou peye" anba */}
-      <div style={{ textAlign:'center' }}>
-        <div style={{ display:'flex', alignItems:'baseline', justifyContent:'center', gap:5, flexWrap:'wrap' }}>
-          <span style={{ fontFamily:'monospace', color: hasBalance ? D.red : D.muted, fontWeight:700, fontSize:12 }}>
-            {fmt(inv.balanceDueHtg)}
-          </span>
-          {balanceConv && hasBalance && (
-            <span style={{ fontSize:10, color:D.red, opacity:0.7, fontFamily:'monospace' }}>{balanceConv}</span>
-          )}
-        </div>
-        {hasBalance && !isCancelled && (
-          <p style={{ fontSize: 9, color: D.red, fontWeight: 700, margin: '2px 0 0', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            pou peye
-          </p>
-        )}
+      <div style={{ textAlign: 'center' }}>
+        <div className="iv-money" style={{ color: 'var(--ok)', fontSize: 16 }}>{fmt(inv.amountPaidHtg)}</div>
+        {v.payedConv && <div className="iv-conv">{v.payedConv}</div>}
+        {v.isPartial && <div className="iv-prog" style={{ maxWidth: 120, margin: '5px auto 0' }}><i style={{ width: `${v.paidPct}%` }}/></div>}
       </div>
 
-      <div style={{ textAlign:'center' }}>
-        <span style={{ fontSize:10, fontWeight:800, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, letterSpacing:'0.05em', textTransform:'uppercase' }}>{s.label}</span>
+      <div style={{ textAlign: 'center' }}>
+        <div className="iv-money" style={{ color: v.hasBalance ? 'var(--bad)' : 'var(--muted)', fontSize: 16 }}>{fmt(inv.balanceDueHtg)}</div>
+        {v.balanceConv && v.hasBalance && <div className="iv-conv" style={{ color: 'var(--bad)' }}>{v.balanceConv}</div>}
+        {v.hasBalance && !v.isCancelled && <div className="iv-due">pou peye</div>}
       </div>
 
-      <span style={{ fontSize:11, color:D.muted, fontFamily:'monospace', textAlign:'center' }}>{dateStr}</span>
-
-      <div style={{ textAlign:'right' }}>
-        <Link to={`/app/invoices/${inv.id}`} className="inv-eye"
-          style={{ width:30, height:30, borderRadius:8, display:'inline-flex', alignItems:'center', justifyContent:'center', background:D.blueDim, color:D.blue, textDecoration:'none', transition:'all 0.2s' }}>
-          <Eye size={13}/>
-        </Link>
-      </div>
-    </div>
+      <div style={{ textAlign: 'center' }}><Badge s={v.s}/></div>
+      <span className="iv-date" style={{ textAlign: 'center' }}>{v.dateStr}</span>
+      <div style={{ textAlign: 'right' }}><span className="iv-eye"><Eye size={15}/></span></div>
+    </Link>
   )
 })
