@@ -1,7 +1,7 @@
 // src/pages/invoices/InvoicesPage.jsx — Plus Fit redesign
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
@@ -111,8 +111,10 @@ function Kpi({ label, value, icon: Icon, tone = '', delay = 0, money }) {
 
 export default function InvoicesPage() {
   const { t } = useTranslation()
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
+  // ✅ Li ?search= ak ?status= nan URL la (lyen ki soti nan Kliyan, Rapò, Tablo de bò)
+  const [params] = useSearchParams()
+  const [search, setSearch] = useState(() => params.get('search') || '')
+  const [status, setStatus] = useState(() => params.get('status') || '')
   const [page, setPage]     = useState(1)
   const { isMobile, isTablet, isDesktop } = useScreenSize()
   const { tenant } = useAuthStore()
