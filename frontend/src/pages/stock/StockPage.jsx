@@ -1,195 +1,224 @@
-// src/pages/stock/StockPage.jsx
-import { useState, useEffect } from 'react'
+// src/pages/stock/StockPage.jsx — Plus Fit redesign
+// ✅ KORIJE: lis la pa t rafrechi apre yon ajisteman (invalidateQueries v5); bouton
+//            konfime a pa t janm bloke (isLoading → isPending, risk 2 mouvman);
+//            pa t gen mesaj erè; rechèch san debounce; CSS global ki te kache
+//            ba defilman TOUT app la (div::-webkit-scrollbar)
+// ✅ NOUVO:  mouvman gwoupe pa jou, aperçu « avan → apre » an dirèk, blokaj si w retire
+//            plis pase sa ki an stòk, bouton kantite rapid, rezon rapid, klike sou yon
+//            mouvman pou re-ajiste menm pwodwi a, ekspòte CSV
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { stockAPI, productAPI } from '../../services/api'
 import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
-import { Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, RefreshCw, X } from 'lucide-react'
+import {
+  Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, RefreshCw, X, Check,
+  ArrowUpCircle, ArrowDownCircle, Layers, Download, Repeat, AlertTriangle,
+} from 'lucide-react'
 import { format } from 'date-fns'
+import '../invoices/invoices.css'
 
-const S = {
-  blue:     '#1B2A8F',
-  blueLt:   '#2D3FBF',
-  blueDim:  'rgba(27,42,143,0.08)',
-  orange:   '#FF6B00',
-  orangeLt: '#FF8C33',
-  orangeDim:'rgba(255,107,0,0.1)',
-  white:    '#FFFFFF',
-  bg:       '#F4F6FF',
-  card:     '#FFFFFF',
-  border:   'rgba(27,42,143,0.12)',
-  text:     '#0F1A5C',
-  muted:    '#6B7AAB',
-  success:  '#059669',
-  danger:   '#DC2626',
-  successBg:'rgba(5,150,105,0.08)',
-  dangerBg: 'rgba(220,38,38,0.08)',
+const tr = (t, key, fallback, opts) => { const v = t(key, opts); return v && v !== key ? v : fallback }
+const num = (n) => Number(n || 0).toLocaleString('fr-HT', { maximumFractionDigits: 3 })
+
+const MOVES = {
+  sale:        { key: 'stock.sale',       label: 'Vant',        color: '#DC2626', bg: 'rgba(220,38,38,0.09)',  icon: '↓' },
+  purchase:    { key: 'stock.purchase',   label: 'Acha',        color: '#059669', bg: 'rgba(5,150,105,0.10)',  icon: '↑' },
+  adjustment:  { key: 'stock.adjustment', label: 'Ajisteman',   color: '#1B2A8F', bg: 'rgba(27,42,143,0.08)',  icon: '⟳' },
+  return_item: { key: 'stock.return',     label: 'Retou',       color: '#7C3AED', bg: 'rgba(124,58,237,0.09)', icon: '↩' },
+  loss:        { key: 'stock.loss',       label: 'Pèt',         color: '#EA580C', bg: 'rgba(234,88,12,0.10)',  icon: '!' },
+  transfer:    { key: 'stock.transfer',   label: 'Transfè',     color: '#0284C7', bg: 'rgba(2,132,199,0.09)',  icon: '⇄' },
 }
 
-const MOVEMENT_KEYS = {
-  sale:        'stock.sale',
-  purchase:    'stock.purchase',
-  adjustment:  'stock.adjustment',
-  return_item: 'stock.return',
-  loss:        'stock.loss',
-  transfer:    'stock.transfer',
+const ADJ_TYPES = [
+  { v: 'add',      key: 'stock.add',      label: 'Ajoute',  icon: '+', color: '#059669', sign: +1 },
+  { v: 'remove',   key: 'stock.remove',   label: 'Retire',  icon: '−', color: '#DC2626', sign: -1 },
+  { v: 'purchase', key: 'stock.purchase', label: 'Acha',    icon: '↑', color: '#1B2A8F', sign: +1 },
+  { v: 'loss',     key: 'stock.loss',     label: 'Pèt',     icon: '!', color: '#EA580C', sign: -1 },
+]
+
+const REASONS = {
+  add:      ['Erè kontaj', 'Retou kliyan', 'Envantè'],
+  remove:   ['Erè kontaj', 'Itilizasyon entèn', 'Envantè'],
+  purchase: ['Livrezon founisè', 'Acha mache', 'Reapwovizyonman'],
+  loss:     ['Kase', 'Ekspire', 'Vòl', 'Domaj'],
 }
 
-const MOVEMENT_STYLES = {
-  sale:        { color:'#DC2626',  bg:'rgba(220,38,38,0.08)',   icon:'↓' },
-  purchase:    { color:'#059669',  bg:'rgba(5,150,105,0.08)',   icon:'↑' },
-  adjustment:  { color:'#1B2A8F', bg:'rgba(27,42,143,0.08)',   icon:'⟳' },
-  return_item: { color:'#7C3AED', bg:'rgba(124,58,237,0.08)',  icon:'↩' },
-  loss:        { color:'#FF6B00', bg:'rgba(255,107,0,0.1)',    icon:'!' },
-  transfer:    { color:'#0284C7', bg:'rgba(2,132,199,0.08)',   icon:'⇄' },
+const toHaiti = (d) => { try { return new Date(new Date(d).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })) } catch { return new Date(d) } }
+const dayLabel = (d) => {
+  const x = toHaiti(d), now = toHaiti(new Date())
+  const key = format(x, 'yyyy-MM-dd')
+  if (key === format(now, 'yyyy-MM-dd')) return 'Jodi a'
+  if (key === format(new Date(now.getTime() - 864e5), 'yyyy-MM-dd')) return 'Yè'
+  return x.toLocaleDateString('fr-HT', { weekday: 'long', day: '2-digit', month: 'long' })
 }
 
-// ── Hook responsive
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+function useDebounce(value, delay = 350) {
+  const [v, setV] = useState(value)
+  useEffect(() => { const t = setTimeout(() => setV(value), delay); return () => clearTimeout(t) }, [value, delay])
+  return v
+}
+
+function useEsc(onClose) {
   useEffect(() => {
-    const fn = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', fn)
-    return () => window.removeEventListener('resize', fn)
-  }, [])
-  return isMobile
+    const h = (e) => { if (e.key === 'Escape') onClose?.() }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
 }
 
-// ── Modal Ajisteman
-const AdjustModal = ({ onClose }) => {
+function useCountUp(value, ms = 700) {
+  const [v, setV] = useState(value)
+  const from = useRef(value)
+  useEffect(() => {
+    const start = performance.now(), a = from.current, b = Number(value) || 0
+    if (a === b) return
+    let raf
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / ms)
+      setV(a + (b - a) * (1 - Math.pow(1 - p, 3)))
+      if (p < 1) raf = requestAnimationFrame(tick)
+      else from.current = b
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { cancelAnimationFrame(raf); from.current = b }
+  }, [value, ms])
+  return v
+}
+
+function Kpi({ label, value, icon: Icon, tone = '', delay = 0, prefix = '' }) {
+  const v = useCountUp(value)
+  return (
+    <div className={`iv-kpi ${tone}`} style={{ animationDelay: `${delay}ms` }}>
+      <div className="l"><Icon size={12}/> {label}</div>
+      <div className="v">{prefix}{num(Math.round(v))}</div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════
+// Modal ajisteman
+// ════════════════════════════════════════════════════════════
+const AdjustModal = ({ onClose, preset }) => {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const isMobile = useIsMobile()
+  useEsc(onClose)
   const [search, setSearch]     = useState('')
-  const [selected, setSelected] = useState(null)
-  const [form, setForm]         = useState({ quantity: '', type: 'add', notes: '' })
+  const [selected, setSelected] = useState(preset?.product || null)
+  const [form, setForm]         = useState({ quantity: '', type: preset?.type || 'add', notes: '' })
+  const debounced = useDebounce(search)
+  const qtyRef = useRef(null)
 
-  const { data: products } = useQuery({
-    queryKey: ['products-adj', search],
-    queryFn: () => productAPI.getAll({ search, limit: 6 }).then(r => r.data.products),
-    enabled: search.length > 0,
+  const { data: products, isFetching } = useQuery({
+    queryKey: ['products-adj', debounced],
+    queryFn: () => productAPI.getAll({ search: debounced, limit: 8 }).then(r => (r.data.products || []).filter(p => !p.isService)),
+    enabled: debounced.length >= 1,
+    staleTime: 20_000,
   })
+
+  // ✅ Si pwodwi a soti nan yon mouvman, chaje stòk AKTYÈL li (pa sa ki te nan mouvman an)
+  const { data: fresh } = useQuery({
+    queryKey: ['product-one-adj', selected?.id],
+    queryFn: () => productAPI.getAll({ search: selected.code || selected.name, limit: 5 }).then(r => (r.data.products || []).find(p => p.id === selected.id) || null),
+    enabled: !!selected?.id && selected?.quantity == null,
+    staleTime: 0,
+  })
+  const product = fresh || selected
+
+  useEffect(() => { if (selected) setTimeout(() => qtyRef.current?.focus(), 80) }, [selected])
+
+  const type    = ADJ_TYPES.find(x => x.v === form.type) || ADJ_TYPES[0]
+  const qty     = Number(form.quantity || 0)
+  const before  = product?.quantity != null ? Number(product.quantity) : null
+  const after   = before != null ? before + type.sign * qty : null
+  const tooMuch = type.sign < 0 && before != null && qty > before
 
   const mutation = useMutation({
     mutationFn: (data) => stockAPI.addMovement(data),
     onSuccess: () => {
-      toast.success(t('stock.adjusted'))
-      qc.invalidateQueries(['stock-movements'])
-      qc.invalidateQueries(['products'])
+      toast.success(tr(t, 'stock.adjusted', 'Stòk ajiste!'))
+      // ✅ KORIJE — { queryKey } (v5): anvan sa lis la ak pwodwi yo pa t mete ajou
+      qc.invalidateQueries({ queryKey: ['stock-movements'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['products-adj'] })
       onClose()
     },
+    // ✅ NOUVO — anvan sa, si sèvè a refize, pa t gen okenn mesaj
+    onError: (e) => toast.error(e?.response?.data?.message || 'Erè pandan ajisteman an.'),
   })
 
-  const TYPES = [
-    { v: 'add',      lKey: 'stock.add',      icon: '＋', color: S.success },
-    { v: 'remove',   lKey: 'stock.remove',   icon: '－', color: S.danger  },
-    { v: 'purchase', lKey: 'stock.purchase', icon: '🛒', color: S.blue    },
-    { v: 'loss',     lKey: 'stock.loss',     icon: '⚠',  color: S.orange  },
-  ]
-
   const handleConfirm = () => {
-    if (!selected) return toast.error(t('stock.selectProduct'))
-    if (!form.quantity || Number(form.quantity) <= 0) return toast.error(t('stock.quantityRequired'))
-    const typeMap = { add: 'add', remove: 'remove', purchase: 'purchase', loss: 'loss' }
-    mutation.mutate({
-      productId: selected.id,
-      quantity:  Number(form.quantity),
-      type:      typeMap[form.type] || 'add',
-      notes:     form.notes,
-    })
+    if (!selected) return toast.error(tr(t, 'stock.selectProduct', 'Chwazi yon pwodwi.'))
+    if (!qty || qty <= 0) { qtyRef.current?.focus(); return toast.error(tr(t, 'stock.quantityRequired', 'Antre yon kantite.')) }
+    if (tooMuch) return toast.error(`Ou pa ka retire ${num(qty)} — se ${num(before)} sèlman ki an stòk.`)
+    mutation.mutate({ productId: selected.id, quantity: qty, type: form.type, notes: form.notes.trim() })
   }
 
   return (
-    <div
-      onClick={e => e.target === e.currentTarget && onClose()}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(10,15,50,0.6)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: isMobile ? 'flex-end' : 'center',
-        justifyContent: 'center', padding: isMobile ? 0 : 16,
-      }}
-    >
-      <div style={{
-        background: S.card,
-        borderRadius: isMobile ? '20px 20px 0 0' : 20,
-        width: '100%',
-        maxWidth: isMobile ? '100%' : 440,
-        maxHeight: isMobile ? '92vh' : '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 24px 64px rgba(27,42,143,0.2)',
-        border: `1px solid ${S.border}`,
-        animation: isMobile ? 'slideUp 0.3s ease' : 'slideUp 0.25s ease',
-      }}>
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '18px 20px', borderBottom: `1px solid ${S.border}`,
-          background: `linear-gradient(135deg, ${S.blue}, ${S.blueLt})`,
-          position: 'sticky', top: 0, zIndex: 10,
-          borderRadius: isMobile ? '20px 20px 0 0' : '20px 20px 0 0',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: 8, display: 'flex' }}>
-              <RefreshCw size={18} color="#fff" />
-            </div>
-            <h2 style={{ color: '#fff', fontWeight: 800, fontSize: 16, margin: 0 }}>{t('stock.adjustTitle')}</h2>
-          </div>
-          <button
-            onClick={onClose}
-            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          ><X size={16} /></button>
+    <div className="iv-overlay sheet" onClick={e => e.target === e.currentTarget && !mutation.isPending && onClose()}>
+      <div className="iv-sheet" style={{ maxWidth: 480 }}>
+        <div className="iv-sheet-h" style={{ background: 'radial-gradient(120% 140% at 100% 0%, #14B8A6, #0F1A5C 75%)' }}>
+          <h3><RefreshCw size={18} style={{ verticalAlign: '-2px' }}/> {tr(t, 'stock.adjustTitle', 'Ajiste stòk')}</h3>
+          <p>{product ? product.name : 'Chwazi pwodwi a, tip mouvman an ak kantite a'}</p>
+          <button className="x" onClick={onClose} aria-label="Fèmen"><X size={17}/></button>
         </div>
 
-        <div style={{ padding: isMobile ? '20px 16px' : 24, display: 'flex', flexDirection: 'column', gap: 18 }}>
-          {/* Pwodui */}
+        <div className="iv-sheet-b">
+          {/* Pwodwi */}
           <div>
-            <label style={{ display: 'block', color: S.text, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('stock.product')}</label>
+            <label className="iv-lbl">{tr(t, 'stock.product', 'Pwodwi')}</label>
             {selected ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: S.blueDim, border: `1.5px solid ${S.blue}40`, borderRadius: 12 }}>
-                <div>
-                  <p style={{ color: S.blue, fontWeight: 700, fontSize: 14, margin: 0 }}>{selected.name}</p>
-                  <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace', margin: '3px 0 0' }}>{t('stock.currentStock')}: {Number(selected.quantity)}</p>
+              <div className="iv-client-card" style={{ borderColor: 'rgba(20,184,166,.35)', background: 'linear-gradient(135deg,#F0FDFA,#F4F6FE)' }}>
+                <span className="iv-thumb" style={{ width: 44, height: 44, borderRadius: 12, backgroundImage: product?.imageUrl ? `url(${product.imageUrl})` : undefined }}>
+                  {!product?.imageUrl && <Package size={17} color="#0F766E"/>}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product?.name}</div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    {tr(t, 'stock.currentStock', 'Stòk aktyèl')}: <b className="num" style={{ fontSize: 15, color: 'var(--ink)' }}>{before != null ? num(before) : '…'}</b> {product?.unit}
+                  </div>
                 </div>
-                <button onClick={() => setSelected(null)} style={{ background: `${S.blue}20`, border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', color: S.blue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <X size={14} />
-                </button>
+                <button type="button" className="iv-del" style={{ background: '#fff' }} onClick={() => setSelected(null)}>Chanje</button>
               </div>
             ) : (
-              <>
-                <div style={{ position: 'relative' }}>
-                  <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: S.muted }} />
-                  <input
-                    placeholder={t('stock.searchProduct')}
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    style={{ width: '100%', paddingLeft: 36, padding: '11px 14px 11px 36px', borderRadius: 10, border: `1.5px solid ${S.border}`, outline: 'none', fontSize: 14, color: S.text, background: '#F8F9FF', boxSizing: 'border-box' }}
-                  />
+              <div style={{ position: 'relative' }}>
+                <div className="iv-icon-inp">
+                  {isFetching ? <RefreshCw size={15} className="spin"/> : <Search size={15}/>}
+                  <input className="iv-inp" autoFocus placeholder={tr(t, 'stock.searchProduct', 'Chèche non oswa kòd pwodwi a...')} value={search} onChange={e => setSearch(e.target.value)}/>
                 </div>
-                {products?.map(p => (
-                  <button key={p.id} type="button" onClick={() => { setSelected(p); setSearch('') }}
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '11px 14px', background: 'transparent', border: `1px solid ${S.border}`, borderRadius: 10, cursor: 'pointer', marginTop: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: S.text }}>{p.name}</span>
-                    <span style={{ fontSize: 11, color: S.muted, fontFamily: 'monospace' }}>{Number(p.quantity)} {p.unit}</span>
-                  </button>
-                ))}
-              </>
+                {products?.length > 0 && (
+                  <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
+                    {products.map((p, i) => {
+                      const low = Number(p.quantity) <= Number(p.alertThreshold || 0)
+                      return (
+                        <div key={p.id} className="iv-opt a-slide" style={{ border: '1px solid var(--line)', borderRadius: 12, animationDelay: `${i * 30}ms` }} onClick={() => { setSelected(p); setSearch('') }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                            <span className="iv-thumb" style={{ backgroundImage: p.imageUrl ? `url(${p.imageUrl})` : undefined }}>{!p.imageUrl && <Package size={15} color="#1B2A8F"/>}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                              {p.code && <div className="mono" style={{ fontSize: 10, color: 'var(--muted)' }}>{p.code}</div>}
+                            </div>
+                          </div>
+                          <span className="iv-pill" style={{ background: low ? 'var(--warnBg)' : 'var(--okBg)', color: low ? 'var(--warn)' : 'var(--ok)', textTransform: 'none', letterSpacing: 0, fontSize: 12 }}>
+                            {low && <AlertTriangle size={11}/>} {num(p.quantity)} {p.unit}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {debounced && !isFetching && products?.length === 0 && <p className="iv-note">Okenn pwodwi pa koresponn ak « {debounced} ».</p>}
+              </div>
             )}
           </div>
 
           {/* Tip */}
           <div>
-            <label style={{ display: 'block', color: S.text, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('stock.movementType')}</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {TYPES.map(opt => (
-                <button key={opt.v} type="button" onClick={() => setForm({ ...form, type: opt.v })} style={{
-                  padding: '11px 14px', borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  background: form.type === opt.v ? opt.color : '#F8F9FF',
-                  color: form.type === opt.v ? '#fff' : S.muted,
-                  border: `1.5px solid ${form.type === opt.v ? opt.color : S.border}`,
-                  boxShadow: form.type === opt.v ? `0 4px 12px ${opt.color}40` : 'none',
-                }}>
-                  <span style={{ fontSize: 16 }}>{opt.icon}</span>{t(opt.lKey)}
+            <label className="iv-lbl">{tr(t, 'stock.movementType', 'Tip mouvman')}</label>
+            <div className="st-types">
+              {ADJ_TYPES.map(o => (
+                <button key={o.v} type="button" className={`st-type ${form.type === o.v ? 'on' : ''}`} style={{ '--tc': o.color }} onClick={() => setForm(f => ({ ...f, type: o.v }))}>
+                  <span className="pi">{o.icon}</span>{tr(t, o.key, o.label)}
                 </button>
               ))}
             </div>
@@ -197,41 +226,46 @@ const AdjustModal = ({ onClose }) => {
 
           {/* Kantite */}
           <div>
-            <label style={{ display: 'block', color: S.text, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>{t('stock.quantity')}</label>
-            <input
-              type="number" step="0.001" min="0.001" placeholder="0"
-              value={form.quantity}
-              onChange={e => setForm({ ...form, quantity: e.target.value })}
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1.5px solid ${S.border}`, outline: 'none', fontSize: 18, fontWeight: 800, color: S.text, background: '#F8F9FF', boxSizing: 'border-box', fontFamily: 'monospace' }}
-            />
+            <label className="iv-lbl">{tr(t, 'stock.quantity', 'Kantite')}</label>
+            <input ref={qtyRef} type="number" step="0.001" min="0.001" placeholder="0" className="iv-inp money big center"
+              value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} onFocus={e => e.target.select()}
+              onKeyDown={e => e.key === 'Enter' && handleConfirm()}/>
+            <div className="iv-quick">
+              {[1, 5, 10, 12, 24, 50].map(n => (
+                <button key={n} type="button" onClick={() => setForm(f => ({ ...f, quantity: String(Number(f.quantity || 0) + n) }))}>+{n}</button>
+              ))}
+              {form.quantity && <button type="button" style={{ color: 'var(--bad)' }} onClick={() => setForm(f => ({ ...f, quantity: '' }))}>Efase</button>}
+            </div>
           </div>
+
+          {/* ✅ NOUVO — aperçu an dirèk */}
+          {selected && before != null && qty > 0 && (
+            <div className={`st-preview ${tooMuch ? 'bad' : ''}`} style={{ '--tc': type.color }}>
+              <div className="bx"><small>Avan</small><div className="num">{num(before)}</div></div>
+              <span className="arr">{type.sign > 0 ? '+' : '−'}{num(qty)} →</span>
+              <div className="bx"><small>Apre</small><div className="num" style={{ color: tooMuch ? 'var(--bad)' : type.color }}>{num(after)}</div></div>
+              {tooMuch && <div style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--bad)' }}>⚠️ Ou pa ka retire plis pase sa ki an stòk.</div>}
+            </div>
+          )}
 
           {/* Nòt */}
           <div>
-            <label style={{ display: 'block', color: S.text, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-              {t('stock.notes')} <span style={{ color: S.muted, fontWeight: 400 }}>({t('common.optional')})</span>
-            </label>
-            <input
-              placeholder={t('stock.notesPlaceholder')}
-              value={form.notes}
-              onChange={e => setForm({ ...form, notes: e.target.value })}
-              style={{ width: '100%', padding: '11px 14px', borderRadius: 10, border: `1.5px solid ${S.border}`, outline: 'none', fontSize: 13, color: S.text, background: '#F8F9FF', boxSizing: 'border-box' }}
-            />
+            <label className="iv-lbl">{tr(t, 'stock.notes', 'Rezon / nòt')} <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(opsyonèl)</span></label>
+            <input className="iv-inp" placeholder={tr(t, 'stock.notesPlaceholder', 'Egz: livrezon founisè X')} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/>
+            <div className="iv-quick">
+              {(REASONS[form.type] || []).map(r => (
+                <button key={r} type="button" className={form.notes === r ? 'ex' : ''} onClick={() => setForm(f => ({ ...f, notes: f.notes === r ? '' : r }))}>{r}</button>
+              ))}
+            </div>
           </div>
 
-          {/* Bouton yo */}
-          <div style={{ display: 'flex', gap: 10, paddingTop: 4, borderTop: `1px solid ${S.border}` }}>
-            <button onClick={onClose} style={{ flex: 1, padding: '12px', borderRadius: 10, background: '#F4F6FF', border: `1px solid ${S.border}`, color: S.muted, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
-              {t('common.cancel')}
-            </button>
-            <button onClick={handleConfirm} disabled={mutation.isLoading} style={{
-              flex: 2, padding: '12px', borderRadius: 10,
-              background: mutation.isLoading ? `${S.orange}80` : `linear-gradient(135deg, ${S.orange}, ${S.orangeLt})`,
-              border: 'none', color: '#fff', fontWeight: 800,
-              cursor: mutation.isLoading ? 'not-allowed' : 'pointer',
-              fontSize: 14, boxShadow: `0 4px 16px ${S.orange}50`,
-            }}>
-              {mutation.isLoading ? '...' : t('stock.confirmAdjust')}
+          <div className="iv-sheet-f">
+            <button type="button" className="iv-act" onClick={onClose} disabled={mutation.isPending}>{tr(t, 'common.cancel', 'Anile')}</button>
+            {/* ✅ KORIJE — isPending (v5): bouton an bloke pandan anrejistreman an */}
+            <button type="button" className="iv-btn-main" onClick={handleConfirm} disabled={mutation.isPending || tooMuch}
+              style={{ background: `linear-gradient(135deg, ${type.color}, ${type.color}CC)`, boxShadow: `0 10px 24px ${type.color}55` }}>
+              {mutation.isPending ? <RefreshCw size={16} className="spin"/> : <Check size={16}/>}
+              {mutation.isPending ? 'Ap anrejistre...' : `${tr(t, type.key, type.label)}${qty ? ` ${num(qty)}` : ''}`}
             </button>
           </div>
         </div>
@@ -240,271 +274,187 @@ const AdjustModal = ({ onClose }) => {
   )
 }
 
-// ── Kat mouvman pou mobile
-function MovementCard({ m, t }) {
-  const mvStyle = MOVEMENT_STYLES[m.movementType] || MOVEMENT_STYLES.adjustment
-  const change  = Number(m.quantityChange)
+// ════════════════════════════════════════════════════════════
+// Ranje mouvman
+// ════════════════════════════════════════════════════════════
+function MoveRow({ m, t, i, onAgain }) {
+  const mv = MOVES[m.movementType] || MOVES.adjustment
+  const change = Number(m.quantityChange)
+  const before = Number(m.quantityBefore), after = Number(m.quantityAfter)
+  const max = Math.max(before, after, 1)
+  const left = (Math.min(before, after) / max) * 100
+  const width = Math.max(3, (Math.abs(after - before) / max) * 100)
+  const mc = change > 0 ? '#059669' : '#DC2626'
+
   return (
-    <div style={{
-      background: S.card, borderRadius: 14, border: `1px solid ${S.border}`,
-      padding: '14px 16px', boxShadow: '0 2px 8px rgba(27,42,143,0.06)',
-    }}>
-      {/* Tèt kat */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: `linear-gradient(135deg,${S.blue}15,${S.blue}08)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Package size={16} color={S.blue} />
-          </div>
-          <div>
-            <p style={{ color: S.text, fontWeight: 700, fontSize: 14, margin: 0 }}>{m.product?.name}</p>
-            <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace', margin: '2px 0 0' }}>{m.product?.code || '—'}</p>
-          </div>
-        </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: mvStyle.bg, color: mvStyle.color }}>
-          {mvStyle.icon} {t(MOVEMENT_KEYS[m.movementType] || 'stock.adjustment')}
-        </span>
-      </div>
-
-      {/* Chif yo */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, padding: '10px 12px', background: S.bg, borderRadius: 10 }}>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: S.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px', letterSpacing: '0.05em' }}>{t('stock.colBefore')}</p>
-          <p style={{ color: S.text, fontFamily: 'monospace', fontSize: 14, fontWeight: 700, margin: 0 }}>{Number(m.quantityBefore)}</p>
-        </div>
-        <div style={{ textAlign: 'center', borderLeft: `1px solid ${S.border}`, borderRight: `1px solid ${S.border}` }}>
-          <p style={{ color: S.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px', letterSpacing: '0.05em' }}>{t('stock.colChange')}</p>
-          <p style={{ fontFamily: 'monospace', fontSize: 16, fontWeight: 900, margin: 0, color: change > 0 ? S.success : S.danger }}>
-            {change > 0 ? '+' : ''}{change}
-          </p>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-          <p style={{ color: S.muted, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', margin: '0 0 3px', letterSpacing: '0.05em' }}>{t('stock.colAfter')}</p>
-          <p style={{ color: S.text, fontFamily: 'monospace', fontSize: 14, fontWeight: 800, margin: 0 }}>{Number(m.quantityAfter)}</p>
+    <div className="st-row" style={{ '--mc': mv.color, '--mb': mv.bg, animationDelay: `${Math.min(i, 14) * 30}ms` }} onClick={() => onAgain(m)} title="Klike pou ajiste pwodwi sa ankò">
+      <span className="st-ic">{m.product?.imageUrl
+        ? <span className="iv-thumb" style={{ width: 42, height: 42, borderRadius: 13, backgroundImage: `url(${m.product.imageUrl})` }}/>
+        : mv.icon}
+      </span>
+      <div className="st-prod">
+        <div style={{ minWidth: 0 }}>
+          <b>{m.product?.name || '—'}</b>
+          <small>{m.product?.code || ''}</small>
         </div>
       </div>
-
-      {/* Pye kat */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-        <span style={{ color: S.muted, fontSize: 12 }}>👤 {m.creator?.fullName || '—'}</span>
-        <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>
-          {format(new Date(m.createdAt), 'dd/MM/yy HH:mm')}
-        </span>
+      <span className="iv-badge t-type" style={{ background: mv.bg, color: mv.color, justifySelf: 'start' }}>{mv.icon} {tr(t, mv.key, mv.label)}</span>
+      <div className="st-flow" style={{ '--mc': mc }}>
+        <span>{num(before)}</span>
+        <span className="bar"><i style={{ left: `${left}%`, width: `${width}%` }}/></span>
+        <b>{num(after)}</b>
       </div>
+      <span className={`st-chg ${change > 0 ? 'up' : 'down'}`}>{change > 0 ? '+' : ''}{num(change)}</span>
+      <div className="st-who">
+        {m.creator?.fullName || '—'}
+        <small>{format(toHaiti(m.createdAt), 'HH:mm')} · <span className="iv-badge m-only" style={{ background: mv.bg, color: mv.color, padding: "1px 6px", fontSize: 9 }}>{tr(t, mv.key, mv.label)}</span></small>
+      </div>
+      <button type="button" className="iv-mini st-again" title="Ajiste ankò" onClick={(e) => { e.stopPropagation(); onAgain(m) }}><Repeat size={13}/></button>
+      {m.notes && <div className="st-note">“{m.notes}”</div>}
     </div>
   )
 }
 
-// ══════════════════════════════════════════════
-// KONPOZAN PRENSIPAL
-// ══════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
 export default function StockPage() {
   const { t } = useTranslation()
-  const isMobile = useIsMobile()
-  const [showAdjust, setShowAdjust] = useState(false)
+  const [adjust, setAdjust]         = useState(null)   // null | { product?, type? }
   const [typeFilter, setTypeFilter] = useState('')
-  const [page, setPage] = useState(1)
+  const [page, setPage]             = useState(1)
 
   const { data, isLoading } = useQuery({
     queryKey: ['stock-movements', typeFilter, page],
     queryFn: () => stockAPI.getMovements({ type: typeFilter, page, limit: 20 }).then(r => r.data),
-    keepPreviousData: true,
+    placeholderData: (prev) => prev,   // ✅ react-query v5
   })
 
-  const FILTER_OPTIONS = [
-    { v: '',            lKey: 'stock.allTypes' },
-    { v: 'sale',        lKey: 'stock.sale' },
-    { v: 'purchase',    lKey: 'stock.purchase' },
-    { v: 'adjustment',  lKey: 'stock.adjustment' },
-    { v: 'return_item', lKey: 'stock.return' },
-    { v: 'loss',        lKey: 'stock.loss' },
-    { v: 'transfer',    lKey: 'stock.transfer' },
-  ]
+  const movements = data?.movements || []
 
-  const COL_HEADERS = [
-    t('stock.colProduct'), t('stock.colType'), t('stock.colBefore'),
-    t('stock.colChange'), t('stock.colAfter'), t('stock.colBy'), t('stock.colDate')
-  ]
+  const { ins, outs } = useMemo(() => movements.reduce((a, m) => {
+    const c = Number(m.quantityChange || 0)
+    if (c > 0) a.ins += c; else a.outs += Math.abs(c)
+    return a
+  }, { ins: 0, outs: 0 }), [movements])
+
+  // ✅ NOUVO — gwoupe pa jou
+  const groups = useMemo(() => {
+    const out = []
+    movements.forEach(m => {
+      const label = dayLabel(m.createdAt)
+      const last = out[out.length - 1]
+      if (last && last.label === label) last.items.push(m)
+      else out.push({ label, items: [m] })
+    })
+    return out
+  }, [movements])
+
+  // ✅ NOUVO — ekspòte paj la an CSV (Excel)
+  const exportCsv = () => {
+    if (!movements.length) return
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const rows = [['Dat', 'Pwodwi', 'Kòd', 'Tip', 'Avan', 'Chanjman', 'Apre', 'Pa', 'Nòt']]
+    movements.forEach(m => rows.push([
+      format(toHaiti(m.createdAt), 'dd/MM/yyyy HH:mm'), m.product?.name, m.product?.code,
+      tr(t, (MOVES[m.movementType] || MOVES.adjustment).key, (MOVES[m.movementType] || MOVES.adjustment).label),
+      Number(m.quantityBefore), Number(m.quantityChange), Number(m.quantityAfter), m.creator?.fullName, m.notes,
+    ]))
+    const blob = new Blob(['﻿' + rows.map(r => r.map(esc).join(';')).join('\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `mouvman-stok-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000)
+  }
+
+  const FILTERS = [{ v: '', l: tr(t, 'stock.allTypes', 'Tout'), color: '#1B2A8F' },
+    ...Object.entries(MOVES).map(([k, m]) => ({ v: k, l: tr(t, m.key, m.label), color: m.color }))]
+
+  const again = (m) => setAdjust({ product: { id: m.productId || m.product?.id, name: m.product?.name, code: m.product?.code, unit: m.product?.unit, imageUrl: m.product?.imageUrl } })
 
   return (
-    <div style={{ fontFamily: 'DM Sans, sans-serif', minHeight: '100%' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: isMobile ? 42 : 48, height: isMobile ? 42 : 48, borderRadius: 14, background: `linear-gradient(135deg, ${S.blue}, ${S.blueLt})`, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 4px 16px ${S.blue}40`, flexShrink: 0 }}>
-            <Warehouse size={isMobile ? 19 : 22} color="#fff" />
+    <div className="iv" style={{ paddingBottom: 80 }}>
+      <section className="iv-hero">
+        <div className="glow" style={{ background: 'radial-gradient(circle, rgba(20,184,166,.5), transparent 65%)' }}/>
+        <svg className="waves" viewBox="0 0 600 220" preserveAspectRatio="none">
+          <path d="M -20 170 C 140 80, 340 230, 620 90" stroke="#2DD4BF" strokeWidth="3" fill="none" opacity="0.55"/>
+          <path d="M -20 200 C 160 120, 360 260, 620 130" stroke="#FF6B00" strokeWidth="2" fill="none" opacity="0.3"/>
+        </svg>
+        <div className="row">
+          <div className="ico teal"><Warehouse size={24} color="#fff"/></div>
+          <div className="grow">
+            <p className="eyebrow">Envantè</p>
+            <h1>{tr(t, 'stock.title', 'Stòk')}</h1>
+            <p className="sub">Chak antre ak sòti pwodwi — vant, acha, pèt ak ajisteman.</p>
           </div>
-          <div>
-            <h1 style={{ color: S.text, fontSize: isMobile ? 18 : 22, fontWeight: 900, margin: 0 }}>{t('stock.title')}</h1>
-            <p style={{ color: S.muted, fontSize: 12, margin: '2px 0 0' }}>
-              {data?.total || 0} {t('stock.movements')}
-            </p>
+          <div className="pd-tools newbtn">
+            <button onClick={exportCsv} disabled={!movements.length} className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} title="Ekspòte paj la an CSV (Excel)">
+              <Download size={15}/> CSV
+            </button>
+            <button onClick={() => setAdjust({})} className="iv-btn-main pulse" style={{ flex: 1 }}>
+              <Plus size={17}/> {tr(t, 'stock.adjustBtn', 'Ajiste stòk')}
+            </button>
           </div>
         </div>
-        <button
-          onClick={() => setShowAdjust(true)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: isMobile ? '10px 16px' : '10px 20px',
-            borderRadius: 12,
-            background: `linear-gradient(135deg, ${S.orange}, ${S.orangeLt})`,
-            border: 'none', color: '#fff', fontWeight: 800, cursor: 'pointer',
-            fontSize: isMobile ? 13 : 14,
-            boxShadow: `0 4px 16px ${S.orange}45`,
-          }}
-        >
-          <Plus size={16} /> {t('stock.adjustBtn')}
-        </button>
-      </div>
+        <div className="iv-kpis">
+          <Kpi label="Mouvman"          value={data?.total || 0} icon={Layers}          delay={80}/>
+          <Kpi label="Antre (paj la)"   value={ins}              icon={ArrowUpCircle}   delay={160} tone="green" prefix="+"/>
+          <Kpi label="Sòti (paj la)"    value={outs}             icon={ArrowDownCircle} delay={240} tone="red" prefix="−"/>
+        </div>
+      </section>
 
-      {/* Filtè — scroll horizontal sou mobile */}
-      <div style={{
-        background: S.card, borderRadius: 14, padding: '12px 14px',
-        border: `1px solid ${S.border}`, marginBottom: 16,
-        boxShadow: '0 2px 8px rgba(27,42,143,0.06)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-          paddingBottom: 2,
-          // kache scrollbar
-          scrollbarWidth: 'none', msOverflowStyle: 'none',
-        }}>
-          <span style={{ color: S.muted, fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{t('stock.filter')}:</span>
-          {FILTER_OPTIONS.map(opt => (
-            <button
-              key={opt.v}
-              onClick={() => { setTypeFilter(opt.v); setPage(1) }}
-              style={{
-                padding: '6px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
-                cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap',
-                background: typeFilter === opt.v ? S.blue : '#F4F6FF',
-                color: typeFilter === opt.v ? '#fff' : S.muted,
-                border: `1.5px solid ${typeFilter === opt.v ? S.blue : S.border}`,
-                boxShadow: typeFilter === opt.v ? `0 3px 10px ${S.blue}35` : 'none',
-              }}
-            >
-              {t(opt.lKey)}
+      <div className="iv-bar a-up" style={{ animationDelay: '120ms' }}>
+        <div className="iv-chips" style={{ width: '100%' }}>
+          {FILTERS.map(opt => (
+            <button key={opt.v} type="button" onClick={() => { setTypeFilter(opt.v); setPage(1) }} className={`iv-chip ${typeFilter === opt.v ? 'on' : ''}`}>
+              <span className="dot" style={{ background: typeFilter === opt.v ? '#fff' : opt.color }}/>{opt.l}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── MOBILE: Lis kat ── */}
-      {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {isLoading
-            ? Array(4).fill(0).map((_, i) => (
-              <div key={i} style={{ background: S.card, borderRadius: 14, border: `1px solid ${S.border}`, padding: '14px 16px', height: 120 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {Array(3).fill(0).map((_, j) => (
-                    <div key={j} style={{ height: 14, background: '#F0F2FF', borderRadius: 6, animation: 'pulse 1.5s infinite', width: j === 0 ? '60%' : j === 1 ? '40%' : '80%' }} />
-                  ))}
-                </div>
-              </div>
-            ))
-            : !data?.movements?.length
-              ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center', background: S.card, borderRadius: 16, border: `1px solid ${S.border}` }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: 18, background: S.blueDim, marginBottom: 14 }}>
-                    <Warehouse size={28} color={S.blue} />
-                  </div>
-                  <p style={{ color: S.muted, fontSize: 15, fontWeight: 600, margin: 0 }}>{t('stock.noMovements')}</p>
-                  <p style={{ color: `${S.muted}80`, fontSize: 13, margin: '6px 0 0' }}>{t('stock.clickToStart')}</p>
-                </div>
-              )
-              : data.movements.map(m => <MovementCard key={m.id} m={m} t={t} />)
-          }
+      {isLoading ? (
+        <div className="st-list">
+          {Array(6).fill(0).map((_, i) => (
+            <div key={i} className="st-row" style={{ cursor: 'default' }}>
+              <div className="iv-sk" style={{ width: 42, height: 42, borderRadius: 13 }}/>
+              {[70, 60, 80, 50, 60].map((w, j) => <div key={j} className="iv-sk" style={{ width: `${w}%` }}/>)}
+            </div>
+          ))}
+        </div>
+      ) : !movements.length ? (
+        <div className="iv-table">
+          <div className="iv-empty">
+            <div className="art">
+              <div className="paper"><i/><i/><i/><i/><i/></div>
+              <div className="bubble" style={{ background: 'linear-gradient(135deg,#14B8A6,#0F766E)' }}><Warehouse size={18}/></div>
+            </div>
+            <h3>{tr(t, 'stock.noMovements', 'Pa gen mouvman')}</h3>
+            <p>{typeFilter ? 'Pa gen mouvman pou tip sa a.' : tr(t, 'stock.clickToStart', 'Klike « Ajiste stòk » pou kòmanse.')}</p>
+            {!typeFilter && <button className="iv-btn-main" onClick={() => setAdjust({})}><Plus size={16}/> Ajiste stòk</button>}
+          </div>
         </div>
       ) : (
-        /* ── DESKTOP: Tab ── */
-        <div style={{ background: S.card, borderRadius: 16, border: `1px solid ${S.border}`, boxShadow: '0 4px 20px rgba(27,42,143,0.08)', overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 90px 80px 1fr 100px', padding: '12px 20px', background: `linear-gradient(135deg, ${S.blue}08, ${S.blueDim})`, borderBottom: `1px solid ${S.border}` }}>
-            {COL_HEADERS.map(h => (
-              <span key={h} style={{ color: S.blue, fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</span>
-            ))}
+        groups.map(g => (
+          <div key={g.label}>
+            <div className="st-day"><b>{g.label}</b><small>{g.items.length} mouvman</small></div>
+            <div className="st-list">
+              {g.items.map((m, i) => <MoveRow key={m.id} m={m} t={t} i={i} onAgain={again}/>)}
+            </div>
           </div>
-
-          {isLoading
-            ? Array(6).fill(0).map((_, i) => (
-              <div key={i} style={{ padding: '14px 20px', borderBottom: `1px solid ${S.border}`, display: 'grid', gridTemplateColumns: '2fr 1fr 80px 90px 80px 1fr 100px', gap: 8, alignItems: 'center' }}>
-                {Array(7).fill(0).map((_, j) => <div key={j} style={{ height: 14, background: '#F0F2FF', borderRadius: 6, animation: 'pulse 1.5s infinite' }} />)}
-              </div>
-            ))
-            : !data?.movements?.length
-              ? (
-                <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 72, height: 72, borderRadius: 20, background: S.blueDim, marginBottom: 16 }}>
-                    <Warehouse size={32} color={S.blue} />
-                  </div>
-                  <p style={{ color: S.muted, fontSize: 15, fontWeight: 600, margin: 0 }}>{t('stock.noMovements')}</p>
-                  <p style={{ color: `${S.muted}80`, fontSize: 13, margin: '6px 0 0' }}>{t('stock.clickToStart')}</p>
-                </div>
-              )
-              : data.movements.map((m, idx) => {
-                const mvStyle = MOVEMENT_STYLES[m.movementType] || MOVEMENT_STYLES.adjustment
-                const change  = Number(m.quantityChange)
-                return (
-                  <div key={m.id}
-                    style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px 90px 80px 1fr 100px', padding: '13px 20px', alignItems: 'center', borderBottom: idx < data.movements.length - 1 ? `1px solid ${S.border}` : 'none', transition: 'background 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = S.blueDim}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg,${S.blue}15,${S.blue}08)`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Package size={15} color={S.blue} />
-                      </div>
-                      <div>
-                        <p style={{ color: S.text, fontWeight: 700, fontSize: 13, margin: 0 }}>{m.product?.name}</p>
-                        <p style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace', margin: '2px 0 0' }}>{m.product?.code || '—'}</p>
-                      </div>
-                    </div>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: mvStyle.bg, color: mvStyle.color, width: 'fit-content' }}>
-                      <span>{mvStyle.icon}</span>
-                      {t(MOVEMENT_KEYS[m.movementType] || 'stock.adjustment')}
-                    </span>
-                    <span style={{ color: S.muted, fontFamily: 'monospace', fontSize: 13, fontWeight: 600 }}>{Number(m.quantityBefore)}</span>
-                    <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 800, color: change > 0 ? S.success : S.danger, background: change > 0 ? S.successBg : S.dangerBg, padding: '3px 10px', borderRadius: 8, width: 'fit-content' }}>
-                      {change > 0 ? '+' : ''}{change}
-                    </span>
-                    <span style={{ color: S.text, fontFamily: 'monospace', fontSize: 13, fontWeight: 800 }}>{Number(m.quantityAfter)}</span>
-                    <span style={{ color: S.muted, fontSize: 12 }}>{m.creator?.fullName || '—'}</span>
-                    <span style={{ color: S.muted, fontSize: 11, fontFamily: 'monospace' }}>{format(new Date(m.createdAt), 'dd/MM/yy HH:mm')}</span>
-                  </div>
-                )
-              })
-          }
-        </div>
+        ))
       )}
 
-      {/* Pagination */}
       {data?.pages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, flexWrap: 'wrap', gap: 10 }}>
-          <p style={{ color: S.muted, fontSize: 13, margin: 0 }}>
-            {t('stock.page')} <strong style={{ color: S.text }}>{page}</strong> / {data.pages}
-            {' · '}<strong style={{ color: S.text }}>{data.total}</strong> {t('stock.movementsTotal')}
-          </p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              disabled={page <= 1}
-              onClick={() => setPage(p => p - 1)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, cursor: page <= 1 ? 'not-allowed' : 'pointer', background: page <= 1 ? '#F4F6FF' : S.blue, border: `1px solid ${page <= 1 ? S.border : S.blue}`, color: page <= 1 ? S.muted : '#fff' }}
-            ><ChevronLeft size={16} /></button>
-            <button
-              disabled={page >= data.pages}
-              onClick={() => setPage(p => p + 1)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 38, height: 38, borderRadius: 10, cursor: page >= data.pages ? 'not-allowed' : 'pointer', background: page >= data.pages ? '#F4F6FF' : S.blue, border: `1px solid ${page >= data.pages ? S.border : S.blue}`, color: page >= data.pages ? S.muted : '#fff' }}
-            ><ChevronRight size={16} /></button>
+        <div className="iv-pager">
+          <p>{tr(t, 'stock.page', 'Paj')} <b style={{ color: 'var(--ink)' }}>{page}</b> / {data.pages} · <b style={{ color: 'var(--ink)' }}>{data.total}</b> mouvman</p>
+          <div className="btns">
+            <button className="iv-pg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={17}/></button>
+            <button className="iv-pg" disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={17}/></button>
           </div>
         </div>
       )}
 
-      {showAdjust && <AdjustModal onClose={() => setShowAdjust(false)} />}
-
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        @keyframes slideUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        div::-webkit-scrollbar { display: none; }
-      `}</style>
+      {adjust && <AdjustModal preset={adjust} onClose={() => setAdjust(null)}/>}
     </div>
   )
 }
