@@ -38,6 +38,8 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
   const [photoPreview,   setPhotoPreview]   = useState(null)
   const [idPhotoPreview, setIdPhotoPreview] = useState(null)
   const [errors, setErrors] = useState({})
+  // ✅ NOUVO — apre kreyasyon reyisi, montre chwa Pataje PDF/Imaj olye fèmen touswit
+  const [receipt, setReceipt] = useState(null)
 
   const set     = (k, v) => { setForm(p => ({ ...p, [k]: v })); if (errors[k]) setErrors(e => ({ ...e, [k]: undefined })) }
   const opening = Number(form.openingAmount || 0)
@@ -67,10 +69,14 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
     mutationFn: (d) => kaneAPI.create(d),
     onSuccess: async (res) => {
       const acc = res.data.account
+      const tx  = { createdAt: new Date(), method: form.method, reference: form.reference }
       toast.success(`Kont ${acc.accountNumber} kreye!`)
-      onSuccess(); onClose()
-      try { await printer.print(acc, { createdAt: new Date(), method: form.method, reference: form.reference }, tenant, 'ouverture') }
+      onSuccess()
+      // ✅ Enprime otomatik tankou anvan (si printer konekte)
+      try { await printer.print(acc, tx, tenant, 'ouverture') }
       catch { toast('Kont kreye — Printer pa disponib.', { icon: '⚠️' }) }
+      // ✅ Apre sa, montre rezi a ak chwa pataje (PDF/Imaj) — pa fèmen touswit
+      setReceipt({ account: acc, transaction: tx })
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan enskripsyon.'),
   })
@@ -96,6 +102,13 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
       </button>
     </>
   )
+
+  if (receipt) {
+    return (
+      <ModalReceipt account={receipt.account} transaction={receipt.transaction} type="ouverture"
+        printer={printer} onClose={onClose} hidePrint />
+    )
+  }
 
   return (
     <Modal onClose={onClose} title="Nouvo Kont" subtitle="Enskripsyon kliyan + depo ouverture" icon={<UserPlus size={20} />} width={620} footer={footer}>
@@ -183,6 +196,8 @@ export function ModalCreate({ onClose, onSuccess, printer }) {
 export function ModalTx({ account, type, onClose, onSuccess, printer }) {
   const { tenant } = useAuthStore()
   const [form, setForm] = useState({ amount:'', method:'cash', reference:'' })
+  // ✅ NOUVO — apre tranzaksyon reyisi, montre chwa Pataje PDF/Imaj olye fèmen touswit
+  const [receipt, setReceipt] = useState(null)
   const amt    = Number(form.amount || 0)
   const isW    = type === 'retrait'
   const color  = isW ? T.red : T.green
@@ -196,8 +211,11 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
     onSuccess: async (res) => {
       const { transaction } = res.data
       toast.success(`${isW ? 'Retrè' : 'Depo'} ${fmt(transaction.amount)} HTG fèt!`)
-      onSuccess(); onClose()
+      onSuccess()
+      // ✅ Enprime otomatik tankou anvan (si printer konekte)
       try { await printer.print(account, transaction, tenant, type) } catch {}
+      // ✅ Apre sa, montre rezi a ak chwa pataje (PDF/Imaj) — pa fèmen touswit
+      setReceipt(transaction)
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè tranzaksyon.'),
   })
@@ -214,6 +232,13 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
       </button>
     </>
   )
+
+  if (receipt) {
+    return (
+      <ModalReceipt account={account} transaction={receipt} type={type}
+        printer={printer} onClose={onClose} hidePrint />
+    )
+  }
 
   return (
     <Modal onClose={onClose} accent={onDark} width={480} footer={footer}
@@ -268,7 +293,7 @@ export function ModalTx({ account, type, onClose, onSuccess, printer }) {
 // ═══════════════════════════════════════════════════════════════
 // MODAL: RESI — Aperçu + Pataje Imaj / PDF + Enprime
 // ═══════════════════════════════════════════════════════════════
-export function ModalReceipt({ account, transaction, type, onClose, printer }) {
+export function ModalReceipt({ account, transaction, type, onClose, printer, hidePrint = false }) {
   const { tenant } = useAuthStore()
   const pdf = usePDFReceipt()
   const label = TX_STYLES[type]?.label || 'Resi'
@@ -277,9 +302,12 @@ export function ModalReceipt({ account, transaction, type, onClose, printer }) {
 
   const footer = (
     <>
-      <button className="ke-fbtn" onClick={() => printer?.print(account, transaction, tenant, type)} disabled={!printer || printer.printing} style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)">
-        {printer?.printing ? <Spinner /> : <Printer size={18} />}
-      </button>
+      {/* ✅ Si rezi a deja enprime otomatikman (apre Depo/Retrè/Kreye Kont), pa montre bouton Enprime a ankò */}
+      {!hidePrint && (
+        <button className="ke-fbtn" onClick={() => printer?.print(account, transaction, tenant, type)} disabled={!printer || printer.printing} style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)">
+          {printer?.printing ? <Spinner /> : <Printer size={18} />}
+        </button>
+      )}
       <button className="ke-fbtn" onClick={() => pdf.share(account, transaction, tenant, type, 'pdf')} disabled={!!pdf.generating}>
         {pdf.generating === 'pdf' ? <Spinner /> : <FileDown size={18} />} PDF
       </button>
@@ -293,7 +321,7 @@ export function ModalReceipt({ account, transaction, type, onClose, printer }) {
     <Modal onClose={onClose} dismissible width={520} footer={footer} icon={<Receipt size={20} />}
       title={`Resi ${label}`} subtitle={`${account.accountNumber} · ${account.firstName} ${account.lastName}`}>
       <ReceiptPreview account={account} transaction={transaction} tenant={tenant} type={type} />
-      <p className="ke-rcpt-note"><Share2 size={14} /> Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
+      <p className="ke-rcpt-note"><Share2 size={14} /> {hidePrint ? 'Resi a deja enprime. ' : ''}Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
     </Modal>
   )
 }
