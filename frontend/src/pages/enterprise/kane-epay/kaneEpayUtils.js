@@ -5,10 +5,7 @@ import toast      from 'react-hot-toast'
 import { useState, useCallback } from 'react'
 import jsPDF       from 'jspdf'
 import html2canvas from 'html2canvas'
-import { toCanvas } from 'html-to-image'
-import { prepareShare, shareCached, shareMessage } from '../../../services/shareFile'
 import { connectPrinter, disconnectPrinter, isPrinterConnected, printKaneReceipt } from '../../../services/printerService'
-import { PAYMENT_METHODS, FRE_OUVERTURE } from './kaneEpayConstants'
 
 export const fmt = (n) =>
   Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -21,11 +18,6 @@ export const fmtShort = (d) => {
   try { return format(new Date(d), 'dd/MM HH:mm', { locale: fr }) } catch { return '' }
 }
 
-// ✅ Pwoteksyon: chape tèks kliyan an anvan nou mete l nan HTML
-export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]))
-
-const methodLabel = (m) => PAYMENT_METHODS.find(x => x.value === m)?.label || (m ? String(m).toUpperCase() : '—')
-
 export function getAccountPrefix(tenant) {
   const name  = tenant?.businessName || tenant?.name || ''
   const words = name.trim().split(/\s+/).filter(Boolean)
@@ -34,13 +26,10 @@ export function getAccountPrefix(tenant) {
   return words.slice(0, 2).map(w => w[0].toUpperCase()).join('')
 }
 
-// ═══════════════════════════════════════════════════════════════
-// RESI TERMIK 80mm (enprimant navigatè) — pa chanje fòma a
-// ═══════════════════════════════════════════════════════════════
 export function buildReceiptHTML(account, transaction, tenant, type = 'ouverture') {
-  const biz  = esc(tenant?.businessName || tenant?.name || 'PLUS GROUP')
+  const biz  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const logo = tenant?.logoUrl
-    ? `<img src="${esc(tenant.logoUrl)}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`
+    ? `<img src="${tenant.logoUrl}" style="height:34px;display:block;margin:0 auto 4px;max-width:100%;object-fit:contain"/>`
     : ''
   const labels = { ouverture:'OUVERTURE KONT', depot:'DEPO / DÉPÔT', retrait:'RETRÈ / RETRAIT' }
   const color  = type === 'retrait' ? '#dc2626' : '#16a34a'
@@ -51,19 +40,19 @@ export function buildReceiptHTML(account, transaction, tenant, type = 'ouverture
       ${logo}
       <div style="font-family:Arial;font-weight:900;font-size:13px">${biz}</div>
       <div style="font-family:Arial;font-weight:700;font-size:10px;color:#444">-- KANÈ EPAY --</div>
-      ${tenant?.phone ? `<div style="font-size:9px;color:#555">Tel: ${esc(tenant.phone)}</div>` : ''}
+      ${tenant?.phone ? `<div style="font-size:9px;color:#555">Tel: ${tenant.phone}</div>` : ''}
     </div>
     <div style="text-align:center;font-family:Arial;font-weight:800;font-size:11px;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:6px">
       ${labels[type] || 'TRANZAKSYON'}
     </div>
     <div style="font-size:9px;margin-bottom:5px">
-      <div style="display:flex;justify-content:space-between"><span>No. Kont:</span><b>${esc(account.accountNumber)}</b></div>
+      <div style="display:flex;justify-content:space-between"><span>No. Kont:</span><b>${account.accountNumber}</b></div>
       <div style="display:flex;justify-content:space-between"><span>Dat:</span><span>${txDate}</span></div>
     </div>
     <div style="background:#f8f8f8;padding:4px 6px;border-radius:3px;border-left:2px solid #ccc;margin-bottom:5px;font-size:9px">
-      <b>${esc(account.firstName)} ${esc(account.lastName)}</b>
-      ${account.phone ? `<div>Tel: ${esc(account.phone)}</div>` : ''}
-      ${account.nifOrCin ? `<div>NIF/CIN: ${esc(account.nifOrCin)}</div>` : ''}
+      <b>${account.firstName} ${account.lastName}</b>
+      ${account.phone ? `<div>Tel: ${account.phone}</div>` : ''}
+      ${account.nifOrCin ? `<div>NIF/CIN: ${account.nifOrCin}</div>` : ''}
     </div>
     <div style="border-top:1px dashed #aaa;border-bottom:1px dashed #aaa;padding:5px 0;margin:5px 0;font-size:9px">
       ${type === 'ouverture' ? `
@@ -77,8 +66,8 @@ export function buildReceiptHTML(account, transaction, tenant, type = 'ouverture
       ${type !== 'ouverture' ? `<div style="display:flex;justify-content:space-between;margin-top:3px"><span>Nouvo balans:</span><b style="color:#16a34a">${fmt(transaction?.balanceAfter)} HTG</b></div>` : ''}
     </div>
     ${transaction?.method ? `<div style="font-size:9px;margin-bottom:5px">
-      <div style="display:flex;justify-content:space-between"><span>Metod:</span><b>${esc(transaction.method).toUpperCase()}</b></div>
-      ${transaction.reference ? `<div style="display:flex;justify-content:space-between"><span>Ref:</span><span>${esc(transaction.reference)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between"><span>Metod:</span><b>${transaction.method.toUpperCase()}</b></div>
+      ${transaction.reference ? `<div style="display:flex;justify-content:space-between"><span>Ref:</span><span>${transaction.reference}</span></div>` : ''}
     </div>` : ''}
     <div style="text-align:center;font-size:9px;border-top:1px dashed #ccc;padding-top:5px">
       <b>Mèsi! / Merci!</b><br/><span style="color:#666;font-size:8px">PlusGroup — Tel: +50942449024</span>
@@ -96,261 +85,178 @@ export function printReceiptBrowser(html) {
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2000) }, 300)
 }
 
-// ═══════════════════════════════════════════════════════════════
-// RESI POU PATAJE (Imaj PNG + PDF) — design "Plus Fit"
-// Gwo tit Barlow Condensed, tèt nwa ak lò, kat kliyan, tikè koupe
-// ═══════════════════════════════════════════════════════════════
-const RC = {
-  bg: '#ECE8DF', night: '#0b0c0f', gold: '#FFC83D', goldInk: '#8A6508',
-  ink: '#14151a', muted: '#6b7080', soft: '#f4f3ef', line: '#E6E3DB',
-  green: '#16a34a', red: '#dc2626', orange: '#d97706',
-}
-const DISPLAY = "'Barlow Condensed','Arial Narrow',Arial,sans-serif"
-const BODY    = "'Manrope','Segoe UI',Arial,sans-serif"
-
-export const RECEIPT_WIDTH = 460
-
-export function buildShareReceiptHTML(account, transaction, tenant, type = 'ouverture') {
-  const tx      = transaction || {}
-  const biz     = esc(tenant?.businessName || tenant?.name || 'PLUS GROUP')
-  const bizIni  = esc((tenant?.businessName || tenant?.name || 'PG').trim().split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase())
-  const name    = `${esc(account.firstName)} ${esc(account.lastName)}`
-  const ini     = esc(`${account.firstName?.[0] || ''}${account.lastName?.[0] || ''}`.toUpperCase())
-  const date    = fmtDate(tx.createdAt || account.createdAt || new Date())
-  const isOpen  = type === 'ouverture'
-  const isW     = type === 'retrait'
-
-  const fee     = Number(account.kaneFee ?? FRE_OUVERTURE)
-  const locked  = Number(account.lockedAmount || 0)
-  const opening = Number(account.openingAmount ?? (Number(account.balance || 0) + fee + locked))
-
-  const pill = isOpen ? { t: 'OUVERTURE', bg: RC.gold, c: RC.night }
-             : isW    ? { t: 'RETRÈ',     bg: '#ff7b7b', c: RC.night }
-             :          { t: 'DEPO',      bg: '#4ade80', c: RC.night }
-  const bigColor = isOpen ? RC.gold : isW ? '#ff8f8f' : '#5ee59a'
-  const bigLabel = isOpen ? 'DEPO OUVERTURE' : isW ? 'MONTAN RETRÈ' : 'MONTAN DEPO'
-  const bigVal   = isOpen ? fmt(opening) : `${isW ? '−' : '+'}${fmt(tx.amount)}`
-  const finalLbl = isOpen ? 'BALANS KONT' : 'NOUVO BALANS'
-  const finalVal = isOpen ? fmt(account.balance) : fmt(tx.balanceAfter ?? account.balance)
-
-  const row = (k, v, color = RC.ink, strong = false) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid ${RC.line}">
-      <span style="font-size:13px;font-weight:600;line-height:1.3;color:${RC.muted}">${k}</span>
-      <span style="font-size:${strong ? 15 : 13.5}px;font-weight:800;line-height:1.3;color:${color};text-align:right">${v}</span>
-    </div>`
-
-  const rows = isOpen ? [
-    row('Montan peye', `${fmt(opening)} HTG`),
-    row('Frè ouverture', `− ${fmt(fee)} HTG`, RC.red),
-    locked > 0 ? row('Montan bloke', `− ${fmt(locked)} HTG`, RC.orange) : '',
-    row('Metòd', esc(methodLabel(tx.method))),
-    tx.reference ? row('Referans', esc(tx.reference)) : '',
-  ] : [
-    row('Balans anvan', `${fmt(tx.balanceBefore)} HTG`),
-    row(isW ? 'Retrè' : 'Depo', `${isW ? '−' : '+'} ${fmt(tx.amount)} HTG`, isW ? RC.red : RC.green, true),
-    row('Metòd', esc(methodLabel(tx.method))),
-    tx.reference ? row('Referans', esc(tx.reference)) : '',
-  ]
-
-  // Tout tèks gen line-height eksplisit ≥ 1.15 epi pa gen overflow:hidden sou tèks —
-  // konsa resi a rete pwòp menm si se rezèv html2canvas la ki fè imaj la.
-  const LH = 'line-height:1.25'
-  const bizRaw  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-  const bizSize = bizRaw.length > 26 ? 18 : bizRaw.length > 18 ? 21 : 25
-  const txNo    = tx.id ? `#${esc(String(tx.id).slice(-8).toUpperCase())}` : ''
-
-  const logo = tenant?.logoUrl
-    ? `<img src="${esc(tenant.logoUrl)}" crossorigin="anonymous" style="width:50px;height:50px;border-radius:15px;object-fit:cover;background:#fff;display:block;flex:none"/>`
-    : `<div style="width:50px;height:50px;border-radius:15px;background:${RC.gold};display:flex;align-items:center;justify-content:center;flex:none"><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};color:${RC.night}">${bizIni}</span></div>`
-
-  const footNote = tenant?.receiptFooterNote ? `<div style="font-size:12px;color:${RC.muted};font-weight:600;margin-bottom:8px;line-height:1.45">${esc(tenant.receiptFooterNote)}</div>` : ''
-
-  return `
-<div style="width:${RECEIPT_WIDTH}px;padding:22px;background:${RC.bg};font-family:${BODY};color:${RC.ink};box-sizing:border-box;${LH};text-align:left">
-  <div style="border-radius:28px;overflow:hidden;background:#fff;box-shadow:0 24px 40px -24px rgba(11,12,15,.45)">
-
-    <div style="position:relative;overflow:hidden;background:${RC.night};padding:16px 24px 24px;color:#f2f1ec">
-      <div style="position:absolute;width:340px;height:340px;right:-120px;top:-170px;border-radius:50%;background:radial-gradient(circle,rgba(255,200,61,.32),rgba(255,200,61,0) 65%)"></div>
-
-      <div style="position:relative;display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.1)">
-        <span style="font-size:13px;font-weight:800;${LH};color:#fff;letter-spacing:.02em">${date}</span>
-        <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">RESI ${txNo}</span>
-      </div>
-
-      <div style="position:relative;display:flex;align-items:center;gap:12px">
-        ${logo}
-        <div style="min-width:0;flex:1">
-          <div style="font-family:${DISPLAY};font-weight:800;font-size:${bizSize}px;${LH};text-transform:uppercase;letter-spacing:.02em;color:#fff;word-break:break-word">${biz}</div>
-          <div style="font-size:10.5px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.55);margin-top:2px">KANÈ EPAY${tenant?.phone ? ` · ${esc(tenant.phone)}` : ''}</div>
-        </div>
-        <div style="height:32px;padding:0 13px;border-radius:999px;background:${pill.bg};display:flex;align-items:center;flex:none">
-          <span style="font-family:${DISPLAY};font-weight:800;font-size:15px;${LH};letter-spacing:.08em;color:${pill.c}">${pill.t}</span>
-        </div>
-      </div>
-
-      <div style="position:relative;margin-top:22px;font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${bigLabel}</div>
-      <div style="position:relative;margin-top:2px;white-space:nowrap">
-        <span style="font-family:${DISPLAY};font-weight:800;font-size:64px;line-height:1.15;color:${bigColor}">${bigVal}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:22px;line-height:1.15;color:rgba(242,241,236,.55);margin-left:8px;letter-spacing:.05em">HTG</span>
-      </div>
-    </div>
-
-    <div style="position:relative;height:24px;background:#fff">
-      <div style="position:absolute;left:-12px;top:0;width:24px;height:24px;border-radius:50%;background:${RC.bg}"></div>
-      <div style="position:absolute;right:-12px;top:0;width:24px;height:24px;border-radius:50%;background:${RC.bg}"></div>
-      <div style="position:absolute;left:22px;right:22px;top:11px;border-top:2px dashed ${RC.line}"></div>
-    </div>
-
-    <div style="padding:0 24px">
-      <div style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:18px;background:${RC.soft}">
-        <div style="width:48px;height:48px;border-radius:14px;background:${RC.night};display:flex;align-items:center;justify-content:center;flex:none">
-          <span style="font-family:${DISPLAY};font-weight:800;font-size:20px;${LH};color:${RC.gold}">${ini}</span>
-        </div>
-        <div style="min-width:0;flex:1">
-          <div style="font-weight:800;font-size:16px;${LH};word-break:break-word">${name}</div>
-          <div style="font-family:${DISPLAY};font-weight:700;font-size:16px;${LH};letter-spacing:.08em;color:${RC.goldInk};margin-top:1px">${esc(account.accountNumber)}</div>
-        </div>
-        ${account.phone || account.nifOrCin ? `<div style="text-align:right;font-size:11.5px;font-weight:600;color:${RC.muted};line-height:1.5;flex:none">
-          ${account.phone ? esc(account.phone) : ''}${account.nifOrCin ? `<br/>NIF ${esc(account.nifOrCin)}` : ''}
-        </div>` : ''}
-      </div>
-    </div>
-
-    <div style="padding:8px 24px 0">${rows.join('')}</div>
-
-    <div style="margin:16px 24px 0;padding:14px 18px;border-radius:18px;background:${RC.night};display:flex;justify-content:space-between;align-items:center;gap:10px">
-      <span style="font-size:11px;font-weight:800;${LH};letter-spacing:.14em;color:rgba(242,241,236,.6)">${finalLbl}</span>
-      <span style="white-space:nowrap"><span style="font-family:${DISPLAY};font-weight:800;font-size:34px;line-height:1.2;color:${RC.gold}">${finalVal}</span><span style="font-family:${DISPLAY};font-weight:800;font-size:14px;line-height:1.2;color:rgba(242,241,236,.55);margin-left:6px">HTG</span></span>
-    </div>
-    ${locked > 0 && !isOpen ? `<div style="margin:8px 24px 0;font-size:12px;font-weight:700;${LH};color:${RC.orange};text-align:right">Bloke sou kont lan: ${fmt(locked)} HTG</div>` : ''}
-
-    <div style="display:flex;justify-content:center;padding:18px 24px 0">
-      <div style="height:34px;padding:0 15px;border-radius:999px;background:rgba(22,163,74,.1);display:flex;align-items:center;gap:8px">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${RC.green}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-        <span style="font-size:12px;font-weight:800;${LH};letter-spacing:.04em;color:${RC.green}">TRANZAKSYON KONFIME</span>
-      </div>
-    </div>
-
-    <div style="text-align:center;padding:16px 26px 22px">
-      ${footNote}
-      <div style="font-family:${DISPLAY};font-weight:800;font-size:22px;${LH};letter-spacing:.04em;text-transform:uppercase;color:${RC.ink}">Mèsi! / Merci!</div>
-      <div style="font-size:11px;font-weight:700;${LH};color:${RC.muted};margin-top:4px;letter-spacing:.02em">Produit par PLUS GROUP · Tel: +509 4244 9024</div>
-    </div>
-  </div>
-</div>`
+// ─── PDF Resi — pou telechaje / pataje (WhatsApp, Imèl, elatriye) ──
+// ✅ Itilize menm HTML ki sèvi pou enprime a (buildReceiptHTML), fè yon "screenshot"
+// (html2canvas) epi mete l nan yon PDF 80mm — konsa PDF la gen menm aparans ak resi a.
+function fileSafe(s) {
+  return String(s || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
 }
 
-// ✅ Kaptire resi a an imaj. Premye chwa: html-to-image — se navigatè a menm ki desine l,
-// kidonk imaj la idantik ak aperçu a. Si li echwe, n ap itilize html2canvas kòm rezèv.
-async function captureNode(node, bg) {
-  try {
-    const opts = { pixelRatio: 2.5, backgroundColor: bg, cacheBust: true }
-    // Premye apèl la chaje polis ak imaj yo (sitou sou iPhone/Safari), dezyèm nan bon
-    await toCanvas(node, opts)
-    const canvas = await toCanvas(node, opts)
-    if (canvas?.width > 0 && canvas?.height > 0) return canvas
-    throw new Error('canvas vid')
-  } catch (e) {
-    console.warn('[resi] html-to-image echwe, n ap itilize html2canvas:', e?.message)
-    return await html2canvas(node, { scale: 2.5, backgroundColor: bg, useCORS: true, logging: false })
-  }
+export function receiptFileName(account, type) {
+  const labels = { ouverture: 'Enskripsyon', depot: 'Depo', retrait: 'Retre' }
+  const d = new Date()
+  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`
+  return `KaneEpay-${fileSafe(account.accountNumber)}-${labels[type] || 'Resi'}-${stamp}.pdf`
 }
 
-// Rann resi a nan yon canvas (an deyò ekran an)
-async function renderReceiptCanvas(account, transaction, tenant, type) {
+// ✅ NOUVO — menm non fichye a men pou vèsyon imaj (.png)
+export function receiptFileNameImage(account, type) {
+  const labels = { ouverture: 'Enskripsyon', depot: 'Depo', retrait: 'Retre' }
+  const d = new Date()
+  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`
+  return `KaneEpay-${fileSafe(account.accountNumber)}-${labels[type] || 'Resi'}-${stamp}.png`
+}
+
+export async function generateReceiptPDFBlob(account, transaction, tenant, type = 'ouverture') {
+  const html = buildReceiptHTML(account, transaction, tenant, type)
+
+  // Rann HTML la an deyò ekran an (pa vizib) pou html2canvas ka "fotograf" li
   const container = document.createElement('div')
-  container.style.cssText = 'position:fixed;left:-10000px;top:0;pointer-events:none;'
-  container.innerHTML = buildShareReceiptHTML(account, transaction, tenant, type)
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '80mm'
+  container.style.background = '#ffffff'
+  container.innerHTML = html
   document.body.appendChild(container)
+
   try {
-    // Tann polis yo (Barlow / Manrope) ak imaj yo fin chaje
-    try {
-      await Promise.all([
-        document.fonts?.load?.(`800 60px "Barlow Condensed"`),
-        document.fonts?.load?.(`700 14px "Manrope"`),
-        document.fonts?.load?.(`800 14px "Manrope"`),
-      ])
-      await document.fonts?.ready
-    } catch { /* polis pa disponib (offline) — n ap itilize polis sistèm */ }
+    // Tann foto/logo yo fini chaje anvan screenshot la (si gen youn)
     const imgs = Array.from(container.querySelectorAll('img'))
-    await Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res })))
-    return await captureNode(container.firstElementChild, RC.bg)
+    await Promise.all(imgs.map(img => img.complete
+      ? Promise.resolve()
+      : new Promise(res => { img.onload = res; img.onerror = res })
+    ))
+
+    const canvas = await html2canvas(container, { scale: 3, backgroundColor: '#ffffff', useCORS: true })
+    const imgData = canvas.toDataURL('image/png')
+
+    const pdfWidthMm  = 80
+    const pdfHeightMm = (canvas.height * pdfWidthMm) / canvas.width
+    const pdf = new jsPDF({ unit: 'mm', format: [pdfWidthMm, Math.max(pdfHeightMm, 40)] })
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMm, pdfHeightMm)
+    return pdf.output('blob')
   } finally {
     document.body.removeChild(container)
   }
 }
 
-function fileSafe(s) {
-  return String(s || '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
-}
-
-export function receiptFileName(account, type, ext = 'pdf') {
-  const labels = { ouverture: 'Enskripsyon', depot: 'Depo', retrait: 'Retre' }
-  const d = new Date()
-  const stamp = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}-${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}`
-  return `KaneEpay-${fileSafe(account.accountNumber)}-${labels[type] || 'Resi'}-${stamp}.${ext}`
-}
-
+// ─── Imaj Resi (PNG) — menm "screenshot" la, men san fè l tounen PDF ───
 export async function generateReceiptImageBlob(account, transaction, tenant, type = 'ouverture') {
-  const canvas = await renderReceiptCanvas(account, transaction, tenant, type)
-  return await new Promise(res => canvas.toBlob(res, 'image/png'))
-}
+  const html = buildReceiptHTML(account, transaction, tenant, type)
 
-export async function generateReceiptPDFBlob(account, transaction, tenant, type = 'ouverture') {
-  const canvas = await renderReceiptCanvas(account, transaction, tenant, type)
-  const imgData = canvas.toDataURL('image/jpeg', 0.9)   // JPEG = PDF pi lejè (~300 Ko)
-  const wMm = 100
-  const hMm = (canvas.height * wMm) / canvas.width
-  const pdf = new jsPDF({ unit: 'mm', format: [wMm, Math.max(hMm, 60)] })
-  pdf.addImage(imgData, 'JPEG', 0, 0, wMm, hMm)
-  return pdf.output('blob')
-}
+  const container = document.createElement('div')
+  container.style.position = 'fixed'
+  container.style.left = '-9999px'
+  container.style.top = '0'
+  container.style.width = '80mm'
+  container.style.background = '#ffffff'
+  container.innerHTML = html
+  document.body.appendChild(container)
 
-// ✅ Mobil: meni pataje natif (WhatsApp, Imèl...). PC: telechaje.
-// format: 'png' (imaj — parèt dirèk nan WhatsApp) oswa 'pdf'
-export async function buildReceiptFile(account, transaction, tenant, type = 'ouverture', fmtOut = 'pdf') {
-  const isPng = fmtOut === 'png'
-  const blob  = isPng
-    ? await generateReceiptImageBlob(account, transaction, tenant, type)
-    : await generateReceiptPDFBlob(account, transaction, tenant, type)
-  return {
-    blob, fileName: receiptFileName(account, type, isPng ? 'png' : 'pdf'),
-    mime: isPng ? 'image/png' : 'application/pdf',
-    title: `Resi Kanè Epay — ${account.accountNumber}`,
-    text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
+  try {
+    const imgs = Array.from(container.querySelectorAll('img'))
+    await Promise.all(imgs.map(img => img.complete
+      ? Promise.resolve()
+      : new Promise(res => { img.onload = res; img.onerror = res })
+    ))
+
+    const canvas = await html2canvas(container, { scale: 3, backgroundColor: '#ffffff', useCORS: true })
+    return await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+  } finally {
+    document.body.removeChild(container)
   }
 }
-const kaneShareKey = (account, transaction, type, fmtOut) =>
-  `kane-${account?.id}-${transaction?.id || transaction?.createdAt || ''}-${type}-${fmtOut}`
 
-export const prepareReceipt = (account, transaction, tenant, type = 'ouverture', fmtOut = 'png') =>
-  prepareShare(kaneShareKey(account, transaction, type, fmtOut), () => buildReceiptFile(account, transaction, tenant, type, fmtOut))
+// ✅ Sou mobil: louvri meni pataje natif la (WhatsApp, Imèl...) ak imaj la. Sou PC: telechaje l.
+export async function downloadOrShareReceiptImage(account, transaction, tenant, type = 'ouverture') {
+  const blob = await generateReceiptImageBlob(account, transaction, tenant, type)
+  const fileName = receiptFileNameImage(account, type)
+  const file = new File([blob], fileName, { type: 'image/png' })
 
-// Retounen: 'shared' | 'cancel' | 'downloaded' | 'needs-gesture'
-export async function shareReceipt(account, transaction, tenant, type = 'ouverture', fmtOut = 'pdf') {
-  return shareCached(kaneShareKey(account, transaction, type, fmtOut), () => buildReceiptFile(account, transaction, tenant, type, fmtOut))
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: `Resi Kanè Epay — ${account.accountNumber}`,
+        text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
+      })
+      return true
+    } catch (e) {
+      if (e?.name === 'AbortError') return false
+    }
+  }
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = fileName
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
 }
 
-// Konpatibilite ak ansyen non an
-export const downloadOrShareReceiptPDF = (account, transaction, tenant, type) => shareReceipt(account, transaction, tenant, type, 'pdf')
+// ✅ Sou mobil: louvri meni pataje natif la (WhatsApp, Imèl...). Sou PC: telechaje fichye a.
+export async function downloadOrShareReceiptPDF(account, transaction, tenant, type = 'ouverture') {
+  const blob = await generateReceiptPDFBlob(account, transaction, tenant, type)
+  const fileName = receiptFileName(account, type)
+  const file = new File([blob], fileName, { type: 'application/pdf' })
+
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: `Resi Kanè Epay — ${account.accountNumber}`,
+        text: `Resi ${account.firstName} ${account.lastName} — ${account.accountNumber}`,
+      })
+      return true
+    } catch (e) {
+      if (e?.name === 'AbortError') return false // moun nan anile pataj la, se pa yon erè
+      // si pataj la echwe pou yon lòt rezon, n ap tonbe sou telechajman an anba a
+    }
+  }
+
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = fileName
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 4000)
+  return true
+}
 
 export function usePDFReceipt() {
-  const [generating, setGenerating] = useState(false)
+  const [generating,    setGenerating]    = useState(false)
+  const [generatingImg, setGeneratingImg] = useState(false)
 
-  const share = useCallback(async (account, transaction, tenant, type, fmtOut = 'pdf') => {
-    setGenerating(fmtOut)
+  const share = useCallback(async (account, transaction, tenant, type) => {
+    setGenerating(true)
     try {
-      const r = shareMessage(await shareReceipt(account, transaction, tenant, type, fmtOut), fmtOut)
-      if (r.msg) (r.ok ? toast.success : toast)(r.msg)
-      return r.ok
+      const ok = await downloadOrShareReceiptPDF(account, transaction, tenant, type)
+      if (ok) toast.success('PDF prè pou pataje!')
+      return ok
     } catch (e) {
-      toast.error('Erè pandan kreyasyon resi a.')
+      toast.error('Erè pandan kreyasyon PDF la.')
       return false
     } finally {
       setGenerating(false)
     }
   }, [])
 
-  return { generating, share, prepare: prepareReceipt }
+  // ✅ NOUVO — pataje menm resi a kòm imaj (PNG) olye PDF
+  const shareImage = useCallback(async (account, transaction, tenant, type) => {
+    setGeneratingImg(true)
+    try {
+      const ok = await downloadOrShareReceiptImage(account, transaction, tenant, type)
+      if (ok) toast.success('Imaj prè pou pataje!')
+      return ok
+    } catch (e) {
+      toast.error('Erè pandan kreyasyon imaj la.')
+      return false
+    } finally {
+      setGeneratingImg(false)
+    }
+  }, [])
+
+  return { generating, share, generatingImg, shareImage }
 }
 
 export function usePrinter() {
