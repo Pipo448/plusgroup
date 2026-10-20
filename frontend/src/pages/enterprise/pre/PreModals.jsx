@@ -243,33 +243,27 @@ export function ModalPaieman({ pre, onClose, onSuccess, printer, kesFemen }) {
   const { tenant } = useAuthStore()
   const qc = useQueryClient()
   const [form, setForm] = useState({ montant: '', method: 'cash', reference: '' })
-  // ✅ NOUVO — apre peman reyisi, montre chwa Pataje PDF/Imaj olye fèmen touswit
-  const [receipt, setReceipt] = useState(null)
   const amt         = Number(form.montant || 0)
   const resteAPayer = Math.max(0, Number(pre.totalDu||0) - Number(pre.totalPaye||0))
   const apre        = Math.max(0, resteAPayer - amt)
 
   const mutation = useMutation({
     mutationFn: (d) => preAPI.paiement(pre.id, d),
-    onSuccess: (res) => {
+    onSuccess: async (res) => {
       toast.success(`Peman ${fmt(amt)} HTG anrejistre!`)
       qc.invalidateQueries({ queryKey: ['pre-echeances', pre.id] })
       onSuccess()
-      const preAjou   = res.data?.pre || { ...pre, totalPaye: Number(pre.totalPaye) + amt }
-      const echPeye   = (res.data?.echeances || []).filter(e => e.statut === 'paye' || e.statut === 'partiel')
-      const paiement  = { montant: amt, method: form.method, reference: form.reference||null }
-      // ✅ Enprime otomatik tankou anvan (si printer konekte)
-      try { printer.printPre({ pre: preAjou, paiement, echeances: echPeye, tenant, type: 'paiement' }) } catch {}
-      // ✅ Apre sa, montre rezi a ak chwa pataje (PDF/Imaj) — pa fèmen touswit
-      setReceipt({ pre: preAjou, paiement, echeances: echPeye, tenant, type: 'paiement' })
+      try {
+        const preAjou = res.data?.pre || { ...pre, totalPaye: Number(pre.totalPaye) + amt }
+        const echPeye = (res.data?.echeances || []).filter(e => e.statut === 'paye' || e.statut === 'partiel')
+        printer.printPre({ pre: preAjou, paiement: { montant: amt, method: form.method, reference: form.reference||null }, echeances: echPeye, tenant, type: 'paiement' })
+      } catch {}
+      onClose()
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè peman.'),
   })
 
   if (kesFemen) return <KesFemenModal onClose={onClose} title={`Peman — ${pre.numeroPre}`} text="Ou pa ka anrejistre peman apre kès la fèmen." />
-
-  if (receipt) return <ModalPreReceipt data={receipt} printer={printer} onClose={onClose} hidePrint />
-
 
   const submit = () => { if (!mutation.isPending && amt > 0) mutation.mutate({ montant: amt, method: form.method, reference: form.reference||undefined }) }
   const quick = [{ l: 'Tout', v: resteAPayer }, { l: '½', v: resteAPayer / 2 }, { l: '¼', v: resteAPayer / 4 }].filter(q => q.v > 0)
@@ -537,20 +531,17 @@ export function ModalRapoKesye({ onClose, onKesFemen }) {
 // ═══════════════════════════════════════════════════════════════
 // MODAL: RESI PRÈ — Aperçu + Imaj / PDF + Enprime
 // ═══════════════════════════════════════════════════════════════
-export function ModalPreReceipt({ data, onClose, printer, hidePrint = false }) {
+export function ModalPreReceipt({ data, onClose, printer }) {
   const share = usePreShare()
   const isPay = data.type === 'paiement'
   // ✅ Prepare imaj la depi fenèt la louvri → « Pataje imaj » imedya (pa ekspire)
   useEffect(() => { share.prepare(data, 'png') }, [data]) // eslint-disable-line
   const footer = (
     <>
-      {/* ✅ Si rezi a deja enprime otomatikman (apre yon peman), pa montre bouton Enprime a ankò */}
-      {!hidePrint && (
-        <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}
-          onClick={() => printer?.printPre({ pre: data.pre, echeances: data.echeances || [], tenant: data.tenant, type: data.type, paiement: data.paiement })}>
-          {printer?.printing ? <Spinner /> : <Printer size={18} />}
-        </button>
-      )}
+      <button className="ke-fbtn" style={{ flex: '0 0 52px', padding: 0 }} title="Enprime (termik)" disabled={printer?.printing}
+        onClick={() => printer?.printPre({ pre: data.pre, echeances: data.echeances || [], tenant: data.tenant, type: data.type, paiement: data.paiement })}>
+        {printer?.printing ? <Spinner /> : <Printer size={18} />}
+      </button>
       <button className="ke-fbtn" onClick={() => share.share(data, 'pdf')} disabled={!!share.generating}>
         {share.generating === 'pdf' ? <Spinner /> : <FileDown size={18} />} PDF
       </button>
@@ -563,7 +554,7 @@ export function ModalPreReceipt({ data, onClose, printer, hidePrint = false }) {
     <Modal onClose={onClose} dismissible width={520} footer={footer} icon={<Receipt size={20} />}
       title={isPay ? 'Resi peman' : 'Kontra prè'} subtitle={`${data.pre.numeroPre} · ${data.pre.clientNom}`}>
       <PreReceiptPreview {...data} />
-      <p className="ke-rcpt-note"><Share2 size={14} /> {hidePrint ? 'Resi a deja enprime. ' : ''}Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
+      <p className="ke-rcpt-note"><Share2 size={14} /> Imaj la parèt dirèkteman nan WhatsApp. PDF la bon pou imèl oswa pou enprime.</p>
     </Modal>
   )
 }
