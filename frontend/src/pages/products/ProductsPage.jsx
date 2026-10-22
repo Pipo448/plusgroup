@@ -242,7 +242,13 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
     if (file.size > 15 * 1024 * 1024) return toast.error('Foto a twò gwo — maksimòm 15 MB.')
     setImgBusy(true)
     try {
-      const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
+      // ✅ 2026-10-21 — Supabase sou plan peye kounye a. Anvan, 800px/75% isit la te
+      // deja pèdi kalite a AVAN menm li rive bay backend — backend te ka monte limit
+      // li (product.service.js) tout sa l vle, li t ap toujou re-konprese yon sous ki
+      // deja flou. Kounye a nou voye yon sous pi gwo/pi klè (1600px/90%) soti nan
+      // navigatè a; backend la ap toujou rezize li a 1280px/88% pou vèsyon final la,
+      // men kounye a li gen vrè detay pou l travay avè l.
+      const compressed = await compressImage(file, { maxWidth: 1600, quality: 0.9 })
       setImagePreview(compressed)
       setImageChanged(true)
     } catch {
