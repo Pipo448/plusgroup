@@ -9,10 +9,15 @@ const sharp  = require('sharp');
 // San konpresyon, yon sèl foto telefòn (2-5MB) te ka miltipliye pa 200
 // pwodui sou yon sèl paj (`GET /products?limit=200`) — sa egzakteman sa
 // ki te lakòz repons 26.8MB nou wè nan log Render yo, e menm yon rechèch
-// limite a 8 rezilta te ka fè 1.7MB. Fonksyon sa a rezize (max 600px lajè)
-// epi konvèti an WebP kalite 75% anvan nenpòt pwodui sove — menm apwòch
-// nou te itilize pou logo tenant la.
-async function compressImageDataUri(dataUri, { maxWidth = 600, quality = 75 } = {}) {
+// limite a 8 rezilta te ka fè 1.7MB. Fonksyon sa a rezize epi konvèti an
+// WebP anvan nenpòt pwodui sove — menm apwòch nou te itilize pou logo
+// tenant la.
+// ✅ 2026-10-21 — Supabase sou plan peye kounye a (plis egress/espas
+// disponib), kidonk nou monte estanda a pou imaj "gwo" (zoom/detay) la
+// paret glase ankò: 600px/75% → 1280px/88%. Thumbnail lis/griy la rete
+// menm jan (100px/60%) paske se la pifò egress GET /products la soti,
+// e se yon ti vèsyon 64px ki afiche nan griy la kanmenm.
+async function compressImageDataUri(dataUri, { maxWidth = 1280, quality = 88 } = {}) {
   if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:')) return dataUri;
   const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return dataUri;
