@@ -13,7 +13,7 @@ import {
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
   TrendingUp, Settings, Smartphone, Phone, Wallet,
    History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
-  Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark, Dumbbell, Truck,
+  Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark, Dumbbell, Truck, Search,
 } from 'lucide-react'
 
 import InternetTab from './InternetTab'
@@ -1653,6 +1653,9 @@ export default function AdminDashboard() {
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
   const [showAgents,    setShowAgents]   = useState(false)
+  // ✅ NOUVO — rechèch antrepriz (non, slug oswa imèl) — anvan sa, pa t gen okenn
+  // fason pou jwenn yon antrepriz san eskanè TOUT tablo a pa je.
+  const [tenantSearch,  setTenantSearch] = useState('')
 
   const { admin } = getAdmin()
 
@@ -1677,6 +1680,14 @@ export default function AdminDashboard() {
   const tenants  = tenantsData?.tenants  || []
   const plans    = plansData?.plans      || []
   const expiring = expiringData?.expiring || []
+
+  // ✅ NOUVO — filtre tablo antrepriz yo pa non, slug oswa imèl
+  const tenantSearchQ = tenantSearch.trim().toLowerCase()
+  const filteredTenants = !tenantSearchQ ? tenants : tenants.filter(t =>
+    (t.name || '').toLowerCase().includes(tenantSearchQ) ||
+    (t.slug || '').toLowerCase().includes(tenantSearchQ) ||
+    (t.email || '').toLowerCase().includes(tenantSearchQ)
+  )
 
   const solPlans = solOverview?.plans || []
   const sol = solPlans.length > 0 ? {
@@ -1904,12 +1915,28 @@ export default function AdminDashboard() {
 
         {/* TABLEAU */}
         <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:20, overflow:'hidden', backdropFilter:'blur(10px)', boxShadow:'0 8px 40px rgba(0,0,0,0.4)' }}>
-          <div style={{ padding: isMobile?'14px 16px':'18px 24px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(201,168,76,0.03)' }}>
+          <div style={{ padding: isMobile?'14px 16px':'18px 24px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12, background:'rgba(201,168,76,0.03)' }}>
             <div>
-              <h3 style={{ margin:0, fontSize: isMobile?14:15, fontWeight:700, color:'#fff', fontFamily:"'Playfair Display'" }}>Entreprise yo ({tenants.length})</h3>
+              <h3 style={{ margin:0, fontSize: isMobile?14:15, fontWeight:700, color:'#fff', fontFamily:"'Playfair Display'" }}>
+                Entreprise yo ({tenantSearchQ ? `${filteredTenants.length}/${tenants.length}` : tenants.length})
+              </h3>
               {!isMobile && <p style={{ margin:0, fontSize:10, color:'rgba(201,168,76,0.6)', letterSpacing:'0.06em' }}>KLIYAN SaaS AKTIF</p>}
             </div>
-            <div style={{ display:'flex', gap:8 }}>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+              {/* ✅ NOUVO — rechèch antrepriz (non, slug, imèl) */}
+              <div style={{ position:'relative', display:'flex', alignItems:'center' }}>
+                <Search size={14} style={{ position:'absolute', left:12, color:'rgba(201,168,76,0.5)', pointerEvents:'none' }}/>
+                <input value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
+                  placeholder="Chèche antrepriz (non, slug, imèl)..."
+                  style={{ width: isMobile?'100%':220, padding:'9px 12px 9px 32px', borderRadius:10, boxSizing:'border-box',
+                    background:'rgba(255,255,255,0.04)', border:'1px solid rgba(201,168,76,0.2)', color:'#fff', fontSize:12.5, outline:'none' }}/>
+                {tenantSearch && (
+                  <button onClick={() => setTenantSearch('')} title="Netwaye rechèch la"
+                    style={{ position:'absolute', right:8, background:'none', border:'none', color:'rgba(255,255,255,0.4)', cursor:'pointer', display:'flex' }}>
+                    <X size={14}/>
+                  </button>
+                )}
+              </div>
               <button onClick={() => setShowAgents(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'rgba(201,168,76,0.12)', color:'#C9A84C', border:'1px solid rgba(201,168,76,0.3)', cursor:'pointer', fontSize: isMobile?12:13, fontWeight:700 }}>
                 👤 {isMobile?'Ajan':'Jesyon Ajan'}
               </button>
@@ -1922,9 +1949,9 @@ export default function AdminDashboard() {
           {/* MOBIL */}
           {isMobile ? (
             <div style={{ padding:'12px' }}>
-              {!tenants.length
-                ? <div style={{ padding:'50px 16px', textAlign:'center' }}><p style={{ color:'rgba(255,255,255,0.25)', fontWeight:600, margin:0 }}>Pa gen entreprise</p></div>
-                : tenants.map(t => (
+              {!filteredTenants.length
+                ? <div style={{ padding:'50px 16px', textAlign:'center' }}><p style={{ color:'rgba(255,255,255,0.25)', fontWeight:600, margin:0 }}>{tenantSearchQ ? 'Pa gen rezilta' : 'Pa gen entreprise'}</p></div>
+                : filteredTenants.map(t => (
                     <TenantCard key={t.id} t={t}
                       monthlyPrice={monthlyPrices[t.id] || 0}
                       onRenew={(t) => setRenewModalTenant(t)}
@@ -1952,16 +1979,16 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {!tenants.length
+                {!filteredTenants.length
                   ? <tr><td colSpan={8} style={{ padding:'70px 24px', textAlign:'center' }}>
-                      <p style={{ color:'rgba(255,255,255,0.25)', fontWeight:600, margin:'0 0 6px' }}>Pa gen entreprise</p>
-                      <p style={{ color:'rgba(255,255,255,0.12)', fontSize:13, margin:0 }}>Klike "Nouvo Entreprise" pou kòmanse</p>
+                      <p style={{ color:'rgba(255,255,255,0.25)', fontWeight:600, margin:'0 0 6px' }}>{tenantSearchQ ? `Pa gen rezilta pou "${tenantSearch}"` : 'Pa gen entreprise'}</p>
+                      <p style={{ color:'rgba(255,255,255,0.12)', fontSize:13, margin:0 }}>{tenantSearchQ ? 'Eseye yon lòt non, slug oswa imèl' : 'Klike "Nouvo Entreprise" pou kòmanse'}</p>
                     </td></tr>
-                  : tenants.map((t, idx) => {
+                  : filteredTenants.map((t, idx) => {
                       const ss = STATUS_STYLES[t.status] || STATUS_STYLES.pending
                       const { label, isExpired, isWarning, daysLeft } = getSubscriptionStatus(t.subscriptionEndsAt)
                       return (
-                        <tr key={t.id} style={{ borderBottom: idx<tenants.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}
+                        <tr key={t.id} style={{ borderBottom: idx<filteredTenants.length-1?'1px solid rgba(255,255,255,0.04)':'none' }}
                           onMouseEnter={e=>e.currentTarget.style.background='rgba(201,168,76,0.03)'}
                           onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
                           <td style={{ padding:'14px 16px 14px 24px' }}>
