@@ -29,7 +29,7 @@ import {
   Menu, X, Globe, ChevronDown, GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag, Bluetooth, BluetoothOff, Printer, Scissors, DollarSign, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
-  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2,
+  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2, ShoppingBag, Globe2,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -37,6 +37,8 @@ import api, { authAPI, branchAPI } from '../../services/api'
 import { usePrinterStore } from '../../stores/printerStore'
 import { isSunmi } from '../../services/printerService'
 import NotificationBell from '../NotificationBell'
+// ✅ NOUVO — Tradiksyon modil Restoran (4 lang) pou tit meni yo
+import { ensureRestoI18n } from '../../pages/restaurant/restoI18n'
 import './layout.css'
 
 const TZ = 'America/Port-au-Prince'
@@ -278,6 +280,7 @@ export default function AppLayout() {
   const { connected: btConnected, connecting: btConnecting, printing: btPrinting, connect: btConnect, disconnect: btDisconnect, deviceName } = usePrinterStore()
   const onSunmi = useMemo(() => { try { return isSunmi() } catch { return false } }, [])
   const hasBluetooth = useMemo(() => typeof navigator !== 'undefined' && !!navigator.bluetooth, [])
+  ensureRestoI18n(i18n)
   const lang = (i18n.language || 'ht').substring(0, 2)
   const currentLang = LANGS.find(l => l.code === lang) || LANGS[0]
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true
@@ -405,6 +408,22 @@ export default function AppLayout() {
 
   const tenantLogoUrl = useMemo(() => logoSrc(tenant?.logoUrl), [tenant?.logoUrl])
 
+  // ✅ NOUVO — Kantite nouvo kòmand an liy (badge nan meni an). Ti demann (yon chif),
+  // chak 60s, sèlman si modil Restoran an aktive pou tenant lan; kanpe lè onglè a kache.
+  const restoOn = tenant?.allowedPages?.restaurant === true
+  const [restoNew, setRestoNew] = useState(0)
+  useEffect(() => {
+    if (!restoOn || !token) return undefined
+    let alive = true
+    const tick = () => {
+      if (document.hidden) return
+      api.get('/restaurant/online-orders/count').then(r => { if (alive) setRestoNew(r.data?.count || 0) }).catch(() => {})
+    }
+    tick()
+    const id = setInterval(tick, 60000)
+    return () => { alive = false; clearInterval(id) }
+  }, [restoOn, token])
+
   // ── Estrikti meni an (done) ──
   const L = (k, fb) => tr(t, k, fb)
   const SECTIONS = useMemo(() => [
@@ -441,6 +460,9 @@ export default function AppLayout() {
     { key: 'resto', title: `🍽️ ${L('nav.restaurant', 'Restoran')}`, color: COLORS.resto, pageKey: 'restaurant', items: [
       { to: '/app/restaurant/tables', icon: Users, label: L('nav.restaurantTables', 'Tab & Kòmand'), end: true },
       { to: '/app/restaurant/menu', icon: UtensilsCrossed, label: L('nav.restaurant', 'Meni Restoran'), end: true },
+      { to: '/app/restaurant/orders', icon: ShoppingBag, label: L('resto.nav.orders', 'Kòmand an liy'), end: true, badge: restoNew },
+      { to: '/app/restaurant/reservations', icon: CalendarDays, label: L('resto.nav.reservations', 'Rezèvasyon'), end: true },
+      { to: '/app/restaurant/portal', icon: Globe2, label: L('resto.nav.portal', 'Pòtal kliyan'), end: true },
     ] },
     { key: 'gym', title: `💪 ${L('gym.title', 'Jim')}`, color: COLORS.gym, pageKey: 'gym', items: [
       { to: '/app/gym', icon: LayoutDashboard, label: L('gym.nav.dashboard', 'Tablo Jim'), end: true },
@@ -457,7 +479,7 @@ export default function AppLayout() {
       { to: '/app/expenses', icon: TrendingDown, label: 'Depans', pageKey: 'expenses', color: '#EF4444' },
       { to: '/app/founise', icon: Truck, label: 'Founisè', pageKey: 'founise', color: '#FF6B00' },
     ] },
-  ], [t, isPageAllowed]) // eslint-disable-line
+  ], [t, isPageAllowed, restoNew]) // eslint-disable-line
 
   const q = find.trim().toLowerCase()
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -507,7 +529,7 @@ export default function AppLayout() {
     return (
       <NavLink key={it.to} to={it.to} end={it.end} className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': c, animationDelay: `${d}ms` }} data-tip={it.label} title={col && isDesktop ? it.label : undefined}
         onClick={() => setFind('')}>
-        {({ isActive }) => (<><it.icon size={16}/><span className="l">{it.label}</span>{isActive && <span className="dot"/>}</>)}
+        {({ isActive }) => (<><it.icon size={16}/><span className="l">{it.label}</span>{it.badge > 0 && <span className="bdg">{it.badge > 99 ? '99+' : it.badge}</span>}{isActive && !it.badge && <span className="dot"/>}</>)}
       </NavLink>
     )
   }

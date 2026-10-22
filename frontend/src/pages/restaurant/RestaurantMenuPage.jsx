@@ -1,200 +1,226 @@
 // src/pages/restaurant/RestaurantMenuPage.jsx
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTranslation } from 'react-i18next'
-import api from '../../services/api'
-import { useAuthStore } from '../../stores/authStore'
+// ─── Meni restoran an (staff) — design Plus Resto: glas, kat 3D, plat ki flote ──
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '../../stores/authStore'
 import { compressImage } from '../../utils/imageCompression'
 import {
-  Plus, Search, Edit2, Trash2, UtensilsCrossed, AlertTriangle,
-  X, ChevronLeft, ChevronRight, Camera,
+  Plus, Edit2, Trash2, UtensilsCrossed, AlertTriangle, ChevronLeft, ChevronRight,
+  Camera, Layers, PackageX, Tag, Check,
 } from 'lucide-react'
+import { useRT } from './restoI18n'
+import { restoApi } from './restoApi'
+import {
+  Stage, Hero, Stats, Stat, Btn, Badge, Chips, SearchField, DishVisual, Modal, ConfirmModal,
+  Field, Empty, SkeletonGrid, ThemeToggle, useRestoTheme, useTilt, useDebounced, fmt, money, getTenantName, cx,
+} from './restoUI'
 
-// ✅ Palèt koulè cho, apwopriye pou yon Restoran (distenge de brand ble/oranj jeneral la)
-const D = {
-  red:     '#DC2626', redLt: '#EF4444', redDk: '#991B1B',
-  redDim:  'rgba(220,38,38,0.08)', redDim2: 'rgba(220,38,38,0.14)',
-  gold:    '#C9A84C',
-  white:   '#FFFFFF', bg: '#FFF8F6',
-  border:  'rgba(220,38,38,0.12)',
-  text:    '#3B1212', muted: '#946B6B',
-  success: '#059669', warning: '#D97706', warningBg: 'rgba(217,119,6,0.08)',
-  shadow:  '0 4px 20px rgba(220,38,38,0.10)',
+// ══════════════════════════════════════════════
+// Kat plat (3D tilt)
+// ══════════════════════════════════════════════
+function MenuCard({ item, index, onEdit, onDelete, t }) {
+  const tilt = useTilt()
+  const qty = Number(item.quantity)
+  const out = qty <= 0
+  const low = !out && qty <= Number(item.alertThreshold || 0)
+  return (
+    <article ref={tilt.ref} onPointerMove={tilt.onPointerMove} onPointerLeave={tilt.onPointerLeave}
+      className={cx('rs-dish-card', out && 'is-out')} style={{ '--delay': `${Math.min(index, 12) * 60}ms` }}>
+      <div className="rs-dish-card__inner">
+        <div className="rs-dish-card__glare" aria-hidden="true" />
+        <div className="rs-dish-card__art"><DishVisual src={item.imageUrl} name={item.name} size={128} halo={!out} spin={!out} /></div>
+        <div className="rs-dish-card__body">
+          {(item.category?.name || low || out) && (
+            <div className="rs-dish-card__tags">
+              {item.category?.name && <Badge tone="neutral" icon={Tag}>{item.category.name}</Badge>}
+              {(low || out) && <Badge tone={out ? 'chili' : 'saffron'} icon={AlertTriangle}>{out ? t('menu.out') : t('menu.low')}</Badge>}
+            </div>
+          )}
+          <h3 className="rs-dish-card__name" title={item.name}>{item.name}</h3>
+          {item.description && <p className="rs-dish-card__desc">{item.description}</p>}
+          <div className="rs-dish-card__foot">
+            <span className="rs-price">{money(item.priceHtg)}</span>
+            <span className="rs-dish-card__meta"><span>{t('menu.inStock', { count: fmt(qty, 0), unit: item.unit || '' })}</span></span>
+          </div>
+          <div className="rs-dish-card__actions">
+            <Btn variant="glass" size="sm" icon={Edit2} block onClick={() => onEdit(item)}>{t('common.edit')}</Btn>
+            <Btn variant="danger" size="sm" icon={Trash2} onClick={() => onDelete(item)} aria-label={t('common.delete')} />
+          </div>
+        </div>
+      </div>
+    </article>
+  )
 }
 
-const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
-
 // ══════════════════════════════════════════════
-// Modal Atik Meni (Manje/Bwason)
+// Modal plat (nouvo / modifye)
 // ══════════════════════════════════════════════
-function MenuItemModal({ item, categories, exchangeRate, onClose }) {
-  const { t } = useTranslation()
+function MenuItemModal({ item, categories, exchangeRate, theme, onClose, t }) {
   const isEdit = !!item
   const rate = Number(exchangeRate || 132)
   const qc = useQueryClient()
-
   const [imagePreview, setImagePreview] = useState(item?.imageUrl || null)
   const [imageChanged, setImageChanged] = useState(false)
+
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm({
+    defaultValues: item
+      ? { ...item, categoryId: item.categoryId || '', priceHtg: Number(item.priceHtg), priceUsd: item.priceUsd ? Number(item.priceUsd) : '', quantity: Number(item.quantity), alertThreshold: Number(item.alertThreshold) }
+      : { alertThreshold: 5, unit: 'pòsyon', priceHtg: '', priceUsd: '', quantity: '', categoryId: '' },
+  })
+  const name = watch('name')
 
   const handleImageChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!file.type.startsWith('image/')) { toast.error(t('restaurant.imageOnlyError')); return }
-    if (file.size > 2 * 1024 * 1024) { toast.error(t('restaurant.imageTooLarge')); return }
+    if (!file.type.startsWith('image/')) { toast.error(t('menu.modal.imageOnly')); return }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('menu.modal.imageTooLarge')); return }
     try {
-      // ✅ NOUVO — konprese foto plat/bwason an anvan l vin base64
       const compressed = await compressImage(file, { maxWidth: 800, quality: 0.75 })
-      setImagePreview(compressed)
-      setImageChanged(true)
-    } catch {
-      toast.error(t('restaurant.errorGeneric'))
-    }
+      setImagePreview(compressed); setImageChanged(true)
+    } catch { toast.error(t('common.error')) }
   }
-  const handleRemoveImage = () => { setImagePreview(null); setImageChanged(true) }
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
-    defaultValues: item
-      ? { ...item, priceHtg: Number(item.priceHtg), quantity: Number(item.quantity), alertThreshold: Number(item.alertThreshold) }
-      : { alertThreshold: 5, unit: 'pòsyon', priceHtg: '', quantity: '' }
-  })
-
-  const handlePriceChange = (e) => {
+  const priceReg = register('priceHtg', { required: true, min: 0 })
+  const onPrice = (e) => {
+    priceReg.onChange(e)
     const htg = Number(e.target.value)
-    setValue('priceHtg', e.target.value)
-    if (htg > 0) setValue('priceUsd', (htg / rate).toFixed(2))
+    setValue('priceUsd', htg > 0 ? (htg / rate).toFixed(2) : '')
   }
 
   const mutation = useMutation({
-    mutationFn: (data) => {
-      const payload = imageChanged ? { ...data, imageUrl: imagePreview } : data
-      return isEdit
-        ? api.put(`/restaurant/menu/${item.id}`, payload)
-        : api.post('/restaurant/menu', payload)
+    mutationFn: (d) => {
+      const payload = {
+        name: d.name, description: d.description || '', unit: d.unit || '',
+        categoryId: d.categoryId || null,
+        priceHtg: Number(d.priceHtg), priceUsd: d.priceUsd ? Number(d.priceUsd) : 0,
+        quantity: Number(d.quantity), alertThreshold: Number(d.alertThreshold || 0),
+        ...(imageChanged ? { imageUrl: imagePreview } : {}),
+      }
+      return isEdit ? restoApi.updateItem(item.id, payload) : restoApi.createItem(payload)
     },
     onSuccess: () => {
-      toast.success(isEdit ? t('restaurant.updatedSuccess') : t('restaurant.addedSuccess'))
-      qc.invalidateQueries(['restaurant-menu'])
+      toast.success(isEdit ? t('menu.updated') : t('menu.added'))
+      qc.invalidateQueries({ queryKey: ['restaurant-menu'] })
+      qc.invalidateQueries({ queryKey: ['restaurant-summary'] })
       onClose()
     },
-    onError: (e) => toast.error(e.response?.data?.message || t('restaurant.errorGeneric'))
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
-  const inp = {
-    width:'100%', padding:'10px 12px', borderRadius:10,
-    border:`1.5px solid ${D.border}`, outline:'none',
-    fontSize:13, color:D.text, background:'#fff',
-    fontFamily:'DM Sans,sans-serif',
-  }
-  const label = (text) => (
-    <label style={{ display:'block', fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>
-      {text}
-    </label>
-  )
+  const err = (k) => (errors[k] ? t('menu.modal.required') : undefined)
 
   return (
-    <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal max-w-2xl w-full">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <h2 className="text-lg font-display font-bold" style={{ color: D.text }}>
-            {isEdit ? t('restaurant.editModalTitle') : t('restaurant.newModalTitle')}
-          </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"><X size={20}/></button>
+    <Modal theme={theme} size="lg" onClose={onClose} closeLabel={t('common.close')}
+      title={isEdit ? t('menu.modal.editTitle') : t('menu.modal.newTitle')}
+      footer={<>
+        <Btn variant="glass" onClick={onClose}>{t('common.cancel')}</Btn>
+        <Btn variant="primary" icon={Check} loading={mutation.isPending} onClick={handleSubmit((d) => mutation.mutate(d))}>
+          {isEdit ? t('menu.modal.update') : t('menu.modal.add')}
+        </Btn>
+      </>}>
+      <form className="rs-form" onSubmit={handleSubmit((d) => mutation.mutate(d))}>
+        <Field label={t('menu.modal.photo')}>
+          <div className="rs-photo-pick">
+            <div className="rs-photo-pick__prev"><DishVisual src={imagePreview} name={name} size={84} spin={false} /></div>
+            <div className="rs-row">
+              <label className="rs-file"><Camera size={15} /> {imagePreview ? t('menu.modal.changePhoto') : t('menu.modal.addPhoto')}
+                <input type="file" accept="image/*" onChange={handleImageChange} />
+              </label>
+              {imagePreview && <Btn variant="danger" size="sm" onClick={() => { setImagePreview(null); setImageChanged(true) }}>{t('menu.modal.removePhoto')}</Btn>}
+            </div>
+          </div>
+        </Field>
+
+        <Field label={`${t('menu.modal.name')} *`} error={err('name')}>
+          <input className={cx('rs-input', errors.name && 'is-error')} placeholder={t('menu.modal.namePh')} {...register('name', { required: true })} />
+        </Field>
+
+        <div className="rs-form-grid">
+          <Field label={t('menu.modal.category')}>
+            <select className="rs-select" {...register('categoryId')}>
+              <option value="">{t('menu.noCategory')}</option>
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
+          <Field label={t('menu.modal.unit')}>
+            <input className="rs-input" placeholder={t('menu.modal.unitPh')} {...register('unit')} />
+          </Field>
         </div>
 
-        <form onSubmit={handleSubmit(d => mutation.mutate(d))} className="p-5 space-y-4">
-          <div>
-            {label(t('restaurant.photoOptional'))}
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-              <div style={{
-                width:72, height:72, borderRadius:14, flexShrink:0,
-                background: imagePreview ? `url(${imagePreview}) center/cover no-repeat` : D.redDim,
-                display:'flex', alignItems:'center', justifyContent:'center',
-                border:`1.5px solid ${D.border}`,
-              }}>
-                {!imagePreview && <UtensilsCrossed size={26} color={D.red}/>}
-              </div>
-              <div style={{ display:'flex', gap:8 }}>
-                <label style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 14px', borderRadius:10, background:D.redDim, color:D.red, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                  <Camera size={14}/> {imagePreview ? t('restaurant.changePhoto') : t('restaurant.addPhoto')}
-                  <input type="file" accept="image/*" onChange={handleImageChange} style={{ display:'none' }}/>
-                </label>
-                {imagePreview && (
-                  <button type="button" onClick={handleRemoveImage} style={{ padding:'8px 14px', borderRadius:10, background:'#fee2e2', color:'#dc2626', fontWeight:700, fontSize:12, border:'none', cursor:'pointer' }}>
-                    {t('restaurant.removePhoto')}
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="rs-form-grid">
+          <Field label={`${t('menu.modal.priceHtg')} *`} error={err('priceHtg')}>
+            <input type="number" step="0.01" min="0" className={cx('rs-input rs-mono', errors.priceHtg && 'is-error')} {...priceReg} onChange={onPrice} />
+          </Field>
+          <Field label={t('menu.modal.priceUsd')} hint={`1 USD = ${fmt(rate)} HTG`}>
+            <input type="number" step="0.01" min="0" readOnly className="rs-input rs-mono" {...register('priceUsd')} />
+          </Field>
+        </div>
 
-          <div>
-            {label(`${t('restaurant.itemName')} *`)}
-            <input {...register('name', { required: true })} placeholder={t('restaurant.itemNamePlaceholder')}
-              style={{ ...inp, borderColor: errors.name ? '#dc2626' : D.border }}/>
-          </div>
+        <div className="rs-form-grid">
+          <Field label={`${t('menu.modal.quantity')} *`} error={err('quantity')}>
+            <input type="number" step="1" min="0" className={cx('rs-input rs-mono', errors.quantity && 'is-error')} {...register('quantity', { required: true, min: 0 })} />
+          </Field>
+          <Field label={t('menu.modal.alertThreshold')}>
+            <input type="number" step="1" min="0" className="rs-input rs-mono" {...register('alertThreshold')} />
+          </Field>
+        </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              {label(t('restaurant.category'))}
-              <select {...register('categoryId')} style={inp}>
-                <option value="">{t('restaurant.noCategoryOption')}</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              {label(t('restaurant.unit'))}
-              <input {...register('unit')} placeholder={t('restaurant.unitPlaceholder')} style={inp}/>
-            </div>
-          </div>
+        <Field label={t('menu.modal.description')}>
+          <textarea rows={2} className="rs-textarea" placeholder={t('menu.modal.descriptionPh')} {...register('description')} />
+        </Field>
+        <button type="submit" hidden />
+      </form>
+    </Modal>
+  )
+}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              {label(`${t('restaurant.priceHtg')} *`)}
-              <input type="number" step="0.01" min="0" {...register('priceHtg', { required: true, min: 0 })}
-                onChange={handlePriceChange}
-                style={{ ...inp, borderColor: errors.priceHtg ? '#dc2626' : D.border, fontFamily:'monospace' }}/>
-            </div>
-            <div>
-              {label(t('restaurant.priceUsd'))}
-              <input type="number" step="0.01" min="0" {...register('priceUsd')} readOnly
-                style={{ ...inp, background:'#f8f8f8', fontFamily:'monospace', color:D.muted }}/>
-            </div>
-          </div>
+// ══════════════════════════════════════════════
+// Modal kategori
+// ══════════════════════════════════════════════
+function CategoriesModal({ categories, theme, onClose, t }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [editing, setEditing] = useState(null)
+  const [toDelete, setToDelete] = useState(null)
+  const refresh = () => { qc.invalidateQueries({ queryKey: ['restaurant-categories'] }); qc.invalidateQueries({ queryKey: ['restaurant-menu'] }) }
+  const onErr = (e) => toast.error(e.response?.data?.message || t('common.error'))
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              {label(`${t('restaurant.quantity')} *`)}
-              <input type="number" step="1" min="0" {...register('quantity', { required: true, min: 0 })}
-                style={{ ...inp, borderColor: errors.quantity ? '#dc2626' : D.border, fontFamily:'monospace' }}/>
-            </div>
-            <div>
-              {label(t('restaurant.alertThreshold'))}
-              <input type="number" step="1" min="0" {...register('alertThreshold')}
-                style={{ ...inp, fontFamily:'monospace' }}/>
-            </div>
-          </div>
+  const create = useMutation({ mutationFn: () => restoApi.createCategory({ name: name.trim() }), onSuccess: () => { setName(''); toast.success(t('menu.cats.saved')); refresh() }, onError: onErr })
+  const update = useMutation({ mutationFn: ({ id, n }) => restoApi.updateCategory(id, { name: n }), onSuccess: () => { setEditing(null); toast.success(t('menu.cats.saved')); refresh() }, onError: onErr })
+  const remove = useMutation({ mutationFn: (id) => restoApi.deleteCategory(id), onSuccess: () => { setToDelete(null); toast.success(t('menu.cats.deleted')); refresh() }, onError: onErr })
 
-          <div>
-            {label(t('restaurant.description'))}
-            <textarea {...register('description')} rows={2} placeholder={t('restaurant.descriptionPlaceholder')}
-              style={{ ...inp, resize:'vertical' }}/>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary">{t('restaurant.cancelBtn')}</button>
-            <button type="submit" disabled={mutation.isPending}
-              style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 22px', borderRadius:11,
-                background:`linear-gradient(135deg,${D.red},${D.redLt})`, color:'#fff',
-                border:'none', fontWeight:800, fontSize:13, cursor:'pointer',
-                opacity: mutation.isPending ? 0.7 : 1 }}>
-              {mutation.isPending ? t('restaurant.saving') : isEdit ? t('restaurant.updateBtn') : t('restaurant.addToMenuBtn')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+  return (
+    <Modal theme={theme} title={t('menu.cats.title')} subtitle={t('menu.cats.subtitle')} onClose={onClose} closeLabel={t('common.close')}>
+      <form className="rs-row" style={{ flexWrap: 'nowrap', marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate() }}>
+        <input className="rs-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('menu.cats.namePh')} />
+        <Btn type="submit" variant="primary" icon={Plus} loading={create.isPending} disabled={!name.trim()} aria-label={t('common.add')} />
+      </form>
+      {!categories.length ? <p className="rs-hint" style={{ textAlign: 'center', padding: 18 }}>{t('menu.cats.empty')}</p> : (
+        <ul className="rs-lines">
+          {categories.map((c, i) => (
+            <li key={c.id} className="rs-line" style={{ '--d': `${i * 40}ms` }}>
+              {editing?.id === c.id ? (
+                <form className="rs-row" style={{ flex: 1, flexWrap: 'nowrap' }} onSubmit={(e) => { e.preventDefault(); if (editing.n.trim()) update.mutate({ id: c.id, n: editing.n.trim() }) }}>
+                  <input className="rs-input" autoFocus value={editing.n} onChange={(e) => setEditing({ ...editing, n: e.target.value })} />
+                  <Btn type="submit" variant="success" size="sm" icon={Check} loading={update.isPending} aria-label={t('common.save')} />
+                </form>
+              ) : (
+                <>
+                  <span className="rs-line__info"><span className="rs-line__name">{c.name}</span></span>
+                  <button type="button" className="rs-icon-btn" onClick={() => setEditing({ id: c.id, n: c.name })} aria-label={t('common.edit')}><Edit2 size={14} /></button>
+                  <button type="button" className="rs-icon-btn rs-icon-btn--danger" onClick={() => setToDelete(c)} aria-label={t('common.delete')}><Trash2 size={14} /></button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ConfirmModal open={!!toDelete} theme={theme} title={t('menu.cats.confirmDelete', { name: toDelete?.name })}
+        confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')} loading={remove.isPending}
+        onConfirm={() => remove.mutate(toDelete.id)} onClose={() => setToDelete(null)} />
+    </Modal>
   )
 }
 
@@ -202,181 +228,96 @@ function MenuItemModal({ item, categories, exchangeRate, onClose }) {
 // PAJ PRENSIPAL
 // ══════════════════════════════════════════════
 export default function RestaurantMenuPage() {
-  const { t } = useTranslation()
-  const [search, setSearch]       = useState('')
-  const [catFilter, setCatFilter] = useState('')
-  const [page, setPage]           = useState(1)
-  const [modal, setModal]         = useState(null)
-
-  const tenant = useAuthStore(s => s.tenant)
-  const exchangeRate = Number(tenant?.exchangeRate || 132)
+  const { t } = useRT()
+  const [theme, toggleTheme] = useRestoTheme()
+  const tenant = useAuthStore((s) => s.tenant)
+  const tenantName = getTenantName(tenant)
+  const exchangeRate = Number(tenant?.exchangeRate || tenant?.settings?.exchangeRate || 132)
   const qc = useQueryClient()
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['restaurant-menu', search, catFilter, page],
-    queryFn: () => api.get('/restaurant/menu', { params: { search, categoryId: catFilter, page, limit: 20 } }).then(r => r.data),
-    keepPreviousData: true,
-  })
+  const [search, setSearch] = useState('')
+  const debounced = useDebounced(search, 300)
+  const [catFilter, setCatFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [modal, setModal] = useState(null) // {type:'item', item?} | {type:'cats'}
+  const [toDelete, setToDelete] = useState(null)
 
-  const { data: categoriesData } = useQuery({
-    queryKey: ['restaurant-categories'],
-    queryFn: () => api.get('/restaurant/menu/categories').then(r => r.data.categories || []),
-    staleTime: 5 * 60 * 1000,
+  const { data, isLoading } = useQuery({
+    queryKey: ['restaurant-menu', debounced, catFilter, page],
+    queryFn: () => restoApi.menu({ search: debounced, categoryId: catFilter, page, limit: 20 }),
+    placeholderData: keepPreviousData,
   })
-  const categories = categoriesData || []
+  const { data: categories = [] } = useQuery({ queryKey: ['restaurant-categories'], queryFn: restoApi.categories, staleTime: 5 * 60 * 1000 })
+  const { data: summaryData } = useQuery({ queryKey: ['restaurant-summary'], queryFn: restoApi.summary, staleTime: 60 * 1000, retry: false })
+  const summary = summaryData?.summary
+
+  const items = useMemo(() => data?.products || [], [data])
+  const outCount = useMemo(() => items.filter((i) => Number(i.quantity) <= 0).length, [items])
 
   const deleteMutation = useMutation({
-    mutationFn: (id) => api.delete(`/restaurant/menu/${id}`),
+    mutationFn: (id) => restoApi.deleteItem(id),
     onSuccess: (res) => {
-      toast.success(res?.data?.message || t('restaurant.deletedSuccess'))
-      qc.invalidateQueries(['restaurant-menu'])
+      toast.success(res?.message || t('menu.deleted'))
+      setToDelete(null)
+      qc.invalidateQueries({ queryKey: ['restaurant-menu'] })
+      qc.invalidateQueries({ queryKey: ['restaurant-summary'] })
     },
-    onError: (e) => toast.error(e.response?.data?.message || t('restaurant.errorDeleting'))
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
-  const handleDelete = (item) => {
-    if (confirm(t('restaurant.confirmRemove', { name: item.name }))) deleteMutation.mutate(item.id)
-  }
-
-  const items = data?.products || []
+  const chipItems = [{ id: '', label: t('common.all') }, ...categories.map((c) => ({ id: c.id, label: c.name }))]
 
   return (
-    <div className="animate-fade-in">
-      <div className="flex items-center justify-between mb-6" style={{ flexWrap:'wrap', gap:12 }}>
-        <div className="flex items-center gap-3">
-          <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg,${D.red},${D.redLt})`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-            <UtensilsCrossed size={19} color="#fff"/>
-          </div>
-          <div>
-            <h1 className="page-title" style={{ color: D.text }}>{t('restaurant.menuTitle')}</h1>
-            <p style={{ color: D.muted, fontSize: 13, margin: '2px 0 0' }}>{t('restaurant.menuSubtitle')}</p>
-          </div>
+    <Stage theme={theme} className="rs-page">
+      <div className="rs-wrap">
+        <Hero overline={tenantName} title={t('menu.title')} subtitle={t('menu.subtitle')} icon={UtensilsCrossed}
+          actions={<>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} t={t} />
+            <Btn variant="glass" icon={Layers} onClick={() => setModal({ type: 'cats' })}>{t('menu.manageCategories')}</Btn>
+            <Btn variant="primary" icon={Plus} onClick={() => setModal({ type: 'item' })}>{t('menu.newItem')}</Btn>
+          </>}>
+          <Stats>
+            <Stat index={0} icon={UtensilsCrossed} tone="paprika" label={t('menu.stats.items')} value={summary?.menuItems ?? data?.total ?? items.length} />
+            <Stat index={1} icon={Layers} tone="sky" label={t('menu.stats.categories')} value={summary?.categories ?? categories.length} />
+            <Stat index={2} icon={AlertTriangle} tone="saffron" label={t('menu.stats.lowStock')} value={summary?.lowStock ?? 0} />
+            <Stat index={3} icon={PackageX} tone="chili" label={t('menu.stats.outStock')} value={outCount} />
+          </Stats>
+        </Hero>
+
+        <div className="rs-toolbar">
+          <SearchField value={search} onChange={(v) => { setSearch(v); setPage(1) }} hints={[t('menu.searchPh')]} />
+          <Chips items={chipItems} value={catFilter} onChange={(id) => { setCatFilter(id); setPage(1) }} label={t('menu.modal.category')} />
         </div>
-        <button onClick={() => setModal({ type: 'new' })}
-          style={{ display:'flex', alignItems:'center', gap:8, padding:'11px 20px', borderRadius:12,
-            background:`linear-gradient(135deg,${D.red},${D.redLt})`, color:'#fff',
-            border:'none', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadow }}>
-          <Plus size={16}/> {t('restaurant.newItem')}
-        </button>
+
+        {isLoading ? <SkeletonGrid count={8} height={250} /> : !items.length ? (
+          <Empty icon={UtensilsCrossed} title={search || catFilter ? t('menu.emptySearch') : t('menu.empty')}
+            text={search || catFilter ? null : t('menu.emptyText')}
+            action={!search && !catFilter && <Btn icon={Plus} onClick={() => setModal({ type: 'item' })}>{t('menu.newItem')}</Btn>} />
+        ) : (
+          <div className="rs-grid">
+            {items.map((item, i) => (
+              <MenuCard key={item.id} item={item} index={i} t={t}
+                onEdit={(it) => setModal({ type: 'item', item: it })} onDelete={setToDelete} />
+            ))}
+          </div>
+        )}
+
+        {data && data.pages > 1 && (
+          <div className="rs-pager">
+            <Btn variant="glass" size="sm" icon={ChevronLeft} disabled={page <= 1} onClick={() => setPage((p) => p - 1)} aria-label="<" />
+            <span>{t('menu.page', { page: data.page, pages: data.pages })}</span>
+            <Btn variant="glass" size="sm" icon={ChevronRight} disabled={page >= data.pages} onClick={() => setPage((p) => p + 1)} aria-label=">" />
+          </div>
+        )}
       </div>
 
-      {/* Rechèch + Filtè Kategori */}
-      <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginBottom:18 }}>
-        <div style={{ position:'relative', flex:'1 1 260px' }}>
-          <Search size={15} style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:D.muted }}/>
-          <input
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder={t('restaurant.searchPlaceholder')}
-            style={{ width:'100%', padding:'10px 14px 10px 36px', borderRadius:12, border:`1.5px solid ${D.border}`, outline:'none', fontSize:13, background:D.white }}
-          />
-        </div>
-        <div style={{ display:'flex', gap:6, overflowX:'auto', WebkitOverflowScrolling:'touch' }}>
-          <button onClick={() => { setCatFilter(''); setPage(1) }}
-            style={{
-              flexShrink:0, padding:'8px 16px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
-              background: !catFilter ? D.red : D.white, color: !catFilter ? '#fff' : D.muted,
-              border:`1.5px solid ${!catFilter ? D.red : D.border}`,
-            }}>{t('restaurant.allCategoriesBtn')}</button>
-          {categories.map(c => (
-            <button key={c.id} onClick={() => { setCatFilter(c.id); setPage(1) }}
-              style={{
-                flexShrink:0, padding:'8px 16px', borderRadius:99, fontSize:12, fontWeight:700, cursor:'pointer',
-                background: catFilter === c.id ? D.red : D.white, color: catFilter === c.id ? '#fff' : D.muted,
-                border:`1.5px solid ${catFilter === c.id ? D.red : D.border}`,
-              }}>{c.name}</button>
-          ))}
-        </div>
-      </div>
-
-      {/* Grid Atik yo */}
-      {isLoading ? (
-        <div style={{ textAlign:'center', padding:'60px 0', color:D.muted }}>{t('common.loading')}</div>
-      ) : !items.length ? (
-        <div style={{ textAlign:'center', padding:'60px 20px' }}>
-          <UtensilsCrossed size={40} style={{ color: D.border, margin:'0 auto 12px' }}/>
-          <p style={{ color:D.muted }}>{t('restaurant.noItems')}</p>
-        </div>
-      ) : (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(230px, 1fr))', gap:16 }}>
-          {items.map(item => {
-            const lowStock = Number(item.quantity) <= Number(item.alertThreshold)
-            const outOfStock = Number(item.quantity) <= 0
-            return (
-              <div key={item.id} style={{
-                background:D.white, borderRadius:16, overflow:'hidden',
-                border:`1px solid ${outOfStock ? '#fecaca' : D.border}`, boxShadow:D.shadow,
-                display:'flex', flexDirection:'column',
-              }}>
-                <div style={{
-                  height:140, background: item.imageUrl ? `url(${item.imageUrl}) center/cover no-repeat` : D.redDim,
-                  display:'flex', alignItems:'center', justifyContent:'center', position:'relative',
-                }}>
-                  {!item.imageUrl && <UtensilsCrossed size={32} color={D.red}/>}
-                  {item.category && (
-                    <span style={{ position:'absolute', top:8, left:8, padding:'3px 10px', borderRadius:99, background:'rgba(0,0,0,0.55)', color:'#fff', fontSize:10, fontWeight:700 }}>
-                      {item.category.name}
-                    </span>
-                  )}
-                  {(lowStock || outOfStock) && (
-                    <span style={{
-                      position:'absolute', top:8, right:8, padding:'3px 8px', borderRadius:99,
-                      background: outOfStock ? '#dc2626' : D.warning, color:'#fff',
-                      fontSize:10, fontWeight:800, display:'flex', alignItems:'center', gap:3,
-                    }}>
-                      <AlertTriangle size={10}/> {outOfStock ? t('restaurant.outOfStock') : t('restaurant.lowStock')}
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ padding:14, display:'flex', flexDirection:'column', gap:8, flex:1 }}>
-                  <h3 style={{ fontSize:14, fontWeight:800, color:D.text, margin:0, lineHeight:1.3 }}>{item.name}</h3>
-
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginTop:'auto' }}>
-                    <span style={{ fontSize:16, fontWeight:900, color:D.red, fontFamily:'monospace' }}>{fmt(item.priceHtg)} HTG</span>
-                    <span style={{ fontSize:11, color:D.muted, fontWeight:700 }}>{item.quantity} {item.unit}</span>
-                  </div>
-
-                  <div style={{ display:'flex', gap:8, marginTop:6 }}>
-                    <button onClick={() => setModal({ type: 'edit', item })}
-                      style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:5, padding:'7px 0', borderRadius:9, background:D.redDim, color:D.red, border:'none', fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                      <Edit2 size={12}/> {t('restaurant.edit')}
-                    </button>
-                    <button onClick={() => handleDelete(item)}
-                      style={{ width:34, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:9, background:'#fee2e2', color:'#dc2626', border:'none', cursor:'pointer' }}>
-                      <Trash2 size={13}/>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+      {modal?.type === 'item' && (
+        <MenuItemModal item={modal.item} categories={categories} exchangeRate={exchangeRate} theme={theme} t={t} onClose={() => setModal(null)} />
       )}
-
-      {/* Paginasyon */}
-      {data && data.pages > 1 && (
-        <div style={{ display:'flex', justifyContent:'center', alignItems:'center', gap:12, marginTop:24 }}>
-          <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-            style={{ padding:8, borderRadius:9, border:`1px solid ${D.border}`, background:D.white, cursor: page <= 1 ? 'not-allowed' : 'pointer', opacity: page <= 1 ? 0.4 : 1 }}>
-            <ChevronLeft size={16} color={D.text}/>
-          </button>
-          <span style={{ fontSize:12, color:D.muted, fontWeight:700 }}>{t('products.page')} {data.page} / {data.pages}</span>
-          <button disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}
-            style={{ padding:8, borderRadius:9, border:`1px solid ${D.border}`, background:D.white, cursor: page >= data.pages ? 'not-allowed' : 'pointer', opacity: page >= data.pages ? 0.4 : 1 }}>
-            <ChevronRight size={16} color={D.text}/>
-          </button>
-        </div>
-      )}
-
-      {(modal?.type === 'new' || modal?.type === 'edit') && (
-        <MenuItemModal
-          item={modal.item}
-          categories={categories}
-          exchangeRate={exchangeRate}
-          onClose={() => setModal(null)}
-        />
-      )}
-    </div>
+      {modal?.type === 'cats' && <CategoriesModal categories={categories} theme={theme} t={t} onClose={() => setModal(null)} />}
+      <ConfirmModal open={!!toDelete} theme={theme} title={t('menu.confirmDeleteTitle')} text={t('menu.confirmDelete', { name: toDelete?.name })}
+        confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')} loading={deleteMutation.isPending}
+        onConfirm={() => deleteMutation.mutate(toDelete.id)} onClose={() => setToDelete(null)} />
+    </Stage>
   )
 }

@@ -76,6 +76,10 @@
 .lay-it.on::before { height: 60%; }
 .lay-it.on > svg:first-child { color: var(--c); }
 .lay-it .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); flex-shrink: 0; }
+/* ✅ NOUVO — Badge kantite (egz. nouvo kòmand an liy restoran) */
+@keyframes lay-bdg { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 55%, transparent) } 70% { box-shadow: 0 0 0 7px transparent } }
+.lay-it .bdg { flex-shrink: 0; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; display: grid; place-items: center; background: var(--c); color: #fff; font: 800 10.5px 'Manrope', sans-serif; animation: lay-bdg 1.8s ease-out infinite; }
+.lay.col .lay-it .bdg { position: absolute; top: 4px; right: 12px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px; }
 .lay-it .chev { flex-shrink: 0; color: var(--s-muted); transition: transform .25s; }
 .lay-it .chev.op { transform: rotate(180deg); color: var(--c); }
 .lay-sub { margin: 0 0 4px 16px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--c) 28%, transparent); display: grid; overflow: hidden; }

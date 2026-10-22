@@ -32,6 +32,8 @@ const quoteRoutes   = require('./modules/quotes/quote.routes');
 const directQuoteRoutes = require('./modules/direct-quotes/direct-quote.routes');
 // ✅ NOUVO — Restoran (Meni Manje/Bwason)
 const restaurantRoutes = require('./modules/restaurant/restaurant.routes');
+// ✅ NOUVO — Restoran: pòtal PIBLIK kliyan (meni, kòmand an liy, swivi, rezèvasyon)
+const restaurantPublicRoutes = require('./modules/restaurant/restaurant.public.routes');
 const invoiceRoutes = require('./modules/invoices/invoice.routes');
 const paymentRoutes = require('./modules/payments/payment.routes');
 const stockRoutes   = require('./modules/stock/stock.routes');
@@ -217,6 +219,9 @@ app.use(`${API}/internet`,   internetRoutes);
 app.use(`${API}/admin-finances`, adminFinRoutes);
 // ⚠️ NOUVO — Pòtal Ajan
 app.use(`${API}/agents`, agentRoutes);
+// ✅ NOUVO — Pòtal kliyan restoran (PIBLIK, san login). DWE vini ANVAN
+// `${API}/public` pou demann /public/resto/... pa pase nan publicSignupRoutes.
+app.use(`${API}/public/resto`, restaurantPublicRoutes);
 // ⚠️ NOUVO — Enskripsyon otonòm antrepriz (piblik)
 app.use(`${API}/public`, publicSignupRoutes);
 // ✅ NOUVO — Modil Jim/Gym

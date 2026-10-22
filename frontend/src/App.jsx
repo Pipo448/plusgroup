@@ -56,6 +56,10 @@ const HotelDashboard     = lazy(() => import('./pages/hotel/HotelDashboard'))
 const RestaurantMenuPage = lazy(() => import('./pages/restaurant/RestaurantMenuPage'))
 // ✅ NOUVO — Restoran: tab ak kòmand
 const RestaurantTablesPage = lazy(() => import('./pages/restaurant/RestaurantTablesPage'))
+// ✅ NOUVO — Restoran: kòmand an liy, rezèvasyon, paramèt pòtal kliyan
+const RestaurantOnlineOrdersPage   = lazy(() => import('./pages/restaurant/RestaurantOnlineOrdersPage'))
+const RestaurantReservationsPage   = lazy(() => import('./pages/restaurant/RestaurantReservationsPage'))
+const RestaurantPortalSettingsPage = lazy(() => import('./pages/restaurant/RestaurantPortalSettingsPage'))
 const ReservationsPage   = lazy(() => import('./pages/hotel/ReservationsPage'))
 const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage'))
 const ReservationDetail  = lazy(() => import('./pages/hotel/ReservationDetail'))
@@ -89,6 +93,8 @@ const PublicQuote = lazy(() => import('./pages/public/PublicQuote'))
 const PublicDirectQuote = lazy(() => import('./pages/public/PublicDirectQuote'))
 // ✅ NOUVO — Fakti pataje
 const PublicInvoice = lazy(() => import('./pages/public/PublicInvoice'))
+// ✅ NOUVO — Pòtal piblik kliyan restoran (/resto/:slug)
+const RestaurantPortal = lazy(() => import('./pages/public/RestaurantPortal'))
 
 const Spinner = LoadingScreen
 
@@ -143,6 +149,8 @@ export default function App() {
           <Route path="/devi-direk/:token" element={<PublicDirectQuote />} />
           {/* ✅ NOUVO — Fakti pataje */}
           <Route path="/facture/:token" element={<PublicInvoice />} />
+          {/* ✅ NOUVO — Pòtal kliyan restoran: meni, kòmand, swivi, rezèvasyon (piblik) */}
+          <Route path="/resto/:slug/*" element={<RestaurantPortal />} />
 
           <Route path="/admin/login"     element={<AdminLoginPage />} />
           <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -205,6 +213,10 @@ export default function App() {
             <Route path="restaurant/menu" element={<ProtectedPage pageKey="restaurant"><RestaurantMenuPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran: tab ak kòmand */}
             <Route path="restaurant/tables" element={<ProtectedPage pageKey="restaurant"><RestaurantTablesPage /></ProtectedPage>} />
+            {/* ✅ NOUVO — Restoran: kòmand an liy, rezèvasyon, pòtal kliyan (menm pageKey "restaurant") */}
+            <Route path="restaurant/orders"       element={<ProtectedPage pageKey="restaurant"><RestaurantOnlineOrdersPage /></ProtectedPage>} />
+            <Route path="restaurant/reservations" element={<ProtectedPage pageKey="restaurant"><RestaurantReservationsPage /></ProtectedPage>} />
+            <Route path="restaurant/portal"       element={<ProtectedPage pageKey="restaurant"><RestaurantPortalSettingsPage /></ProtectedPage>} />
             <Route path="mikwo-profit" element={<ProtectedPage pageKey="pre"><MikwoKrediProfit/></ProtectedPage>}/>
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />
