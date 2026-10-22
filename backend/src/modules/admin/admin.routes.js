@@ -234,9 +234,22 @@ router.post('/tenants/reset-password', asyncHandler(async (req, res) => {
 }))
 
 // ── GET /api/v1/admin/tenants
+// ⚠️ KORIJE — ansyen kòd la te aplike `limit = 20` PA DEFAULT menm lè
+// frontend pa t janm voye `page`/`limit` ditou. Rezilta: wout la te toujou
+// retounen SÈLMAN 20 tenant ki pi RESAN (triye pa createdAt desc), e nenpòt
+// tenant ki pi vye pase sa a te 100% envizib nan Super Admin — li te ka
+// egziste e fonksyone nòmalman (ou ka konekte ladan l dirèkteman), men li
+// pa t janm parèt nan lis la, menm nan rechèch, paske rechèch la fèt SOU
+// 20 rezilta sa yo sèlman, pa sou tout baz done a. Kounye a: si pa gen
+// `page`/`limit` espesifik nan query a, nou retounen TOUT tenant yo san
+// okenn limit; pagination rete disponib si yon moun vrèman mande l.
 router.get('/tenants', asyncHandler(async (req, res) => {
-  const { status, page = 1, limit = 20 } = req.query
+  const { status, page, limit } = req.query
   const where = { ...(status && { status }) }
+
+  const paginate = page !== undefined || limit !== undefined
+  const take = paginate ? Number(limit) || 20 : undefined
+  const skip = paginate ? (Number(page || 1) - 1) * take : undefined
 
   const [tenants, total] = await Promise.all([
     prisma.tenant.findMany({
@@ -253,13 +266,17 @@ router.get('/tenants', asyncHandler(async (req, res) => {
         _count: { select: { users: true, products: true, invoices: true, branches: true } }
       },
       orderBy: { createdAt: 'desc' },
-      skip: (Number(page) - 1) * Number(limit),
-      take: Number(limit)
+      ...(paginate ? { skip, take } : {})
     }),
     prisma.tenant.count({ where })
   ])
 
-  res.json({ success: true, tenants, total, pages: Math.ceil(total / Number(limit)) })
+  res.json({
+    success: true,
+    tenants,
+    total,
+    pages: paginate ? Math.ceil(total / take) : 1
+  })
 }))
 
 // ── GET /api/v1/admin/tenants/:id
