@@ -474,16 +474,25 @@ button.rs-dish-row { cursor: pointer; }
 .rs-eta span { font: 800 10px/12px var(--font-sans); text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* ═════════════ REZÈVASYON ═════════════ */
-.rs-days { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px 8px; }
+.rs-days { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x mandatory; overscroll-behavior-x: contain;
+  /* espas pou lonbraj/leve chip aktif la pa koupe (overflow-x koupe vètikal la tou) */
+  padding: 10px 10px 14px; margin: -6px -10px -6px; scroll-padding-inline: 10px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 22px), transparent);
+          mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 22px), transparent); }
 .rs-days::-webkit-scrollbar { display: none; }
-.rs-day { flex: none; width: 58px; height: 70px; border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+/* 7 jou plen lajè a sou nenpòt ekran; rès yo glise (scroll-snap) */
+.rs-day { flex: 0 0 calc((100% - 48px) / 7); min-width: 48px; max-width: 72px; height: 72px; scroll-snap-align: start;
+  border-radius: var(--r-md); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; padding: 0 2px;
   border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--ink);
   transition: transform var(--base) var(--ease-spring), background var(--base), color var(--base), box-shadow var(--base);
   animation: rs-rise 420ms var(--ease-out) both; animation-delay: var(--d, 0ms); }
 .rs-day:hover:not(.is-active) { transform: translateY(-2px); }
-.rs-day.is-active { background: var(--paprika); color: var(--on-paprika); border-color: transparent; box-shadow: var(--shadow-glow); transform: translateY(-3px); }
-.rs-day__dow { font: 700 10.5px/13px var(--font-sans); white-space: nowrap; }
-.rs-day__num { font: 600 22px/26px var(--font-display); }
+.rs-day.is-active { background: var(--paprika); color: var(--on-paprika); border-color: transparent; box-shadow: 0 8px 18px -8px var(--paprika); transform: translateY(-3px); }
+.rs-day__dow { font: 700 10.5px/13px var(--font-sans); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+.rs-day__num { font: 600 21px/25px var(--font-display); }
+.rs-day__mon { font: 600 9.5px/11px var(--font-sans); opacity: .7; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.rs-day.is-today:not(.is-active) { border-color: var(--paprika); }
+.rs-day.is-today .rs-day__mon { opacity: 1; color: inherit; }
 .rs-day__dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.8; }
 .rs-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; }
 .rs-slot { height: 40px; border-radius: var(--r-sm); border: 1px solid var(--glass-border); background: var(--glass-strong); color: var(--ink);

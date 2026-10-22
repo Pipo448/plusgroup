@@ -716,10 +716,13 @@ router.post('/tenants/:id/branches', asyncHandler(async (req, res) => {
 // PAGE ACCESS MANAGEMENT
 // ══════════════════════════════════════════════
 
+// ✅ NOUVO — 'restaurant-portal': pòtal kliyan restoran (kòmand & rezèvasyon an liy).
+// Se SÈLMAN Super Admin ki ka aktive l; default li fèmen (false).
+// Dwe rete SENKRONIZE ak ALL_PAGES nan tenant-signup.service.js
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
   'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
-  'hotel','restaurant','dry','employees','expenses','gym','founise','klinik'
+  'hotel','restaurant','restaurant-portal','dry','employees','expenses','gym','founise','klinik'
 ]
 
 // ⚠️ KORIJE — default LOK pou tout paj (eksepte dashboard) — nouvo tenant

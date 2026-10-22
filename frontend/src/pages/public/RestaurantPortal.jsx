@@ -197,6 +197,13 @@ function ReserveView({ slug, data, t, te }) {
     staleTime: 30000,
   })
   useEffect(() => { setTime(null) }, [date])
+  // ✅ NOUVO — si pa gen lè ki rete jodi a (egz. li deja 22h), ale otomatikman sou demen (yon sèl fwa)
+  const autoNext = useRef(false)
+  useEffect(() => {
+    if (autoNext.current || date !== today || !av?.slots) return
+    autoNext.current = true
+    if (!av.slots.some((s) => s.available)) setDate(days[1])
+  }, [av, date, today, days])
 
   const m = useMutation({
     mutationFn: () => publicApi.createReservation(slug, { name: f.name, phone: f.phone, email: f.email, notes: f.notes, website: f.website, partySize: people, date, time }),
@@ -229,12 +236,17 @@ function ReserveView({ slug, data, t, te }) {
         <p className="rs-muted" style={{ margin: '4px 0 0', font: '500 13.5px/20px var(--font-sans)' }}>{t('pub.reserve.subtitle')}</p>
       </div>
       <span className="rs-label">{t('pub.reserve.day')}</span>
-      <div className="rs-days">
+      <div className="rs-days" role="listbox" aria-label={t('pub.reserve.day')}>
         {days.map((d, i) => {
           const p = dayParts(t, d)
+          // ✅ KORIJE MOBIL — « Aujourd'hui » te twò long pou chip la; kounye a chak chip
+          // gen jou a + dat + mwa (oswa « Jodi a » ann ti lèt anba) e 7 chip plen lajè ekran an.
           return (
-            <button key={d} type="button" className={cx('rs-day', d === date && 'is-active')} style={{ '--d': `${i * 30}ms` }} onClick={() => setDate(d)}>
-              <span className="rs-day__dow">{i === 0 ? t('common.today') : p.dow}</span><span className="rs-day__num">{p.num}</span>
+            <button key={d} type="button" role="option" aria-selected={d === date} title={i === 0 ? t('common.today') : undefined}
+              className={cx('rs-day', d === date && 'is-active', i === 0 && 'is-today')} style={{ '--d': `${i * 30}ms` }}
+              onClick={(e) => { setDate(d); e.currentTarget.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' }) }}>
+              <span className="rs-day__dow">{p.dow}</span><span className="rs-day__num">{p.num}</span>
+              <span className="rs-day__mon">{i === 0 ? '•' : p.mon}</span>
             </button>
           )
         })}
