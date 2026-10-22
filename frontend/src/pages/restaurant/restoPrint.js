@@ -24,7 +24,7 @@ function printHtml(title, body, width = 80) {
     body { margin: 0; width: ${width - 6}mm; font: 12px/1.35 'Courier New', monospace; color: #000; }
     h1 { font-size: 16px; margin: 0 0 2px; text-align: center; }
     h2 { font-size: 22px; margin: 4px 0; text-align: center; letter-spacing: 1px; }
-    .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+    .c { text-align: center; } .r { text-align: right; white-space: nowrap; } .b { font-weight: bold; }
     .big { font-size: 15px; font-weight: bold; }
     hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
     table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
@@ -66,5 +66,36 @@ export function printBill({ tenantName, title, subtitle, items, subtotal, discou
     <table><tr><td>Sous-total</td><td class="r">${amt(subtotal)} HTG</td></tr>${disc}${del}
     <tr><td class="big">TOTAL</td><td class="r big">${amt(total)} HTG</td></tr></table>
     <div class="c" style="margin-top:4px;font-size:10px">Ceci n'est pas une facture</div>
+    ${footer(note)}`)
+}
+
+// Rapò vant (Z) pou kesye a enprime sou papye — an franse
+const METHOD_FR = { cash: 'Espèces', moncash: 'MonCash', natcash: 'NatCash', card: 'Carte' }
+const SOURCE_FR = { table: 'Sur place', online: 'En ligne' }
+export function printSalesReport({ tenantName, report, cashier, note }) {
+  const r = report
+  const period = r.from === r.to ? r.from : `${r.from} → ${r.to}`
+  const row = (label, value, bold) => `<tr><td${bold ? ' class="b"' : ''}>${esc(label)}</td><td class="r${bold ? ' b' : ''}">${value}</td></tr>`
+  const group = (title, rows, map) => rows.length ? `<hr><div class="b">${esc(title)}</div><table>${rows.map((x) => row(`${map ? map[x.key] || x.key : x.key} (${x.count})`, amt(x.total))).join('')}</table>` : ''
+  printHtml('Rapport des ventes', `
+    <h1>${esc(tenantName)}</h1>
+    <div class="c b">RAPPORT DES VENTES</div>
+    <div class="c">Période : ${esc(period)}</div>
+    ${cashier ? `<div class="c">Caissier : ${esc(cashier)}</div>` : ''}
+    <div class="c">Imprimé le ${now()}</div><hr>
+    <table>
+      ${row('Nombre de ventes', r.totals.count)}
+      ${row('Total brut', amt(r.totals.gross))}
+      ${r.totals.discount ? row('Remises', '-' + amt(r.totals.discount)) : ''}
+      ${r.totals.deliveryFees ? row('Frais de livraison', amt(r.totals.deliveryFees)) : ''}
+      ${row('TOTAL VENDU (HTG)', amt(r.totals.net), true)}
+      ${row('Ticket moyen', amt(r.totals.avgTicket))}
+    </table>
+    ${group('PAR MODE DE PAIEMENT', r.byMethod, METHOD_FR)}
+    ${group('SUR PLACE / EN LIGNE', r.bySource, SOURCE_FR)}
+    ${cashier ? '' : group('PAR CAISSIER', r.byCashier)}
+    ${group('PAR SERVEUR', (r.byServer || []).filter((x) => x.key))}
+    ${r.topItems.length ? `<hr><div class="b">PLATS LES PLUS VENDUS</div><table>${r.topItems.map((i) => `<tr><td class="q">${esc(i.qty)}</td><td>${esc(i.name)}</td><td class="r">${amt(i.total)}</td></tr>`).join('')}</table>` : ''}
+    <hr><div class="c" style="margin-top:14px">Signature caissier : ____________</div>
     ${footer(note)}`)
 }

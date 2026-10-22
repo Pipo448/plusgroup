@@ -106,6 +106,12 @@ function OrderDetail({ order, theme, slug, tenantName, onClose, onChanged, t }) 
         notes: `Kòmand an liy ${order.code} — ${order.customerName} ${order.customerPhone}`,
       })
       const r = await restoApi.linkOrderInvoice(order.id, res.data?.invoice?.id)
+      // Vant lan antre nan rapò yo (idanpotan sou order.id)
+      await restoApi.recordSale({
+        source: 'online', refId: order.id, refLabel: `${order.code} · ${order.customerName}`, invoiceId: res.data?.invoice?.id,
+        items: order.items.map((it) => ({ productId: it.productId, name: it.name, qty: it.qty, unitPrice: it.unitPriceHtg })),
+        deliveryFee: order.deliveryFeeHtg, paymentMethod: order.paymentMethod,
+      }).catch(() => {})
       toast.success(t('orders.invoiceCreated', { code: order.code }))
       if (!silentThrow) onChanged(r.order)
     } catch (e) {

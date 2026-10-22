@@ -80,9 +80,11 @@ async function getPortalSettings(tenantId, tenantName, tenantSlug) {
   return mapSettings(await getSettingsRow(tenantId), tenantName, tenantSlug);
 }
 
-async function savePortalSettings(tenantId, tenantName, data, tenantSlug) {
+async function savePortalSettings(tenantId, tenantName, data, tenantSlug, allowed = true) {
   const cur = await getPortalSettings(tenantId, tenantName, tenantSlug);
   const s = { ...cur, ...data };
+  // Se Super Admin lan sèlman ki ka bay dwa pou pòtal la aktive (allowedPages['restaurant-portal'])
+  if (s.enabled && !allowed) throw httpError(403, 'PORTAL_NOT_ALLOWED', 'Pòtal kliyan an poko otorize pou antrepriz sa a.');
 
   const slug = slugify(s.slug || tenantSlug || tenantName);
   if (!slug || slug.length < 3) throw httpError(400, 'SLUG_INVALID', 'Lyen pòtal la twò kout.');

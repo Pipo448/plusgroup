@@ -159,6 +159,9 @@ function PayModal({ theme, subtotal, loading, onConfirm, onClose, t }) {
 // ── Panno kòmand (tab louvri) ─────────────────────────────────────────
 function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
   const qc = useQueryClient()
+  const { user } = useAuthStore()
+  // Sèvè (role "server") pran kòmand epi voye kizin; se kesye/admin ki fèmen ak anile tab la
+  const canCash = user?.isAdmin === true || ['admin', 'cashier'].includes(user?.role)
   const tenantName = getTenantName(tenant)
   const [order, setOrder] = useState(initialOrder)
   const [search, setSearch] = useState('')
@@ -246,6 +249,12 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
         invoiceId = invoiceRes.data?.invoice?.id || 'ok'
         lsSet(key, invoiceId)
       }
+      // Anrejistre vant lan pou rapò yo (idanpotan sou order.id — pa janm konte 2 fwa)
+      await restoApi.recordSale({
+        source: 'table', refId: order.id, refLabel: title, invoiceId: invoiceId === 'ok' ? null : invoiceId,
+        items: groups.map((g) => ({ productId: g.productId, name: g.name, qty: g.qty, unitPrice: g.unitPrice })),
+        discountPct, paymentMethod: method, amountGiven: given, change,
+      }).catch(() => { /* rapò a pa dwe bloke fèmen tab la */ })
       await restaurantTablesAPI.closeOrder(order.id, invoiceId === 'ok' ? undefined : invoiceId)
       lsSet(key, null)
       toast.success(t('tables.order.closedToast'))
@@ -262,10 +271,12 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
     <Modal theme={theme} size="lg" onClose={onClose} closeLabel={t('common.close')} title={title}
       subtitle={[order.table?.zone, order.createdAt && t('tables.order.openedAt', { time: hhmm(order.createdAt) })].filter(Boolean).join(' · ')}
       footer={<>
-        <Btn variant="danger" icon={Ban} onClick={() => setConfirm('cancel')} aria-label={t('tables.order.cancel')}>{t('tables.order.cancel')}</Btn>
+        {canCash && <Btn variant="danger" icon={Ban} onClick={() => setConfirm('cancel')} aria-label={t('tables.order.cancel')}>{t('tables.order.cancel')}</Btn>}
         <Btn variant="glass" icon={Receipt} onClick={billPrint} disabled={!groups.length}>{t('tables.order.printBill')}</Btn>
         <Btn variant="glass" icon={Send} disabled={!pendingGroups.length || busy} loading={kitchenMutation.isPending} onClick={() => kitchenMutation.mutate()}>{t('tables.order.sendKitchen')}</Btn>
-        <Btn variant="success" icon={CreditCard} loading={closing} disabled={busy} onClick={() => (groups.length ? setPaying(true) : toast.error(t('tables.order.needItem')))}>{t('tables.order.close')}</Btn>
+        {canCash
+          ? <Btn variant="success" icon={CreditCard} loading={closing} disabled={busy} onClick={() => (groups.length ? setPaying(true) : toast.error(t('tables.order.needItem')))}>{t('tables.order.close')}</Btn>
+          : <span className="rs-hint" style={{ alignSelf: 'center' }}>{t('tables.order.cashierOnly')}</span>}
       </>}>
       <div style={{ position: 'relative', marginBottom: 14 }}>
         <SearchField value={search} onChange={(v) => { setSearch(v); setShowResults(true) }} hints={[t('tables.order.searchPh')]}

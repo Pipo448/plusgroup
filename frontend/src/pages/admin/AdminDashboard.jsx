@@ -85,7 +85,9 @@ const PAGE_DEFINITIONS = [
   { key:'sabotay',    label:'Sabotay',           icon:<Smartphone size={14}/>,      group:'Antrepriz' },
   { key:'mobilpay',   label:'MonCash / NatCash', icon:<Phone size={14}/>,           group:'Antrepriz' },
   { key:'hotel',  label:'Otèl (Rezèvasyon & Dashboard)', icon:<Building2 size={14}/>,   group:'Antrepriz' },
-  { key:'restaurant', label:'Restoran (Meni, Tab, Kòmand an liy, Rezèvasyon, Pòtal)', icon:<UtensilsCrossed size={14}/>, group:'Antrepriz' },
+  { key:'restaurant', label:'Restoran (Meni, Tab, Tablo, Rapò vant, Rezèvasyon)', icon:<UtensilsCrossed size={14}/>, group:'Antrepriz' },
+  // ✅ NOUVO — Pòtal kliyan an liy: FÈMEN pa default, se Super Admin sèlman ki aktive l
+  { key:'restaurant-portal', label:'Pòtal kliyan Restoran (kòmand & rezèvasyon an liy)', icon:<UtensilsCrossed size={14}/>, group:'Antrepriz' },
   { key:'pre',    label:'Prè Mikwo Kredi',               icon:<Wallet size={14}/>,      group:'Antrepriz' },
   { key:'dry',    label:'Prese (Teinturerie)',            icon:<Scissors size={14}/>,    group:'Modil'     },
   { key:'klinik', label:'Klinik Medikal',                 icon:<Stethoscope size={14}/>, group:'Modil'     },

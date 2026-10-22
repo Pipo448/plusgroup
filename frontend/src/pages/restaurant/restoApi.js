@@ -8,6 +8,12 @@ const data = (p) => p.then((r) => r.data)
 // ── STAFF ─────────────────────────────────────────────────────────────
 export const restoApi = {
   summary: () => data(api.get('/restaurant/summary')),
+  dashboard: () => data(api.get('/restaurant/dashboard')),
+  prefs: () => data(api.get('/restaurant/prefs')).then((d) => d.prefs),
+  setPrefs: (dashboardMode) => data(api.put('/restaurant/prefs', { dashboardMode })).then((d) => d.prefs),
+  // Anrejistre yon vant (idanpotan: menm source+refId pa janm konte 2 fwa)
+  recordSale: (payload) => data(api.post('/restaurant/sales', payload)),
+  salesReport: (params) => data(api.get('/restaurant/sales/report', { params })),
 
   menu: (params) => data(api.get('/restaurant/menu', { params })),
   createItem: (payload) => data(api.post('/restaurant/menu', payload)),
@@ -60,6 +66,8 @@ export const RESTO_PATHS = {
   orders: `${RESTO_BASE}/orders`,
   reservations: `${RESTO_BASE}/reservations`,
   portal: `${RESTO_BASE}/portal`,
+  dashboard: `${RESTO_BASE}/dashboard`,
+  report: `${RESTO_BASE}/report`,
 }
 // Lyen piblik pòtal kliyan an
 // Nan APK la (Capacitor) origin nan se localhost — lyen pou pataje a dwe toujou app.plusgroupe.com

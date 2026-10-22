@@ -1,5 +1,5 @@
--- restaurant.sql — Tab pòtal kliyan restoran an (kòmand an liy, rezèvasyon, paramèt, nòt)
--- Backend la kreye yo otomatikman, men ou ka egzekite fichye sa a nan Supabase SQL Editor oswa pgAdmin.
+-- restaurant.sql — Tab modil restoran an (pòtal, kòmand an liy, rezèvasyon, VANT/rapò)
+-- Backend la kreye yo otomatikman. Si ou pito, kouri fichye sa a nan Supabase SQL Editor (Run without RLS).
 
 CREATE TABLE IF NOT EXISTS resto_portal_settings (
     tenant_id            TEXT PRIMARY KEY,
@@ -56,6 +56,35 @@ ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rating INTEGER;
 ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS review TEXT;
 
 ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ;
+
+ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT;
+
+CREATE TABLE IF NOT EXISTS resto_sales (
+    id              TEXT PRIMARY KEY,
+    tenant_id       TEXT NOT NULL,
+    branch_id       TEXT,
+    source          TEXT NOT NULL,
+    ref_id          TEXT NOT NULL,
+    ref_label       TEXT,
+    invoice_id      TEXT,
+    items           JSONB NOT NULL DEFAULT '[]'::jsonb,
+    subtotal_htg    NUMERIC(12,2) NOT NULL DEFAULT 0,
+    discount_pct    NUMERIC(5,2) NOT NULL DEFAULT 0,
+    discount_htg    NUMERIC(12,2) NOT NULL DEFAULT 0,
+    delivery_fee_htg NUMERIC(12,2) NOT NULL DEFAULT 0,
+    total_htg       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    payment_method  TEXT NOT NULL DEFAULT 'cash',
+    amount_given    NUMERIC(12,2),
+    change_htg      NUMERIC(12,2),
+    cashier_id      TEXT,
+    cashier_name    TEXT,
+    server_id       TEXT,
+    server_name     TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (tenant_id, source, ref_id)
+  );
+
+CREATE INDEX IF NOT EXISTS idx_resto_sales_tenant_date ON resto_sales (tenant_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS resto_reservations (
     id              TEXT PRIMARY KEY,

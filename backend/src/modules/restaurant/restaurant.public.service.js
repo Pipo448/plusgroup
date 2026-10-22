@@ -5,6 +5,7 @@
 
 const productSvc = require('../products/product.service');
 const svc = require('./restaurant.service');
+const { portalAllowed } = require('./restaurant.sales.service');
 const {
   q, getPrisma, httpError, newId, num, round2, clean, digits, slugify, haitiNow, addDays,
 } = require('./restaurant.db');
@@ -73,6 +74,8 @@ async function resolveTenant(slugRaw) {
   if (tenant.isActive === false || tenant.active === false || ['suspended', 'inactive', 'blocked'].includes(String(tenant.status || '').toLowerCase())) {
     throw httpError(404, 'PORTAL_NOT_FOUND', 'Restoran pa jwenn.');
   }
+  // Super Admin lan dwe otorize pòtal la pou tenant sa a
+  if (!portalAllowed(tenant)) throw httpError(403, 'PORTAL_DISABLED', 'Pòtal la pa aktive.');
   const row = await svc.getSettingsRow(tenantId);
   const tenantName = tenant.businessName || tenant.name || 'Restoran';
   const settings = svc.mapSettings(row, tenantName, tenant.slug);

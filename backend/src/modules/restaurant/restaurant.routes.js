@@ -8,8 +8,15 @@ const ctrl = require('./restaurant.controller');
 
 router.use(identifyTenant, authenticate, extractBranch);
 
-// ── Rezime
+// ── Rezime, tablo bò, preferans
 router.get('/summary', ctrl.getSummary);
+router.get('/dashboard', ctrl.getDashboard);
+router.get('/prefs', ctrl.getPrefs);
+router.put('/prefs', authorize('admin'), ctrl.setPrefs);
+
+// ── Vant ak rapò (sèvè pa ka anrejistre peman; kesye wè pwòp vant li sèlman)
+router.post('/sales', authorize('admin', 'cashier'), ctrl.recordSale);
+router.get('/sales/report', authorize('admin', 'cashier'), ctrl.getReport);
 
 // ── Kategori meni
 router.get('/menu/categories',        ctrl.getCategories);

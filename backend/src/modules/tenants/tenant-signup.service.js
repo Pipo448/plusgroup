@@ -25,10 +25,13 @@ const PLAN_PRICE_RULES = {
 const DEFAULT_PRICE_RULE = { min: PLUS_GROUP_BASE_MONTHLY, max: null }
 
 // Dwe rete SENKRONIZE ak ALL_PAGES nan admin.routes.js
+// ✅ NOUVO — 'restaurant-portal' (pòtal kliyan restoran: kòmand & rezèvasyon an liy)
+//    + 'klinik', 'gym', 'founise' ki te manke: konsa nouvo tenant yo kòmanse ak
+//    TOUT paj yo fèmen (eksepte dashboard) jiskaske Super Admin lan aktive yo.
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
   'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
-  'hotel','restaurant','dry','employees','expenses'
+  'hotel','restaurant','restaurant-portal','dry','klinik','gym','employees','expenses','founise'
 ]
 const LOCKED_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboard' }), {})
 

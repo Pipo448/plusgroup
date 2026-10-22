@@ -28,7 +28,7 @@ export default function RestaurantPortalSettingsPage() {
   useEffect(() => { if (data?.settings && !f) setF(data.settings) }, [data, f])
 
   const save = useMutation({
-    mutationFn: () => restoApi.savePortalSettings({ ...f, slug: slugify(f.slug) }),
+    mutationFn: () => restoApi.savePortalSettings({ ...f, enabled: data?.settings?.allowed === false ? false : f.enabled, slug: slugify(f.slug) }),
     onSuccess: (res) => { setF(res.settings); setReloadKey((k) => k + 1); qc.setQueryData(['restaurant-portal-settings'], (o) => ({ ...(o || {}), settings: res.settings })); toast.success(t('portal.saved')) },
     onError: (e) => { const c = e.response?.data?.code; toast.error(c && t(`portal.errors.${c}`) !== `resto.portal.errors.${c}` ? t(`portal.errors.${c}`) : e.response?.data?.message || t('common.error')) },
   })
@@ -60,7 +60,12 @@ export default function RestaurantPortalSettingsPage() {
           <div className="rs-col" style={{ gap: 18 }}>
             <div className="rs-two" style={{ alignItems: 'center' }}>
             <section className="rs-card rs-glass">
-              <Switch on={f.enabled} onChange={set('enabled')} title={t('portal.enabled')} desc={t('portal.enabledDesc')} />
+              {data?.settings?.allowed === false && (
+                <div className="rs-alert rs-alert--warn" style={{ marginBottom: 12, flexDirection: 'column', gap: 4 }}>
+                  <b>{t('portal.notAllowedTitle')}</b><span>{t('portal.notAllowedText')}</span>
+                </div>
+              )}
+              <Switch on={f.enabled && data?.settings?.allowed !== false} onChange={set('enabled')} title={t('portal.enabled')} desc={t('portal.enabledDesc')} disabled={data?.settings?.allowed === false} />
               <div className="rs-form" style={{ marginTop: 14 }}>
                 <Field label={t('portal.slug')} hint={t('portal.slugHint', { example: slugify(tenantName) || 'chez-marie' })}>
                   <input className="rs-input" value={f.slug} onChange={(e) => set('slug')(liveSlug(e.target.value))} />

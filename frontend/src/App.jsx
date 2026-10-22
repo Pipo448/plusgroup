@@ -60,6 +60,10 @@ const RestaurantTablesPage = lazy(() => import('./pages/restaurant/RestaurantTab
 const RestaurantOnlineOrdersPage   = lazy(() => import('./pages/restaurant/RestaurantOnlineOrdersPage'))
 const RestaurantReservationsPage   = lazy(() => import('./pages/restaurant/RestaurantReservationsPage'))
 const RestaurantPortalSettingsPage = lazy(() => import('./pages/restaurant/RestaurantPortalSettingsPage'))
+// ✅ NOUVO — Tablo restoran + rapò vant
+const RestaurantDashboard  = lazy(() => import('./pages/restaurant/RestaurantDashboard'))
+const RestoDashboardGate   = lazy(() => import('./pages/restaurant/RestaurantDashboard').then(m => ({ default: m.RestoDashboardGate })))
+const RestaurantReportPage = lazy(() => import('./pages/restaurant/RestaurantReportPage'))
 const ReservationsPage   = lazy(() => import('./pages/hotel/ReservationsPage'))
 const NewReservationPage = lazy(() => import('./pages/hotel/NewReservationPage'))
 const ReservationDetail  = lazy(() => import('./pages/hotel/ReservationDetail'))
@@ -170,7 +174,8 @@ export default function App() {
             {/* ✅ KORIJE — DashboardRouter deside si se Dashboard jeneral Stock/POS
                 la oswa dashboard SÈL modil aktive a (Hotel/Restoran/Gym/Prese)
                 ki parèt kòm tableau de bò prensipal la. */}
-            <Route path="dashboard"       element={<DashboardRouter />} />
+            {/* ✅ NOUVO — si tenant an se restoran sèlman (oswa admin chwazi l), tablo restoran an parèt isit */}
+            <Route path="dashboard"       element={<RestoDashboardGate fallback={<DashboardRouter />} />} />
             <Route path="products"        element={<ProtectedPage pageKey="products"><ProductsPage /></ProtectedPage>} />
             <Route path="clients"         element={<ProtectedPage pageKey="clients"><ClientsPage /></ProtectedPage>} />
             <Route path="quotes"          element={<ProtectedPage pageKey="quotes"><QuotesPage /></ProtectedPage>} />
@@ -217,6 +222,8 @@ export default function App() {
             <Route path="restaurant/orders"       element={<ProtectedPage pageKey="restaurant"><RestaurantOnlineOrdersPage /></ProtectedPage>} />
             <Route path="restaurant/reservations" element={<ProtectedPage pageKey="restaurant"><RestaurantReservationsPage /></ProtectedPage>} />
             <Route path="restaurant/portal"       element={<ProtectedPage pageKey="restaurant"><RestaurantPortalSettingsPage /></ProtectedPage>} />
+            <Route path="restaurant/dashboard"    element={<ProtectedPage pageKey="restaurant"><RestaurantDashboard /></ProtectedPage>} />
+            <Route path="restaurant/report"       element={<ProtectedPage pageKey="restaurant"><RestaurantReportPage /></ProtectedPage>} />
             <Route path="mikwo-profit" element={<ProtectedPage pageKey="pre"><MikwoKrediProfit/></ProtectedPage>}/>
 
             <Route path="dry"     element={<ProtectedPage pageKey="dry"><DryOrdersPage /></ProtectedPage>} />

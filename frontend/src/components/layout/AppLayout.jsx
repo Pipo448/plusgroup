@@ -29,7 +29,7 @@ import {
   Menu, X, Globe, ChevronDown, GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag, Bluetooth, BluetoothOff, Printer, Scissors, DollarSign, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
-  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2, ShoppingBag, Globe2,
+  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2, ShoppingBag, Globe2, PieChart,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -39,6 +39,8 @@ import { isSunmi } from '../../services/printerService'
 import NotificationBell from '../NotificationBell'
 // ✅ NOUVO — Tradiksyon modil Restoran (4 lang) pou tit meni yo
 import { ensureRestoI18n } from '../../pages/restaurant/restoI18n'
+// ✅ NOUVO — Tradiksyon tout seksyon/modil meni an (4 lang)
+import { ensureLayoutI18n } from './layoutI18n'
 import './layout.css'
 
 const TZ = 'America/Port-au-Prince'
@@ -199,6 +201,7 @@ function CalculatorMenu() {
 // ════════════════════════════════════════════════════════════
 function ScrollArea({ children, pathname }) {
   const qc = useQueryClient()
+  const { t } = useTranslation()
   const ref = useRef(null)
   const startY = useRef(0)
   const dragging = useRef(false)
@@ -233,7 +236,7 @@ function ScrollArea({ children, pathname }) {
       try {
         // ✅ Rafrechi SÈLMAN rekèt ki aktif sou paj la (pa tout app la)
         await Promise.all([qc.invalidateQueries({ refetchType: 'active' }), new Promise(r => setTimeout(r, 500))])
-        toast.success('Done yo rafrechi', { id: 'ptr', duration: 1200 })
+        toast.success(tr(t, 'lay.refreshed', 'Done yo rafrechi'), { id: 'ptr', duration: 1200 })
       } finally { setRefreshing(false); setPull(0) }
     } else setPull(0)
   }
@@ -244,7 +247,7 @@ function ScrollArea({ children, pathname }) {
         {pullY > 6 && (refreshing ? <div className="sp"/> : <RefreshCw size={20} style={{ transform: `rotate(${pullY * 2.6}deg)`, opacity: Math.min(1, pullY / THRESHOLD) }}/>)}
       </div>
       {children}
-      {showTop && <button className="lay-top" onClick={() => ref.current?.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="Remonte anlè"><ArrowUp size={18}/></button>}
+      {showTop && <button className="lay-top" onClick={() => ref.current?.scrollTo({ top: 0, behavior: 'smooth' })} aria-label={tr(t, 'lay.backTop', 'Remonte anlè')}><ArrowUp size={18}/></button>}
     </div>
   )
 }
@@ -281,6 +284,7 @@ export default function AppLayout() {
   const onSunmi = useMemo(() => { try { return isSunmi() } catch { return false } }, [])
   const hasBluetooth = useMemo(() => typeof navigator !== 'undefined' && !!navigator.bluetooth, [])
   ensureRestoI18n(i18n)
+  ensureLayoutI18n(i18n)
   const lang = (i18n.language || 'ht').substring(0, 2)
   const currentLang = LANGS.find(l => l.code === lang) || LANGS[0]
   const isAdmin = user?.role === 'admin' || user?.isAdmin === true
@@ -427,42 +431,44 @@ export default function AppLayout() {
   // ── Estrikti meni an (done) ──
   const L = (k, fb) => tr(t, k, fb)
   const SECTIONS = useMemo(() => [
-    { key: 'main', title: L('nav.mainMenu', 'Meni prensipal'), color: COLORS.acc, items: [
-      { to: '/app/dashboard', icon: LayoutDashboard, label: L('nav.dashboard', 'Tablo bò'), pageKey: 'dashboard' },
-      { to: '/app/products', icon: Package, label: L('nav.products', 'Pwodui'), pageKey: 'products' },
-      { to: '/app/clients', icon: Users, label: L('nav.clients', 'Kliyan'), pageKey: 'clients' },
-      { to: '/app/quotes', icon: FileText, label: L('nav.quotes', 'Devi'), pageKey: 'quotes' },
-      { to: '/app/direct-quotes', icon: FilePlus2, label: L('nav.directQuotes', 'Devi Dirèk'), pageKey: 'direct-quotes' },
-      { to: '/app/invoices', icon: Receipt, label: L('nav.invoices', 'Fakti'), pageKey: 'invoices' },
-      { to: '/app/stock', icon: Warehouse, label: L('nav.stock', 'Estòk'), pageKey: 'stock' },
-      { to: '/app/reports', icon: TrendingUp, label: L('nav.reports', 'Rapò'), pageKey: 'reports' },
-      { to: '/app/kes-sesyon', icon: Wallet, label: L('nav.kesSesyon', 'Sesyon Kès'), pageKey: 'kes-sesyon' },
-      { to: '/app/estok-kontwol', icon: ClipboardCheck, label: L('nav.estokKontwol', 'Kontwòl Estòk'), pageKey: 'estok-kontwol' },
-      { to: '/app/branches', icon: GitBranch, label: L('nav.branches', 'Branch'), pageKey: 'branches', adminOnly: true, color: COLORS.ent },
+    { key: 'main', title: L('lay.mainMenu', 'Meni prensipal'), color: COLORS.acc, items: [
+      { to: '/app/dashboard', icon: LayoutDashboard, label: L('lay.dashboard', 'Tablo bò'), pageKey: 'dashboard' },
+      { to: '/app/products', icon: Package, label: L('lay.products', 'Pwodui'), pageKey: 'products' },
+      { to: '/app/clients', icon: Users, label: L('lay.clients', 'Kliyan'), pageKey: 'clients' },
+      { to: '/app/quotes', icon: FileText, label: L('lay.quotes', 'Devi'), pageKey: 'quotes' },
+      { to: '/app/direct-quotes', icon: FilePlus2, label: L('lay.directQuotes', 'Devi Dirèk'), pageKey: 'direct-quotes' },
+      { to: '/app/invoices', icon: Receipt, label: L('lay.invoices', 'Fakti'), pageKey: 'invoices' },
+      { to: '/app/stock', icon: Warehouse, label: L('lay.stock', 'Estòk'), pageKey: 'stock' },
+      { to: '/app/reports', icon: TrendingUp, label: L('lay.reports', 'Rapò'), pageKey: 'reports' },
+      { to: '/app/kes-sesyon', icon: Wallet, label: L('lay.kesSesyon', 'Sesyon Kès'), pageKey: 'kes-sesyon' },
+      { to: '/app/estok-kontwol', icon: ClipboardCheck, label: L('lay.estokKontwol', 'Kontwòl Estòk'), pageKey: 'estok-kontwol' },
+      { to: '/app/branches', icon: GitBranch, label: L('lay.branches', 'Branch'), pageKey: 'branches', adminOnly: true, color: COLORS.ent },
     ] },
-    { key: 'ent', title: '✦ Antrepriz', color: COLORS.ent, items: [
-      { to: '/app/kane', icon: CreditCard, label: 'Ti Kanè Kès', pageKey: 'kane' },
-      { group: 'mikwo', icon: Wallet, label: 'Mikwo Kredi', show: isPageAllowed('kane-epay') || isPageAllowed('pre'), match: ['/app/kane-epay', '/app/pre', '/app/mikwo-kredi-gid', '/app/mikwo-profit'], children: [
-        { to: '/app/kane-epay', icon: Wallet, label: 'Kanè Epay', pageKey: 'kane-epay', end: true },
-        { to: '/app/pre', icon: DollarSign, label: 'Prè', pageKey: 'pre', end: true },
-        { to: '/app/pre/cash-flow', icon: RefreshCw, label: 'Rapò Antre/Soti', pageKey: 'pre', end: true },
-        { to: '/app/mikwo-kredi-gid', icon: BookOpen, label: 'Gid', pageKey: null, end: true, color: '#3B82F6' },
-        { to: '/app/mikwo-profit', icon: BarChart2, label: 'Pwofi/Pèt', pageKey: null, end: true },
+    { key: 'ent', title: L('lay.enterprise', '✦ Antrepriz'), color: COLORS.ent, items: [
+      { to: '/app/kane', icon: CreditCard, label: L('lay.kane', 'Ti Kanè Kès'), pageKey: 'kane' },
+      { group: 'mikwo', icon: Wallet, label: L('lay.mikwo', 'Mikwo Kredi'), show: isPageAllowed('kane-epay') || isPageAllowed('pre'), match: ['/app/kane-epay', '/app/pre', '/app/mikwo-kredi-gid', '/app/mikwo-profit'], children: [
+        { to: '/app/kane-epay', icon: Wallet, label: L('lay.kaneEpay', 'Kanè Epay'), pageKey: 'kane-epay', end: true },
+        { to: '/app/pre', icon: DollarSign, label: L('lay.pre', 'Prè'), pageKey: 'pre', end: true },
+        { to: '/app/pre/cash-flow', icon: RefreshCw, label: L('lay.cashFlow', 'Rapò Antre/Soti'), pageKey: 'pre', end: true },
+        { to: '/app/mikwo-kredi-gid', icon: BookOpen, label: L('lay.guide', 'Gid'), pageKey: null, end: true, color: '#3B82F6' },
+        { to: '/app/mikwo-profit', icon: BarChart2, label: L('lay.profit', 'Pwofi/Pèt'), pageKey: null, end: true },
       ] },
-      { to: '/app/sabotay', icon: Smartphone, label: 'Sabotay', pageKey: 'sabotay' },
-      { to: '/app/mobilpay', icon: Phone, label: 'MonCash / NatCash', pageKey: 'mobilpay' },
+      { to: '/app/sabotay', icon: Smartphone, label: L('lay.sabotay', 'Sabotay'), pageKey: 'sabotay' },
+      { to: '/app/mobilpay', icon: Phone, label: L('lay.mobilpay', 'MonCash / NatCash'), pageKey: 'mobilpay' },
     ] },
-    { key: 'hotel', title: '🏨 Hotel', color: COLORS.hotel, pageKey: 'hotel', items: [
-      { to: '/app/hotel', icon: Hotel, label: 'Dashboard Hotel', end: true },
-      { to: '/app/hotel/reservations', icon: CalendarDays, label: 'Rezèvasyon' },
-      { to: '/app/hotel/room-types', icon: Tag, label: 'Tip Chanm' },
+    { key: 'hotel', title: L('lay.hotel', '🏨 Hotel'), color: COLORS.hotel, pageKey: 'hotel', items: [
+      { to: '/app/hotel', icon: Hotel, label: L('lay.hotelDash', 'Dashboard Hotel'), end: true },
+      { to: '/app/hotel/reservations', icon: CalendarDays, label: L('lay.hotelResv', 'Rezèvasyon') },
+      { to: '/app/hotel/room-types', icon: Tag, label: L('lay.roomTypes', 'Tip Chanm') },
     ] },
-    { key: 'resto', title: `🍽️ ${L('nav.restaurant', 'Restoran')}`, color: COLORS.resto, pageKey: 'restaurant', items: [
-      { to: '/app/restaurant/tables', icon: Users, label: L('nav.restaurantTables', 'Tab & Kòmand'), end: true },
-      { to: '/app/restaurant/menu', icon: UtensilsCrossed, label: L('nav.restaurant', 'Meni Restoran'), end: true },
-      { to: '/app/restaurant/orders', icon: ShoppingBag, label: L('resto.nav.orders', 'Kòmand an liy'), end: true, badge: restoNew },
+    { key: 'resto', title: L('lay.restaurant', '🍽️ Restoran'), color: COLORS.resto, pageKey: 'restaurant', items: [
+      { to: '/app/restaurant/dashboard', icon: PieChart, label: L('resto.nav.dashboard', 'Tablo Restoran'), end: true },
+      { to: '/app/restaurant/tables', icon: Users, label: L('resto.nav.tablesNav', 'Tab & Kòmand'), end: true },
+      { to: '/app/restaurant/menu', icon: UtensilsCrossed, label: L('resto.nav.menuNav', 'Meni'), end: true },
+      { to: '/app/restaurant/orders', icon: ShoppingBag, label: L('resto.nav.orders', 'Kòmand an liy'), end: true, badge: restoNew, pageKey: 'restaurant-portal' },
       { to: '/app/restaurant/reservations', icon: CalendarDays, label: L('resto.nav.reservations', 'Rezèvasyon'), end: true },
-      { to: '/app/restaurant/portal', icon: Globe2, label: L('resto.nav.portal', 'Pòtal kliyan'), end: true },
+      { to: '/app/restaurant/report', icon: BarChart2, label: L('resto.nav.report', 'Rapò vant'), end: true, roles: ['admin', 'cashier'] },
+      { to: '/app/restaurant/portal', icon: Globe2, label: L('resto.nav.portal', 'Pòtal kliyan'), end: true, pageKey: 'restaurant-portal', adminOnly: true },
     ] },
     { key: 'gym', title: `💪 ${L('gym.title', 'Jim')}`, color: COLORS.gym, pageKey: 'gym', items: [
       { to: '/app/gym', icon: LayoutDashboard, label: L('gym.nav.dashboard', 'Tablo Jim'), end: true },
@@ -471,15 +477,15 @@ export default function AppLayout() {
       { to: '/app/gym/plans', icon: CreditCard, label: L('gym.nav.plans', 'Plan') },
       { to: '/app/gym/daily-payment', icon: Banknote, label: L('gym.nav.dailyPayment', 'Peman jounen') },
     ] },
-    { key: 'dry', title: '👔 Prese', color: COLORS.dry, pageKey: 'dry', items: [
-      { to: '/app/dry', icon: Scissors, label: 'Jestyon Prese' },
+    { key: 'dry', title: L('lay.dry', '👔 Prese'), color: COLORS.dry, pageKey: 'dry', items: [
+      { to: '/app/dry', icon: Scissors, label: L('lay.dryManage', 'Jestyon Prese') },
     ] },
-    { key: 'rh', title: '💼 RH & Finans', color: COLORS.rh, items: [
-      { to: '/app/employees', icon: UserCog, label: 'Anplwaye', pageKey: 'employees' },
-      { to: '/app/expenses', icon: TrendingDown, label: 'Depans', pageKey: 'expenses', color: '#EF4444' },
-      { to: '/app/founise', icon: Truck, label: 'Founisè', pageKey: 'founise', color: '#FF6B00' },
+    { key: 'rh', title: L('lay.rh', '💼 RH & Finans'), color: COLORS.rh, items: [
+      { to: '/app/employees', icon: UserCog, label: L('lay.employees', 'Anplwaye'), pageKey: 'employees' },
+      { to: '/app/expenses', icon: TrendingDown, label: L('lay.expenses', 'Depans'), pageKey: 'expenses', color: '#EF4444' },
+      { to: '/app/founise', icon: Truck, label: L('lay.founise', 'Founisè'), pageKey: 'founise', color: '#FF6B00' },
     ] },
-  ], [t, isPageAllowed, restoNew]) // eslint-disable-line
+  ], [t, i18n.language, isPageAllowed, restoNew]) // eslint-disable-line
 
   const q = find.trim().toLowerCase()
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -494,11 +500,15 @@ export default function AppLayout() {
           return kids.length ? { ...it, children: kids } : null
         }
         if (!isPageAllowed(it.pageKey) || (it.adminOnly && !isAdmin)) return null
+        // ✅ NOUVO — paj ki rezève pou kèk wòl (egz. Rapò vant: admin + kesye)
+        if (it.roles && !isAdmin && !it.roles.includes(user?.role)) return null
+        // ✅ NOUVO — Pòtal kliyan restoran: SÈLMAN si Super Admin lan aktive l (default fèmen)
+        if (it.pageKey === 'restaurant-portal' && tenant?.allowedPages?.['restaurant-portal'] !== true) return null
         if (q && !norm(it.label).includes(norm(q))) return null
         return it
       }).filter(Boolean),
     }))
-    .filter(s => s.items.length), [SECTIONS, isPageAllowed, isAdmin, q])
+    .filter(s => s.items.length), [SECTIONS, isPageAllowed, isAdmin, q, user?.role, tenant?.allowedPages])
 
   const firstMatch = useMemo(() => {
     for (const s of visibleSections) for (const it of s.items) { if (it.to) return it.to; if (it.children?.[0]) return it.children[0].to }
@@ -562,17 +572,17 @@ export default function AppLayout() {
             </div>
             {isAdmin && branches.length > 0 && (
               <div ref={branchRef} style={{ position: 'relative', flexShrink: 0 }}>
-                <button className={`lay-ib ${showBranches ? 'on' : currentBranchId ? 'grn' : ''}`} onClick={() => setShowBranches(s => !s)} title="Chanje branch" aria-label="Chanje branch">
+                <button className={`lay-ib ${showBranches ? 'on' : currentBranchId ? 'grn' : ''}`} onClick={() => setShowBranches(s => !s)} title={L('lay.changeBranch', 'Chanje branch')} aria-label={L('lay.changeBranch', 'Chanje branch')}>
                   <GitBranch size={13}/>
                 </button>
                 {showBranches && createPortal(
                   <div ref={branchMenuRef} style={{ position: 'fixed', top: branchMenuPos.top, left: branchMenuPos.left, minWidth: 230, maxWidth: 'calc(100vw - 32px)', zIndex: 9999, background: '#0f1117', border: '1px solid rgba(245,104,12,.22)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,.65)', overflow: 'hidden', fontFamily: 'Manrope, sans-serif', animation: 'lay-pop .18s both' }}>
                     <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(245,104,12,.1)', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
-                      <GitBranch size={12}/> Chanje branch
+                      <GitBranch size={12}/> {L('lay.changeBranch', 'Chanje branch')}
                     </div>
                     <button onClick={handleClearBranch} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(245,104,12,.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5680c' }}/>
-                      <span style={{ flex: 1, textAlign: 'left' }}><b style={{ display: 'block', color: '#fff', fontSize: 13 }}>Tout branch yo</b><small style={{ color: '#64748b', fontSize: 10 }}>Wè done global</small></span>
+                      <span style={{ flex: 1, textAlign: 'left' }}><b style={{ display: 'block', color: '#fff', fontSize: 13 }}>{L('lay.allBranches', 'Tout branch yo')}</b><small style={{ color: '#64748b', fontSize: 10 }}>{L('lay.globalData', 'Wè done global')}</small></span>
                       {!currentBranchId && <span style={{ color: '#f5680c', fontSize: 11, fontWeight: 800 }}>✓</span>}
                     </button>
                     {branches.map(b => {
@@ -580,13 +590,13 @@ export default function AppLayout() {
                       return (
                         <button key={b.id} onClick={() => handleSwitchBranch(b)} disabled={!b.isActive} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: b.isActive ? 'pointer' : 'not-allowed', background: cur ? 'rgba(34,197,94,.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
                           <span style={{ width: 8, height: 8, borderRadius: '50%', background: b.isActive ? '#22c55e' : '#ef4444', flexShrink: 0 }}/>
-                          <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}><b style={{ display: 'block', color: b.isActive ? '#fff' : '#64748b', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</b><small style={{ color: '#64748b', fontSize: 10 }}>{b.isActive ? 'Aktif' : 'Bloke'}</small></span>
+                          <span style={{ flex: 1, textAlign: 'left', minWidth: 0 }}><b style={{ display: 'block', color: b.isActive ? '#fff' : '#64748b', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</b><small style={{ color: '#64748b', fontSize: 10 }}>{b.isActive ? L('lay.active', 'Aktif') : L('lay.blocked', 'Bloke')}</small></span>
                           {cur ? <span style={{ color: '#22c55e', fontSize: 11, fontWeight: 800 }}>✓</span> : !b.isActive ? <Lock size={11} color="#64748b"/> : <ChevronRight size={13} color="#64748b"/>}
                         </button>
                       )
                     })}
                     <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }} style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11.5, fontWeight: 800 }}>
-                      <GitBranch size={12}/> Jere branch yo →
+                      <GitBranch size={12}/> {L('lay.manageBranches', 'Jere branch yo →')}
                     </button>
                   </div>,
                   document.body
@@ -597,13 +607,13 @@ export default function AppLayout() {
           </div>
           <div className={`lay-plan ${isEnterprise ? 'ent' : ''}`}>
             <span>{isEnterprise && <Crown size={12}/>}{planName || 'Free'}</span>
-            {!isEnterprise && <NavLink to="/app/plans">Upgrade →</NavLink>}
+            {!isEnterprise && <NavLink to="/app/plans">{L('lay.upgrade', 'Upgrade →')}</NavLink>}
           </div>
         </div>
 
         <div className="lay-find">
           <Search size={14}/>
-          <input ref={findRef} value={find} onChange={e => setFind(e.target.value)} placeholder="Chèche yon paj…"
+          <input ref={findRef} value={find} onChange={e => setFind(e.target.value)} placeholder={L('lay.search', 'Chèche yon paj…')}
             onKeyDown={e => { if (e.key === 'Enter' && firstMatch) { navigate(firstMatch); setFind('') } if (e.key === 'Escape') setFind('') }}/>
           {find ? <button onClick={() => setFind('')} aria-label="Efase"><X size={13}/></button> : isDesktop && <kbd>Ctrl K</kbd>}
         </div>
@@ -614,7 +624,7 @@ export default function AppLayout() {
               <div className="lay-sec" style={{ '--c': s.color }}>{s.title}</div>
               {s.items.map(it => renderItem(it, s.color))}
             </div>
-          )) : <div className="lay-empty">Okenn paj pa koresponn ak « {find} »</div>}
+          )) : <div className="lay-empty">{t('lay.noMatch', { q: find, defaultValue: `Okenn paj pa koresponn ak « ${find} »` })}</div>}
         </nav>
 
         <div className="lay-foot">
@@ -628,12 +638,12 @@ export default function AppLayout() {
           </NavLink>
           <div className="lay-user" title={col ? user?.fullName : undefined}>
             <div className="av">{user?.fullName?.trim()?.charAt(0)?.toUpperCase() || 'U'}</div>
-            <div className="who"><b>{user?.fullName || '—'}</b><small>{ROLE_LABELS[user?.role] || user?.role}</small></div>
-            <button className="lo" onClick={handleLogout} title="Dekonekte" aria-label="Dekonekte"><LogOut size={16}/></button>
+            <div className="who"><b>{user?.fullName || '—'}</b><small>{L(`lay.roles.${user?.role}`, ROLE_LABELS[user?.role] || user?.role)}</small></div>
+            <button className="lo" onClick={handleLogout} title={L('lay.logout', 'Dekonekte')} aria-label={L('lay.logout', 'Dekonekte')}><LogOut size={16}/></button>
           </div>
           {isDesktop && (
-            <button className="lay-collapse" onClick={() => setCol(c => !c)} title={col ? 'Agrandi meni an' : 'Redwi meni an'}>
-              <ChevronsLeft size={15}/><span>Redwi meni an</span>
+            <button className="lay-collapse" onClick={() => setCol(c => !c)} title={col ? L('lay.expand', 'Agrandi meni an') : L('lay.collapse', 'Redwi meni an')}>
+              <ChevronsLeft size={15}/><span>{L('lay.collapse', 'Redwi meni an')}</span>
             </button>
           )}
         </div>
@@ -695,7 +705,7 @@ export default function AppLayout() {
           <NotificationBell lang={i18n.language}/>
         </header>
 
-        {!online && <div className="lay-off"><WifiOff size={14}/> Ou pa konekte ak entènèt — kèk done ka pa ajou.</div>}
+        {!online && <div className="lay-off"><WifiOff size={14}/> {L('lay.offline', 'Ou pa konekte ak entènèt — kèk done ka pa ajou.')}</div>}
 
         <ScrollArea pathname={path}>
           <div key={path} className="lay-page"><Outlet/></div>

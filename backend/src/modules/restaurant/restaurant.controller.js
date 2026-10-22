@@ -2,6 +2,7 @@
 const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./restaurant.service');
 const pub = require('./restaurant.public.service');
+const sales = require('./restaurant.sales.service');
 const { handle } = require('./restaurant.db');
 
 const tenantNameOf = (req) => req.tenant?.businessName || req.tenant?.name || 'Restoran';
@@ -89,13 +90,14 @@ const getSummary = handle(async (req, res) => {
 
 const getPortalSettings = handle(async (req, res) => {
   const settings = await svc.getPortalSettings(req.tenant.id, tenantNameOf(req), tenantSlugOf(req));
-  res.json({ success: true, tenant: { id: req.tenant.id, name: tenantNameOf(req) }, settings });
+  res.json({ success: true, tenant: { id: req.tenant.id, name: tenantNameOf(req) }, settings: { ...settings, allowed: sales.portalAllowed(req.tenant) } });
 });
 
 const savePortalSettings = handle(async (req, res) => {
-  const settings = await svc.savePortalSettings(req.tenant.id, tenantNameOf(req), req.body || {}, tenantSlugOf(req));
+  const allowed = sales.portalAllowed(req.tenant);
+  const settings = await svc.savePortalSettings(req.tenant.id, tenantNameOf(req), req.body || {}, tenantSlugOf(req), allowed);
   pub.invalidatePortalCache(req.tenant.id);
-  res.json({ success: true, settings });
+  res.json({ success: true, settings: { ...settings, allowed } });
 });
 
 // ══════════════════════════════════════════════
@@ -138,7 +140,36 @@ const updateReservation = handle(async (req, res) => {
   res.json({ success: true, reservation });
 });
 
+// ══════════════════════════════════════════════
+// VANT, RAPÒ, TABLO BÒ, PREFERANS
+// ══════════════════════════════════════════════
+const recordSale = handle(async (req, res) => {
+  const r = await sales.recordSale(req.tenant.id, req.branchId, req.user, req.body || {});
+  res.status(r.created ? 201 : 200).json({ success: true, ...r });
+});
+
+// Kesye wè SÈLMAN pwòp vant li; admin ka filtre pa kesye
+const getReport = handle(async (req, res) => {
+  const role = req.user?.role;
+  const cashierId = role === 'admin' || req.user?.isAdmin ? (req.query.cashierId || undefined) : req.user?.id;
+  const report = await sales.getReport(req.tenant.id, { from: req.query.from, to: req.query.to, cashierId, branchId: req.branchId });
+  res.json({ success: true, tenant: { name: tenantNameOf(req) }, scope: cashierId ? 'cashier' : 'all', cashier: cashierId ? (req.user?.fullName || req.user?.email) : null, report });
+});
+
+const getDashboard = handle(async (req, res) => {
+  res.json({ success: true, tenant: { name: tenantNameOf(req) }, dashboard: await sales.getDashboard(req.tenant.id, req.branchId) });
+});
+
+const getPrefs = handle(async (req, res) => {
+  res.json({ success: true, prefs: await sales.getPrefs(req.tenant) });
+});
+
+const setPrefs = handle(async (req, res) => {
+  res.json({ success: true, prefs: await sales.setDashboardMode(req.tenant, req.body?.dashboardMode ?? req.body?.mode) });
+});
+
 module.exports = {
+  recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,
   getCategories, createCategory, updateCategory, deleteCategory,
   getSummary, getPortalSettings, savePortalSettings,
