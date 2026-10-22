@@ -201,22 +201,21 @@ const CategoryModal = ({ categories, onClose }) => {
 // ════════════════════════════════════════════════════════════
 // Lightbox foto
 // ════════════════════════════════════════════════════════════
-const ImageLightbox = ({ product, loading, onClose }) => {
+const ImageLightbox = ({ product, onClose }) => {
   const [zoomed, setZoomed] = useState(false)
   useEsc(onClose)
   return (
     <div className="iv-lightbox" onClick={onClose}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ overflow: 'hidden', borderRadius: 16, display: 'inline-block' }}>
-          {/* ✅ KORIJE — lajè fiks (pa lajè natirèl imaj la) pou l parèt "gwo" touswit
-              menm si sous lan se ti thumbnail la pou kounye a; vèsyon klè a ranplase l
-              san "boza" — jis yon ti flou ki disparèt lè l fini chaje. */}
+          {/* ✅ KORIJE — pa gen flou/transisyon ankò: lè modal sa a louvri, imaj
+              la DEJA se vrè gwo vèsyon an (nou tann l fini chaje AVAN nou louvri
+              modal la — gade handleZoom). Yon sèl aparisyon, gwo, klè, net. */}
           <img src={product.imageUrl} alt={product.name} onClick={(e) => { e.stopPropagation(); setZoomed(z => !z) }}
             style={{
               width: 'min(92vw, 640px)', height: 'auto', display: 'block',
               transform: zoomed ? 'scale(2)' : 'scale(1)',
-              filter: loading ? 'blur(9px)' : 'none',
-              transition: 'transform .25s, filter .35s ease',
+              transition: 'transform .25s',
               cursor: zoomed ? 'zoom-out' : 'zoom-in',
             }}/>
         </div>
@@ -672,17 +671,18 @@ export default function ProductsPage() {
   // nou louvri modal la touswit ak thumbnail la (rapid), epi nou chèche vrè
   // pwodui a endividyèlman (GET /products/:id) ki gen VRÈ `imageUrl` la, epi
   // nou ranplase l san moun pa wè okenn "flash".
+  // ✅ KORIJE — pa louvri modal la ak thumbnail la pou apre ranplase l (sa te bay
+  // yon "boza"/flou). Kounye a nou TANN vrè gwo vèsyon an (GET /products/:id)
+  // FINI chaje anvan nou louvri modal la — yon sèl aparisyon, net, san flou.
   const handleZoom = async (p) => {
-    setZoomProduct(p)
     setZoomLoading(true)
     try {
       const res  = await productAPI.getOne(p.id)
       const full = res.data?.product || res.data
-      if (full?.imageUrl) {
-        setZoomProduct(prev => (prev && prev.id === p.id ? { ...prev, imageUrl: full.imageUrl } : prev))
-      }
+      setZoomProduct(full?.imageUrl ? { ...p, imageUrl: full.imageUrl } : p)
     } catch {
-      // ✅ filè sekirite — si rekèt la echwe, lightbox la rete ak thumbnail la, pa kraze
+      // ✅ filè sekirite — si rekèt la echwe, louvri kanmenm ak thumbnail la
+      setZoomProduct(p)
     } finally {
       setZoomLoading(false)
     }
@@ -815,7 +815,13 @@ export default function ProductsPage() {
       {(modal?.type === 'create' || modal?.type === 'edit') && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate} onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
       )}
-      {zoomProduct && <ImageLightbox product={zoomProduct} loading={zoomLoading} onClose={() => setZoomProduct(null)}/>}
+      {/* ✅ Pandan nou tann vrè gwo vèsyon an chaje (anvan modal la louvri) */}
+      {zoomLoading && !zoomProduct && (
+        <div className="iv-lightbox" style={{ cursor: 'default' }}>
+          <RefreshCw size={30} className="spin" color="#fff"/>
+        </div>
+      )}
+      {zoomProduct && <ImageLightbox product={zoomProduct} onClose={() => setZoomProduct(null)}/>}
 
       {cartCount > 0 && !cartOpen && (
         <button className="pd-fab" onClick={() => setCartOpen(true)}>
