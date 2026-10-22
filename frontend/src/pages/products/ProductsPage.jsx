@@ -655,6 +655,26 @@ export default function ProductsPage() {
 
   const handleDelete = (p) => { if (confirm(tr(t, 'products.deleteConfirm', `Efase "${p.name}"?`))) deleteMutation.mutate(p.id) }
 
+  // ✅ KORIJE — lis pwodui a (GET /products) renvoye `thumbnailUrl` (100px/60%)
+  // nan plas `imageUrl` pou ekonomize egress (gade product.service.js getAll()).
+  // Konsa, modal zoom lan te toujou ap montre ti miniyati a olye vrè gwo imaj
+  // la, kèlkeswa kalite konpresyon nou monte. Kounye a, lè w klike pou zoome,
+  // nou louvri modal la touswit ak thumbnail la (rapid), epi nou chèche vrè
+  // pwodui a endividyèlman (GET /products/:id) ki gen VRÈ `imageUrl` la, epi
+  // nou ranplase l san moun pa wè okenn "flash".
+  const handleZoom = async (p) => {
+    setZoomProduct(p)
+    try {
+      const res  = await productAPI.getOne(p.id)
+      const full = res.data?.product || res.data
+      if (full?.imageUrl) {
+        setZoomProduct(prev => (prev && prev.id === p.id ? { ...prev, imageUrl: full.imageUrl } : prev))
+      }
+    } catch {
+      // ✅ filè sekirite — si rekèt la echwe, lightbox la rete ak thumbnail la, pa kraze
+    }
+  }
+
   const inCart = useMemo(() => new Set(cartItems.map(it => it.productId)), [cartItems])
   const cartCount = cartItems.reduce((s, it) => s + Number(it.qty || 0), 0)
   const cartTotal = cartItems.reduce((s, it) => s + Number(it.qty || 0) * Number(it.unitPrice || 0), 0)
@@ -764,7 +784,7 @@ export default function ProductsPage() {
           : products.map((p, i) => (
               <ProductCard key={p.id} p={p} t={t} index={i} inCart={inCart.has(p.id)}
                 onEdit={(prod) => setModal({ type: 'edit', product: prod })}
-                onDelete={handleDelete} onAddToCart={addToCart} onZoom={setZoomProduct}/>
+                onDelete={handleDelete} onAddToCart={addToCart} onZoom={handleZoom}/>
             ))}
       </div>
 
