@@ -747,3 +747,97 @@ button.rs-star .rs-star__fill { top: 3px; left: 3px; height: calc(100% - 6px); }
 .rs-switch-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 14px; border-radius: var(--r-md);
   background: linear-gradient(90deg, var(--paprika-soft), var(--saffron-soft)); border: 1px solid color-mix(in srgb, var(--paprika) 35%, transparent); animation: rs-rise var(--slow) var(--ease-out) both; }
 .rs-switch-banner__text { flex: 1 1 220px; font: 600 13.5px/19px var(--font-sans); color: var(--ink); }
+
+/* ══════════════════════════════════════════════
+   ANYÈ « PLUS RESTO » (/resto)
+   ══════════════════════════════════════════════ */
+.rs-brand__logo--app { background: none; box-shadow: 0 10px 24px -10px rgba(232, 100, 44, 0.7); }
+.rs-dir__hero { position: relative; overflow: hidden; border-radius: var(--r-xl); padding: 26px 22px 22px; margin-bottom: 18px;
+  animation: rs-rise var(--slow) var(--ease-out) both; }
+.rs-dir__glow { position: absolute; inset: -40% -10% auto auto; width: 70%; aspect-ratio: 1; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(255, 122, 69, 0.35), transparent 65%); filter: blur(10px); animation: rs-dir-float 9s ease-in-out infinite alternate; }
+@keyframes rs-dir-float { to { transform: translate(-12%, 14%) scale(1.1); } }
+.rs-dir__title { position: relative; margin: 0; font: 600 clamp(26px, 6vw, 40px)/1.08 var(--font-display); letter-spacing: -0.01em; }
+.rs-dir__sub { position: relative; margin: 6px 0 16px; color: var(--ink-muted); font: 500 14px/20px var(--font-sans); max-width: 520px; }
+.rs-dir__search { position: relative; }
+.rs-dir__row { position: relative; display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; align-items: center; }
+.rs-dir__city { flex: 1 1 160px; max-width: 260px; min-width: 0; height: 44px; }
+.rs-btn.is-spin svg { animation: rs-spin 0.9s linear infinite; }
+@keyframes rs-spin { to { transform: rotate(360deg); } }
+.rs-dir__bar { display: flex; align-items: center; gap: 12px; margin: 4px 0 14px; min-width: 0; }
+.rs-dir__bar .rs-chips { flex: 1; min-width: 0; }
+.rs-dir__count { flex: none; color: var(--ink-muted); font: 600 12.5px/1 var(--font-sans); transition: opacity var(--base); }
+.rs-dir__count.is-busy { opacity: 0.45; }
+.rs-dir__foot { text-align: center; color: var(--ink-faint); font: 500 12px/1 var(--font-sans); padding: 30px 0 10px; }
+.rs-dir__foot a { color: var(--paprika-ink); font-weight: 700; text-decoration: none; }
+
+/* Bandwòl « Enstale app la » */
+.rs-install { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 40px 12px 12px; border-radius: var(--r-lg); margin-bottom: 16px;
+  animation: rs-rise var(--slow) var(--ease-out) both; animation-delay: 120ms; }
+.rs-install__icon { width: 46px; height: 46px; flex: none; border-radius: 13px; overflow: hidden; box-shadow: var(--shadow-glow); }
+.rs-install__icon img { width: 100%; height: 100%; display: block; }
+.rs-install__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rs-install__text b { font: 700 14px/18px var(--font-sans); }
+.rs-install__text span { color: var(--ink-muted); font: 500 12.5px/17px var(--font-sans); }
+.rs-install__text span svg { vertical-align: -2px; }
+.rs-install__x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; border: 0; display: grid; place-items: center;
+  background: var(--glass-strong); color: var(--ink-muted); cursor: pointer; }
+
+/* Grid ak kat restoran */
+.rs-rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.rs-rcard { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 30%; perspective: 1000px; min-width: 0; cursor: pointer; outline: none;
+  animation: rs-rise var(--slow) var(--ease-out) both; animation-delay: var(--delay, 0ms); }
+.rs-rcard__inner { position: relative; height: 100%; border-radius: var(--r-lg); overflow: hidden; display: flex; flex-direction: column;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)); transform-style: preserve-3d;
+  transition: transform var(--slow) var(--ease-out), box-shadow var(--base), border-color var(--base);
+  background: var(--glass); border: 1px solid var(--glass-border); box-shadow: var(--shadow-glass);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(160%); backdrop-filter: blur(var(--blur-md)) saturate(160%); }
+.rs-rcard:hover .rs-rcard__inner, .rs-rcard:focus-visible .rs-rcard__inner { border-color: var(--paprika); box-shadow: var(--shadow-glass), 0 18px 40px -18px var(--paprika); }
+.rs-rcard:active .rs-rcard__inner { transform: scale(0.985); }
+.rs-rcard.is-closed .rs-rcard__cover img, .rs-rcard.is-closed .rs-rcard__art { filter: saturate(0.55); }
+.rs-rcard__cover { position: relative; height: 150px; overflow: hidden;
+  background: radial-gradient(120% 120% at 20% 0%, var(--paprika-soft), transparent 60%), linear-gradient(135deg, var(--saffron-soft), var(--glass-strong)); }
+.rs-rcard__cover img { width: 100%; height: 100%; object-fit: cover; display: block; transform: scale(1.02); transition: transform 900ms var(--ease-out); }
+.rs-rcard:hover .rs-rcard__cover img { transform: scale(1.08); }
+.rs-rcard__art { position: absolute; inset: 0; display: grid; place-items: center; transition: transform 900ms var(--ease-out); }
+.rs-rcard:hover .rs-rcard__art { transform: rotate(-8deg) scale(1.05); }
+.rs-rcard__shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 38%, transparent 62%, rgba(0,0,0,0.4) 100%); pointer-events: none; }
+.rs-rcard__top { position: absolute; top: 10px; left: 10px; right: 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rs-rcard__top .rs-badge { background: rgba(20, 12, 6, 0.66); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.rs-rcard__top .rs-badge--basil { color: #7fe0a6; } .rs-rcard__top .rs-badge--saffron { color: #ffd27a; }
+.rs-rcard__dist { position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: var(--r-pill);
+  background: rgba(20, 12, 6, 0.62); color: #fff; font: 700 12px/1 var(--font-sans); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.rs-rcard__body { position: relative; padding: 32px 14px 14px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.rs-rcard__logo { position: absolute; top: -28px; left: 14px; width: 54px; height: 54px; border-radius: 16px; overflow: hidden; display: grid; place-items: center;
+  background: var(--paprika); color: var(--on-paprika); font: 700 22px/1 var(--font-display); border: 3px solid var(--bg, #16110d);
+  box-shadow: 0 10px 22px -10px rgba(0,0,0,0.6); transform: translateZ(30px); }
+.rs[data-theme="light"] .rs-rcard__logo { border-color: #fff; }
+.rs-rcard__logo img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+.rs-rcard__head { min-width: 0; }
+.rs-rcard__name { margin: 0; font: 600 18px/23px var(--font-display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-rcard__sub { display: block; color: var(--ink-muted); font: 500 13px/18px var(--font-sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-rcard__rating { position: absolute; top: 8px; right: 14px; }
+.rs-rcard__tags { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: auto; padding-top: 4px; color: var(--ink-muted); font: 600 12px/16px var(--font-sans); }
+.rs-rcard__tags span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.rs-rcard__tags svg { color: var(--paprika-ink); }
+
+/* Bouton « tout restoran yo » nan pòtal la */
+.rs-backdir { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 10px; padding: 7px 12px 7px 9px; border-radius: var(--r-pill); border: 1px solid var(--glass-border);
+  background: var(--glass); color: var(--ink); font: 600 12.5px/1 var(--font-sans); cursor: pointer; }
+.rs-backdir:hover { border-color: var(--paprika); }
+
+/* Paramèt anyè (bò staff) */
+.rs-geo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rs-geo__pin { display: inline-flex; align-items: center; gap: 6px; font: 600 13px/18px var(--font-sans); }
+
+@media (max-width: 520px) {
+  .rs-dir__hero { padding: 20px 16px 16px; border-radius: var(--r-lg); }
+  .rs-dir__row > .rs-btn { flex: 1 1 100%; }
+  .rs-dir__city { max-width: none; flex-basis: 100%; }
+  .rs-dir__bar { flex-wrap: wrap; gap: 6px; }
+  .rs-dir__count { order: -1; width: 100%; }
+  .rs-rgrid { gap: 14px; }
+  .rs-rcard__cover { height: 132px; }
+  .rs-rcard__rating { position: static; }
+}
+@media (prefers-reduced-motion: reduce) { .rs-dir__glow { animation: none; } }

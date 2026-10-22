@@ -29,6 +29,13 @@ const sendImage = (img, res) => {
   res.send(img.buffer);
 };
 
+// ── Anyè Plus Resto: GET /public/resto?lat=&lng=&q=&city=&delivery=1&open=1
+// (dwe vini ANVAN '/:slug')
+router.get('/', rateLimit(120, 60 * 1000), handle(async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=60');
+  res.json({ success: true, ...(await pub.listDirectory(req.query)) });
+}));
+
 router.get('/:slug', handle(async (req, res) => {
   res.set('Cache-Control', 'public, max-age=30');
   res.json({ success: true, ...(await pub.getPortal(req.params.slug)) });

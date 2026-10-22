@@ -3,12 +3,13 @@
 // Kliyan an wè meni an, mete plat nan panye, kòmande (livrezon / pran sou plas),
 // swiv kòmand li an dirèk, epi rezève yon tab. Pa bezwen kont.
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useParams, useSearchParams } from 'react-router-dom'
+import { useParams, useSearchParams, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   UtensilsCrossed, CalendarDays, ShoppingBag, Navigation, Globe, Phone, MapPin, Clock, Bike, Store,
-  ChevronRight, Trash2, Wallet, CheckCircle2, ChefHat, Home, Search as SearchIcon, AlertTriangle, Check, MessageCircle, Heart, Send,
+  ChevronRight, Trash2, Wallet, CheckCircle2, ChefHat, Home, Search as SearchIcon, AlertTriangle, Check, MessageCircle, Heart, Send, ChevronLeft,
 } from 'lucide-react'
+import { setupPlusRestoPwa } from './restoPwa'
 import { useRT, LANGS, changeRestoLang } from '../restaurant/restoI18n'
 import { publicApi, errorCode, rateOrder } from '../restaurant/restoApi'
 import {
@@ -26,7 +27,7 @@ const FINAL = ['livre', 'anile']
 // ══════════════════════════════════════════════
 // Seleksyon lang
 // ══════════════════════════════════════════════
-function LangSwitch({ i18n, lang }) {
+export function LangSwitch({ i18n, lang }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   useEffect(() => {
@@ -370,6 +371,12 @@ function CartView({ slug, data, lines, setQty, clearCart, onPlaced, goMenu, t, t
 export default function RestaurantPortal() {
   const { slug } = useParams()
   const { t, te, i18n, lang } = useRT()
+  const location = useLocation()
+  const navigate = useNavigate()
+  // Bouton « Tout restoran yo » si kliyan an soti nan anyè a (oswa nan app Plus Resto a)
+  const [fromDir] = useState(() => !!location.state?.fromDir || (() => { try { return sessionStorage.getItem('plusresto-dir') === '1' } catch { return false } })())
+  useEffect(() => { setupPlusRestoPwa() }, [])
+  const [logoOk, setLogoOk] = useState(true)
   const [theme, toggleTheme] = useRestoTheme('resto-portal-theme')
   const [params, setParams] = useSearchParams()
   const view = params.get('v') || 'menu'
@@ -458,10 +465,15 @@ export default function RestaurantPortal() {
   return (
     <Stage theme={theme} className="rs-app">
       <div className="rs-app__inner">
+        {fromDir && (
+          <button type="button" className="rs-backdir" onClick={() => (location.state?.fromDir && window.history.length > 1 ? navigate(-1) : navigate('/resto'))}>
+            <ChevronLeft size={16} /> {t('dir.back')}
+          </button>
+        )}
         {/* ── Ba anlè ── */}
         <header className="rs-topbar">
           <div className="rs-brand">
-            <div className="rs-brand__logo">{r.hasLogo ? <img src={publicApi.logoUrl(slug)} alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} /> : (r.name || '?').trim().charAt(0).toUpperCase()}</div>
+            <div className="rs-brand__logo">{r.hasLogo && logoOk ? <img src={publicApi.logoUrl(slug)} alt="" onError={() => setLogoOk(false)} /> : (r.name || '?').trim().charAt(0).toUpperCase()}</div>
             <div style={{ minWidth: 0 }}>
               <h1 className="rs-brand__name">{r.name}</h1>
               <span className="rs-brand__sub">

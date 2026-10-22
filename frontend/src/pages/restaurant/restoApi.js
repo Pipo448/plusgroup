@@ -48,6 +48,8 @@ export const publicApi = {
   createReservation: (slug, payload) => data(api.post(`/public/resto/${enc(slug)}/reservations`, payload)).then((d) => d.reservation),
   imageUrl: (slug, id, v) => `${apiBase()}/public/resto/${enc(slug)}/image/${enc(id)}${v ? `?v=${v}` : ''}`,
   logoUrl: (slug) => `${apiBase()}/public/resto/${enc(slug)}/logo`,
+  // Anyè Plus Resto: restoran ki toupre (lat/lng opsyonèl), chèch, vil, filtè
+  directory: (params) => data(api.get('/public/resto', { params })),
 }
 
 function apiBase() {
@@ -73,6 +75,7 @@ export const RESTO_PATHS = {
 // Nan APK la (Capacitor) origin nan se localhost — lyen pou pataje a dwe toujou app.plusgroupe.com
 export const PUBLIC_ORIGIN = /localhost|capacitor:|ionic:/.test(window.location.origin) ? 'https://app.plusgroupe.com' : window.location.origin
 export const portalUrl = (slug) => `${PUBLIC_ORIGIN}/resto/${slug}`
+export const directoryUrl = () => `${PUBLIC_ORIGIN}/resto`
 export const rateOrder = (slug, code, payload) => data(api.post(`/public/resto/${encodeURIComponent(slug)}/orders/${encodeURIComponent(code)}/rating`, payload))
 // Lyen swivi kòmand pou voye bay kliyan an (WhatsApp)
 export const trackUrl = (slug, code, last4) => `${PUBLIC_ORIGIN}/resto/${slug}?v=track&code=${encodeURIComponent(code)}&p=${last4}`

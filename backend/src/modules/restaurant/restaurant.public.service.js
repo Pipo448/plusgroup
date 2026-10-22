@@ -330,12 +330,99 @@ async function trackReservation(slug, code, phone) {
   return { code: m.code, status: m.status, date: m.date, time: m.time, partySize: m.partySize, customerName: m.customerName };
 }
 
+// ══════════════════════════════════════════════
+// ANYÈ « PLUS RESTO » — tout restoran ki gen pòtal aktif, ranje pa distans
+// ══════════════════════════════════════════════
+const TENANT_OFF = (t) => !t || t.isActive === false || t.active === false
+  || ['suspended', 'inactive', 'blocked', 'cancelled'].includes(String(t.status || '').toLowerCase());
+
+let dirCache = null; // { at, list }
+const DIR_TTL = 3 * 60 * 1000;
+
+async function buildDirectory() {
+  if (dirCache && Date.now() - dirCache.at < DIR_TTL) return dirCache.list;
+  const rows = await q('SELECT * FROM resto_portal_settings WHERE enabled = TRUE AND listed IS NOT FALSE');
+  const list = [];
+  for (const row of rows) {
+    const tenant = await findTenantById(row.tenant_id);
+    if (TENANT_OFF(tenant) || !portalAllowed(tenant)) continue; // Super Admin lan dwe otorize pòtal la
+    const name = tenant.businessName || tenant.name || 'Restoran';
+    const st = svc.mapSettings(row, name, tenant.slug);
+    const [rating, menu] = await Promise.all([
+      getRatingSummary(String(row.tenant_id)).catch(() => ({ avg: null, count: 0 })),
+      getPublicMenu(String(row.tenant_id)).catch(() => ({ items: [] })),
+    ]);
+    const cover = menu.items.find((i) => i.hasImage && i.available) || menu.items.find((i) => i.hasImage);
+    list.push({
+      slug: st.slug,
+      name,
+      city: st.city,
+      cuisine: st.cuisine,
+      address: st.address,
+      hoursText: st.hoursText,
+      lat: st.latitude,
+      lng: st.longitude,
+      hasLogo: !!(tenant.logoUrl || tenant.logo),
+      cover: cover ? { id: cover.id, v: cover.v } : null,
+      dishes: menu.items.filter((i) => i.available).length,
+      rating: rating.avg,
+      ratingCount: rating.count,
+      open: st.acceptOrders && st.acceptingNow,
+      acceptOrders: st.acceptOrders,
+      acceptReservations: st.acceptReservations,
+      delivery: st.deliveryEnabled,
+      pickup: st.pickupEnabled,
+      deliveryFeeHtg: st.deliveryFeeHtg,
+      prepMinutes: st.prepMinutes,
+    });
+  }
+  dirCache = { at: Date.now(), list };
+  return list;
+}
+
+// Distans an km (fòmil Haversine)
+function distanceKm(aLat, aLng, bLat, bLng) {
+  const R = 6371, rad = (x) => (x * Math.PI) / 180;
+  const dLat = rad(bLat - aLat), dLng = rad(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+const fold = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+async function listDirectory({ lat, lng, q: query, city, delivery, open } = {}) {
+  const base = await buildDirectory();
+  const la = Number(lat), lo = Number(lng);
+  const hasPos = lat != null && lng != null && lat !== '' && lng !== '' && Number.isFinite(la) && Number.isFinite(lo) && Math.abs(la) <= 90 && Math.abs(lo) <= 180;
+  const needle = fold(query).trim();
+  const cityF = fold(city).trim();
+
+  let list = base.map((r) => ({
+    ...r,
+    distanceKm: hasPos && r.lat != null && r.lng != null ? Math.round(distanceKm(la, lo, r.lat, r.lng) * 10) / 10 : null,
+  }));
+  if (needle) list = list.filter((r) => [r.name, r.cuisine, r.city, r.address].some((f) => fold(f).includes(needle)));
+  if (cityF) list = list.filter((r) => fold(r.city) === cityF);
+  if (String(delivery) === '1') list = list.filter((r) => r.delivery && r.acceptOrders);
+  if (String(open) === '1') list = list.filter((r) => r.open);
+
+  list.sort((a, b) => {
+    if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm;
+    if (a.distanceKm != null) return -1;
+    if (b.distanceKm != null) return 1;
+    return (Number(b.open) - Number(a.open)) || ((b.rating || 0) - (a.rating || 0)) || a.name.localeCompare(b.name);
+  });
+
+  const cities = [...new Set(base.map((r) => r.city).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return { restaurants: list.slice(0, 100), cities, total: base.length, located: hasPos };
+}
+
 function invalidatePortalCache(tenantId) {
   menuCache.delete(String(tenantId));
   slugCache.clear();
+  dirCache = null;
 }
 
 module.exports = {
   resolveTenant, getPortal, getItemImage, getLogo, createOrder, trackOrder, rateOrder,
-  availability, createReservation, trackReservation, invalidatePortalCache,
+  availability, createReservation, trackReservation, invalidatePortalCache, listDirectory,
 };

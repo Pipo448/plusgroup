@@ -44,6 +44,7 @@ function mapSettings(r, tenantName, tenantSlug) {
       acceptingNow: true, deliveryEnabled: true, pickupEnabled: true, deliveryFeeHtg: 0, minOrderHtg: 0,
       prepMinutes: 30, phone: '', whatsapp: '', address: '', hoursText: '', welcomeMessage: '',
       paymentMethods: ['cash'], moncashNumber: '', reservationSlots: DEFAULT_SLOTS, slotCapacity: 4, maxParty: 12,
+      listed: true, latitude: null, longitude: null, city: '', cuisine: '',
     };
   }
   return {
@@ -68,8 +69,21 @@ function mapSettings(r, tenantName, tenantSlug) {
     reservationSlots: Array.isArray(r.reservation_slots) && r.reservation_slots.length ? r.reservation_slots : DEFAULT_SLOTS,
     slotCapacity: num(r.slot_capacity) || 4,
     maxParty: num(r.max_party) || 12,
+    // Anyè Plus Resto
+    listed: r.listed !== false,
+    latitude: r.latitude == null ? null : Number(r.latitude),
+    longitude: r.longitude == null ? null : Number(r.longitude),
+    city: r.city || '',
+    cuisine: r.cuisine || '',
   };
 }
+
+// Kowòdone valid oswa null
+const coord = (v, lim) => {
+  if (v === '' || v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) && Math.abs(n) <= lim ? Math.round(n * 1e6) / 1e6 : null;
+};
 
 async function getSettingsRow(tenantId) {
   const rows = await q('SELECT * FROM resto_portal_settings WHERE tenant_id = $1', String(tenantId));
@@ -119,6 +133,13 @@ async function savePortalSettings(tenantId, tenantName, data, tenantSlug, allowe
     JSON.stringify(uniqSlots.length ? uniqSlots : DEFAULT_SLOTS),
     Math.min(100, Math.max(1, Math.round(num(s.slotCapacity) || 4))),
     Math.min(100, Math.max(1, Math.round(num(s.maxParty) || 12))),
+  );
+  // Anyè Plus Resto (separe pou pa manyen gwo INSERT la)
+  let lat = coord(s.latitude, 90), lng = coord(s.longitude, 180);
+  if (lat == null || lng == null) { lat = null; lng = null; }
+  await exec(
+    `UPDATE resto_portal_settings SET listed = $2, latitude = $3, longitude = $4, city = $5, cuisine = $6 WHERE tenant_id = $1`,
+    String(tenantId), s.listed !== false, lat, lng, clean(s.city, 60), clean(s.cuisine, 80),
   );
   return getPortalSettings(tenantId, tenantName, tenantSlug);
 }

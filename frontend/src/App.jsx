@@ -99,6 +99,8 @@ const PublicDirectQuote = lazy(() => import('./pages/public/PublicDirectQuote'))
 const PublicInvoice = lazy(() => import('./pages/public/PublicInvoice'))
 // ✅ NOUVO — Pòtal piblik kliyan restoran (/resto/:slug)
 const RestaurantPortal = lazy(() => import('./pages/public/RestaurantPortal'))
+// ✅ NOUVO — Anyè « Plus Resto »: restoran toupre kliyan an (/resto) — paj kòmansman app la
+const RestoDirectory = lazy(() => import('./pages/public/RestoDirectory'))
 
 const Spinner = LoadingScreen
 
@@ -154,6 +156,7 @@ export default function App() {
           {/* ✅ NOUVO — Fakti pataje */}
           <Route path="/facture/:token" element={<PublicInvoice />} />
           {/* ✅ NOUVO — Pòtal kliyan restoran: meni, kòmand, swivi, rezèvasyon (piblik) */}
+          <Route path="/resto" element={<RestoDirectory />} />
           <Route path="/resto/:slug/*" element={<RestaurantPortal />} />
 
           <Route path="/admin/login"     element={<AdminLoginPage />} />

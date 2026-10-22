@@ -1,0 +1,22 @@
+{
+  "id": "/resto",
+  "name": "Plus Resto — Restoran toupre ou",
+  "short_name": "Plus Resto",
+  "description": "Jwenn restoran ki pi pre w yo, kòmande oswa rezève yon tab an liy. Pa PLUS GROUP.",
+  "lang": "ht",
+  "start_url": "/resto?src=app",
+  "scope": "/resto",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#16110D",
+  "theme_color": "#E8642C",
+  "categories": ["food", "shopping", "lifestyle"],
+  "icons": [
+    { "src": "/plus-resto-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/plus-resto-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/plus-resto-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Restoran toupre m", "short_name": "Toupre m", "url": "/resto?src=shortcut", "icons": [{ "src": "/plus-resto-192.png", "sizes": "192x192" }] }
+  ]
+}

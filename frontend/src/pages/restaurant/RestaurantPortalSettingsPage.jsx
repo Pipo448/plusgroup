@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { Globe, Copy, ExternalLink, Store, ShoppingBag, CalendarDays, Wallet, Plus, X, Check } from 'lucide-react'
+import { Globe, Copy, ExternalLink, Store, ShoppingBag, CalendarDays, Wallet, Plus, X, Check, MapPin, LocateFixed, Compass } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
-import { restoApi, portalUrl } from './restoApi'
+import { restoApi, portalUrl, directoryUrl } from './restoApi'
 import { Stage, Hero, Btn, Badge, Switch, Field, ThemeToggle, SkeletonGrid, PhoneFrame, useRestoTheme, useIsMobile, getTenantName } from './restoUI'
 
 const liveSlug = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+/, '').slice(0, 60)
@@ -43,6 +43,19 @@ export default function RestaurantPortalSettingsPage() {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(newSlot)) return
     setF((s) => ({ ...s, reservationSlots: [...new Set([...s.reservationSlots, newSlot])].sort() })); setNewSlot('')
   }
+
+  // Pozisyon restoran an pou anyè Plus Resto (kliyan yo wè distans lan)
+  const [locating, setLocating] = useState(false)
+  const locateMe = () => {
+    if (!navigator.geolocation) { toast.error(t('dir.posErr')); return }
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (g) => { setLocating(false); setF((s) => ({ ...s, latitude: Math.round(g.coords.latitude * 1e6) / 1e6, longitude: Math.round(g.coords.longitude * 1e6) / 1e6 })); toast.success(t('dir.posSet')) },
+      () => { setLocating(false); toast.error(t('dir.posErr')) },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+    )
+  }
+  const hasPos = f && f.latitude != null && f.longitude != null && f.latitude !== '' && f.longitude !== ''
 
   const url = f ? portalUrl(slugify(f.slug)) : ''
   const copy = async () => { try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* */ } }
@@ -92,6 +105,38 @@ export default function RestaurantPortalSettingsPage() {
               </section>
             )}
             </div>
+
+            {/* ✅ NOUVO — Anyè Plus Resto: restoran toupre kliyan an */}
+            <section className="rs-card rs-glass" style={{ '--delay': '40ms' }}>
+              <h2 className="rs-card__title"><Compass size={18} /> {t('dir.sTitle')}</h2>
+              <p className="rs-hint" style={{ marginTop: -6 }}>{t('dir.sDesc')}</p>
+              <div className="rs-form">
+                <Switch on={f.listed !== false} onChange={set('listed')} title={t('dir.listed')} desc={t('dir.listedDesc')} />
+                <div className="rs-form-grid">
+                  <Field label={t('dir.city')}><input className="rs-input" value={f.city || ''} onChange={set('city')} placeholder="Ouanaminthe" maxLength={60} /></Field>
+                  <Field label={t('dir.cuisine')} hint={t('dir.cuisineHint')}><input className="rs-input" value={f.cuisine || ''} onChange={set('cuisine')} maxLength={80} /></Field>
+                </div>
+                <Field label={t('dir.position')} hint={t('dir.posHint')}>
+                  <div className="rs-geo">
+                    <Btn variant={hasPos ? 'glass' : 'primary'} icon={LocateFixed} loading={locating} onClick={locateMe}>{t('dir.useMyPos')}</Btn>
+                    {hasPos
+                      ? <a className="rs-geo__pin" href={`https://www.openstreetmap.org/?mlat=${f.latitude}&mlon=${f.longitude}#map=17/${f.latitude}/${f.longitude}`} target="_blank" rel="noreferrer">
+                          <MapPin size={15} /> {Number(f.latitude).toFixed(5)}, {Number(f.longitude).toFixed(5)} · {t('dir.seeMap')} <ExternalLink size={13} />
+                        </a>
+                      : <Badge tone="saffron">{t('dir.posMissing')}</Badge>}
+                  </div>
+                </Field>
+                <div className="rs-form-grid">
+                  <Field label={t('dir.lat')}><input className="rs-input rs-mono" inputMode="decimal" value={f.latitude ?? ''} onChange={set('latitude')} placeholder="19.5501" /></Field>
+                  <Field label={t('dir.lng')}><input className="rs-input rs-mono" inputMode="decimal" value={f.longitude ?? ''} onChange={set('longitude')} placeholder="-71.7243" /></Field>
+                </div>
+                <Field label={t('dir.directoryLink')}>
+                  <div className="rs-link-box"><code>{directoryUrl()}</code>
+                    <Btn size="sm" variant="glass" icon={ExternalLink} onClick={() => window.open(directoryUrl(), '_blank', 'noopener')} aria-label={t('dir.directoryLink')} />
+                  </div>
+                </Field>
+              </div>
+            </section>
 
             <div className="rs-two">
               <section className="rs-card rs-glass" style={{ '--delay': '60ms' }}>

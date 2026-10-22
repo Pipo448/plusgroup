@@ -82,6 +82,13 @@ const SETUP_SQL = [
   `ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`,
   // Ki tablo bò pou montre: 'resto' (tablo restoran) | 'general' | NULL (otomatik)
   `ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT`,
+  // Anyè « Plus Resto » (restoran toupre kliyan an): pozisyon, vil, kalite manje
+  `ALTER TABLE resto_portal_settings
+     ADD COLUMN IF NOT EXISTS listed    BOOLEAN NOT NULL DEFAULT TRUE,
+     ADD COLUMN IF NOT EXISTS latitude  DOUBLE PRECISION,
+     ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+     ADD COLUMN IF NOT EXISTS city      TEXT,
+     ADD COLUMN IF NOT EXISTS cuisine   TEXT`,
   // Chak vant restoran (tab fèmen oswa kòmand an liy livre) — baz rapò vant ak tablo a
   `CREATE TABLE IF NOT EXISTS resto_sales (
     id              TEXT PRIMARY KEY,

@@ -1,4 +1,4 @@
--- restaurant.sql — Tab modil restoran an (pòtal, kòmand an liy, rezèvasyon, VANT/rapò)
+-- restaurant.sql — Tab modil restoran an (pòtal, kòmand an liy, rezèvasyon, vant/rapò, anyè Plus Resto)
 -- Backend la kreye yo otomatikman. Si ou pito, kouri fichye sa a nan Supabase SQL Editor (Run without RLS).
 
 CREATE TABLE IF NOT EXISTS resto_portal_settings (
@@ -58,6 +58,13 @@ ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS review TEXT;
 ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ;
 
 ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT;
+
+ALTER TABLE resto_portal_settings
+     ADD COLUMN IF NOT EXISTS listed    BOOLEAN NOT NULL DEFAULT TRUE,
+     ADD COLUMN IF NOT EXISTS latitude  DOUBLE PRECISION,
+     ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+     ADD COLUMN IF NOT EXISTS city      TEXT,
+     ADD COLUMN IF NOT EXISTS cuisine   TEXT;
 
 CREATE TABLE IF NOT EXISTS resto_sales (
     id              TEXT PRIMARY KEY,
