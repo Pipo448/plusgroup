@@ -41,19 +41,30 @@ async function logAudit(tenantId, action, targetName, details = {}) {
 
 router.use(superAdminAuth)
 
+// ⚠️ KORIJE — itilize Prisma ORM (champ `allowedPages`) olye SQL brit sou `allowed_pages`:
+// non kolòn reyèl la ka diferan nan baz done a (sa te bay « Erè trete done » 500).
+async function loadTenant(id) {
+  try {
+    return await prisma.tenant.findUnique({ where: { id }, select: { id: true, name: true, allowedPages: true } })
+  } catch (e) {
+    // id ki pa yon UUID valid → tenant pa jwenn
+    if (/uuid|invalid|Inconsistent/i.test(e.message)) return null
+    throw e
+  }
+}
+
 // ── GET /api/v1/admin/tenants/:id/pages
 router.get('/', asyncHandler(async (req, res) => {
-  const rows = await prisma.$queryRawUnsafe(
-    'SELECT allowed_pages FROM tenants WHERE id = CAST($1 AS uuid)',
-    req.params.id,
-  )
-  if (!rows || rows.length === 0)
-    return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
-
-  const saved = parsePages(rows[0].allowed_pages)
-  // dashboard toujou ON; paj ki pa janm sove yo parèt fèmen
-  const pages = { ...DEFAULT_PAGES, ...saved, dashboard: true }
-  res.json({ success: true, pages })
+  try {
+    const t = await loadTenant(req.params.id)
+    if (!t) return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
+    // dashboard toujou ON; paj ki pa janm sove yo parèt fèmen
+    const pages = { ...DEFAULT_PAGES, ...parsePages(t.allowedPages), dashboard: true }
+    res.json({ success: true, pages })
+  } catch (e) {
+    console.error('[tenant-pages GET]', e)
+    res.status(500).json({ success: false, message: `Paj yo pa ka chaje: ${e.message}` })
+  }
 }))
 
 // ── PATCH /api/v1/admin/tenants/:id/pages
@@ -62,32 +73,34 @@ router.patch('/', asyncHandler(async (req, res) => {
   if (!pages || typeof pages !== 'object')
     return res.status(400).json({ success: false, message: 'pages obligatwa (obje JSON).' })
 
-  // Kenbe sèlman paj ki nan ALL_PAGES; dashboard toujou true
-  const sanitized = {}
-  ALL_PAGES.forEach((key) => { sanitized[key] = key === 'dashboard' ? true : pages[key] === true })
+  try {
+    const t = await loadTenant(req.params.id)
+    if (!t) return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
 
-  // Pa pèdi lòt kle ki te deja sove (egz. paj yon ansyen vèsyon) — sèlman ALL_PAGES chanje
-  const rows = await prisma.$queryRawUnsafe(
-    'SELECT name, allowed_pages FROM tenants WHERE id = CAST($1 AS uuid)',
-    req.params.id,
-  )
-  if (!rows || rows.length === 0)
-    return res.status(404).json({ success: false, message: 'Tenant pa jwenn.' })
-  const merged = { ...parsePages(rows[0].allowed_pages), ...sanitized }
+    // Kenbe sèlman paj ki nan ALL_PAGES; dashboard toujou true
+    const sanitized = {}
+    ALL_PAGES.forEach((key) => { sanitized[key] = key === 'dashboard' ? true : pages[key] === true })
+    // Pa pèdi lòt kle ki te deja sove yo — sèlman ALL_PAGES chanje
+    const merged = { ...parsePages(t.allowedPages), ...sanitized }
 
-  await prisma.$executeRawUnsafe(
-    'UPDATE tenants SET allowed_pages = CAST($1 AS jsonb) WHERE id = CAST($2 AS uuid)',
-    JSON.stringify(merged),
-    req.params.id,
-  )
+    // Si champ lan se String nan schema a (pa Json), sove l kòm tèks JSON
+    const asString = typeof t.allowedPages === 'string'
+    await prisma.tenant.update({
+      where: { id: t.id },
+      data: { allowedPages: asString ? JSON.stringify(merged) : merged },
+    })
 
-  await logAudit(req.params.id, 'PAGE_ACCESS_UPDATED', rows[0].name, {
-    enabled: Object.values(sanitized).filter(Boolean).length,
-    disabled: Object.values(sanitized).filter((v) => !v).length,
-    restaurantPortal: sanitized['restaurant-portal'],
-  })
+    await logAudit(t.id, 'PAGE_ACCESS_UPDATED', t.name, {
+      enabled: Object.values(sanitized).filter(Boolean).length,
+      disabled: Object.values(sanitized).filter((v) => !v).length,
+      restaurantPortal: sanitized['restaurant-portal'],
+    })
 
-  res.json({ success: true, pages: merged, message: 'Aksè paj yo ajou.' })
+    res.json({ success: true, pages: merged, message: 'Aksè paj yo ajou.' })
+  } catch (e) {
+    console.error('[tenant-pages PATCH]', e)
+    res.status(500).json({ success: false, message: `Paj yo pa sove: ${e.message}` })
+  }
 }))
 
 module.exports = router
