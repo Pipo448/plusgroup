@@ -8,8 +8,9 @@ let prismaRef = null;
 
 function getPrisma() {
   if (prismaRef) return prismaRef;
+  // src/config/prisma.js se kliyan Prisma PLUS GROUP la (menm ak restaurant-tables.service.js)
   const candidates = [
-    '../../config/database', '../../config/prisma', '../../config/db',
+    '../../config/prisma', '../../config/database', '../../config/db',
     '../../lib/prisma', '../../utils/prisma', '../../prisma', '../../db',
   ];
   for (const p of candidates) {
