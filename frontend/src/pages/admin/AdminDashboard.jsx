@@ -1658,7 +1658,7 @@ export default function AdminDashboard() {
 
   // ✅ Tout hooks anvan nenpòt kondisyonèl
   const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data),    retry:1 })
-  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants').then(r=>r.data),  retry:1 })
+  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants', { params: { limit: 1000 } }).then(r=>r.data), // ✅ KORIJE — backend lan te bay sèlman 20 premye (limit default), sa te kache ansyen antrepriz yo (egz. PLUS STORE)  retry:1 })
   const { data: plansData }    = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminApi.get('/admin/plans').then(r=>r.data),    retry:1 })
   const { data: expiringData } = useQuery({ queryKey:['admin-expiring'], queryFn:() => adminApi.get('/admin/expiring').then(r=>r.data), retry:1, refetchInterval:5*60*1000 })
 
@@ -1912,7 +1912,7 @@ export default function AdminDashboard() {
         <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(201,168,76,0.1)', borderRadius:20, overflow:'hidden', backdropFilter:'blur(10px)', boxShadow:'0 8px 40px rgba(0,0,0,0.4)' }}>
           <div style={{ padding: isMobile?'14px 16px':'18px 24px', borderBottom:'1px solid rgba(201,168,76,0.08)', display:'flex', alignItems:'center', justifyContent:'space-between', background:'rgba(201,168,76,0.03)' }}>
             <div>
-              <h3 style={{ margin:0, fontSize: isMobile?14:15, fontWeight:700, color:'#fff', fontFamily:"'Playfair Display'" }}>Entreprise yo ({tenants.length})</h3>
+              <h3 style={{ margin:0, fontSize: isMobile?14:15, fontWeight:700, color:'#fff', fontFamily:"'Playfair Display'" }}>Entreprise yo ({tenantsData?.total ?? tenants.length})</h3>
               {!isMobile && <p style={{ margin:0, fontSize:10, color:'rgba(201,168,76,0.6)', letterSpacing:'0.06em' }}>KLIYAN SaaS AKTIF</p>}
             </div>
             <div style={{ display:'flex', gap:8 }}>
