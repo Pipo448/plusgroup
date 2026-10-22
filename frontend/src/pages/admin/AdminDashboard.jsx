@@ -1658,7 +1658,8 @@ export default function AdminDashboard() {
 
   // ✅ Tout hooks anvan nenpòt kondisyonèl
   const { data: statsData }    = useQuery({ queryKey:['admin-stats'],    queryFn:() => adminApi.get('/admin/stats').then(r=>r.data),    retry:1 })
-  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants', { params: { limit: 1000 } }).then(r=>r.data), // ✅ KORIJE — backend lan te bay sèlman 20 premye (limit default), sa te kache ansyen antrepriz yo (egz. PLUS STORE)  retry:1 })
+  // ✅ KORIJE — backend lan te bay sèlman 20 premye (limit default), sa te kache ansyen antrepriz yo (egz. PLUS STORE)
+  const { data: tenantsData }  = useQuery({ queryKey:['admin-tenants'],  queryFn:() => adminApi.get('/admin/tenants', { params: { limit: 1000 } }).then(r=>r.data),  retry:1 })
   const { data: plansData }    = useQuery({ queryKey:['admin-plans'],    queryFn:() => adminApi.get('/admin/plans').then(r=>r.data),    retry:1 })
   const { data: expiringData } = useQuery({ queryKey:['admin-expiring'], queryFn:() => adminApi.get('/admin/expiring').then(r=>r.data), retry:1, refetchInterval:5*60*1000 })
 
