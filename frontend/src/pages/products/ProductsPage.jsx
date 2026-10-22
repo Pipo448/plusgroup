@@ -201,15 +201,24 @@ const CategoryModal = ({ categories, onClose }) => {
 // ════════════════════════════════════════════════════════════
 // Lightbox foto
 // ════════════════════════════════════════════════════════════
-const ImageLightbox = ({ product, onClose }) => {
+const ImageLightbox = ({ product, loading, onClose }) => {
   const [zoomed, setZoomed] = useState(false)
   useEsc(onClose)
   return (
     <div className="iv-lightbox" onClick={onClose}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ overflow: 'hidden', borderRadius: 16, display: 'inline-block' }}>
+          {/* ✅ KORIJE — lajè fiks (pa lajè natirèl imaj la) pou l parèt "gwo" touswit
+              menm si sous lan se ti thumbnail la pou kounye a; vèsyon klè a ranplase l
+              san "boza" — jis yon ti flou ki disparèt lè l fini chaje. */}
           <img src={product.imageUrl} alt={product.name} onClick={(e) => { e.stopPropagation(); setZoomed(z => !z) }}
-            style={{ transform: zoomed ? 'scale(2)' : 'scale(1)', transition: 'transform .25s', cursor: zoomed ? 'zoom-out' : 'zoom-in' }}/>
+            style={{
+              width: 'min(92vw, 640px)', height: 'auto', display: 'block',
+              transform: zoomed ? 'scale(2)' : 'scale(1)',
+              filter: loading ? 'blur(9px)' : 'none',
+              transition: 'transform .25s, filter .35s ease',
+              cursor: zoomed ? 'zoom-out' : 'zoom-in',
+            }}/>
         </div>
         <p>{product.name} · {fmt(product.priceHtg)} HTG</p>
         <p style={{ fontSize: 11, opacity: .6, fontWeight: 600, margin: '4px 0 0' }}>Klike sou foto a pou {zoomed ? 'demaji' : 'zoome'} · Esc pou fèmen</p>
@@ -614,6 +623,7 @@ export default function ProductsPage() {
   const qc = useQueryClient()
   const [modal, setModal] = useState(null)
   const [zoomProduct, setZoomProduct] = useState(null)
+  const [zoomLoading, setZoomLoading] = useState(false)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
   const [page, setPage] = useState(1)
@@ -664,6 +674,7 @@ export default function ProductsPage() {
   // nou ranplase l san moun pa wè okenn "flash".
   const handleZoom = async (p) => {
     setZoomProduct(p)
+    setZoomLoading(true)
     try {
       const res  = await productAPI.getOne(p.id)
       const full = res.data?.product || res.data
@@ -672,6 +683,8 @@ export default function ProductsPage() {
       }
     } catch {
       // ✅ filè sekirite — si rekèt la echwe, lightbox la rete ak thumbnail la, pa kraze
+    } finally {
+      setZoomLoading(false)
     }
   }
 
@@ -802,7 +815,7 @@ export default function ProductsPage() {
       {(modal?.type === 'create' || modal?.type === 'edit') && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate} onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
       )}
-      {zoomProduct && <ImageLightbox product={zoomProduct} onClose={() => setZoomProduct(null)}/>}
+      {zoomProduct && <ImageLightbox product={zoomProduct} loading={zoomLoading} onClose={() => setZoomProduct(null)}/>}
 
       {cartCount > 0 && !cartOpen && (
         <button className="pd-fab" onClick={() => setCartOpen(true)}>

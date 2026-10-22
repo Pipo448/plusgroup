@@ -36,11 +36,16 @@ async function compressImageDataUri(dataUri, { maxWidth = 1280, quality = 88 } =
   }
 }
 
-// ⚠️ KORIJE EGRESS — ti vèsyon TRÈ piti (100px, 60% kalite) pou lis/griy
-// pwodui yo. Paj lis la montre yon imaj ~64px — pa gen rezon pou l resevwa
-// vèsyon 600px "konplè" a. Sa redwi anpil egrès Supabase sou
-// `GET /products` ki se youn nan apèl ki pi souvan rele yo.
-async function compressThumbnailDataUri(dataUri, { maxWidth = 100, quality = 60 } = {}) {
+// ⚠️ KORIJE EGRESS — ti vèsyon pou lis/griy pwodui yo (pa vèsyon "konplè" a),
+// pou redwi egrès Supabase sou `GET /products` ki se youn nan apèl ki pi
+// souvan rele yo.
+// ✅ 2026-10-22 — kòmantè orijinal la te sipoze griy la montre yon imaj
+// ~64px, men an reyalite kat pwodui yo (`.pd-media`) afiche imaj la nan
+// lajè ~230-300px (e menm plis sou ekran retina/HD) — se egzakteman sa ki
+// te fè griy la parèt flou: yon sous 100px ap etire sou yon kat 260px.
+// Kounye a Supabase sou plan peye, nou monte l (100px/60% → 480px/75%) pou
+// griy la parèt glase tou, san l pa rive menm pwa ak gwo vèsyon 1280px la.
+async function compressThumbnailDataUri(dataUri, { maxWidth = 480, quality = 75 } = {}) {
   if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:')) return dataUri;
   const match = dataUri.match(/^data:([^;]+);base64,(.+)$/);
   if (!match) return dataUri;
