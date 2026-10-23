@@ -261,7 +261,7 @@ function ReserveView({ slug, data, t, te }) {
           ))}
         </div>
       )}
-      <div className="rs-row" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+      <div className="rs-row rs-resv-people" style={{ justifyContent: 'space-between', borderTop: '1px solid var(--line)', paddingTop: 14 }}>
         <span className="rs-label" style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>{t('pub.reserve.people')}</span>
         <Stepper value={people} min={1} max={data.settings.maxParty || 12} onChange={setPeople} />
       </div>
@@ -318,13 +318,16 @@ function CartView({ slug, data, lines, setQty, clearCart, onPlaced, goMenu, onAd
         <h2 className="rs-card__title"><ShoppingBag size={18} /> {t('pub.cart.title')} <Badge tone="paprika">{t('common.items', { count: lines.reduce((a, l) => a + l.qty, 0) })}</Badge></h2>
         <ul className="rs-lines">
           {lines.map((l, i) => (
-            <li key={l.item.id} className="rs-line" style={{ '--d': `${i * 50}ms` }}>
-              <DishVisual src={l.img} name={l.item.name} size={52} spin={false} />
-              <div className="rs-line__info">
+            // ✅ RESPONSIVE — sou telefòn: non plat la sou 2 liy, epi total liy lan + stepper anba l
+            <li key={l.item.id} className="rs-line rs-cline" style={{ '--d': `${i * 50}ms` }}>
+              <DishVisual src={l.img} name={l.item.name} size={52} spin={false} className="rs-cline__img" />
+              <div className="rs-line__info rs-cline__info">
                 <span className="rs-line__name">{l.item.name}</span>
-                <span className="rs-line__sub">{money(l.item.priceHtg, 0)}{l.note ? ` · ${l.note}` : ''}</span>
+                <span className="rs-line__sub">{money(l.item.priceHtg, 0)}{l.qty > 1 ? ` × ${l.qty}` : ''}</span>
+                {l.note ? <span className="rs-cline__note">{l.note}</span> : null}
               </div>
-              <Stepper size="sm" value={l.qty} min={0} max={50} onChange={(q) => setQty(l.item.id, q)} />
+              <span className="rs-cline__total">{money(l.item.priceHtg * l.qty, 0)}</span>
+              <span className="rs-cline__step"><Stepper size="sm" value={l.qty} min={0} max={50} onChange={(q) => setQty(l.item.id, q)} /></span>
             </li>
           ))}
         </ul>
@@ -451,6 +454,18 @@ export default function RestaurantPortal() {
   // Restoran ki gen flyer sèlman (poko gen plat an liy): montre flyer la dirèkteman nan meni an
   const flyerOnly = !items.length && flyers.length > 0
 
+  // ✅ RESPONSIVE — lè kliyan an ap tape (klavye telefòn louvri), kache nav anba a
+  // pou l pa kouvri chan yo (non, telefòn, adrès, nòt).
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isField = (el) => !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(button|checkbox|radio|submit|range|file)$/i.test(el.type)))
+    const onIn = (e) => { if (isField(e.target)) setTyping(true) }
+    const onOut = () => { setTimeout(() => setTyping(isField(document.activeElement)), 60) }
+    document.addEventListener('focusin', onIn)
+    document.addEventListener('focusout', onOut)
+    return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut) }
+  }, [])
+
   const onPlaced = (order) => {
     const entry = { code: order.code, last4: order.phoneLast4, at: order.createdAt, total: order.totalHtg }
     const next = [entry, ...myOrders.filter((o) => o.code !== order.code)].slice(0, 10)
@@ -487,7 +502,7 @@ export default function RestaurantPortal() {
   const trackCode = params.get('code'), trackLast4 = params.get('p')
 
   return (
-    <Stage theme={theme} className="rs-app">
+    <Stage theme={theme} className={cx('rs-app', typing && 'is-typing')}>
       <div className="rs-app__inner">
         {fromDir && (
           <button type="button" className="rs-backdir" onClick={() => (location.state?.fromDir && window.history.length > 1 ? navigate(-1) : navigate('/resto'))}>

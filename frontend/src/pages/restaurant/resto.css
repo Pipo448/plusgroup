@@ -989,3 +989,68 @@ button.rs-star .rs-star__fill { top: 3px; left: 3px; height: calc(100% - 6px); }
 .rs-job__body small { color: var(--ink-muted); font: 500 12px/16px var(--font-sans); }
 .rs-job__track { height: 8px; border-radius: 99px; background: var(--bg-sunken); overflow: hidden; }
 .rs-job__track span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--saffron), var(--paprika)); transition: width 600ms var(--ease-out); }
+
+/* ═════════════ PÒTAL KLIYAN: PANYE + REZÈVASYON SOU TELEFÒN ═════════════ */
+/* iPhone zoome paj la lè yon chan gen tèks < 16px → paj la sanble « pa responsive ». */
+@media (max-width: 767px) {
+  .rs-app .rs-input, .rs-app .rs-select, .rs-app .rs-textarea { font-size: 16px; line-height: 22px; }
+}
+/* Pa kite chan k ap ranpli a kache dèyè nav anba a */
+.rs-app .rs-input, .rs-app .rs-select, .rs-app .rs-textarea { scroll-margin: 90px 0 140px; }
+/* Telefòn ak « zòn sekirite » anba (iPhone san bouton) */
+.rs-app { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)); }
+.rs-app .rs-nav { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transition: transform var(--slow) var(--ease-out), opacity var(--base); }
+.rs-app .rs-cartbar { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transition: transform var(--slow) var(--ease-out), opacity var(--base); }
+/* Klavye louvri → nav ak ba panye a kache */
+@media (max-width: 900px) {
+  .rs-app.is-typing .rs-nav { transform: translate(-50%, calc(100% + 40px)); opacity: 0; pointer-events: none; }
+  .rs-app.is-typing .rs-cartbar { transform: translateY(calc(100% + 140px)); opacity: 0; pointer-events: none; }
+}
+
+/* Liy panye */
+.rs-cline { gap: 12px; }
+.rs-cline__img { flex: none; }
+.rs-cline .rs-line__name { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.rs-cline__note { font: 500 12px/16px var(--font-sans); color: var(--ink-faint); font-style: italic; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.rs-cline__total { font: 600 15px/20px var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rs-cline__step { flex: none; display: inline-flex; }
+@media (max-width: 560px) {
+  .rs-cline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "img info info" "img total step"; column-gap: 12px; row-gap: 6px; align-items: center; }
+  .rs-cline__img { grid-area: img; align-self: start; width: 48px !important; height: 48px !important; }
+  .rs-cline__info { grid-area: info; }
+  .rs-cline__total { grid-area: total; }
+  .rs-cline__step { grid-area: step; justify-self: end; }
+}
+
+/* Upsell bwason: kat yo pi piti sou ti ekran */
+@media (max-width: 420px) {
+  .rs-upsell { padding: 10px; }
+  .rs-upsell__item { flex-basis: 100px; padding: 8px 6px; }
+}
+
+/* Bouton chwa (Livrezon / Pran sou plas, Kach / MonCash) pa janm kase sou 2 liy */
+@media (max-width: 440px) {
+  .rs-app .rs-seg--block .rs-seg__btn { padding: 0 8px; gap: 5px; font-size: 12.5px; white-space: nowrap; min-width: 0; }
+  .rs-app .rs-seg--block .rs-seg__btn svg { flex: none; width: 15px; height: 15px; }
+}
+@media (max-width: 340px) {
+  .rs-app .rs-seg--block .rs-seg__btn svg { display: none; }
+}
+
+/* Rezèvasyon */
+@media (max-width: 600px) {
+  .rs-app .rs-h1 { font-size: 23px !important; line-height: 28px; }
+  .rs-app .rs-days { gap: 6px; }
+  .rs-app .rs-day { min-width: 46px; height: 66px; }
+  .rs-app .rs-day__num { font-size: 19px; line-height: 23px; }
+  .rs-app .rs-slots { grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 7px; }
+  .rs-app .rs-slot { height: 42px; }
+  .rs-resv-people { flex-wrap: wrap; gap: 10px; }
+}
+@media (max-width: 360px) {
+  .rs-app .rs-card { padding: 14px; }
+  .rs-app .rs-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rs-app .rs-total { padding: 12px 14px; }
+  .rs-app .rs-total__val { font-size: 20px; }
+}
