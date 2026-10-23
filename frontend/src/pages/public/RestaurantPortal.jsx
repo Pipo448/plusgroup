@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { setupPlusRestoPwa } from './restoPwa'
 import FlyerView, { FlyerCta } from './FlyerView'
+import { PromoStrip } from './PlusGroupPromo'
 import { useRT, LANGS, changeRestoLang } from '../restaurant/restoI18n'
 import { publicApi, errorCode, rateOrder } from '../restaurant/restoApi'
 import {
@@ -579,7 +580,9 @@ export default function RestaurantPortal() {
                 </div>
               </>
             )}
-            <p className="rs-hint" style={{ textAlign: 'center', margin: '30px 0 0' }}>{t('pub.poweredBy')}</p>
+            {/* ✅ NOUVO — ti liy diskrè pou mèt restoran ki vizite pòtal la */}
+            <PromoStrip t={t} theme={theme} source={r.name} />
+            <p className="rs-hint" style={{ textAlign: 'center', margin: '14px 0 0' }}>{t('pub.poweredBy')}</p>
           </>
         )}
 

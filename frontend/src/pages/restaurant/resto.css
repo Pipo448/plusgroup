@@ -1054,3 +1054,68 @@ button.rs-star .rs-star__fill { top: 3px; left: 3px; height: calc(100% - 6px); }
   .rs-app .rs-total { padding: 12px 14px; }
   .rs-app .rs-total__val { font-size: 20px; }
 }
+
+/* ═════════════ PWOMOSYON PLUS GROUP (anyè + pòtal) ═════════════ */
+.rs-pro { position: relative; overflow: hidden; margin: 34px 0 6px; padding: 26px; border-radius: var(--r-xl); border: 1px solid var(--glass-border); isolation: isolate; }
+.rs-pro__glow { position: absolute; inset: -40% -20% auto auto; width: 70%; aspect-ratio: 1; border-radius: 50%; z-index: -1; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in srgb, var(--paprika) 38%, transparent), transparent 65%); filter: blur(10px); }
+.rs-pro__head { max-width: 640px; }
+.rs-pro__tag { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: var(--r-pill); background: var(--paprika-soft); color: var(--paprika-ink);
+  font: 800 11px/14px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
+.rs-pro__title { margin: 12px 0 6px; font: 600 30px/34px var(--font-display); letter-spacing: -0.02em; text-wrap: balance; }
+.rs-pro__sub { margin: 0; color: var(--ink-muted); font: 500 14.5px/22px var(--font-sans); text-wrap: pretty; }
+.rs-pro__list { list-style: none; margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.rs-pro__list li { display: flex; gap: 12px; align-items: flex-start; padding: 14px; border-radius: var(--r-md); background: var(--glass); border: 1px solid var(--glass-border);
+  animation: rs-rise var(--slow) var(--ease-out) both; animation-delay: var(--d, 0ms); }
+.rs-pro__list li > span:last-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rs-pro__list b { font: 700 14px/18px var(--font-sans); }
+.rs-pro__list small { font: 500 12.5px/17px var(--font-sans); color: var(--ink-muted); }
+.rs-pro__ic { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--paprika-soft); color: var(--paprika-ink); }
+.rs-pro__list.is-compact small { display: none; }
+.rs-pro__list.is-compact li { align-items: center; padding: 11px 12px; }
+.rs-pro__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+.rs-pro__ctas { display: flex; gap: 10px; flex-wrap: wrap; }
+.rs-pro__ctas a { text-decoration: none; }
+.rs-pro__ctas.is-block { width: 100%; }
+.rs-pro__ctas.is-block a { flex: 1 1 180px; justify-content: center; }
+.rs-pro__wa { background: #1fa855; color: #fff; box-shadow: 0 10px 24px -12px #1fa855; }
+.rs-pro__more { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--paprika-ink); font: 700 13.5px/1 var(--font-sans); cursor: pointer; padding: 8px 2px; }
+.rs-pro__more:hover { text-decoration: underline; }
+.rs-pro__trial { margin: 14px 0 0; font: 600 12.5px/16px var(--font-sans); color: var(--basil-ink, var(--basil)); }
+@media (max-width: 900px) { .rs-pro__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .rs-pro { padding: 20px 16px; margin-top: 26px; }
+  .rs-pro__title { font-size: 24px; line-height: 29px; }
+  .rs-pro__sub { font-size: 14px; line-height: 21px; }
+  .rs-pro__list { gap: 8px; }
+  .rs-pro__list.is-compact li { flex-direction: column; align-items: flex-start; gap: 8px; padding: 11px; }
+  .rs-pro__list.is-compact b { font-size: 13px; line-height: 17px; }
+  .rs-pro__ctas { width: 100%; }
+  .rs-pro__ctas a { flex: 1 1 100%; justify-content: center; }
+  .rs-pro__foot { justify-content: center; }
+}
+@media (max-width: 600px) { .rs-modal .rs-pro__list { grid-template-columns: minmax(0, 1fr); } }
+@media (min-width: 601px) { .rs-modal .rs-pro__list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Liy diskrè anba pòtal la */
+.rs-pro-strip { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 520px; margin: 28px auto 0; padding: 12px 14px; border-radius: var(--r-lg);
+  border: 1px dashed var(--glass-border); background: var(--glass); color: var(--ink); cursor: pointer; text-align: left; transition: border-color var(--base), transform var(--base) var(--ease-out); }
+.rs-pro-strip:hover { border-color: var(--paprika); transform: translateY(-1px); }
+.rs-pro-strip > svg { flex: none; color: var(--paprika-ink); }
+.rs-pro-strip__logo, .rs-pro-pop__logo { flex: none; width: 40px; height: 40px; border-radius: 12px; overflow: hidden; background: var(--paprika); }
+.rs-pro-strip__logo img, .rs-pro-pop__logo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rs-pro-strip__text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rs-pro-strip__text b { font: 700 13.5px/18px var(--font-sans); }
+.rs-pro-strip__text span { font: 600 12.5px/16px var(--font-sans); color: var(--paprika-ink); }
+
+/* Ti fenèt ki parèt yon fwa (anyè) */
+.rs-pro-pop { position: fixed; z-index: 70; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100% - 24px));
+  display: flex; gap: 12px; padding: 16px 40px 16px 16px; border-radius: var(--r-lg); border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-float), var(--shadow-glass); animation: rs-sheet var(--slow) var(--ease-out) both; }
+.rs-pro-pop__body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rs-pro-pop__body b { font: 700 14.5px/19px var(--font-sans); }
+.rs-pro-pop__body > span { font: 500 13px/18px var(--font-sans); color: var(--ink-muted); }
+.rs-pro-pop__btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.rs-pro-pop__x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; display: grid; place-items: center; }
+.rs-pro-pop__x:hover { background: var(--glass-strong); color: var(--ink); }
+@media (max-width: 600px) { .rs-pro-pop { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); } }
