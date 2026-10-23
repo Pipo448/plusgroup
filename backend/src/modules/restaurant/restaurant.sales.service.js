@@ -4,6 +4,7 @@
 // ak metòd peman, rabè, kesye ak sèvè, pou rapò yo egzak san depann de fòma fakti a.
 
 const { q, exec, httpError, newId, num, round2, clean, haitiNow, addDays, getPrisma } = require('./restaurant.db');
+const kindSvc = require('./restaurant.kinds.service');
 
 const TZ = 'America/Port-au-Prince';
 const SALE_METHODS = ['cash', 'moncash', 'natcash', 'card'];
@@ -69,6 +70,9 @@ async function recordSale(tenantId, branchId, user, body) {
     qty: num(i.qty),
     unitPrice: round2(i.unitPrice),
   })).filter((i) => i.name && i.qty > 0);
+  // ✅ NOUVO — make chak liy « food » oswa « drink » pou rapò manje / bwason
+  const kmap = await kindSvc.getKindMap(tenantId).catch(() => null);
+  items.forEach((i) => { i.kind = kindSvc.kindOf(kmap, i.productId, i.name); });
   const subtotal = round2(items.reduce((s, i) => s + i.qty * i.unitPrice, 0));
   const discountPct = Math.min(100, Math.max(0, num(body.discountPct)));
   const discount = round2(subtotal * discountPct / 100);
@@ -108,20 +112,23 @@ async function getReport(tenantId, { from, to, cashierId, branchId } = {}) {
   if (cashierId) { params.push(String(cashierId)); where += ` AND cashier_id = $${params.length}`; }
   if (branchId) { params.push(String(branchId)); where += ` AND branch_id = $${params.length}`; }
 
-  const [tot, byMethod, bySource, byCashier, byServer, top, hourly, daily, list] = await Promise.all([
+  const [tot, byMethod, bySource, byCashier, byServer, top, hourly, daily, list, byKind] = await Promise.all([
     q(`SELECT COUNT(*)::int AS n, COALESCE(SUM(subtotal_htg),0) AS gross, COALESCE(SUM(discount_htg),0) AS disc,
          COALESCE(SUM(delivery_fee_htg),0) AS fees, COALESCE(SUM(total_htg),0) AS net FROM resto_sales WHERE ${where}`, ...params),
     q(`SELECT payment_method AS k, COUNT(*)::int AS n, SUM(total_htg) AS total FROM resto_sales WHERE ${where} GROUP BY 1 ORDER BY 3 DESC`, ...params),
     q(`SELECT source AS k, COUNT(*)::int AS n, SUM(total_htg) AS total FROM resto_sales WHERE ${where} GROUP BY 1 ORDER BY 3 DESC`, ...params),
     q(`SELECT COALESCE(cashier_name, '—') AS k, COUNT(*)::int AS n, SUM(total_htg) AS total FROM resto_sales WHERE ${where} GROUP BY 1 ORDER BY 3 DESC`, ...params),
     q(`SELECT COALESCE(server_name, '—') AS k, COUNT(*)::int AS n, SUM(total_htg) AS total FROM resto_sales WHERE ${where} AND source = 'table' GROUP BY 1 ORDER BY 3 DESC`, ...params),
-    q(`SELECT i->>'name' AS name, SUM((i->>'qty')::numeric) AS qty, SUM((i->>'qty')::numeric * (i->>'unitPrice')::numeric) AS total
-       FROM resto_sales, jsonb_array_elements(items) i WHERE ${where} GROUP BY 1 ORDER BY 3 DESC LIMIT 10`, ...params),
+    q(`SELECT i->>'name' AS name, MAX(COALESCE(i->>'kind', 'food')) AS kind, SUM((i->>'qty')::numeric) AS qty, SUM((i->>'qty')::numeric * (i->>'unitPrice')::numeric) AS total
+       FROM resto_sales, jsonb_array_elements(items) i WHERE ${where} GROUP BY 1 ORDER BY 4 DESC LIMIT 30`, ...params),
     q(`SELECT EXTRACT(HOUR FROM created_at AT TIME ZONE '${TZ}')::int AS h, SUM(total_htg) AS total, COUNT(*)::int AS n
        FROM resto_sales WHERE ${where} GROUP BY 1 ORDER BY 1`, ...params),
     q(`SELECT ${DAY_SQL}::text AS d, SUM(total_htg) AS total, COUNT(*)::int AS n FROM resto_sales WHERE ${where} GROUP BY 1 ORDER BY 1`, ...params),
     q(`SELECT id, source, ref_label, total_htg, payment_method, cashier_name, server_name, discount_htg, created_at
        FROM resto_sales WHERE ${where} ORDER BY created_at DESC LIMIT 300`, ...params),
+    // ✅ NOUVO — manje vs bwason (ansyen vant san kalite → manje)
+    q(`SELECT COALESCE(i->>'kind', 'food') AS k, SUM((i->>'qty')::numeric) AS qty, SUM((i->>'qty')::numeric * (i->>'unitPrice')::numeric) AS total
+       FROM resto_sales, jsonb_array_elements(items) i WHERE ${where} GROUP BY 1 ORDER BY 3 DESC`, ...params),
   ]);
   const kv = (rows) => rows.map((x) => ({ key: x.k, count: num(x.n), total: num(x.total) }));
   const t = tot[0] || {};
@@ -129,7 +136,9 @@ async function getReport(tenantId, { from, to, cashierId, branchId } = {}) {
     from: r.from, to: r.to,
     totals: { count: num(t.n), gross: num(t.gross), discount: num(t.disc), deliveryFees: num(t.fees), net: num(t.net), avgTicket: num(t.n) ? round2(num(t.net) / num(t.n)) : 0 },
     byMethod: kv(byMethod), bySource: kv(bySource), byCashier: kv(byCashier), byServer: kv(byServer).filter((x) => x.key),
-    topItems: top.map((x) => ({ name: x.name, qty: num(x.qty), total: num(x.total) })),
+    topItems: top.filter((x) => x.kind !== 'drink').slice(0, 10).map((x) => ({ name: x.name, qty: num(x.qty), total: num(x.total), kind: 'food' })),
+    topDrinks: top.filter((x) => x.kind === 'drink').slice(0, 10).map((x) => ({ name: x.name, qty: num(x.qty), total: num(x.total), kind: 'drink' })),
+    byKind: byKind.map((x) => ({ key: x.k === 'drink' ? 'drink' : 'food', qty: num(x.qty), total: num(x.total) })),
     hourly: hourly.map((x) => ({ hour: num(x.h), total: num(x.total), count: num(x.n) })),
     daily: daily.map((x) => ({ date: x.d, total: num(x.total), count: num(x.n) })),
     sales: list.map((x) => ({ id: x.id, source: x.source, label: x.ref_label, total: num(x.total_htg), method: x.payment_method, cashier: x.cashier_name, server: x.server_name, discount: num(x.discount_htg), at: x.created_at })),
@@ -170,7 +179,7 @@ async function getDashboard(tenantId, branchId) {
       yesterday: yNet, changePct: yNet > 0 ? Math.round(((rToday.totals.net - yNet) / yNet) * 100) : null,
       discount: rToday.totals.discount,
     },
-    byMethod: rToday.byMethod, bySource: rToday.bySource, topItems: rToday.topItems.slice(0, 5), hourly: rToday.hourly, last7,
+    byMethod: rToday.byMethod, bySource: rToday.bySource, byKind: rToday.byKind, topItems: rToday.topItems.slice(0, 5), topDrinks: rToday.topDrinks.slice(0, 5), hourly: rToday.hourly, last7,
     tables: { total: num(tables[0]?.total), busy: num(tables[0]?.busy), openTotal: num(openTotal[0]?.total), openOrders: num(openTotal[0]?.n) },
     online: { nouvo: num(online[0]?.nouvo), active: num(online[0]?.aktif) },
     reservations: {

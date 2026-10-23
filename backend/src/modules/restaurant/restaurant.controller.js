@@ -4,6 +4,7 @@ const svc = require('./restaurant.service');
 const pub = require('./restaurant.public.service');
 const sales = require('./restaurant.sales.service');
 const flyers = require('./restaurant.flyers.service');
+const kinds = require('./restaurant.kinds.service');
 const { handle } = require('./restaurant.db');
 
 const tenantNameOf = (req) => req.tenant?.businessName || req.tenant?.name || 'Restoran';
@@ -60,7 +61,15 @@ const adjustStock = asyncHandler(async (req, res) => {
 
 const getCategories = asyncHandler(async (req, res) => {
   const data = await svc.getCategories(req.tenant.id, req.branchId || undefined);
-  res.json({ success: true, categories: data });
+  // ✅ NOUVO — chak kategori gen kalite li: 'food' oswa 'drink'
+  res.json({ success: true, categories: await kinds.withKinds(req.tenant.id, data) });
+});
+
+// ✅ NOUVO — Kat manje/bwason pou tab yo ak kòmand an liy (kizin pa resevwa bwason)
+const getMenuKinds = handle(async (req, res) => {
+  const m = await kinds.getKindMap(req.tenant.id);
+  const drinks = [...m.byProduct].filter(([, k]) => k === 'drink').map(([id]) => id);
+  res.json({ success: true, categories: m.categories.map((c) => ({ id: c.id, name: c.name, kind: c.kind })), drinks });
 });
 
 const importMenu = handle(async (req, res) => {
@@ -70,13 +79,17 @@ const importMenu = handle(async (req, res) => {
 });
 
 const createCategory = asyncHandler(async (req, res) => {
-  const data = await svc.createCategory(req.tenant.id, req.branchId || null, req.body);
+  const { kind, ...body } = req.body || {};
+  const data = await svc.createCategory(req.tenant.id, req.branchId || null, body);
+  if (data?.id) await kinds.setCategoryKind(req.tenant.id, data.id, kind || kinds.guessKind(body.name));
   pub.invalidatePortalCache(req.tenant.id);
-  res.status(201).json({ success: true, category: data });
+  res.status(201).json({ success: true, category: data ? { ...data, kind: kind || kinds.guessKind(body.name) } : data });
 });
 
 const updateCategory = asyncHandler(async (req, res) => {
-  const data = await svc.updateCategory(req.tenant.id, req.params.id, req.body);
+  const { kind, ...body } = req.body || {};
+  const data = Object.keys(body).length ? await svc.updateCategory(req.tenant.id, req.params.id, body) : { id: req.params.id };
+  if (kind) await kinds.setCategoryKind(req.tenant.id, req.params.id, kind);
   pub.invalidatePortalCache(req.tenant.id);
   res.json({ success: true, category: data });
 });
@@ -209,7 +222,7 @@ const flyerImage = handle(async (req, res) => {
 });
 
 module.exports = {
-  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu,
+  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu, getMenuKinds,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,
   getCategories, createCategory, updateCategory, deleteCategory,

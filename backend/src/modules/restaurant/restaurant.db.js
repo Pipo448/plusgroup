@@ -82,6 +82,14 @@ const SETUP_SQL = [
   `ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`,
   // Ki tablo bò pou montre: 'resto' (tablo restoran) | 'general' | NULL (otomatik)
   `ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT`,
+  // Kalite chak kategori meni: 'food' (manje → kizin) oswa 'drink' (bwason → pa ale nan kizin)
+  `CREATE TABLE IF NOT EXISTS resto_category_meta (
+    tenant_id    TEXT NOT NULL,
+    category_id  TEXT NOT NULL,
+    kind         TEXT NOT NULL DEFAULT 'food',
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, category_id)
+  )`,
   // Flyer meni (imaj meni restoran an fè deja: afich, flyer) — pòtal + kòd QR
   `CREATE TABLE IF NOT EXISTS resto_flyers (
     id          TEXT PRIMARY KEY,

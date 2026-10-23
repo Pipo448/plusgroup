@@ -105,6 +105,19 @@ export default function RestaurantDashboard({ onUseGeneral }) {
                     ))}
                   </ul>
                 )}
+                {(d.topDrinks || []).length > 0 && (<>
+                  <h2 className="rs-card__title" style={{ marginTop: 18 }}>🥤 {t('kind.topDrinks')}</h2>
+                  <ul className="rs-lines">
+                    {d.topDrinks.map((it, i) => (
+                      <li key={it.name} className="rs-line" style={{ '--d': `${i * 50}ms` }}>
+                        <span className="rs-rank">{i + 1}</span>
+                        <DishVisual name={it.name} size={42} spin={false} />
+                        <div className="rs-line__info"><span className="rs-line__name">{it.name}</span><span className="rs-line__sub">× {it.qty}</span></div>
+                        <span className="rs-line__amt">{money(it.total, 0)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>)}
               </section>
             </div>
 
@@ -112,6 +125,10 @@ export default function RestaurantDashboard({ onUseGeneral }) {
               <section className="rs-card rs-glass" style={{ '--delay': '120ms' }}>
                 <h2 className="rs-card__title"><Wallet size={18} /> {t('dash.byMethod')}</h2>
                 {d.byMethod.length ? <BarList rows={d.byMethod} labelOf={(x) => t(`report.method.${x.key}`)} /> : <p className="rs-hint">{t('dash.noSales')}</p>}
+                {(d.byKind || []).length > 0 && (<>
+                  <h2 className="rs-card__title" style={{ marginTop: 18 }}><UtensilsCrossed size={18} /> {t('kind.reportTitle')}</h2>
+                  <BarList rows={d.byKind} labelOf={(x) => (x.key === 'drink' ? `🥤 ${t('kind.drink')}` : `🍽️ ${t('kind.food')}`)} tone="saffron" />
+                </>)}
                 {d.bySource.length > 0 && (<>
                   <h2 className="rs-card__title" style={{ marginTop: 18 }}><Store size={18} /> {t('dash.bySource')}</h2>
                   <BarList rows={d.bySource} labelOf={(x) => t(`report.source.${x.key}`)} tone="sky" />

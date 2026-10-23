@@ -281,7 +281,7 @@ function ReserveView({ slug, data, t, te }) {
 // ══════════════════════════════════════════════
 // Panye + fini kòmand
 // ══════════════════════════════════════════════
-function CartView({ slug, data, lines, setQty, clearCart, onPlaced, goMenu, t, te }) {
+function CartView({ slug, data, lines, setQty, clearCart, onPlaced, goMenu, onAdd, t, te }) {
   const s = data.settings
   const saved = load('resto-customer', {})
   const modes = [s.deliveryEnabled && 'delivery', s.pickupEnabled && 'pickup'].filter(Boolean)
@@ -328,6 +328,26 @@ function CartView({ slug, data, lines, setQty, clearCart, onPlaced, goMenu, t, t
             </li>
           ))}
         </ul>
+        {/* ✅ NOUVO — « Ajoute yon bwason? » si panye a poko gen bwason */}
+        {onAdd && !lines.some((l) => l.item.kind === 'drink') && (() => {
+          const drinks = (data.items || []).filter((i) => i.kind === 'drink' && i.available).slice(0, 8)
+          if (!drinks.length) return null
+          return (
+            <div className="rs-upsell">
+              <div className="rs-upsell__head"><b>🥤 {t('kind.upsellTitle')}</b><small>{t('kind.upsellSub')}</small></div>
+              <div className="rs-upsell__row">
+                {drinks.map((d) => (
+                  <div key={d.id} className="rs-upsell__item">
+                    <DishVisual src={d.hasImage ? publicApi.imageUrl(slug, d.id, d.v) : null} name={d.name} size={56} spin={false} />
+                    <span className="rs-upsell__name">{d.name}</span>
+                    <span className="rs-upsell__price">{money(d.priceHtg, 0)}</span>
+                    <AddButton small label={`${t('pub.add')} ${d.name}`} onAdd={() => onAdd(d)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
         <dl className="rs-totals">
           <div><dt>{t('pub.cart.subtotal')}</dt><dd>{money(subtotal, 0)}</dd></div>
           {mode === 'delivery' && <div><dt>{t('pub.cart.deliveryFee')}</dt><dd>{fee ? money(fee, 0) : <Badge tone="basil" icon={Check}>{t('pub.cart.free')}</Badge>}</dd></div>}
@@ -558,7 +578,7 @@ export default function RestaurantPortal() {
             <Btn size="lg" icon={Navigation} onClick={() => { const p = placed; setPlaced(null); go('track', { code: p.code, p: p.phoneLast4 }) }}>{t('pub.success.track')}</Btn>
           </section>
         ) : (
-          <CartView slug={slug} data={data} lines={lines} setQty={setQty} clearCart={() => setCart([])} onPlaced={onPlaced} goMenu={() => go('menu')} t={t} te={te} />
+          <CartView slug={slug} data={data} lines={lines} setQty={setQty} clearCart={() => setCart([])} onPlaced={onPlaced} goMenu={() => go('menu')} onAdd={canOrder ? (x) => addToCart(x) : null} t={t} te={te} />
         ))}
 
         {/* ── SWIVI ── */}

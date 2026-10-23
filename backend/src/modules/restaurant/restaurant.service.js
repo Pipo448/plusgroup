@@ -50,6 +50,8 @@ async function importMenu(tenantId, userId, branchId, body = {}) {
     if (!cat) {
       cat = await productSvc.createCategory(tenantId, branchId, { name: cname, module: MODULE });
       catByName.set(fold(cname), cat); out.categoriesCreated += 1;
+      const k = ['food', 'drink'].includes(c.kind) ? c.kind : require('./restaurant.kinds.service').guessKind(cname);
+      if (cat?.id) await require('./restaurant.kinds.service').setCategoryKind(tenantId, cat.id, k);
     }
     const items = Array.isArray(c.items) ? c.items.slice(0, 200) : [];
     for (const it of items) {
@@ -59,7 +61,7 @@ async function importMenu(tenantId, userId, branchId, body = {}) {
       if (existingNames.has(fold(name))) { out.skipped += 1; continue; }
       try {
         await productSvc.create(tenantId, userId, {
-          name, description: clean(it.description, 300), unit: clean(it.unit, 20) || 'pòsyon',
+          name, description: clean(it.description, 300), unit: clean(it.unit, 20) || (c.kind === 'drink' ? 'boutèy' : 'pòsyon'),
           categoryId: cat?.id || null, priceHtg: price, priceUsd: 0,
           quantity: qty, alertThreshold: 5, branchId: branchId || null, module: MODULE,
         });

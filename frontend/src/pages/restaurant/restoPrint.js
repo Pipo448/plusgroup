@@ -95,7 +95,9 @@ export function printSalesReport({ tenantName, report, cashier, note }) {
     ${group('SUR PLACE / EN LIGNE', r.bySource, SOURCE_FR)}
     ${cashier ? '' : group('PAR CAISSIER', r.byCashier)}
     ${group('PAR SERVEUR', (r.byServer || []).filter((x) => x.key))}
+    ${group('NOURRITURE / BOISSONS', (r.byKind || []).map((x) => ({ key: x.key, count: x.qty, total: x.total })), { food: 'Nourriture', drink: 'Boissons' })}
     ${r.topItems.length ? `<hr><div class="b">PLATS LES PLUS VENDUS</div><table>${r.topItems.map((i) => `<tr><td class="q">${esc(i.qty)}</td><td>${esc(i.name)}</td><td class="r">${amt(i.total)}</td></tr>`).join('')}</table>` : ''}
+    ${(r.topDrinks || []).length ? `<hr><div class="b">BOISSONS LES PLUS VENDUES</div><table>${r.topDrinks.map((i) => `<tr><td class="q">${esc(i.qty)}</td><td>${esc(i.name)}</td><td class="r">${amt(i.total)}</td></tr>`).join('')}</table>` : ''}
     <hr><div class="c" style="margin-top:14px">Signature caissier : ____________</div>
     ${footer(note)}`)
 }

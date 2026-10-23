@@ -15,7 +15,7 @@ import { restoApi, RESTO_PATHS, trackUrl, waLink, waNumber } from './restoApi'
 import { printKitchenTicket } from './restoPrint'
 import {
   Stage, Hero, Stats, Stat, Btn, Badge, Seg, Modal, ConfirmModal, Empty, SkeletonGrid, ThemeToggle,
-  DishVisual, RatingStars, useRestoTheme, money, getTenantName, timeAgo, hhmm, cx,
+  DishVisual, RatingStars, useRestoTheme, money, getTenantName, timeAgo, hhmm, cx, variantFor,
 } from './restoUI'
 
 const NEXT = {
@@ -75,10 +75,19 @@ function OrderDetail({ order, theme, slug, tenantName, onClose, onChanged, t }) 
   const last4 = String(order.customerPhone || '').replace(/\D/g, '').slice(-4)
   const link = slug ? trackUrl(slug, order.code, last4) : ''
   const waText = t(`orders.wa.${order.status}`, { name: order.customerName.split(' ')[0], code: order.code, resto: tenantName, link })
-  const kitchenPrint = () => printKitchenTicket({
-    tenantName, title: `${order.code} · ${order.customerName}`, subtitle: t(`orders.mode.${order.mode}`),
-    items: order.items.map((i) => ({ qty: i.qty, name: i.name, note: i.note })), notes: order.notes,
-  })
+  // ✅ NOUVO — Bwason PA ale sou tikè kizin nan
+  const { data: kindsData } = useQuery({ queryKey: ['restaurant-kinds'], queryFn: restoApi.menuKinds, staleTime: 5 * 60 * 1000, retry: false })
+  const isDrink = (i) => (kindsData && i.productId ? (kindsData.drinks || []).map(String).includes(String(i.productId)) : variantFor(i.name) === 'bwason')
+  const kitchenPrint = () => {
+    const food = order.items.filter((i) => !isDrink(i))
+    const drinks = order.items.filter((i) => isDrink(i))
+    if (!food.length) { toast(t('kind.onlyDrinks'), { icon: '🥤' }); return }
+    printKitchenTicket({
+      tenantName, title: `${order.code} · ${order.customerName}`, subtitle: t(`orders.mode.${order.mode}`),
+      items: food.map((i) => ({ qty: i.qty, name: i.name, note: i.note })), notes: order.notes,
+    })
+    if (drinks.length) toast(t('kind.drinksSkipped', { count: drinks.reduce((s, i) => s + Number(i.qty || 0), 0) }), { icon: '🥤' })
+  }
 
   const statusMutation = useMutation({
     mutationFn: async (status) => {

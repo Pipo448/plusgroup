@@ -15,7 +15,7 @@ import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
 import {
   Stage, Hero, Stats, Stat, Btn, Badge, Chips, SearchField, DishVisual, Modal, ConfirmModal,
-  Field, Empty, SkeletonGrid, ThemeToggle, useRestoTheme, useTilt, useDebounced, fmt, money, getTenantName, cx,
+  Field, Empty, SkeletonGrid, ThemeToggle, Seg, useRestoTheme, useTilt, useDebounced, fmt, money, getTenantName, cx,
 } from './restoUI'
 
 // ══════════════════════════════════════════════
@@ -188,15 +188,23 @@ function CategoriesModal({ categories, theme, onClose, t }) {
   const refresh = () => { qc.invalidateQueries({ queryKey: ['restaurant-categories'] }); qc.invalidateQueries({ queryKey: ['restaurant-menu'] }) }
   const onErr = (e) => toast.error(e.response?.data?.message || t('common.error'))
 
-  const create = useMutation({ mutationFn: () => restoApi.createCategory({ name: name.trim() }), onSuccess: () => { setName(''); toast.success(t('menu.cats.saved')); refresh() }, onError: onErr })
+  const [kind, setKind] = useState('food')
+  const refreshKinds = () => { refresh(); qc.invalidateQueries({ queryKey: ['restaurant-kinds'] }) }
+  const create = useMutation({ mutationFn: () => restoApi.createCategory({ name: name.trim(), kind }), onSuccess: () => { setName(''); setKind('food'); toast.success(t('menu.cats.saved')); refreshKinds() }, onError: onErr })
+  // ✅ NOUVO — chanje kalite yon kategori (Manje ↔ Bwason)
+  const setCatKind = useMutation({ mutationFn: ({ id, k }) => restoApi.updateCategory(id, { kind: k }), onSuccess: () => { toast.success(t('menu.cats.saved')); refreshKinds() }, onError: onErr })
   const update = useMutation({ mutationFn: ({ id, n }) => restoApi.updateCategory(id, { name: n }), onSuccess: () => { setEditing(null); toast.success(t('menu.cats.saved')); refresh() }, onError: onErr })
   const remove = useMutation({ mutationFn: (id) => restoApi.deleteCategory(id), onSuccess: () => { setToDelete(null); toast.success(t('menu.cats.deleted')); refresh() }, onError: onErr })
 
   return (
     <Modal theme={theme} title={t('menu.cats.title')} subtitle={t('menu.cats.subtitle')} onClose={onClose} closeLabel={t('common.close')}>
-      <form className="rs-row" style={{ flexWrap: 'nowrap', marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate() }}>
-        <input className="rs-input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('menu.cats.namePh')} />
-        <Btn type="submit" variant="primary" icon={Plus} loading={create.isPending} disabled={!name.trim()} aria-label={t('common.add')} />
+      <form className="rs-col" style={{ gap: 8, marginBottom: 14 }} onSubmit={(e) => { e.preventDefault(); if (name.trim()) create.mutate() }}>
+        <div className="rs-row" style={{ flexWrap: 'nowrap' }}>
+          <input className="rs-input" value={name} onChange={(e) => { setName(e.target.value); if (/(bwason|boisson|drink|bebida|ji\b|jus|bar\b|byè|biere|beer|soda|cocktail)/i.test(e.target.value)) setKind('drink') }} placeholder={t('menu.cats.namePh')} />
+          <Btn type="submit" variant="primary" icon={Plus} loading={create.isPending} disabled={!name.trim()} aria-label={t('common.add')} />
+        </div>
+        <Seg value={kind} onChange={setKind} options={[{ id: 'food', label: `🍽️ ${t('kind.food')}` }, { id: 'drink', label: `🥤 ${t('kind.drink')}` }]} />
+        <span className="rs-hint">{t('kind.catHint')}</span>
       </form>
       {!categories.length ? <p className="rs-hint" style={{ textAlign: 'center', padding: 18 }}>{t('menu.cats.empty')}</p> : (
         <ul className="rs-lines">
@@ -209,7 +217,11 @@ function CategoriesModal({ categories, theme, onClose, t }) {
                 </form>
               ) : (
                 <>
-                  <span className="rs-line__info"><span className="rs-line__name">{c.name}</span></span>
+                  <span className="rs-line__info"><span className="rs-line__name">{c.name}</span><span className="rs-line__sub">{c.kind === 'drink' ? t('kind.drinkHint') : t('kind.foodHint')}</span></span>
+                  <button type="button" className={cx('rs-kind', c.kind === 'drink' && 'is-drink')} disabled={setCatKind.isPending}
+                    onClick={() => setCatKind.mutate({ id: c.id, k: c.kind === 'drink' ? 'food' : 'drink' })} title={t('kind.label')}>
+                    {c.kind === 'drink' ? `🥤 ${t('kind.drink')}` : `🍽️ ${t('kind.food')}`}
+                  </button>
                   <button type="button" className="rs-icon-btn" onClick={() => setEditing({ id: c.id, n: c.name })} aria-label={t('common.edit')}><Edit2 size={14} /></button>
                   <button type="button" className="rs-icon-btn rs-icon-btn--danger" onClick={() => setToDelete(c)} aria-label={t('common.delete')}><Trash2 size={14} /></button>
                 </>

@@ -23,7 +23,7 @@ import { printKitchenTicket, printBill, tenantReceiptNote } from './restoPrint'
 import {
   Stage, Hero, Stats, Stat, Btn, Badge, Chips, SearchField, DishVisual, TableArt, Modal, ConfirmModal, Stepper,
   Field, Empty, SkeletonGrid, ThemeToggle, useRestoTheme, useTilt, useCountUp, useDebounced, useIsMobile,
-  money, getTenantName, hhmm, haitiToday, cx,
+  money, getTenantName, hhmm, haitiToday, cx, variantFor,
 } from './restoUI'
 
 const lineTotal = (it) => Number(it.quantity) * Number(it.unitPriceHtg)
@@ -203,6 +203,12 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
 
   const groups = useMemo(() => groupItems(order.items), [order.items])
   const pendingGroups = groups.filter((g) => !g.sent)
+  // ✅ NOUVO — Bwason PA ale nan kizin: tikè kizin nan gen manje sèlman
+  const { data: kindsData } = useQuery({ queryKey: ['restaurant-kinds'], queryFn: restoApi.menuKinds, staleTime: 5 * 60 * 1000, retry: false })
+  const drinkSet = useMemo(() => new Set((kindsData?.drinks || []).map(String)), [kindsData])
+  const isDrink = (g) => (kindsData && g.productId ? drinkSet.has(String(g.productId)) : variantFor(g.name) === 'bwason')
+  const foodPending = pendingGroups.filter((g) => !isDrink(g))
+  const drinkPending = pendingGroups.filter((g) => isDrink(g))
   const total = orderTotal(order)
   const shownTotal = useCountUp(total, 600)
   const title = order.table?.name || ''
@@ -210,8 +216,9 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
   const kitchenMutation = useMutation({
     mutationFn: () => restaurantTablesAPI.sendToKitchen(order.id),
     onSuccess: (res) => {
-      printKitchenTicket({ tenantName, title, subtitle: order.table?.zone, items: pendingGroups.map((g) => ({ qty: g.qty, name: g.name })) })
+      if (foodPending.length) printKitchenTicket({ tenantName, title, subtitle: order.table?.zone, items: foodPending.map((g) => ({ qty: g.qty, name: g.name })) })
       apply(res); toast.success(t('tables.order.sentToast'))
+      if (drinkPending.length) toast(t('kind.drinksSkipped', { count: drinkPending.reduce((s, g) => s + g.qty, 0) }), { icon: '🥤' })
     },
     onError: onErr,
   })
@@ -273,7 +280,7 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
       footer={<>
         {canCash && <Btn variant="danger" icon={Ban} onClick={() => setConfirm('cancel')} aria-label={t('tables.order.cancel')}>{t('tables.order.cancel')}</Btn>}
         <Btn variant="glass" icon={Receipt} onClick={billPrint} disabled={!groups.length}>{t('tables.order.printBill')}</Btn>
-        <Btn variant="glass" icon={Send} disabled={!pendingGroups.length || busy} loading={kitchenMutation.isPending} onClick={() => kitchenMutation.mutate()}>{t('tables.order.sendKitchen')}</Btn>
+        <Btn variant="glass" icon={Send} disabled={!foodPending.length || busy} loading={kitchenMutation.isPending} onClick={() => kitchenMutation.mutate()}>{t('tables.order.sendKitchen')}</Btn>
         {canCash
           ? <Btn variant="success" icon={CreditCard} loading={closing} disabled={busy} onClick={() => (groups.length ? setPaying(true) : toast.error(t('tables.order.needItem')))}>{t('tables.order.close')}</Btn>
           : <span className="rs-hint" style={{ alignSelf: 'center' }}>{t('tables.order.cashierOnly')}</span>}
@@ -312,7 +319,9 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
               <div className="rs-line__info">
                 <span className="rs-line__name">{g.name}</span>
                 <span className="rs-line__sub">
-                  {g.sent ? <Badge tone="basil" icon={Check}>{t('tables.order.sent')}</Badge> : <Badge tone="saffron" dot pulse>{t('tables.order.pending')}</Badge>}
+                  {isDrink(g)
+                    ? <span className="rs-badge-drink">🥤 {t('kind.serveDirect')}</span>
+                    : g.sent ? <Badge tone="basil" icon={Check}>{t('tables.order.sent')}</Badge> : <Badge tone="saffron" dot pulse>{t('tables.order.pending')}</Badge>}
                   {money(g.unitPrice, 0)}
                 </span>
               </div>
@@ -336,8 +345,11 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
         <span className="rs-total__label">{t('tables.order.total')}</span>
         <span className="rs-total__val">{money(shownTotal)}</span>
       </div>
-      {pendingGroups.length > 0 && groups.some((g) => g.sent) && (
-        <p className="rs-hint" style={{ margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}><Printer size={13} /> {t('tables.order.printKitchen')}: {pendingGroups.reduce((s, g) => s + g.qty, 0)}</p>
+      {foodPending.length > 0 && groups.some((g) => g.sent) && (
+        <p className="rs-hint" style={{ margin: '10px 0 0', display: 'flex', alignItems: 'center', gap: 6 }}><Printer size={13} /> {t('tables.order.printKitchen')}: {foodPending.reduce((s, g) => s + g.qty, 0)}</p>
+      )}
+      {drinkPending.length > 0 && !foodPending.length && (
+        <p className="rs-hint" style={{ margin: '10px 0 0' }}>🥤 {t('kind.onlyDrinks')}</p>
       )}
 
       <ConfirmModal open={confirm === 'cancel'} theme={theme} title={t('tables.order.cancelTitle')} text={t('tables.order.cancelText')}

@@ -7,6 +7,7 @@ const productSvc = require('../products/product.service');
 const svc = require('./restaurant.service');
 const { portalAllowed } = require('./restaurant.sales.service');
 const flyerSvc = require('./restaurant.flyers.service');
+const kindSvc = require('./restaurant.kinds.service');
 const {
   q, getPrisma, httpError, newId, num, round2, clean, digits, slugify, haitiNow, addDays,
 } = require('./restaurant.db');
@@ -109,8 +110,11 @@ async function getPublicMenu(tenantId) {
     v: p.updatedAt ? new Date(p.updatedAt).getTime() : 0,
   }));
   const usedCats = new Set(items.map((i) => i.categoryId).filter(Boolean));
-  const categories = (Array.isArray(cats) ? cats : [])
-    .map((c) => ({ id: String(c.id), name: c.name }))
+  const kinded = await kindSvc.withKinds(tenantId, Array.isArray(cats) ? cats : []).catch(() => cats || []);
+  const catKind = new Map(kinded.map((c) => [String(c.id), c.kind]));
+  items.forEach((i) => { i.kind = (i.categoryId && catKind.get(i.categoryId)) || kindSvc.guessKind(i.name); });
+  const categories = kinded
+    .map((c) => ({ id: String(c.id), name: c.name, kind: c.kind || 'food' }))
     .filter((c) => usedCats.has(c.id));
   const data = { items, categories, byId: new Map(items.map((i) => [i.id, i])) };
   menuCache.set(tenantId, { at: Date.now(), data });
@@ -426,6 +430,7 @@ async function listDirectory({ lat, lng, q: query, city, delivery, open } = {}) 
 
 function invalidatePortalCache(tenantId) {
   menuCache.delete(String(tenantId));
+  kindSvc.invalidate(tenantId);
   slugCache.clear();
   dirCache = null;
 }

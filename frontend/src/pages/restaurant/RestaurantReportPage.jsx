@@ -47,6 +47,21 @@ export function ColumnChart({ points, labelOf, highlightLast }) {
   )
 }
 
+function TopList({ items, t }) {
+  return (
+    <ul className="rs-lines">
+      {items.map((it, i) => (
+        <li key={it.name} className="rs-line" style={{ '--d': `${i * 40}ms` }}>
+          <span className="rs-rank">{i + 1}</span>
+          <DishVisual name={it.name} size={38} spin={false} />
+          <div className="rs-line__info"><span className="rs-line__name">{it.name}</span><span className="rs-line__sub">{t('report.qty')}: {it.qty}</span></div>
+          <span className="rs-line__amt">{money(it.total, 0)}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function RestaurantReportPage() {
   const { t } = useRT()
   const [theme, toggleTheme] = useRestoTheme()
@@ -134,6 +149,10 @@ export default function RestaurantReportPage() {
               <section className="rs-card rs-glass" style={{ '--delay': '60ms' }}>
                 <h2 className="rs-card__title"><Store size={18} /> {t('report.bySource')}</h2>
                 <BarList rows={r.bySource} labelOf={sourceLabel} tone="sky" />
+                {(r.byKind || []).length > 0 && (<>
+                  <h2 className="rs-card__title" style={{ marginTop: 18 }}><UtensilsCrossed size={18} /> {t('kind.reportTitle')}</h2>
+                  <BarList rows={r.byKind} labelOf={(x) => (x.key === 'drink' ? `🥤 ${t('kind.drink')}` : `🍽️ ${t('kind.food')}`)} tone="saffron" />
+                </>)}
                 {data.scope !== 'cashier' && r.byCashier.length > 0 && (<>
                   <h2 className="rs-card__title" style={{ marginTop: 18 }}><Users size={18} /> {t('report.byCashier')}</h2>
                   <BarList rows={r.byCashier} tone="saffron" />
@@ -152,16 +171,9 @@ export default function RestaurantReportPage() {
               </section>
               <section className="rs-card rs-glass" style={{ '--delay': '180ms' }}>
                 <h2 className="rs-card__title"><UtensilsCrossed size={18} /> {t('report.topItems')}</h2>
-                <ul className="rs-lines">
-                  {r.topItems.map((it, i) => (
-                    <li key={it.name} className="rs-line" style={{ '--d': `${i * 40}ms` }}>
-                      <span className="rs-rank">{i + 1}</span>
-                      <DishVisual name={it.name} size={38} spin={false} />
-                      <div className="rs-line__info"><span className="rs-line__name">{it.name}</span><span className="rs-line__sub">{t('report.qty')}: {it.qty}</span></div>
-                      <span className="rs-line__amt">{money(it.total, 0)}</span>
-                    </li>
-                  ))}
-                </ul>
+                <TopList items={r.topItems} t={t} />
+                <h2 className="rs-card__title" style={{ marginTop: 18 }}>🥤 {t('kind.topDrinks')}</h2>
+                {(r.topDrinks || []).length ? <TopList items={r.topDrinks} t={t} /> : <p className="rs-hint">{t('kind.noDrinks')}</p>}
               </section>
             </div>
 
