@@ -24,6 +24,8 @@ export const restoApi = {
   createCategory: (payload) => data(api.post('/restaurant/menu/categories', payload)),
   updateCategory: (id, payload) => data(api.put(`/restaurant/menu/categories/${id}`, payload)),
   deleteCategory: (id) => data(api.delete(`/restaurant/menu/categories/${id}`)),
+  // Enpòte yon meni antye (JSON: { categories: [{ name, items: [{ name, priceHtg }] }] })
+  importMenu: (payload) => data(api.post('/restaurant/menu/import', payload)),
 
   portalSettings: () => data(api.get('/restaurant/portal/settings')),
   savePortalSettings: (payload) => data(api.put('/restaurant/portal/settings', payload)),

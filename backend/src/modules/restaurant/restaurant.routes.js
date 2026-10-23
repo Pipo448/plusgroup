@@ -27,6 +27,7 @@ router.delete('/menu/categories/:id', authorize('admin'), ctrl.deleteCategory);
 // ── Meni
 router.get('/menu',              ctrl.getMenu);
 router.get('/menu/low-stock',    ctrl.getLowStock);
+router.post('/menu/import',      authorize('admin', 'stock_manager'), ctrl.importMenu);
 router.get('/menu/:id',          ctrl.getMenuItem);
 router.post('/menu',             authorize('admin', 'stock_manager'), ctrl.createMenuItem);
 router.put('/menu/:id',          authorize('admin', 'stock_manager'), ctrl.updateMenuItem);

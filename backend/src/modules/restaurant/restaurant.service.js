@@ -29,6 +29,47 @@ const createCategory = (tenantId, branchId, data) => productSvc.createCategory(t
 const updateCategory = (tenantId, id, data) => productSvc.updateCategory(tenantId, id, data);
 const deleteCategory = (tenantId, id) => productSvc.deleteCategory(tenantId, id);
 
+// ── ENPÒTE MENI (JSON): { categories: [{ name, items: [{ name, priceHtg, description?, unit? }] }] }
+// Kategori ki deja egziste (menm non) reyitilize; plat ki deja egziste (menm non) sote.
+const fold = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+async function importMenu(tenantId, userId, branchId, body = {}) {
+  const cats = Array.isArray(body.categories) ? body.categories.slice(0, 40) : [];
+  if (!cats.length) throw httpError(400, 'IMPORT_EMPTY', 'Fichye a pa gen okenn kategori.');
+  const qty = Math.min(100000, Math.max(1, Math.round(num(body.quantity) || 100)));
+
+  const existingCats = await productSvc.getCategories(tenantId, branchId, MODULE).catch(() => []);
+  const catByName = new Map((Array.isArray(existingCats) ? existingCats : []).map((c) => [fold(c.name), c]));
+  const res = await productSvc.getAll(tenantId, { module: MODULE, page: 1, limit: 2000 }).catch(() => null);
+  const existingNames = new Set((res?.products || res?.data || []).map((p) => fold(p.name)));
+
+  const out = { categoriesCreated: 0, created: 0, skipped: 0, errors: [] };
+  for (const c of cats) {
+    const cname = clean(c?.name, 60);
+    if (!cname) continue;
+    let cat = catByName.get(fold(cname));
+    if (!cat) {
+      cat = await productSvc.createCategory(tenantId, branchId, { name: cname, module: MODULE });
+      catByName.set(fold(cname), cat); out.categoriesCreated += 1;
+    }
+    const items = Array.isArray(c.items) ? c.items.slice(0, 200) : [];
+    for (const it of items) {
+      const name = clean(it?.name, 120);
+      const price = round2(num(it?.priceHtg));
+      if (!name || !(price > 0)) { out.errors.push(name || '?'); continue; }
+      if (existingNames.has(fold(name))) { out.skipped += 1; continue; }
+      try {
+        await productSvc.create(tenantId, userId, {
+          name, description: clean(it.description, 300), unit: clean(it.unit, 20) || 'pòsyon',
+          categoryId: cat?.id || null, priceHtg: price, priceUsd: 0,
+          quantity: qty, alertThreshold: 5, branchId: branchId || null, module: MODULE,
+        });
+        existingNames.add(fold(name)); out.created += 1;
+      } catch (e) { out.errors.push(`${name}: ${e.message}`.slice(0, 120)); }
+    }
+  }
+  return out;
+}
+
 // ══════════════════════════════════════════════
 // PARAMÈT PÒTAL
 // ══════════════════════════════════════════════
@@ -349,7 +390,7 @@ async function updateReservation(tenantId, id, data) {
 module.exports = {
   MODULE, DEFAULT_SLOTS, PAYMENT_METHODS,
   // meni
-  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock,
+  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock, importMenu,
   getCategories, createCategory, updateCategory, deleteCategory,
   // pòtal
   getSettingsRow, mapSettings, getPortalSettings, savePortalSettings,

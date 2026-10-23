@@ -8,8 +8,9 @@ import { useAuthStore } from '../../stores/authStore'
 import { compressImage } from '../../utils/imageCompression'
 import {
   Plus, Edit2, Trash2, UtensilsCrossed, AlertTriangle, ChevronLeft, ChevronRight,
-  Camera, Layers, PackageX, Tag, Check,
+  Camera, Layers, PackageX, Tag, Check, FileUp,
 } from 'lucide-react'
+import RestoImportMenu from './RestoImportMenu'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
 import {
@@ -274,6 +275,7 @@ export default function RestaurantMenuPage() {
           actions={<>
             <ThemeToggle theme={theme} onToggle={toggleTheme} t={t} />
             <Btn variant="glass" icon={Layers} onClick={() => setModal({ type: 'cats' })}>{t('menu.manageCategories')}</Btn>
+            <Btn variant="glass" icon={FileUp} onClick={() => setModal({ type: 'import' })}>{t('imp.btn')}</Btn>
             <Btn variant="primary" icon={Plus} onClick={() => setModal({ type: 'item' })}>{t('menu.newItem')}</Btn>
           </>}>
           <Stats>
@@ -315,6 +317,7 @@ export default function RestaurantMenuPage() {
         <MenuItemModal item={modal.item} categories={categories} exchangeRate={exchangeRate} theme={theme} t={t} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'cats' && <CategoriesModal categories={categories} theme={theme} t={t} onClose={() => setModal(null)} />}
+      {modal?.type === 'import' && <RestoImportMenu open theme={theme} t={t} onClose={() => setModal(null)} />}
       <ConfirmModal open={!!toDelete} theme={theme} title={t('menu.confirmDeleteTitle')} text={t('menu.confirmDelete', { name: toDelete?.name })}
         confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')} loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate(toDelete.id)} onClose={() => setToDelete(null)} />

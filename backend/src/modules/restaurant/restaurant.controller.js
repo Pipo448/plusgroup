@@ -63,6 +63,12 @@ const getCategories = asyncHandler(async (req, res) => {
   res.json({ success: true, categories: data });
 });
 
+const importMenu = handle(async (req, res) => {
+  const result = await svc.importMenu(req.tenant.id, req.user.id, req.branchId || null, req.body || {});
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, result });
+});
+
 const createCategory = asyncHandler(async (req, res) => {
   const data = await svc.createCategory(req.tenant.id, req.branchId || null, req.body);
   pub.invalidatePortalCache(req.tenant.id);
@@ -203,7 +209,7 @@ const flyerImage = handle(async (req, res) => {
 });
 
 module.exports = {
-  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage,
+  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,
   getCategories, createCategory, updateCategory, deleteCategory,
