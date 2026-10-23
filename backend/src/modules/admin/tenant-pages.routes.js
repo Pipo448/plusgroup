@@ -17,7 +17,7 @@ const prisma  = require('../../config/prisma')
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
   'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
-  'hotel','restaurant','restaurant-portal','dry','employees','expenses','gym','founise','klinik',
+  'hotel','restaurant','restaurant-portal','kes-sesyon','estok-kontwol','dry','employees','expenses','gym','founise','klinik',
 ]
 
 // Tout paj kòmanse fèmen (eksepte dashboard) — Super Admin ouvri sa kliyan an bezwen

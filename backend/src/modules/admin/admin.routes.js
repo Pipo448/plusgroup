@@ -722,7 +722,7 @@ router.post('/tenants/:id/branches', asyncHandler(async (req, res) => {
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
   'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
-  'hotel','restaurant','restaurant-portal','dry','employees','expenses','gym','founise','klinik'
+  'hotel','restaurant','restaurant-portal','kes-sesyon','estok-kontwol','dry','employees','expenses','gym','founise','klinik'
 ]
 
 // ⚠️ KORIJE — default LOK pou tout paj (eksepte dashboard) — nouvo tenant

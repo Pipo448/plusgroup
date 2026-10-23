@@ -59,6 +59,8 @@ const LANGS = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
   { code: 'es', name: 'Español', flag: '🇪🇸' },
 ]
+// Paj ki FÈMEN pa default (Super Admin dwe aktive yo) — menm lis ak App.jsx
+const STRICT_PAGES = ['kes-sesyon', 'estok-kontwol', 'restaurant-portal']
 const ROLE_LABELS = { admin: 'Admin', cashier: 'Kesye', stock_manager: 'Jesyonè Estòk', viewer: 'Obsèvatè' }
 
 const logoSrc = (url) => !url ? null : (url.startsWith('data:') || url.startsWith('http')) ? url : (url.startsWith('/') ? url : `/${url}`)
@@ -295,7 +297,10 @@ export default function AppLayout() {
 
   const isPageAllowed = useCallback((pageKey) => {
     if (pageKey === null || pageKey === undefined) return true
-    const ap = tenant?.allowedPages
+    let ap = tenant?.allowedPages
+    if (typeof ap === 'string') { try { ap = JSON.parse(ap) } catch { ap = null } }
+    // ✅ NOUVO — Sesyon Kès, Kontwòl Estòk, Pòtal restoran: parèt SÈLMAN si Super Admin lan aktive yo
+    if (STRICT_PAGES.includes(pageKey)) return !!(ap && ap[pageKey] === true)
     return !(ap && typeof ap === 'object' && ap[pageKey] === false)
   }, [tenant?.allowedPages])
 
@@ -502,8 +507,6 @@ export default function AppLayout() {
         if (!isPageAllowed(it.pageKey) || (it.adminOnly && !isAdmin)) return null
         // ✅ NOUVO — paj ki rezève pou kèk wòl (egz. Rapò vant: admin + kesye)
         if (it.roles && !isAdmin && !it.roles.includes(user?.role)) return null
-        // ✅ NOUVO — Pòtal kliyan restoran: SÈLMAN si Super Admin lan aktive l (default fèmen)
-        if (it.pageKey === 'restaurant-portal' && tenant?.allowedPages?.['restaurant-portal'] !== true) return null
         if (q && !norm(it.label).includes(norm(q))) return null
         return it
       }).filter(Boolean),

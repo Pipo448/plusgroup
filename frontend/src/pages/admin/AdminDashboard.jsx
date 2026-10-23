@@ -11,7 +11,7 @@ import {
   Zap, CreditCard, ChevronRight, Trash2, ArrowUp, ArrowDown, Minus, KeyRound,
   GitBranch, Power, PowerOff, Lock, Unlock, LayoutGrid,
   LayoutDashboard, Package, FileText, Receipt, Warehouse,
-  TrendingUp, Settings, Smartphone, Phone, Wallet,
+  TrendingUp, Settings, Smartphone, Phone, Wallet, ClipboardCheck,
    History, Edit2, DollarSign, Save, ChevronLeft, UserCog,
   Scissors, Stethoscope, TrendingDown, UtensilsCrossed, Bookmark, Dumbbell, Truck,
 } from 'lucide-react'
@@ -80,6 +80,9 @@ const PAGE_DEFINITIONS = [
   { key:'branches',   label:'Branch yo',         icon:<GitBranch size={14}/>,       group:'Jesyon' },
   { key:'settings',   label:'Paramèt',           icon:<Settings size={14}/>,        group:'Jesyon' },
   { key:'users',      label:'Itilizatè',         icon:<Users size={14}/>,           group:'Jesyon' },
+  // ✅ NOUVO — Fèmen pa default: aktive yo sèlman pou kliyan ki bezwen yo
+  { key:'kes-sesyon',    label:'Sesyon Kès (louvri / fèmen kès)',      icon:<Wallet size={14}/>,         group:'Jesyon' },
+  { key:'estok-kontwol', label:'Kontwòl Estòk (konte fizik)',          icon:<ClipboardCheck size={14}/>, group:'Jesyon' },
   { key:'kane',       label:'Ti Kanè Kès',       icon:<CreditCard size={14}/>,      group:'Antrepriz' },
   { key:'kane-epay',  label:'Kanè Epay',         icon:<Wallet size={14}/>,          group:'Antrepriz' },
   { key:'sabotay',    label:'Sabotay',           icon:<Smartphone size={14}/>,      group:'Antrepriz' },

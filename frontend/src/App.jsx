@@ -122,10 +122,15 @@ const AgentRoute = ({ children }) => {
   return session ? children : <Navigate to="/agent" replace />
 }
 
+// ✅ NOUVO — Paj sa yo FÈMEN pa default: yo louvri SÈLMAN si Super Admin lan aktive yo (=== true)
+const STRICT_PAGES = ['kes-sesyon', 'estok-kontwol', 'restaurant-portal']
+
 const ProtectedPage = ({ pageKey, children }) => {
   const tenant = useAuthStore(s => s.tenant)
-  const ap = tenant?.allowedPages
-  if (ap && typeof ap === 'object' && ap[pageKey] === false) {
+  let ap = tenant?.allowedPages
+  if (typeof ap === 'string') { try { ap = JSON.parse(ap) } catch { ap = null } }
+  const strict = STRICT_PAGES.includes(pageKey)
+  if (strict ? !(ap && ap[pageKey] === true) : (ap && typeof ap === 'object' && ap[pageKey] === false)) {
     return <Navigate to="/app/dashboard" replace />
   }
   return children

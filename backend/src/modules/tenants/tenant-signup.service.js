@@ -31,7 +31,7 @@ const DEFAULT_PRICE_RULE = { min: PLUS_GROUP_BASE_MONTHLY, max: null }
 const ALL_PAGES = [
   'dashboard','products','clients','quotes','direct-quotes','invoices','stock','reports',
   'branches','settings','users','kane','kane-epay','pre','sabotay','mobilpay',
-  'hotel','restaurant','restaurant-portal','dry','klinik','gym','employees','expenses','founise'
+  'hotel','restaurant','restaurant-portal','kes-sesyon','estok-kontwol','dry','klinik','gym','employees','expenses','founise'
 ]
 const LOCKED_PAGES = ALL_PAGES.reduce((acc, p) => ({ ...acc, [p]: p === 'dashboard' }), {})
 
