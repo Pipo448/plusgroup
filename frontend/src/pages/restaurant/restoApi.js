@@ -1,96 +1,108 @@
-// src/pages/restaurant/restoApi.js
-// Tout apèl API modil Restoran an. Li itilize menm instans axios app la
-// (services/api) pou otantifikasyon ak tenant an rete menm jan.
-import api from '../../services/api'
+// src/pages/restaurant/RestoImportMenu.jsx
+// ─── Enpòte yon meni antye (JSON oswa CSV) ────────────────────────────
+// JSON: { "categories": [ { "name": "Pizzas", "items": [ { "name": "Pizza poulet (S)", "priceHtg": 1000 } ] } ] }
+// CSV : Kategori;Plat;Pri   (oswa ak vigil) — premye liy lan ka yon antèt.
+import { useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
+import { FileUp, Check } from 'lucide-react'
+import { restoApi } from './restoApi'
+import { Btn, Modal, Field, money } from './restoUI'
 
-const data = (p) => p.then((r) => r.data)
-
-// ── STAFF ─────────────────────────────────────────────────────────────
-export const restoApi = {
-  summary: () => data(api.get('/restaurant/summary')),
-  dashboard: () => data(api.get('/restaurant/dashboard')),
-  prefs: () => data(api.get('/restaurant/prefs')).then((d) => d.prefs),
-  setPrefs: (dashboardMode) => data(api.put('/restaurant/prefs', { dashboardMode })).then((d) => d.prefs),
-  // Anrejistre yon vant (idanpotan: menm source+refId pa janm konte 2 fwa)
-  recordSale: (payload) => data(api.post('/restaurant/sales', payload)),
-  salesReport: (params) => data(api.get('/restaurant/sales/report', { params })),
-
-  menu: (params) => data(api.get('/restaurant/menu', { params })),
-  createItem: (payload) => data(api.post('/restaurant/menu', payload)),
-  updateItem: (id, payload) => data(api.put(`/restaurant/menu/${id}`, payload)),
-  deleteItem: (id) => data(api.delete(`/restaurant/menu/${id}`)),
-
-  categories: () => data(api.get('/restaurant/menu/categories')).then((d) => d.categories || []),
-  createCategory: (payload) => data(api.post('/restaurant/menu/categories', payload)),
-  updateCategory: (id, payload) => data(api.put(`/restaurant/menu/categories/${id}`, payload)),
-  deleteCategory: (id) => data(api.delete(`/restaurant/menu/categories/${id}`)),
-  // Enpòte yon meni antye (JSON: { categories: [{ name, items: [{ name, priceHtg }] }] })
-  importMenu: (payload) => data(api.post('/restaurant/menu/import', payload)),
-  // Manje / bwason: { categories:[{id,kind}], drinks:[productId] } — kizin pa resevwa bwason
-  menuKinds: () => data(api.get('/restaurant/menu/kinds')),
-
-  portalSettings: () => data(api.get('/restaurant/portal/settings')),
-  savePortalSettings: (payload) => data(api.put('/restaurant/portal/settings', payload)),
-  // Flyer meni (imaj)
-  flyers: () => data(api.get('/restaurant/flyers')),
-  addFlyer: (payload) => data(api.post('/restaurant/flyers', payload)),
-  updateFlyer: (id, body) => data(api.patch(`/restaurant/flyers/${encodeURIComponent(id)}`, body)),
-  deleteFlyer: (id) => data(api.delete(`/restaurant/flyers/${encodeURIComponent(id)}`)),
-  // Imaj la pou staff la (ak token) → Blob
-  flyerBlob: (id, v) => api.get(`/restaurant/flyers/${encodeURIComponent(id)}/image`, { params: { v }, responseType: 'blob' }).then((r) => r.data),
-
-  onlineOrders: (params) => data(api.get('/restaurant/online-orders', { params })).then((d) => d.orders || []),
-  newOrdersCount: () => data(api.get('/restaurant/online-orders/count')).then((d) => d.count || 0),
-  setOrderStatus: (id, status) => data(api.patch(`/restaurant/online-orders/${id}/status`, { status })),
-  linkOrderInvoice: (id, invoiceId) => data(api.patch(`/restaurant/online-orders/${id}/invoice`, { invoiceId })),
-
-  reservations: (params) => data(api.get('/restaurant/reservations', { params })).then((d) => d.reservations || []),
-  createReservation: (payload) => data(api.post('/restaurant/reservations', payload)),
-  updateReservation: (id, payload) => data(api.patch(`/restaurant/reservations/${id}`, payload)),
+function parseCsv(text) {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+  const sep = (lines[0] || '').includes(';') ? ';' : ','
+  const cats = new Map()
+  lines.forEach((line, idx) => {
+    const cols = line.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''))
+    if (cols.length < 3) return
+    const price = Number(String(cols[2]).replace(/[^\d.,]/g, '').replace(/,(?=\d{3}\b)/g, '').replace(',', '.'))
+    if (idx === 0 && !(price > 0)) return // antèt
+    if (!cols[1] || !(price > 0)) return
+    const key = cols[0] || 'Meni'
+    if (!cats.has(key)) cats.set(key, [])
+    cats.get(key).push({ name: cols[1], priceHtg: price, description: cols[3] || '' })
+  })
+  return { categories: [...cats].map(([name, items]) => ({ name, items })) }
 }
 
-// ── PIBLIK (pòtal kliyan) ─────────────────────────────────────────────
-const enc = encodeURIComponent
-export const publicApi = {
-  portal: (slug) => data(api.get(`/public/resto/${enc(slug)}`)),
-  availability: (slug, date) => data(api.get(`/public/resto/${enc(slug)}/reservations/availability`, { params: { date } })),
-  createOrder: (slug, payload) => data(api.post(`/public/resto/${enc(slug)}/orders`, payload)).then((d) => d.order),
-  trackOrder: (slug, code, phone) => data(api.get(`/public/resto/${enc(slug)}/orders/${enc(code)}`, { params: { phone } })).then((d) => d.order),
-  createReservation: (slug, payload) => data(api.post(`/public/resto/${enc(slug)}/reservations`, payload)).then((d) => d.reservation),
-  imageUrl: (slug, id, v) => `${apiBase()}/public/resto/${enc(slug)}/image/${enc(id)}${v ? `?v=${v}` : ''}`,
-  logoUrl: (slug) => `${apiBase()}/public/resto/${enc(slug)}/logo`,
-  // Anyè Plus Resto: restoran ki toupre (lat/lng opsyonèl), chèch, vil, filtè
-  directory: (params) => data(api.get('/public/resto', { params })),
-  flyerUrl: (slug, id, v) => `${apiBase()}/public/resto/${enc(slug)}/flyer/${enc(id)}${v ? `?v=${v}` : ''}`,
+function normalize(obj) {
+  const cats = Array.isArray(obj?.categories) ? obj.categories : []
+  return {
+    quantity: Number(obj?.quantity) > 0 ? Number(obj.quantity) : 100,
+    categories: cats
+      .map((c) => ({ name: String(c?.name || '').trim(), items: (Array.isArray(c?.items) ? c.items : []).filter((i) => i?.name && Number(i.priceHtg) > 0) }))
+      .filter((c) => c.name && c.items.length),
+  }
 }
 
-function apiBase() {
-  return String(api.defaults?.baseURL || '/api').replace(/\/+$/, '')
-}
+export default function RestoImportMenu({ open, theme, t, onClose }) {
+  const qc = useQueryClient()
+  const input = useRef(null)
+  const [menu, setMenu] = useState(null)
+  const [fileName, setFileName] = useState('')
+  const [qty, setQty] = useState(100)
+  const total = menu ? menu.categories.reduce((a, c) => a + c.items.length, 0) : 0
 
-// Kòd erè backend lan (PORTAL_NOT_FOUND, SLOT_FULL...) → kle tradiksyon
-export const errorCode = (e) => e?.response?.data?.code || (e?.response?.status === 429 ? 'TOO_MANY' : 'generic')
-export const errorMessage = (e) => e?.response?.data?.message
+  const reset = () => { setMenu(null); setFileName(''); if (input.current) input.current.value = '' }
+  const close = () => { reset(); onClose() }
 
-// ── Chemen paj yo nan app la (chanje prefiks la si wout ou yo diferan) ──
-export const RESTO_BASE = '/app/restaurant'
-export const RESTO_PATHS = {
-  menu: `${RESTO_BASE}/menu`,
-  tables: `${RESTO_BASE}/tables`,
-  orders: `${RESTO_BASE}/orders`,
-  reservations: `${RESTO_BASE}/reservations`,
-  portal: `${RESTO_BASE}/portal`,
-  dashboard: `${RESTO_BASE}/dashboard`,
-  report: `${RESTO_BASE}/report`,
+  const onFile = async (file) => {
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = /\.json$/i.test(file.name) || text.trim().startsWith('{') ? JSON.parse(text) : parseCsv(text)
+      const n = normalize(parsed)
+      if (!n.categories.length) throw new Error('empty')
+      setMenu(n); setQty(n.quantity); setFileName(file.name)
+    } catch { reset(); toast.error(t('imp.invalid')) }
+  }
+
+  const running = useRef(false) // ✅ KORIJE — anpeche doub klik voye 2 enpòtasyon
+  const run = useMutation({
+    mutationFn: async () => {
+      if (running.current) return { result: {} }
+      running.current = true
+      try { return await restoApi.importMenu({ categories: menu.categories, quantity: qty }) } finally { running.current = false }
+    },
+    onSuccess: (res) => {
+      const r = res.result || {}
+      toast.success(t('imp.done', { created: r.created || 0, skipped: r.skipped || 0 }), { duration: 6000 })
+      if (r.errors?.length) toast.error(t('imp.errors', { count: r.errors.length }))
+      ;['restaurant-menu', 'restaurant-categories', 'restaurant-summary'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
+      close()
+    },
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
+  })
+
+  return (
+    <Modal open={open} theme={theme} title={t('imp.title')} onClose={close} size="lg"
+      footer={<>
+        <Btn variant="glass" onClick={close}>{t('common.cancel')}</Btn>
+        <Btn icon={Check} disabled={!menu || !total || run.isPending} loading={run.isPending} onClick={() => { if (!run.isPending) run.mutate() }}>{t('imp.confirm', { count: total })}</Btn>
+      </>}>
+      <div className="rs-form">
+        <p className="rs-hint" style={{ margin: 0 }}>{t('imp.desc')}</p>
+        <input ref={input} type="file" accept=".json,.csv,application/json,text/csv,text/plain" hidden onChange={(e) => onFile(e.target.files?.[0])} />
+        <Btn variant="glass" icon={FileUp} onClick={() => input.current?.click()}>{fileName || t('imp.choose')}</Btn>
+
+        {menu && (
+          <>
+            <div className="rs-alert rs-alert--info">{t('imp.preview', { items: total, cats: menu.categories.length })}</div>
+            <div className="rs-imp">
+              {menu.categories.map((c) => (
+                <div key={c.name} className="rs-imp__cat">
+                  <b>{c.name} <span className="rs-hint">· {c.items.length}</span></b>
+                  <ul>{c.items.map((i) => <li key={i.name}><span>{i.name}</span><span className="rs-mono">{money(Number(i.priceHtg), 0)}</span></li>)}</ul>
+                </div>
+              ))}
+            </div>
+            <Field label={t('imp.qty')} hint={t('imp.qtyHint')}>
+              <input type="number" min="1" className="rs-input rs-mono" value={qty} onChange={(e) => setQty(Math.max(1, Number(e.target.value) || 1))} />
+            </Field>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
 }
-// Lyen piblik pòtal kliyan an
-// Nan APK la (Capacitor) origin nan se localhost — lyen pou pataje a dwe toujou app.plusgroupe.com
-export const PUBLIC_ORIGIN = /localhost|capacitor:|ionic:/.test(window.location.origin) ? 'https://app.plusgroupe.com' : window.location.origin
-export const portalUrl = (slug) => `${PUBLIC_ORIGIN}/resto/${slug}`
-export const directoryUrl = () => `${PUBLIC_ORIGIN}/resto`
-export const rateOrder = (slug, code, payload) => data(api.post(`/public/resto/${encodeURIComponent(slug)}/orders/${encodeURIComponent(code)}/rating`, payload))
-// Lyen swivi kòmand pou voye bay kliyan an (WhatsApp)
-export const trackUrl = (slug, code, last4) => `${PUBLIC_ORIGIN}/resto/${slug}?v=track&code=${encodeURIComponent(code)}&p=${last4}`
-// Nimewo WhatsApp (ajoute 509 si se 8 chif ayisyen)
-export const waNumber = (phone) => { const d = String(phone || '').replace(/\D/g, ''); return d.length === 8 ? `509${d}` : d }
-export const waLink = (phone, text) => `https://wa.me/${waNumber(phone)}${text ? `?text=${encodeURIComponent(text)}` : ''}`

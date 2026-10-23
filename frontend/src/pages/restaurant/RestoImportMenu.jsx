@@ -58,8 +58,13 @@ export default function RestoImportMenu({ open, theme, t, onClose }) {
     } catch { reset(); toast.error(t('imp.invalid')) }
   }
 
+  const running = useRef(false) // ✅ KORIJE — anpeche doub klik voye 2 enpòtasyon
   const run = useMutation({
-    mutationFn: () => restoApi.importMenu({ categories: menu.categories, quantity: qty }),
+    mutationFn: async () => {
+      if (running.current) return { result: {} }
+      running.current = true
+      try { return await restoApi.importMenu({ categories: menu.categories, quantity: qty }) } finally { running.current = false }
+    },
     onSuccess: (res) => {
       const r = res.result || {}
       toast.success(t('imp.done', { created: r.created || 0, skipped: r.skipped || 0 }), { duration: 6000 })
@@ -74,7 +79,7 @@ export default function RestoImportMenu({ open, theme, t, onClose }) {
     <Modal open={open} theme={theme} title={t('imp.title')} onClose={close} size="lg"
       footer={<>
         <Btn variant="glass" onClick={close}>{t('common.cancel')}</Btn>
-        <Btn icon={Check} disabled={!menu || !total} loading={run.isPending} onClick={() => run.mutate()}>{t('imp.confirm', { count: total })}</Btn>
+        <Btn icon={Check} disabled={!menu || !total || run.isPending} loading={run.isPending} onClick={() => { if (!run.isPending) run.mutate() }}>{t('imp.confirm', { count: total })}</Btn>
       </>}>
       <div className="rs-form">
         <p className="rs-hint" style={{ margin: 0 }}>{t('imp.desc')}</p>

@@ -5,6 +5,7 @@ const pub = require('./restaurant.public.service');
 const sales = require('./restaurant.sales.service');
 const flyers = require('./restaurant.flyers.service');
 const kinds = require('./restaurant.kinds.service');
+const shared = require('./restaurant.shared.service');
 const { handle } = require('./restaurant.db');
 
 const tenantNameOf = (req) => req.tenant?.businessName || req.tenant?.name || 'Restoran';
@@ -74,6 +75,48 @@ const getMenuKinds = handle(async (req, res) => {
 
 const importMenu = handle(async (req, res) => {
   const result = await svc.importMenu(req.tenant.id, req.user.id, req.branchId || null, req.body || {});
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, result });
+});
+
+// ══════════════════════════════════════════════
+// YON SÈL ESTÒK — pwodui POS nan meni restoran an
+// ══════════════════════════════════════════════
+const listShared = handle(async (req, res) => {
+  res.json({ success: true, products: await shared.getSharedProducts(req.tenant.id) });
+});
+const searchStock = handle(async (req, res) => {
+  res.json({ success: true, products: await shared.searchStock(req.tenant.id, String(req.query.search || '').slice(0, 60)) });
+});
+const addShared = handle(async (req, res) => {
+  const r = await shared.addShared(req.tenant.id, req.body?.productIds, req.body?.categoryId);
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, ...r, products: await shared.getSharedProducts(req.tenant.id) });
+});
+const updateShared = handle(async (req, res) => {
+  await shared.updateShared(req.tenant.id, req.params.productId, req.body || {});
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, products: await shared.getSharedProducts(req.tenant.id) });
+});
+const removeShared = handle(async (req, res) => {
+  await shared.removeShared(req.tenant.id, req.params.productId);
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, products: await shared.getSharedProducts(req.tenant.id) });
+});
+// Rechèch pou tab yo: meni restoran + pwodui estòk pataje yo
+const searchMenu = handle(async (req, res) => {
+  const search = String(req.query.search || '').trim().slice(0, 60);
+  const [own, sh] = await Promise.all([
+    svc.getMenu(req.tenant.id, { search: search || undefined, page: 1, limit: 10 }),
+    shared.getSharedProducts(req.tenant.id),
+  ]);
+  const needle = search.toLowerCase();
+  const extra = sh.filter((p) => !needle || String(p.name).toLowerCase().includes(needle)).slice(0, 10);
+  res.json({ success: true, products: [...(own?.products || []), ...extra].slice(0, 14) });
+});
+
+const dedupeMenu = handle(async (req, res) => {
+  const result = await svc.dedupeMenu(req.tenant.id, req.user.id);
   pub.invalidatePortalCache(req.tenant.id);
   res.json({ success: true, result });
 });
@@ -222,7 +265,7 @@ const flyerImage = handle(async (req, res) => {
 });
 
 module.exports = {
-  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu, getMenuKinds,
+  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu, dedupeMenu, getMenuKinds, listShared, searchStock, addShared, updateShared, removeShared, searchMenu,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,
   getCategories, createCategory, updateCategory, deleteCategory,

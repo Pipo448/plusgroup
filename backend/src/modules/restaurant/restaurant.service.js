@@ -32,7 +32,53 @@ const deleteCategory = (tenantId, id) => productSvc.deleteCategory(tenantId, id)
 // ── ENPÒTE MENI (JSON): { categories: [{ name, items: [{ name, priceHtg, description?, unit? }] }] }
 // Kategori ki deja egziste (menm non) reyitilize; plat ki deja egziste (menm non) sote.
 const fold = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+// ✅ KORIJE — yon sèl enpòtasyon alafwa pa tenant (doub klik te kreye tout meni an 2 fwa)
+const importing = new Set();
 async function importMenu(tenantId, userId, branchId, body = {}) {
+  const key = String(tenantId);
+  if (importing.has(key)) throw httpError(409, 'IMPORT_RUNNING', 'Gen yon enpòtasyon k ap fèt deja. Tann li fini.');
+  importing.add(key);
+  try { return await importMenuRun(tenantId, userId, branchId, body); } finally { importing.delete(key); }
+}
+
+// ✅ NOUVO — Retire doub yo: menm non kategori → yon sèl; menm non plat → kenbe pi ansyen an
+async function dedupeMenu(tenantId, userId) {
+  const cats = await productSvc.getCategories(tenantId, undefined, MODULE).catch(() => []);
+  const res = await productSvc.getAll(tenantId, { module: MODULE, page: 1, limit: 2000 }).catch(() => null);
+  const products = (res?.products || res?.data || []).filter((p) => p && p.isActive !== false && !p.deletedAt)
+    .sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0) || String(a.id).localeCompare(String(b.id)));
+  const out = { categoriesMerged: 0, itemsRemoved: 0, errors: [] };
+
+  // 1) Kategori an doub: deplase plat yo sou premye a, epi efase lòt yo
+  const keepCat = new Map(); const catMap = new Map();
+  for (const c of (Array.isArray(cats) ? cats : []).slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0) || String(a.id).localeCompare(String(b.id)))) {
+    const k = fold(c.name);
+    if (!keepCat.has(k)) { keepCat.set(k, c); continue; }
+    catMap.set(String(c.id), keepCat.get(k).id);
+  }
+  // 2) Plat an doub (menm non + menm pri): kenbe pi ansyen an
+  // Mete yon plat sou bon kategori a (voye tout chan yo pou pa efase anyen pa aksidan)
+  const moveTo = (p, to) => productSvc.update(tenantId, p.id, userId, {
+    name: p.name, description: p.description || '', unit: p.unit || '', categoryId: to,
+    priceHtg: Number(p.priceHtg) || 0, priceUsd: Number(p.priceUsd) || 0,
+    quantity: Number(p.quantity) || 0, alertThreshold: Number(p.alertThreshold) || 0, module: MODULE,
+  });
+  const seen = new Set();
+  for (const p of products) {
+    const k = `${fold(p.name)}|${Number(p.priceHtg) || 0}`;
+    const to = p.categoryId && catMap.get(String(p.categoryId));
+    try {
+      if (to) await moveTo(p, to); // menm plat ki pral retire a pa dwe bloke efasman kategori a
+      if (seen.has(k)) { await productSvc.remove(tenantId, p.id); out.itemsRemoved += 1; } else seen.add(k);
+    } catch (e) { out.errors.push(`${p.name}: ${e.message}`.slice(0, 120)); seen.add(k); }
+  }
+  for (const [dupId] of catMap) {
+    try { await productSvc.deleteCategory(tenantId, dupId); out.categoriesMerged += 1; } catch (e) { out.errors.push(`cat ${dupId}: ${e.message}`.slice(0, 120)); }
+  }
+  return out;
+}
+
+async function importMenuRun(tenantId, userId, branchId, body = {}) {
   const cats = Array.isArray(body.categories) ? body.categories.slice(0, 40) : [];
   if (!cats.length) throw httpError(400, 'IMPORT_EMPTY', 'Fichye a pa gen okenn kategori.');
   const qty = Math.min(100000, Math.max(1, Math.round(num(body.quantity) || 100)));
@@ -40,7 +86,7 @@ async function importMenu(tenantId, userId, branchId, body = {}) {
   const existingCats = await productSvc.getCategories(tenantId, branchId, MODULE).catch(() => []);
   const catByName = new Map((Array.isArray(existingCats) ? existingCats : []).map((c) => [fold(c.name), c]));
   const res = await productSvc.getAll(tenantId, { module: MODULE, page: 1, limit: 2000 }).catch(() => null);
-  const existingNames = new Set((res?.products || res?.data || []).map((p) => fold(p.name)));
+  const existingNames = new Set((res?.products || res?.data || []).filter((p) => p && p.isActive !== false && !p.deletedAt).map((p) => fold(p.name)));
 
   const out = { categoriesCreated: 0, created: 0, skipped: 0, errors: [] };
   for (const c of cats) {
@@ -392,7 +438,7 @@ async function updateReservation(tenantId, id, data) {
 module.exports = {
   MODULE, DEFAULT_SLOTS, PAYMENT_METHODS,
   // meni
-  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock, importMenu,
+  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock, importMenu, dedupeMenu,
   getCategories, createCategory, updateCategory, deleteCategory,
   // pòtal
   getSettingsRow, mapSettings, getPortalSettings, savePortalSettings,

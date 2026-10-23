@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Moon, Sun, X, Search, Plus, Check, Minus } from 'lucide-react'
+import { useAuthStore } from '../../stores/authStore'
 import './resto.css'
 
 // ══════════════════════════════════════════════
@@ -504,12 +505,25 @@ export function ConfirmModal({ open, theme, title, text, confirmLabel, cancelLab
 // ══════════════════════════════════════════════
 // TÈT PAJ (HERO) + STAT + VID
 // ══════════════════════════════════════════════
+// URL logo tenant an (base64, http, oswa /uploads/...)
+const logoSrc = (url) => (!url ? null : (url.startsWith('data:') || url.startsWith('http')) ? url : (url.startsWith('/') ? url : `/${url}`))
+
 export function Hero({ overline, title, subtitle, icon: Icon, onBack, backLabel, actions, children }) {
+  // ✅ NOUVO — logo restoran an (paramèt tenant) parèt olye ikòn nan; ikòn paj la vin yon ti badj
+  const tenantLogo = useAuthStore((s) => s?.tenant?.logoUrl)
+  const [broken, setBroken] = useState(false)
+  const logo = logoSrc(tenantLogo)
+  useEffect(() => { setBroken(false) }, [logo])
   return (
     <header className="rs-hero rs-glass">
       <div className="rs-hero__top">
         {onBack && <Btn variant="glass" size="md" icon={BackIcon} onClick={onBack} aria-label={backLabel} />}
-        {Icon && <div className="rs-hero__icon"><Icon size={24} strokeWidth={2.2} /></div>}
+        {logo && !broken ? (
+          <div className="rs-hero__logo">
+            <img src={logo} alt="" onError={() => setBroken(true)} />
+            {Icon && <span className="rs-hero__logo-badge"><Icon size={13} strokeWidth={2.4} /></span>}
+          </div>
+        ) : Icon && <div className="rs-hero__icon"><Icon size={24} strokeWidth={2.2} /></div>}
         <div className="rs-hero__titles">
           {overline && <span className="rs-overline">{overline}</span>}
           <h1 className="rs-hero__title">{title}</h1>

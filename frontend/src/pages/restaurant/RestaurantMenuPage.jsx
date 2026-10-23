@@ -278,6 +278,23 @@ export default function RestaurantMenuPage() {
     onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
+  // ✅ NOUVO — detekte kategori an doub (egz. enpòtasyon ki te fèt 2 fwa) epi pwopoze netwaye yo
+  const hasDupes = useMemo(() => {
+    const names = categories.map((c) => String(c.name || '').trim().toLowerCase())
+    return new Set(names).size !== names.length
+  }, [categories])
+  const [confirmDedupe, setConfirmDedupe] = useState(false)
+  const dedupe = useMutation({
+    mutationFn: () => restoApi.dedupeMenu(),
+    onSuccess: (res) => {
+      const r = res.result || {}
+      toast.success(t('imp.dedupeDone', { items: r.itemsRemoved || 0, cats: r.categoriesMerged || 0 }), { duration: 6000 })
+      setConfirmDedupe(false)
+      ;['restaurant-menu', 'restaurant-categories', 'restaurant-summary', 'restaurant-kinds'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
+    },
+    onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
+  })
+
   const chipItems = [{ id: '', label: t('common.all') }, ...categories.map((c) => ({ id: c.id, label: c.name }))]
 
   return (
@@ -297,6 +314,15 @@ export default function RestaurantMenuPage() {
             <Stat index={3} icon={PackageX} tone="chili" label={t('menu.stats.outStock')} value={outCount} />
           </Stats>
         </Hero>
+
+        {hasDupes && (
+          <div className="rs-alert rs-alert--warn" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <AlertTriangle size={16} /> <span style={{ flex: 1, minWidth: 200 }}>{t('imp.dedupeFound')}</span>
+            <Btn size="sm" onClick={() => setConfirmDedupe(true)}>{t('imp.dedupe')}</Btn>
+          </div>
+        )}
+        <ConfirmModal open={confirmDedupe} theme={theme} title={t('imp.dedupe')} text={t('imp.dedupeConfirm')} confirmLabel={t('imp.dedupe')} cancelLabel={t('common.cancel')}
+          loading={dedupe.isPending} onConfirm={() => dedupe.mutate()} onClose={() => setConfirmDedupe(false)} />
 
         <div className="rs-toolbar">
           <SearchField value={search} onChange={(v) => { setSearch(v); setPage(1) }} hints={[t('menu.searchPh')]} />
