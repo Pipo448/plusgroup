@@ -7,6 +7,7 @@ import { Globe, Copy, ExternalLink, Store, ShoppingBag, CalendarDays, Wallet, Pl
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
 import { restoApi, portalUrl, directoryUrl } from './restoApi'
+import RestoQrCard from './RestoQrCard'
 import { Stage, Hero, Btn, Badge, Switch, Field, ThemeToggle, SkeletonGrid, PhoneFrame, useRestoTheme, useIsMobile, getTenantName } from './restoUI'
 
 const liveSlug = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+/, '').slice(0, 60)
@@ -105,6 +106,10 @@ export default function RestaurantPortalSettingsPage() {
               </section>
             )}
             </div>
+
+            {/* ✅ NOUVO — Kòd QR pou tab yo / vitrin nan / WhatsApp */}
+            <RestoQrCard t={t} portalUrl={url} directoryUrl={directoryUrl()} tenantName={tenantName} slug={slugify(f.slug)}
+              ready={!!data?.settings?.exists && !!data?.settings?.enabled && data?.settings?.allowed !== false && slugify(f.slug) === data?.settings?.slug} />
 
             {/* ✅ NOUVO — Anyè Plus Resto: restoran toupre kliyan an */}
             <section className="rs-card rs-glass" style={{ '--delay': '40ms' }}>
