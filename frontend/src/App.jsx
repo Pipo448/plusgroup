@@ -39,8 +39,8 @@ const SettingsPage       = lazy(() => import('./pages/settings/SettingsPage'))
 const UsersPage          = lazy(() => import('./pages/settings/UsersPage'))
 // ✅ NOUVO — Paj tès enprimant (Bluetooth / Sunmi / iMin / Telpo)
 const PrinterTestPage    = lazy(() => import('./pages/settings/PrinterTestPage'))
-// ✅ NOUVO — Koulè anblèm biznis lan (chak tenant gen pwòp koulè l)
-const BrandingPage       = lazy(() => import('./pages/settings/BrandingPage'))
+// ✅ NOUVO — Koulè anblèm restoran an (modil Restoran + pòtal kliyan)
+const BrandingPage       = lazy(() => import('./pages/restaurant/RestaurantBrandingPage'))
 const AdminDashboard     = lazy(() => import('./pages/admin/AdminDashboard'))
 const PlansPage          = lazy(() => import('./pages/plans/PlansPage'))
 const BranchAdminPage    = lazy(() => import('./pages/branches/BranchAdminPage'))
@@ -204,7 +204,6 @@ export default function App() {
             <Route path="reports"         element={<ProtectedPage pageKey="reports"><ReportsPage /></ProtectedPage>} />
             <Route path="settings"        element={<ProtectedPage pageKey="settings"><SettingsPage /></ProtectedPage>} />
             <Route path="settings/users"  element={<ProtectedPage pageKey="users"><UsersPage /></ProtectedPage>} />
-            <Route path="settings/branding" element={<ProtectedPage pageKey="settings"><BrandingPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Paj tès enprimant (aksesib sèlman nan APK) */}
             <Route path="printer-test"    element={<PrinterTestPage />} />
             <Route path="plans"           element={<PlansPage />} />
@@ -229,6 +228,8 @@ export default function App() {
             <Route path="restaurant/menu" element={<ProtectedPage pageKey="restaurant"><RestaurantMenuPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran: tab ak kòmand */}
             <Route path="restaurant/tables" element={<ProtectedPage pageKey="restaurant"><RestaurantTablesPage /></ProtectedPage>} />
+            {/* ✅ NOUVO — koulè anblèm restoran an */}
+            <Route path="restaurant/branding" element={<ProtectedPage pageKey="restaurant"><BrandingPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran: kòmand an liy, rezèvasyon, pòtal kliyan (menm pageKey "restaurant") */}
             <Route path="restaurant/orders"       element={<ProtectedPage pageKey="restaurant"><RestaurantOnlineOrdersPage /></ProtectedPage>} />
             <Route path="restaurant/reservations" element={<ProtectedPage pageKey="restaurant"><RestaurantReservationsPage /></ProtectedPage>} />

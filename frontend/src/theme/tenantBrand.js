@@ -1,7 +1,7 @@
 // src/theme/tenantBrand.js
 // ─── Koulè anblèm chak tenant ─────────────────────────────────────────
-// Yon sèl koulè (+ yon dezyèm opsyonèl) → tout palèt app la: meni bò kote a,
-// tèt paj la, bouton yo, modil Restoran an ak pòtal kliyan an.
+// Yon sèl koulè (+ yon dezyèm opsyonèl) → palèt modil Restoran an (paj staff yo)
+// ak pòtal kliyan an. Rès app PLUS GROUP la (meni bò kote a, lòt modil) pa chanje.
 // Kalkil yo garanti tèks yo toujou lizib (kontras WCAG), menm si tenant lan
 // chwazi yon koulè twò klè (jòn) oswa twò fonse (ble maren).
 import { useEffect, useLayoutEffect } from 'react'
@@ -142,17 +142,17 @@ export const brandingApi = {
 // Rele apre yon anrejistreman pou tout app la chanje koulè touswit
 export function publishBrand(tenantId, b) {
   writeCache(tenantId, b)
-  applyBrand(b)
+  applyBrand(b, { themeColor: false })
   try { window.dispatchEvent(new CustomEvent('pg-brand', { detail: b })) } catch { /* */ }
 }
 
-// ── Hook: nan AppLayout (tout paj konekte yo) ───────────────────────────
+// ── Hook: nan AppLayout (sèlman si tenant lan gen modil Restoran an) ───────────────────────────
 export function useTenantBrand(tenantId) {
   // 1) Koulè ki nan kach la parèt anvan premye penti a (pa gen « flash » zoranj)
   useLayoutEffect(() => {
     if (!tenantId) return undefined
     const cached = readCache(tenantId)
-    applyBrand(cached)
+    applyBrand(cached, { themeColor: false })
     return () => applyBrand(null) // dekonekte → retounen sou koulè PLUS GROUP
   }, [tenantId])
 
@@ -161,9 +161,9 @@ export function useTenantBrand(tenantId) {
     if (!tenantId) return undefined
     let alive = true
     brandingApi.get()
-      .then((b) => { if (!alive) return; writeCache(tenantId, b); applyBrand(b) })
+      .then((b) => { if (!alive) return; writeCache(tenantId, b); applyBrand(b, { themeColor: false }) })
       .catch(() => { /* rete ak kach la */ })
-    const onChange = (e) => applyBrand(e.detail || null)
+    const onChange = (e) => applyBrand(e.detail || null, { themeColor: false })
     window.addEventListener('pg-brand', onChange)
     return () => { alive = false; window.removeEventListener('pg-brand', onChange) }
   }, [tenantId])
