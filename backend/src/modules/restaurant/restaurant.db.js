@@ -82,6 +82,15 @@ const SETUP_SQL = [
   `ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`,
   // Ki tablo bò pou montre: 'resto' (tablo restoran) | 'general' | NULL (otomatik)
   `ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT`,
+  // Pwodui estòk jeneral (POS) ki vann tou nan restoran an — YON SÈL estòk (pa gen kopi)
+  `CREATE TABLE IF NOT EXISTS resto_shared_products (
+    tenant_id    TEXT NOT NULL,
+    product_id   TEXT NOT NULL,
+    category_id  TEXT,
+    position     INTEGER NOT NULL DEFAULT 0,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, product_id)
+  )`,
   // Kalite chak kategori meni: 'food' (manje → kizin) oswa 'drink' (bwason → pa ale nan kizin)
   `CREATE TABLE IF NOT EXISTS resto_category_meta (
     tenant_id    TEXT NOT NULL,

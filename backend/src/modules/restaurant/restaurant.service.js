@@ -59,7 +59,7 @@ async function dedupeMenu(tenantId, userId) {
   // 2) Plat an doub (menm non + menm pri): kenbe pi ansyen an
   // Mete yon plat sou bon kategori a (voye tout chan yo pou pa efase anyen pa aksidan)
   const moveTo = (p, to) => productSvc.update(tenantId, p.id, userId, {
-    name: p.name, description: p.description || '', unit: p.unit || '', categoryId: to,
+    name: p.name, code: p.code || '', description: p.description || '', unit: p.unit || '', categoryId: to,
     priceHtg: Number(p.priceHtg) || 0, priceUsd: Number(p.priceUsd) || 0,
     quantity: Number(p.quantity) || 0, alertThreshold: Number(p.alertThreshold) || 0, module: MODULE,
   });

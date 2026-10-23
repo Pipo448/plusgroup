@@ -47,14 +47,15 @@ async function getKindMap(tenantId) {
   const key = String(tenantId);
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < 60 * 1000) return hit.data;
-  const [cats, res] = await Promise.all([
+  const [cats, res, sharedList] = await Promise.all([
     productSvc.getCategories(tenantId, undefined, MODULE).catch(() => []),
     productSvc.getAll(tenantId, { module: MODULE, page: 1, limit: 2000 }).catch(() => null),
+    require('./restaurant.shared.service').getSharedProducts(tenantId).catch(() => []),
   ]);
   const categories = await withKinds(tenantId, cats);
   const catKind = new Map(categories.map((c) => [String(c.id), c.kind]));
   const byProduct = new Map();
-  for (const p of res?.products || res?.data || []) {
+  for (const p of [...(res?.products || res?.data || []), ...(sharedList || [])]) {
     const k = p.categoryId ? catKind.get(String(p.categoryId)) : null;
     byProduct.set(String(p.id), k || guessKind(p.name));
   }

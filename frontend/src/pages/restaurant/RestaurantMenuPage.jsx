@@ -11,6 +11,7 @@ import {
   Camera, Layers, PackageX, Tag, Check, FileUp,
 } from 'lucide-react'
 import RestoImportMenu from './RestoImportMenu'
+import RestoSharedStock from './RestoSharedStock'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
 import {
@@ -323,6 +324,9 @@ export default function RestaurantMenuPage() {
         )}
         <ConfirmModal open={confirmDedupe} theme={theme} title={t('imp.dedupe')} text={t('imp.dedupeConfirm')} confirmLabel={t('imp.dedupe')} cancelLabel={t('common.cancel')}
           loading={dedupe.isPending} onConfirm={() => dedupe.mutate()} onClose={() => setConfirmDedupe(false)} />
+
+        {/* ✅ NOUVO — Yon sèl estòk: pwodui POS ki vann nan restoran an tou */}
+        <RestoSharedStock theme={theme} t={t} categories={categories} />
 
         <div className="rs-toolbar">
           <SearchField value={search} onChange={(v) => { setSearch(v); setPage(1) }} hints={[t('menu.searchPh')]} />

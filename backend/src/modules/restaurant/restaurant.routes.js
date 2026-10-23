@@ -28,6 +28,13 @@ router.delete('/menu/categories/:id', authorize('admin'), ctrl.deleteCategory);
 router.get('/menu',              ctrl.getMenu);
 router.get('/menu/low-stock',    ctrl.getLowStock);
 router.get('/menu/kinds',        ctrl.getMenuKinds);
+// ── Yon sèl estòk: pwodui POS ki vann nan restoran an tou
+router.get('/menu/search',              ctrl.searchMenu);
+router.get('/menu/shared',              ctrl.listShared);
+router.get('/menu/stock-search',        ctrl.searchStock);
+router.post('/menu/shared',             authorize('admin', 'stock_manager'), ctrl.addShared);
+router.patch('/menu/shared/:productId', authorize('admin', 'stock_manager'), ctrl.updateShared);
+router.delete('/menu/shared/:productId', authorize('admin', 'stock_manager'), ctrl.removeShared);
 router.post('/menu/import',      authorize('admin', 'stock_manager'), ctrl.importMenu);
 router.post('/menu/dedupe',      authorize('admin'), ctrl.dedupeMenu);
 router.get('/menu/:id',          ctrl.getMenuItem);

@@ -15,7 +15,7 @@ import {
   Plus, Send, CreditCard, Trash2, Users, UtensilsCrossed, RefreshCw, Armchair, Wallet, CalendarCheck, Ban,
   Check, Printer, Receipt, Banknote, Smartphone, Clock,
 } from 'lucide-react'
-import { restaurantTablesAPI, productAPI, invoiceAPI } from '../../services/api'
+import { restaurantTablesAPI, invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
@@ -172,12 +172,13 @@ function OrderPanel({ order: initialOrder, theme, tenant, onClose, t }) {
   const [closing, setClosing] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  // ✅ NOUVO — meni restoran + pwodui estòk POS pataje yo (yon sèl estòk)
   const { data: productsData } = useQuery({
     queryKey: ['restaurant-menu-search', debounced],
-    queryFn: () => productAPI.getAll({ module: 'restaurant', search: debounced, limit: 10 }),
+    queryFn: () => restoApi.searchMenu(debounced),
     enabled: debounced.length >= 1,
   })
-  const products = productsData?.data?.products || []
+  const products = productsData?.products || []
 
   const apply = (res) => { if (res?.data?.order) setOrder(res.data.order); qc.invalidateQueries({ queryKey: ['restaurant-tables'] }) }
   const onErr = (e) => toast.error(e.response?.data?.message || t('common.error'))

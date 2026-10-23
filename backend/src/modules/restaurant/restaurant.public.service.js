@@ -8,6 +8,7 @@ const svc = require('./restaurant.service');
 const { portalAllowed } = require('./restaurant.sales.service');
 const flyerSvc = require('./restaurant.flyers.service');
 const kindSvc = require('./restaurant.kinds.service');
+const sharedSvc = require('./restaurant.shared.service');
 const {
   q, getPrisma, httpError, newId, num, round2, clean, digits, slugify, haitiNow, addDays,
 } = require('./restaurant.db');
@@ -95,7 +96,9 @@ async function getPublicMenu(tenantId) {
     productSvc.getAll(castId(tenantId), { module: svc.MODULE, page: 1, limit: 500 }),
     productSvc.getCategories(castId(tenantId), undefined, svc.MODULE).catch(() => []),
   ]);
-  const products = (res?.products || res?.data || []).filter((p) => p && p.isActive !== false && !p.deletedAt);
+  // ✅ NOUVO — pwodui estòk jeneral ki pataje ak restoran an (yon sèl estòk)
+  const sharedProducts = await sharedSvc.getSharedProducts(castId(tenantId)).catch(() => []);
+  const products = [...(res?.products || res?.data || []), ...sharedProducts].filter((p) => p && p.isActive !== false && !p.deletedAt);
   const items = products.map((p) => ({
     id: String(p.id),
     name: p.name,
@@ -431,6 +434,7 @@ async function listDirectory({ lat, lng, q: query, city, delivery, open } = {}) 
 function invalidatePortalCache(tenantId) {
   menuCache.delete(String(tenantId));
   kindSvc.invalidate(tenantId);
+  sharedSvc.invalidate(tenantId);
   slugCache.clear();
   dirCache = null;
 }
