@@ -37,6 +37,7 @@ router.patch('/menu/shared/:productId', authorize('admin', 'stock_manager'), ctr
 router.delete('/menu/shared/:productId', authorize('admin', 'stock_manager'), ctrl.removeShared);
 router.post('/menu/import',      authorize('admin', 'stock_manager'), ctrl.importMenu);
 router.post('/menu/dedupe',      authorize('admin'), ctrl.dedupeMenu);
+router.get('/menu/job',          ctrl.menuJob);
 router.get('/menu/:id',          ctrl.getMenuItem);
 router.post('/menu',             authorize('admin', 'stock_manager'), ctrl.createMenuItem);
 router.put('/menu/:id',          authorize('admin', 'stock_manager'), ctrl.updateMenuItem);

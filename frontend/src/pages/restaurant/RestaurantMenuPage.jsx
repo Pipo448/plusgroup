@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import RestoImportMenu from './RestoImportMenu'
 import RestoSharedStock from './RestoSharedStock'
+import { useMenuJob, MenuJobBanner } from './RestoMenuJob'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
 import {
@@ -285,14 +286,11 @@ export default function RestaurantMenuPage() {
     return new Set(names).size !== names.length
   }, [categories])
   const [confirmDedupe, setConfirmDedupe] = useState(false)
+  // ✅ KORIJE — travay long yo kouri an aryè-plan; pa gen « Erè koneksyon » ankò
+  const menuJob = useMenuJob(t)
   const dedupe = useMutation({
     mutationFn: () => restoApi.dedupeMenu(),
-    onSuccess: (res) => {
-      const r = res.result || {}
-      toast.success(t('imp.dedupeDone', { items: r.itemsRemoved || 0, cats: r.categoriesMerged || 0 }), { duration: 6000 })
-      setConfirmDedupe(false)
-      ;['restaurant-menu', 'restaurant-categories', 'restaurant-summary', 'restaurant-kinds'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
-    },
+    onSuccess: (res) => { menuJob.track(res?.job); setConfirmDedupe(false) },
     onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
@@ -305,7 +303,7 @@ export default function RestaurantMenuPage() {
           actions={<>
             <ThemeToggle theme={theme} onToggle={toggleTheme} t={t} />
             <Btn variant="glass" icon={Layers} onClick={() => setModal({ type: 'cats' })}>{t('menu.manageCategories')}</Btn>
-            <Btn variant="glass" icon={FileUp} onClick={() => setModal({ type: 'import' })}>{t('imp.btn')}</Btn>
+            <Btn variant="glass" icon={FileUp} disabled={menuJob.running} onClick={() => setModal({ type: 'import' })}>{t('imp.btn')}</Btn>
             <Btn variant="primary" icon={Plus} onClick={() => setModal({ type: 'item' })}>{t('menu.newItem')}</Btn>
           </>}>
           <Stats>
@@ -316,7 +314,8 @@ export default function RestaurantMenuPage() {
           </Stats>
         </Hero>
 
-        {hasDupes && (
+        <MenuJobBanner job={menuJob.job} t={t} />
+        {hasDupes && !menuJob.running && (
           <div className="rs-alert rs-alert--warn" style={{ marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <AlertTriangle size={16} /> <span style={{ flex: 1, minWidth: 200 }}>{t('imp.dedupeFound')}</span>
             <Btn size="sm" onClick={() => setConfirmDedupe(true)}>{t('imp.dedupe')}</Btn>
@@ -359,7 +358,7 @@ export default function RestaurantMenuPage() {
         <MenuItemModal item={modal.item} categories={categories} exchangeRate={exchangeRate} theme={theme} t={t} onClose={() => setModal(null)} />
       )}
       {modal?.type === 'cats' && <CategoriesModal categories={categories} theme={theme} t={t} onClose={() => setModal(null)} />}
-      {modal?.type === 'import' && <RestoImportMenu open theme={theme} t={t} onClose={() => setModal(null)} />}
+      {modal?.type === 'import' && <RestoImportMenu open theme={theme} t={t} busy={menuJob.running} onStarted={menuJob.track} onClose={() => setModal(null)} />}
       <ConfirmModal open={!!toDelete} theme={theme} title={t('menu.confirmDeleteTitle')} text={t('menu.confirmDelete', { name: toDelete?.name })}
         confirmLabel={t('common.delete')} cancelLabel={t('common.cancel')} loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate(toDelete.id)} onClose={() => setToDelete(null)} />

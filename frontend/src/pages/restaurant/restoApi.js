@@ -27,6 +27,7 @@ export const restoApi = {
   // Enpòte yon meni antye (JSON: { categories: [{ name, items: [{ name, priceHtg }] }] })
   importMenu: (payload) => data(api.post('/restaurant/menu/import', payload)),
   dedupeMenu: () => data(api.post('/restaurant/menu/dedupe')),
+  menuJob: () => data(api.get('/restaurant/menu/job')).then((d) => d.job),
   // Yon sèl estòk: pwodui POS nan meni restoran an
   searchMenu: (search) => data(api.get('/restaurant/menu/search', { params: { search } })),
   sharedProducts: () => data(api.get('/restaurant/menu/shared')).then((d) => d.products || []),

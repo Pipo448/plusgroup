@@ -36,7 +36,7 @@ function normalize(obj) {
   }
 }
 
-export default function RestoImportMenu({ open, theme, t, onClose }) {
+export default function RestoImportMenu({ open, theme, t, onClose, onStarted, busy }) {
   const qc = useQueryClient()
   const input = useRef(null)
   const [menu, setMenu] = useState(null)
@@ -65,13 +65,8 @@ export default function RestoImportMenu({ open, theme, t, onClose }) {
       running.current = true
       try { return await restoApi.importMenu({ categories: menu.categories, quantity: qty }) } finally { running.current = false }
     },
-    onSuccess: (res) => {
-      const r = res.result || {}
-      toast.success(t('imp.done', { created: r.created || 0, skipped: r.skipped || 0 }), { duration: 6000 })
-      if (r.errors?.length) toast.error(t('imp.errors', { count: r.errors.length }))
-      ;['restaurant-menu', 'restaurant-categories', 'restaurant-summary'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }))
-      close()
-    },
+    // ✅ KORIJE — sèvè a reponn touswit ak yon « job »; pwogrè a parèt sou paj Meni an
+    onSuccess: (res) => { if (res?.job) onStarted?.(res.job); close() },
     onError: (e) => toast.error(e.response?.data?.message || t('common.error')),
   })
 
@@ -79,7 +74,7 @@ export default function RestoImportMenu({ open, theme, t, onClose }) {
     <Modal open={open} theme={theme} title={t('imp.title')} onClose={close} size="lg"
       footer={<>
         <Btn variant="glass" onClick={close}>{t('common.cancel')}</Btn>
-        <Btn icon={Check} disabled={!menu || !total || run.isPending} loading={run.isPending} onClick={() => { if (!run.isPending) run.mutate() }}>{t('imp.confirm', { count: total })}</Btn>
+        <Btn icon={Check} disabled={!menu || !total || run.isPending || busy} loading={run.isPending} onClick={() => { if (!run.isPending) run.mutate() }}>{t('imp.confirm', { count: total })}</Btn>
       </>}>
       <div className="rs-form">
         <p className="rs-hint" style={{ margin: 0 }}>{t('imp.desc')}</p>

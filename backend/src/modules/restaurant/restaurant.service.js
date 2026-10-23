@@ -32,17 +32,42 @@ const deleteCategory = (tenantId, id) => productSvc.deleteCategory(tenantId, id)
 // ── ENPÒTE MENI (JSON): { categories: [{ name, items: [{ name, priceHtg, description?, unit? }] }] }
 // Kategori ki deja egziste (menm non) reyitilize; plat ki deja egziste (menm non) sote.
 const fold = (x) => String(x || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-// ✅ KORIJE — yon sèl enpòtasyon alafwa pa tenant (doub klik te kreye tout meni an 2 fwa)
-const importing = new Set();
-async function importMenu(tenantId, userId, branchId, body = {}) {
+// ══════════════════════════════════════════════
+// TRAVAY AN ARYÈ-PLAN (enpòte / retire doub)
+// ══════════════════════════════════════════════
+// ✅ KORIJE — Enpòte 45 plat oswa retire 35 doub ka pran plis tan pase limit
+// app la tann (axios) → li te montre « Erè koneksyon » pandan sèvè a t ap
+// toujou travay, e moun nan te klike ankò (meni an double). Kounye a wout la
+// reponn TOUSWIT ak yon « job », epi frontend lan swiv pwogrè a.
+const jobs = new Map(); // tenantId → job
+const snap = (j) => (j ? { id: j.id, type: j.type, status: j.status, done: j.done, total: j.total, result: j.result, error: j.error, startedAt: j.startedAt, finishedAt: j.finishedAt } : null);
+function startJob(tenantId, type, fn) {
   const key = String(tenantId);
-  if (importing.has(key)) throw httpError(409, 'IMPORT_RUNNING', 'Gen yon enpòtasyon k ap fèt deja. Tann li fini.');
-  importing.add(key);
-  try { return await importMenuRun(tenantId, userId, branchId, body); } finally { importing.delete(key); }
+  const cur = jobs.get(key);
+  if (cur && cur.status === 'running') throw httpError(409, 'JOB_RUNNING', 'Gen yon travay k ap fèt deja sou meni an. Tann li fini.');
+  const job = { id: newId(), type, status: 'running', done: 0, total: 0, result: null, error: null, startedAt: new Date().toISOString(), finishedAt: null };
+  jobs.set(key, job);
+  const progress = (done, total) => { job.done = done; if (total != null) job.total = total; };
+  Promise.resolve()
+    .then(() => fn(progress))
+    .then((result) => { job.status = 'done'; job.result = result; })
+    .catch((e) => { job.status = 'error'; job.error = e?.message || 'Erè'; console.error(`[resto ${type}]`, e); })
+    .finally(() => { job.finishedAt = new Date().toISOString(); });
+  return snap(job);
+}
+const getJob = (tenantId) => snap(jobs.get(String(tenantId)));
+
+function importMenu(tenantId, userId, branchId, body = {}) {
+  const cats = Array.isArray(body.categories) ? body.categories : [];
+  if (!cats.length) throw httpError(400, 'IMPORT_EMPTY', 'Fichye a pa gen okenn kategori.');
+  return startJob(tenantId, 'import', (progress) => importMenuRun(tenantId, userId, branchId, body, progress));
+}
+function dedupeMenu(tenantId, userId) {
+  return startJob(tenantId, 'dedupe', (progress) => dedupeMenuRun(tenantId, userId, progress));
 }
 
 // ✅ NOUVO — Retire doub yo: menm non kategori → yon sèl; menm non plat → kenbe pi ansyen an
-async function dedupeMenu(tenantId, userId) {
+async function dedupeMenuRun(tenantId, userId, progress = () => {}) {
   const cats = await productSvc.getCategories(tenantId, undefined, MODULE).catch(() => []);
   const res = await productSvc.getAll(tenantId, { module: MODULE, page: 1, limit: 2000 }).catch(() => null);
   const products = (res?.products || res?.data || []).filter((p) => p && p.isActive !== false && !p.deletedAt)
@@ -64,7 +89,10 @@ async function dedupeMenu(tenantId, userId) {
     quantity: Number(p.quantity) || 0, alertThreshold: Number(p.alertThreshold) || 0, module: MODULE,
   });
   const seen = new Set();
+  progress(0, products.length + catMap.size);
+  let step = 0;
   for (const p of products) {
+    progress(step++);
     const k = `${fold(p.name)}|${Number(p.priceHtg) || 0}`;
     const to = p.categoryId && catMap.get(String(p.categoryId));
     try {
@@ -73,12 +101,14 @@ async function dedupeMenu(tenantId, userId) {
     } catch (e) { out.errors.push(`${p.name}: ${e.message}`.slice(0, 120)); seen.add(k); }
   }
   for (const [dupId] of catMap) {
+    progress(step++);
     try { await productSvc.deleteCategory(tenantId, dupId); out.categoriesMerged += 1; } catch (e) { out.errors.push(`cat ${dupId}: ${e.message}`.slice(0, 120)); }
   }
+  progress(step);
   return out;
 }
 
-async function importMenuRun(tenantId, userId, branchId, body = {}) {
+async function importMenuRun(tenantId, userId, branchId, body = {}, progress = () => {}) {
   const cats = Array.isArray(body.categories) ? body.categories.slice(0, 40) : [];
   if (!cats.length) throw httpError(400, 'IMPORT_EMPTY', 'Fichye a pa gen okenn kategori.');
   const qty = Math.min(100000, Math.max(1, Math.round(num(body.quantity) || 100)));
@@ -89,6 +119,8 @@ async function importMenuRun(tenantId, userId, branchId, body = {}) {
   const existingNames = new Set((res?.products || res?.data || []).filter((p) => p && p.isActive !== false && !p.deletedAt).map((p) => fold(p.name)));
 
   const out = { categoriesCreated: 0, created: 0, skipped: 0, errors: [] };
+  let step = 0;
+  progress(0, cats.reduce((n, c) => n + (Array.isArray(c?.items) ? Math.min(200, c.items.length) : 0), 0));
   for (const c of cats) {
     const cname = clean(c?.name, 60);
     if (!cname) continue;
@@ -101,6 +133,7 @@ async function importMenuRun(tenantId, userId, branchId, body = {}) {
     }
     const items = Array.isArray(c.items) ? c.items.slice(0, 200) : [];
     for (const it of items) {
+      progress(step++);
       const name = clean(it?.name, 120);
       const price = round2(num(it?.priceHtg));
       if (!name || !(price > 0)) { out.errors.push(name || '?'); continue; }
@@ -115,6 +148,7 @@ async function importMenuRun(tenantId, userId, branchId, body = {}) {
       } catch (e) { out.errors.push(`${name}: ${e.message}`.slice(0, 120)); }
     }
   }
+  progress(step);
   return out;
 }
 
@@ -438,7 +472,7 @@ async function updateReservation(tenantId, id, data) {
 module.exports = {
   MODULE, DEFAULT_SLOTS, PAYMENT_METHODS,
   // meni
-  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock, importMenu, dedupeMenu,
+  getMenu, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock, getLowStock, importMenu, dedupeMenu, getJob,
   getCategories, createCategory, updateCategory, deleteCategory,
   // pòtal
   getSettingsRow, mapSettings, getPortalSettings, savePortalSettings,
