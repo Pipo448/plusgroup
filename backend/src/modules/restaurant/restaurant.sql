@@ -1,4 +1,4 @@
--- restaurant.sql — Tab modil restoran an (pòtal, kòmand an liy, rezèvasyon, vant/rapò, anyè Plus Resto)
+-- restaurant.sql — Tab modil restoran an (pòtal, kòmand an liy, rezèvasyon, vant/rapò, anyè Plus Resto, flyer meni)
 -- Backend la kreye yo otomatikman. Si ou pito, kouri fichye sa a nan Supabase SQL Editor (Run without RLS).
 
 CREATE TABLE IF NOT EXISTS resto_portal_settings (
@@ -58,6 +58,22 @@ ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS review TEXT;
 ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ;
 
 ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT;
+
+CREATE TABLE IF NOT EXISTS resto_flyers (
+    id          TEXT PRIMARY KEY,
+    tenant_id   TEXT NOT NULL,
+    title       TEXT,
+    image       TEXT NOT NULL,
+    mime        TEXT NOT NULL DEFAULT 'image/webp',
+    width       INTEGER,
+    height      INTEGER,
+    bytes       INTEGER,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );
+
+CREATE INDEX IF NOT EXISTS idx_resto_flyers_tenant ON resto_flyers (tenant_id, position);
 
 ALTER TABLE resto_portal_settings
      ADD COLUMN IF NOT EXISTS listed    BOOLEAN NOT NULL DEFAULT TRUE,

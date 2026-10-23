@@ -82,6 +82,21 @@ const SETUP_SQL = [
   `ALTER TABLE resto_online_orders ADD COLUMN IF NOT EXISTS rated_at TIMESTAMPTZ`,
   // Ki tablo bò pou montre: 'resto' (tablo restoran) | 'general' | NULL (otomatik)
   `ALTER TABLE resto_portal_settings ADD COLUMN IF NOT EXISTS dashboard_mode TEXT`,
+  // Flyer meni (imaj meni restoran an fè deja: afich, flyer) — pòtal + kòd QR
+  `CREATE TABLE IF NOT EXISTS resto_flyers (
+    id          TEXT PRIMARY KEY,
+    tenant_id   TEXT NOT NULL,
+    title       TEXT,
+    image       TEXT NOT NULL,
+    mime        TEXT NOT NULL DEFAULT 'image/webp',
+    width       INTEGER,
+    height      INTEGER,
+    bytes       INTEGER,
+    position    INTEGER NOT NULL DEFAULT 0,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_resto_flyers_tenant ON resto_flyers (tenant_id, position)`,
   // Anyè « Plus Resto » (restoran toupre kliyan an): pozisyon, vil, kalite manje
   `ALTER TABLE resto_portal_settings
      ADD COLUMN IF NOT EXISTS listed    BOOLEAN NOT NULL DEFAULT TRUE,

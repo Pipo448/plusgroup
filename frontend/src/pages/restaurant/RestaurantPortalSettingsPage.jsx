@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
 import { restoApi, portalUrl, directoryUrl } from './restoApi'
 import RestoQrCard from './RestoQrCard'
+import RestoFlyerCard from './RestoFlyerCard'
 import { Stage, Hero, Btn, Badge, Switch, Field, ThemeToggle, SkeletonGrid, PhoneFrame, useRestoTheme, useIsMobile, getTenantName } from './restoUI'
 
 const liveSlug = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-+/, '').slice(0, 60)
@@ -106,6 +107,9 @@ export default function RestaurantPortalSettingsPage() {
               </section>
             )}
             </div>
+
+            {/* ✅ NOUVO — Flyer meni (imaj) */}
+            <RestoFlyerCard t={t} theme={theme} previewUrl={data?.settings?.exists ? `${url}?v=flyer` : null} />
 
             {/* ✅ NOUVO — Kòd QR pou tab yo / vitrin nan / WhatsApp */}
             <RestoQrCard t={t} portalUrl={url} directoryUrl={directoryUrl()} tenantName={tenantName} slug={slugify(f.slug)}

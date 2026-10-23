@@ -6,6 +6,7 @@
 const productSvc = require('../products/product.service');
 const svc = require('./restaurant.service');
 const { portalAllowed } = require('./restaurant.sales.service');
+const flyerSvc = require('./restaurant.flyers.service');
 const {
   q, getPrisma, httpError, newId, num, round2, clean, digits, slugify, haitiNow, addDays,
 } = require('./restaurant.db');
@@ -121,7 +122,9 @@ async function getPortal(slug) {
   const menu = await getPublicMenu(tenantId);
   const logo = tenant.logoUrl || tenant.logo || null;
   const rating = await getRatingSummary(tenantId);
+  const flyers = await flyerSvc.listFlyers(tenantId).catch(() => []);
   return {
+    flyers: flyers.map((f) => ({ id: f.id, title: f.title, width: f.width, height: f.height, v: f.v })),
     restaurant: {
       name: tenantName,
       slug: settings.slug,
@@ -182,6 +185,11 @@ async function getItemImage(slug, productId) {
   const img = decodeImage(p?.imageUrl);
   if (!img) throw httpError(404, 'NOT_FOUND', 'Imaj pa jwenn.');
   return img;
+}
+
+async function getFlyerImage(slug, id) {
+  const { tenantId } = await resolveTenant(slug);
+  return flyerSvc.getFlyerImage(tenantId, id);
 }
 
 async function getLogo(slug) {
@@ -423,6 +431,6 @@ function invalidatePortalCache(tenantId) {
 }
 
 module.exports = {
-  resolveTenant, getPortal, getItemImage, getLogo, createOrder, trackOrder, rateOrder,
+  resolveTenant, getPortal, getItemImage, getLogo, getFlyerImage, createOrder, trackOrder, rateOrder,
   availability, createReservation, trackReservation, invalidatePortalCache, listDirectory,
 };

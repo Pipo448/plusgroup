@@ -10,6 +10,7 @@ import {
   ChevronRight, Trash2, Wallet, CheckCircle2, ChefHat, Home, Search as SearchIcon, AlertTriangle, Check, MessageCircle, Heart, Send, ChevronLeft,
 } from 'lucide-react'
 import { setupPlusRestoPwa } from './restoPwa'
+import FlyerView, { FlyerCta } from './FlyerView'
 import { useRT, LANGS, changeRestoLang } from '../restaurant/restoI18n'
 import { publicApi, errorCode, rateOrder } from '../restaurant/restoApi'
 import {
@@ -426,6 +427,9 @@ export default function RestaurantPortal() {
     return items.filter((i) => (!cat || (cat === '__fav' ? favs.includes(i.id) : i.categoryId === cat)) && (!q || i.name.toLowerCase().includes(q) || (i.description || '').toLowerCase().includes(q)))
   }, [items, search, cat, favs])
   const heroItem = items.find((i) => i.hasImage && i.available) || items.find((i) => i.available)
+  const flyers = useMemo(() => data?.flyers || [], [data])
+  // Restoran ki gen flyer sèlman (poko gen plat an liy): montre flyer la dirèkteman nan meni an
+  const flyerOnly = !items.length && flyers.length > 0
 
   const onPlaced = (order) => {
     const entry = { code: order.code, last4: order.phoneLast4, at: order.createdAt, total: order.totalHtg }
@@ -497,11 +501,17 @@ export default function RestaurantPortal() {
                 <span className="rs-promo__tag">{t('pub.promoTag')}</span>
                 <h2 className="rs-promo__title">{r.welcomeMessage || t('pub.promoTitle')}</h2>
                 <p className="rs-promo__desc">{t('pub.promoDesc')}</p>
-                <button type="button" className="rs-promo__btn" onClick={() => document.getElementById('rs-menu')?.scrollIntoView({ behavior: 'smooth' })}>{t('pub.promoBtn')} <ChevronRight size={15} /></button>
+                <button type="button" className="rs-promo__btn" onClick={() => (document.getElementById('rs-menu') || document.querySelector('.rs-flyers'))?.scrollIntoView({ behavior: 'smooth' })}>{t('pub.promoBtn')} <ChevronRight size={15} /></button>
               </div>
               {heroItem ? <DishVisual src={img(heroItem)} name={heroItem.name} size={190} className="rs-promo__art" /> : <DishArt variant="griyo" size={190} className="rs-promo__art" />}
             </section>
 
+            {/* ✅ NOUVO — Flyer meni (imaj) */}
+            {flyerOnly
+              ? <FlyerView slug={slug} flyers={flyers} theme={theme} name={r.name} t={t} />
+              : flyers.length > 0 && <FlyerCta slug={slug} flyers={flyers} t={t} onOpen={() => go('flyer')} />}
+
+            {!flyerOnly && (<>
             <div id="rs-menu" className="rs-toolbar" style={{ scrollMarginTop: 12 }}>
               <SearchField value={search} onChange={setSearch} hints={[t('pub.hint1'), t('pub.hint2'), t('pub.hint3')]} />
               {(data.categories.length > 0 || favs.length > 0) && (
@@ -521,6 +531,7 @@ export default function RestaurantPortal() {
                 ))}
               </div>
             )}
+            </>)}
 
             {(r.phone || r.address || r.hoursText) && (
               <>
@@ -593,6 +604,11 @@ export default function RestaurantPortal() {
             )}
           </div>
         )}
+
+        {/* ── FLYER MENI ── */}
+        {view === 'flyer' && (flyers.length
+          ? <FlyerView slug={slug} flyers={flyers} theme={theme} name={r.name} t={t} onBack={() => go('menu')} />
+          : <Empty icon={UtensilsCrossed} title={t('flyer.empty')} action={<Btn icon={UtensilsCrossed} onClick={() => go('menu')}>{t('flyer.back')}</Btn>} />)}
 
         {/* ── REZÈVASYON ── */}
         {view === 'reserve' && <ReserveView slug={slug} data={data} t={t} te={te} />}

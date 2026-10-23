@@ -4,10 +4,12 @@
 // yon afich (A4). Afich yo toujou an Kreyòl + Français (de lang peyi a).
 // Depandans: npm install qrcode
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import QRCode from 'qrcode'
 import toast from 'react-hot-toast'
 import { QrCode, Download, Printer, Copy, Check } from 'lucide-react'
 import { RESTO_BUNDLES } from './restoI18n'
+import { restoApi } from './restoApi'
 import { Btn, Seg, cx } from './restoUI'
 
 const ICON = '/plus-resto-192.png'
@@ -89,7 +91,12 @@ export default function RestoQrCard({ t, portalUrl, directoryUrl, tenantName, sl
   const alive = useRef(true)
   useEffect(() => () => { alive.current = false }, [])
 
-  const url = mode === 'dir' ? directoryUrl : portalUrl
+  // Flyer meni: twazyèm opsyon si restoran an gen flyer
+  const { data: fl } = useQuery({ queryKey: ['restaurant-flyers'], queryFn: restoApi.flyers, staleTime: 60000 })
+  const hasFlyer = (fl?.flyers || []).length > 0
+  useEffect(() => { if (mode === 'flyer' && !hasFlyer) setMode('portal') }, [mode, hasFlyer])
+
+  const url = mode === 'dir' ? directoryUrl : mode === 'flyer' ? (portalUrl ? `${portalUrl}?v=flyer` : '') : portalUrl
   const name = mode === 'dir' ? 'Plus Resto' : tenantName
 
   useEffect(() => {
@@ -104,7 +111,7 @@ export default function RestoQrCard({ t, portalUrl, directoryUrl, tenantName, sl
     if (!qr) return
     const a = document.createElement('a')
     a.href = qr
-    a.download = `qr-${mode === 'dir' ? 'plus-resto' : slug || 'restoran'}.png`
+    a.download = `qr-${mode === 'dir' ? 'plus-resto' : `${slug || 'restoran'}${mode === 'flyer' ? '-flyer' : ''}`}.png`
     document.body.appendChild(a); a.click(); a.remove()
   }, [qr, mode, slug])
 
@@ -112,7 +119,7 @@ export default function RestoQrCard({ t, portalUrl, directoryUrl, tenantName, sl
     try { await navigator.clipboard.writeText(url); setCopied(true); toast.success(t('qr.copied')); setTimeout(() => setCopied(false), 1500) } catch { /* */ }
   }
 
-  const disabled = !qr || (mode === 'portal' && !ready)
+  const disabled = !qr || (mode !== 'dir' && !ready)
 
   return (
     <section className="rs-card rs-glass" style={{ '--delay': '50ms' }}>
@@ -124,9 +131,9 @@ export default function RestoQrCard({ t, portalUrl, directoryUrl, tenantName, sl
         </div>
         <div className="rs-qr__side">
           <span className="rs-label">{t('qr.target')}</span>
-          <Seg value={mode} onChange={setMode} options={[{ id: 'portal', label: t('qr.portal') }, { id: 'dir', label: t('qr.directory') }]} />
+          <Seg value={mode} onChange={setMode} options={[{ id: 'portal', label: t('qr.portal') }, ...(hasFlyer ? [{ id: 'flyer', label: t('flyer.qrOption') }] : []), { id: 'dir', label: t('qr.directory') }]} />
           <code className="rs-qr__url">{url}</code>
-          {mode === 'portal' && !ready && <div className="rs-alert rs-alert--warn">{t('qr.notReady')}</div>}
+          {mode !== 'dir' && !ready && <div className="rs-alert rs-alert--warn">{t('qr.notReady')}</div>}
           <div className="rs-qr__btns">
             <Btn icon={Printer} onClick={() => printPoster({ format: 'a6', qr, name, url, mode })} disabled={disabled}>{t('qr.printTable')}</Btn>
             <Btn variant="glass" icon={Printer} onClick={() => printPoster({ format: 'a4', qr, name, url, mode })} disabled={disabled}>{t('qr.printPoster')}</Btn>

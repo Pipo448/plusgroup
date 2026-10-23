@@ -27,6 +27,13 @@ export const restoApi = {
 
   portalSettings: () => data(api.get('/restaurant/portal/settings')),
   savePortalSettings: (payload) => data(api.put('/restaurant/portal/settings', payload)),
+  // Flyer meni (imaj)
+  flyers: () => data(api.get('/restaurant/flyers')),
+  addFlyer: (payload) => data(api.post('/restaurant/flyers', payload)),
+  updateFlyer: (id, body) => data(api.patch(`/restaurant/flyers/${encodeURIComponent(id)}`, body)),
+  deleteFlyer: (id) => data(api.delete(`/restaurant/flyers/${encodeURIComponent(id)}`)),
+  // Imaj la pou staff la (ak token) → Blob
+  flyerBlob: (id, v) => api.get(`/restaurant/flyers/${encodeURIComponent(id)}/image`, { params: { v }, responseType: 'blob' }).then((r) => r.data),
 
   onlineOrders: (params) => data(api.get('/restaurant/online-orders', { params })).then((d) => d.orders || []),
   newOrdersCount: () => data(api.get('/restaurant/online-orders/count')).then((d) => d.count || 0),
@@ -50,6 +57,7 @@ export const publicApi = {
   logoUrl: (slug) => `${apiBase()}/public/resto/${enc(slug)}/logo`,
   // Anyè Plus Resto: restoran ki toupre (lat/lng opsyonèl), chèch, vil, filtè
   directory: (params) => data(api.get('/public/resto', { params })),
+  flyerUrl: (slug, id, v) => `${apiBase()}/public/resto/${enc(slug)}/flyer/${enc(id)}${v ? `?v=${v}` : ''}`,
 }
 
 function apiBase() {

@@ -3,6 +3,7 @@ const { asyncHandler } = require('../../middleware/errorHandler');
 const svc = require('./restaurant.service');
 const pub = require('./restaurant.public.service');
 const sales = require('./restaurant.sales.service');
+const flyers = require('./restaurant.flyers.service');
 const { handle } = require('./restaurant.db');
 
 const tenantNameOf = (req) => req.tenant?.businessName || req.tenant?.name || 'Restoran';
@@ -168,7 +169,41 @@ const setPrefs = handle(async (req, res) => {
   res.json({ success: true, prefs: await sales.setDashboardMode(req.tenant, req.body?.dashboardMode ?? req.body?.mode) });
 });
 
+// ══════════════════════════════════════════════
+// FLYER MENI (imaj)
+// ══════════════════════════════════════════════
+const listFlyers = handle(async (req, res) => {
+  res.json({ success: true, flyers: await flyers.listFlyers(req.tenant.id), max: flyers.MAX_FLYERS });
+});
+
+const addFlyer = handle(async (req, res) => {
+  const flyer = await flyers.addFlyer(req.tenant.id, req.body || {});
+  pub.invalidatePortalCache(req.tenant.id);
+  res.status(201).json({ success: true, flyer, flyers: await flyers.listFlyers(req.tenant.id) });
+});
+
+const updateFlyer = handle(async (req, res) => {
+  const list = await flyers.updateFlyer(req.tenant.id, req.params.id, req.body || {});
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, flyers: list });
+});
+
+const deleteFlyer = handle(async (req, res) => {
+  const list = await flyers.deleteFlyer(req.tenant.id, req.params.id);
+  pub.invalidatePortalCache(req.tenant.id);
+  res.json({ success: true, flyers: list });
+});
+
+// Imaj la pou staff la (preview nan paramèt yo, menm si pòtal la fèmen)
+const flyerImage = handle(async (req, res) => {
+  const img = await flyers.getFlyerImage(req.tenant.id, req.params.id);
+  res.set('Content-Type', img.type);
+  res.set('Cache-Control', 'private, max-age=604800');
+  res.send(img.buffer);
+});
+
 module.exports = {
+  listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,
   getCategories, createCategory, updateCategory, deleteCategory,

@@ -37,6 +37,13 @@ router.delete('/menu/:id',       authorize('admin'), ctrl.removeMenuItem);
 router.get('/portal/settings',   ctrl.getPortalSettings);
 router.put('/portal/settings',   authorize('admin'), ctrl.savePortalSettings);
 
+// ── Flyer meni (imaj) — admin + jesyonè estòk ka jere yo
+router.get('/flyers',            ctrl.listFlyers);
+router.get('/flyers/:id/image',  ctrl.flyerImage);
+router.post('/flyers',           authorize('admin', 'stock_manager'), ctrl.addFlyer);
+router.patch('/flyers/:id',      authorize('admin', 'stock_manager'), ctrl.updateFlyer);
+router.delete('/flyers/:id',     authorize('admin', 'stock_manager'), ctrl.deleteFlyer);
+
 // ── Kòmand an liy
 router.get('/online-orders',               ctrl.listOnlineOrders);
 router.get('/online-orders/count',         ctrl.countNewOrders);

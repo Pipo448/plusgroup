@@ -43,6 +43,8 @@ router.get('/:slug', handle(async (req, res) => {
 
 router.get('/:slug/logo', handle(async (req, res) => sendImage(await pub.getLogo(req.params.slug), res)));
 
+router.get('/:slug/flyer/:id', handle(async (req, res) => sendImage(await pub.getFlyerImage(req.params.slug, req.params.id), res)));
+
 router.get('/:slug/image/:productId', handle(async (req, res) => sendImage(await pub.getItemImage(req.params.slug, req.params.productId), res)));
 
 router.post('/:slug/orders', rateLimit(6), handle(async (req, res) => {
