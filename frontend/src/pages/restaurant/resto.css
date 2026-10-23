@@ -1119,3 +1119,18 @@ button.rs-star .rs-star__fill { top: 3px; left: 3px; height: calc(100% - 6px); }
 .rs-pro-pop__x { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-muted); cursor: pointer; display: grid; place-items: center; }
 .rs-pro-pop__x:hover { background: var(--glass-strong); color: var(--ink); }
 @media (max-width: 600px) { .rs-pro-pop { left: 12px; right: 12px; width: auto; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); } }
+
+/* ═════════════ KOULÈ ANBLÈM TENANT LAN (src/theme/tenantBrand.js) ═════════════
+   Lè yon tenant chwazi koulè l, <html data-brand> parèt e « paprika » (koulè
+   prensipal modil la) vin koulè biznis la — nan app la ak nan pòtal kliyan an. */
+html[data-brand] .rs, html[data-brand] .rs[data-theme='dark'] {
+  --paprika: var(--brand-d); --paprika-soft: rgba(var(--brand-d-rgb), 0.18); --paprika-ink: var(--brand-d-ink); --on-paprika: var(--on-brand-d);
+  --glow: rgba(var(--brand-d-rgb), 0.30); --shadow-glow: 0 12px 30px -8px rgba(var(--brand-d-rgb), 0.6);
+  --glow-2: rgba(var(--brand-2-rgb), 0.18);
+}
+html[data-brand] .rs[data-theme='light'] {
+  --paprika: var(--brand-l); --paprika-soft: rgba(var(--brand-l-rgb), 0.10); --paprika-ink: var(--brand-l-ink); --on-paprika: var(--on-brand-l);
+  --glow: rgba(var(--brand-l-rgb), 0.22); --shadow-glow: 0 12px 30px -8px rgba(var(--brand-l-rgb), 0.45);
+  --glow-2: rgba(var(--brand-2-rgb), 0.24);
+}
+html[data-brand] .rs-promo::before { background: var(--brand-2); }

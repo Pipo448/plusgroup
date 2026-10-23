@@ -12,6 +12,7 @@ import {
 import { setupPlusRestoPwa } from './restoPwa'
 import FlyerView, { FlyerCta } from './FlyerView'
 import { PromoStrip } from './PlusGroupPromo'
+import { applyBrand } from '../../theme/tenantBrand'
 import { useRT, LANGS, changeRestoLang } from '../restaurant/restoI18n'
 import { publicApi, errorCode, rateOrder } from '../restaurant/restoApi'
 import {
@@ -466,6 +467,14 @@ export default function RestaurantPortal() {
     document.addEventListener('focusout', onOut)
     return () => { document.removeEventListener('focusin', onIn); document.removeEventListener('focusout', onOut) }
   }, [])
+
+  // ✅ NOUVO — koulè anblèm restoran an sou pòtal la (si li chwazi yo)
+  const brand = data?.brand
+  useEffect(() => {
+    if (!brand?.primary) return undefined
+    applyBrand({ primary: brand.primary, secondary: brand.secondary, sidebar: 'dark' }, { themeColor: false })
+    return () => applyBrand(null)
+  }, [brand?.primary, brand?.secondary])
 
   const onPlaced = (order) => {
     const entry = { code: order.code, last4: order.phoneLast4, at: order.createdAt, total: order.totalHtg }

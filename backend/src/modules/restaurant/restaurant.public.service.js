@@ -3,6 +3,8 @@
 // Pa gen otantifikasyon isit la: tenant an idantifye pa non li nan URL la
 // (/resto/:slug). Pri yo toujou kalkile sou sèvè a, jamè soti nan kliyan an.
 
+// Koulè anblèm (lazy: pòtal la mache menm si modil branding lan poko deplwaye)
+const brandSvc = () => { try { return require('../branding/branding.service'); } catch { return { getPortalBrand: async () => null }; } };
 const productSvc = require('../products/product.service');
 const svc = require('./restaurant.service');
 const { portalAllowed } = require('./restaurant.sales.service');
@@ -130,7 +132,10 @@ async function getPortal(slug) {
   const logo = tenant.logoUrl || tenant.logo || null;
   const rating = await getRatingSummary(tenantId);
   const flyers = await flyerSvc.listFlyers(tenantId).catch(() => []);
+  // ✅ NOUVO — koulè anblèm restoran an (si li chwazi yo pou pòtal la tou)
+  const brand = await brandSvc().getPortalBrand(tenantId);
   return {
+    brand,
     flyers: flyers.map((f) => ({ id: f.id, title: f.title, width: f.width, height: f.height, v: f.v })),
     restaurant: {
       name: tenantName,

@@ -29,7 +29,7 @@ import {
   Menu, X, Globe, ChevronDown, GitBranch, CreditCard, Smartphone, Phone, Lock, ChevronRight,
   Wallet, Hotel, CalendarDays, Tag, Bluetooth, BluetoothOff, Printer, Scissors, DollarSign, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
-  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2, ShoppingBag, Globe2, PieChart,
+  Banknote, Search, ChevronsLeft, ArrowUp, WifiOff, Crown, FilePlus2, ShoppingBag, Globe2, PieChart, Palette,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -41,6 +41,8 @@ import NotificationBell from '../NotificationBell'
 import { ensureRestoI18n } from '../../pages/restaurant/restoI18n'
 // ✅ NOUVO — Tradiksyon tout seksyon/modil meni an (4 lang)
 import { ensureLayoutI18n } from './layoutI18n'
+// ✅ NOUVO — koulè anblèm tenant lan (meni, tèt paj, bouton, modil Restoran)
+import { useTenantBrand } from '../../theme/tenantBrand'
 import './layout.css'
 
 const TZ = 'America/Port-au-Prince'
@@ -51,7 +53,7 @@ const ls = {
   del: (k) => { try { localStorage.removeItem(k) } catch {} },
 }
 
-const COLORS = { acc: '#f5680c', ent: '#C9A84C', hotel: '#0EA5E9', resto: '#DC2626', gym: '#14B8A6', dry: '#8B5CF6', rh: '#10B981' }
+const COLORS = { acc: 'var(--brand-on-dark, #f5680c)', ent: '#C9A84C', hotel: '#0EA5E9', resto: '#DC2626', gym: '#14B8A6', dry: '#8B5CF6', rh: '#10B981' }
 
 const LANGS = [
   { code: 'ht', name: 'Kreyòl', flag: '🇭🇹' },
@@ -258,6 +260,7 @@ function ScrollArea({ children, pathname }) {
 export default function AppLayout() {
   const { user, tenant, token, logout } = useAuthStore()
   const loading = useAuthStore(s => s.loading)
+  useTenantBrand(tenant?.id)
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
@@ -549,7 +552,7 @@ export default function AppLayout() {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#0f1117' }}>
-      <div style={{ width: 38, height: 38, border: '3px solid rgba(245,104,12,.15)', borderTopColor: '#f5680c', borderRadius: '50%', animation: 'lay-spin .8s linear infinite' }}/>
+      <div style={{ width: 38, height: 38, border: '3px solid rgba(var(--brand-rgb, 245,104,12),.15)', borderTopColor: 'var(--brand-on-dark, #f5680c)', borderRadius: '50%', animation: 'lay-spin .8s linear infinite' }}/>
       <style>{'@keyframes lay-spin { to { transform: rotate(360deg) } }'}</style>
     </div>
   )
@@ -579,14 +582,14 @@ export default function AppLayout() {
                   <GitBranch size={13}/>
                 </button>
                 {showBranches && createPortal(
-                  <div ref={branchMenuRef} style={{ position: 'fixed', top: branchMenuPos.top, left: branchMenuPos.left, minWidth: 230, maxWidth: 'calc(100vw - 32px)', zIndex: 9999, background: '#0f1117', border: '1px solid rgba(245,104,12,.22)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,.65)', overflow: 'hidden', fontFamily: 'Manrope, sans-serif', animation: 'lay-pop .18s both' }}>
-                    <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(245,104,12,.1)', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
+                  <div ref={branchMenuRef} style={{ position: 'fixed', top: branchMenuPos.top, left: branchMenuPos.left, minWidth: 230, maxWidth: 'calc(100vw - 32px)', zIndex: 9999, background: 'var(--side-top, #0f1117)', border: '1px solid rgba(var(--brand-rgb, 245,104,12),.22)', borderRadius: 14, boxShadow: '0 16px 48px rgba(0,0,0,.65)', overflow: 'hidden', fontFamily: 'Manrope, sans-serif', animation: 'lay-pop .18s both' }}>
+                    <div style={{ padding: '10px 14px 8px', borderBottom: '1px solid rgba(var(--brand-rgb, 245,104,12),.1)', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--brand-on-dark, #f5680c)', fontSize: 11, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>
                       <GitBranch size={12}/> {L('lay.changeBranch', 'Chanje branch')}
                     </div>
-                    <button onClick={handleClearBranch} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(245,104,12,.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5680c' }}/>
+                    <button onClick={handleClearBranch} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: 'none', cursor: 'pointer', background: !currentBranchId ? 'rgba(var(--brand-rgb, 245,104,12),.1)' : 'transparent', borderBottom: '1px solid rgba(255,255,255,.04)' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--brand-on-dark, #f5680c)' }}/>
                       <span style={{ flex: 1, textAlign: 'left' }}><b style={{ display: 'block', color: '#fff', fontSize: 13 }}>{L('lay.allBranches', 'Tout branch yo')}</b><small style={{ color: '#64748b', fontSize: 10 }}>{L('lay.globalData', 'Wè done global')}</small></span>
-                      {!currentBranchId && <span style={{ color: '#f5680c', fontSize: 11, fontWeight: 800 }}>✓</span>}
+                      {!currentBranchId && <span style={{ color: 'var(--brand-on-dark, #f5680c)', fontSize: 11, fontWeight: 800 }}>✓</span>}
                     </button>
                     {branches.map(b => {
                       const cur = b.id === currentBranchId
@@ -598,7 +601,7 @@ export default function AppLayout() {
                         </button>
                       )
                     })}
-                    <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }} style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: '#f5680c', fontSize: 11.5, fontWeight: 800 }}>
+                    <button onClick={() => { navigate('/app/branches'); setShowBranches(false) }} style={{ width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--brand-on-dark, #f5680c)', fontSize: 11.5, fontWeight: 800 }}>
                       <GitBranch size={12}/> {L('lay.manageBranches', 'Jere branch yo →')}
                     </button>
                   </div>,
@@ -636,7 +639,12 @@ export default function AppLayout() {
             {LANGS.map(l => <button key={l.code} className={lang === l.code ? 'on' : ''} onClick={() => changeLanguage(l.code)} title={l.name}>{l.flag} {l.code.toUpperCase()}</button>)}
             <span>{tenant?.defaultCurrency || 'HTG'}</span>
           </div>
-          <NavLink to="/app/settings" className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': COLORS.acc }} data-tip={L('nav.settings', 'Paramèt')}>
+          {isAdmin && isPageAllowed('settings') && (
+            <NavLink to="/app/settings/branding" className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': COLORS.acc }} data-tip={L('lay.branding', 'Koulè biznis')}>
+              <Palette size={16}/><span className="l">{L('lay.branding', 'Koulè biznis')}</span>
+            </NavLink>
+          )}
+          <NavLink to="/app/settings" end className={({ isActive }) => `lay-it ${isActive ? 'on' : ''}`} style={{ '--c': COLORS.acc }} data-tip={L('nav.settings', 'Paramèt')}>
             <Settings size={16}/><span className="l">{L('nav.settings', 'Paramèt')}</span>
           </NavLink>
           <div className="lay-user" title={col ? user?.fullName : undefined}>

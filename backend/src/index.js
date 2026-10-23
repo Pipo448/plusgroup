@@ -69,6 +69,8 @@ const kesSesyonRoutes     = require('./modules/kes-sesyon/kes-sesyon.routes')
 const estokKontwolRoutes  = require('./modules/estok-kontwol/estok-kontwol.routes')
 // ✅ NOUVO — Restoran: tab ak kòmand louvri
 const restaurantTablesRoutes = require('./modules/restaurant-tables/restaurant-tables.routes')
+// ✅ NOUVO — Koulè anblèm chak tenant (idantite vizyèl app la + pòtal)
+const brandingRoutes = require('./modules/branding/branding.routes')
 // ✅ NOUVO — Modil Jim/Gym
 const gymRoutes = require('./routes/gym.routes')
 
@@ -213,6 +215,7 @@ app.use(`${API}/kes-sesyon`,     kesSesyonRoutes)
 app.use(`${API}/estok-kontwol`,  estokKontwolRoutes)
 // ✅ NOUVO — Restoran: tab ak kòmand
 app.use(`${API}/restaurant-tables`, restaurantTablesRoutes)
+app.use(`${API}/branding`, brandingRoutes)
 app.use(`${API}/mikwo-expenses`, mikwoExpensesRoutes)
 app.use(`${API}/mikwo-profit`,   mikwoProfitRoutes)
 app.use(`${API}/internet`,   internetRoutes);
