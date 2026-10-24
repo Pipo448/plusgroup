@@ -8,10 +8,40 @@
     <title>PLUS GROUP — Innov@tion & Tech</title>
 
     <!-- PWA -->
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="manifest" id="pwaManifest" href="/pg-stock.webmanifest" />
+    <link rel="apple-touch-icon" id="pwaAppleIcon" href="/pg-stock-apple.png" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <meta name="apple-mobile-web-app-title" content="Sol PlusGroup" />
+    <meta name="apple-mobile-web-app-title" id="pwaAppleTitle" content="PG Stock" />
+    <script>
+      // Chak "app" sou app.plusgroupe.com gen pwòp manifest li (non, ikòn, paj kòmansman):
+      //   /resto...    → Plus Resto   (plus-resto.webmanifest)
+      //   /app/sol...  → Sol PlusGroup (manifest.json — menm jan avan)
+      //   tout lòt yo  → PG Stock     (pg-stock.webmanifest)
+      (function () {
+        var APPS = [
+          { p: '/resto',   m: '/plus-resto.webmanifest', i: '/plus-resto-192.png', t: 'Plus Resto' },
+          { p: '/app/sol', m: '/manifest.json',          i: '/logo.png',           t: 'Sol PlusGroup' },
+          { p: '/',        m: '/pg-stock.webmanifest',   i: '/pg-stock-apple.png', t: 'PG Stock' }
+        ];
+        function apply() {
+          var path = location.pathname, a = APPS[APPS.length - 1];
+          for (var k = 0; k < APPS.length; k++) { if (path.indexOf(APPS[k].p) === 0) { a = APPS[k]; break; } }
+          var m = document.getElementById('pwaManifest'), ic = document.getElementById('pwaAppleIcon'), t = document.getElementById('pwaAppleTitle');
+          if (m && m.getAttribute('href') !== a.m) m.setAttribute('href', a.m);
+          if (ic) ic.setAttribute('href', a.i);
+          if (t) t.setAttribute('content', a.t);
+        }
+        apply();
+        // React Router chanje paj san rechaje → mete manifest la ajou chak fwa
+        ['pushState', 'replaceState'].forEach(function (fn) {
+          var orig = history[fn];
+          history[fn] = function () { var r = orig.apply(this, arguments); apply(); return r; };
+        });
+        window.addEventListener('popstate', apply);
+      })();
+    </script>
 
     <!-- Google Fonts: Inter + JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -21,5 +51,10 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Bannyè "Enstale PG Stock" (pa parèt sou /resto ak /app/sol — yo gen pa yo) -->
+    <script src="/plus-install.js" charset="utf-8"
+            data-app="PG Stock" data-icon="/pg-stock-192.png" data-color="#1a1464"
+            data-skip="/resto,/app/sol" defer></script>
   </body>
 </html>
