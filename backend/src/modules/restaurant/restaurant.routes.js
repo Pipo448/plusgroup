@@ -44,6 +44,12 @@ router.put('/menu/:id',          authorize('admin', 'stock_manager'), ctrl.updat
 router.patch('/menu/:id/stock',  authorize('admin', 'stock_manager', 'cashier'), ctrl.adjustStock);
 router.delete('/menu/:id',       authorize('admin'), ctrl.removeMenuItem);
 
+// ── ✅ NOUVO — Kès / vann kontwa (kesye + admin)
+router.get('/counter/catalog',          authorize('admin', 'cashier'), ctrl.counterCatalog);
+router.get('/counter/tickets',          authorize('admin', 'cashier'), ctrl.counterTickets);
+router.post('/counter/tickets',         authorize('admin', 'cashier'), ctrl.createCounterTicket);
+router.patch('/counter/tickets/:id',    authorize('admin', 'cashier'), ctrl.updateCounterTicket);
+
 // ── Paramèt pòtal kliyan
 router.get('/portal/settings',   ctrl.getPortalSettings);
 router.put('/portal/settings',   authorize('admin'), ctrl.savePortalSettings);

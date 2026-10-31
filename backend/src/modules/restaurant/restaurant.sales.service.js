@@ -61,7 +61,8 @@ async function serverOfTableOrder(tenantId, orderId) {
 }
 
 async function recordSale(tenantId, branchId, user, body) {
-  const source = body.source === 'online' ? 'online' : 'table';
+  // ✅ NOUVO — 'counter' = vant kès / kontwa (kliyan ki vin achte sou plas, san tab)
+  const source = ['online', 'counter'].includes(body.source) ? body.source : 'table';
   const refId = clean(body.refId, 80);
   if (!refId) throw httpError(400, 'REF_REQUIRED', 'Referans vant lan manke.');
   const items = (Array.isArray(body.items) ? body.items : []).slice(0, 200).map((i) => ({

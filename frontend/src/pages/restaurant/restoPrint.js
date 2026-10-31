@@ -69,9 +69,29 @@ export function printBill({ tenantName, title, subtitle, items, subtotal, discou
     ${footer(note)}`)
 }
 
+// ✅ NOUVO — Resi kès (vann kontwa): nimewo kòmand an gwo, non kliyan, peman
+const MODE_FR = { takeaway: 'À emporter', dinein: 'Sur place', delivery: 'Livraison' }
+export function printCounterReceipt({ tenantName, number, customerName, mode, items, subtotal, discountPct = 0, deliveryFee = 0, total, method, given, change, cashier, note }) {
+  const rows = items.map((it) => `<tr><td class="q">${esc(it.qty)}</td><td>${esc(it.name)}<br><span style="font-size:10px">${amt(it.unitPrice)}</span></td><td class="r">${amt(it.qty * it.unitPrice)}</td></tr>`).join('')
+  const disc = discountPct > 0 ? `<tr><td>Remise ${esc(discountPct)}%</td><td class="r">-${amt(subtotal * discountPct / 100)}</td></tr>` : ''
+  const del = deliveryFee > 0 ? `<tr><td>Frais de livraison</td><td class="r">${amt(deliveryFee)}</td></tr>` : ''
+  const pay = `<tr><td>Paiement</td><td class="r">${esc(METHOD_FR[method] || method || '')}</td></tr>${method === 'cash' && given ? `<tr><td>Reçu</td><td class="r">${amt(given)} HTG</td></tr><tr><td class="b">Monnaie</td><td class="r b">${amt(change)} HTG</td></tr>` : ''}`
+  printHtml(`Reçu #${number}`, `
+    <h1>${esc(tenantName)}</h1>
+    <div class="c b">REÇU</div>
+    <h2 style="font-size:34px">N° ${esc(number)}</h2>
+    <div class="c big">${esc(MODE_FR[mode] || '')}${customerName ? ` — ${esc(customerName)}` : ''}</div>
+    <div class="c">${now()}${cashier ? ` · ${esc(cashier)}` : ''}</div><hr>
+    <table>${rows}</table><hr>
+    <table><tr><td>Sous-total</td><td class="r">${amt(subtotal)} HTG</td></tr>${disc}${del}
+    <tr><td class="big">TOTAL</td><td class="r big">${amt(total)} HTG</td></tr>${pay}</table>
+    <div class="c" style="margin-top:6px">Gardez ce numéro : on vous appellera</div>
+    ${footer(note)}`)
+}
+
 // Rapò vant (Z) pou kesye a enprime sou papye — an franse
 const METHOD_FR = { cash: 'Espèces', moncash: 'MonCash', natcash: 'NatCash', card: 'Carte' }
-const SOURCE_FR = { table: 'Sur place', online: 'En ligne' }
+const SOURCE_FR = { table: 'Tables', online: 'En ligne', counter: 'Caisse (comptoir)' }
 export function printSalesReport({ tenantName, report, cashier, note }) {
   const r = report
   const period = r.from === r.to ? r.from : `${r.from} → ${r.to}`

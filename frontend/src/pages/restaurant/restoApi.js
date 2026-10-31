@@ -14,6 +14,11 @@ export const restoApi = {
   // Anrejistre yon vant (idanpotan: menm source+refId pa janm konte 2 fwa)
   recordSale: (payload) => data(api.post('/restaurant/sales', payload)),
   salesReport: (params) => data(api.get('/restaurant/sales/report', { params })),
+  // ✅ NOUVO — Kès / vann kontwa
+  counterCatalog: () => data(api.get('/restaurant/counter/catalog')),
+  counterTickets: (scope) => data(api.get('/restaurant/counter/tickets', { params: scope ? { scope } : undefined })),
+  createCounterTicket: (payload) => data(api.post('/restaurant/counter/tickets', payload)).then((d) => d.ticket),
+  updateCounterTicket: (id, status) => data(api.patch(`/restaurant/counter/tickets/${id}`, { status })).then((d) => d.ticket),
 
   menu: (params) => data(api.get('/restaurant/menu', { params })),
   createItem: (payload) => data(api.post('/restaurant/menu', payload)),
@@ -85,6 +90,7 @@ export const errorMessage = (e) => e?.response?.data?.message
 export const RESTO_BASE = '/app/restaurant'
 export const RESTO_PATHS = {
   menu: `${RESTO_BASE}/menu`,
+  counter: `${RESTO_BASE}/counter`,
   tables: `${RESTO_BASE}/tables`,
   orders: `${RESTO_BASE}/orders`,
   reservations: `${RESTO_BASE}/reservations`,

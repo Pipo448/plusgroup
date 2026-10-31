@@ -147,3 +147,30 @@ CREATE TABLE IF NOT EXISTS resto_reservations (
   );
 
 CREATE INDEX IF NOT EXISTS idx_resto_resv_tenant_date ON resto_reservations (tenant_id, res_date, res_time);
+
+-- Kès / vann kontwa: tikè ak nimewo kòmand chak jou
+CREATE TABLE IF NOT EXISTS resto_counter_tickets (
+    id              TEXT PRIMARY KEY,
+    tenant_id       TEXT NOT NULL,
+    branch_id       TEXT,
+    day             DATE NOT NULL,
+    number          INTEGER NOT NULL,
+    client_ref      TEXT NOT NULL,
+    customer_name   TEXT,
+    customer_phone  TEXT,
+    address         TEXT,
+    mode            TEXT NOT NULL DEFAULT 'takeaway',
+    notes           TEXT,
+    items           JSONB NOT NULL DEFAULT '[]'::jsonb,
+    total_htg       NUMERIC(12,2) NOT NULL DEFAULT 0,
+    status          TEXT NOT NULL DEFAULT 'prep',
+    invoice_id      TEXT,
+    cashier_id      TEXT,
+    cashier_name    TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ready_at        TIMESTAMPTZ,
+    served_at       TIMESTAMPTZ,
+    UNIQUE (tenant_id, day, number),
+    UNIQUE (tenant_id, client_ref)
+  );
+CREATE INDEX IF NOT EXISTS idx_resto_counter_active ON resto_counter_tickets (tenant_id, status, created_at DESC);

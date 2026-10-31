@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import {
   LayoutDashboard, Wallet, Receipt, TrendingUp, TrendingDown, Armchair, ShoppingBag, CalendarDays, UtensilsCrossed,
-  BarChart3, Globe, Clock, Users, ArrowRight, Store, Sparkles,
+  BarChart3, Globe, Clock, Users, ArrowRight, Store, Sparkles, Banknote,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
@@ -25,6 +25,7 @@ export default function RestaurantDashboard({ onUseGeneral }) {
   const navigate = useNavigate()
   const [theme, toggleTheme] = useRestoTheme()
   const { tenant, user } = useAuthStore()
+  const canCash = isAdminUser(user) || user?.role === 'cashier'
   const tenantName = getTenantName(tenant)
 
   // 60s: ti repons (agrega), pa lis — pou ekonomize trafik
@@ -33,6 +34,8 @@ export default function RestaurantDashboard({ onUseGeneral }) {
   const salesToday = useCountUp(d?.sales.today || 0, 900)
 
   const quick = [
+    // ✅ NOUVO — Kès an premye (kesye/admin)
+    ...(canCash ? [{ to: RESTO_PATHS.counter, icon: Banknote, label: t('nav.counter') }] : []),
     { to: RESTO_PATHS.tables, icon: Armchair, label: t('nav.tablesNav') },
     { to: RESTO_PATHS.orders, icon: ShoppingBag, label: t('nav.orders'), badge: d?.online.nouvo },
     { to: RESTO_PATHS.reservations, icon: CalendarDays, label: t('nav.reservations') },

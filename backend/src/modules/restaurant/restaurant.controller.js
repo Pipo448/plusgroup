@@ -6,6 +6,7 @@ const sales = require('./restaurant.sales.service');
 const flyers = require('./restaurant.flyers.service');
 const kinds = require('./restaurant.kinds.service');
 const shared = require('./restaurant.shared.service');
+const counter = require('./restaurant.counter.service');
 const { handle } = require('./restaurant.db');
 
 const tenantNameOf = (req) => req.tenant?.businessName || req.tenant?.name || 'Restoran';
@@ -270,7 +271,24 @@ const flyerImage = handle(async (req, res) => {
   res.send(img.buffer);
 });
 
+// ── ✅ NOUVO — Kès / vann kontwa ───────────────────────────────────────
+const counterCatalog = handle(async (req, res) => {
+  res.json({ success: true, ...(await counter.getCatalog(req.tenant.id)) });
+});
+const counterTickets = handle(async (req, res) => {
+  res.json({ success: true, ...(await counter.listTickets(req.tenant.id, { scope: req.query.scope })) });
+});
+const createCounterTicket = handle(async (req, res) => {
+  const r = await counter.createTicket(req.tenant.id, req.branchId, req.user, req.body || {});
+  res.status(r.created ? 201 : 200).json({ success: true, ...r });
+});
+const updateCounterTicket = handle(async (req, res) => {
+  const ticket = await counter.updateTicketStatus(req.tenant.id, req.params.id, String(req.body?.status || ''));
+  res.json({ success: true, ticket });
+});
+
 module.exports = {
+  counterCatalog, counterTickets, createCounterTicket, updateCounterTicket,
   listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu, dedupeMenu, menuJob, getMenuKinds, listShared, searchStock, addShared, updateShared, removeShared, searchMenu,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,

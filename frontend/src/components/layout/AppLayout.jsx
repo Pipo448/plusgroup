@@ -471,6 +471,8 @@ export default function AppLayout() {
     ] },
     { key: 'resto', title: L('lay.restaurant', '🍽️ Restoran'), color: COLORS.resto, pageKey: 'restaurant', items: [
       { to: '/app/restaurant/dashboard', icon: PieChart, label: L('resto.nav.dashboard', 'Tablo Restoran'), end: true },
+      // ✅ NOUVO — Kès: vann bay kliyan ki vin achte devan kès la (san tab)
+      { to: '/app/restaurant/counter', icon: Banknote, label: L('resto.nav.counter', 'Kès / Vann'), end: true, roles: ['admin', 'cashier'] },
       { to: '/app/restaurant/tables', icon: Users, label: L('resto.nav.tablesNav', 'Tab & Kòmand'), end: true },
       { to: '/app/restaurant/menu', icon: UtensilsCrossed, label: L('resto.nav.menuNav', 'Meni'), end: true },
       { to: '/app/restaurant/orders', icon: ShoppingBag, label: L('resto.nav.orders', 'Kòmand an liy'), end: true, badge: restoNew, pageKey: 'restaurant-portal' },

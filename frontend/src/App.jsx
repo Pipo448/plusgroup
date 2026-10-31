@@ -58,6 +58,8 @@ const HotelDashboard     = lazy(() => import('./pages/hotel/HotelDashboard'))
 const RestaurantMenuPage = lazy(() => import('./pages/restaurant/RestaurantMenuPage'))
 // ✅ NOUVO — Restoran: tab ak kòmand
 const RestaurantTablesPage = lazy(() => import('./pages/restaurant/RestaurantTablesPage'))
+// ✅ NOUVO — Restoran: Kès (vann kontwa)
+const RestaurantCounterPage = lazy(() => import('./pages/restaurant/RestaurantCounterPage'))
 // ✅ NOUVO — Restoran: kòmand an liy, rezèvasyon, paramèt pòtal kliyan
 const RestaurantOnlineOrdersPage   = lazy(() => import('./pages/restaurant/RestaurantOnlineOrdersPage'))
 const RestaurantReservationsPage   = lazy(() => import('./pages/restaurant/RestaurantReservationsPage'))
@@ -228,6 +230,7 @@ export default function App() {
             <Route path="restaurant/menu" element={<ProtectedPage pageKey="restaurant"><RestaurantMenuPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran: tab ak kòmand */}
             <Route path="restaurant/tables" element={<ProtectedPage pageKey="restaurant"><RestaurantTablesPage /></ProtectedPage>} />
+            <Route path="restaurant/counter" element={<ProtectedPage pageKey="restaurant"><RestaurantCounterPage /></ProtectedPage>} />
             {/* ✅ NOUVO — koulè anblèm restoran an */}
             <Route path="restaurant/branding" element={<ProtectedPage pageKey="restaurant"><BrandingPage /></ProtectedPage>} />
             {/* ✅ NOUVO — Restoran: kòmand an liy, rezèvasyon, pòtal kliyan (menm pageKey "restaurant") */}
