@@ -214,6 +214,17 @@ export function printKitchenTicket({ tenantName, title, subtitle, items, notes }
   })
 }
 
+// Tikè bar: bwason sèlman, pou moun ki responsab bar la (opsyonèl)
+export function printBarTicket({ tenantName, title, subtitle, items, notes }) {
+  const count = items.reduce((s, i) => s + Number(i.qty || 0), 0)
+  return printDoc({
+    docTitle: 'Bon de bar', biz: bizName(currentTenant(), tenantName), kitchen: true, showLogo: false,
+    label: 'BON DE BAR', big: title, subs: [subtitle],
+    items: items.map((i) => ({ qty: Number(i.qty), name: i.name, note: i.note })),
+    notes: [notes ? `Note : ${notes}` : null, `${count} boisson(s)`].filter(Boolean),
+  })
+}
+
 // Adisyon (pre-fakti) pou kliyan an verifye anvan li peye
 export function printBill({ tenantName, title, subtitle, items, subtotal, discountPct = 0, deliveryFee = 0, total, note }) {
   const tenant = currentTenant()

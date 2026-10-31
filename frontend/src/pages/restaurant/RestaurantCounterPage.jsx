@@ -4,6 +4,7 @@
 //  • Tikè: kantite, mòd (pou ale / sou plas / livrezon), non kliyan OPSYONÈL, nòt kizin
 //  • Peman (kach + monnen, MonCash, NatCash, kat) → fakti + vant nan rapò + estòk bese
 //  • Nimewo kòmand chak jou (#1, #2…) + tikè kizin otomatik (manje sèlman, pa bwason)
+//  • Tikè BAR opsyonèl pou bwason yo; estòk an dirèk (chak 15 s) + sèvè a verifye estòk la anvan peman
 //  • Tablo « Kòmand k ap prepare »: Pare → Bay kliyan
 //  • Pwoteksyon kont doub fakti: chak tikè gen yon referans; si rezo a koupe, re-peye kontinye menm vant lan
 import { useEffect, useMemo, useState } from 'react'
@@ -18,7 +19,7 @@ import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
-import { printKitchenTicket, printCounterReceipt, tenantReceiptNote, paperSize, setPaperSize } from './restoPrint'
+import { printKitchenTicket, printBarTicket, printCounterReceipt, tenantReceiptNote, paperSize, setPaperSize } from './restoPrint'
 import PayModal from './RestoPayModal'
 import {
   Stage, Layer, Hero, Btn, Badge, Chips, SearchField, DishVisual, Modal, Stepper, Seg, Field, Empty, SkeletonGrid, ThemeToggle,
@@ -27,6 +28,7 @@ import {
 
 const CART_KEY = 'resto-counter-cart'
 const PRINT_KEY = 'resto-counter-autoprint'
+const BAR_KEY = 'resto-counter-bar'
 const lsGet = (k) => { try { return localStorage.getItem(k) } catch { return null } }
 const lsSet = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v) } catch { /* */ } }
 const newRef = () => (window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`)
@@ -54,7 +56,7 @@ function ProductTile({ item, qty, onAdd, t }) {
 }
 
 // ── Panno tikè a (dwat sou òdinatè, fenèt anba sou telefòn) ───────────
-function TicketPanel({ draft, setDraft, subtotal, fee, total, onPay, onClear, canSell, inSheet, t }) {
+function TicketPanel({ draft, setDraft, avail = {}, subtotal, fee, total, onPay, onClear, canSell, inSheet, t }) {
   const count = draft.lines.reduce((s, l) => s + l.qty, 0)
   const shown = useCountUp(total, 450)
   const setQty = (id, q) => setDraft((d) => ({ ...d, lines: q <= 0 ? d.lines.filter((l) => l.id !== id) : d.lines.map((l) => (l.id === id ? { ...l, qty: q } : l)) }))
@@ -79,9 +81,10 @@ function TicketPanel({ draft, setDraft, subtotal, fee, total, onPay, onClear, ca
               <div className="rs-line__info rs-cline__info">
                 <span className="rs-line__name">{l.name}</span>
                 <span className="rs-line__sub">{money(l.unitPrice, 0)}{l.kind === 'drink' ? ' · 🥤' : ''}</span>
+                {avail[l.id] != null && l.qty > avail[l.id] && <Badge tone="chili">{t('counter.stockOver', { qty: Math.max(0, avail[l.id]) })}</Badge>}
               </div>
               <span className="rs-cline__total">{money(l.unitPrice * l.qty, 0)}</span>
-              <span className="rs-cline__step"><Stepper size="sm" value={l.qty} min={0} max={99} label={l.name} onChange={(q) => setQty(l.id, q)} /></span>
+              <span className="rs-cline__step"><Stepper size="sm" value={l.qty} min={0} max={avail[l.id] != null ? Math.max(l.qty, Math.min(99, avail[l.id])) : 99} label={l.name} onChange={(q) => setQty(l.id, q)} /></span>
             </li>
           ))}
         </ul>
@@ -156,6 +159,8 @@ function Queue({ tickets, onStatus, busyId, t }) {
 function DoneModal({ theme, done, onPrint, onClose, t }) {
   const [auto, setAuto] = useState(() => lsGet(PRINT_KEY) === '1')
   const toggleAuto = (v) => { setAuto(v); lsSet(PRINT_KEY, v ? '1' : null) }
+  const [bar, setBar] = useState(() => lsGet(BAR_KEY) === '1')
+  const toggleBar = (v) => { setBar(v); lsSet(BAR_KEY, v ? '1' : null) }
   // Lajè papye pou aparèy sa a (menm paramèt ak resi POS yo)
   const [paper, setPaper] = useState(() => paperSize())
   const changePaper = (v) => { setPaper(v); setPaperSize(v) }
@@ -177,11 +182,13 @@ function DoneModal({ theme, done, onPrint, onClose, t }) {
         <p className="rs-hint" style={{ margin: 0 }}>
           {done.hasFood ? <><ChefHat size={13} /> {t('counter.kitchenPrinted')}</> : <>🥤 {t('counter.drinksOnly')}</>}
         </p>
+        {done.barPrinted && <p className="rs-hint" style={{ margin: 0 }}>🥤 {t('counter.barPrinted')}</p>}
         <div className="rs-pos-paper">
           <span className="rs-label">{t('counter.paper')}</span>
           <Seg value={paper} onChange={changePaper} options={[{ id: '57mm', label: '57 mm' }, { id: '80mm', label: '80 mm' }]} />
         </div>
         <label className="rs-pos-auto"><input type="checkbox" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} /> {t('counter.autoPrint')}</label>
+        <label className="rs-pos-auto"><input type="checkbox" checked={bar} onChange={(e) => toggleBar(e.target.checked)} /> {t('counter.barTicket')}</label>
       </div>
     </Modal>
   )
@@ -202,7 +209,10 @@ export default function RestaurantCounterPage() {
 
   const { data: catalog, isLoading, refetch, isRefetching } = useQuery({ queryKey: ['restaurant-counter-catalog'], queryFn: restoApi.counterCatalog, staleTime: 60000 })
   const { data: tq } = useQuery({ queryKey: ['restaurant-counter-tickets'], queryFn: () => restoApi.counterTickets(), refetchInterval: 20000, enabled: canSell })
-  const items = useMemo(() => catalog?.items || [], [catalog])
+  // Estòk an dirèk: chak 15 s + lè ekran an reprann fokis (lòt kès ka vann menm bwason an)
+  const { data: stock } = useQuery({ queryKey: ['restaurant-counter-stock'], queryFn: restoApi.counterStock, refetchInterval: 15000, refetchOnWindowFocus: true, staleTime: 5000, enabled: canSell })
+  const items = useMemo(() => (catalog?.items || []).map((i) => (stock && stock[i.id] != null ? { ...i, quantity: stock[i.id] } : i)), [catalog, stock])
+  const avail = useMemo(() => Object.fromEntries(items.filter((i) => i.quantity != null).map((i) => [i.id, i.quantity])), [items])
   const categories = useMemo(() => catalog?.categories || [], [catalog])
 
   const [search, setSearch] = useState('')
@@ -262,6 +272,21 @@ export default function RestaurantCounterPage() {
       let invoiceId = lsGet(invKey)
       if (invoiceId) toast(t('counter.resume'))
       else {
+        // Sèvè a verifye estòk la an dirèk ANVAN fakti a: pa janm vann sa ki pa la
+        try {
+          await restoApi.checkCounterStock(d.lines.map((l) => ({ productId: l.productId, qty: l.qty })))
+        } catch (e) {
+          const short = e.response?.data?.details?.shortages
+          if (e.response?.status === 409 && Array.isArray(short)) {
+            const left = new Map(short.map((x) => [String(x.productId), x.available]))
+            setDraft((x) => ({ ...x, lines: x.lines.map((l) => (left.has(String(l.productId)) ? { ...l, qty: left.get(String(l.productId)) } : l)).filter((l) => l.qty > 0) }))
+            qc.invalidateQueries({ queryKey: ['restaurant-counter-stock'] })
+            toast.error(t('counter.stockShort', { list: short.map((x) => `${x.name} (${t('counter.stockLeft', { qty: x.available })})`).join(', ') }), { duration: 6000 })
+            setPaying(false)
+            return
+          }
+          throw e
+        }
         const lines = d.lines.map((l) => {
           const gross = l.qty * l.unitPrice
           return { description: l.name, productId: l.productId, quantity: l.qty, unitPriceHtg: l.unitPrice, unitPriceUsd: 0, discountPct: pay.discountPct,
@@ -292,12 +317,23 @@ export default function RestaurantCounterPage() {
         printKitchenTicket({ tenantName, title: `#${ticket.number}`, subtitle: [modeLabel.toUpperCase(), name].filter(Boolean).join(' — '), notes: d.notes || undefined,
           items: food.map((l) => ({ qty: l.qty, name: l.name })) })
       }
-      const result = { ticket, pay, lines: d.lines, subtotal: d.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0), fee, hasFood: food.length > 0 }
+      const drinks = d.lines.filter((l) => l.kind === 'drink')
+      const barPrinted = drinks.length > 0 && lsGet(BAR_KEY) === '1'
+      if (barPrinted) {
+        printBarTicket({ tenantName, title: `#${ticket.number}`, subtitle: [modeLabel.toUpperCase(), name].filter(Boolean).join(' — '),
+          items: drinks.map((l) => ({ qty: l.qty, name: l.name })) })
+      }
+      const result = { ticket, pay, lines: d.lines, subtotal: d.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0), fee, hasFood: food.length > 0, barPrinted }
       if (lsGet(PRINT_KEY) === '1') receipt(result) // fil enpresyon an mete l apre tikè kizin nan
       lsSet(invKey, null)
       setDraft((x) => ({ ...emptyDraft(), mode: x.mode }))
       setPaying(false); setSheet(false)
       setDone(result)
+      // Bese estòk la touswit sou ekran an, epi chèche vrè kantite yo sou sèvè a
+      const sold = new Map()
+      d.lines.forEach((l) => sold.set(String(l.productId), (sold.get(String(l.productId)) || 0) + l.qty))
+      qc.setQueryData(['restaurant-counter-stock'], (old) => (old ? Object.fromEntries(Object.entries(old).map(([k, v]) => [k, sold.has(k) ? Math.max(0, v - sold.get(k)) : v])) : old))
+      qc.invalidateQueries({ queryKey: ['restaurant-counter-stock'] })
       qc.invalidateQueries({ queryKey: ['restaurant-counter-tickets'] })
       qc.invalidateQueries({ queryKey: ['restaurant-counter-catalog'] })
       qc.invalidateQueries({ queryKey: ['restaurant-dashboard'] })
@@ -310,7 +346,7 @@ export default function RestaurantCounterPage() {
   const today = tq?.today
 
   const panel = (inSheet) => (
-    <TicketPanel inSheet={inSheet} draft={draft} setDraft={setDraft} subtotal={subtotal} fee={fee} total={total} canSell={canSell} t={t}
+    <TicketPanel inSheet={inSheet} avail={avail} draft={draft} setDraft={setDraft} subtotal={subtotal} fee={fee} total={total} canSell={canSell} t={t}
       onClear={clear} onPay={() => (draft.lines.length ? setPaying(true) : null)} />
   )
 

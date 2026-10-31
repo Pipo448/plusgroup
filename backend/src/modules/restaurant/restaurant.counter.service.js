@@ -9,7 +9,7 @@
 const productSvc = require('../products/product.service');
 const kinds = require('./restaurant.kinds.service');
 const shared = require('./restaurant.shared.service');
-const { q, httpError, newId, num, round2, clean, digits, haitiNow } = require('./restaurant.db');
+const { q, httpError, newId, num, round2, clean, digits, haitiNow, getPrisma } = require('./restaurant.db');
 
 const MODULE = 'restaurant';
 const MODES = ['takeaway', 'dinein', 'delivery'];
@@ -47,6 +47,44 @@ async function getCatalog(tenantId) {
   return data;
 }
 const invalidate = (tenantId) => catalogCache.delete(String(tenantId));
+
+// ── Estòk an dirèk (san kach) ────────────────────────────────────────
+// Pwodui ki pa sèvis sèlman (sèvis pa gen estòk pou konte).
+async function freshProducts(tenantId, ids) {
+  const list = [...new Set((ids || []).map(String).filter(Boolean))].slice(0, 1000);
+  if (!list.length) return [];
+  const rows = await getPrisma().product.findMany({ where: { tenantId, id: { in: list } } });
+  return rows.filter((p) => !p.isService && p.quantity != null);
+}
+
+// Kantite estòk aktyèl pou griy kès la: { productId: quantity }
+async function getStock(tenantId) {
+  const cat = await getCatalog(tenantId);
+  const rows = await freshProducts(tenantId, cat.items.map((i) => i.id));
+  return Object.fromEntries(rows.map((p) => [String(p.id), num(p.quantity)]));
+}
+
+// Verifye estòk la ANVAN fakti a kreye. Si pa gen ase → 409 ak lis pwodui yo.
+async function checkStock(tenantId, items = []) {
+  const want = new Map();
+  for (const i of Array.isArray(items) ? items : []) {
+    if (!i?.productId) continue;
+    const k = String(i.productId);
+    want.set(k, (want.get(k) || 0) + Math.max(0, num(i.qty)));
+  }
+  if (!want.size) return { ok: true, shortages: [] };
+  const rows = await freshProducts(tenantId, [...want.keys()]);
+  const shortages = rows
+    .map((p) => ({ productId: String(p.id), name: p.name, available: Math.max(0, num(p.quantity)), requested: want.get(String(p.id)) || 0 }))
+    .filter((x) => x.requested > x.available);
+  if (shortages.length) {
+    const err = httpError(409, 'STOCK_SHORT',
+      `Pa gen ase estòk: ${shortages.map((x) => `${x.name} (rete ${x.available})`).join(', ')}.`);
+    err.details = { shortages };
+    throw err;
+  }
+  return { ok: true, shortages: [] };
+}
 
 // ── Tikè ─────────────────────────────────────────────────────────────
 const mapTicket = (r) => ({
@@ -103,7 +141,11 @@ async function createTicket(tenantId, branchId, user, body = {}) {
       clean(body.notes, 300) || null, JSON.stringify(items), total, status, body.invoiceId ? String(body.invoiceId) : null,
       user?.id ? String(user.id) : null, user?.fullName || user?.name || user?.email || null,
     );
-    if (rows[0]) return { ticket: mapTicket(rows[0]), created: true };
+    if (rows[0]) {
+      // Fakti a te deja bese estòk la: griy kès la dwe wè nouvo kantite yo touswit
+      invalidate(tenantId); shared.invalidate(tenantId);
+      return { ticket: mapTicket(rows[0]), created: true };
+    }
     // Konfli: swa client_ref (lòt demann te deja kreye l), swa nimewo (2 kès an menm tan) → re-eseye
     const again = await q('SELECT * FROM resto_counter_tickets WHERE tenant_id = $1 AND client_ref = $2 LIMIT 1', String(tenantId), clientRef);
     if (again[0]) return { ticket: mapTicket(again[0]), created: false };
@@ -137,4 +179,4 @@ async function updateTicketStatus(tenantId, id, status) {
   return mapTicket(rows[0]);
 }
 
-module.exports = { getCatalog, invalidate, createTicket, listTickets, updateTicketStatus };
+module.exports = { getCatalog, invalidate, getStock, checkStock, createTicket, listTickets, updateTicketStatus };

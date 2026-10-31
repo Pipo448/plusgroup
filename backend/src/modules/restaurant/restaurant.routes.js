@@ -8,6 +8,14 @@ const ctrl = require('./restaurant.controller');
 
 router.use(identifyTenant, authenticate, extractBranch);
 
+// Chak fwa meni an chanje (plat, kategori, bwason POS pataje, estòk), griy Kès la rechaje touswit
+router.use((req, res, next) => {
+  if (req.method !== 'GET' && req.path.startsWith('/menu')) {
+    res.on('finish', () => { if (res.statusCode < 400 && req.tenant?.id) require('./restaurant.counter.service').invalidate(req.tenant.id); });
+  }
+  next();
+});
+
 // ── Rezime, tablo bò, preferans
 router.get('/summary', ctrl.getSummary);
 router.get('/dashboard', ctrl.getDashboard);
@@ -46,6 +54,8 @@ router.delete('/menu/:id',       authorize('admin'), ctrl.removeMenuItem);
 
 // ── ✅ NOUVO — Kès / vann kontwa (kesye + admin)
 router.get('/counter/catalog',          authorize('admin', 'cashier'), ctrl.counterCatalog);
+router.get('/counter/stock',            authorize('admin', 'cashier'), ctrl.counterStock);
+router.post('/counter/check-stock',     authorize('admin', 'cashier'), ctrl.counterCheckStock);
 router.get('/counter/tickets',          authorize('admin', 'cashier'), ctrl.counterTickets);
 router.post('/counter/tickets',         authorize('admin', 'cashier'), ctrl.createCounterTicket);
 router.patch('/counter/tickets/:id',    authorize('admin', 'cashier'), ctrl.updateCounterTicket);

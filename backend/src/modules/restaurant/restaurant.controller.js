@@ -275,6 +275,13 @@ const flyerImage = handle(async (req, res) => {
 const counterCatalog = handle(async (req, res) => {
   res.json({ success: true, ...(await counter.getCatalog(req.tenant.id)) });
 });
+const counterStock = handle(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json({ success: true, stock: await counter.getStock(req.tenant.id) });
+});
+const counterCheckStock = handle(async (req, res) => {
+  res.json({ success: true, ...(await counter.checkStock(req.tenant.id, req.body?.items)) });
+});
 const counterTickets = handle(async (req, res) => {
   res.json({ success: true, ...(await counter.listTickets(req.tenant.id, { scope: req.query.scope })) });
 });
@@ -288,7 +295,7 @@ const updateCounterTicket = handle(async (req, res) => {
 });
 
 module.exports = {
-  counterCatalog, counterTickets, createCounterTicket, updateCounterTicket,
+  counterCatalog, counterStock, counterCheckStock, counterTickets, createCounterTicket, updateCounterTicket,
   listFlyers, addFlyer, updateFlyer, deleteFlyer, flyerImage, importMenu, dedupeMenu, menuJob, getMenuKinds, listShared, searchStock, addShared, updateShared, removeShared, searchMenu,
   recordSale, getReport, getDashboard, getPrefs, setPrefs,
   getMenu, getLowStock, getMenuItem, createMenuItem, updateMenuItem, removeMenuItem, adjustStock,

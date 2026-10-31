@@ -16,6 +16,9 @@ export const restoApi = {
   salesReport: (params) => data(api.get('/restaurant/sales/report', { params })),
   // ✅ NOUVO — Kès / vann kontwa
   counterCatalog: () => data(api.get('/restaurant/counter/catalog')),
+  // Estòk an dirèk (san kach) + verifikasyon anvan peman
+  counterStock: () => data(api.get('/restaurant/counter/stock')).then((d) => d.stock || {}),
+  checkCounterStock: (items) => data(api.post('/restaurant/counter/check-stock', { items })),
   counterTickets: (scope) => data(api.get('/restaurant/counter/tickets', { params: scope ? { scope } : undefined })),
   createCounterTicket: (payload) => data(api.post('/restaurant/counter/tickets', payload)).then((d) => d.ticket),
   updateCounterTicket: (id, status) => data(api.patch(`/restaurant/counter/tickets/${id}`, { status })).then((d) => d.ticket),

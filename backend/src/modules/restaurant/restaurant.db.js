@@ -235,7 +235,7 @@ function handle(fn) {
     } catch (e) {
       const status = e.statusCode || e.status || 500;
       if (status >= 500) console.error('[restaurant]', e);
-      res.status(status).json({ success: false, code: e.code || 'SERVER_ERROR', message: status >= 500 ? 'Erè sèvè.' : e.message });
+      res.status(status).json({ success: false, code: e.code || 'SERVER_ERROR', message: status >= 500 ? 'Erè sèvè.' : e.message, ...(e.details && status < 500 ? { details: e.details } : {}) });
     }
   };
 }
