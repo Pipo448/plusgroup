@@ -18,6 +18,7 @@ import {
   isWebSerialSupported,
 } from '../services/printerService'
 import { isNativePrinterAvailable, openCashDrawerNative } from '../services/printerNative'
+import { isCompactPaper } from '../services/receiptPaper'
 import toast from 'react-hot-toast'
 // ✅ NOUVO — enstans i18n lan, pou konstwi resi (Bluetooth ak browser
 // fallback) nan menm lang aplikasyon an chwazi kounye a
@@ -26,17 +27,30 @@ import i18n from '../i18n/config'
 // ─────────────────────────────────────────────────────────────
 // BROWSER PRINT FALLBACK — pou Android san BLE printer
 // ─────────────────────────────────────────────────────────────
-function browserPrint(html) {
+// ✅ KORIJE — anvan, fallback sa a te toujou 80mm (`size: 80mm auto`, resi 300px
+// lajè, logo 40px wotè). Kounye a li swiv tay papye aparèy la (57mm → zòn enprimab
+// 48mm, logo piti, tablo ki pa debòde).
+function browserPrint(html, tenant) {
   const w = window.open('', '_blank', 'width=400,height=700')
   if (!w) {
     toast.error('Pemit popup pou sit sa pou ka enprime.')
     return false
   }
+  const compact = isCompactPaper(tenant)
+  const compactCss = compact ? `
+      @media print { @page { margin: 0 4.5mm 4mm 4.5mm; size: 57mm auto } }
+      body { padding: 0 !important; font-size: 10px !important }
+      body > div { width: 48mm !important; max-width: 48mm !important; margin: 0 auto !important }
+      img { width: auto !important; height: auto !important; max-width: 55% !important; max-height: 12mm !important }
+      table { font-size: 9px !important }
+      td, th { padding: 0 1px !important; word-break: break-word; overflow-wrap: anywhere }
+  ` : ''
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>
       * { box-sizing: border-box }
       body { margin: 0; padding: 8px; font-family: 'Courier New', monospace; font-size: 11px; background: #fff; color: #000 }
       @media print { @page { margin: 0; size: 80mm auto } body { margin: 0; padding: 0 } }
+      ${compactCss}
     </style></head><body>${html}</body></html>`)
   w.document.close()
   setTimeout(() => { w.focus(); w.print(); setTimeout(() => w.close(), 2000) }, 300)
@@ -619,7 +633,7 @@ export const usePrinterStore = create((set, get) => ({
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
         // Fallback: browser print
         const html = buildInvoiceHtml(invoice, tenant, cashier)
-        return browserPrint(html)
+        return browserPrint(html, tenant)
       }
       console.error('Print error:', err)
       set({ connected: false })
@@ -640,7 +654,7 @@ export const usePrinterStore = create((set, get) => ({
     } catch (err) {
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
         const html = buildSabotayHtml(plan, member, paidDates, tenant, type, allSlots)
-        return browserPrint(html)
+        return browserPrint(html, tenant)
       }
       console.error('Print sabotay error:', err)
       set({ connected: false })
@@ -661,7 +675,7 @@ export const usePrinterStore = create((set, get) => ({
     } catch (err) {
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
         const html = buildKaneHtml(account, transaction, tenant, type)
-        return browserPrint(html)
+        return browserPrint(html, tenant)
       }
       console.error('Print kane error:', err)
       set({ connected: false })
@@ -681,7 +695,7 @@ printPre: async (pre, echeances = [], tenant, type = 'ouverture', paiement = nul
   } catch (err) {
     if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
       const html = buildPreHtml(pre, echeances, tenant, type, paiement, largeur)
-      return browserPrint(html)
+      return browserPrint(html, tenant)
     }
     console.error('Print pre error:', err)
     set({ connected: false })
@@ -744,7 +758,7 @@ printDry: async (order, tenant) => {
   } catch (err) {
     if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
       const html = buildDryHtml(order, tenant)
-      return browserPrint(html)
+      return browserPrint(html, tenant)
     }
     console.error('Print dry error:', err)
     set({ connected: false })
@@ -765,7 +779,7 @@ printDry: async (order, tenant) => {
     } catch (err) {
       if (err.message === 'ANDROID_USE_BROWSER_PRINT' || !isPrinterConnected()) {
         const html = buildGymHtml(member, tenant, type, extra)
-        return browserPrint(html)
+        return browserPrint(html, tenant)
       }
       console.error('Print gym error:', err)
       set({ connected: false })

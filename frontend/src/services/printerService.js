@@ -1,5 +1,6 @@
 // src/services/printerService.js
 import { Capacitor } from '@capacitor/core'
+import { getPaperSpec } from './receiptPaper.js'
 // RP327 80mm — ESC/POS via Web Bluetooth
 // ✅ FIX: Logo full width + tèks gwo + pa gen SMALL_FONT sou tèks enpòtan
 
@@ -79,26 +80,51 @@ export const isSunmi   = () => _isSunmi
 // ── Largè papye en DOTS ───────────────────────────────────────
 // RP327 80mm = 576 dots (203 DPI)
 // 58mm printer = 384 dots
-const getDotWidth = (tenant) => {
-  const size = tenant?.receiptSize || '80mm'
-  return (size === '57mm' || size === '58mm' || size === '58') ? 384 : 576
-}
+// ✅ NOUVO — tay papye a vin de receiptPaper.js (chwa aparèy la → paramèt biznis → 80mm),
+// konsa bouton 57/80 anlè ekran an kontwole Bluetooth tou.
+const getDotWidth = (tenant) => getPaperSpec(tenant).dots
 
 // ── Largè en karaktè tèks ─────────────────────────────────────
 // 80mm nòmal font = 48 char, DOUBLE_WIDTH = 24 char
-const getWidth = (tenant) => {
-  const size = tenant?.receiptSize || '80mm'
-  return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
+const getWidth = (tenant) => getPaperSpec(tenant).cols
+
+// ✅ NOUVO — anbalaje tèks nan `width` karaktè (pa koupe mo yo)
+const wrapPlain = (str, width) => {
+  const s = String(str ?? '')
+  if (s.length <= width) return [s]
+  const out = []
+  let cur = ''
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    let w = word
+    while (w.length > width) {
+      if (cur) { out.push(cur); cur = '' }
+      out.push(w.slice(0, width)); w = w.slice(width)
+    }
+    if (!cur) cur = w
+    else if ((cur + ' ' + w).length <= width) cur += ' ' + w
+    else { out.push(cur); cur = w }
+  }
+  if (cur) out.push(cur)
+  return out.length ? out : ['']
 }
 
 // ── Tèks liy ak 2 bout ───────────────────────────────────────
+// ✅ KORIJE — anvan, si label + valè pa t antre nan yon liy, label la te KOUPE
+// (substring). Kounye a: label anbalaje sou liy anwo yo, valè aliyen adwat
+// sou liy anba a. Callers ajoute LF apre; nou pa mete LF final isit la.
 const makeLine = (left, right, width) => {
   const l = String(left)
   const r = String(right)
   const spaces = width - l.length - r.length
-  if (spaces <= 0) return encodeText((l.substring(0, width - r.length - 1) + ' ' + r).substring(0, width))
-  return encodeText(l + ' '.repeat(spaces) + r)
+  if (spaces >= 1) return encodeText(l + ' '.repeat(spaces) + r)
+  const labelLines = wrapPlain(l, width)
+  const rightLines = wrapPlain(r, width)
+  const rows = [...labelLines, ...rightLines.map(t => ' '.repeat(Math.max(0, width - t.length)) + t)]
+  return encodeText(rows.join('\n'))
 }
+
+// ✅ NOUVO — non pwodui (anbalaje, pa koupe) → liy tèks pou encodeText
+const wrapName = (name, width) => wrapPlain(name, width).join('\n')
 
 const divider = (char, width) => encodeText(char.repeat(width))
 
@@ -510,7 +536,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     ...CMD.ALIGN_CENTER,
     ...(logoBytes.length > 0 ? [...logoBytes, LF] : []),
     ...CMD.BOLD_ON,
-    ...CMD.DOUBLE_BOTH,
+    ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
@@ -542,7 +568,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
       const tot = fmt(item.totalHtg)
       const result = [
         ...CMD.BOLD_ON,
-        ...encodeText(nom.substring(0, W) + '\n'),
+        ...encodeText(wrapName(nom, W) + '\n'),
         ...CMD.BOLD_OFF,
         ...makeLine(`${qty} x ${pri} G`, `${tot} G`, W), LF,
       ]
@@ -665,9 +691,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
 // ✅ paidAt (opsyonèl, 'YYYY-MM-DDTHH:MM') = lè kliyan an te REYÈLMAN peye a (mòd « Lè manyèl »)
 export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = [], paidAt = null) => {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
-  const savedSize   = typeof localStorage !== 'undefined' ? localStorage.getItem('receipt_size') : null
-  const receiptSize = savedSize || tenant?.receiptSize || '80mm'
-  const W           = (receiptSize === '57mm' || receiptSize === '58mm') ? 32 : 48
+  const W           = getPaperSpec(tenant).cols
   // ✅ Lè Ayiti (DST-aware) — oswa lè manyèl la si kesye a te antre l
   const haitiNow = (() => {
     try {
@@ -790,7 +814,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SOL --\n'), ...CMD.BOLD_OFF,
@@ -879,7 +903,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- KANE EPAY --\n'), ...CMD.BOLD_OFF,
@@ -906,7 +930,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
       ...makeLine('Balans anvan:', fmt(transaction?.balanceBefore) + ' G', W), LF,
     ]),
     ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((type === 'ouverture' ? 'BALANS: ' : type === 'retrait' ? 'RETRE: ' : 'DEPO: ') + fmt(type === 'ouverture' ? account.balance : transaction?.amount) + ' G\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(type !== 'ouverture' ? [...CMD.ALIGN_LEFT, ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' G', W), LF] : []),
@@ -944,7 +968,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
     ...CMD.ALIGN_CENTER,
-    ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- MIKWO KREDI --\n'), ...CMD.BOLD_OFF,
@@ -1152,7 +1176,7 @@ export const printDryReceipt = async (order, tenant) => {
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
@@ -1183,7 +1207,7 @@ export const printDryReceipt = async (order, tenant) => {
       const desc = item.description + (item.color ? ` (${item.color})` : '')
       const svcNote = '  -> ' + (SERVICES_LABEL[item.service] || item.service) + (item.notes ? ' - ' + item.notes : '')
       return [
-        ...CMD.BOLD_ON, ...encodeText(desc.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+        ...CMD.BOLD_ON, ...encodeText(wrapName(desc, W) + '\n'), ...CMD.BOLD_OFF,
         ...makeLine(`${item.quantity} x ${fmt(item.unitPriceHtg)}`, `${fmt(item.totalHtg)} G`, W), LF,
         ...CMD.SMALL_FONT, ...encodeText(svcNote.substring(0, W) + '\n'), ...CMD.NORMAL_FONT,
       ]
@@ -1243,7 +1267,7 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
