@@ -4,6 +4,8 @@
 // Itilize window.print() — pa ESC/POS — tèks kla kòm paj tès
 // ══════════════════════════════════════════════════════════════
 
+import { isCompactPaper } from './receiptPaper.js'
+
 // ─── CSS pou 80mm ─────────────────────────────────────────────
 const CSS_80MM = `
   * { margin: 0; padding: 0; box-sizing: border-box; color: #000 !important; font-weight: 700; }
@@ -312,6 +314,65 @@ const CSS_80MM = `
   .status-box, .credit-badge, .total-grand { page-break-inside: avoid; }
 `
 
+// ─── CSS pou 57mm (papye etwat) ───────────────────────────────
+// ✅ NOUVO — Anvan, TOUT resi HTML yo te fikse a 80mm (body 76mm). Sou yon
+// papye 57mm (zòn enprimab ≈ 48mm) tout sa ki depase 48mm te KOUPE (body
+// gen `overflow:hidden`), epi logo a (max 50mm) te pran prèske tout lajè a.
+// Fichye sa a SÈLMAN ranplase sa ki bezwen chanje; rès la ret menm jan ak 80mm.
+// Li ajoute APRE CSS_80MM pou li gen priyorite.
+const CSS_57MM_OVERRIDE = `
+  @page { size: 57mm auto; margin: 0mm 4.5mm 4mm 4.5mm; }
+  html  { width: 57mm; }
+  body  { width: 48mm; max-width: 48mm; font-size: 8pt; }
+
+  .xxl { font-size: 13pt; }
+  .xl  { font-size: 11pt; }
+  .lg  { font-size: 9.5pt; }
+  .md  { font-size: 8pt; }
+  .sm  { font-size: 6.5pt; }
+
+  .logo-wrap img { max-width: 26mm; max-height: 11mm; }
+
+  .biz-name  { font-size: 11pt; letter-spacing: 0.3px; }
+  .biz-sub   { font-size: 7pt; }
+  .biz-phone { font-size: 8pt; }
+
+  .info-table { font-size: 7.5pt; }
+  .info-table col:first-child { width: 17mm; }
+  .info-table col:last-child  { width: 31mm; }
+
+  /* Tablo pwodwi 2 kolòn: non (liy 1) / "qte x pri ..... total" (liy 2) */
+  .items-table { font-size: 7.5pt; }
+  .items-table col.col-nom { width: 30mm; }
+  .items-table col.col-tot { width: 18mm; }
+  .items-table th { font-size: 7pt; }
+  .items-table td { font-size: 7.5pt; }
+  .item-name  { max-width: none; }
+  .item-price, .item-total { font-size: 7.5pt; }
+  .items-table td.item-sub { font-size: 7.5pt; font-weight: 700; padding-top: 0; padding-bottom: 3px; }
+
+  .total-row   { font-size: 7.5pt; }
+  .total-grand { font-size: 11pt; }
+  .status-box  { font-size: 11pt; letter-spacing: 1px; }
+  .credit-badge { font-size: 8pt; }
+
+  .pay-table { font-size: 7.5pt; }
+  .pay-table col:first-child { width: 27mm; }
+  .pay-table col:last-child  { width: 21mm; }
+
+  .fx-line { font-size: 6.5pt; }
+  .qr-wrap img { width: 20mm; height: 20mm; }
+  .qr-num { font-size: 6.5pt; }
+
+  .footer .main-msg { font-size: 8pt; }
+  .footer .sub-msg  { font-size: 6.5pt; }
+  .footer .brand    { font-size: 6pt; }
+`
+
+/** CSS final selon tay papye aparèy sa a (device → paramèt biznis → 80mm) */
+const getReceiptCss = (tenant) =>
+  CSS_80MM + (isCompactPaper(tenant) ? CSS_57MM_OVERRIDE : '')
+
 // ─── Fòmate nimerik ───────────────────────────────────────────
 const fmtN = (n) => Number(n || 0)
   .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -381,15 +442,27 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   const qrLink   = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
   // ── Liy pwodwi ──────────────────────────────────────────────
+  // 57mm: 2 kolòn (non sou liy 1, "qte x pri ..... total" sou liy 2) — 4 kolòn
+  // pa antre nan 48mm (non ak chif yo te koupe).
+  const compact = isCompactPaper(tenant)
   const itemRows = (invoice.items || []).map(item => {
     const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
     const qty = Number(item.quantity)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
+    const span = compact ? 2 : 4
     const dis = Number(item.discountPct) > 0
-      ? `<tr><td colspan="4" class="sm" style="padding-left:4px;color:#000;font-style:normal;font-weight:900">
+      ? `<tr><td colspan="${span}" class="sm" style="padding-left:4px;color:#000;font-style:normal;font-weight:900">
            ↳ Remiz: -${item.discountPct}%
          </td></tr>` : ''
+    if (compact) {
+      return `
+      <tr><td colspan="2" class="item-name" style="padding-bottom:0">${nom}</td></tr>
+      <tr>
+        <td class="item-sub">${qty} x ${pri}</td>
+        <td class="item-total">${tot}</td>
+      </tr>${dis}`
+    }
     return `
       <tr>
         <td class="item-name">${nom}</td>
@@ -406,7 +479,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Resi ${invoice.invoiceNumber || ''}</title>
-  <style>${CSS_80MM}</style>
+  <style>${getReceiptCss(tenant)}</style>
 </head>
 <body>
   <!-- LOGO + HEADER -->
@@ -440,6 +513,17 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
 
   <!-- TABLO PWODWI -->
   <table class="items-table mt2">
+    ${compact ? `
+    <colgroup>
+      <col class="col-nom">
+      <col class="col-tot">
+    </colgroup>
+    <thead>
+      <tr>
+        <th style="text-align:left">Pwodwi &nbsp;(Q x Pri G)</th>
+        <th class="r">Total</th>
+      </tr>
+    </thead>` : `
     <colgroup>
       <col class="col-nom">
       <col class="col-qty">
@@ -453,7 +537,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
         <th class="r">Pri G</th>
         <th class="r">Total</th>
       </tr>
-    </thead>
+    </thead>`}
     <tbody>
       ${itemRows}
     </tbody>
@@ -590,7 +674,7 @@ export const printKaneReceiptHTML = (account, transaction, tenant, type = 'ouver
   const html = `<!DOCTYPE html>
 <html lang="ht"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kane Epay</title><style>${CSS_80MM}</style></head>
+<title>Kane Epay</title><style>${getReceiptCss(tenant)}</style></head>
 <body>
   ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="logo"/></div>` : ''}
   <div class="center">
@@ -652,8 +736,18 @@ export const printPreReceiptHTML = (pre, echeances = [], tenant, type = 'ouvertu
   const logoUrl = tenant?.logoUrl || null
   const PERIODES = { jounal:'Chak Jou', semaine:'Semèn', biweekly:'2 Semèn', mois:'Mwa', trimestre:'Trimès' }
 
+  // 57mm: chak echeyans sou 2 liy ("# dat ..... total" / "Kap + Int") — 5 kolòn
+  // pa antre nan 48mm.
+  const compactPre = isCompactPaper(tenant)
   const echeanceRows = type === 'ouverture' && echeances.length > 0
-    ? echeances.map(e => `
+    ? echeances.map(e => compactPre ? `
+      <tr>
+        <td><b>#${e.numero || e.num || ''}</b> ${new Date(e.dat_limit || e.datLimit).toLocaleDateString('fr-HT')}</td>
+        <td style="text-align:right"><b>${fmtN(e.montant_total || e.montantTotal || 0)}</b></td>
+      </tr>
+      <tr>
+        <td colspan="2" class="ech-sub">Kap ${fmtN(e.montant_capital || e.montantCapital || 0)} + Int ${fmtN(e.montant_interet || e.montantInteret || 0)}</td>
+      </tr>` : `
       <tr>
         <td style="text-align:center">${e.numero || e.num || ''}</td>
         <td>${new Date(e.dat_limit || e.datLimit).toLocaleDateString('fr-HT')}</td>
@@ -667,7 +761,7 @@ export const printPreReceiptHTML = (pre, echeances = [], tenant, type = 'ouvertu
 <html lang="ht"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prè ${pre.numeroPre || ''}</title><style>
-${CSS_80MM}
+${getReceiptCss(tenant)}
 .ech-table { width:100%; border-collapse:collapse; font-size:7pt; table-layout:fixed; }
 .ech-table col:nth-child(1) { width:6mm; }
 .ech-table col:nth-child(2) { width:17mm; }
@@ -677,6 +771,12 @@ ${CSS_80MM}
 .ech-table th { border-bottom:1px solid #000; padding:2px 1px; font-weight:800; overflow:hidden; font-size:7pt; }
 .ech-table td { padding:1.5px 1px; border-bottom:1px dotted #ccc; overflow:hidden; font-size:7pt; }
 .sign-line { border-bottom:2px solid #000; margin:14px 0 3px; }
+${isCompactPaper(tenant) ? `
+.ech-table col:nth-child(1) { width:30mm; }
+.ech-table col:nth-child(2) { width:18mm; }
+.ech-table td { font-size:7pt; }
+.ech-sub { font-size:6.5pt; font-weight:700; border-bottom:1px dotted #000 !important; padding-bottom:3px !important; }
+` : ''}
 </style></head>
 <body>
   ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="logo"/></div>` : ''}
@@ -728,6 +828,14 @@ ${CSS_80MM}
   <div class="sep-eq mt2"></div>
   <div class="center bold" style="font-size:9pt">KALANDRIYE RANBOUSMAN</div>
   <table class="ech-table mt1">
+    ${compactPre ? `
+    <colgroup><col><col></colgroup>
+    <thead>
+      <tr>
+        <th style="text-align:left"># &nbsp;Dat</th>
+        <th style="text-align:right">Total</th>
+      </tr>
+    </thead>` : `
     <colgroup>
       <col><col><col><col><col>
     </colgroup>
@@ -739,11 +847,11 @@ ${CSS_80MM}
         <th style="text-align:right">Int.</th>
         <th style="text-align:right">Total</th>
       </tr>
-    </thead>
+    </thead>`}
     <tbody>${echeanceRows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="4" style="text-align:right;font-weight:800;border-top:1px solid #000">TOTAL:</td>
+        <td colspan="${compactPre ? 1 : 4}" style="text-align:right;font-weight:800;border-top:1px solid #000">TOTAL:</td>
         <td style="text-align:right;font-weight:800;border-top:1px solid #000">
           ${fmtN(echeances.reduce((s,e) => s + Number(e.montant_total || e.montantTotal || 0), 0))} G
         </td>

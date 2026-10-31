@@ -10,12 +10,17 @@ import { Capacitor } from '@capacitor/core'
 // bezwen re-telechaje yon ti moso kòd sou ENTÈNÈT chak fwa — sa ki fè enprime
 // echwe lè pa gen entènèt. Static import rezoud sa nèt.
 import { UniversalPrinter } from '@capacitor-plus/universal-printer'
+import { getPaperSpec } from './receiptPaper.js'
 
 const fmtN = (n) => Number(n || 0)
   .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
   // ✅ KORIJE — retire "espas san koupe" (U+00A0) ke toLocaleString ajoute pou milye yo.
   // Karaktè sa a se 2 bytes an UTF-8, li fè enprimant Bluetooth "korompi" l an fo-karaktè chinwa.
   .replace(/\u00A0/g, ' ')
+  // \u2705 NOUVO \u2014 Chrome/WebView resan itilize U+202F (espas fen san koupe) pou milye yo
+  // an frans\u00E8 \u2014 menm pwobl\u00E8m ak U+00A0 anl\u00E8 a (printerService.js ak printReceiptHTML.js
+  // te deja retire l, men pa fichye sa a).
+  .replace(/\u202F/g, ' ')
 
 const fmtDate = (d) => {
   if (!d) return ''
@@ -72,6 +77,183 @@ function sanitizeLines(lines) {
     }
     return l
   })
+}
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO — ADAPTE RESI A PAPYE 57 mm
+// ──────────────────────────────────────────────────────────────
+// Pwoblèm yo te wè sou ti aparèy 57 mm lan:
+//   1. LOGO a te voye bay plugin lan SAN gwosè → li ranpli tout lajè
+//      papye etwat la, li parèt ENÈM.
+//   2. Tèks ak ranje "label ..... valè" te long pase 32 karaktè → plugin lan
+//      koupe yo (egzanp: "Mode de paiement" + montan, non pwodui long).
+//   3. Plugin lan pat konnen tay papye a (okenn paramèt paperWidth).
+// Solisyon: sou 57 mm, nou prepare logo a (piti, santre, nwa/blan,
+// kanva = lajè papye egzat) epi nou anbalaje/anpile liy ki twò long.
+// Sou 80 mm RIEN pa chanje (konpòtman ansyen an kenbe).
+// ══════════════════════════════════════════════════════════════
+const _logoCache = new Map()
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    if (!/^data:/i.test(src)) img.crossOrigin = 'anonymous'
+    img.onload  = () => resolve(img)
+    img.onerror = () => reject(new Error('Logo pa ka chaje'))
+    img.src = src
+  })
+}
+
+/**
+ * Logo → PNG nwa/blan, kanva = EGZAKTEMAN lajè papye a (384 pwen pou 57 mm),
+ * logo a piti epi santre anndan l. Konsa, kit plugin lan enprime l an gwosè
+ * natirèl oswa li etann li nan lajè papye a, rezilta a se menm bagay la.
+ */
+async function prepareLogo(src, spec) {
+  const key = `${spec.id}|${src.length}|${src.slice(0, 48)}|${src.slice(-48)}`
+  if (_logoCache.has(key)) return _logoCache.get(key)
+
+  const img = await loadImage(src)
+  const iw = img.naturalWidth  || img.width
+  const ih = img.naturalHeight || img.height
+  const maxW  = Math.round(spec.dots * spec.logoMaxW)
+  const maxH  = Math.round(spec.dots * spec.logoMaxH)
+  const ratio = Math.min(maxW / iw, maxH / ih, 1)          // pa janm agrandi
+  const w = Math.max(1, Math.round(iw * ratio))
+  const h = Math.max(1, Math.round(ih * ratio))
+
+  const canvas = document.createElement('canvas')
+  canvas.width  = spec.dots
+  canvas.height = h + 6
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+  ctx.drawImage(img, Math.floor((spec.dots - w) / 2), 3, w, h)
+
+  // 1 bit (nwa/blan) — enprimant tèmik pa gen gri
+  const frame = ctx.getImageData(0, 0, canvas.width, canvas.height)
+  const px = frame.data
+  for (let i = 0; i < px.length; i += 4) {
+    const lum = px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114
+    const v = lum < 160 ? 0 : 255
+    px[i] = px[i + 1] = px[i + 2] = v
+    px[i + 3] = 255
+  }
+  ctx.putImageData(frame, 0, 0)
+
+  const out = canvas.toDataURL('image/png')
+  _logoCache.set(key, out)
+  return out
+}
+
+/** Anbalaje tèks nan `limit` karaktè (pa koupe mo yo; mo twò long koupe dur) */
+function wrapText(str, limit) {
+  const s = String(str ?? '')
+  if (s.length <= limit) return [s]
+  const out = []
+  let cur = ''
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    let w = word
+    while (w.length > limit) {
+      if (cur) { out.push(cur); cur = '' }
+      out.push(w.slice(0, limit))
+      w = w.slice(limit)
+    }
+    if (!cur) cur = w
+    else if ((cur + ' ' + w).length <= limit) cur += ' ' + w
+    else { out.push(cur); cur = w }
+  }
+  if (cur) out.push(cur)
+  return out.length ? out : ['']
+}
+
+/** Tèks → youn oswa plizyè liy ki antre nan papye a */
+function fitText(line, spec) {
+  let l = line
+  // 'large' = tèks double → mwatye karaktè. Si non an pa antre, retounen
+  // nan gra nòmal (32 kar.) olye li kase nan 3-4 liy.
+  if (l.size === 'large' && String(l.content ?? '').length > Math.floor(spec.cols / 2)) {
+    l = { ...l, size: undefined, bold: true }
+  }
+  const limit = l.size === 'large' ? Math.floor(spec.cols / 2) : spec.cols
+  return wrapText(l.content, limit).map(content => ({ ...l, content }))
+}
+
+/**
+ * Ranje 2 kolòn ("label | valè"):
+ *  - si tout antre sou yon liy → kolòn dwat la jis lajè li bezwen
+ *  - sinon → label anwo (anbalaje), valè aliyen adwat sou liy anba a
+ */
+function fitTable(line, spec) {
+  const cols = line.columns
+  if (!Array.isArray(cols) || cols.length !== 2) return [line]
+  const left  = String(cols[0].text ?? '')
+  const right = String(cols[1].text ?? '')
+  const C = spec.cols
+
+  if (left.length + right.length + 2 <= C) {
+    const rw = Math.min(90, Math.max(10, Math.ceil(((right.length + 1) / C) * 100)))
+    return [{
+      ...line,
+      columns: [
+        { ...cols[0], width: 100 - rw, align: 'left' },
+        { ...cols[1], width: rw,       align: 'right' },
+      ],
+    }]
+  }
+
+  const out = wrapText(left, C).map(content => ({ type: 'text', content, bold: !!line.bold }))
+  const rightLines = wrapText(right, C)
+  if (rightLines.length === 1) {
+    const rw = Math.min(90, Math.max(10, Math.ceil(((right.length + 1) / C) * 100)))
+    out.push({
+      ...line,
+      columns: [
+        { text: ' ', width: 100 - rw, align: 'left' },
+        { ...cols[1], width: rw, align: 'right' },
+      ],
+    })
+  } else {
+    rightLines.forEach(content => out.push({ type: 'text', content, align: 'right', bold: !!line.bold }))
+  }
+  return out
+}
+
+/**
+ * Netwaye (aksan) + adapte liy yo a tay papye a. Sou 80 mm: sèlman netwayaj
+ * aksan (konpòtman ansyen an). Sou 57 mm: logo prepare + tèks/tablo ranje.
+ */
+async function fitLinesToPaper(lines, tenant) {
+  const spec    = getPaperSpec(tenant)
+  const cleaned = sanitizeLines(lines)
+  if (spec.id !== '57mm') return cleaned
+
+  const out = []
+  for (const line of cleaned) {
+    if (line.type === 'image' && line.url) {
+      try {
+        out.push({ ...line, url: await prepareLogo(line.url, spec) })
+      } catch (e) {
+        // Pito pa gen logo pase yon logo enèm ki gaspiye papye a
+        console.warn('[printerNative] Logo pa t ka prepare pou 57mm — retire:', e?.message || e)
+      }
+    } else if (line.type === 'text' && line.content != null) {
+      out.push(...fitText(line, spec))
+    } else if (line.type === 'table') {
+      out.push(...fitTable(line, spec))
+    } else {
+      out.push(line)
+    }
+  }
+  return out
+}
+
+/** Endikasyon tay papye pou plugin lan (si vèsyon li a konprann yo; sinon yo inyore) */
+const paperOpts = (tenant) => {
+  const s = getPaperSpec(tenant)
+  return { paperWidth: s.mm, paperDots: s.dots }
 }
 
 /**
@@ -307,12 +489,13 @@ export async function printInvoiceNative(invoice, tenant, cashier = null, copies
   lines.push({ type: 'text', content: 'Tel : +509 4244 9024', align: 'center', size: 'small' })
   lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
-  const cleanLines = sanitizeLines(lines)
+  const cleanLines = await fitLinesToPaper(lines, tenant)
 
   const result = await UniversalPrinter.print({
     lines: cleanLines,
     copies: Math.max(1, Number(copies) || 1),
     cutAtEnd: true,
+    ...paperOpts(tenant),
   })
 
   if (!result.success) {
@@ -386,9 +569,9 @@ export async function printGenericReportNative({ title, subtitle, meta = [], row
   lines.push({ type: 'space' })
   lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
-  const cleanLines = sanitizeLines(lines)
+  const cleanLines = await fitLinesToPaper(lines, tenant)
 
-  const result = await UniversalPrinter.print({ lines: cleanLines, copies: 1, cutAtEnd: true })
+  const result = await UniversalPrinter.print({ lines: cleanLines, copies: 1, cutAtEnd: true, ...paperOpts(tenant) })
   if (!result.success) {
     throw new Error(result.message || 'Erè pandan enprime')
   }
@@ -553,12 +736,13 @@ export async function printQuoteNative(quote, tenant) {
   lines.push({ type: 'space' })
   lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
-  const cleanLines = sanitizeLines(lines)
+  const cleanLines = await fitLinesToPaper(lines, tenant)
 
   const result = await UniversalPrinter.print({
     lines: cleanLines,
     copies: 1,
     cutAtEnd: true,
+    ...paperOpts(tenant),
   })
 
   if (!result.success) {
@@ -664,12 +848,13 @@ export async function printDirectQuoteNative(directQuote, tenant) {
   lines.push({ type: 'space' })
   lines.push({ type: 'text', content: `Imprime le : ${fmtDateTime(new Date())}`, align: 'center', size: 'small' })
 
-  const cleanLines = sanitizeLines(lines)
+  const cleanLines = await fitLinesToPaper(lines, tenant)
 
   const result = await UniversalPrinter.print({
     lines: cleanLines,
     copies: 1,
     cutAtEnd: true,
+    ...paperOpts(tenant),
   })
 
   if (!result.success) {

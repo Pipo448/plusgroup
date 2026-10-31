@@ -1,7 +1,7 @@
 // src/services/printerService.js
-import { Capacitor } from '@capacitor/core'
 // RP327 80mm — ESC/POS via Web Bluetooth
 // ✅ FIX: Logo full width + tèks gwo + pa gen SMALL_FONT sou tèks enpòtan
+import { getPaperSpec } from './receiptPaper.js'
 
 const KNOWN_PAIRS = [
   { svc: '000018f0-0000-1000-8000-00805f9b34fb', chr: '00002af1-0000-1000-8000-00805f9b34fb' },
@@ -56,14 +56,6 @@ const encodeText = (text) => {
     .replace(/[ÈÉÊË]/g,  'E').replace(/[ÌÍÎÏ]/g,  'I')
     .replace(/[ÒÓÔÕÖ]/g, 'O').replace(/[ÙÚÛÜ]/g,  'U')
     .replace(/ç/g, 'c').replace(/Ç/g, 'C').replace(/ñ/g, 'n')
-    // ✅ Karaktè tipografik → ASCII (anvan sa yo te soti '?' sou papye a)
-    .replace(/[\u2013\u2014\u2015\u2212]/g, '-')   // – — ― −
-    .replace(/[\u00B7\u2022\u2023\u25CF]/g, '-')   // · • ‣ ●
-    .replace(/[\u2018\u2019\u201B\u00B4]/g, "'")  // ‘ ’ ´
-    .replace(/[\u201C\u201D\u00AB\u00BB]/g, '"')  // “ ” « »
-    .replace(/\u2026/g, '...')                       // …
-    .replace(/[\u00A0\u202F\u2009\u2007]/g, ' ')   // espas ensekab (fr-FR / fr-HT)
-    .replace(/\u2192/g, '->').replace(/\u00D7/g, 'x')
     .replace(/[^\x00-\x7F]/g, '?')
   return Array.from(clean).map(c => c.charCodeAt(0))
 }
@@ -79,26 +71,51 @@ export const isSunmi   = () => _isSunmi
 // ── Largè papye en DOTS ───────────────────────────────────────
 // RP327 80mm = 576 dots (203 DPI)
 // 58mm printer = 384 dots
-const getDotWidth = (tenant) => {
-  const size = tenant?.receiptSize || '80mm'
-  return (size === '57mm' || size === '58mm' || size === '58') ? 384 : 576
-}
+// ✅ NOUVO — tay papye a vin de receiptPaper.js (chwa aparèy la → paramèt biznis → 80mm),
+// konsa bouton 57/80 anlè ekran an kontwole Bluetooth tou.
+const getDotWidth = (tenant) => getPaperSpec(tenant).dots
 
 // ── Largè en karaktè tèks ─────────────────────────────────────
 // 80mm nòmal font = 48 char, DOUBLE_WIDTH = 24 char
-const getWidth = (tenant) => {
-  const size = tenant?.receiptSize || '80mm'
-  return (size === '57mm' || size === '58mm' || size === '58') ? 32 : 48
+const getWidth = (tenant) => getPaperSpec(tenant).cols
+
+// ✅ NOUVO — anbalaje tèks nan `width` karaktè (pa koupe mo yo)
+const wrapPlain = (str, width) => {
+  const s = String(str ?? '')
+  if (s.length <= width) return [s]
+  const out = []
+  let cur = ''
+  for (const word of s.split(/\s+/).filter(Boolean)) {
+    let w = word
+    while (w.length > width) {
+      if (cur) { out.push(cur); cur = '' }
+      out.push(w.slice(0, width)); w = w.slice(width)
+    }
+    if (!cur) cur = w
+    else if ((cur + ' ' + w).length <= width) cur += ' ' + w
+    else { out.push(cur); cur = w }
+  }
+  if (cur) out.push(cur)
+  return out.length ? out : ['']
 }
 
 // ── Tèks liy ak 2 bout ───────────────────────────────────────
+// ✅ KORIJE — anvan, si label + valè pa t antre nan yon liy, label la te KOUPE
+// (substring). Kounye a: label anbalaje sou liy anwo yo, valè aliyen adwat
+// sou liy anba a. Callers ajoute LF apre; nou pa mete LF final isit la.
 const makeLine = (left, right, width) => {
   const l = String(left)
   const r = String(right)
   const spaces = width - l.length - r.length
-  if (spaces <= 0) return encodeText((l.substring(0, width - r.length - 1) + ' ' + r).substring(0, width))
-  return encodeText(l + ' '.repeat(spaces) + r)
+  if (spaces >= 1) return encodeText(l + ' '.repeat(spaces) + r)
+  const labelLines = wrapPlain(l, width)
+  const rightLines = wrapPlain(r, width)
+  const rows = [...labelLines, ...rightLines.map(t => ' '.repeat(Math.max(0, width - t.length)) + t)]
+  return encodeText(rows.join('\n'))
 }
+
+// ✅ NOUVO — non pwodui (anbalaje, pa koupe) → liy tèks pou encodeText
+const wrapName = (name, width) => wrapPlain(name, width).join('\n')
 
 const divider = (char, width) => encodeText(char.repeat(width))
 
@@ -190,93 +207,22 @@ const sendViaRawBT = (bytes) => {
   window.location.href = 'intent:' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;'
 }
 
-// ══════════════════════════════════════════════════════════════
-// ✅ NOUVO — APK ANDROID: plugin natif @capacitor-plus/universal-printer
-// (menm plugin ak paj « Tès Enprimant » nan Paramèt). Web Bluetooth ak
-// window.print() PA mache andedan WebView APK a — se sa ki te fè bouton
-// enprime Sabotay la pa enprime anyen.
-// ══════════════════════════════════════════════════════════════
-const NATIVE_KEY = 'pg-native-printer'   // { address, name } — sove pa PrinterTestPage
-let _nativePlugin = null
-let _nativeReady  = false
-
-// ✅ Menm deteksyon ak PrinterTestPage (Capacitor.isNativePlatform)
-export const PRINTER_BUILD = 'P4'   // vèsyon — parèt nan mesaj erè yo pou konfime APK a gen dènye kòd la
-export const isNativeApp = () => {
-  try { return Capacitor.isNativePlatform() || !!window.Capacitor?.isNativePlatform?.() } catch { return false }
-}
-
-// ⚠️ ENPÒTAN: yon plugin Capacitor se yon « Proxy » — si yon fonksyon `async`
-// RETOUNEN l, JavaScript rele `.then()` sou li, Capacitor konprann se yon metòd
-// natif « then », epi Promise la PA JANM fini (bouton an woule san kanpe).
-// Donk: loadNativePrinter() retounen sèlman true/false, epi nativePrinter() bay
-// plugin lan an SENKRON.
-export const loadNativePrinter = async () => {
-  if (_nativePlugin) return true
-  if (!isNativeApp()) return false
-  try {
-    const mod = await import('@capacitor-plus/universal-printer')
-    _nativePlugin = mod?.UniversalPrinter || null
-  } catch (e) { console.warn('[NATIVE PRINTER]', e?.message || e) }
-  return !!_nativePlugin
-}
-export const nativePrinter = () => _nativePlugin
-
-// Pa janm kite yon apèl natif bloke bouton an pou toutan
-export const withTimeout = (promise, ms, msg = 'TIMEOUT') => {
-  let t
-  return Promise.race([promise, new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg)), ms) })])
-    .finally(() => clearTimeout(t))
-}
-
-export const saveNativePrinter  = (device) => { try { localStorage.setItem(NATIVE_KEY, JSON.stringify({ address: device.address, name: device.name || '' })) } catch {} }
-export const forgetNativePrinter = () => { try { localStorage.removeItem(NATIVE_KEY) } catch {} }
-
-// Verifye enprimant natif la prè; si se Bluetooth e li dekonekte, rekonekte l ak dènye aparèy la
-export const ensureNativePrinter = async () => {
-  if (!(await loadNativePrinter())) { _nativeReady = false; return false }
-  const P = nativePrinter()
-  let info = await withTimeout(P.getInfo(), 5000).catch(() => null)
-  if (!info?.isReady) {
-    let saved = null
-    try { saved = JSON.parse(localStorage.getItem(NATIVE_KEY) || 'null') } catch {}
-    if (saved?.address) {
-      try { await withTimeout(P.connectBluetoothPrinter({ address: saved.address }), 12000) } catch {}
-      info = await withTimeout(P.getInfo(), 5000).catch(() => null)
-    }
-  }
-  const was = _nativeReady
-  _nativeReady = !!info?.isReady
-  if (was !== _nativeReady) emitStatus()
-  return _nativeReady ? info : false
-}
-
 // ── Bluetooth connect ─────────────────────────────────────────
-// ✅ NOUVO: koneksyon an RETE — enprimant lan rekonekte otomatikman:
-//   • si koneksyon an koupe (enprimant lan etenn/limen, twò lwen, elatriye)
-//   • apre ou rafrechi paj la (si navigatè a pèmèt navigator.bluetooth.getDevices)
-// Se SÈLMAN lè itilizatè a peze « Dekonekte » (disconnectPrinter) li sispann.
-const BT_KEY = 'pg-bt-printer'
-let _wanted      = false          // itilizatè a vle enprimant lan konekte
-let _retryTimer  = null
-let _retryDelay  = 2000
-const _status    = typeof EventTarget !== 'undefined' ? new EventTarget() : null
-const emitStatus = () => { try { _status?.dispatchEvent(new Event('change')) } catch {} }
-
-// Abòne pou konnen lè enprimant lan konekte / dekonekte — retounen fonksyon pou dezabòne
-export const onPrinterStatus = (cb) => {
-  if (!_status) return () => {}
-  const h = () => cb(isPrinterConnected())
-  _status.addEventListener('change', h)
-  return () => _status.removeEventListener('change', h)
-}
-
-const findWritableChar = async (server) => {
+export const connectPrinter = async () => {
+  if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
+  _device = await navigator.bluetooth.requestDevice({
+    acceptAllDevices: true,
+    optionalServices: ALL_SERVICE_UUIDS,
+  })
+  const server = await _device.gatt.connect()
+  _device.addEventListener('gattserverdisconnected', () => { _char = null; _device = null })
   for (const { svc, chr } of KNOWN_PAIRS) {
     try {
       const service   = await server.getPrimaryService(svc)
       const candidate = await service.getCharacteristic(chr)
-      if (candidate.properties.write || candidate.properties.writeWithoutResponse) return candidate
+      if (candidate.properties.write || candidate.properties.writeWithoutResponse) {
+        _char = candidate; return _device.name || 'Bluetooth Printer'
+      }
     } catch {}
   }
   try {
@@ -284,110 +230,25 @@ const findWritableChar = async (server) => {
     for (const service of services) {
       try {
         const chars = await service.getCharacteristics()
-        for (const c of chars) if (c.properties.write || c.properties.writeWithoutResponse) return c
+        for (const chr of chars) {
+          if (chr.properties.write || chr.properties.writeWithoutResponse) {
+            _char = chr; return _device.name || 'Bluetooth Printer'
+          }
+        }
       } catch {}
     }
   } catch (e) { console.error('Auto-discovery echwe:', e) }
-  return null
-}
-
-const onGattDisconnected = () => {
-  _char = null
-  emitStatus()
-  if (_wanted) scheduleReconnect()
-}
-
-const setupDevice = async (device) => {
-  if (_device && _device !== device) _device.removeEventListener?.('gattserverdisconnected', onGattDisconnected)
-  _device = device
-  _device.removeEventListener?.('gattserverdisconnected', onGattDisconnected)
-  _device.addEventListener('gattserverdisconnected', onGattDisconnected)
-  const server = device.gatt.connected ? device.gatt : await device.gatt.connect()
-  const c = await findWritableChar(server)
-  if (!c) throw new Error('PRINTER_UUID_NOT_FOUND')
-  _char = c
-  _retryDelay = 2000
-  try { localStorage.setItem(BT_KEY, JSON.stringify({ id: device.id, name: device.name || '' })) } catch {}
-  emitStatus()
-  return device.name || 'Bluetooth Printer'
-}
-
-const scheduleReconnect = () => {
-  clearTimeout(_retryTimer)
-  _retryTimer = setTimeout(async () => {
-    if (!_wanted || isPrinterConnected()) return
-    try {
-      if (_device) await setupDevice(_device)
-      else await restorePrinter()
-    } catch {
-      _retryDelay = Math.min(_retryDelay * 1.6, 30000)   // 2s → 30s max
-      scheduleReconnect()
-    }
-  }, _retryDelay)
-}
-
-export const connectPrinter = async () => {
-  if (!navigator.bluetooth) throw new Error('WEB_BLUETOOTH_NOT_SUPPORTED')
-  const device = await navigator.bluetooth.requestDevice({
-    acceptAllDevices: true,
-    optionalServices: ALL_SERVICE_UUIDS,
-  })
-  _wanted = true
-  try {
-    return await setupDevice(device)
-  } catch (e) {
-    _char = null; _device = null; _wanted = false
-    emitStatus()
-    throw e
-  }
-}
-
-// ✅ Rekonekte san fenèt chwa apre yon refresh (si navigatè a sipòte getDevices)
-export const restorePrinter = async () => {
-  if (isPrinterConnected()) return true
-  let saved = null
-  try { saved = JSON.parse(localStorage.getItem(BT_KEY) || 'null') } catch {}
-  if (!saved?.id || !navigator.bluetooth?.getDevices) return false
-  _wanted = true
-  const devices = await navigator.bluetooth.getDevices()
-  const device  = devices.find(d => d.id === saved.id) || devices.find(d => saved.name && d.name === saved.name)
-  if (!device) return false
-  try {
-    await setupDevice(device)
-    return true
-  } catch {
-    _device = device
-    scheduleReconnect()
-    return false
-  }
+  _char = null; _device = null
+  throw new Error('PRINTER_UUID_NOT_FOUND')
 }
 
 export const disconnectPrinter = () => {
-  _wanted = false
-  clearTimeout(_retryTimer)
-  try { localStorage.removeItem(BT_KEY) } catch {}
   try { if (_device?.gatt?.connected) _device.gatt.disconnect() } catch {}
   _char = null; _device = null
-  emitStatus()
 }
 
 export const isPrinterConnected = () => {
-  if (isNativeApp()) return _nativeReady
   try { return !!_char && !!(_device?.gatt?.connected) } catch { return false }
-}
-
-// Eseye rekonekte otomatikman lè app la chaje (si te gen yon enprimant konekte anvan)
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    if (isNativeApp()) ensureNativePrinter().catch(() => {})
-    else restorePrinter().catch(() => {})
-  }, 800)
-  // Lè w tounen sou app la (onglet / APK), verifye koneksyon an
-  document.addEventListener?.('visibilitychange', () => {
-    if (document.visibilityState !== 'visible') return
-    if (isNativeApp()) { ensureNativePrinter().catch(() => {}); return }
-    if (_wanted && !isPrinterConnected()) scheduleReconnect()
-  })
 }
 
 const sendViaBluetooth = async (bytes) => {
@@ -510,7 +371,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
     ...CMD.ALIGN_CENTER,
     ...(logoBytes.length > 0 ? [...logoBytes, LF] : []),
     ...CMD.BOLD_ON,
-    ...CMD.DOUBLE_BOTH,
+    ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE,
     ...CMD.BOLD_OFF,
@@ -542,7 +403,7 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
       const tot = fmt(item.totalHtg)
       const result = [
         ...CMD.BOLD_ON,
-        ...encodeText(nom.substring(0, W) + '\n'),
+        ...encodeText(wrapName(nom, W) + '\n'),
         ...CMD.BOLD_OFF,
         ...makeLine(`${qty} x ${pri} G`, `${tot} G`, W), LF,
       ]
@@ -662,41 +523,18 @@ export const printInvoice = async (invoice, tenant, cashier = null) => {
   await dispatch(lines)
 }
 
-// ✅ paidAt (opsyonèl, 'YYYY-MM-DDTHH:MM') = lè kliyan an te REYÈLMAN peye a (mòd « Lè manyèl »)
-export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = [], paidAt = null) => {
+export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, type = 'peman', allSlots = []) => {
   const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
-  const savedSize   = typeof localStorage !== 'undefined' ? localStorage.getItem('receipt_size') : null
-  const receiptSize = savedSize || tenant?.receiptSize || '80mm'
-  const W           = (receiptSize === '57mm' || receiptSize === '58mm') ? 32 : 48
-  // ✅ Lè Ayiti (DST-aware) — oswa lè manyèl la si kesye a te antre l
-  const haitiNow = (() => {
-    try {
-      const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-        .formatToParts(new Date()).map(x => [x.type, x.value]))
-      return { day: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` }
-    } catch { const d = new Date(); return { day: d.toISOString().slice(0, 10), time: d.toTimeString().slice(0, 5) } }
-  })()
-  const paidDay  = paidAt ? String(paidAt).slice(0, 10) : haitiNow.day
-  const paidTime = paidAt ? String(paidAt).slice(11, 16) : haitiNow.time
-  const txDate   = paidDay.split('-').reverse().join('/') + ' ' + paidTime
+  // ✅ NOUVO — menm sous ak rès aplikasyon an (receiptPaper.js: aparèy → biznis → 80mm)
+  const W           = getPaperSpec(tenant).cols
+  const txDate      = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
   const activeMemberCount = plan.activeMemberCount || plan.maxMembers || 0
   const payout      = (plan.amount * activeMemberCount) - (plan.feePerMember || plan.fee || 0)
 
   const slotCount   = allSlots.length > 0 ? allSlots.length : 1
-  // ✅ Pozisyon jan admin wè l (plas pwopriyetè = ★) — kache nèt si « Kache pozisyon » aktif
-  const hidePos  = !!plan.hidePositionInSol
-  const posOff   = (plan.members || []).some(m => m.isOwnerSlot) ? 1 : 0
-  const posOf    = (s) => s.isOwnerSlot ? '*' : '#' + (s.position - posOff)
-  const posLabel = allSlots.length > 1 ? allSlots.map(posOf).join(' / ') : posOf(member)
-
-  // ✅ Badj chak dat: RETA / BONE / A LE / REZEV
-  const dateTag = (d) => {
-    const tm = member.paymentTimings?.[d]
-    if (d > paidDay) return 'REZEV'
-    if (tm === 'late' || (!tm && d < paidDay)) return 'RETA'
-    if (tm === 'early') return 'BONE'
-    return 'A LE'
-  }
+  const posLabel    = allSlots.length > 1
+    ? allSlots.map(s => '#' + s.position).join(' / ')
+    : '#' + member.position
 
   const amtPaid = allSlots.length > 1
     ? allSlots.reduce((acc, slot) => {
@@ -710,87 +548,12 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
   const kontribisyonTotal = amtPaid + totalAmt
 
   const FREQ = { daily:'Chak Jou', weekly_saturday:'Chak Samdi', weekly_monday:'Chak Lendi', biweekly:'Chak 15 Jou', monthly:'Chak Mwa', weekdays:'Lendi-Vandredi' }
-
-  // ✅ APK ANDROID → plugin natif (menm jan ak paj Tès Enprimant)
-  if (isNativeApp()) {
-    if (!(await loadNativePrinter())) throw new Error('NATIVE_PLUGIN_MISSING')
-    const P = nativePrinter()
-    const info = await ensureNativePrinter()
-    if (!info) throw new Error('NATIVE_PRINTER_NOT_READY')
-    const NW  = Number(info.paperWidth) && Number(info.paperWidth) < 70 ? 32 : 48
-    const asc = (t) => String.fromCharCode(...encodeText(t))
-    const lr  = (l, r) => {
-      l = asc(l); r = asc(r)
-      const sp = NW - l.length - r.length
-      return sp > 0 ? l + ' '.repeat(sp) + r : (l.substring(0, Math.max(0, NW - r.length - 1)) + ' ' + r)
-    }
-    const T   = (content, o = {}) => ({ type: 'text', content: asc(content), ...o })
-    const L   = (l, r, o = {}) => ({ type: 'text', content: lr(l, r), ...o })
-    const DIV = { type: 'divider' }
-    const title = type === 'peman' ? 'RESI PEMAN' : type === 'tiraj' || type === 'tirage' ? 'RESI TIRAJ AVEG' : type === 'kanpe' ? 'KANPE PATISIPASYON' : 'KONT MANM'
-    const lines = [
-      T(tenant?.businessName || tenant?.name || 'PLUS GROUP', { align: 'center', size: 'xlarge', bold: true }),
-      T('-- SABOTAY SOL --', { align: 'center', bold: true }),
-      ...(tenant?.phone   ? [T('Tel: ' + tenant.phone, { align: 'center', size: 'small' })] : []),
-      ...(tenant?.address ? [T(tenant.address, { align: 'center', size: 'small' })] : []),
-      DIV,
-      T(title, { align: 'center', size: 'large', bold: true }),
-      DIV,
-      L('Plan:', plan.name.substring(0, NW - 6)),
-      L('Dat:', txDate),
-      DIV,
-      T(member.name.substring(0, NW), { bold: true }),
-      ...(member.phone ? [T('Tel: ' + member.phone, { size: 'small' })] : []),
-      ...(hidePos ? [] : [L('Pozisyon:', posLabel)]),
-      ...(slotCount > 1 ? [L('Men:', slotCount + ' (' + fmt(plan.amount * slotCount) + ' G/sik)')] : []),
-      L('Frekans:', FREQ[plan.frequency] || plan.frequency),
-      DIV,
-      ...(type === 'peman' ? [
-        T('Dat Peye:', { bold: true }),
-        ...[...paidDates].sort().flatMap(d => {
-          const fine = Number(member.fines?.[d] || 0)
-          return [
-            L(d.split('-').reverse().join('/') + ' [' + dateTag(d) + ']', fmt(plan.amount * slotCount) + ' G'),
-            ...(fine > 0 ? [L('  + amand', fmt(fine) + ' G')] : []),
-          ]
-        }),
-        DIV,
-        L('TOTAL PEYE:', fmt(totalAmt) + ' G', { bold: true }),
-        L('Kontribisyon total:', fmt(kontribisyonTotal) + ' G'),
-      ] : (type === 'tiraj' || type === 'tirage') ? [
-        T('Moun chwazi pa tiraj:', { align: 'center', size: 'small' }),
-        T(member.name.substring(0, NW), { align: 'center', bold: true }),
-        ...(hidePos ? [] : [T('Pozisyon ' + posOf(member), { align: 'center', size: 'small' })]),
-        DIV,
-        T('PRIM SOL: ' + fmt(payout) + ' G', { align: 'center', size: 'large', bold: true }),
-      ] : type === 'kanpe' ? [
-        T('Manm sa a kanpe.', { align: 'center', bold: true }),
-        T('Li ka resevwa kob li le sol la fini.', { align: 'center', size: 'small' }),
-      ] : [
-        L('Montan / Peman:', fmt(plan.amount) + ' G'),
-        L('Total Kontribye:', fmt(amtPaid) + ' G'),
-        DIV,
-        T('PRIM SOL: ' + fmt(payout) + ' G', { align: 'center', size: 'large', bold: true }),
-      ]),
-      DIV,
-      T('Envite yon moun serye k ap fe biznis rejwenn nou, epi w ap benefisye yon bonis ki evalye soti 1% rive 5% de kob manm sa pral touche a.', { align: 'center', size: 'small' }),
-      T('Ekri nou sou WhatsApp: +50942449024', { align: 'center', size: 'small', bold: true }),
-      DIV,
-      T('Mesi! / Merci!', { align: 'center', bold: true }),
-      T('PlusGroup Tel: +50942449024', { align: 'center', size: 'small' }),
-      { type: 'space', lines: 3 },
-    ]
-    const res = await withTimeout(P.print({ lines }), 25000, 'Enprimant lan pa reponn (25s)')
-    if (res && res.success === false) throw new Error(res.message || 'Erè enprime')
-    return
-  }
-
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
 
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- SABOTAY SOL --\n'), ...CMD.BOLD_OFF,
@@ -807,22 +570,18 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
     ...divider('-', W), LF,
     ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
     ...(member.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
-    ...(hidePos ? [] : [...makeLine('Pozisyon:', posLabel, W), LF]),
+    ...makeLine('Pozisyon:', posLabel, W), LF,
     ...(slotCount > 1 ? [...makeLine('Men:', slotCount + ' (' + fmt(plan.amount * slotCount) + ' G/sik)', W), LF] : []),
     ...makeLine('Frekans:', FREQ[plan.frequency] || plan.frequency, W), LF,
     ...divider('-', W), LF,
     ...(type === 'peman' ? [
       ...CMD.BOLD_ON, ...encodeText('Dat Peye:\n'), ...CMD.BOLD_OFF,
-      ...[...paidDates].sort().flatMap(d => {
-        const fine = Number(member.fines?.[d] || 0)
-        return [
-          ...CMD.SMALL_FONT,
-          ...makeLine('  ' + d.split('-').reverse().join('/') + ' [' + dateTag(d) + ']',
-            (slotCount > 1 ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount) : fmt(plan.amount)) + ' G', W), LF,
-          ...(fine > 0 ? [...makeLine('    + amand', fmt(fine) + ' G', W), LF] : []),
-          ...CMD.NORMAL_FONT,
-        ]
-      }),
+      ...paidDates.flatMap(d => [
+        ...CMD.SMALL_FONT,
+        ...encodeText('  ' + d.split('-').reverse().join('/') + ' — ' +
+          (slotCount > 1 ? slotCount + 'x' + fmt(plan.amount) + '=' + fmt(plan.amount * slotCount) : fmt(plan.amount)) + ' G\n'),
+        ...CMD.NORMAL_FONT,
+      ]),
       ...divider('=', W), LF,
       ...CMD.ALIGN_LEFT, ...CMD.BOLD_ON,
       ...makeLine('TOTAL PEYE:', fmt(totalAmt) + ' G', W), LF, ...CMD.BOLD_OFF,
@@ -831,7 +590,7 @@ export const printSabotayReceipt = async (plan, member, paidDates = [], tenant, 
       ...CMD.ALIGN_CENTER,
       ...CMD.SMALL_FONT, ...encodeText('Moun Chwazi pa Tiraj:\n'), ...CMD.NORMAL_FONT,
       ...CMD.BOLD_ON, ...encodeText(member.name.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
-      ...(hidePos ? [] : [...CMD.SMALL_FONT, ...encodeText('Pozisyon ' + posOf(member) + '\n'), ...CMD.NORMAL_FONT]),
+      ...CMD.SMALL_FONT, ...encodeText('Pozisyon #' + member.position + '\n'), ...CMD.NORMAL_FONT,
       ...divider('=', W), LF,
       ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText('PRIM SOL: ' + fmt(payout) + ' G\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
       ...CMD.ALIGN_LEFT,
@@ -879,7 +638,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- KANE EPAY --\n'), ...CMD.BOLD_OFF,
@@ -906,7 +665,7 @@ export const printKaneReceipt = async (account, transaction, tenant, type = 'ouv
       ...makeLine('Balans anvan:', fmt(transaction?.balanceBefore) + ' G', W), LF,
     ]),
     ...divider('=', W), LF,
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((type === 'ouverture' ? 'BALANS: ' : type === 'retrait' ? 'RETRE: ' : 'DEPO: ') + fmt(type === 'ouverture' ? account.balance : transaction?.amount) + ' G\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(type !== 'ouverture' ? [...CMD.ALIGN_LEFT, ...makeLine('Nouvo balans:', fmt(transaction?.balanceAfter) + ' G', W), LF] : []),
@@ -944,7 +703,7 @@ export const printPreReceipt = async (pre, echeances = [], tenant, type = 'ouver
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
     ...CMD.ALIGN_CENTER,
-    ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...CMD.BOLD_ON, ...encodeText('-- MIKWO KREDI --\n'), ...CMD.BOLD_OFF,
@@ -1152,7 +911,7 @@ export const printDryReceipt = async (order, tenant) => {
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText(bizName + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
@@ -1183,7 +942,7 @@ export const printDryReceipt = async (order, tenant) => {
       const desc = item.description + (item.color ? ` (${item.color})` : '')
       const svcNote = '  -> ' + (SERVICES_LABEL[item.service] || item.service) + (item.notes ? ' - ' + item.notes : '')
       return [
-        ...CMD.BOLD_ON, ...encodeText(desc.substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+        ...CMD.BOLD_ON, ...encodeText(wrapName(desc, W) + '\n'), ...CMD.BOLD_OFF,
         ...makeLine(`${item.quantity} x ${fmt(item.unitPriceHtg)}`, `${fmt(item.totalHtg)} G`, W), LF,
         ...CMD.SMALL_FONT, ...encodeText(svcNote.substring(0, W) + '\n'), ...CMD.NORMAL_FONT,
       ]
@@ -1243,7 +1002,7 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_BOTH,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
     ...encodeText((tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
@@ -1272,147 +1031,90 @@ export const printGenericReceipt = async ({ title, subtitle, meta = [], rows = [
   await dispatch(bytes)
 }
 
-// ✅ Resi GYM FITNESS — enskripsyon / peman pa jou / abonman (plan) / peman
-// Tout an FRANSE. Pye resi a: nòt Paramèt la (tenant.receiptFooterNote),
-// epi "Produit par PLUS GROUP" TOUJOU nèt anba.
-// Menm mekanis ESC/POS ak lòt resi yo (Bluetooth/RawBT, repli sou browser
-// print via buildGymHtml nan printerStore.js).
+// ✅ NOUVO — Resi GYM FITNESS: Enskripsyon manm / Peman Pa Jou / Abònman (Plan)
+// Menm mekanis ESC/POS ak printKaneReceipt/printPreReceipt (Bluetooth/RawBT,
+// repli sou browser print via buildGymHtml nan printerStore.js).
 export const printGymReceipt = async (member, tenant, type = 'enskripsyon', extra = {}) => {
-  const fmt = (n) => Number(n || 0).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const fmtD = (d) => { try { return new Date(d).toLocaleDateString('fr-FR') } catch { return '' } }
+  const fmt = (n) => Number(n || 0)
+    .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
+    .replace(/ /g, ' ').replace(/ /g, ' ')
   const W = getWidth(tenant)
-  const biz = tenant?.businessName || tenant?.name || 'PLUS GROUP'
-  const TITLES = {
-    enskripsyon: "FICHE D'INSCRIPTION",
-    daily:       'PAIEMENT JOURNALIER',
-    plan:        "RECU D'ABONNEMENT",
-    peman:       'RECU DE PAIEMENT',
-  }
-  const METHODS = {
-    cash:'Especes', moncash:'MonCash', natcash:'NatCash', card:'Carte',
-    bank:'Banque', transfer:'Virement', credit:'Credit', other:'Autre',
-  }
-  const now = new Date()
-  const txDate = now.toLocaleDateString('fr-FR') + ' ' + now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })
+  const TITLES = { enskripsyon: 'FICHE ENSKRIPSYON', daily: 'RESI PEMAN JOU', plan: 'RESI ABONMAN', peman: 'RESI PEMAN' }
+  const METOD  = { cash:'Kach', moncash:'MonCash', natcash:'NatCash', card:'Kat kredi', bank:'Bank', transfer:'Virement', credit:'Kredi', other:'Lot' }
+  const txDate = new Date().toLocaleDateString('fr-HT') + ' ' + new Date().toLocaleTimeString('fr-HT', { hour:'2-digit', minute:'2-digit' })
   const logoBytes = tenant?.logoUrl ? await logoWithTimeout(tenant.logoUrl, W >= 48 ? 200 : 120) : []
-
-  // Etikèt agoch + valè adwat sou menm liy. Si yo pa kenbe, valè a desann
-  // sou pwochen liy lan, aliyen adwat (pa janm koupe).
-  const line = (label, value) => {
-    if (value == null || value === '') return []
-    const l = String(label), v = String(value)
-    if (l.length + v.length + 1 <= W) return [...makeLine(l, v, W), LF]
-    return [...encodeText(l), LF, ...encodeText(v.length >= W ? v.substring(0, W) : ' '.repeat(W - v.length) + v), LF]
-  }
-  const total = (label, amount) => [
-    ...divider('=', W), LF,
-    ...CMD.BOLD_ON, ...line(label, fmt(amount) + ' HTG'), ...CMD.BOLD_OFF,
-    ...divider('=', W), LF,
-  ]
-  const method = extra.method ? (METHODS[extra.method] || extra.method) : null
-  // Koupe yon tèks long sou plizyè liy san koupe mo yo an de
-  const wrap = (text) => {
-    const out = []
-    for (const para of String(text).split(/\r?\n/)) {
-      let cur = ''
-      for (const word of para.split(/\s+/).filter(Boolean)) {
-        if (!cur) cur = word
-        else if ((cur + ' ' + word).length <= W) cur += ' ' + word
-        else { out.push(cur); cur = word }
-        while (cur.length > W) { out.push(cur.substring(0, W)); cur = cur.substring(W) }
-      }
-      if (cur) out.push(cur)
-    }
-    return out.flatMap(l => [...encodeText(l), LF])
-  }
-
-  let body = []
-  if (type === 'enskripsyon') {
-    const fee = Number(extra.registrationFeeHtg || 0)
-    body = [
-      ...(member?.emergencyContact || member?.emergencyPhone ? [
-        ...line("Contact d'urgence :", member?.emergencyContact),
-        ...line('Tel. urgence :', member?.emergencyPhone),
-        ...divider('-', W), LF,
-      ] : []),
-      ...(extra.planName ? [
-        ...line('Plan initial :', extra.planName),
-        ...(fee > 0 ? line("Frais d'inscription :", fmt(fee) + ' HTG') : []),
-        ...(Number(extra.amountPaid) > 0 ? total('MONTANT PAYE :', extra.amountPaid) : []),
-      ] : [
-        ...(fee > 0 ? line("Frais d'inscription :", fmt(fee) + ' HTG') : []),
-        ...encodeText('Sans abonnement - paiement a la'), LF,
-        ...encodeText('journee.'), LF,
-      ]),
-      LF,
-      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('BIENVENUE A LA SALLE !'), LF, ...CMD.BOLD_OFF, ...CMD.ALIGN_LEFT,
-    ]
-  } else if (type === 'daily') {
-    body = [
-      ...line('Type :', 'Seance journaliere'),
-      ...line('Mode de paiement :', method),
-      ...total('MONTANT :', extra.amount),
-      ...CMD.ALIGN_CENTER, ...encodeText('Bon entrainement !'), LF, ...CMD.ALIGN_LEFT,
-    ]
-  } else if (type === 'plan') {
-    body = [
-      ...line('Abonnement :', extra.planName),
-      ...(extra.startDate ? line('Debut :', fmtD(extra.startDate)) : []),
-      ...(extra.endDate   ? line('Fin :', fmtD(extra.endDate)) : []),
-      ...line('Mode de paiement :', method),
-      ...total('MONTANT PAYE :', extra.amountPaid),
-    ]
-  } else {
-    // type === 'peman' — peman manyèl / adisyonèl
-    body = [
-      ...line('Mode de paiement :', method),
-      ...(extra.notes ? wrap('Note : ' + extra.notes) : []),
-      ...total('MONTANT :', extra.amount),
-    ]
-  }
 
   const bytes = [
     ...CMD.INIT,
     ...(logoBytes.length > 0 ? [...CMD.ALIGN_CENTER, ...logoBytes, LF] : []),
-
-    // ══ EN-TETE ══════════════════════════════════════════════
-    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
-    ...encodeText(biz.substring(0, W)), LF,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...(W < 48 ? CMD.DOUBLE_HEIGHT : CMD.DOUBLE_BOTH),
+    ...encodeText((tenant?.businessName || tenant?.name || 'PLUS GROUP') + '\n'),
     ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
-    ...encodeText('-- GYM FITNESS --'), LF,
-    ...(tenant?.address ? [...encodeText(tenant.address), LF] : []),
-    ...(tenant?.phone   ? [...encodeText('Tel : ' + tenant.phone), LF] : []),
+    ...CMD.BOLD_ON, ...encodeText('-- GYM FITNESS --\n'), ...CMD.BOLD_OFF,
+    ...(tenant?.phone   ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + tenant.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(tenant?.address ? [...CMD.SMALL_FONT, ...encodeText(tenant.address + '\n'), ...CMD.NORMAL_FONT] : []),
     ...divider('=', W), LF,
-    ...CMD.BOLD_ON, ...encodeText(TITLES[type] || 'RECU'), LF, ...CMD.BOLD_OFF,
+    ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT, ...encodeText((TITLES[type] || 'RESI') + '\n'), ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
     ...divider('=', W), LF,
     ...CMD.ALIGN_LEFT,
-
-    // ══ MEMBRE ═══════════════════════════════════════════════
-    ...line('Date :', txDate),
+    ...makeLine('Dat:', txDate, W), LF,
     ...divider('-', W), LF,
-    ...CMD.BOLD_ON, ...encodeText((member?.fullName || '').substring(0, W)), LF, ...CMD.BOLD_OFF,
-    ...line('Tel :', member?.phone),
-    ...line('Email :', member?.email),
+    ...CMD.BOLD_ON, ...encodeText((member?.fullName || '').substring(0, W) + '\n'), ...CMD.BOLD_OFF,
+    ...(member?.phone ? [...CMD.SMALL_FONT, ...encodeText('Tel: ' + member.phone + '\n'), ...CMD.NORMAL_FONT] : []),
+    ...(member?.email ? [...CMD.SMALL_FONT, ...encodeText('Email: ' + member.email + '\n'), ...CMD.NORMAL_FONT] : []),
     ...divider('-', W), LF,
 
-    ...body,
+    ...(type === 'enskripsyon' ? [
+      ...(member?.emergencyContact ? [...makeLine('Kontak Ijans:', member.emergencyContact, W), LF] : []),
+      ...(member?.emergencyPhone  ? [...makeLine('Tel Ijans:', member.emergencyPhone, W), LF] : []),
+      ...(extra.planName ? [
+        ...divider('-', W), LF,
+        ...makeLine('Plan Inisyal:', extra.planName, W), LF,
+        ...(Number(extra.amountPaid) > 0 ? [...makeLine('Montan Peye:', fmt(extra.amountPaid) + ' G', W), LF] : []),
+      ] : [
+        ...CMD.SMALL_FONT, ...encodeText('San abonman — ka peye pa jou.\n'), ...CMD.NORMAL_FONT,
+      ]),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('BYENVINI NAN JIM NAN!\n'), ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+    ] : type === 'daily' ? [
+      ...CMD.BOLD_ON, ...makeLine('Tip Peman:', 'Pa Jou', W), LF, ...CMD.BOLD_OFF,
+      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.SMALL_FONT, ...encodeText('Bon antrennman!\n'), ...CMD.NORMAL_FONT, ...CMD.ALIGN_LEFT,
+    ] : type === 'plan' ? [
+      ...makeLine('Plan:', extra.planName || '', W), LF,
+      ...(extra.startDate ? [...makeLine('Dat Kòmansman:', new Date(extra.startDate).toLocaleDateString('fr-HT'), W), LF] : []),
+      ...(extra.endDate   ? [...makeLine('Dat Fini:', new Date(extra.endDate).toLocaleDateString('fr-HT'), W), LF] : []),
+      ...(extra.method    ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('PEYE: ' + fmt(extra.amountPaid) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+    ] : [
+      // type === 'peman' — peman manyèl/adisyonèl (san plan, san tarif jounalye)
+      ...(extra.method ? [...makeLine('Metod:', METOD[extra.method] || extra.method, W), LF] : []),
+      ...(extra.notes  ? [...makeLine('Nòt:', String(extra.notes).substring(0, W - 6), W), LF] : []),
+      ...divider('=', W), LF,
+      ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...CMD.DOUBLE_HEIGHT,
+      ...encodeText('MONTAN: ' + fmt(extra.amount) + ' G\n'),
+      ...CMD.NORMAL_SIZE, ...CMD.BOLD_OFF,
+      ...CMD.ALIGN_LEFT,
+      ...divider('=', W), LF,
+    ]),
 
-    // ══ PIED DE RECU ═════════════════════════════════════════
-    LF,
-    ...CMD.ALIGN_CENTER,
-    ...CMD.BOLD_ON, ...encodeText('Merci de votre confiance !'), LF, ...CMD.BOLD_OFF,
-    ...(tenant?.receiptFooterNote ? [
-      ...divider('-', W), LF,
-      ...wrap(String(tenant.receiptFooterNote).trim()),
-    ] : []),
-    ...divider('-', W), LF,
+    ...CMD.ALIGN_CENTER, ...CMD.BOLD_ON, ...encodeText('Mesi!\n'), ...CMD.BOLD_OFF,
     ...CMD.SMALL_FONT,
-    ...encodeText('Produit par PLUS GROUP'), LF,
-    ...encodeText('Tel : +509 4244 9024'), LF,
+    ...encodeText((tenant?.businessName || tenant?.name || 'PlusGroup') + ' — Tel: ' + (tenant?.phone || '+50942449024') + '\n'),
     ...CMD.NORMAL_FONT,
-    ...CMD.ALIGN_LEFT,
-    LF, LF, LF,
-    ...CMD.CUT,
+    LF, LF, ...CMD.CUT,
   ]
 
   await dispatch(bytes)
