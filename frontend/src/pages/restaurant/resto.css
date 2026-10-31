@@ -1213,3 +1213,4 @@ html[data-brand] .rs-promo::before { background: var(--brand-2); }
   .rs-pos-q { flex-basis: 190px; }
   .rs-pos-lines { max-height: none; }
 }
+.rs-pos-paper { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }

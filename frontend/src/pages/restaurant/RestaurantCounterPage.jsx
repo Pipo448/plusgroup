@@ -18,7 +18,7 @@ import { invoiceAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useRT } from './restoI18n'
 import { restoApi } from './restoApi'
-import { printKitchenTicket, printCounterReceipt, tenantReceiptNote } from './restoPrint'
+import { printKitchenTicket, printCounterReceipt, tenantReceiptNote, paperSize, setPaperSize } from './restoPrint'
 import PayModal from './RestoPayModal'
 import {
   Stage, Layer, Hero, Btn, Badge, Chips, SearchField, DishVisual, Modal, Stepper, Seg, Field, Empty, SkeletonGrid, ThemeToggle,
@@ -156,6 +156,9 @@ function Queue({ tickets, onStatus, busyId, t }) {
 function DoneModal({ theme, done, onPrint, onClose, t }) {
   const [auto, setAuto] = useState(() => lsGet(PRINT_KEY) === '1')
   const toggleAuto = (v) => { setAuto(v); lsSet(PRINT_KEY, v ? '1' : null) }
+  // Lajè papye pou aparèy sa a (menm paramèt ak resi POS yo)
+  const [paper, setPaper] = useState(() => paperSize())
+  const changePaper = (v) => { setPaper(v); setPaperSize(v) }
   return (
     <Modal theme={theme} onClose={onClose} closeLabel={t('common.close')} title={t('counter.done')}
       footer={<>
@@ -174,6 +177,10 @@ function DoneModal({ theme, done, onPrint, onClose, t }) {
         <p className="rs-hint" style={{ margin: 0 }}>
           {done.hasFood ? <><ChefHat size={13} /> {t('counter.kitchenPrinted')}</> : <>🥤 {t('counter.drinksOnly')}</>}
         </p>
+        <div className="rs-pos-paper">
+          <span className="rs-label">{t('counter.paper')}</span>
+          <Seg value={paper} onChange={changePaper} options={[{ id: '57mm', label: '57 mm' }, { id: '80mm', label: '80 mm' }]} />
+        </div>
         <label className="rs-pos-auto"><input type="checkbox" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} /> {t('counter.autoPrint')}</label>
       </div>
     </Modal>
@@ -282,11 +289,11 @@ export default function RestaurantCounterPage() {
       }).catch(() => { /* rapò a pa dwe bloke vant lan */ })
       const food = d.lines.filter((l) => l.kind !== 'drink')
       if (food.length) {
-        printKitchenTicket({ tenantName, title: `#${ticket.number} · ${modeLabel.toUpperCase()}`, subtitle: name || undefined, notes: d.notes || undefined,
+        printKitchenTicket({ tenantName, title: `#${ticket.number}`, subtitle: [modeLabel.toUpperCase(), name].filter(Boolean).join(' — '), notes: d.notes || undefined,
           items: food.map((l) => ({ qty: l.qty, name: l.name })) })
       }
       const result = { ticket, pay, lines: d.lines, subtotal: d.lines.reduce((s, l) => s + l.qty * l.unitPrice, 0), fee, hasFood: food.length > 0 }
-      if (lsGet(PRINT_KEY) === '1') setTimeout(() => receipt(result), food.length ? 900 : 0)
+      if (lsGet(PRINT_KEY) === '1') receipt(result) // fil enpresyon an mete l apre tikè kizin nan
       lsSet(invKey, null)
       setDraft((x) => ({ ...emptyDraft(), mode: x.mode }))
       setPaying(false); setSheet(false)
