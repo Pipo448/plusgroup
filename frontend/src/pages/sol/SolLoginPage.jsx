@@ -1,78 +1,72 @@
 // src/pages/sol/SolLoginPage.jsx
-// Pòtal koneksyon pou manm Sabotay Sol — design "Sabotay Inove" (tipografi Syne + animasyon + mockup telefòn)
+// Pòtal koneksyon "Kont Sòl ou" — design Plus Group (foto kesyè + kat glas + vag anime)
 // Wout: /app/sol/login
 //
-// ✅ Design 100% nan kòd (SVG + CSS): pa bezwen imaj background ankò
-//    (public/images/sabotay-login-bg*.png pa itilize ankò).
-// ✅ Kont bloke: lè dashboard la resevwa 403, li sove rezon an + montan ki an reta a nan
-//    sessionStorage('sol_block'). Paj sa a montre yon panèl konplè (rezon, montan, kijan pou peye)
-//    olye yon ti toast ki disparèt.
+// Asè (mete yo nan public/images/sol/):
+//   • /images/sol/plus-group-logo.png   (logo Plus Group, fon transparan)
+//   • /images/sol/ti-machann-haiti.jpg  (foto kesyè a)
+//
+// Lojik la pa chanje: menm API login, menm sesyon (sol_token / sol_member),
+// menm jere blokaj (403) — dashboard la sove rezon + montan ki an reta a nan
+// sessionStorage('sol_block') epi paj sa a montre yon panèl konplè.
+// "Sonje mwen" sove SÈLMAN non itilizatè a (pa janm modpas la).
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff, LogIn, Lock, TrendingUp, Bell, Trophy, Copy, Check, RefreshCw } from 'lucide-react'
+import {
+  User, Lock, Eye, EyeOff, LogIn, Users, Wallet, Calendar, BarChart3, Settings,
+  ShieldCheck, Copy, Check, RefreshCw, MessageCircle,
+} from 'lucide-react'
 
 const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
+const IMG_LOGO  = '/images/sol/plus-group-logo.png'
+const IMG_PHOTO = '/images/sol/ti-machann-haiti.jpg'
+const SUPPORT_WA = 'https://wa.me/50942449024?text=' + encodeURIComponent('Bonjou, mwen bliye modpas Kont Sòl mwen an.')
 
 const fmtN = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
 
-function BrandIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" aria-hidden="true">
-      <rect x="4"  y="20" width="5" height="12" rx="1.4" fill="#2563EB" />
-      <rect x="12" y="13" width="5" height="19" rx="1.4" fill="#60A5FA" />
-      <rect x="20" y="7"  width="5" height="25" rx="1.4" fill="#93C5FD" />
-      <path d="M5 23 L15 16 L23 10 L31 4" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M23 4 L31 4 L31 12" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  )
-}
+// Chemen vag SVG (peryòd 1440 → ka bouke san kouti lè nou deplase l 50%)
+const wave = (base, amp) =>
+  `M0 ${base} Q 360 ${base - 2 * amp} 720 ${base} T 1440 ${base} T 2160 ${base} T 2880 ${base} L2880 400 L0 400 Z`
+const waveLine = (base, amp) =>
+  `M0 ${base} Q 360 ${base - 2 * amp} 720 ${base} T 1440 ${base} T 2160 ${base} T 2880 ${base}`
 
-const POINTS = [
-  { Icon: TrendingUp, title: 'Wè sa ou peye ak sa ki rete',  sub: 'Kaye peman ou a ajou an tan reyèl.' },
-  { Icon: Bell,       title: 'Pa janm rate yon dat peman',   sub: 'Revèy ak rapèl pou chak peman.' },
-  { Icon: Trophy,     title: 'Konnen kilè w ap touche',      sub: 'Dat ak montan an klè, san devine.' },
-]
-
-// ── Ti kat mockup (menm look ak kat tableau de bord la) ──
-function MiniCard({ small }) {
+function Waves() {
   return (
-    <div className={`sl-mini ${small ? 'sm' : ''}`}>
-      <div className="sl-mini-row"><span>Sòl Chak Jou 500</span><span>Chak Jou</span></div>
-      <div className="sl-mini-lab">Kòb ou ap touche</div>
-      <div className="sl-mini-amt">4 750<small>HTG</small></div>
-      <div className="sl-mini-bar"><i /></div>
-      <div className="sl-mini-foot"><span>3/10 peye</span><span>30%</span></div>
+    <div className="sl-waves" aria-hidden="true">
+      <svg className="sl-wave w3" viewBox="0 0 2880 400" preserveAspectRatio="none"><path d={wave(150, 34)} fill="#FF8A1F" fillOpacity=".92" /></svg>
+      <svg className="sl-wave w2" viewBox="0 0 2880 400" preserveAspectRatio="none"><path d={wave(170, 30)} fill="#1E5FE0" fillOpacity=".9" /></svg>
+      <svg className="sl-wave w1" viewBox="0 0 2880 400" preserveAspectRatio="none">
+        <defs><linearGradient id="slNavy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0B3AA0" /><stop offset="1" stopColor="#061E57" /></linearGradient></defs>
+        <path d={wave(195, 28)} fill="url(#slNavy)" />
+        <path d={waveLine(195, 28)} fill="none" stroke="#FFA33A" strokeWidth="5" strokeLinecap="round" />
+      </svg>
     </div>
   )
 }
 
-function PhoneMockup() {
+function GrowthIcon() {
   return (
-    <div className="sl-phone-wrap" aria-hidden="true"><div className="sl-phone-scale">
-      <div className="sl-phone">
-        <div className="sl-phone-notch" />
-        <div className="sl-phone-screen">
-          <div className="sl-ps-bar"><b>Sabotay Inove</b><i>MJ</i></div>
-          <MiniCard small />
-          <div className="sl-ps-stamps">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-              <span key={n} className={n <= 3 ? 'ok' : n === 4 ? 'now' : ''} style={{ animationDelay: `${0.8 + n * 0.09}s` }}>{n <= 3 ? '✓' : n}</span>
-            ))}
-          </div>
-          <div className="sl-ps-row"><i /><div><b /><s /></div></div>
-          <div className="sl-ps-row"><i /><div><b /><s /></div></div>
-          <div className="sl-ps-nav"><i className="on" /><i /><i /><i /></div>
-        </div>
-      </div>
-      <div className="sl-chip c1"><Check size={13} strokeWidth={3} /> Peman bonè +12 pwen</div>
-      <div className="sl-chip c2"><Trophy size={13} /> Ou touche 06/11</div>
-    </div></div>
+    <svg className="sl-growth" width="46" height="46" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <rect className="b1" x="6"  y="30" width="8" height="12" rx="2" fill="#FF8A1F" />
+      <rect className="b2" x="20" y="22" width="8" height="20" rx="2" fill="#FF8A1F" />
+      <rect className="b3" x="34" y="12" width="8" height="30" rx="2" fill="#FF8A1F" />
+      <path className="arr" d="M6 24 L18 14 L26 18 L40 6" stroke="#FFF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path className="arr" d="M31 6 L40 6 L40 15" stroke="#FFF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 
-// ── Panèl kont bloke ──
+const QUICK = [
+  { Icon: Users,     label: 'Manm' },
+  { Icon: Wallet,    label: 'Sòl' },
+  { Icon: Calendar,  label: 'Echéans', hideMobile: true },
+  { Icon: BarChart3, label: 'Rapò' },
+  { Icon: Settings,  label: 'Paramèt' },
+]
+
+// ── Panèl kont bloke (ekri pou kat klè a) ──
 function BlockedPanel({ info, onRetry }) {
   const [copied, setCopied] = useState('')
   const msg = (info.message || 'Kont ou bloke poutèt reta peman.').replace(/^\s*🔒\s*/, '')
@@ -83,6 +77,7 @@ function BlockedPanel({ info, onRetry }) {
   }
   const count = Number(info.lateCount) || (msg.match(/(\d+)\s+peman/) || [])[1]
   const fee = amount ? Math.ceil(amount / 250) * 15 : 0
+  const why = msg.replace(/^Kont ou bloke:?\s*/i, '').replace(/\s*Kontakte admin lan.*$/i, '').replace(/[.\s]+$/, '').trim() || 'peman an reta'
 
   const copy = (num, key) => {
     const clean = num.replace(/[^\d+]/g, '')
@@ -93,14 +88,14 @@ function BlockedPanel({ info, onRetry }) {
   return (
     <div className="sl-block" role="alert">
       <div className="sl-block-top">
-        <div className="sl-lock"><i /><i /><span><Lock size={26} /></span></div>
-        <div>
+        <div className="sl-lock"><i /><i /><span><Lock size={24} /></span></div>
+        <div style={{ minWidth: 0 }}>
           <h3>Kont ou bloke</h3>
           {info.name && <p className="who">{info.name}</p>}
         </div>
       </div>
 
-      <p className="sl-block-why"><b>Rezon:</b> {msg.replace(/^Kont ou bloke:?\s*/i, '').replace(/\s*Kontakte admin lan.*$/i, '').replace(/[.\s]+$/, '').trim() || 'peman an reta'}.</p>
+      <p className="sl-block-why"><b>Rezon:</b> {why}.</p>
 
       {amount > 0 && (
         <div className="sl-due">
@@ -139,11 +134,14 @@ export default function SolLoginPage() {
   const navigate = useNavigate()
   const [form,     setForm]     = useState({ username: '', password: '' })
   const [showPass, setShowPass] = useState(false)
+  const [remember, setRemember] = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [block,    setBlock]    = useState(null)   // { message, lateAmount, lateCount, name }
   const [caps,     setCaps]     = useState(false)
+  const [help,     setHelp]     = useState(false)
+  const cardRef = useRef(null)
 
-  // Si manm gen deja yon sesyon aktif, redirije dirèkteman. Sinon, gade si dashboard la te voye yon blokaj.
+  // Sesyon aktif → dirèk nan dashboard. Sinon: gade si dashboard la te voye yon blokaj + non sonje a.
   useEffect(() => {
     const token = localStorage.getItem('sol_token')
     if (token) { navigate('/app/sol/dashboard', { replace: true }); return }
@@ -151,6 +149,10 @@ export default function SolLoginPage() {
       const raw = sessionStorage.getItem('sol_block')
       if (raw) setBlock(JSON.parse(raw))
     } catch { /* sessionStorage ka pa disponib */ }
+    try {
+      const u = localStorage.getItem('sol_remember_user')
+      if (u) { setForm(p => ({ ...p, username: u })); setRemember(true) }
+    } catch { /* */ }
   }, [navigate])
 
   const clearBlock = () => {
@@ -183,6 +185,10 @@ export default function SolLoginPage() {
       if (!res.ok) throw new Error(data.message || 'Erè koneksyon')
 
       clearBlock()
+      try {
+        if (remember) localStorage.setItem('sol_remember_user', form.username.trim().toLowerCase())
+        else localStorage.removeItem('sol_remember_user')
+      } catch { /* */ }
       localStorage.setItem('sol_token',  data.token)
       localStorage.setItem('sol_member', JSON.stringify(data.member))
       toast.success(`Byenvini, ${data.member.name}!`)
@@ -196,239 +202,300 @@ export default function SolLoginPage() {
 
   const onKey = (e) => setCaps(!!e.getModifierState?.('CapsLock'))
 
+  // Kat la panche tou dousman swiv souris la (sèlman òdinatè)
+  const onMove = (e) => {
+    if (e.pointerType && e.pointerType !== 'mouse') return
+    const el = cardRef.current; if (!el) return
+    const b = el.getBoundingClientRect()
+    const px = (e.clientX - b.left) / b.width, py = (e.clientY - b.top) / b.height
+    el.style.setProperty('--ry', `${((px - 0.5) * 5).toFixed(2)}deg`)
+    el.style.setProperty('--rx', `${((0.5 - py) * 4).toFixed(2)}deg`)
+    el.style.setProperty('--gx', `${(px * 100).toFixed(0)}%`)
+    el.style.setProperty('--gy', `${(py * 100).toFixed(0)}%`)
+  }
+  const onLeave = () => {
+    const el = cardRef.current; if (!el) return
+    ;['--ry', '--rx', '--gx', '--gy'].forEach(k => el.style.removeProperty(k))
+  }
+
   return (
     <div className="sl-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        .sl-root { --disp: 'Syne', 'Plus Jakarta Sans', system-ui, sans-serif; position: relative; min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #EEF3FF; background: #050A18; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+        .sl-root { --disp: 'Syne', 'Plus Jakarta Sans', system-ui, sans-serif; --navy: #0B2F86; --blue: #0B4BD6; --orange: #FF6A00; --ink: #132B5E;
+          position: relative; min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
+          font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--ink); background: #EAF2FF; -webkit-font-smoothing: antialiased; overflow-x: hidden; isolation: isolate; }
 
-        /* ── anime: foul ak sèk ── */
-        @keyframes slFade  { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
-        @keyframes slShake { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-7px) } 40%,80% { transform: translateX(7px) } }
-        @keyframes slSpin  { to { transform: rotate(360deg) } }
-        @keyframes slFloat { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-12px) } }
-        @keyframes slDrift { 0%,100% { transform: translate(0,0) scale(1) } 50% { transform: translate(34px,-26px) scale(1.14) } }
-        @keyframes slOrbit { to { transform: rotate(360deg) } }
-        @keyframes slSway  { 0%,100% { transform: perspective(900px) rotateY(-9deg) rotateX(4deg) rotate(-2deg) } 50% { transform: perspective(900px) rotateY(7deg) rotateX(-2deg) rotate(1deg) } }
-        @keyframes slShine { 0% { background-position: 170% 0 } 55%,100% { background-position: -70% 0 } }
-        @keyframes slPop   { 0% { opacity: 0; transform: scale(.4) } 65% { opacity: 1; transform: scale(1.12) } 100% { opacity: 1; transform: scale(1) } }
-        @keyframes slBar   { from { width: 0 } to { width: 30% } }
-        @keyframes slRipple { 0% { transform: scale(.85); opacity: .7 } 100% { transform: scale(2.1); opacity: 0 } }
-        @keyframes slChip  { 0%,100% { transform: translateY(0) rotate(var(--r, 0deg)) } 50% { transform: translateY(-8px) rotate(var(--r, 0deg)) } }
+        @keyframes slRise   { from { opacity: 0; transform: translateY(26px) } to { opacity: 1; transform: none } }
+        @keyframes slCard   { from { opacity: 0; transform: translateY(40px) scale(.97); filter: blur(8px) } to { opacity: 1; transform: none; filter: blur(0) } }
+        @keyframes slWipe   { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0 0 0) } }
+        @keyframes slKen    { from { transform: scale(1.1) translate(-1%, .8%) } to { transform: scale(1) translate(0, 0) } }
+        @keyframes slKen2   { 0%,100% { transform: scale(1) translate(0,0) } 50% { transform: scale(1.035) translate(-.6%, -.5%) } }
+        @keyframes slWaveX  { to { transform: translateX(-50%) } }
+        @keyframes slDrift  { 0%,100% { transform: translate(0,0) scale(1) } 50% { transform: translate(40px,-30px) scale(1.15) } }
+        @keyframes slShine  { 0% { background-position: 170% 0 } 55%,100% { background-position: -70% 0 } }
+        @keyframes slSpin   { to { transform: rotate(360deg) } }
+        @keyframes slShake  { 0%,100% { transform: translateX(0) } 20%,60% { transform: translateX(-7px) } 40%,80% { transform: translateX(7px) } }
+        @keyframes slFloat  { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-6px) } }
+        @keyframes slBar    { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+        @keyframes slDraw   { from { stroke-dashoffset: 80 } to { stroke-dashoffset: 0 } }
+        @keyframes slPing   { 0% { transform: scale(.85); opacity: .7 } 100% { transform: scale(2.1); opacity: 0 } }
+        @keyframes slQuick  { 0%, 22%, 100% { transform: translateY(0) scale(1); background: transparent; color: var(--navy) } 8%, 14% { transform: translateY(-3px) scale(1.12); background: #FFF1E6; color: var(--orange) } }
+        @keyframes slToast  { 0%, 4% { opacity: 0; transform: translateX(-22px) scale(.95) } 9%, 40% { opacity: 1; transform: none } 46%, 100% { opacity: 0; transform: translateX(-22px) scale(.95) } }
+        @keyframes slTick   { 0% { transform: scale(0) } 60% { transform: scale(1.25) } 100% { transform: scale(1) } }
 
-        .sl-orb { position: absolute; border-radius: 50%; filter: blur(70px); pointer-events: none; z-index: 0; animation: slDrift 16s ease-in-out infinite; }
-        .sl-orb.a { width: 380px; height: 380px; left: -120px; top: -90px; background: rgba(37,99,235,.38); }
-        .sl-orb.b { width: 320px; height: 320px; right: -90px; bottom: -70px; background: rgba(249,115,22,.2); animation-delay: -6s; }
+        /* ── FOTO (kesyè) ── */
+        .sl-photo { position: relative; overflow: hidden; min-height: 100vh; min-height: 100dvh; background: #0A2C7A; }
+        .sl-photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 18%; animation: slKen 2.4s cubic-bezier(.2,.7,.2,1) both, slKen2 22s ease-in-out 2.4s infinite; transform-origin: 40% 30%; }
+        .sl-photo::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(7,32,100,.18) 0%, transparent 26%, transparent 52%, rgba(6,30,87,.55) 100%), linear-gradient(90deg, transparent 70%, rgba(234,242,255,.5) 100%); }
+        .sl-logo-top { display: none; }
 
-        .sl-brand { position: relative; z-index: 1; overflow: hidden; padding: 48px 56px; display: flex; flex-direction: column; justify-content: space-between; background: radial-gradient(900px 560px at 0% 0%, rgba(37,99,235,0.42) 0%, transparent 62%), radial-gradient(700px 480px at 100% 100%, rgba(249,115,22,0.22) 0%, transparent 60%), #060D20; isolation: isolate; }
-        .sl-art { position: absolute; z-index: -1; right: -180px; bottom: -200px; width: 720px; height: 720px; pointer-events: none; animation: slOrbit 70s linear infinite; }
-        .sl-logo { display: flex; align-items: center; gap: 13px; }
-        .sl-logo-mark { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 32% 28%, rgba(37,99,235,0.4) 0%, #0A1330 76%); box-shadow: 0 0 0 1px rgba(96,165,250,0.35), 0 10px 30px rgba(37,99,235,.35); }
-        .sl-logo b { display: block; font-family: var(--disp); font-size: 18px; font-weight: 800; letter-spacing: -0.03em; }
-        .sl-logo span { font-size: 12.5px; color: #8FA0BD; }
-        .sl-hero { position: relative; z-index: 2; }
-        .sl-hero h1 { font-family: var(--disp); font-size: clamp(38px, 4.6vw, 60px); font-weight: 800; letter-spacing: -0.045em; line-height: .98; max-width: 7.5em; }
-        .sl-hero h1 em { font-style: normal; background: linear-gradient(100deg, #7FA5FF, #FDBA74); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .sl-hero p.lead { margin-top: 18px; font-size: 15.5px; line-height: 1.65; color: #A9B6CE; max-width: 21em; }
-        .sl-points { margin-top: 30px; display: flex; flex-direction: column; gap: 14px; max-width: 21em; }
-        .sl-point { display: flex; align-items: flex-start; gap: 14px; }
-        .sl-point i { width: 38px; height: 38px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: #7FA5FF; background: rgba(37,99,235,0.16); border: 1px solid rgba(96,165,250,0.25); }
-        .sl-point b { display: block; font-size: 14.5px; font-weight: 700; }
-        .sl-point span { font-size: 13px; color: #8FA0BD; }
-        .sl-foot { font-size: 12px; color: #6B7B96; position: relative; z-index: 2; }
-        .sl-brand .sl-logo, .sl-hero h1, .sl-hero p.lead, .sl-point { animation: slFade .8s cubic-bezier(.2,.8,.2,1) both; }
-        .sl-hero p.lead { animation-delay: .12s } .sl-point:nth-child(1) { animation-delay: .24s } .sl-point:nth-child(2) { animation-delay: .32s } .sl-point:nth-child(3) { animation-delay: .4s }
+        .sl-notify { position: absolute; z-index: 3; left: 30px; top: 34px; display: flex; align-items: center; gap: 11px; padding: 10px 16px 10px 11px; border-radius: 18px; background: rgba(255,255,255,.88); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 18px 40px -12px rgba(0,25,90,.5); animation: slToast 12s ease-in-out 2.6s infinite both; opacity: 0; }
+        @supports (backdrop-filter: blur(1px)) { .sl-notify { background: rgba(255,255,255,.7); backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5); } }
+        .sl-notify i { width: 34px; height: 34px; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(145deg, #22C55E, #15803D); }
+        .sl-notify i svg { animation: slTick .5s cubic-bezier(.2,.9,.3,1.4) 3.2s both; animation-iteration-count: 1; }
+        .sl-notify b { display: block; font-size: 13px; color: var(--ink); line-height: 1.2; }
+        .sl-notify span { font-size: 12px; font-weight: 700; color: #15803D; }
 
-        /* telefòn mockup */
-        .sl-phone-scale { transform: scale(.82); transform-origin: 100% 100%; }
-        .sl-phone-wrap { position: absolute; z-index: 1; right: 22px; bottom: -200px; width: 262px; animation: slFloat 7s ease-in-out infinite; }
-        .sl-phone { width: 262px; height: 540px; border-radius: 44px; padding: 9px; background: linear-gradient(145deg, #243055, #0A1020); box-shadow: 0 0 0 1.5px rgba(255,255,255,.14), 0 50px 90px -20px rgba(0,0,0,.75), 0 0 80px rgba(37,99,235,.25); transform: perspective(1400px) rotateY(-16deg) rotateX(6deg) rotate(4deg); position: relative; }
-        .sl-phone-notch { position: absolute; top: 15px; left: 50%; width: 76px; height: 20px; border-radius: 12px; background: #04070F; transform: translateX(-50%); z-index: 3; }
-        .sl-phone-screen { height: 100%; border-radius: 36px; overflow: hidden; background: #08112A; padding: 40px 12px 12px; position: relative; display: flex; flex-direction: column; gap: 10px; }
-        .sl-ps-bar { display: flex; justify-content: space-between; align-items: center; }
-        .sl-ps-bar b { font-family: var(--disp); font-size: 12.5px; letter-spacing: -0.02em; }
-        .sl-ps-bar i { font-style: normal; font-size: 8.5px; font-weight: 800; width: 22px; height: 22px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg,#2563EB,#F97316); }
-        .sl-ps-stamps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .sl-ps-stamps span { aspect-ratio: 1; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #6B7B96; border: 1.4px dashed rgba(255,255,255,.14); animation: slPop .5s cubic-bezier(.2,.9,.3,1.2) both; }
-        .sl-ps-stamps span.ok { color: #34D399; background: rgba(52,211,153,.12); border: 1.4px solid rgba(52,211,153,.4); }
-        .sl-ps-stamps span.now { color: #7FA5FF; background: rgba(37,99,235,.18); border: 1.4px solid #2563EB; }
-        .sl-ps-row { display: flex; gap: 8px; align-items: center; padding: 8px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.06); }
-        .sl-ps-row i { width: 22px; height: 22px; border-radius: 8px; background: rgba(37,99,235,.28); flex-shrink: 0; }
-        .sl-ps-row div { flex: 1; display: flex; flex-direction: column; gap: 4px; } .sl-ps-row b { height: 6px; width: 70%; border-radius: 4px; background: rgba(255,255,255,.22); } .sl-ps-row s { height: 5px; width: 45%; border-radius: 4px; background: rgba(255,255,255,.1); }
-        .sl-ps-nav { margin-top: auto; display: flex; justify-content: space-around; padding: 9px 0 2px; border-top: 1px solid rgba(255,255,255,.07); }
-        .sl-ps-nav i { width: 20px; height: 8px; border-radius: 5px; background: rgba(255,255,255,.14); } .sl-ps-nav i.on { background: #2563EB; width: 28px; }
-        .sl-chip { position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: #fff; white-space: nowrap; background: rgba(12,20,48,.82); border: 1px solid rgba(255,255,255,.16); backdrop-filter: blur(10px); box-shadow: 0 14px 34px rgba(0,0,0,.45); }
-        .sl-chip.c1 { right: -4px; top: 30px; left: auto; --r: -4deg; animation: slChip 5.5s ease-in-out infinite; color: #6EE7B7; }
-        .sl-chip.c2 { left: -34px; top: 318px; --r: 3deg; animation: slChip 6.5s ease-in-out -2s infinite; color: #FDBA74; }
+        .sl-tagline { position: absolute; z-index: 3; left: 44px; bottom: 24px; display: flex; align-items: center; gap: 14px; color: #fff; max-width: 330px; animation: slRise .9s cubic-bezier(.2,.8,.2,1) .7s both; }
+        .sl-tagline p { font-family: var(--disp); font-size: clamp(17px, 1.55vw, 22px); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
+        .sl-tagline p i { display: inline-flex; vertical-align: -3px; margin-left: 7px; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; background: #FF8A1F; color: #fff; }
+        .sl-growth rect { transform-box: fill-box; transform-origin: bottom; animation: slBar .8s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-growth .b1 { animation-delay: 1s } .sl-growth .b2 { animation-delay: 1.15s } .sl-growth .b3 { animation-delay: 1.3s }
+        .sl-growth .arr { stroke-dasharray: 80; animation: slDraw 1s ease-out 1.5s both; }
 
-        /* mini kat */
-        .sl-mini { padding: 14px 15px 13px; border-radius: 20px; color: #fff; background: linear-gradient(150deg, #0B1F55 0%, #1737A0 55%, #3B5FE0 110%); box-shadow: 0 1px 0 rgba(255,255,255,.2) inset, 0 22px 40px -14px rgba(0,0,0,.6); position: relative; overflow: hidden; }
-        .sl-mini::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(112deg, transparent 38%, rgba(255,255,255,.22) 50%, transparent 62%) 170% 0 / 260% 100% no-repeat; animation: slShine 6s ease-in-out 1s infinite; }
-        .sl-mini-row { display: flex; justify-content: space-between; gap: 6px; font-size: 9.5px; font-weight: 700; } .sl-mini-row span { padding: 3px 8px; border-radius: 99px; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.16); }
-        .sl-mini-lab { margin-top: 14px; font-size: 10.5px; color: rgba(255,255,255,.72); font-weight: 600; }
-        .sl-mini-amt { font-family: var(--disp); font-size: 36px; font-weight: 800; letter-spacing: -0.05em; line-height: 1.02; } .sl-mini-amt small { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; margin-left: 5px; letter-spacing: 0; color: rgba(255,255,255,.7); }
-        .sl-mini-bar { margin-top: 12px; height: 5px; border-radius: 4px; background: rgba(255,255,255,.2); overflow: hidden; } .sl-mini-bar i { display: block; height: 100%; border-radius: 4px; background: #fff; animation: slBar 1.6s cubic-bezier(.2,.8,.2,1) .6s both; }
-        .sl-mini-foot { margin-top: 7px; display: flex; justify-content: space-between; font-size: 10px; font-weight: 700; color: rgba(255,255,255,.78); }
-        .sl-mini.sm { padding: 11px 12px 10px; border-radius: 16px; } .sl-mini.sm .sl-mini-amt { font-size: 28px; } .sl-mini.sm .sl-mini-lab { margin-top: 9px; }
+        /* ── LADAN DWAT (fon + kat) ── */
+        .sl-side { position: relative; display: flex; align-items: center; justify-content: center; padding: 26px 34px 30px 0; margin-left: -96px; }
+        .sl-bg { position: absolute; inset: 0; z-index: -1; overflow: hidden; background: radial-gradient(700px 520px at 85% 8%, #CFE3FF 0%, transparent 62%), radial-gradient(520px 420px at 100% 100%, rgba(255,138,31,.2) 0%, transparent 60%), linear-gradient(180deg, #EAF2FF 0%, #F6F9FF 100%); }
+        .sl-orb { position: absolute; border-radius: 50%; filter: blur(60px); animation: slDrift 18s ease-in-out infinite; }
+        .sl-orb.a { width: 340px; height: 340px; right: -60px; top: 6%; background: rgba(37,99,235,.28); }
+        .sl-orb.b { width: 260px; height: 260px; left: 14%; bottom: 24%; background: rgba(255,138,31,.2); animation-delay: -7s; }
 
-        /* fòm */
-        .sl-form-side { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; padding: 32px 28px; background: #0A1226; }
-        .sl-card { width: 100%; max-width: 392px; }
-        .sl-card > * { animation: slFade .7s cubic-bezier(.2,.8,.2,1) both; }
-        .sl-card > *:nth-child(2) { animation-delay: .07s } .sl-card > *:nth-child(3) { animation-delay: .14s } .sl-card > *:nth-child(4) { animation-delay: .21s } .sl-card > *:nth-child(5) { animation-delay: .28s } .sl-card > *:nth-child(n+6) { animation-delay: .35s }
-        .sl-card h2 { font-family: var(--disp); font-size: 34px; font-weight: 800; letter-spacing: -0.045em; }
-        .sl-card .sub { margin-top: 6px; font-size: 14px; color: #8FA0BD; line-height: 1.55; }
-        .sl-label { display: block; font-size: 13px; font-weight: 700; color: #A9B6CE; margin-bottom: 7px; }
-        .sl-input { width: 100%; padding: 14px 15px; border-radius: 14px; font-size: 16px; font-family: inherit; color: #EEF3FF; background: #0F1A38; border: 1.5px solid rgba(255,255,255,0.09); transition: border-color .15s, box-shadow .2s, transform .2s; }
-        .sl-input::placeholder { color: #51607C; }
-        .sl-input:focus { outline: none; border-color: #2563EB; box-shadow: 0 0 0 4px rgba(37,99,235,0.2), 0 12px 28px -12px rgba(37,99,235,.5); transform: translateY(-1px); }
-        .sl-input.bad { border-color: rgba(239,68,68,0.55); }
-        .sl-input:disabled { opacity: .6; }
-        .sl-eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #8FA0BD; cursor: pointer; padding: 10px; display: flex; border-radius: 10px; }
-        .sl-eye:hover { color: #EEF3FF; }
-        .sl-btn { position: relative; overflow: hidden; margin-top: 8px; width: 100%; padding: 15px; border-radius: 14px; border: none; color: #fff; font-family: var(--disp); font-weight: 800; font-size: 16px; letter-spacing: -0.01em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px; background: linear-gradient(135deg, #2563EB 0%, #3B5FE0 45%, #F97316 100%); box-shadow: 0 12px 30px rgba(37,99,235,0.38); transition: filter .15s, transform .12s, box-shadow .2s; }
-        .sl-btn::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(110deg, transparent 38%, rgba(255,255,255,.34) 50%, transparent 62%) 170% 0 / 260% 100% no-repeat; animation: slShine 4.5s ease-in-out 1.4s infinite; }
-        .sl-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 18px 38px rgba(37,99,235,0.45); }
-        .sl-btn:active:not(:disabled) { transform: scale(0.99); }
-        .sl-btn:disabled { cursor: not-allowed; box-shadow: none; }
-        .sl-btn.loading { background: rgba(37,99,235,0.45); }
-        .sl-btn.loading::after, .sl-btn.blocked::after { display: none; }
-        .sl-btn.blocked { background: rgba(239,68,68,0.16); color: #F87171; border: 1px solid rgba(239,68,68,0.35); }
-        .sl-hint { font-size: 12px; color: #FBBF24; margin-top: 7px; font-weight: 600; }
-        .sl-mobile-brand { display: none; }
-        .sl-powered { display: none; margin-top: 40px; text-align: center; font-size: 11.5px; color: #51607C; }
-        .sl-help { margin-top: 22px; text-align: center; font-size: 13px; color: #8FA0BD; }
+        .sl-stage { position: relative; z-index: 3; width: 100%; max-width: 540px; perspective: 1400px; }
+        .sl-card { --rx: 0deg; --ry: 0deg; position: relative; width: 100%; padding: 22px 32px 18px; border-radius: 34px; background: rgba(255,255,255,.95); border: 1px solid rgba(255,255,255,.95);
+          box-shadow: 0 1px 0 #fff inset, 0 40px 90px -28px rgba(6,40,130,.55), 0 14px 34px -14px rgba(6,40,130,.3);
+          transform: rotateX(var(--rx)) rotateY(var(--ry)); transition: transform .35s cubic-bezier(.2,.8,.2,1); animation: slCard 1s cubic-bezier(.2,.8,.2,1) .15s both; }
+        @supports (backdrop-filter: blur(1px)) { .sl-card { background: rgba(255,255,255,.8); backdrop-filter: blur(22px) saturate(1.5); -webkit-backdrop-filter: blur(22px) saturate(1.5); } }
+        .sl-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(380px circle at var(--gx, 80%) var(--gy, 0%), rgba(255,255,255,.7), transparent 60%); opacity: .8; }
+        .sl-card > * { position: relative; z-index: 1; }
 
-        /* panèl kont bloke */
-        .sl-block { margin-bottom: 20px; padding: 18px 17px 16px; border-radius: 22px; background: linear-gradient(180deg, rgba(239,68,68,.14), rgba(239,68,68,.06)); border: 1px solid rgba(239,68,68,.4); box-shadow: 0 24px 50px -22px rgba(239,68,68,.45); animation: slShake .45s ease, slFade .6s ease both; }
-        .sl-block-top { display: flex; align-items: center; gap: 15px; }
-        .sl-lock { position: relative; width: 56px; height: 56px; flex-shrink: 0; }
-        .sl-lock i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(248,113,113,.7); animation: slRipple 2.2s ease-out infinite; }
+        .sl-logo-card { display: block; width: 100%; max-width: 330px; margin: 0 auto 10px; animation: slWipe 1.2s cubic-bezier(.65,.05,.2,1) .5s both; }
+        .sl-logo-card img { display: block; width: 100%; height: auto; }
+        .sl-rule { height: 1px; margin: 0 auto 12px; width: 86%; background: linear-gradient(90deg, transparent, rgba(11,47,134,.28), transparent); }
+
+        .sl-head { text-align: center; margin-bottom: 15px; }
+        .sl-head h1 { display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-family: var(--disp); font-size: clamp(32px, 3.1vw, 42px); font-weight: 800; letter-spacing: -0.045em; line-height: 1; color: var(--blue); animation: slRise .8s cubic-bezier(.2,.8,.2,1) .75s both; }
+        .sl-head h1 svg { color: var(--blue); flex-shrink: 0; animation: slFloat 4.5s ease-in-out infinite; }
+        .sl-head h1 em { font-style: normal; color: var(--orange); position: relative; }
+        .sl-head h1 em::after { content: ''; position: absolute; left: -6%; right: -6%; bottom: -9px; height: 5px; border-radius: 4px; background: linear-gradient(90deg, transparent, var(--orange), transparent); transform-origin: left; animation: slWipe .9s ease-out 1.3s both; }
+        .sl-head p { margin: 14px auto 0; max-width: 28em; font-size: 14px; font-weight: 700; line-height: 1.55; color: var(--navy); animation: slRise .8s cubic-bezier(.2,.8,.2,1) .9s both; }
+
+        .sl-field { position: relative; margin-bottom: 12px; animation: slRise .7s cubic-bezier(.2,.8,.2,1) both; }
+        .sl-field.f1 { animation-delay: 1s } .sl-field.f2 { animation-delay: 1.08s }
+        .sl-field > svg.ico { position: absolute; left: 17px; top: 50%; transform: translateY(-50%); color: var(--navy); pointer-events: none; transition: color .2s, transform .2s; }
+        .sl-input { width: 100%; height: 54px; padding: 0 52px 0 54px; border-radius: 17px; font-size: 16px; font-weight: 500; font-family: inherit; color: var(--ink); background: rgba(255,255,255,.96); border: 1.5px solid #8EA0C8; transition: border-color .2s, box-shadow .25s, transform .2s; }
+        .sl-input::placeholder { color: #5B6C93; font-weight: 500; }
+        .sl-input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 4px rgba(11,75,214,.14), 0 14px 28px -14px rgba(11,75,214,.55); transform: translateY(-1px); }
+        .sl-field:focus-within > svg.ico { color: var(--orange); transform: translateY(-50%) scale(1.12); }
+        .sl-input:disabled { opacity: .65; }
+        .sl-eye { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--navy); cursor: pointer; padding: 11px; display: flex; border-radius: 12px; }
+        .sl-eye:hover { background: rgba(11,47,134,.08); }
+        .sl-hint { margin: -6px 2px 12px; font-size: 12px; font-weight: 700; color: #B45309; }
+
+        .sl-btn { position: relative; overflow: hidden; width: 100%; height: 56px; margin-top: 4px; border: none; border-radius: 18px; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; font-family: var(--disp); font-size: 21px; font-weight: 800; letter-spacing: -0.02em;
+          background: linear-gradient(180deg, #FFA11A 0%, #FF6A00 55%, #F04A06 100%); box-shadow: 0 1px 0 rgba(255,255,255,.55) inset, 0 -3px 0 rgba(160,40,0,.22) inset, 0 16px 30px -10px rgba(255,90,0,.7);
+          transition: transform .18s, box-shadow .25s, filter .2s; animation: slRise .7s cubic-bezier(.2,.8,.2,1) 1.16s both; }
+        .sl-btn::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(108deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%) 170% 0 / 260% 100% no-repeat; animation: slShine 4.2s ease-in-out 2.2s infinite; }
+        .sl-btn svg { transition: transform .25s; }
+        .sl-btn:hover:not(:disabled) { transform: translateY(-3px); filter: saturate(1.1); box-shadow: 0 1px 0 rgba(255,255,255,.55) inset, 0 -3px 0 rgba(160,40,0,.22) inset, 0 22px 38px -10px rgba(255,90,0,.8); }
+        .sl-btn:hover:not(:disabled) svg { transform: translateX(5px); }
+        .sl-btn:active:not(:disabled) { transform: translateY(0) scale(.985); }
+        .sl-btn:disabled { cursor: progress; filter: saturate(.7) brightness(.97); }
+        .sl-btn.loading::after { display: none; }
+
+        .sl-opts { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 14px 2px 0; font-size: 13.5px; font-weight: 600; animation: slRise .7s cubic-bezier(.2,.8,.2,1) 1.25s both; }
+        .sl-check { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; color: var(--ink); user-select: none; }
+        .sl-check input { position: absolute; opacity: 0; pointer-events: none; }
+        .sl-check i { width: 20px; height: 20px; border-radius: 6px; border: 1.8px solid #6C7FA8; background: #fff; display: flex; align-items: center; justify-content: center; color: #fff; transition: background .2s, border-color .2s, transform .2s; }
+        .sl-check i svg { opacity: 0; transform: scale(.4); transition: opacity .15s, transform .25s cubic-bezier(.2,.9,.3,1.5); }
+        .sl-check input:checked + i { background: var(--blue); border-color: var(--blue); }
+        .sl-check input:checked + i svg { opacity: 1; transform: scale(1); }
+        .sl-check input:focus-visible + i { outline: 2px solid var(--blue); outline-offset: 2px; }
+        .sl-link { background: none; border: none; padding: 0; font: inherit; font-weight: 700; color: var(--blue); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+        .sl-link:hover { color: var(--orange); }
+        .sl-helpbox { margin: 12px 0 0; padding: 13px 15px; border-radius: 15px; font-size: 12.5px; line-height: 1.6; font-weight: 600; color: var(--ink); background: #EEF4FF; border: 1px solid #C9D9F7; animation: slRise .4s ease both; }
+        .sl-helpbox a { display: inline-flex; align-items: center; gap: 7px; margin-top: 9px; padding: 8px 13px; border-radius: 11px; font-weight: 800; font-size: 12.5px; color: #fff; text-decoration: none; background: #16A34A; }
+
+        .sl-quick { display: grid; grid-template-columns: repeat(5, 1fr); margin-top: 16px; padding: 8px 6px; border-radius: 22px; background: rgba(226,236,255,.75); border: 1px solid rgba(255,255,255,.9); box-shadow: 0 1px 0 #fff inset; animation: slRise .7s cubic-bezier(.2,.8,.2,1) 1.35s both; }
+        .sl-quick div { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 3px 0; font-size: 12.5px; font-weight: 800; color: var(--navy); border-right: 1px solid rgba(11,47,134,.16); }
+        .sl-quick div:last-child { border-right: 0; }
+        .sl-quick div i { width: 44px; height: 38px; border-radius: 14px; display: flex; align-items: center; justify-content: center; animation: slQuick 7.5s ease-in-out infinite; animation-delay: calc(var(--i) * 1.4s + 2.5s); }
+        .sl-secure { margin: 12px 0 0; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12px; font-weight: 600; color: #5B6C93; animation: slRise .7s ease 1.45s both; }
+
+        /* ── PANÈL KONT BLOKE (kat klè) ── */
+        .sl-block { margin-bottom: 4px; padding: 17px 16px 15px; border-radius: 22px; background: linear-gradient(180deg, #FFF1F1, #FFE4E4); border: 1.5px solid #F5A3A3; box-shadow: 0 20px 40px -22px rgba(220,38,38,.55); animation: slShake .45s ease, slRise .5s ease both; }
+        .sl-block-top { display: flex; align-items: center; gap: 14px; }
+        .sl-lock { position: relative; width: 52px; height: 52px; flex-shrink: 0; }
+        .sl-lock i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(239,68,68,.6); animation: slPing 2.2s ease-out infinite; }
         .sl-lock i + i { animation-delay: 1.1s; }
-        .sl-lock span { position: absolute; inset: 0; border-radius: 18px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(145deg, #EF4444, #B91C1C); box-shadow: 0 10px 26px rgba(239,68,68,.5); }
-        .sl-block h3 { font-family: var(--disp); font-size: 25px; font-weight: 800; letter-spacing: -0.04em; color: #FCA5A5; line-height: 1.05; }
-        .sl-block .who { margin-top: 3px; font-size: 12.5px; color: #E6B4B4; font-weight: 600; }
-        .sl-block-why { margin-top: 14px; font-size: 13.5px; line-height: 1.6; color: #F3CACA; } .sl-block-why b { color: #FCA5A5; }
-        .sl-due { margin-top: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 13px 15px; border-radius: 16px; background: rgba(0,0,0,.28); border: 1px solid rgba(239,68,68,.28); }
-        .sl-due span { display: block; font-size: 11.5px; font-weight: 700; color: #E6B4B4; margin-bottom: 4px; }
-        .sl-due strong { font-family: var(--disp); font-size: 38px; font-weight: 800; letter-spacing: -0.05em; line-height: 1; color: #fff; } .sl-due strong small { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; margin-left: 6px; letter-spacing: 0; color: #FCA5A5; }
-        .sl-due em { font-style: normal; font-size: 11.5px; font-weight: 800; color: #FCA5A5; padding: 5px 10px; border-radius: 99px; background: rgba(239,68,68,.18); border: 1px solid rgba(239,68,68,.4); }
-        .sl-steps { list-style: none; margin: 15px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
-        .sl-steps li { display: flex; gap: 11px; align-items: flex-start; font-size: 12.5px; line-height: 1.5; color: #E3C9C9; }
-        .sl-steps b { width: 22px; height: 22px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--disp); font-size: 12px; color: #fff; background: rgba(239,68,68,.55); }
-        .sl-pay { width: 100%; display: flex; align-items: center; gap: 11px; text-align: left; margin-bottom: 8px; padding: 10px 12px; border-radius: 14px; cursor: pointer; font-family: inherit; color: #EEF3FF; background: rgba(0,0,0,.26); border: 1px solid rgba(255,255,255,.1); transition: background .15s, transform .15s; }
-        .sl-pay:hover { background: rgba(0,0,0,.4); transform: translateY(-1px); }
+        .sl-lock span { position: absolute; inset: 0; border-radius: 17px; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(145deg, #EF4444, #B91C1C); box-shadow: 0 10px 22px rgba(239,68,68,.45); }
+        .sl-block h3 { font-family: var(--disp); font-size: 25px; font-weight: 800; letter-spacing: -0.04em; color: #B91C1C; line-height: 1.05; }
+        .sl-block .who { margin-top: 3px; font-size: 12.5px; font-weight: 700; color: #7F1D1D; }
+        .sl-block-why { margin-top: 13px; font-size: 13.5px; line-height: 1.6; color: #5B1A1A; font-weight: 600; } .sl-block-why b { color: #B91C1C; }
+        .sl-due { margin-top: 13px; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 12px 15px; border-radius: 16px; background: #fff; border: 1px solid #F5C2C2; }
+        .sl-due span { display: block; font-size: 11.5px; font-weight: 800; color: #9B1C1C; margin-bottom: 4px; }
+        .sl-due strong { font-family: var(--disp); font-size: 38px; font-weight: 800; letter-spacing: -0.05em; line-height: 1; color: #7F1D1D; } .sl-due strong small { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 13px; margin-left: 6px; letter-spacing: 0; color: #B91C1C; }
+        .sl-due em { font-style: normal; font-size: 11.5px; font-weight: 800; color: #B91C1C; padding: 5px 10px; border-radius: 99px; background: #FEE2E2; border: 1px solid #F5A3A3; }
+        .sl-steps { list-style: none; margin: 14px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+        .sl-steps li { display: flex; gap: 11px; align-items: flex-start; font-size: 12.5px; line-height: 1.5; font-weight: 600; color: #4B1D1D; }
+        .sl-steps b { width: 22px; height: 22px; border-radius: 8px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--disp); font-size: 12px; color: #fff; background: #DC2626; }
+        .sl-pay { width: 100%; display: flex; align-items: center; gap: 11px; text-align: left; margin-bottom: 8px; padding: 10px 12px; border-radius: 14px; cursor: pointer; font-family: inherit; color: var(--ink); background: #fff; border: 1px solid #F0C9C9; transition: transform .15s, box-shadow .2s; }
+        .sl-pay:hover { transform: translateY(-1px); box-shadow: 0 10px 20px -12px rgba(127,29,29,.5); }
         .sl-pay > i { width: 30px; height: 30px; border-radius: 10px; flex-shrink: 0; }
-        .sl-pay span { flex: 1; min-width: 0; } .sl-pay b { display: block; font-size: 13px; } .sl-pay em { font-style: normal; font-size: 11px; color: #A9B6CE; }
-        .sl-pay code { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; } .sl-pay u { text-decoration: none; color: #A9B6CE; display: flex; }
-        .sl-retry { margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 13px; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 13px; color: #FCA5A5; background: transparent; border: 1px solid rgba(239,68,68,.4); }
-        .sl-retry:hover { background: rgba(239,68,68,.12); }
+        .sl-pay span { flex: 1; min-width: 0; } .sl-pay b { display: block; font-size: 13px; } .sl-pay em { font-style: normal; font-size: 11px; color: #6B7B9A; font-weight: 600; }
+        .sl-pay code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; } .sl-pay u { text-decoration: none; color: #6B7B9A; display: flex; }
+        .sl-retry { margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 13px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 13px; color: #B91C1C; background: transparent; border: 1.5px solid #E58D8D; }
+        .sl-retry:hover { background: #FEE2E2; }
 
-        :focus-visible { outline: 2px solid #60A5FA; outline-offset: 2px; }
-        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; } }
-        @media (max-width: 1180px) { .sl-phone-wrap { display: none } }
+        /* ── VAG ANIME (anba) ── */
+        .sl-waves { position: absolute; left: 0; right: 0; bottom: 0; height: 205px; z-index: 1; pointer-events: none; overflow: hidden; }
+        .sl-wave { position: absolute; left: 0; bottom: 0; width: 200%; height: 100%; animation: slWaveX linear infinite; }
+        .sl-wave.w3 { animation-duration: 26s; opacity: .95; } .sl-wave.w2 { animation-duration: 34s; animation-direction: reverse; } .sl-wave.w1 { animation-duration: 44s; }
+        .sl-powered { position: absolute; z-index: 4; right: 26px; bottom: 14px; font-size: 11.5px; font-weight: 600; color: rgba(255,255,255,.75); }
 
+        :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } .sl-notify { opacity: 0 !important; } }
+        @media (hover: none) { .sl-card { transform: none !important; } }
+        @media (max-width: 1100px) { .sl-side { padding-right: 20px; margin-left: -70px; } .sl-card { padding: 22px 22px 18px; } .sl-notify { left: 18px; top: 22px; } .sl-tagline { left: 26px; } }
+
+        /* ── MOBIL ── */
         @media (max-width: 900px) {
-          .sl-root { display: block; background: radial-gradient(520px 340px at 0% 0%, rgba(37,99,235,0.38) 0%, transparent 65%), radial-gradient(420px 300px at 100% 0%, rgba(249,115,22,0.16) 0%, transparent 60%), #060D20; }
-          .sl-brand { display: none; }
-          .sl-form-side { background: transparent; min-height: 100vh; min-height: 100dvh; align-items: flex-start; padding: 26px 20px 36px; }
-          .sl-card { max-width: 440px; margin: 0 auto; }
-          .sl-mobile-brand { display: block; margin: 6px 0 26px; }
-          .sl-mobile-brand .sl-logo { margin-bottom: 22px; }
-          .sl-mobile-brand h1 { font-family: var(--disp); font-size: clamp(30px, 8.6vw, 38px); font-weight: 800; letter-spacing: -0.05em; line-height: .98; }
-          .sl-mobile-brand h1 em { font-style: normal; background: linear-gradient(100deg, #7FA5FF, #FDBA74); -webkit-background-clip: text; background-clip: text; color: transparent; }
-          .sl-mobile-brand p { margin-top: 10px; font-size: 14.5px; color: #A9B6CE; line-height: 1.6; }
-          .sl-mobile-card { margin-top: 22px; width: 78%; max-width: 300px; margin-left: auto; margin-right: 6px; animation: slSway 8s ease-in-out infinite; transform-origin: 50% 60%; }
-          .sl-powered { display: block; }
-          .sl-card h2, .sl-card .sub.desk { display: none; }
+          .sl-root { display: block; background: linear-gradient(180deg, #E4EFFF 0%, #FFFFFF 340px); }
+          .sl-logo-top { display: block; position: relative; z-index: 3; width: min(78%, 330px); margin: 0 auto; padding: 24px 0 8px; animation: slWipe 1.2s cubic-bezier(.65,.05,.2,1) .3s both; }
+          .sl-logo-top img { display: block; width: 100%; height: auto; }
+          .sl-photo { min-height: 0; height: min(60vw, 330px); background: transparent; }
+          .sl-photo-img { object-position: 50% 14%; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22%); mask-image: linear-gradient(180deg, transparent 0, #000 22%); }
+          .sl-photo::after { background: linear-gradient(180deg, transparent 60%, rgba(6,30,87,.25) 100%); }
+          .sl-tagline { display: none; }
+          .sl-notify { left: 12px; top: auto; bottom: 46px; padding: 8px 13px 8px 9px; border-radius: 15px; }
+          .sl-notify i { width: 28px; height: 28px; border-radius: 10px; } .sl-notify b { font-size: 11.5px; } .sl-notify span { font-size: 11px; }
+          .sl-side { display: block; margin: -34px 0 0; padding: 0 12px 34px; background: linear-gradient(180deg, #0C47B5 0%, #072A70 100%); border-radius: 0; min-height: 0; }
+          .sl-bg { display: none; }
+          .sl-stage { max-width: 520px; margin: 0 auto; perspective: none; }
+          .sl-card { padding: 22px 18px 20px; border-radius: 30px; transform: none !important; margin-top: 0; background: rgba(255,255,255,.93); }
+          .sl-side { margin-left: 0 !important; }
+          .sl-logo-card, .sl-rule { display: none; }
+          .sl-head { margin-bottom: 16px; }
+          .sl-head h1 { font-size: 34px; }
+          .sl-head p { font-size: 13.5px; margin-top: 14px; }
+          .sl-input { height: 56px; }
+          .sl-btn { height: 58px; font-size: 20px; }
+          .sl-quick { grid-template-columns: repeat(4, 1fr); }
+          .sl-quick .hide-m { display: none; }
+          .sl-quick div { font-size: 12px; }
+          .sl-waves { height: 120px; opacity: .7; }
+          .sl-powered { position: relative; z-index: 4; text-align: center; padding: 18px 0 8px; color: rgba(255,255,255,.85); }
         }
+        @media (max-width: 380px) { .sl-head h1 { font-size: 30px; gap: 9px; } .sl-quick div i { width: 38px; } }
       `}</style>
 
-      <div className="sl-orb a" aria-hidden="true" />
-      <div className="sl-orb b" aria-hidden="true" />
+      {/* Logo (mobil) */}
+      <div className="sl-logo-top"><img src={IMG_LOGO} alt="Plus Group — Innovation, Technologie, Commerce, Service" /></div>
 
-      {/* Pano mak (desktop) */}
-      <aside className="sl-brand">
-        <svg className="sl-art" viewBox="0 0 720 720" fill="none" aria-hidden="true">
-          {[120, 200, 280, 360].map((r, i) => <circle key={r} cx="360" cy="360" r={r} stroke="#fff" strokeOpacity={0.11 - i * 0.02} strokeWidth="1.5" />)}
-          <circle cx="360" cy="0" r="10" fill="#F97316" /><circle cx="640" cy="440" r="7" fill="#60A5FA" /><circle cx="150" cy="560" r="7" fill="#fff" fillOpacity=".5" />
-        </svg>
-        <div className="sl-logo">
-          <div className="sl-logo-mark"><BrandIcon size={28} /></div>
-          <div><b>Sabotay Inove</b><span>Kont Sòl</span></div>
+      {/* Foto kesyè */}
+      <section className="sl-photo" aria-label="Machann ayisyen nan boutik li">
+        <img className="sl-photo-img" src={IMG_PHOTO} alt="Yon machann ayisyen ap souri nan boutik li" />
+        <div className="sl-notify" aria-hidden="true">
+          <i><Check size={18} strokeWidth={3} /></i>
+          <div><b>Peman resevwa</b><span>+500 HTG · jodi a</span></div>
         </div>
-        <div className="sl-hero">
-          <h1>Sòl ou, <em>klè nan men w.</em></h1>
-          <p className="lead">Swiv chak peman, wè dat ou ap touche, epi pale ak lòt manm yo, tout nan yon sèl kote.</p>
-          <div className="sl-points">
-            {POINTS.map(({ Icon, title, sub }) => (
-              <div className="sl-point" key={title}>
-                <i><Icon size={18} /></i>
-                <div><b>{title}</b><span>{sub}</span></div>
-              </div>
-            ))}
-          </div>
+        <div className="sl-tagline">
+          <GrowthIcon />
+          <p>Jere sòl ou fasil, an sekirite ak plis kontwòl.<i><Check size={13} strokeWidth={3.4} /></i></p>
         </div>
-        <div className="sl-foot">Powered by plusgroupe.com</div>
-        <PhoneMockup />
-      </aside>
+      </section>
 
       {/* Fòm */}
-      <main className="sl-form-side">
-        <div className="sl-card">
-          <div className="sl-mobile-brand">
-            <div className="sl-logo">
-              <div className="sl-logo-mark"><BrandIcon size={28} /></div>
-              <div><b>Sabotay Inove</b><span>Kont Sòl</span></div>
-            </div>
-            <h1>Sòl ou, <em>klè nan men w.</em></h1>
-            <p>Konekte pou wè peman ou yo ak dat ou ap touche.</p>
-            {!block && <div className="sl-mobile-card" aria-hidden="true"><MiniCard /></div>}
-          </div>
+      <main className="sl-side">
+        <div className="sl-bg" aria-hidden="true"><div className="sl-orb a" /><div className="sl-orb b" /></div>
 
-          <h2>Konekte</h2>
-          <p className="sub desk" style={{ marginBottom: 26 }}>Antre non itilizatè ak modpas ou responsab sòl la ban ou.</p>
+        <div className="sl-stage" onPointerMove={onMove} onPointerLeave={onLeave}>
+          <div className="sl-card" ref={cardRef}>
+            <div className="sl-logo-card"><img src={IMG_LOGO} alt="Plus Group" /></div>
+            <div className="sl-rule" />
 
-          {block && <BlockedPanel info={block} onRetry={clearBlock} />}
+            <header className="sl-head">
+              <h1><Users size={36} strokeWidth={2.4} aria-hidden="true" /><span>Kont <em>Sòl</em> ou</span></h1>
+              <p>Rejwenn kominote a pou w kapab sanble lajan'w k pi byen pou biznis la ka grandi.</p>
+            </header>
 
-          {!block && (
-            <form onSubmit={handleLogin} noValidate>
-              <div style={{ marginBottom: 16 }}>
-                <label className="sl-label" htmlFor="sl-user">Non itilizatè</label>
-                <input id="sl-user" type="text" className="sl-input"
-                  value={form.username} placeholder="egz: marie0001"
-                  onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
-                  autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" disabled={loading} />
-              </div>
+            {block && <BlockedPanel info={block} onRetry={clearBlock} />}
 
-              <div style={{ marginBottom: 6 }}>
-                <label className="sl-label" htmlFor="sl-pass">Modpas</label>
-                <div style={{ position: 'relative' }}>
-                  <input id="sl-pass" type={showPass ? 'text' : 'password'} className="sl-input"
-                    style={{ paddingRight: 50 }} value={form.password} placeholder="••••••"
+            {!block && (
+              <form onSubmit={handleLogin} noValidate>
+                <div className="sl-field f1">
+                  <User className="ico" size={22} aria-hidden="true" />
+                  <label className="sr" htmlFor="sl-user" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Non itilizatè</label>
+                  <input id="sl-user" type="text" className="sl-input" value={form.username} placeholder="Non itilizatè"
+                    onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username" disabled={loading} />
+                </div>
+
+                <div className="sl-field f2">
+                  <Lock className="ico" size={22} aria-hidden="true" />
+                  <label htmlFor="sl-pass" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Modpas</label>
+                  <input id="sl-pass" type={showPass ? 'text' : 'password'} className="sl-input" value={form.password} placeholder="Modpas"
                     onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                     onKeyDown={onKey} onKeyUp={onKey} autoComplete="current-password" disabled={loading} />
                   <button type="button" className="sl-eye" onClick={() => setShowPass(p => !p)} aria-label={showPass ? 'Kache modpas' : 'Montre modpas'}>
-                    {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPass ? <EyeOff size={21} /> : <Eye size={21} />}
                   </button>
                 </div>
                 {caps && <p className="sl-hint">Majiskil aktive (Caps Lock).</p>}
-              </div>
 
-              <button type="submit" className={`sl-btn ${loading ? 'loading' : ''}`} disabled={loading}>
-                {loading
-                  ? <span style={{ width: 17, height: 17, border: '2.5px solid rgba(255,255,255,.35)', borderTopColor: '#fff', borderRadius: '50%', animation: 'slSpin .8s linear infinite' }} />
-                  : <LogIn size={17} />}
-                {loading ? 'Ap verifye…' : 'Konekte'}
-              </button>
-            </form>
-          )}
+                <button type="submit" className={`sl-btn ${loading ? 'loading' : ''}`} disabled={loading}>
+                  {loading
+                    ? <span style={{ width: 22, height: 22, border: '3px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'slSpin .8s linear infinite' }} />
+                    : <LogIn size={24} strokeWidth={2.4} />}
+                  {loading ? 'Ap verifye…' : 'Konekte'}
+                </button>
 
-          <p className="sl-help">Pa gen kont? Kontakte responsab sòl ou a.</p>
-          <p className="sl-powered">Powered by plusgroupe.com</p>
+                <div className="sl-opts">
+                  <label className="sl-check">
+                    <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
+                    <i><Check size={13} strokeWidth={3.6} /></i>
+                    Sonje mwen
+                  </label>
+                  <button type="button" className="sl-link" onClick={() => setHelp(h => !h)} aria-expanded={help}>Eske w bliye modpas ou ?</button>
+                </div>
+                {help && (
+                  <div className="sl-helpbox" role="note">
+                    Responsab sòl ou a se moun ki ba ou non itilizatè ak modpas la. Kontakte l pou li reyinisyalize modpas ou, oswa ekri sipò Plus Group.
+                    <br />
+                    <a href={SUPPORT_WA} target="_blank" rel="noopener noreferrer"><MessageCircle size={15} /> Ekri sipò sou WhatsApp</a>
+                  </div>
+                )}
+              </form>
+            )}
+
+            <div className="sl-quick" aria-hidden="true">
+              {QUICK.map(({ Icon, label, hideMobile }, i) => (
+                <div key={label} className={hideMobile ? 'hide-m' : ''} style={{ '--i': i }}>
+                  <i><Icon size={25} strokeWidth={2.2} /></i>
+                  {label}
+                </div>
+              ))}
+            </div>
+
+            <p className="sl-secure"><ShieldCheck size={15} /> Sekirite ou se priyorite nou.</p>
+          </div>
         </div>
+
+        <p className="sl-powered">Powered by plusgroupe.com</p>
       </main>
+
+      <Waves />
     </div>
   )
 }
