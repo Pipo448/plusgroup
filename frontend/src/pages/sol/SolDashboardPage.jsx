@@ -25,6 +25,7 @@ import {
   PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner, MemberScoreDisplay,
 } from './SolDashboardComponents'
 
+import { buildDemoData, DEMO_TOKEN } from './solDemo'
 import { SolBanner, GoldKpis, SolReports, SolReceiptButton, SolReceiptModal, IMG_LOGO } from './SolReports'
 import { ModalChangePassword, ModalPayMobile, ModalAccount } from './SolDashboardModals'
 
@@ -74,7 +75,8 @@ export default function SolDashboardPage() {
   const [theme,          setThemeState]     = useState(() => {
     try { const t = localStorage.getItem('sol_theme'); return THEMES[t] ? t : 'plus' } catch { return 'plus' }
   })
-  const [pushState,      setPushState]      = useState(() => pushSupported() ? Notification.permission : 'unsupported')
+  const isDemo = (() => { try { return localStorage.getItem('sol_token') === DEMO_TOKEN } catch { return false } })()
+  const [pushState,      setPushState]      = useState(() => (!isDemo && pushSupported()) ? Notification.permission : 'unsupported')
   const [, setTick]                         = useState(0) // re-render chak 30s — mete tan ajou
 
   const token = localStorage.getItem('sol_token')
@@ -91,7 +93,7 @@ export default function SolDashboardPage() {
   // (navigatè yo penalize sa). Si manm nan deja otorize, nou re-anrejistre an silans;
   // sinon l ka aktive l ak bouton "Aktive notifikasyon" nan fenèt Kont lan.
   const subscribePush = useCallback(async (ask) => {
-    if (!pushSupported()) return
+    if (isDemo || !pushSupported()) return
     try {
       const reg = await navigator.serviceWorker.register('/sw.js')
       let permission = Notification.permission
@@ -114,6 +116,8 @@ export default function SolDashboardPage() {
   // ─── DATA FETCH ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
+    // Mòd DEMO: done fo, pa gen rekèt rezo
+    if (token === DEMO_TOKEN) { const d = buildDemoData(); setData(d); setSelectedPlanId(prev => prev || d.plan.id); setLoading(false); return }
     // Done ki te deja chaje pa paj login lan (< 2 min) → afichaj imedya, pa gen ekran chajman
     try {
       const raw = sessionStorage.getItem('sol_prefetch')
@@ -162,7 +166,7 @@ export default function SolDashboardPage() {
   useEffect(() => {
     let last = Date.now()
     const refresh = async () => {
-      if (document.visibilityState !== 'visible' || Date.now() - last < 60000 || !token) return
+      if (document.visibilityState !== 'visible' || Date.now() - last < 60000 || !token || token === DEMO_TOKEN) return
       last = Date.now()
       try {
         const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
@@ -670,13 +674,30 @@ export default function SolDashboardPage() {
         <aside className="sol-sidebar">{sidebarJSX}</aside>
 
         <main className="sol-main">
+          {isDemo && (
+            <div className="sol-alert amber" style={{ alignItems: 'center', marginBottom: 14 }}>
+              <div className="sol-alert-ico" style={{ background: 'var(--s-gold-soft)', color: V.gold, fontSize: 18 }}>🎬</div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="sol-alert-title" style={{ color: V.gold }}>Mòd demo · kont fo</div>
+                <div className="sol-alert-sub">Tout non, lajan ak dat yo se pou teste app la sèlman. Peman yo pa vre.</div>
+              </div>
+              <button className="sol-btn" style={{ flexShrink: 0, padding: '9px 14px' }} onClick={handleLogout}>Kite demo a</button>
+            </div>
+          )}
           {planSelectorJSX}
 
           {tab === 'home'     && <div className="sol-pane" key="home">{homeJSX}</div>}
           {tab === 'history'  && <div className="sol-pane" key="history">{historyJSX}</div>}
           {tab === 'calendar' && <div className="sol-pane" key="cal"><SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} /></div>}
-          {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
-          {tab === 'chat'     && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
+          {isDemo && (tab === 'exchange' || tab === 'chat') && (
+            <div className="sol-card sol-card-pad sol-pane" style={{ textAlign: 'center', padding: 28 }}>
+              <div style={{ fontSize: 34, marginBottom: 8 }}>{tab === 'chat' ? '💬' : '🔄'}</div>
+              <div className="sol-section-title" style={{ marginBottom: 6 }}>{tab === 'chat' ? 'Chat sòl la' : 'Mache echanj la'}</div>
+              <p style={{ fontSize: 13, color: V.muted, lineHeight: 1.7 }}>Fonksyon sa a disponib sèlman sou yon vrè kont sòl. Mande responsab sòl la pou kreye pa w la.</p>
+            </div>
+          )}
+          {!isDemo && tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
+          {!isDemo && tab === 'chat'     && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
         </main>
       </div>
 

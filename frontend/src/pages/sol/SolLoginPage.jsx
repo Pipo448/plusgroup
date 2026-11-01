@@ -17,7 +17,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
   User, Lock, Eye, EyeOff, LogIn, Users, Wallet, Calendar, BarChart3, Settings,
-  ShieldCheck, Copy, Check, RefreshCw, MessageCircle,
+  ShieldCheck, Copy, Check, RefreshCw, MessageCircle, Sparkles,
 } from 'lucide-react'
 
 const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
@@ -161,6 +161,17 @@ export default function SolLoginPage() {
   const clearBlock = () => {
     setBlock(null)
     try { sessionStorage.removeItem('sol_block') } catch { /* */ }
+  }
+
+  // Demo: kont fo (done fo, byen kalkile) pou nouvo moun teste app la — pa gen rekèt rezo
+  const startDemo = () => {
+    try {
+      localStorage.setItem('sol_token', 'demo')
+      localStorage.setItem('sol_member', JSON.stringify({ name: 'Demo Machann' }))
+      sessionStorage.removeItem('sol_block')
+    } catch { /* */ }
+    toast.success('Mòd demo: kont fo pou w teste app la')
+    navigate('/app/sol/dashboard')
   }
 
   const handleLogin = async (e) => {
@@ -333,6 +344,9 @@ export default function SolLoginPage() {
         .sl-eye:hover { background: rgba(11,47,134,.08); }
         .sl-hint { margin: -6px 2px 12px; font-size: 12px; font-weight: 700; color: #B45309; }
 
+        .sl-demo { width: 100%; margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; padding: 12px 14px; border-radius: 16px; cursor: pointer; font: inherit; font-weight: 800; font-size: 14.5px; color: #7A5200; background: #FFF8E1; border: 1.5px dashed #F5B301; transition: transform .15s, background .2s; }
+        .sl-demo:hover { transform: translateY(-2px); background: #FFF1C2; }
+        .sl-demo span { font-size: 11.5px; font-weight: 700; color: #A06A00; }
         .sl-btn { position: relative; overflow: hidden; width: 100%; height: 56px; margin-top: 4px; border: none; border-radius: 18px; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; font-family: var(--disp); font-size: 21px; font-weight: 800; letter-spacing: -0.02em;
           background: linear-gradient(180deg, #FFA11A 0%, #FF6A00 55%, #F04A06 100%); box-shadow: 0 1px 0 rgba(255,255,255,.55) inset, 0 -3px 0 rgba(160,40,0,.22) inset, 0 16px 30px -10px rgba(255,90,0,.7);
           transition: transform .18s, box-shadow .25s, filter .2s; animation: slRise .7s cubic-bezier(.2,.8,.2,1) 1.16s both; }
@@ -506,6 +520,9 @@ export default function SolLoginPage() {
                   </label>
                   <button type="button" className="sl-link" onClick={() => setHelp(h => !h)} aria-expanded={help}>Eske w bliye modpas ou ?</button>
                 </div>
+                <button type="button" className="sl-demo" onClick={startDemo}>
+                  <Sparkles size={17} /> Eseye yon demo <span>kont fo, pa bezwen modpas</span>
+                </button>
                 {help && (
                   <div className="sl-helpbox" role="note">
                     Responsab sòl ou a se moun ki ba ou non itilizatè ak modpas la. Kontakte l pou li reyinisyalize modpas ou, oswa ekri sipò Plus Group.

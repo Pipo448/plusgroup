@@ -144,7 +144,7 @@ async function computeLateStatus(account) {
     const select = {
       id: true, phone: true, hasWon: true, status: true, isActive: true, planId: true,
       payments: { select: { dueDate: true } },
-      plan: { select: { id: true, name: true, amount: true, frequency: true, startDate: true, interval: true, dueTimeEnd: true, status: true, tenantId: true } },
+      plan: { select: { id: true, name: true, amount: true, frequency: true, startDate: true, interval: true, dueTimeEnd: true, status: true, tenantId: true, maxMembers: true } },
     }
     let members = []
     if (last8.length >= 6) {
@@ -166,7 +166,7 @@ async function computeLateStatus(account) {
       if (!plan || plan.status === 'closed' || plan.status === 'finished') continue
       if (m.status === 'stopped' || m.hasWon) continue   // menm règ ak panel admin lan
       if (countCache[plan.id] === undefined) {
-        countCache[plan.id] = await prisma.sabotayMember.count({ where: { planId: plan.id, status: { not: 'stopped' } } }).catch(() => 0)
+        countCache[plan.id] = cappedSlots(await prisma.sabotayMember.count({ where: { planId: plan.id, status: { not: 'stopped' }, isActive: true } }).catch(() => 0), plan)
       }
       const totalCycles = Math.max(1, countCache[plan.id]) * Math.max(1, Math.floor(Number(plan.interval) || 1))
       const dueTimeEnd  = plan.dueTimeEnd || '17:00'
@@ -184,6 +184,13 @@ async function computeLateStatus(account) {
     console.warn('[SOL LATE CHECK]', e.message)
     return { late: false, error: true }   // pa janm bloke moun akoz yon erè sèvè (epi pa kache erè a)
   }
+}
+
+// Kantite "men" (manm) ki konte pou kalandriye a: pa kanpe + aktif, epi pa janm plis pase maxMembers sòl la.
+// (Yon manm dezaktive/efase ki te rete konte te fè kalandriye a gen yon dat an plis: 28 olye 27.)
+const cappedSlots = (count, plan) => {
+  const max = Number(plan?.maxMembers) || 0
+  return max > 0 ? Math.min(count, max) : count
 }
 
 const lateMessage = (st) =>
@@ -387,9 +394,9 @@ async function buildPlanData(account, memberId) {
 
   // ✅ NOUVO: konte EGZAKTEMAN ak menm kritè panel admin lan itilize pou jenere
   // dat yo (status !== 'stopped') — pou skò "Chanpyon/Bon" a matche pafètman.
-  const nonStoppedMemberCount = await prisma.sabotayMember.count({
-    where: { planId: plan.id, status: { not: 'stopped' } }
-  }).catch(() => activeMemberCount)
+  const nonStoppedMemberCount = cappedSlots(await prisma.sabotayMember.count({
+    where: { planId: plan.id, status: { not: 'stopped' }, ...(isClosed ? {} : { isActive: true }) }
+  }).catch(() => activeMemberCount), plan)
 
   return {
     member: {

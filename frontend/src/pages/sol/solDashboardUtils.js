@@ -346,7 +346,7 @@ export const GLOBAL_STYLES = `
 
   /* ── KALANDRIYE ── */
   .sol-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .sol-cal-day { aspect-ratio: 1; border-radius: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid transparent; font-size: 12px; transition: transform .12s; }
+  .sol-cal-day { aspect-ratio: 1; max-height: 74px; border-radius: 11px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid transparent; font-size: 12px; transition: transform .12s; }
   .sol-cal-day.pay { font-weight: 800; }
 
   /* ── PWOGRÈ ── */
