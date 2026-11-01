@@ -1,44 +1,59 @@
 // src/pages/sol/SolDashboardPage.jsx
-// ─── Paj prensipal tableau de bord Sol ───────────────────────
-// FIX #310: Tout hooks deplase AVAN early returns
-// FIX TIMING: dat jodi pa "anreta" avan dueTimeEnd
-// OPTIM: useMemo / useCallback / tick interval pou tan reyèl
-// MOBIL: clamp(), padding adaptatif, breakpoint sou layout
+// ─── Paj prensipal tableau de bord Sol — nouvo design "Sabotay Inove" ───
+// Lojik (kalkil dat, peman, skò, blokaj, fetch) = MENM ak anvan.
+// Chanjman UI: kat manm (hero) + carnet tanpon + navigasyon anba (mobil) + sidebar (desktop)
+//   + tèm CSS variables + fenèt "Kont" + notifikasyon sou demann (pa otomatik).
+// FIX #310: Tout hooks deplase AVAN early returns.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
-  LogOut, RefreshCw, Trophy, Key, Wallet,
-  TrendingUp, CreditCard, Star, ChevronDown,
+  LogOut, RefreshCw, Trophy, Key, Wallet, TrendingUp, CreditCard, Star,
+  ChevronDown, Home, Calendar, MessageCircle, Bell, Smartphone, Check,
 } from 'lucide-react'
 import SolExchangeMarket from '../../components/SolExchangeMarket'
 
-// ✅ NOUVO: badge "Sabotay Inove" (menm grafik + flèch ak paj login la)
-function BrandIcon({ size = 22 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 36 36" fill="none">
-      <rect x="4"  y="20" width="5" height="12" rx="1.4" fill="#2563EB" />
-      <rect x="12" y="13" width="5" height="19" rx="1.4" fill="#60A5FA" />
-      <rect x="20" y="7"  width="5" height="25" rx="1.4" fill="#93C5FD" />
-      <path d="M5 23 L15 16 L23 10 L31 4" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-      <path d="M23 4 L31 4 L31 12" stroke="#F97316" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </svg>
-  )
-}
-
 import {
-  SOL_API, fmt, THEMES, getD, FREQ_LABELS,
-  getPaymentDates, GLOBAL_STYLES,
+  SOL_API, fmt, THEMES, themeVars, V, FREQ_LABELS, getPaymentDates, GLOBAL_STYLES,
+  dmy, dayOf, monthOf,
 } from './solDashboardUtils'
 
 import {
-  PayBadge, ScoreBadge, timingBadge,
-  SolCalendar, PaymentCountdown, BlockingCountdown,
+  BrandIcon, LogoMark, ProgressRing, StampCarnet,
+  PayBadge, timingBadge, SolCalendar, PaymentCountdown, BlockingCountdown,
   PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner, MemberScoreDisplay,
 } from './SolDashboardComponents'
 
-import { ModalChangePassword, ModalPayMobile } from './SolDashboardModals'
+import { ModalChangePassword, ModalPayMobile, ModalAccount } from './SolDashboardModals'
+
+const VAPID = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
+const urlBase64ToUint8Array = (b) => {
+  const padding = '='.repeat((4 - b.length % 4) % 4)
+  const base64  = (b + padding).replace(/-/g, '+').replace(/_/g, '/')
+  return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)))
+}
+const pushSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+
+const NAV = [
+  { id: 'home',     label: 'Akèy',      Icon: Home },
+  { id: 'history',  label: 'Peman',     Icon: CreditCard },
+  { id: 'calendar', label: 'Kalandriye', Icon: Calendar },
+  { id: 'exchange', label: 'Mache',     Icon: RefreshCw },
+  { id: 'chat',     label: 'Chat',      Icon: MessageCircle },
+]
+
+// ── Til estatistik (deyò paj la pou li pa remonte chak render) ──
+function Tile({ icon, tone = 'accent', label, children, sub, className = '', style }) {
+  return (
+    <div className={`sol-tile ${className}`} style={style}>
+      <div className="sol-tile-ico" style={{ background: `var(--s-${tone}-soft)`, color: tone === 'accent' ? V.accentText : V[tone] }}>{icon}</div>
+      <div className="sol-tile-label">{label}</div>
+      {children}
+      {sub && <div className="sol-tile-sub">{sub}</div>}
+    </div>
+  )
+}
 
 // ═════════════════════════════════════════════════════════════
 export default function SolDashboardPage() {
@@ -49,55 +64,50 @@ export default function SolDashboardPage() {
   const [loading,        setLoading]        = useState(true)
   const [showChangePw,   setShowChangePw]   = useState(false)
   const [showPayModal,   setShowPayModal]   = useState(false)
+  const [showAccount,    setShowAccount]    = useState(false)
   const [showPlanPicker, setShowPlanPicker] = useState(false)
   const [selectedPlanId, setSelectedPlanId] = useState(null)
-  const [tab,            setTab]            = useState('history')
+  const [tab,            setTab]            = useState('home')
   const [unreadCount,    setUnreadCount]    = useState(0)
-  const [theme,          setTheme]          = useState(() => localStorage.getItem('sol_theme') || 'dark')
-  const [, setTick]                         = useState(0) // pou re-render chak 30s — mete tan ajou
+  const [theme,          setThemeState]     = useState(() => {
+    try { const t = localStorage.getItem('sol_theme'); return THEMES[t] ? t : 'dark' } catch { return 'dark' }
+  })
+  const [pushState,      setPushState]      = useState(() => pushSupported() ? Notification.permission : 'unsupported')
+  const [, setTick]                         = useState(0) // re-render chak 30s — mete tan ajou
 
-  const D     = getD(theme)
   const token = localStorage.getItem('sol_token')
+  const setTheme = useCallback((k) => { setThemeState(k); try { localStorage.setItem('sol_theme', k) } catch {} }, [])
 
   // ─── EFFECTS ────────────────────────────────────────────────
-  useEffect(() => {
-    const el = document.createElement('style')
-    el.id = 'sol-dashboard-styles'
-    el.textContent = GLOBAL_STYLES
-    document.head.appendChild(el)
-    return () => document.getElementById('sol-dashboard-styles')?.remove()
-  }, [])
-
   // 🔄 Tick chak 30s — fè `today` ak `currentTime` aktyalize otomatikman
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30000)
     return () => clearInterval(id)
   }, [])
 
-  // 🔔 Push notifications
-  useEffect(() => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-    const VAPID = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
-    const urlBase64ToUint8Array = (b) => {
-      const padding = '='.repeat((4 - b.length % 4) % 4)
-      const base64  = (b + padding).replace(/-/g, '+').replace(/_/g, '/')
-      return new Uint8Array([...window.atob(base64)].map(c => c.charCodeAt(0)))
-    }
-    navigator.serviceWorker.register('/sw.js').then(async reg => {
-      const permission = await Notification.requestPermission()
+  // 🔔 Push notifications — ✅ KORIJE: pa mande otorizasyon otomatikman lè paj la louvri
+  // (navigatè yo penalize sa). Si manm nan deja otorize, nou re-anrejistre an silans;
+  // sinon l ka aktive l ak bouton "Aktive notifikasyon" nan fenèt Kont lan.
+  const subscribePush = useCallback(async (ask) => {
+    if (!pushSupported()) return
+    try {
+      const reg = await navigator.serviceWorker.register('/sw.js')
+      let permission = Notification.permission
+      if (ask && permission === 'default') permission = await Notification.requestPermission()
+      setPushState(permission)
       if (permission !== 'granted') return
       let sub = await reg.pushManager.getSubscription()
-      if (!sub) sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID),
-      })
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID) })
       if (token) await fetch(`${SOL_API}/api/sol/push/subscribe`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body:    JSON.stringify({ subscription: sub }),
       }).catch(() => {})
-    }).catch(e => console.warn('SW:', e.message))
+      if (ask) toast.success('Notifikasyon aktive!')
+    } catch (e) { console.warn('SW:', e.message) }
   }, [token])
+
+  useEffect(() => { if (pushSupported() && Notification.permission === 'granted') subscribePush(false) }, [subscribePush])
 
   // ─── DATA FETCH ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
@@ -113,7 +123,7 @@ export default function SolDashboardPage() {
         navigate('/app/sol/login')
         return
       }
-      // ✅ NOUVO: kont bloke (an reta) → dekonekte manm nan ak mesaj la
+      // kont bloke (an reta) → dekonekte manm nan ak mesaj la
       if (res.status === 403) {
         const j = await res.json().catch(() => ({}))
         localStorage.removeItem('sol_token')
@@ -124,7 +134,6 @@ export default function SolDashboardPage() {
       }
       const json = await res.json()
       setData(json)
-      // ✅ Functional update — pa gen depandans sou selectedPlanId, evite enfini lòp
       setSelectedPlanId(prev => prev || json.plans?.[0]?.id || null)
     } catch { toast.error('Pa ka chaje done yo.') }
     finally { setLoading(false) }
@@ -132,9 +141,7 @@ export default function SolDashboardPage() {
 
   useEffect(() => { fetchData() }, [fetchData])
 
-  // ✅ NOUVO: lè manm nan tounen sou app la (onglet / APK), rechaje done yo an silans
-  // pou peman kesye a fèk make yo parèt nan istwa a ak kalandriye a.
-  // ⚠️ EGRESS — maksimòm 1 fwa chak 60 segonn.
+  // Lè manm nan tounen sou app la, rechaje done yo an silans (maks 1 fwa / 60 s — EGRESS)
   useEffect(() => {
     let last = Date.now()
     const refresh = async () => {
@@ -143,7 +150,7 @@ export default function SolDashboardPage() {
       try {
         const res = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${token}` } })
         if (res.ok) setData(await res.json())
-        else if (res.status === 403 || res.status === 401) fetchData()   // bloke → fetchData dekonekte l ak mesaj la
+        else if (res.status === 403 || res.status === 401) fetchData()
       } catch { /* rezo */ }
     }
     document.addEventListener('visibilitychange', refresh)
@@ -172,8 +179,7 @@ export default function SolDashboardPage() {
   const plan            = currentPlanData?.plan   || null
   const member          = currentPlanData?.member || null
 
-  // ─── LÈ AYITI (rekalkile chak render — tick fòse l chak 30s) ─
-  // ✅ FIX: lè Ayiti ak lè ete (UTC-4 / UTC-5) — menm jan ak panel admin lan
+  // ─── LÈ AYITI ───────────────────────────────────────────────
   const { today, currentTime } = (() => {
     try {
       const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Port-au-Prince', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
@@ -186,16 +192,14 @@ export default function SolDashboardPage() {
   })()
   const planDueTimeEnd = plan?.dueTimeEnd || '17:00'
 
-  // ✅ FIX: yon dat anreta sèlman si:
-  //   • li avan jodi, OUBYEN
-  //   • se jodi epi lè a depase fenèt peman (`dueTimeEnd`)
+  // yon dat anreta sèlman si li avan jodi, OUBYEN se jodi epi lè a depase `dueTimeEnd`
   const isDateOverdue = useCallback((d) => {
     if (d < today) return true
     if (d === today) return currentTime > planDueTimeEnd
     return false
   }, [today, currentTime, planDueTimeEnd])
 
-  // ─── KALKILASYON (tout memoized — null-safe) ────────────────
+  // ─── KALKILASYON (memoized — null-safe) ─────────────────────
   const allSlots = useMemo(() => {
     if (!member) return []
     return member.allSlots || [{
@@ -207,9 +211,6 @@ export default function SolDashboardPage() {
     }]
   }, [member])
 
-  // ✅ FIX: menm kantite dat ak panel admin lan (manm ki pa "kanpe") — anvan sa,
-  // `currentPlanData.activeMemberCount` pa t egziste (se sou `plan` li ye), kidonk
-  // kalandriye manm nan pa t gen menm dat ak sa kesye a make yo.
   const totalSlotCount = useMemo(() => {
     if (!plan) return 0
     if (plan.nonStoppedMemberCount) return plan.nonStoppedMemberCount
@@ -222,33 +223,19 @@ export default function SolDashboardPage() {
 
   const dates = useMemo(() => {
     if (!plan || !totalSlotCount) return []
-    // ✅ FIX: manm yo PEYE chak jou san manke — se sèlman TOUCHE a ki chak
-    // "entèval" jou. Donk Istwa Peman an dwe gen PLIS jou total (jiska dat
-    // dènye pozisyon an touche a), pa dat ki sote/espase.
+    // manm yo PEYE chak jou san manke — se TOUCHE a ki chak "entèval" jou
     const totalDays = totalSlotCount * Math.max(1, Math.floor(plan.interval || 1))
     const base = getPaymentDates(plan.frequency, plan.createdAt || plan.startDate, totalDays)
-    // ✅ FIX: tout dat kesye a te make peye (menm si yo andeyò kalandriye kalkile a)
-    // parèt tou — konsa okenn peman pa "disparèt" pou manm nan.
+    // tout dat kesye a te make peye parèt tou — okenn peman pa "disparèt"
     const paidKeys = new Set()
     for (const s of (member?.allSlots || [member || {}])) Object.keys(s?.payments || {}).forEach(d => s.payments[d] && paidKeys.add(d))
     const extra = [...paidKeys].filter(d => !base.includes(d))
     return extra.length ? [...base, ...extra].sort() : base
   }, [plan, totalSlotCount, member])
 
-  const totalPaid = useMemo(
-    () => dates.filter(d => member?.payments?.[d]).length,
-    [dates, member],
-  )
-
-  const totalPaidPast = useMemo(
-    () => dates.filter(d => isDateOverdue(d) && member?.payments?.[d]).length,
-    [dates, isDateOverdue, member],
-  )
-
-  const totalDue = useMemo(
-    () => dates.filter(d => isDateOverdue(d)).length,
-    [dates, isDateOverdue],
-  )
+  const totalPaid = useMemo(() => dates.filter(d => member?.payments?.[d]).length, [dates, member])
+  const totalPaidPast = useMemo(() => dates.filter(d => isDateOverdue(d) && member?.payments?.[d]).length, [dates, isDateOverdue, member])
+  const totalDue = useMemo(() => dates.filter(d => isDateOverdue(d)).length, [dates, isDateOverdue])
 
   const scoreData = useMemo(() => {
     if (!member) return null
@@ -295,30 +282,51 @@ export default function SolDashboardPage() {
     toast('Ou dekonekte', { icon: '👋' })
   }, [navigate])
 
+  const goTab = useCallback((t) => { setTab(t); if (t === 'chat') setUnreadCount(0); window.scrollTo?.({ top: 0 }) }, [])
+
   // ═════════════════════════════════════════════════════════════
   // ✅ TOUT HOOKS FINI — KOUNYE A SEKIRITÈ POU EARLY RETURNS
   // ═════════════════════════════════════════════════════════════
+  const rootStyle = themeVars(theme)
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: D.bgGrad, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div className="sol-root" style={{ ...rootStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <style>{GLOBAL_STYLES}</style>
         <div style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ width: 44, height: 44, border: `3px solid rgba(37,99,235,0.20)`, borderTopColor: D.gold, borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-          <p style={{ color: D.muted, fontSize: 13, fontWeight: 500 }}>Ap chaje kont ou...</p>
+          <div style={{ width: 62, height: 62, borderRadius: 20, margin: '0 auto 18px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--s-card)', border: '1px solid var(--s-line)', boxShadow: 'var(--s-shadow)', animation: 'pulseRing 1.6s ease-out infinite' }}>
+            <BrandIcon size={34} />
+          </div>
+          <p style={{ color: V.muted2, fontSize: 14, fontWeight: 600 }}>Ap chaje kont ou…</p>
         </div>
       </div>
     )
   }
 
-  if (!data || !plans.length || !member || !plan) return null
+  // ✅ Pa gen paj blan ankò: si done yo pa chaje, montre yon mesaj ak bouton pou eseye ankò
+  if (!data || !plans.length || !member || !plan) {
+    return (
+      <div className="sol-root" style={{ ...rootStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <style>{GLOBAL_STYLES}</style>
+        <div className="sol-card" style={{ maxWidth: 380, width: '100%', padding: 26, textAlign: 'center', boxShadow: 'var(--s-shadow)' }}>
+          <div style={{ width: 56, height: 56, borderRadius: 18, margin: '0 auto 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--s-amber-soft)', color: V.amber }}><Wallet size={24} /></div>
+          <h1 className="sol-display" style={{ fontSize: 22, marginBottom: 8 }}>Pa ka chaje kont ou</h1>
+          <p style={{ fontSize: 13.5, color: V.muted, lineHeight: 1.65, marginBottom: 20 }}>Verifye koneksyon entènèt ou, epi eseye ankò. Si pwoblèm nan kontinye, kontakte admin sòl ou a.</p>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="sol-btn" style={{ flex: 1 }} onClick={handleLogout}><LogOut size={15} /> Dekonekte</button>
+            <button className="sol-btn primary" style={{ flex: 1.4 }} onClick={fetchData}><RefreshCw size={15} /> Eseye ankò</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-  // ─── KALKIL FINAL (regular const — pa hooks) ────────────────
+  // ─── KALKIL FINAL ───────────────────────────────────────────
   const amountContributed = totalPaid     * plan.amount * allSlots.length
-  const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length
-  const amountDue         = totalDue      * plan.amount * allSlots.length
+  const amountPaidPast    = totalPaidPast * plan.amount * allSlots.length   // eslint-disable-line no-unused-vars
+  const amountDue         = totalDue      * plan.amount * allSlots.length   // eslint-disable-line no-unused-vars
 
-  // ✅ NOUVO: "Touche Chak Konbyen Sik" — montan final la miltipliye pa entèval la
+  // "Touche Chak Konbyen Sik" — montan final la miltipliye pa entèval la
   const planInterval     = Math.max(1, Math.floor(Number(plan.interval) || 1))
   const payoutDebaz      = ((plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
@@ -326,67 +334,40 @@ export default function SolDashboardPage() {
   const progress         = dates.length > 0 ? (totalPaid / dates.length) * 100 : 0
   const totalToPayForSol = dates.length * plan.amount * allSlots.length
   const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
+  const totalPayout      = allSlots.length > 1 ? payoutDebaz * allSlots.length + memberBalance : payoutAjiste
 
-  // ✅ FIX: pa gen okenn "touche" otomatik ki soti nan kalkil pozisyon an —
-  // sèlman lè ADMIN deklare yon dat (declaredPayoutDate) oswa konfime
-  // touche a pou tout bon (hasWon), manm nan ka wè yon endikasyon.
+  // pa gen "touche" otomatik — sèlman lè ADMIN deklare yon dat oswa konfime touche a
   const declaredStr = member.declaredPayoutDate ? String(member.declaredPayoutDate).split('T')[0] : null
-  const isWinner   = !!member.hasWon || declaredStr === today
-  const tenantName = tenant?.businessName || tenant?.name || 'Sòl Ou'
-  // ✅ NOUVO: si admin aktive "Kache Pozisyon", manm nan pa dwe wè "Pozisyon #X"
-  const hidePos    = !!plan.hidePositionInSol
-  const posStr     = hidePos ? '' : (allSlots.length > 1
+  const isWinner    = !!member.hasWon || declaredStr === today
+  const isStopped   = member.status === 'stopped'
+  const tenantName  = tenant?.businessName || tenant?.name || 'Sòl Ou'
+  const hidePos     = !!plan.hidePositionInSol   // admin ka kache "Pozisyon #X"
+  const posStr      = hidePos ? '' : (allSlots.length > 1
     ? allSlots.map(s => `#${s.position}`).join(' • ')
     : `Pozisyon #${member.position}`)
+  const declaredDates = allSlots.map(s => s.declaredPayoutDate ? String(s.declaredPayoutDate).split('T')[0] : null).filter(Boolean)
+  const initials = String(member.name || '?').split(/\s+/).slice(0, 2).map(w => w[0]).join('').toUpperCase()
 
-  // ─── PLAN SELECTOR (mobil) ──────────────────────────────────
+  // ─── PLAN SELECTOR ──────────────────────────────────────────
   const planSelectorJSX = plans.length > 1 && (
-    <div style={{ position: 'relative', marginBottom: 16 }}>
-      <button
-        onClick={() => setShowPlanPicker(v => !v)}
-        style={{
-          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-          padding: '11px 14px', borderRadius: 12,
-          border: `1px solid ${D.border}`, background: D.goldDim,
-          color: D.text, cursor: 'pointer', fontFamily: 'inherit',
-          fontWeight: 700, fontSize: 'clamp(11px, 2.8vw, 13px)',
-        }}
-      >
+    <div style={{ position: 'relative', marginBottom: 14 }}>
+      <button onClick={() => setShowPlanPicker(v => !v)} aria-expanded={showPlanPicker}
+        className="sol-card" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '11px 14px', color: V.text, cursor: 'pointer', fontWeight: 700, fontSize: 13.5 }}>
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-          📋 {plan.name}
-          <span style={{ marginLeft: 8, fontSize: 'clamp(9px, 2.4vw, 11px)', color: D.muted, fontWeight: 500 }}>
-            {fmt(plan.amount)} HTG • {FREQ_LABELS[plan.frequency] || plan.frequency}
-          </span>
+          {plan.name}
+          <span style={{ marginLeft: 8, fontSize: 11.5, color: V.muted, fontWeight: 500 }}>{fmt(plan.amount)} HTG · {FREQ_LABELS[plan.frequency] || plan.frequency}</span>
         </span>
-        <ChevronDown size={13} style={{ color: D.gold, flexShrink: 0, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        <ChevronDown size={15} style={{ color: V.accentText, flexShrink: 0, transform: showPlanPicker ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />
       </button>
-
       {showPlanPicker && (
-        <div style={{
-          position: 'absolute', top: '110%', left: 0, right: 0, zIndex: 50,
-          background: D.card, border: `1px solid ${D.border}`,
-          borderRadius: 12, overflow: 'hidden',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          maxHeight: '60vh', overflowY: 'auto',
-        }}>
+        <div className="sol-card" style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 50, overflow: 'hidden', boxShadow: 'var(--s-shadow)', maxHeight: '60vh', overflowY: 'auto' }}>
           {plans.map((p, i) => (
-            <button
-              key={p.id}
-              onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); setTab('history') }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-                padding: '12px 14px', border: 'none',
-                borderBottom: i < plans.length - 1 ? `1px solid ${D.borderSub}` : 'none',
-                background: p.id === selectedPlanId ? D.goldDim : 'transparent',
-                color: p.id === selectedPlanId ? D.gold : D.text,
-                cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600,
-                fontSize: 'clamp(11px, 2.8vw, 13px)', textAlign: 'left',
-              }}
-            >
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
-              </span>
-              <span style={{ fontSize: 10, color: D.muted, flexShrink: 0 }}>{fmt(p.plan?.amount || 0)} HTG</span>
+            <button key={p.id}
+              onClick={() => { setSelectedPlanId(p.id); setShowPlanPicker(false); goTab('home') }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', border: 'none', borderTop: i ? '1px solid var(--s-line)' : 'none', background: p.id === selectedPlanId ? 'var(--s-accent-soft)' : 'transparent', color: p.id === selectedPlanId ? V.accentText : V.text, cursor: 'pointer', fontWeight: 600, fontSize: 13.5, textAlign: 'left' }}>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{p.plan?.name || '—'}</span>
+              {p.id === selectedPlanId && <Check size={15} />}
+              <span style={{ fontSize: 11.5, color: V.muted, flexShrink: 0 }}>{fmt(p.plan?.amount || 0)} HTG</span>
             </button>
           ))}
         </div>
@@ -394,518 +375,307 @@ export default function SolDashboardPage() {
     </div>
   )
 
-  // ─── SIDEBAR ────────────────────────────────────────────────
+  // ─── SIDEBAR (desktop) ──────────────────────────────────────
   const sidebarJSX = (
     <>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 28 }}>
-        {tenant?.logoUrl
-          ? <img src={tenant.logoUrl} style={{ height: 36, borderRadius: 9, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
-          : <div style={{ width: 36, height: 36, borderRadius: 9, background: 'radial-gradient(circle at 35% 30%, rgba(37,99,235,0.22) 0%, #0B1526 72%)', boxShadow: '0 0 0 1px rgba(37,99,235,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BrandIcon size={20} /></div>}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26 }}>
+        <LogoMark tenant={tenant} size={40} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 13, color: D.text, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
-          <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>Kont Sabotay</div>
+          <div style={{ fontWeight: 800, fontSize: 14.5, letterSpacing: '-0.015em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
+          <div style={{ fontSize: 11.5, color: V.muted, marginTop: 2 }}>Kont Sabotay</div>
+        </div>
+      </div>
+
+      <div className="sol-card" style={{ background: 'var(--s-card2)', padding: 14, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
+        <div style={{ width: 42, height: 42, borderRadius: 14, background: 'var(--s-btn)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, flexShrink: 0 }}>{initials}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 800, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
+          <div style={{ fontSize: 11.5, color: V.muted, marginTop: 1 }}>{member.phone}</div>
+          {posStr && <div style={{ fontSize: 11.5, color: V.accentText, fontWeight: 700, marginTop: 2 }}>{posStr}</div>}
         </div>
       </div>
 
       {plans.length > 1 && (
         <div style={{ marginBottom: 18 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, paddingLeft: 4 }}>Plan Ou Yo</div>
+          <div className="sol-label" style={{ paddingLeft: 4 }}>Plan ou yo</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {plans.map(p => (
-              <button
-                key={p.id}
-                onClick={() => { setSelectedPlanId(p.id); setTab('history') }}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '9px 12px', borderRadius: 10,
-                  border: p.id === selectedPlanId ? `1px solid ${D.border}` : '1px solid transparent',
-                  background: p.id === selectedPlanId ? D.goldDim : 'transparent',
-                  color: p.id === selectedPlanId ? D.gold : D.muted,
-                  cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600, fontSize: 12,
-                  textAlign: 'left', width: '100%', minWidth: 0,
-                }}
-              >
-                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                  {p.id === selectedPlanId ? '✓ ' : ''}{p.plan?.name || '—'}
-                </span>
-                <span style={{ fontSize: 10, color: D.muted, flexShrink: 0, marginLeft: 8 }}>{fmt(p.plan?.amount || 0)} G</span>
+              <button key={p.id} onClick={() => { setSelectedPlanId(p.id); goTab('home') }} className={`sol-nav-item ${p.id === selectedPlanId ? 'active' : ''}`} style={{ padding: '9px 12px', fontSize: 12.5, justifyContent: 'space-between' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{p.plan?.name || '—'}</span>
+                <span style={{ fontSize: 11, opacity: .7, flexShrink: 0 }}>{fmt(p.plan?.amount || 0)} G</span>
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div style={{ background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 14, padding: '16px', marginBottom: 24 }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: D.text, fontFamily: 'Syne, sans-serif', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{member.name}</div>
-        <div style={{ fontSize: 11, color: D.muted, marginBottom: 8 }}>{member.phone}</div>
-        <div style={{ fontSize: 11, color: D.gold, fontWeight: 600, lineHeight: 1.5 }}>{posStr}</div>
-        {allSlots.length > 1 && (
-          <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
-            {allSlots.length} men • {fmt(allSlots.length * plan.amount)} HTG/sik
-          </div>
-        )}
-        {plan.dueTime && (
-          <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
-            ⏰ {plan.dueTime} — {plan.dueTimeEnd || '17:00'}
-          </div>
-        )}
-      </div>
-
-      <div style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 7, paddingLeft: 14 }}>Menu</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
-        {[
-          { id: 'history',  icon: <CreditCard size={14} />, label: 'Istwa Peman'  },
-          { id: 'calendar', icon: <TrendingUp size={14} />, label: 'Kalandriye'   },
-          { id: 'exchange', icon: <RefreshCw  size={14} />, label: 'Mache Echanj' },
-        ].map(item => (
-          <button key={item.id} className={`sol-nav-item ${tab === item.id ? 'active' : ''}`} onClick={() => setTab(item.id)}>
-            {item.icon} {item.label}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1 }}>
+        {NAV.map(({ id, label, Icon }) => (
+          <button key={id} className={`sol-nav-item ${tab === id ? 'active' : ''}`} onClick={() => goTab(id)} aria-current={tab === id ? 'page' : undefined}>
+            <Icon size={17} /> {label}
+            {id === 'chat' && unreadCount > 0 && <span className="sol-badge red" style={{ marginLeft: 'auto', background: V.red, color: '#fff' }}>{unreadCount > 99 ? '99+' : unreadCount}</span>}
           </button>
         ))}
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 20 }}>
-        <button
-          onClick={() => setShowPayModal(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(220,38,38,0.22)', background: 'rgba(220,38,38,0.06)', color: '#ef4444', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
-        >
-          📱 Moncash / Natcash
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginTop: 18 }}>
+        <div style={{ display: 'flex', gap: 7, padding: '0 2px 6px', alignItems: 'center' }}>
+          {Object.entries(THEMES).map(([key, t]) => (
+            <button key={key} onClick={() => setTheme(key)} title={t.name} aria-label={`Tèm ${t.name}`} aria-pressed={theme === key}
+              style={{ width: 22, height: 22, borderRadius: '50%', background: t.accent, border: '2px solid ' + (t.dark ? '#0C1630' : '#fff'), boxShadow: theme === key ? `0 0 0 2px ${t.accent}` : '0 0 0 1px var(--s-line2)', cursor: 'pointer', padding: 0 }} />
+          ))}
+        </div>
+        <button className="sol-side-btn" onClick={() => setShowPayModal(true)}><Smartphone size={15} style={{ color: V.red }} /> MonCash / Natcash</button>
+        {pushState === 'default' && <button className="sol-side-btn" onClick={() => subscribePush(true)}><Bell size={15} style={{ color: V.amber }} /> Aktive notifikasyon</button>}
+        <button className="sol-side-btn" onClick={() => setShowChangePw(true)}><Key size={15} style={{ color: V.accentText }} /> Chanje modpas</button>
+        <button className="sol-side-btn" onClick={handleLogout}><LogOut size={15} /> Dekonekte</button>
+      </div>
+    </>
+  )
+
+  // ─── AKÈY ───────────────────────────────────────────────────
+  const homeJSX = (
+    <>
+      {/* Alèt */}
+      {isWinner && (
+        <div className="sol-alert green">
+          <div className="sol-alert-ico" style={{ background: 'var(--s-btn)', color: '#fff' }}><Trophy size={21} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div className="sol-alert-title" style={{ color: V.green }}>Se jou ou jodi a!</div>
+            <div className="sol-alert-sub">Ou ap touche <strong className="sol-num" style={{ color: V.text }}>{fmt(payoutAjiste)} HTG</strong>.</div>
+          </div>
+        </div>
+      )}
+
+      {!isWinner && !isStopped && (() => {
+        if (!lastPaidDate) {
+          return (
+            <div className="sol-alert blue">
+              <div className="sol-alert-ico" style={{ background: 'var(--s-blue-soft)', color: V.blue }}><Bell size={20} /></div>
+              <div style={{ minWidth: 0 }}>
+                <div className="sol-alert-title" style={{ color: V.blue }}>Ou poko fè premye peman ou</div>
+                <div className="sol-alert-sub">Premye dat: {dmy(nextUnpaidDate)} · {plan.dueTime || '10:00'} a {plan.dueTimeEnd || '17:00'}</div>
+              </div>
+            </div>
+          )
+        }
+        if (!nextUnpaidDate) return null
+        const daysUntil = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
+        if (isDateOverdue(nextUnpaidDate)) return <BlockingCountdown nextUnpaidDate={nextUnpaidDate} lastPaidDate={lastPaidDate} />
+        if (daysUntil > 3) return null
+        return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} />
+      })()}
+
+      {pushState === 'default' && (
+        <button onClick={() => subscribePush(true)} className="sol-alert" style={{ width: '100%', textAlign: 'left', cursor: 'pointer', color: V.text, font: 'inherit' }}>
+          <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber }}><Bell size={19} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div className="sol-alert-title" style={{ fontSize: 13.5 }}>Aktive notifikasyon</div>
+            <div className="sol-alert-sub">Resevwa rapèl avan lè peman an ak nouvo mesaj chat yo.</div>
+          </div>
         </button>
-        <button
-          onClick={() => setShowChangePw(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
-        >
-          <Key size={12} /> Chanje Modpas
-        </button>
-        <button
-          onClick={handleLogout}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 10, border: `1px solid ${D.borderSub}`, background: 'transparent', color: D.muted, cursor: 'pointer', fontWeight: 600, fontSize: 11, fontFamily: 'inherit', width: '100%' }}
-        >
-          <LogOut size={12} /> Dekonekte
-        </button>
+      )}
+
+      {/* Kat manm (hero) */}
+      <section className="sol-hero" aria-label="Rezime kont ou">
+        <svg className="sol-hero-art" viewBox="0 0 360 360" fill="none" aria-hidden="true">
+          {[60, 100, 140, 180].map((r, i) => <circle key={r} cx="180" cy="180" r={r} stroke="#fff" strokeOpacity={0.15 - i * 0.025} strokeWidth="1.5" />)}
+          <circle cx="180" cy="40" r="7" fill="#F97316" />
+        </svg>
+        <div className="sol-hero-row">
+          <span className="sol-glass">{plan.name}</span>
+          <span className="sol-glass">{FREQ_LABELS[plan.frequency] || plan.frequency}{plan.dueTime ? ` · ${plan.dueTime}–${plan.dueTimeEnd || '17:00'}` : ''}</span>
+        </div>
+        <div className="sol-hero-main">
+          <div style={{ minWidth: 0 }}>
+            <div className="sol-hero-label">
+              {isStopped ? (member.stopRefundPaid ? 'Ranbousman resevwa' : 'Ranbousman ki rete') : isWinner ? 'Ou ap touche jodi a' : allSlots.length > 1 ? `Total ou ap touche · ${allSlots.length} men` : 'Kòb ou ap touche'}
+            </div>
+            <div className="sol-hero-amount">{fmt(isStopped ? (member.stopRefundAmount || 0) : totalPayout)}<small>HTG</small></div>
+            <div className="sol-hero-who">{member.name}{posStr ? ` · ${posStr}` : ''}</div>
+          </div>
+          <ProgressRing value={progress} top={`${Math.round(progress)}%`} bottom={`${totalPaid}/${dates.length}`} />
+        </div>
+        <div className="sol-hero-foot">
+          <div className="sol-hero-cell"><b className="sol-num">{fmt(amountContributed)}</b><span>Ou peye deja</span></div>
+          <div className="sol-hero-cell"><b className="sol-num">{fmt(restaPouPeye)}</b><span>Rès pou peye</span></div>
+          <div className="sol-hero-cell"><b>{nextUnpaidDate ? `${dayOf(nextUnpaidDate)} ${monthOf(nextUnpaidDate)}` : '—'}</b><span>Pwochen</span></div>
+        </div>
+      </section>
+
+      {/* Til */}
+      <div className="sol-tiles">
+        {isStopped ? (
+          <Tile className="sol-tile-wide" tone={member.stopRefundPaid ? 'green' : 'amber'} icon={<Wallet size={16} />}
+            label={member.stopRefundPaid ? 'Ranbousman peye' : 'Kanpe: ranbousman ki rete'}
+            sub={member.stopRefundPaid ? 'HTG resevwa' : 'HTG, ap peye lè plan an fèmen'}>
+            <div className="sol-tile-val sol-num" style={{ color: member.stopRefundPaid ? V.green : V.amber }}>{fmt(member.stopRefundAmount || 0)}</div>
+          </Tile>
+        ) : (
+          <>
+            <Tile tone={restaPouPeye === 0 ? 'green' : 'red'} icon={<Wallet size={16} />} label="Rès pou peye" sub="HTG">
+              <div className="sol-tile-val sol-num" style={{ color: restaPouPeye === 0 ? V.green : V.red }}>{fmt(restaPouPeye)}</div>
+            </Tile>
+
+            {allSlots.map(slot => {
+              const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
+              const slotPayout      = isExchangedSlot ? payoutAjiste : payoutDebaz
+              // "Men #X" ak dat li PA JANM afiche otomatikman — sèlman lè ADMIN deklare yon dat
+              const slotDeclared = slot.declaredPayoutDate ? String(slot.declaredPayoutDate).split('T')[0] : null
+              const showBalance  = isExchangedSlot && memberBalance !== 0
+              if (allSlots.length === 1 && !slotDeclared && !showBalance) return null   // deja nan kat la
+              return (
+                <Tile key={slot.position} tone="accent" icon={<Trophy size={16} />} label={slotDeclared ? `Men #${slot.position}` : 'Men'}
+                  sub={slotDeclared ? `Ou ap touche ${dmy(slotDeclared)}` : 'HTG'}>
+                  <div className="sol-tile-val sol-num" style={{ color: V.accentText }}>{fmt(slotPayout)}</div>
+                  {showBalance && (
+                    <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: memberBalance > 0 ? V.green : V.red }}>
+                      {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
+                      <div style={{ fontWeight: 500, color: V.muted, marginTop: 2 }}>Debaz: {fmt(payoutDebaz)} HTG</div>
+                    </div>
+                  )}
+                </Tile>
+              )
+            })}
+          </>
+        )}
+
+        <Tile tone="blue" icon={<TrendingUp size={16} />} label="Frekans" sub={plan.name}>
+          <div className="sol-tile-val" style={{ fontSize: 'clamp(15px, 4vw, 17px)' }}>{FREQ_LABELS[plan.frequency] || plan.frequency}</div>
+        </Tile>
+
+        <Tile tone="accent" icon={<Star size={16} />} label="Pwen pèfòmans">
+          <MemberScoreDisplay member={member} plan={plan} today={today} currentTime={currentTime} />
+        </Tile>
+      </div>
+
+      <PerformanceSection scoreData={scoreData} />
+      <PerformanceMessage scoreData={scoreData} />
+      {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
+
+      {!isStopped && plan.stopPenaltyAmount > 0 && (
+        <div className="sol-alert amber" style={{ alignItems: 'flex-start' }}>
+          <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber, fontSize: 19 }}>⚠️</div>
+          <p style={{ fontSize: 12.5, color: V.muted2, lineHeight: 1.65 }}>
+            Si w kanpe patisipasyon w nan sòl la, <strong style={{ color: V.amber }}>{fmt(plan.stopPenaltyAmount)} HTG</strong> nan kòb ou te deja peye a ap dedwi kòm penalite. Rès la ap tann ou lè plan an fèmen.
+          </p>
+        </div>
+      )}
+
+      {plan.regleman && (
+        <div className="sol-card sol-card-pad" style={{ marginBottom: 14 }}>
+          <div className="sol-section-title" style={{ marginBottom: 10 }}>Regleman sòl la</div>
+          <p style={{ fontSize: 13, color: V.muted2, lineHeight: 1.8, whiteSpace: 'pre-line' }}>{plan.regleman}</p>
+        </div>
+      )}
+    </>
+  )
+
+  // ─── ISTWA PEMAN ────────────────────────────────────────────
+  const historyJSX = (
+    <>
+      <div className="sol-card" style={{ overflow: 'hidden', marginBottom: 14 }}>
+        <div style={{ padding: '16px 20px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <span className="sol-section-title">Kaye peman</span>
+          <span className="sol-badge accent sol-num">{totalPaid}/{dates.length}</span>
+        </div>
+        <StampCarnet dates={dates} member={member} today={today} isDateOverdue={isDateOverdue} declaredDates={declaredDates} />
+      </div>
+
+      <div className="sol-card" style={{ overflow: 'hidden' }}>
+        <div style={{ padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span className="sol-section-title">Detay peman yo</span>
+          <span style={{ fontSize: 12, color: V.muted, fontWeight: 600 }}>{allSlots.length > 1 ? `${allSlots.length} men × ${fmt(plan.amount)} HTG` : `${fmt(plan.amount)} HTG chak fwa`}</span>
+        </div>
+        <div className="sol-scroll" style={{ maxHeight: 460, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {dates.map((d) => {
+            const paid      = !!member.payments?.[d]
+            const timing    = member.paymentTimings?.[d]
+            const isPast    = isDateOverdue(d)
+            const isWin     = declaredStr === d
+            const montanDat = plan.amount * allSlots.length
+            return (
+              <div key={d} className="sol-pay-row" style={{ background: isWin ? 'var(--s-accent-soft)' : d === today ? 'var(--s-card2)' : undefined }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
+                  <span className="sol-num" style={{ fontSize: 13, fontWeight: 600, color: isPast || paid ? V.text : V.muted, flexShrink: 0 }}>{dmy(d)}</span>
+                  {isWin && <span className="sol-badge accent">🏆 Touche</span>}
+                  {d === today && !isWin && <span className="sol-badge blue">Jodi</span>}
+                  {paid && timingBadge(timing)}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <span className="sol-num" style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', color: paid ? V.green : isPast ? V.red : V.muted }}>
+                    {paid ? '+' : isPast ? '−' : ''}{fmt(montanDat)}
+                  </span>
+                  {isPast && <PayBadge paid={paid} />}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </>
   )
 
   // ─── RENDER ─────────────────────────────────────────────────
   return (
-    <div className="sol-root">
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    <div className="sol-root" style={rootStyle}>
+      <style>{GLOBAL_STYLES}</style>
 
-      {/* ─── HEADER MOBIL ─── */}
-      <div className="sol-mobile-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0, flex: 1 }}>
-          {tenant?.logoUrl
-            ? <img src={tenant.logoUrl} style={{ height: 26, borderRadius: 6, objectFit: 'contain', flexShrink: 0 }} alt="logo" />
-            : <div style={{ width: 26, height: 26, borderRadius: 6, background: 'radial-gradient(circle at 35% 30%, rgba(37,99,235,0.22) 0%, #0B1526 72%)', boxShadow: '0 0 0 1px rgba(37,99,235,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><BrandIcon size={15} /></div>}
+      {/* Header mobil */}
+      <header className="sol-appbar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+          <LogoMark tenant={tenant} size={34} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 12, color: D.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
-            <div style={{ fontSize: 9, color: D.muted }}>Kont Sabotay</div>
+            <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: '-0.015em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
+            <div style={{ fontSize: 11, color: V.muted }}>Kont Sabotay</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-          <button
-            onClick={fetchData}
-            aria-label="Rafrechi"
-            style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <RefreshCw size={12} />
-          </button>
-          <button
-            onClick={handleLogout}
-            aria-label="Dekonekte"
-            style={{ width: 32, height: 32, borderRadius: 8, border: `1px solid ${D.border}`, background: 'transparent', color: D.red, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-          >
-            <LogOut size={12} />
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button className="sol-icon-btn" onClick={fetchData} aria-label="Rafrechi"><RefreshCw size={15} /></button>
+          <button className="sol-icon-btn" onClick={() => setShowAccount(true)} aria-label="Kont mwen"
+            style={{ background: 'var(--s-btn)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 13 }}>
+            {initials}
+            {pushState === 'default' && <span style={{ position: 'absolute', top: -2, right: -2, width: 10, height: 10, borderRadius: '50%', background: V.amber, border: '2px solid var(--s-bg)' }} />}
           </button>
         </div>
-      </div>
+      </header>
 
       <div className="sol-layout">
-        <div className="sol-sidebar">{sidebarJSX}</div>
+        <aside className="sol-sidebar">{sidebarJSX}</aside>
 
-        <div className="sol-main" style={{ animation: 'fadeUp 0.3s ease' }}>
+        <main className="sol-main">
           {planSelectorJSX}
 
-          {/* ─── ALERTS ─── */}
-          {isWinner && (
-            <div className="sol-alert" style={{ background: 'linear-gradient(135deg,rgba(34,197,94,0.14),rgba(37,99,235,0.12))', border: `1px solid ${D.green}40` }}>
-              <div style={{ width: 46, height: 46, minWidth: 46, borderRadius: 14, background: D.goldBtn, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(37,99,235,0.32)' }}>
-                <Trophy size={22} color="#0a0a00" />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <p style={{ fontSize: 'clamp(13px, 3.5vw, 15px)', fontWeight: 800, color: D.green, margin: '0 0 3px', fontFamily: 'Syne, sans-serif' }}>🎉 Se Jou Ou Jodi a!</p>
-                <p style={{ fontSize: 12, color: D.mutedLt, margin: 0 }}>
-                  Ou ap touche: <span style={{ color: D.gold, fontWeight: 800 }}>{fmt(payoutAjiste)} HTG</span>
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!isWinner && (() => {
-            const neverPaid = !lastPaidDate
-            if (neverPaid) {
-              return (
-                <div className="sol-alert" style={{ background: D.blueBg, border: `1px solid ${D.blue}35` }}>
-                  <div style={{ color: D.blue, flexShrink: 0, fontSize: 20 }}>🔔</div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 12, color: D.blue, fontWeight: 800, margin: '0 0 2px' }}>Ou poko fè premye peman ou!</p>
-                    <p style={{ fontSize: 10, color: D.muted, margin: 0 }}>
-                      Premye dat: {nextUnpaidDate?.split('-').reverse().join('/')} • {plan.dueTime || '10:00'} — {plan.dueTimeEnd || '17:00'}
-                    </p>
-                  </div>
-                </div>
-              )
-            }
-            if (!nextUnpaidDate) return null
-            const daysUntil    = Math.ceil((new Date(nextUnpaidDate) - new Date(today)) / 86400000)
-            const overdueAlert = isDateOverdue(nextUnpaidDate)
-            if (overdueAlert) return <BlockingCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} lastPaidDate={lastPaidDate} />
-            if (daysUntil > 3) return null
-            return <PaymentCountdown nextUnpaidDate={nextUnpaidDate} plan={plan} daysUntil={daysUntil} />
-          })()}
-
-          {/* ─── HERO ─── */}
-          <div className="sol-hero">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-              <div style={{ minWidth: 0, flex: '1 1 200px' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.14em', marginBottom: 10 }}>
-                  Kont Sabotay Sòl
-                </div>
-                <h1 style={{ fontFamily: 'Syne, sans-serif', fontSize: 'clamp(20px, 5vw, 30px)', fontWeight: 800, color: D.text, margin: '0 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {member.name}
-                </h1>
-                <div style={{ fontSize: 12, color: D.muted, marginBottom: 6 }}>{member.phone}</div>
-                <div style={{ fontSize: 11, color: D.mutedLt, marginBottom: plan.dueTime ? 10 : 0 }}>
-                  {posStr ? `${posStr} • ${plan.name}` : plan.name}
-                </div>
-                {plan.dueTime && (
-                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: D.goldDim, border: `1px solid ${D.border}`, borderRadius: 8, padding: '4px 10px', fontSize: 11, color: D.gold, fontWeight: 600 }}>
-                    ⏰ <strong>{plan.dueTime}</strong> — <strong>{plan.dueTimeEnd || '17:00'}</strong>
-                  </div>
-                )}
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 0 }}>
-                <div style={{ fontSize: 9, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 700, marginBottom: 6 }}>
-                  Kontribisyon Total
-                </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(24px, 7vw, 40px)', color: D.gold, lineHeight: 1, marginBottom: 4 }}>
-                  {fmt(amountContributed)}
-                </div>
-                <div style={{ fontSize: 12, color: D.muted }}>HTG • {totalPaid}/{dates.length} peman</div>
-              </div>
-            </div>
-
-            <div style={{ marginTop: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 9 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Pwogrè Sòl la</span>
-                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 14, color: D.gold }}>
-                  {Math.round(progress)}%
-                </span>
-              </div>
-              <div className="sol-progress-track">
-                <div className="sol-progress-fill" style={{ width: `${progress}%` }} />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 10, color: D.muted }}>
-                <span>{totalPaid} peman fèt</span>
-                <span>{dates.length - totalPaid} rès</span>
-              </div>
-            </div>
-          </div>
-
-          {/* ─── STATS ─── */}
-          <div className="sol-stats-grid">
-            {member.status === 'stopped' ? (
-              // ✅ NOUVO: manm kanpe a pa nan wotasyon touche ankò — montre SÈLMAN
-              // enfòmasyon ranbousman an (totalPaid - penalite), pa ansyen estimasyon an.
-              <div className="sol-stat-card" style={{ gridColumn: '1 / -1', borderColor: member.stopRefundPaid ? 'rgba(34,197,94,0.3)' : 'rgba(243,156,18,0.3)', background: member.stopRefundPaid ? 'rgba(34,197,94,0.06)' : 'rgba(243,156,18,0.06)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: member.stopRefundPaid ? D.greenBg : 'rgba(243,156,18,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 15 }}>{member.stopRefundPaid ? '✅' : '⏸️'}</span>
-                  </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    {member.stopRefundPaid ? 'Ranbousman Peye' : 'Kanpe — Ranbousman ki rete'}
-                  </span>
-                </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(18px, 5vw, 24px)', color: member.stopRefundPaid ? D.green : D.orange }}>
-                  {fmt(member.stopRefundAmount || 0)}
-                </div>
-                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>
-                  {member.stopRefundPaid ? 'HTG resevwa' : 'HTG — ap peye lè plan an fèmen'}
-                </div>
-              </div>
-            ) : (
-              <>
-            <div className="sol-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9, background: D.redBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Wallet size={14} style={{ color: D.red }} />
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Rès pou Peye
-                </span>
-              </div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: restaPouPeye === 0 ? D.green : D.red }}>
-                {fmt(restaPouPeye)}
-              </div>
-              <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>HTG</div>
-            </div>
-
-            {allSlots.map(slot => {
-              const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
-              const slotPayout      = isExchangedSlot ? payoutAjiste : payoutDebaz
-              // ✅ NOUVO: "Men #X" ak dat li PA JANM afiche otomatikman —
-              // sèlman lè ADMIN deklare yon dat pwomès pou eskl SA A espesifikman.
-              const slotDeclared = slot.declaredPayoutDate ? String(slot.declaredPayoutDate).split('T')[0] : null
-              return (
-                <div
-                  key={slot.position}
-                  className="sol-stat-card"
-                  style={{ borderColor: slotDeclared ? `${D.blue}40` : 'rgba(37,99,235,0.28)', background: slotDeclared ? 'rgba(96,165,250,0.06)' : 'rgba(37,99,235,0.08)' }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(37,99,235,0.20)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Trophy size={14} style={{ color: D.gold }} />
-                    </div>
-                    <span style={{ fontSize: 9, fontWeight: 700, color: D.gold, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                      {slotDeclared ? `Men #${slot.position}` : 'Men'}
-                    </span>
-                  </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.gold }}>
-                    {fmt(slotPayout)}
-                  </div>
-                  {slotDeclared ? (
-                    <div style={{ fontSize: 10, color: D.blue, marginTop: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      📅 W ap touche {slotDeclared.split('-').reverse().join('/')}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 10, color: D.muted, marginTop: 2 }}>HTG</div>
-                  )}
-                  {isExchangedSlot && memberBalance !== 0 && (
-                    <>
-                      <div style={{ marginTop: 7, padding: '4px 7px', borderRadius: 7, background: memberBalance > 0 ? 'rgba(34,197,94,0.10)' : 'rgba(239,68,68,0.10)', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 10, fontWeight: 800, color: memberBalance > 0 ? D.green : D.red }}>
-                          {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG
-                        </span>
-                        <span style={{ fontSize: 9, color: D.muted }}>
-                          {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 9, color: D.muted, marginTop: 2 }}>Debaz: {fmt(payoutDebaz)} HTG</div>
-                    </>
-                  )}
-                </div>
-              )
-            })}
-
-            {allSlots.length > 1 && (
-              <div className="sol-stat-card" style={{ borderColor: `${D.green}30`, background: 'rgba(34,197,94,0.05)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: D.greenBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Star size={14} style={{ color: D.green }} />
-                  </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: D.green, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Total Ap Touche
-                  </span>
-                </div>
-                <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 'clamp(16px, 4.5vw, 20px)', color: D.green }}>
-                  {fmt(payoutDebaz * allSlots.length + memberBalance)}
-                </div>
-                <div style={{ fontSize: 10, color: D.muted, marginTop: 3 }}>HTG total — {allSlots.length} men</div>
-              </div>
-            )}
-              </>
-            )}
-
-            <div className="sol-stat-card">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 9, background: D.blueBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <TrendingUp size={14} style={{ color: D.blue }} />
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  Frekans
-                </span>
-              </div>
-              <div style={{ fontFamily: 'Syne, sans-serif', fontWeight: 700, fontSize: 'clamp(12px, 3.4vw, 14px)', color: D.text }}>
-                {FREQ_LABELS[plan.frequency] || plan.frequency}
-              </div>
-              <div style={{ fontSize: 10, color: D.muted, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {plan.name}
-              </div>
-            </div>
-
-            {/* ✅ FIX: menm kalkil/afichaj "Chanpyon/Bon/Mwayen" ki nan panel Sabotay admin la */}
-            <div className="sol-stat-card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(155,89,182,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Star size={14} style={{ color: D.purple }} />
-                  </div>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: D.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                    Pwen Pèfòmans
-                  </span>
-                </div>
-                <MemberScoreDisplay member={member} plan={plan} today={today} currentTime={currentTime} />
-              </div>
-          </div>
-
-          <PerformanceSection scoreData={scoreData} />
-          <PerformanceMessage scoreData={scoreData} />
-          {/* ✅ FIX: pa doub-afiche si dat deklare a se jodi a — bannyè "Se Jou Ou Jodi a!" anwo a deja kouvri sa */}
-          {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
-
-          {/* ✅ NOUVO: Avètisman jeneral sou penalite si manm nan ta kanpe */}
-          {member.status !== 'stopped' && plan.stopPenaltyAmount > 0 && (
-            <div style={{
-              background: 'rgba(243,156,18,0.06)', border: '1px solid rgba(243,156,18,0.2)',
-              borderRadius: 14, padding: '12px 16px', marginBottom: 20,
-              display: 'flex', alignItems: 'flex-start', gap: 10,
-            }}>
-              <span style={{ fontSize: 16, flexShrink: 0 }}>⚠️</span>
-              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0, lineHeight: 1.6 }}>
-                Si w kanpe patisipasyon w nan sòl la, <strong style={{ color: '#f59e0b' }}>{fmt(plan.stopPenaltyAmount)} HTG</strong> nan
-                kòb ou te DEJA peye a ap dedwi kòm penalite. Rès la ap tann ou lè plan an fèmen.
-              </p>
-            </div>
-          )}
-
-          {plan.regleman && (
-            <div style={{ background: D.tealBg, border: `1px solid rgba(20,184,166,0.2)`, borderRadius: 18, padding: 'clamp(14px, 4vw, 20px)', marginBottom: 16 }}>
-              <p style={{ fontFamily: 'Syne, sans-serif', fontSize: 10, fontWeight: 700, color: D.teal, textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
-                📜 Regleman Sòl la
-              </p>
-              <p style={{ fontSize: 12, color: D.mutedLt, margin: 0, lineHeight: 1.8, whiteSpace: 'pre-line' }}>
-                {plan.regleman}
-              </p>
-            </div>
-          )}
-
-          {/* ─── THEME SWITCHER ─── */}
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
-            {Object.entries(THEMES).map(([key, t]) => (
-              <button
-                key={key}
-                onClick={() => { setTheme(key); localStorage.setItem('sol_theme', key) }}
-                style={{
-                  padding: '4px 9px', borderRadius: 18, cursor: 'pointer',
-                  fontSize: 10, fontWeight: 700, border: 'none',
-                  background: theme === key ? t.accent : 'rgba(128,128,128,0.15)',
-                  color: theme === key ? '#fff' : D.muted,
-                  transition: 'all 0.2s',
-                }}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-
-          {/* ─── TABS ─── */}
-          <div className="sol-tabs">
-            {[['history','📋 Istwa'],['calendar','📅 Kalandriye'],['exchange','🔄 Mache'],['chat','💬 Chat']].map(([t, l]) => (
-              <button
-                key={t}
-                className="sol-tab-btn"
-                onClick={() => { setTab(t); if (t === 'chat') setUnreadCount(0) }}
-                style={{
-                  border: 'none',
-                  background: tab === t ? D.goldDim : 'transparent',
-                  color: tab === t ? D.gold : D.muted,
-                  fontFamily: 'inherit', position: 'relative', fontSize: 11,
-                }}
-              >
-                {l}
-                {t === 'chat' && unreadCount > 0 && (
-                  <span style={{ position: 'absolute', top: -5, right: -5, background: '#ef4444', color: '#fff', borderRadius: '50%', minWidth: 16, height: 16, fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', boxShadow: '0 2px 6px rgba(239,68,68,0.5)' }}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* ─── ISTWA PEMAN ─── */}
-          {tab === 'history' && (
-            <div style={{ background: D.card, border: `1px solid ${D.border}`, borderRadius: 20, overflow: 'hidden' }}>
-              <div style={{ padding: 'clamp(12px, 3.5vw, 16px) clamp(14px, 4vw, 20px)', borderBottom: `1px solid ${D.borderSub}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ fontFamily: 'Syne, sans-serif', fontSize: 'clamp(12px, 3.2vw, 13px)', fontWeight: 700, color: D.text }}>
-                  Istwa Peman
-                </span>
-                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: D.muted, background: D.goldDim, padding: '2px 9px', borderRadius: 7 }}>
-                  {totalPaid}/{dates.length}
-                </span>
-              </div>
-              <div className="sol-scroll" style={{ maxHeight: 420, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                {dates.map((d, i) => {
-                  const paid     = !!member.payments?.[d]
-                  const timing   = member.paymentTimings?.[d]
-                  const isPast   = isDateOverdue(d) // ✅ FIX: respekte dueTimeEnd
-                  // ✅ FIX: badge "Touche" a sèlman lè ADMIN deklare dat sa a
-                  // (declaredPayoutDate) — pa yon devinèt otomatik ki soti nan pozisyon.
-                  const isWin    = declaredStr === d
-                  const montanDat = plan.amount * allSlots.length
-                  return (
-                    <div
-                      key={d}
-                      className="sol-pay-row"
-                      style={{ background: isWin ? 'rgba(37,99,235,0.10)' : d === today ? 'rgba(37,99,235,0.05)' : 'transparent' }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, flexWrap: 'wrap' }}>
-                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: isPast ? D.text : D.muted, flexShrink: 0, fontWeight: 500 }}>
-                          {d.split('-').reverse().join('/')}
-                        </span>
-                        {isWin && (
-                          <span style={{ fontSize: 8, background: D.goldDim, color: D.gold, padding: '1px 7px', borderRadius: 7, fontWeight: 700, flexShrink: 0, border: `1px solid ${D.border}` }}>
-                            🏆 Touche
-                          </span>
-                        )}
-                        {d === today && !isWin && (
-                          <span style={{ fontSize: 8, background: D.blueBg, color: D.blue, padding: '1px 7px', borderRadius: 7, fontWeight: 700, flexShrink: 0 }}>
-                            Jodi
-                          </span>
-                        )}
-                        {paid && timingBadge(timing)}
-                        {paid && allSlots.length > 1 && (
-                          <span style={{ fontSize: 8, color: D.muted, flexShrink: 0 }}>
-                            {allSlots.length}×{fmt(plan.amount)}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 600, color: paid ? D.green : isPast ? D.red : D.muted, whiteSpace: 'nowrap' }}>
-                          {paid ? `+${fmt(montanDat)}` : isPast ? `-${fmt(montanDat)}` : fmt(montanDat)} HTG
-                        </span>
-                        {isPast && <PayBadge paid={paid} />}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
+          {tab === 'home'     && homeJSX}
+          {tab === 'history'  && historyJSX}
           {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
           {tab === 'chat'     && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
-
-          {/* ─── AKSYON MOBIL ─── */}
-          <div className="sol-mobile-actions">
-            <button
-              onClick={() => setShowPayModal(true)}
-              style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(220,38,38,0.28)', background: 'rgba(220,38,38,0.07)', color: '#ef4444', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
-            >
-              📱 Peye pa Moncash / Natcash
-            </button>
-            <button
-              onClick={() => setShowChangePw(true)}
-              style={{ padding: '13px', borderRadius: 13, border: '1px solid rgba(167,139,250,0.2)', background: 'rgba(167,139,250,0.06)', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, fontFamily: 'inherit' }}
-            >
-              <Key size={13} /> Chanje Modpas
-            </button>
-          </div>
-        </div>
+        </main>
       </div>
 
-      {showPayModal  && <ModalPayMobile      onClose={() => setShowPayModal(false)} />}
-      {showChangePw  && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
+      {/* Navigasyon anba (mobil) */}
+      <nav className="sol-bottomnav" aria-label="Navigasyon prensipal">
+        {NAV.map(({ id, label, Icon }) => (
+          <button key={id} className={`sol-bn-item ${tab === id ? 'active' : ''}`} onClick={() => goTab(id)} aria-current={tab === id ? 'page' : undefined}>
+            <span className="sol-bn-ico"><Icon size={20} strokeWidth={tab === id ? 2.4 : 2} /></span>
+            {label}
+            {id === 'chat' && unreadCount > 0 && <span className="sol-dot">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </button>
+        ))}
+      </nav>
+
+      {showAccount && (
+        <ModalAccount
+          onClose={() => setShowAccount(false)} member={member} tenantName={tenantName}
+          theme={theme} setTheme={setTheme} pushState={pushState} onEnablePush={() => subscribePush(true)}
+          onPay={() => { setShowAccount(false); setShowPayModal(true) }}
+          onChangePw={() => { setShowAccount(false); setShowChangePw(true) }}
+          onLogout={() => { setShowAccount(false); handleLogout() }}
+        />
+      )}
+      {showPayModal && <ModalPayMobile onClose={() => setShowPayModal(false)} />}
+      {showChangePw && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
     </div>
   )
 }

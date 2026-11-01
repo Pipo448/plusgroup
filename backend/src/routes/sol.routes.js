@@ -8,6 +8,30 @@ const solPushSvc  = require('../modules/sabotay/sol-push.service')
 const exchangeSvc = require('../modules/sabotay/sol-exchange.service')
 
 const SOL_JWT_SECRET = process.env.JWT_SECRET || 'plusgroup-sol-secret-change-me'
+if (!process.env.JWT_SECRET) {
+  // ⚠️ Sekirite: san JWT_SECRET nan environnement lan, tout moun ki konnen valè default la ka fabrike yon token.
+  console.warn('[SOL] ⚠️ JWT_SECRET pa defini — ap itilize valè default la. Defini l sou Render.')
+}
+
+// ✅ NOUVO — limit eseye login (pwoteje kont yo kont devine modpas / brute-force).
+// 8 move eseye pou chak (IP + non itilizatè) nan 15 minit → 429. Done yo rete nan memwa sèlman.
+const LOGIN_MAX_FAILS = 8
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const loginFails = new Map()   // key -> { count, first }
+const loginKey = (req, username) =>
+  `${String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim()}|${String(username || '').toLowerCase().trim()}`
+function loginLocked(key) {
+  const r = loginFails.get(key)
+  if (!r) return 0
+  if (Date.now() - r.first > LOGIN_WINDOW_MS) { loginFails.delete(key); return 0 }
+  return r.count >= LOGIN_MAX_FAILS ? Math.ceil((LOGIN_WINDOW_MS - (Date.now() - r.first)) / 60000) : 0
+}
+function loginFail(key) {
+  const r = loginFails.get(key)
+  if (!r || Date.now() - r.first > LOGIN_WINDOW_MS) loginFails.set(key, { count: 1, first: Date.now() })
+  else r.count++
+  if (loginFails.size > 5000) { for (const [k, v] of loginFails) if (Date.now() - v.first > LOGIN_WINDOW_MS) loginFails.delete(k) }
+}
 
 // ✅ NOUVO: netwaye nimewo telefòn pou konparezon "menm moun" (menm lojik ak
 // sabotay.service.js) — retire tout sa ki pa chif.
@@ -195,17 +219,22 @@ router.post('/auth/login', async (req, res) => {
     const { username, password } = req.body
     if (!username || !password) return res.status(400).json({ message: 'Non itilizatè ak modpas obligatwa' })
 
+    const lockKey = loginKey(req, username)
+    const lockMin = loginLocked(lockKey)
+    if (lockMin) return res.status(429).json({ message: `Twòp move eseye. Tann ${lockMin} minit epi eseye ankò.` })
+
     const accounts = await prisma.solMemberAccount.findMany({
       where: { username: username.toLowerCase().trim() }
     })
-    if (!accounts.length) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
+    if (!accounts.length) { loginFail(lockKey); return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' }) }
 
     let matchedAccount = null
     for (const acc of accounts) {
       const valid = await bcrypt.compare(password, acc.passwordHash)
       if (valid) { matchedAccount = acc; break }
     }
-    if (!matchedAccount) return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' })
+    if (!matchedAccount) { loginFail(lockKey); return res.status(401).json({ message: 'Non itilizatè oswa modpas pa kòrèk' }) }
+    loginFails.delete(lockKey)   // koneksyon reyisi → efase konte a
 
     // ✅ FIX 3: Verifye si manm nan bloke — bloke = pa ka konekte
     if (matchedAccount.memberId) {
@@ -774,9 +803,11 @@ router.get('/account-by-phone', authAdmin, async (req, res) => {
   }
 })
 
-router.get('/debug/accounts', async (req, res) => {
+// ✅ SEKIRITE: sa a te PIBLIK epi li te retounen `passwordHash` TOUT kont yo (nenpòt moun ki konnen URL la
+// te ka telechaje yo epi eseye dekode modpas yo). Kounye a: admin sèlman, epi san okenn hash.
+router.get('/debug/accounts', authAdmin, async (req, res) => {
   try {
-    const accounts = await prisma.solMemberAccount.findMany({ select: { username: true, memberName: true, tenantId: true, passwordHash: true } })
+    const accounts = await prisma.solMemberAccount.findMany({ select: { username: true, memberName: true, tenantId: true } })
     return res.json({ count: accounts.length, accounts })
   } catch (err) {
     return res.status(500).json({ error: err.message })
