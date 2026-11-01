@@ -114,6 +114,18 @@ export default function SolDashboardPage() {
   // ─── DATA FETCH ─────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!token) { navigate('/app/sol/login'); return }
+    // Done ki te deja chaje pa paj login lan (< 2 min) → afichaj imedya, pa gen ekran chajman
+    try {
+      const raw = sessionStorage.getItem('sol_prefetch')
+      if (raw) {
+        sessionStorage.removeItem('sol_prefetch')
+        const pf = JSON.parse(raw)
+        if (pf?.json && Date.now() - pf.t < 120000) {
+          setData(pf.json); setSelectedPlanId(prev => prev || pf.json.plans?.[0]?.id || null); setLoading(false)
+          return
+        }
+      }
+    } catch { /* */ }
     setLoading(true)
     try {
       const res = await fetch(`${SOL_API}/api/sol/members/me`, {

@@ -137,6 +137,7 @@ export default function SolLoginPage() {
   const [showPass, setShowPass] = useState(false)
   const [remember, setRemember] = useState(false)
   const [loading,  setLoading]  = useState(false)
+  const [stage,    setStage]    = useState('auth')   // 'auth' → verifikasyon modpas, 'load' → chajman kont lan
   const [block,    setBlock]    = useState(null)   // { message, lateAmount, lateCount, name }
   const [caps,     setCaps]     = useState(false)
   const [help,     setHelp]     = useState(false)
@@ -168,7 +169,7 @@ export default function SolLoginPage() {
     if (!form.username || !form.password) {
       return toast.error('Antre non itilizatè ak modpas ou.')
     }
-    setLoading(true)
+    setLoading(true); setStage('auth')
     try {
       const res = await fetch(`${SOL_API}/api/sol/auth/login`, {
         method: 'POST',
@@ -191,8 +192,25 @@ export default function SolLoginPage() {
         if (remember) localStorage.setItem('sol_remember_user', form.username.trim().toLowerCase())
         else localStorage.removeItem('sol_remember_user')
       } catch { /* */ }
+      // Verifye kont lan DEVAN nou antre: si manm nan an reta/bloke, li rete isit la ak rezon an (pa janm antre nan dashboard la)
+      setStage('load')
+      let pre = null
+      try {
+        const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 25000)
+        const r2 = await fetch(`${SOL_API}/api/sol/members/me`, { headers: { Authorization: `Bearer ${data.token}` }, signal: ctl.signal })
+        clearTimeout(tm)
+        if (r2.status === 403) {
+          const j = await r2.json().catch(() => ({}))
+          const info = { message: j.message || 'Kont ou bloke poutèt reta peman.', lateAmount: j.lateAmount, lateCount: j.lateCount, name: data.member?.name || '' }
+          setBlock(info)
+          try { sessionStorage.setItem('sol_block', JSON.stringify(info)) } catch { /* */ }
+          return
+        }
+        if (r2.ok) pre = await r2.json()
+      } catch { /* rezo ralanti: dashboard la ap eseye ankò */ }
       localStorage.setItem('sol_token',  data.token)
       localStorage.setItem('sol_member', JSON.stringify(data.member))
+      if (pre) { try { sessionStorage.setItem('sol_prefetch', JSON.stringify({ t: Date.now(), json: pre })) } catch { /* */ } }
       toast.success(`Byenvini, ${data.member.name}!`)
       navigate('/app/sol/dashboard')
     } catch (err) {
@@ -223,9 +241,9 @@ export default function SolLoginPage() {
   return (
     <div className="sl-root">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
-        .sl-root { --disp: 'Syne', 'Plus Jakarta Sans', system-ui, sans-serif; --navy: #0B2F86; --blue: #0B4BD6; --orange: #FF6A00; --ink: #132B5E;
+        .sl-root { --disp: 'Plus Jakarta Sans', system-ui, sans-serif; --navy: #0B2F86; --blue: #0B4BD6; --orange: #FF6A00; --ink: #132B5E;
           position: relative; min-height: 100vh; min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
           font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--ink); background: #EAF2FF; -webkit-font-smoothing: antialiased; overflow-x: hidden; isolation: isolate; }
 
@@ -366,7 +384,7 @@ export default function SolLoginPage() {
         .sl-pay:hover { transform: translateY(-1px); box-shadow: 0 10px 20px -12px rgba(127,29,29,.5); }
         .sl-pay > i { width: 30px; height: 30px; border-radius: 10px; flex-shrink: 0; }
         .sl-pay span { flex: 1; min-width: 0; } .sl-pay b { display: block; font-size: 13px; } .sl-pay em { font-style: normal; font-size: 11px; color: #6B7B9A; font-weight: 600; }
-        .sl-pay code { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; font-weight: 700; } .sl-pay u { text-decoration: none; color: #6B7B9A; display: flex; }
+        .sl-pay code { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; } .sl-pay u { text-decoration: none; color: #6B7B9A; display: flex; }
         .sl-retry { margin-top: 6px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 13px; cursor: pointer; font-family: inherit; font-weight: 800; font-size: 13px; color: #B91C1C; background: transparent; border: 1.5px solid #E58D8D; }
         .sl-retry:hover { background: #FEE2E2; }
 
@@ -477,7 +495,7 @@ export default function SolLoginPage() {
                   {loading
                     ? <span style={{ width: 22, height: 22, border: '3px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'slSpin .8s linear infinite' }} />
                     : <LogIn size={24} strokeWidth={2.4} />}
-                  {loading ? 'Ap verifye…' : 'Konekte'}
+                  {loading ? (stage === 'load' ? 'Ap chaje kont ou…' : 'Ap verifye…') : 'Konekte'}
                 </button>
 
                 <div className="sl-opts">

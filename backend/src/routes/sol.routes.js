@@ -122,7 +122,19 @@ function paymentDatesUntil(frequency, startDate, count, untilDay) {
 }
 
 // Retounen { late, count, amount, planName } pou manm (ak tout "men" li yo menm telefòn)
+// Kach 20 segonn: login lan epi /members/me ki vini imedyatman apre a pa kalkile 2 fwa (sa te ralanti chajman an)
+const lateCache = new Map()   // accountId -> { t, st }
 async function getLateStatus(account) {
+  const hit = lateCache.get(account?.id)
+  if (hit && Date.now() - hit.t < 20000) return hit.st
+  const st = await computeLateStatus(account)
+  if (account?.id && st && st.error !== true) {
+    lateCache.set(account.id, { t: Date.now(), st })
+    if (lateCache.size > 2000) lateCache.clear()
+  }
+  return st
+}
+async function computeLateStatus(account) {
   try {
     if (!account?.memberId) return { late: false }
     const { today, time } = haitiNow()
@@ -170,7 +182,7 @@ async function getLateStatus(account) {
     return { late: lateDates > 0, count: lateDates, amount: lateAmount, planName }
   } catch (e) {
     console.warn('[SOL LATE CHECK]', e.message)
-    return { late: false }   // pa janm bloke moun akoz yon erè sèvè
+    return { late: false, error: true }   // pa janm bloke moun akoz yon erè sèvè (epi pa kache erè a)
   }
 }
 
@@ -237,11 +249,13 @@ router.post('/auth/login', async (req, res) => {
     loginFails.delete(lockKey)   // koneksyon reyisi → efase konte a
 
     // ✅ FIX 3: Verifye si manm nan bloke — bloke = pa ka konekte
+    const [sabotayMember, lateSt] = await Promise.all([
+      matchedAccount.memberId
+        ? prisma.sabotayMember.findUnique({ where: { id: matchedAccount.memberId }, select: { isBlocked: true } }).catch(() => null)
+        : Promise.resolve(null),
+      getLateStatus(matchedAccount),
+    ])
     if (matchedAccount.memberId) {
-      const sabotayMember = await prisma.sabotayMember.findUnique({
-        where: { id: matchedAccount.memberId },
-        select: { isBlocked: true }
-      }).catch(() => null)
       const isBlocked = sabotayMember?.isBlocked === true
       if (isBlocked) {
         return res.status(403).json({
@@ -252,7 +266,6 @@ router.post('/auth/login', async (req, res) => {
     }
 
     // ✅ NOUVO: blokaj otomatik si manm nan an reta
-    const lateSt = await getLateStatus(matchedAccount)
     if (lateSt.late) {
       return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
     }
@@ -443,11 +456,14 @@ router.get('/members/me', authMember, async (req, res) => {
     if (!account.memberId) return res.status(400).json({ message: 'Kont sa pa gen manm ki asosye avèk li' })
 
     // ✅ NOUVO: si manm nan tonbe an reta pandan l te deja konekte → bloke aksè a tou
-    const blockedRow = await prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select: { isBlocked: true } }).catch(() => null)
+    const [blockedRow, lateSt, tenant] = await Promise.all([
+      prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select: { isBlocked: true } }).catch(() => null),
+      getLateStatus(account),
+      prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true } }),
+    ])
     if (blockedRow?.isBlocked) {
       return res.status(403).json({ message: '🔒 Kont ou bloke poutèt reta peman. Kontakte admin pou debloke l.', blocked: true })
     }
-    const lateSt = await getLateStatus(account)
     if (lateSt.late) {
       return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
     }
@@ -456,10 +472,6 @@ router.get('/members/me', authMember, async (req, res) => {
     // ANVLOPE: fonksyon sa a rele yon fwa pou chak plan/kont (allPlansData),
     // epi `tenantFormatted` an te kopye nan CHAK antre nan `plans: [...]` —
     // sa vle di menm logo a te double/triple/kat fwa nan menm repons lan.
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: account.tenantId },
-      select: { id: true, name: true, phone: true, address: true }
-    })
     const tenantFormatted = tenant ? { ...tenant, businessName: tenant.name } : null
 
     const primaryData = await buildPlanData(account, account.memberId)
@@ -473,12 +485,10 @@ router.get('/members/me', authMember, async (req, res) => {
       orderBy: { createdAt: 'asc' }
     })
 
-    for (const pos of allPositions) {
-      if (!pos.memberId) continue
-      // Evite doublaj ak plan primè a
-      if (allPlansData.find(p => p.plan.id === pos.planId)) continue
-      const planData = await buildPlanData(account, pos.memberId)
-      if (planData) allPlansData.push({ ...planData, id: planData.plan.id })
+    const posList = allPositions.filter(pos => pos.memberId && !allPlansData.find(p => p.plan.id === pos.planId))
+    const posData = await Promise.all(posList.map(pos => buildPlanData(account, pos.memberId).catch(() => null)))
+    for (const planData of posData) {
+      if (planData && !allPlansData.find(p => p.plan.id === planData.plan.id)) allPlansData.push({ ...planData, id: planData.plan.id })
     }
 
     // ✅ Rete kòd orijinal la pou lòt kont (menm telefòn)
@@ -487,8 +497,8 @@ router.get('/members/me', authMember, async (req, res) => {
       const otherAccounts = await prisma.solMemberAccount.findMany({
         where: { memberPhone: phone, tenantId: account.tenantId, id: { not: account.id }, memberId: { not: null } }
       })
-      for (const otherAccount of otherAccounts) {
-        const planData = await buildPlanData(otherAccount, otherAccount.memberId)
+      const otherData = await Promise.all(otherAccounts.map(o => buildPlanData(o, o.memberId).catch(() => null)))
+      for (const planData of otherData) {
         if (planData && !allPlansData.find(p => p.plan.id === planData.plan.id)) {
           allPlansData.push({ ...planData, id: planData.plan.id })
         }

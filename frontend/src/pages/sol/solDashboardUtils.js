@@ -6,7 +6,7 @@
 //     eleman `.sol-root`, kidonk TOUT komponan (kalandriye, chat, modals…) swiv tèm nan.
 //   • `V`  = token CSS (var(--s-…)) — pou komponan nouvo yo.
 //   • `D`  = ansyen tokens (hex nwa) — kenbe pou konpatibilite (egz. SolExchangeMarket).
-//   • Polis: Plus Jakarta Sans (tèks) + JetBrains Mono (chif/revèy).
+//   • Polis: Plus Jakarta Sans pou tout bagay (chif tabular).
 
 export const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 
@@ -186,7 +186,7 @@ export function haitiWallToDate(dateStr, hhmm = '00:00', addDays = 0) {
 // STYLE GLOBAL
 // ══════════════════════════════════════════════════════════════
 export const GLOBAL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   @keyframes spin    { to { transform: rotate(360deg) } }
   @keyframes fadeUp  { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
@@ -209,8 +209,8 @@ export const GLOBAL_STYLES = `
   :focus-visible { outline: 2px solid var(--s-accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
 
-  .sol-root { --f-display: 'Syne', 'Plus Jakarta Sans', system-ui, sans-serif; min-height: 100vh; background-color: var(--s-bg); background-image: var(--s-grad); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--s-text); -webkit-font-smoothing: antialiased; }
-  .sol-num  { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  .sol-root { --f-display: 'Plus Jakarta Sans', system-ui, sans-serif; min-height: 100vh; background-color: var(--s-bg); background-image: var(--s-grad); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--s-text); -webkit-font-smoothing: antialiased; }
+  .sol-num  { font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
   .sol-display { font-family: var(--f-display); font-weight: 800; letter-spacing: -0.035em; line-height: 1.05; }
   .sol-rise { animation: rise .7s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--d, 0) * 80ms); }
   .sol-pane > * { animation: rise .6s cubic-bezier(.2,.8,.2,1) both; }
@@ -276,7 +276,7 @@ export const GLOBAL_STYLES = `
   .sol-glass { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 11.5px; font-weight: 700; background: rgba(255,255,255,0.13); border: 1px solid rgba(255,255,255,0.18); backdrop-filter: blur(6px); color: #fff; }
   .sol-hero-main { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
   .sol-hero-label { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.74); margin-bottom: 8px; }
-  .sol-hero-amount { font-family: var(--f-display); font-size: clamp(40px, 12vw, 64px); font-weight: 800; letter-spacing: -0.05em; line-height: .95; text-shadow: 0 6px 24px rgba(0,0,0,.28); }
+  .sol-hero-amount { font-family: var(--f-display); font-size: clamp(40px, 12vw, 64px); font-weight: 800; letter-spacing: -0.035em; line-height: .98; text-shadow: 0 6px 24px rgba(0,0,0,.28); }
   .sol-hero-amount small { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.3em; font-weight: 700; letter-spacing: 0; margin-left: 7px; color: rgba(255,255,255,0.72); text-shadow: none; }
   .sol-hero-who { font-size: 13px; color: rgba(255,255,255,0.85); margin-top: 12px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
   .sol-hero-foot { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin-top: 22px; border-radius: 16px; overflow: hidden; background: rgba(255,255,255,0.16); }
@@ -303,9 +303,9 @@ export const GLOBAL_STYLES = `
   /* ── KONT REBOU ── */
   .sol-clock { display: flex; align-items: center; gap: 6px; margin-top: 9px; }
   .sol-clock-seg { min-width: 54px; padding: 8px 6px 6px; border-radius: 12px; text-align: center; background: var(--s-card); border: 1px solid var(--s-line); }
-  .sol-clock-seg b { display: block; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; line-height: 1; }
+  .sol-clock-seg b { display: block; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 700; line-height: 1; }
   .sol-clock-seg span { font-size: 9.5px; color: var(--s-muted); font-weight: 600; }
-  .sol-clock-sep { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 20px; opacity: .5; padding-bottom: 12px; }
+  .sol-clock-sep { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 20px; opacity: .5; padding-bottom: 12px; }
 
   /* ── CARNET (tanpon peman) ── */
   .sol-carnet { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 8px; padding: 16px 18px 18px; }
@@ -416,7 +416,7 @@ export const GLOBAL_STYLES = `
   .sol-kpi:hover { transform: translateY(-3px); border-color: var(--s-gold-line); }
   .sol-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--s-gold-grad); }
   .sol-kpi-ico { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--s-gold-soft); color: var(--s-gold); margin-bottom: 12px; }
-  .sol-kpi-val { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 7vw, 34px); letter-spacing: -0.045em; line-height: 1; background: var(--s-gold-grad); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; animation: goldSheen 5s ease-in-out infinite; }
+  .sol-kpi-val { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 7vw, 34px); letter-spacing: -0.03em; line-height: 1; background: var(--s-gold-grad); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; animation: goldSheen 5s ease-in-out infinite; }
   .sol-kpi-val small { font-size: .42em; letter-spacing: 0; margin-left: 4px; font-family: 'Plus Jakarta Sans', sans-serif; }
   .sol-kpi-lab { font-size: 12px; font-weight: 700; color: var(--s-muted2); margin-top: 8px; }
   .sol-kpi-sub { font-size: 11px; color: var(--s-muted); margin-top: 2px; }
@@ -442,7 +442,7 @@ export const GLOBAL_STYLES = `
 
   .sol-receipt-btn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer; padding: 14px 16px; border-radius: 18px; background: var(--s-card); border: 1px dashed var(--s-gold-line); color: var(--s-text); font: inherit; margin-bottom: 14px; transition: transform .2s, background .2s; }
   .sol-receipt-btn:hover { background: var(--s-gold-soft); transform: translateY(-2px); }
-  .sol-paper { background: #fff; color: #111; width: 100%; max-width: 330px; margin: 0 auto; padding: 18px 16px 16px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.35); position: relative; }
+  .sol-paper { background: #fff; color: #111; width: 100%; max-width: 330px; margin: 0 auto; padding: 18px 16px 16px; font-variant-numeric: tabular-nums; font-size: 12px; line-height: 1.55; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.35); position: relative; }
   .sol-paper::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 8px; background: linear-gradient(-45deg, transparent 5px, #fff 0) 0 0/10px 8px, linear-gradient(45deg, transparent 5px, #fff 0) 0 0/10px 8px; }
   .sol-paper h4 { text-align: center; font-size: 14px; font-weight: 800; margin-bottom: 2px; }
   .sol-paper .c { text-align: center; }

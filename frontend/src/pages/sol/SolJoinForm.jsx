@@ -296,7 +296,7 @@ export default function SolJoinForm({ onClose }) {
         .sj-x:hover { background: #DCE7FF; }
         .sj-head { display: flex; gap: 14px; align-items: center; padding: 4px 20px 6px; padding-right: 64px; }
         .sj-ico { width: 52px; height: 52px; border-radius: 17px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: #fff; background: linear-gradient(145deg, #0B4BD6, #0B2F86); box-shadow: 0 12px 24px -10px rgba(11,75,214,.7), 0 0 0 3px #FFE9A6; }
-        .sj-head h2 { font-family: 'Syne', 'Plus Jakarta Sans', sans-serif; font-size: 25px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; color: #0B2F86; }
+        .sj-head h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 25px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.05; color: #0B2F86; }
         .sj-head p { margin-top: 4px; font-size: 13px; font-weight: 600; color: #5B6C93; line-height: 1.45; }
         .sj-body { padding: 14px 20px 8px; animation: sjIn .38s cubic-bezier(.2,.8,.2,1); }
         .sj-f { margin-bottom: 14px; }
@@ -321,7 +321,7 @@ export default function SolJoinForm({ onClose }) {
         .sj-sub { margin: 4px 0 14px; padding: 14px 14px 2px; border-radius: 18px; background: #F2F7FF; border: 1px solid #D5E2FA; animation: sjIn .3s ease; }
         .sj-step { display: flex; align-items: center; gap: 14px; }
         .sj-step button { width: 42px; height: 42px; border-radius: 14px; border: 1.5px solid #B7C6E6; background: #fff; color: #0B2F86; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .sj-step strong { font-family: 'Syne', sans-serif; font-size: 30px; min-width: 38px; text-align: center; color: #0B2F86; }
+        .sj-step strong { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 30px; min-width: 38px; text-align: center; color: #0B2F86; }
         .sj-check { display: flex; gap: 11px; align-items: flex-start; margin-bottom: 12px; font-size: 13.5px; font-weight: 600; line-height: 1.5; color: #132B5E; cursor: pointer; }
         .sj-check input { position: absolute; opacity: 0; pointer-events: none; }
         .sj-check i { width: 24px; height: 24px; border-radius: 8px; flex-shrink: 0; margin-top: 1px; border: 2px solid #6C7FA8; background: #fff; display: flex; align-items: center; justify-content: center; color: #fff; transition: background .2s, border-color .2s; }
@@ -330,7 +330,7 @@ export default function SolJoinForm({ onClose }) {
         .sj-check input:focus-visible + i { outline: 2px solid #0B4BD6; outline-offset: 2px; }
         .sj-hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
         .sj-foot { position: sticky; bottom: 0; display: flex; gap: 10px; padding: 14px 20px calc(16px + env(safe-area-inset-bottom)); background: linear-gradient(0deg, #fff 80%, rgba(255,255,255,0)); }
-        .sj-btn { height: 56px; border-radius: 17px; border: none; font-family: 'Syne', 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .18s, filter .2s, box-shadow .25s; }
+        .sj-btn { height: 56px; border-radius: 17px; border: none; font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-size: 18px; letter-spacing: -0.02em; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .18s, filter .2s, box-shadow .25s; }
         .sj-btn.ghost { width: 56px; flex-shrink: 0; background: #EEF3FF; color: #0B2F86; }
         .sj-btn.go { position: relative; overflow: hidden; flex: 1; color: #fff; background: linear-gradient(180deg, #FFA11A 0%, #FF6A00 55%, #F04A06 100%); box-shadow: 0 1px 0 rgba(255,255,255,.55) inset, 0 -3px 0 rgba(160,40,0,.22) inset, 0 16px 28px -10px rgba(255,90,0,.7); }
         .sj-btn.go::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(108deg, transparent 38%, rgba(255,255,255,.5) 50%, transparent 62%) 170% 0 / 260% 100% no-repeat; animation: sjShine 3.8s ease-in-out 1s infinite; }
@@ -345,7 +345,7 @@ export default function SolJoinForm({ onClose }) {
         .sj-ok-ring > span { position: absolute; inset: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: linear-gradient(145deg, #FFE08A, #F5B301 55%, #E39A00); box-shadow: 0 16px 34px -10px rgba(229,154,0,.9); }
         .sj-ok-ring svg path { stroke-dasharray: 60; animation: sjDraw .7s ease-out .3s both; }
         .sj-spark { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4px; border-radius: 3px; background: var(--c); animation: sjSpark 1.3s ease-out var(--d) both; }
-        .sj-ok h2 { font-family: 'Syne', sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -0.045em; color: #0B2F86; line-height: 1.05; }
+        .sj-ok h2 { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 30px; font-weight: 800; letter-spacing: -0.045em; color: #0B2F86; line-height: 1.05; }
         .sj-ok h2 em { font-style: normal; background: linear-gradient(90deg, #F5B301, #FF6A00); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .sj-ok p { margin: 12px auto 0; max-width: 28em; font-size: 14.5px; font-weight: 600; color: #34496F; line-height: 1.6; }
         .sj-wa { display: inline-flex; align-items: center; gap: 9px; margin-top: 20px; padding: 14px 20px; border-radius: 16px; text-decoration: none; font-weight: 800; font-size: 14.5px; color: #fff; background: linear-gradient(145deg, #22C55E, #15803D); box-shadow: 0 14px 26px -10px rgba(22,163,74,.8); }
