@@ -348,8 +348,13 @@ export default function SolDashboardPage() {
   const payoutDebaz      = ((plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
   const payoutAjiste     = payoutDebaz + memberBalance
-  const progress         = dates.length > 0 ? (totalPaid / dates.length) * 100 : 0
-  const totalToPayForSol = dates.length * plan.amount * allSlots.length
+  // ✅ KORIJE: total sòl la = kantite dat PREVI yo (manm × entèval), PA `dates.length`.
+  // `dates` ka gen dat siplemantè (peman make sou yon dat ki pa nan kalandriye a) — sa te gonfle total la
+  // (egz. 28 olye 27) epi te montre "Rès pou peye" twò gwo (8 000 olye 6 000).
+  const scheduleCount    = Math.max(1, totalSlotCount * planInterval)
+  const paidShown        = Math.min(totalPaid, scheduleCount)
+  const progress         = Math.min(100, (totalPaid / scheduleCount) * 100)
+  const totalToPayForSol = scheduleCount * plan.amount * allSlots.length
   const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
   const totalPayout      = allSlots.length > 1 ? payoutDebaz * allSlots.length + memberBalance : payoutAjiste
 
@@ -514,7 +519,7 @@ export default function SolDashboardPage() {
             <div className="sol-hero-amount"><CountUp value={isStopped ? (member.stopRefundAmount || 0) : totalPayout} /><small>HTG</small></div>
             <div className="sol-hero-who">{member.name}{posStr ? ` · ${posStr}` : ''}</div>
           </div>
-          <ProgressRing value={progress} top={`${Math.round(progress)}%`} bottom={`${totalPaid}/${dates.length}`} />
+          <ProgressRing value={progress} top={`${Math.round(progress)}%`} bottom={`${paidShown}/${scheduleCount}`} />
         </div>
         <div className="sol-hero-foot">
           <div className="sol-hero-cell"><b><CountUp value={amountContributed} /></b><span>Ou peye deja</span></div>
@@ -566,7 +571,7 @@ export default function SolDashboardPage() {
         </Tile>
       </div>
 
-      <GoldKpis amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={isWinner ? payoutAjiste : totalPayout} totalPaid={totalPaid} totalDates={dates.length} isStopped={isStopped} payoutDate={declaredDates[0]} />
+      <GoldKpis amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={isWinner ? payoutAjiste : totalPayout} totalPaid={paidShown} totalDates={scheduleCount} isStopped={isStopped} payoutDate={declaredDates[0]} />
       <SolReports dates={dates} member={member} plan={plan} today={today} isDateOverdue={isDateOverdue} allSlots={allSlots} />
 
       <PerformanceSection scoreData={scoreData} />
@@ -598,7 +603,7 @@ export default function SolDashboardPage() {
       <div className="sol-card" style={{ overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ padding: '16px 20px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span className="sol-section-title">Kaye peman</span>
-          <span className="sol-badge accent sol-num">{totalPaid}/{dates.length}</span>
+          <span className="sol-badge accent sol-num">{paidShown}/{scheduleCount}</span>
         </div>
         <StampCarnet dates={dates} member={member} today={today} isDateOverdue={isDateOverdue} declaredDates={declaredDates} />
       </div>
@@ -695,7 +700,7 @@ export default function SolDashboardPage() {
           onLogout={() => { setShowAccount(false); handleLogout() }}
         />
       )}
-      {showReceipt && <SolReceiptModal onClose={() => setShowReceipt(false)} member={member} plan={plan} tenantName={tenantName} totalPaid={totalPaid} totalDates={dates.length} amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={totalPayout} lastPaidDate={lastPaidDate} />}
+      {showReceipt && <SolReceiptModal onClose={() => setShowReceipt(false)} member={member} plan={plan} tenantName={tenantName} totalPaid={paidShown} totalDates={scheduleCount} amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={totalPayout} lastPaidDate={lastPaidDate} />}
       {showPayModal && <ModalPayMobile onClose={() => setShowPayModal(false)} />}
       {showChangePw && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
     </div>
