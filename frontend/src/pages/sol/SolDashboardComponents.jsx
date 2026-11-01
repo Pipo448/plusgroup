@@ -42,14 +42,65 @@ export function ProgressRing({ value = 0, top, bottom, size = 92, stroke = 9 }) 
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
   const pct = Math.max(0, Math.min(100, value))
+  const [shown, setShown] = useState(0)
+  useEffect(() => { const t = setTimeout(() => setShown(pct), 450); return () => clearTimeout(t) }, [pct])
   return (
     <div className="sol-ring-wrap" style={{ width: size, height: size }}>
       <svg width="100%" height="100%" viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)' }} aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={stroke} />
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#fff" strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)' }} />
+          strokeDasharray={c} strokeDashoffset={c * (1 - shown / 100)} style={{ transition: 'stroke-dashoffset 1.6s cubic-bezier(.2,.8,.2,1)' }} />
       </svg>
       <div className="sol-ring-txt"><b>{top}</b><span>{bottom}</span></div>
+    </div>
+  )
+}
+
+// ── Chif k ap monte (count-up) ───────────────────────────────
+export function CountUp({ value = 0, duration = 1300, delay = 250 }) {
+  const target = Number(value) || 0
+  const [n, setN] = useState(0)
+  const from = useRef(0)
+  useEffect(() => {
+    const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (reduce) { setN(target); from.current = target; return }
+    let raf, t0
+    const start = from.current
+    const go = (ts) => {
+      if (!t0) t0 = ts
+      const k = Math.min(1, (ts - t0) / duration)
+      const e = k === 1 ? 1 : 1 - Math.pow(2, -10 * k)
+      setN(Math.round(start + (target - start) * e))
+      if (k < 1) raf = requestAnimationFrame(go); else from.current = target
+    }
+    const tm = setTimeout(() => { raf = requestAnimationFrame(go) }, start === 0 ? delay : 0)
+    return () => { clearTimeout(tm); cancelAnimationFrame(raf); from.current = target }
+  }, [target, duration, delay])
+  return <>{fmt(n)}</>
+}
+
+// ── Kat 3D (efè mockup): panche swiv souris la, briyans swiv pwen an ──
+export function TiltCard({ children }) {
+  const ref = useRef(null)
+  const onMove = (e) => {
+    if (e.pointerType && e.pointerType !== 'mouse') return
+    const el = ref.current; if (!el) return
+    const b = el.getBoundingClientRect()
+    const px = (e.clientX - b.left) / b.width, py = (e.clientY - b.top) / b.height
+    el.classList.add('live')
+    el.style.setProperty('--ry', `${((px - 0.5) * 14).toFixed(2)}deg`)
+    el.style.setProperty('--rx', `${((0.5 - py) * 10).toFixed(2)}deg`)
+    el.style.setProperty('--mx', `${(px * 100).toFixed(1)}%`)
+    el.style.setProperty('--my', `${(py * 100).toFixed(1)}%`)
+  }
+  const onLeave = () => {
+    const el = ref.current; if (!el) return
+    el.classList.remove('live')
+    ;['--ry', '--rx', '--mx', '--my'].forEach(k => el.style.removeProperty(k))
+  }
+  return (
+    <div className="sol-hero-stage" onPointerMove={onMove} onPointerLeave={onLeave}>
+      <div className="sol-hero-tilt" ref={ref}>{children}</div>
     </div>
   )
 }
@@ -125,7 +176,7 @@ export function StampCarnet({ dates, member, today, isDateOverdue, declaredDates
   return (
     <>
       <div className="sol-carnet">
-        {dates.map(d => {
+        {dates.map((d, idx) => {
           const paid = !!member.payments?.[d]
           const overdue = isDateOverdue(d)
           const isToday = d === today
@@ -136,7 +187,7 @@ export function StampCarnet({ dates, member, today, isDateOverdue, declaredDates
           else if (isToday) cls = 'today'
           if (win) cls += ' win'
           return (
-            <div key={d} className={`sol-stamp ${cls}`} title={dmy(d)}>
+            <div key={d} className={`sol-stamp ${cls}`} title={dmy(d)} style={{ '--i': idx }}>
               <b className="sol-num">{dayOf(d)}</b>
               <span>{monthOf(d)}</span>
               {paid && <i><Check size={11} strokeWidth={3.5} /></i>}

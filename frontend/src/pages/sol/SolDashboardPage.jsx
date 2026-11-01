@@ -20,7 +20,7 @@ import {
 } from './solDashboardUtils'
 
 import {
-  BrandIcon, LogoMark, ProgressRing, StampCarnet,
+  BrandIcon, LogoMark, ProgressRing, StampCarnet, CountUp, TiltCard,
   PayBadge, timingBadge, SolCalendar, PaymentCountdown, BlockingCountdown,
   PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner, MemberScoreDisplay,
 } from './SolDashboardComponents'
@@ -126,9 +126,12 @@ export default function SolDashboardPage() {
       // kont bloke (an reta) → dekonekte manm nan ak mesaj la
       if (res.status === 403) {
         const j = await res.json().catch(() => ({}))
+        let who = ''
+        try { who = JSON.parse(localStorage.getItem('sol_member') || '{}')?.name || '' } catch { /* */ }
+        // Sove rezon an + montan ki an reta a: paj login lan montre yon panèl konplè (pa yon toast ki disparèt)
+        try { sessionStorage.setItem('sol_block', JSON.stringify({ message: j.message || 'Kont ou bloke poutèt reta peman.', lateAmount: j.lateAmount, lateCount: j.lateCount, name: who })) } catch { /* */ }
         localStorage.removeItem('sol_token')
         localStorage.removeItem('sol_member')
-        toast.error(j.message || '🔒 Kont ou bloke. Kontakte admin lan.', { duration: 8000 })
         navigate('/app/sol/login')
         return
       }
@@ -381,7 +384,7 @@ export default function SolDashboardPage() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 26 }}>
         <LogoMark tenant={tenant} size={40} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 14.5, letterSpacing: '-0.015em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
+          <div style={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 15.5, letterSpacing: '-0.025em', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
           <div style={{ fontSize: 11.5, color: V.muted, marginTop: 2 }}>Kont Sabotay</div>
         </div>
       </div>
@@ -477,6 +480,7 @@ export default function SolDashboardPage() {
       )}
 
       {/* Kat manm (hero) */}
+      <TiltCard>
       <section className="sol-hero" aria-label="Rezime kont ou">
         <svg className="sol-hero-art" viewBox="0 0 360 360" fill="none" aria-hidden="true">
           {[60, 100, 140, 180].map((r, i) => <circle key={r} cx="180" cy="180" r={r} stroke="#fff" strokeOpacity={0.15 - i * 0.025} strokeWidth="1.5" />)}
@@ -491,17 +495,18 @@ export default function SolDashboardPage() {
             <div className="sol-hero-label">
               {isStopped ? (member.stopRefundPaid ? 'Ranbousman resevwa' : 'Ranbousman ki rete') : isWinner ? 'Ou ap touche jodi a' : allSlots.length > 1 ? `Total ou ap touche · ${allSlots.length} men` : 'Kòb ou ap touche'}
             </div>
-            <div className="sol-hero-amount">{fmt(isStopped ? (member.stopRefundAmount || 0) : totalPayout)}<small>HTG</small></div>
+            <div className="sol-hero-amount"><CountUp value={isStopped ? (member.stopRefundAmount || 0) : totalPayout} /><small>HTG</small></div>
             <div className="sol-hero-who">{member.name}{posStr ? ` · ${posStr}` : ''}</div>
           </div>
           <ProgressRing value={progress} top={`${Math.round(progress)}%`} bottom={`${totalPaid}/${dates.length}`} />
         </div>
         <div className="sol-hero-foot">
-          <div className="sol-hero-cell"><b className="sol-num">{fmt(amountContributed)}</b><span>Ou peye deja</span></div>
-          <div className="sol-hero-cell"><b className="sol-num">{fmt(restaPouPeye)}</b><span>Rès pou peye</span></div>
+          <div className="sol-hero-cell"><b><CountUp value={amountContributed} /></b><span>Ou peye deja</span></div>
+          <div className="sol-hero-cell"><b><CountUp value={restaPouPeye} /></b><span>Rès pou peye</span></div>
           <div className="sol-hero-cell"><b>{nextUnpaidDate ? `${dayOf(nextUnpaidDate)} ${monthOf(nextUnpaidDate)}` : '—'}</b><span>Pwochen</span></div>
         </div>
       </section>
+      </TiltCard>
 
       {/* Til */}
       <div className="sol-tiles">
@@ -514,7 +519,7 @@ export default function SolDashboardPage() {
         ) : (
           <>
             <Tile tone={restaPouPeye === 0 ? 'green' : 'red'} icon={<Wallet size={16} />} label="Rès pou peye" sub="HTG">
-              <div className="sol-tile-val sol-num" style={{ color: restaPouPeye === 0 ? V.green : V.red }}>{fmt(restaPouPeye)}</div>
+              <div className="sol-tile-val sol-num" style={{ color: restaPouPeye === 0 ? V.green : V.red }}><CountUp value={restaPouPeye} /></div>
             </Tile>
 
             {allSlots.map(slot => {
@@ -527,7 +532,7 @@ export default function SolDashboardPage() {
               return (
                 <Tile key={slot.position} tone="accent" icon={<Trophy size={16} />} label={slotDeclared ? `Men #${slot.position}` : 'Men'}
                   sub={slotDeclared ? `Ou ap touche ${dmy(slotDeclared)}` : 'HTG'}>
-                  <div className="sol-tile-val sol-num" style={{ color: V.accentText }}>{fmt(slotPayout)}</div>
+                  <div className="sol-tile-val sol-num" style={{ color: V.accentText }}><CountUp value={slotPayout} /></div>
                   {showBalance && (
                     <div style={{ marginTop: 8, fontSize: 11.5, fontWeight: 700, color: memberBalance > 0 ? V.green : V.red }}>
                       {memberBalance > 0 ? '▲' : '▼'} {fmt(Math.abs(memberBalance))} HTG {memberBalance > 0 ? 'frè resevwa' : 'frè peye'}
@@ -626,7 +631,7 @@ export default function SolDashboardPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
           <LogoMark tenant={tenant} size={34} />
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 14, letterSpacing: '-0.015em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
+            <div style={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 15, letterSpacing: '-0.025em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tenantName}</div>
             <div style={{ fontSize: 11, color: V.muted }}>Kont Sabotay</div>
           </div>
         </div>
@@ -646,9 +651,9 @@ export default function SolDashboardPage() {
         <main className="sol-main">
           {planSelectorJSX}
 
-          {tab === 'home'     && homeJSX}
-          {tab === 'history'  && historyJSX}
-          {tab === 'calendar' && <SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} />}
+          {tab === 'home'     && <div className="sol-pane" key="home">{homeJSX}</div>}
+          {tab === 'history'  && <div className="sol-pane" key="history">{historyJSX}</div>}
+          {tab === 'calendar' && <div className="sol-pane" key="cal"><SolCalendar dates={dates} member={member} plan={plan} today={today} allSlots={allSlots} /></div>}
           {tab === 'exchange' && <SolExchangeMarket token={token} member={member} plan={plan} />}
           {tab === 'chat'     && <SolChat token={token} plan={plan} member={member} onNewMessage={(count) => tab !== 'chat' && setUnreadCount(p => p + count)} />}
         </main>
