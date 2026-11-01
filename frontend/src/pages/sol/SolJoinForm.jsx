@@ -367,7 +367,7 @@ export default function SolJoinForm({ onClose }) {
               ))}
             </div>
             <h2>Mèsi{first ? `, ${first}` : ''} ! <em>Demann ou a rive.</em></h2>
-            <p>{done.duplicate ? 'Nou te deja resevwa yon demann ak nimewo sa a. ' : ''}Responsab sòl la ap kontakte w sou <strong>{f.phone}</strong> pou li di w kijan pou w antre. Si ou gen yon kesyè ijan, ou ka ekri nou dirèk sou WhatsApp.</p>
+            <p>{done.duplicate ? 'Nou te deja resevwa yon demann ak nimewo sa a. ' : ''}Responsab sòl la ap kontakte w sou <strong>{f.phone}</strong> pou li di w kijan pou w antre. Si ou gen yon kesyon ijan, ou ka ekri nou dirèk sou WhatsApp.</p>
             <a className="sj-wa" href={waLink} target="_blank" rel="noopener noreferrer"><MessageCircle size={18} /> Voye yon kopi sou WhatsApp</a>
             <button className="sj-close2" onClick={onClose}>Retounen nan koneksyon</button>
           </div>
