@@ -1,48 +1,28 @@
 // src/pages/sol/SolJoinForm.jsx
-// ─── Fòm "Mwen vle antre nan sòl la" (modal 4 etap) — louvri depi paj login lan ───
+// ─── Fòm "Mwen vle antre nan sòl la" (modal) — louvri depi paj login lan ───
+// Kesyon yo (apa non, telefòn, adrès) vini de backend (admin modifye yo nan AdminDashboard).
+// Si pa gen anyen ki sove oswa rezo a tonbe, nou itilize kesyon default yo (solJoinConfig.js).
 // Pa gen nouvo wout: se yon fenèt sou paj /app/sol/login.
 // Voye done yo sou POST /api/sol/join-requests (piblik, rate-limit + honeypot).
-// Si rezo a tonbe, manm nan ka voye yon kopi dirèkteman sou WhatsApp Plus Group.
 
-import { useState, useEffect, useRef, useCallback, createContext, useContext } from 'react'
+import { useState, useEffect, useRef, useCallback, createContext, useContext, useMemo } from 'react'
 import {
-  X, ArrowLeft, ArrowRight, Check, User, History, Wallet, HeartHandshake, MessageCircle, Send, Plus, Minus,
+  X, ArrowLeft, ArrowRight, Check, User, History, Wallet, HeartHandshake, MessageCircle, Send, Plus, Minus, Sparkles, Users,
 } from 'lucide-react'
+import { DEFAULT_CONFIG, normalizeConfig, isVisible } from './solJoinConfig'
 
 const SOL_API = import.meta.env.VITE_SOL_API_URL || 'https://plusgroup-backend.onrender.com'
 const SUPPORT_NUMBER = '50942449024'
-const DRAFT_KEY = 'sol_join_draft_v1'
+const DRAFT_KEY = 'sol_join_draft_v2'
+const OTHER = '__other__'
+const STEP_ICONS = [User, History, Wallet, HeartHandshake, Users, Sparkles]
 
-const STEPS = [
-  { title: 'Ki moun ou ye ?',          sub: 'Kèk enfòmasyon pou n konnen ak ki moun n ap pale.', Icon: User },
-  { title: 'Eksperyans ou',            sub: 'Di nou sa ou te viv, nou vle amelyore sòl la pou ou.', Icon: History },
-  { title: 'Sòl ou vle a',             sub: 'Konbyen ak ki frekans ki bon pou ou ?',               Icon: Wallet },
-  { title: 'Ede n fè sòl la grandi',   sub: 'Plis moun seryè, plis kòb nan men chak manm.',        Icon: HeartHandshake },
-]
-
-const FREQS = [
-  { v: 'chak_jou',      l: 'Chak jou' },
-  { v: 'chak_semen',    l: 'Chak semèn' },
-  { v: 'chak_de_semen', l: 'Chak 2 semèn' },
-  { v: 'chak_mwa',      l: 'Chak mwa' },
-]
-const AMOUNTS = [100, 250, 500, 1000, 2500, 5000]
-const HOWKNOW = ['Zanmi oswa fanmi', 'Facebook', 'WhatsApp', 'Radyo / TV', 'Yon manm sòl la', 'Lòt']
-const STARTS  = ['Pi vit posib', 'Nan 1 semèn', 'Nan 1 mwa', 'Poko sèten']
-
-const EMPTY = {
-  fullName: '', phone: '', address: '', occupation: '',
-  beenInOurSol: null, likedText: '', dislikedText: '', referrer: '', howKnow: '', howKnowOther: '',
-  joinedOtherSol: null, otherSolText: '',
-  frequency: '', amount: null, amountOther: '', slots: 1, startWhen: '',
-  canRecruit: null, recruitList: '', message: '',
-  acceptRules: false, acceptContact: false, website: '',
-}
-
+const FIXED0 = { fullName: '', phone: '', address: '', acceptRules: false, acceptContact: false, website: '' }
 const fmtN = (n) => Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
+const isNumOpt = (q) => q.options.length > 0 && q.options.every(o => /^\d+$/.test(o))
 
 // ── ti konpozan (deyò fonksyon prensipal la pou input yo pa pèdi fokis chak fwa ou tape) ──
-const FormCtx = createContext({ f: EMPTY, set: () => {}, errs: {} })
+const FormCtx = createContext({ f: FIXED0, set: () => {}, errs: {}, ans: {}, setAns: () => {}, other: {}, setOther: () => {} })
 
 function Err({ k }) {
   const { errs } = useContext(FormCtx)
@@ -59,45 +39,137 @@ function Text({ k, label, ph, type = 'text', req, auto, inputMode }) {
     </div>
   )
 }
-function Area({ k, label, ph, rows = 3 }) {
-  const { f, set } = useContext(FormCtx)
-  return (
-    <div className="sj-f">
-      <label htmlFor={`sj-${k}`}>{label}</label>
-      <textarea id={`sj-${k}`} rows={rows} value={f[k]} placeholder={ph} maxLength={1200} onChange={e => set(k, e.target.value)} />
-    </div>
-  )
-}
-function YesNo({ k, yes = 'Wi', no = 'Non' }) {
-  const { f, set } = useContext(FormCtx)
+function YesNoBtns({ value, onChange, yes = 'Wi', no = 'Non' }) {
   return (
     <div className="sj-yn" role="radiogroup">
-      <button type="button" role="radio" aria-checked={f[k] === true}  className={f[k] === true ? 'on' : ''}  onClick={() => set(k, true)}><Check size={16} strokeWidth={3} /> {yes}</button>
-      <button type="button" role="radio" aria-checked={f[k] === false} className={f[k] === false ? 'on no' : ''} onClick={() => set(k, false)}><X size={16} strokeWidth={3} /> {no}</button>
+      <button type="button" role="radio" aria-checked={value === true}  className={value === true ? 'on' : ''}  onClick={() => onChange(true)}><Check size={16} strokeWidth={3} /> {yes}</button>
+      <button type="button" role="radio" aria-checked={value === false} className={value === false ? 'on no' : ''} onClick={() => onChange(false)}><X size={16} strokeWidth={3} /> {no}</button>
     </div>
   )
 }
 
+// Yon kesyon dinamik (selon tip li)
+function Question({ q }) {
+  const { ans, setAns, other, setOther, errs } = useContext(FormCtx)
+  const v = ans[q.id]
+  const star = q.required ? <b style={{ color: '#FF6A00' }}> *</b> : null
+  const bad = errs[q.id]
+  if (q.type === 'text') {
+    return (
+      <div className="sj-f">
+        <label htmlFor={`sj-${q.id}`}>{q.label}{star}</label>
+        <input id={`sj-${q.id}`} className={bad ? 'bad' : ''} value={v ?? ''} placeholder={q.placeholder} maxLength={300} onChange={e => setAns(q.id, e.target.value)} />
+        <Err k={q.id} />
+      </div>
+    )
+  }
+  if (q.type === 'textarea') {
+    return (
+      <div className="sj-f">
+        <label htmlFor={`sj-${q.id}`}>{q.label}{star}</label>
+        <textarea id={`sj-${q.id}`} rows={3} value={v ?? ''} placeholder={q.placeholder} maxLength={1200} onChange={e => setAns(q.id, e.target.value)} />
+        <Err k={q.id} />
+      </div>
+    )
+  }
+  if (q.type === 'yesno') {
+    return (
+      <div className="sj-f">
+        <span className="sj-q">{q.label}{star}</span>
+        <YesNoBtns value={v} onChange={(x) => setAns(q.id, x)} yes={q.yesLabel || 'Wi'} no={q.noLabel || 'Non'} />
+        <Err k={q.id} />
+      </div>
+    )
+  }
+  if (q.type === 'choice') {
+    const numeric = isNumOpt(q)
+    return (
+      <div className="sj-f">
+        <span className="sj-q">{q.label}{star}</span>
+        <div className="sj-chips">
+          {q.options.map(o => (
+            <button type="button" key={o} className={`${q.gold ? 'gold ' : ''}${v === o ? 'on' : ''}`} onClick={() => setAns(q.id, o)}>{numeric ? fmtN(o) : o}</button>
+          ))}
+          {q.allowOther && <button type="button" className={`${q.gold ? 'gold ' : ''}${v === OTHER ? 'on' : ''}`} onClick={() => setAns(q.id, OTHER)}>Lòt</button>}
+        </div>
+        {v === OTHER && (
+          <input className={bad ? 'bad' : ''} value={other[q.id] || ''} placeholder={numeric ? 'Montan ou ka mete' : 'Di nou…'} inputMode={numeric ? 'numeric' : undefined}
+            onChange={e => setOther(q.id, e.target.value.slice(0, 80))} />
+        )}
+        <Err k={q.id} />
+      </div>
+    )
+  }
+  if (q.type === 'stepper') {
+    const n = Number.isFinite(Number(v)) && v !== undefined ? Number(v) : q.min
+    return (
+      <div className="sj-f">
+        <span className="sj-q">{q.label}{star}</span>
+        <div className="sj-step">
+          <button type="button" aria-label="Mwens" onClick={() => setAns(q.id, Math.max(q.min, n - 1))}><Minus size={18} /></button>
+          <strong>{n}</strong>
+          <button type="button" aria-label="Plis" onClick={() => setAns(q.id, Math.min(q.max, n + 1))}><Plus size={18} /></button>
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
+// Gwoupe kesyon kondisyonèl ki swiv youn lòt (menm paran) nan yon sèl bwat
+function renderQuestions(list) {
+  const out = []
+  let box = null
+  list.forEach(q => {
+    if (q.showIf) {
+      const key = `${q.showIf.id}:${String(q.showIf.value)}`
+      if (box && box.key === key) box.items.push(q)
+      else { box = { key, items: [q] }; out.push(box) }
+    } else { box = null; out.push(q) }
+  })
+  return out.map(x => x.items
+    ? <div className="sj-sub" key={`sub-${x.key}-${x.items[0].id}`}>{x.items.map(q => <Question key={q.id} q={q} />)}</div>
+    : <Question key={x.id} q={x} />)
+}
+
 export default function SolJoinForm({ onClose }) {
+  const [cfg, setCfg]         = useState(() => normalizeConfig(DEFAULT_CONFIG))
   const [step, setStep]       = useState(0)
-  const [f, setF]             = useState(EMPTY)
+  const [f, setF]             = useState(FIXED0)
+  const [ans, setAnsAll]      = useState({})
+  const [other, setOtherAll]  = useState({})
   const [errs, setErrs]       = useState({})
   const [sending, setSending] = useState(false)
   const [netErr, setNetErr]   = useState('')
   const [done, setDone]       = useState(null)   // { duplicate }
   const sheetRef = useRef(null)
 
+  // Kesyon yo soti nan backend (admin modifye yo). Si l echwe → default yo rete.
+  useEffect(() => {
+    let off = false
+    const ctl = new AbortController()
+    fetch(`${SOL_API}/api/sol/join-config`, { signal: ctl.signal })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (!off && d?.config) setCfg(normalizeConfig(d.config)) })
+      .catch(() => {})
+    return () => { off = true; ctl.abort() }
+  }, [])
+
   // Brouyon (pa pèdi done si paj la rechaje)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY)
-      if (raw) { const d = JSON.parse(raw); setF(p => ({ ...p, ...d.f, website: '' })); if (Number.isInteger(d.step)) setStep(Math.min(3, Math.max(0, d.step))) }
+      if (raw) {
+        const d = JSON.parse(raw)
+        setF(p => ({ ...p, ...d.f, website: '' })); setAnsAll(d.ans || {}); setOtherAll(d.other || {})
+        if (Number.isInteger(d.step)) setStep(Math.max(0, d.step))
+      }
     } catch { /* */ }
   }, [])
   useEffect(() => {
     if (done) return
-    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ f: { ...f, website: '' }, step })) } catch { /* */ }
-  }, [f, step, done])
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify({ f: { ...f, website: '' }, ans, other, step })) } catch { /* */ }
+  }, [f, ans, other, step, done])
 
   // Bloke defilman paj la dèyè + ESC
   useEffect(() => {
@@ -108,28 +180,40 @@ export default function SolJoinForm({ onClose }) {
     return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
   }, [onClose])
 
-  useEffect(() => { sheetRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' }) }, [step, done])
+  const set      = useCallback((k, v) => { setF(p => ({ ...p, [k]: v })); setErrs(p => (p[k] ? { ...p, [k]: '' } : p)) }, [])
+  const setAns   = useCallback((k, v) => { setAnsAll(p => ({ ...p, [k]: v })); setErrs(p => (p[k] ? { ...p, [k]: '' } : p)) }, [])
+  const setOther = useCallback((k, v) => { setOtherAll(p => ({ ...p, [k]: v })); setErrs(p => (p[k] ? { ...p, [k]: '' } : p)) }, [])
 
-  const set = useCallback((k, v) => { setF(p => ({ ...p, [k]: v })); setErrs(p => (p[k] ? { ...p, [k]: '' } : p)) }, [])
+  // Etap yo: gwoup ki gen omwen yon kesyon vizib (premye ak dènye etap toujou la: gen chan fiks yo)
+  const steps = useMemo(() => {
+    const active = cfg.groups.map(g => ({ ...g, qs: cfg.questions.filter(q => q.group === g.id && isVisible(q, ans)) }))
+    const withQ = active.filter(g => g.qs.length)
+    const list = withQ.length ? withQ : [{ ...cfg.groups[0], qs: [] }]
+    return list
+  }, [cfg, ans])
+  const last = steps.length - 1
+  const stepIdx = Math.min(step, last)
+  const S = steps[stepIdx]
+  const Icon = STEP_ICONS[stepIdx % STEP_ICONS.length]
 
-  const validate = (s) => {
+  useEffect(() => { sheetRef.current?.scrollTo?.({ top: 0, behavior: 'smooth' }) }, [stepIdx, done])
+
+  const validate = (idx) => {
     const e = {}
-    if (s === 0) {
+    if (idx === 0) {
       if (f.fullName.trim().split(/\s+/).filter(Boolean).length < 2) e.fullName = 'Antre non ak prenon ou.'
       const d = f.phone.replace(/\D/g, '')
       if (d.length < 8 || d.length > 15) e.phone = 'Nimewo telefòn lan pa valid.'
       if (f.address.trim().length < 4) e.address = 'Antre vil/komin ak katye ou.'
     }
-    if (s === 1) {
-      if (f.beenInOurSol === null) e.beenInOurSol = 'Chwazi yon repons.'
-      if (f.joinedOtherSol === null) e.joinedOtherSol = 'Chwazi yon repons.'
-    }
-    if (s === 2) {
-      if (!f.frequency) e.frequency = 'Chwazi yon frekans.'
-      if (!f.amount && !f.amountOther.trim()) e.amount = 'Chwazi yon montan.'
-    }
-    if (s === 3) {
-      if (f.canRecruit === null) e.canRecruit = 'Chwazi yon repons.'
+    steps[idx].qs.forEach(q => {
+      if (!q.required) return
+      const v = ans[q.id]
+      if (q.type === 'stepper') return
+      if (v === undefined || v === null || String(v).trim() === '') e[q.id] = 'Chwazi oswa ekri yon repons.'
+      else if (v === OTHER && !(other[q.id] || '').trim()) e[q.id] = 'Ekri repons ou nan chan an.'
+    })
+    if (idx === last) {
       if (!f.acceptRules) e.acceptRules = 'Ou dwe aksepte regleman an.'
       if (!f.acceptContact) e.acceptContact = 'Nou bezwen pèmisyon w pou kontakte w.'
     }
@@ -137,41 +221,40 @@ export default function SolJoinForm({ onClose }) {
     return Object.keys(e).length === 0
   }
 
-  const next = () => { if (validate(step)) setStep(s => Math.min(3, s + 1)) }
-  const back = () => { setErrs({}); setStep(s => Math.max(0, s - 1)) }
+  const next = () => { if (validate(stepIdx)) setStep(stepIdx + 1) }
+  const back = () => { setErrs({}); setStep(Math.max(0, stepIdx - 1)) }
+
+  // Repons final yo (sèlman kesyon vizib yo)
+  const answerList = () => {
+    const out = []
+    steps.forEach(g => g.qs.forEach(q => {
+      let v = ans[q.id]
+      if (q.type === 'stepper') v = Number.isFinite(Number(v)) && v !== undefined ? Number(v) : q.min
+      if (v === OTHER) v = (other[q.id] || '').trim() || 'Lòt'
+      if (v === undefined || v === null || String(v).trim() === '') return
+      out.push({ id: q.id, label: q.label, value: v })
+    }))
+    return out
+  }
 
   const summary = () => {
-    const freq = FREQS.find(x => x.v === f.frequency)?.l || '—'
-    const amt = f.amount ? `${fmtN(f.amount)} HTG` : (f.amountOther || '—')
-    return [
-      'Bonjou, mwen vle antre nan sòl la.',
-      `Non: ${f.fullName}`, `Telefòn: ${f.phone}`, `Adrès: ${f.address}`,
-      f.occupation && `Biznis/travay: ${f.occupation}`,
-      `Frekans: ${freq} · Montan: ${amt} · Men: ${f.slots}`,
-      f.referrer && `Refere pa: ${f.referrer}`,
-    ].filter(Boolean).join('\n')
+    const lines = ['Bonjou, mwen vle antre nan sòl la.', `Non: ${f.fullName}`, `Telefòn: ${f.phone}`, `Adrès: ${f.address}`]
+    answerList().slice(0, 8).forEach(a => lines.push(`${a.label.replace(/\s*\?\s*$/, '')}: ${typeof a.value === 'boolean' ? (a.value ? 'Wi' : 'Non') : a.value}`))
+    return lines.join('\n').slice(0, 900)
   }
   const waLink = `https://wa.me/${SUPPORT_NUMBER}?text=${encodeURIComponent(summary())}`
 
   const submit = async () => {
-    if (!validate(3) || sending) return
+    if (!validate(stepIdx) || sending) return
     setSending(true); setNetErr('')
     try {
-      const howKnow = f.howKnow === 'Lòt' ? (f.howKnowOther.trim() || 'Lòt') : f.howKnow
-      const body = {
-        fullName: f.fullName, phone: f.phone, address: f.address, occupation: f.occupation,
-        beenInOurSol: f.beenInOurSol, likedText: f.likedText, dislikedText: f.dislikedText,
-        referrer: f.referrer, howKnow,
-        joinedOtherSol: f.joinedOtherSol, otherSolText: f.otherSolText,
-        frequency: f.frequency, amount: f.amount, amountOther: f.amountOther, slots: f.slots, startWhen: f.startWhen,
-        canRecruit: f.canRecruit, recruitList: f.recruitList, message: f.message,
-        acceptRules: true, acceptContact: true, website: f.website,
-      }
+      const body = { fullName: f.fullName, phone: f.phone, address: f.address, acceptRules: true, acceptContact: true, website: f.website, answers: answerList() }
       const res = await fetch(`${SOL_API}/api/sol/join-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await res.json().catch(() => ({}))
       if (res.status === 400 && data.field) {
         setErrs({ [data.field]: data.message })
-        setStep(['fullName', 'phone', 'address'].includes(data.field) ? 0 : 3)
+        const idx = ['fullName', 'phone', 'address'].includes(data.field) ? 0 : Math.max(0, steps.findIndex(g => g.qs.some(q => q.id === data.field)))
+        setStep(data.field === 'acceptRules' ? last : idx)
         return
       }
       if (!res.ok) throw new Error(data.message || 'Pa ka voye demann lan.')
@@ -185,8 +268,7 @@ export default function SolJoinForm({ onClose }) {
   }
 
   const first = f.fullName.trim().split(/\s+/)[0] || ''
-  const pct = done ? 100 : ((step + 1) / STEPS.length) * 100
-  const S = STEPS[step]
+  const pct = done ? 100 : ((stepIdx + 1) / steps.length) * 100
 
   return (
     <div className="sj-overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()} role="dialog" aria-modal="true" aria-label="Fòm pou antre nan sòl la">
@@ -271,7 +353,7 @@ export default function SolJoinForm({ onClose }) {
         @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; } }
       `}</style>
 
-      <FormCtx.Provider value={{ f, set, errs }}>
+      <FormCtx.Provider value={{ f, set, errs, ans, setAns, other, setOther }}>
       <div className="sj-sheet" ref={sheetRef}>
         <button className="sj-x" onClick={onClose} aria-label="Fèmen"><X size={20} /></button>
 
@@ -293,101 +375,27 @@ export default function SolJoinForm({ onClose }) {
           <>
             <div className="sj-top" style={{ '--p': `${pct}%` }}>
               <div className="sj-bar"><i /></div>
-              <div className="sj-meta"><span>Etap {step + 1} sou {STEPS.length}</span><span>{Math.round(pct)}%</span></div>
+              <div className="sj-meta"><span>Etap {stepIdx + 1} sou {steps.length}</span><span>{Math.round(pct)}%</span></div>
             </div>
 
             <div className="sj-head">
-              <div className="sj-ico"><S.Icon size={25} /></div>
-              <div><h2>{S.title}</h2><p>{S.sub}</p></div>
+              <div className="sj-ico"><Icon size={25} /></div>
+              <div><h2>{S.title}</h2>{S.sub && <p>{S.sub}</p>}</div>
             </div>
 
-            <div className="sj-body" key={step}>
-              {step === 0 && (
+            <div className="sj-body" key={stepIdx}>
+              {stepIdx === 0 && (
                 <>
                   <Text k="fullName" label="Non konplè" req ph="Non ak prenon ou" auto="name" />
                   <Text k="phone" label="Telefòn (WhatsApp si posib)" req ph="+509 ..." type="tel" auto="tel" inputMode="tel" />
                   <Text k="address" label="Adrès ou" req ph="Vil/komin, katye, ri" auto="street-address" />
-                  <Text k="occupation" label="Ki biznis oswa travay ou fè ?" ph="egz: machann, kowafèz, chofè, anplwaye…" />
                 </>
               )}
 
-              {step === 1 && (
+              {renderQuestions(S.qs)}
+
+              {stepIdx === last && (
                 <>
-                  <span className="sj-q">Eske w te nan sòl nou an deja ? <b style={{ color: '#FF6A00' }}>*</b></span>
-                  <YesNo k="beenInOurSol" yes="Wi, mwen te ladan l" no="Non, se premye fwa" />
-                  <Err k="beenInOurSol" />
-                  {f.beenInOurSol === true && (
-                    <div className="sj-sub">
-                      <Area k="likedText" label="Kisa ou te renmen ?" ph="Di nou sa ki te bon pou ou…" />
-                      <Area k="dislikedText" label="Gen yon bagay ou pa t renmen ? Di nou pou n ranje l." ph="Di nou sa ki pa t mache oswa sa ou ta vle nou chanje…" />
-                    </div>
-                  )}
-                  {f.beenInOurSol === false && (
-                    <div className="sj-sub">
-                      <Text k="referrer" label="Ki moun ki refere w ?" ph="Non (ak telefòn si ou gen l). Si pa gen pèsonn, ekri “pèsonn”." />
-                      <div className="sj-f">
-                        <span className="sj-q">Kòman ou konnen n ap fè sòl / sabotay la ?</span>
-                        <div className="sj-chips">
-                          {HOWKNOW.map(h => <button type="button" key={h} className={f.howKnow === h ? 'on' : ''} onClick={() => set('howKnow', h)}>{h}</button>)}
-                        </div>
-                        {f.howKnow === 'Lòt' && <input value={f.howKnowOther} placeholder="Di nou kòman" onChange={e => set('howKnowOther', e.target.value)} />}
-                      </div>
-                    </div>
-                  )}
-
-                  <span className="sj-q" style={{ marginTop: 6 }}>Eske w konn patisipe nan yon sòl konsa (lòt kote) deja ? <b style={{ color: '#FF6A00' }}>*</b></span>
-                  <YesNo k="joinedOtherSol" />
-                  <Err k="joinedOtherSol" />
-                  {f.joinedOtherSol === true && (
-                    <div className="sj-sub">
-                      <Area k="otherSolText" label="Kijan sa te pase ?" ph="Sa ou te renmen, sa ou pa t renmen, ak sa ou ta vle wè nan pa nou an…" />
-                    </div>
-                  )}
-                </>
-              )}
-
-              {step === 2 && (
-                <>
-                  <span className="sj-q">Ki frekans ki bon pou ou ? <b style={{ color: '#FF6A00' }}>*</b></span>
-                  <div className="sj-chips">
-                    {FREQS.map(x => <button type="button" key={x.v} className={f.frequency === x.v ? 'on' : ''} onClick={() => set('frequency', x.v)}>{x.l}</button>)}
-                  </div>
-                  <Err k="frequency" />
-
-                  <span className="sj-q" style={{ marginTop: 14 }}>Konbyen ou ka mete chak fwa ? (HTG) <b style={{ color: '#FF6A00' }}>*</b></span>
-                  <div className="sj-chips">
-                    {AMOUNTS.map(a => <button type="button" key={a} className={`gold ${f.amount === a ? 'on' : ''}`} onClick={() => { set('amount', a); set('amountOther', '') }}>{fmtN(a)}</button>)}
-                    <button type="button" className={`gold ${!f.amount && f.amountOther ? 'on' : ''}`} onClick={() => set('amount', null)}>Lòt</button>
-                  </div>
-                  {!f.amount && <input style={{ width: '100%', padding: '13px 14px', borderRadius: 15, border: '1.5px solid #9DB0D6', font: 'inherit', fontSize: 16, color: '#132B5E', marginBottom: 6 }} inputMode="numeric" placeholder="Montan ou ka mete" value={f.amountOther} onChange={e => set('amountOther', e.target.value.slice(0, 20))} />}
-                  <Err k="amount" />
-
-                  <span className="sj-q" style={{ marginTop: 14 }}>Konbyen men ou vle ?</span>
-                  <div className="sj-step">
-                    <button type="button" aria-label="Mwens" onClick={() => set('slots', Math.max(1, f.slots - 1))}><Minus size={18} /></button>
-                    <strong>{f.slots}</strong>
-                    <button type="button" aria-label="Plis" onClick={() => set('slots', Math.min(10, f.slots + 1))}><Plus size={18} /></button>
-                  </div>
-
-                  <span className="sj-q" style={{ marginTop: 18 }}>Kilè ou vle kòmanse ?</span>
-                  <div className="sj-chips">
-                    {STARTS.map(s => <button type="button" key={s} className={f.startWhen === s ? 'on' : ''} onClick={() => set('startWhen', s)}>{s}</button>)}
-                  </div>
-                </>
-              )}
-
-              {step === 3 && (
-                <>
-                  <span className="sj-q">Eske w ka ede n jwenn kèk moun seryè k ap fè biznis pou rejwenn nou, pou kòb la ka vin pi plis ? <b style={{ color: '#FF6A00' }}>*</b></span>
-                  <YesNo k="canRecruit" yes="Wi, mwen konn moun" no="Pa pou kounye a" />
-                  <Err k="canRecruit" />
-                  {f.canRecruit === true && (
-                    <div className="sj-sub">
-                      <Area k="recruitList" rows={3} label="Ki moun yo ?" ph={'Youn pa liy: non + telefòn + ki biznis li fè\negz: Jean Pierre · 3412 5566 · Boutik manje'} />
-                    </div>
-                  )}
-                  <Area k="message" label="Yon kesyon oswa yon mesaj pou nou ?" ph="Ekri sa ou vle nou konnen…" rows={3} />
-
                   <label className="sj-check">
                     <input type="checkbox" checked={f.acceptRules} onChange={e => set('acceptRules', e.target.checked)} />
                     <i><Check size={15} strokeWidth={3.6} /></i>
@@ -413,8 +421,8 @@ export default function SolJoinForm({ onClose }) {
             )}
 
             <div className="sj-foot">
-              {step > 0 && <button type="button" className="sj-btn ghost" onClick={back} aria-label="Retounen"><ArrowLeft size={22} /></button>}
-              {step < 3
+              {stepIdx > 0 && <button type="button" className="sj-btn ghost" onClick={back} aria-label="Retounen"><ArrowLeft size={22} /></button>}
+              {stepIdx < last
                 ? <button type="button" className="sj-btn go" onClick={next}>Kontinye <ArrowRight size={22} /></button>
                 : <button type="button" className="sj-btn go" onClick={submit} disabled={sending}>
                     {sending

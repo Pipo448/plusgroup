@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 
 import InternetTab from './InternetTab'
+import SolJoinRequestsPanel from '../sol/SolJoinRequestsPanel'   // ✅ NOUVO — demann pou rejwenn sòl + editè kesyon
 
 const PDG_PHOTO = "/FB_IMG_1771787479362.jpg"
 const PLUS_LOGO = "/PLUS LOGO officiel officiel.png"
@@ -1656,6 +1657,7 @@ export default function AdminDashboard() {
   const [monthlyPrices, setMonthlyPrices]= useState({})
   const [solViewT,      setSolViewT]     = useState(null)
   const [showAgents,    setShowAgents]   = useState(false)
+  const [showSolJoin,   setShowSolJoin]  = useState(false)   // ✅ NOUVO
 
   const { admin } = getAdmin()
 
@@ -1920,6 +1922,9 @@ export default function AdminDashboard() {
               {!isMobile && <p style={{ margin:0, fontSize:10, color:'rgba(201,168,76,0.6)', letterSpacing:'0.06em' }}>KLIYAN SaaS AKTIF</p>}
             </div>
             <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setShowSolJoin(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'rgba(107,174,214,0.12)', color:'#6baed6', border:'1px solid rgba(107,174,214,0.3)', cursor:'pointer', fontWeight:700, fontSize: isMobile?11:13 }}>
+                📝 {isMobile?'Sòl':'Demann Sòl'}
+              </button>
               <button onClick={() => setShowAgents(true)} style={{ display:'inline-flex', alignItems:'center', gap: isMobile?4:8, padding: isMobile?'8px 14px':'10px 20px', borderRadius:10, background:'rgba(201,168,76,0.12)', color:'#C9A84C', border:'1px solid rgba(201,168,76,0.3)', cursor:'pointer', fontSize: isMobile?12:13, fontWeight:700 }}>
                 👤 {isMobile?'Ajan':'Jesyon Ajan'}
               </button>
@@ -2077,6 +2082,18 @@ export default function AdminDashboard() {
       {auditViewT   && <AuditLogModal tenant={auditViewT} onClose={() => setAuditViewT(null)}/>}
       {solViewT     && <SolManagerModal tenant={solViewT} onClose={() => setSolViewT(null)}/>}
       {showAgents   && <AgentsPanel onClose={() => setShowAgents(false)}/>}
+      {showSolJoin  && (
+        <div onClick={(e) => e.target === e.currentTarget && setShowSolJoin(false)}
+          style={{ position:'fixed', inset:0, zIndex:1000, background:'rgba(0,0,0,0.75)', overflowY:'auto', padding: isMobile?8:24, display:'flex', alignItems:'flex-start', justifyContent:'center' }}>
+          <div style={{ position:'relative', width:'100%', maxWidth:940, background:'#F1F5F9', borderRadius:18, padding: isMobile?'12px 10px 18px':'18px 22px 24px' }}>
+            <button onClick={() => setShowSolJoin(false)} aria-label="Fèmen"
+              style={{ position:'absolute', top:10, right:10, zIndex:6, width:34, height:34, borderRadius:10, border:'1px solid #CBD5E1', background:'#fff', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <X size={16} color="#0F172A"/>
+            </button>
+            <SolJoinRequestsPanel api={adminApi} />
+          </div>
+        </div>
+      )}
       {renewModalTenant && (
         <RenewModal
           tenant={renewModalTenant}

@@ -966,6 +966,8 @@ function ensureJoinTable() {
         ua TEXT
       )`)
       .then(() => prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS sol_join_requests_status_idx ON sol_join_requests (status, "createdAt" DESC)`))
+      .then(() => prisma.$executeRawUnsafe(`ALTER TABLE sol_join_requests ADD COLUMN IF NOT EXISTS extra JSONB`))
+      .then(() => prisma.$executeRawUnsafe(`CREATE TABLE IF NOT EXISTS sol_join_config (id INTEGER PRIMARY KEY, config JSONB NOT NULL, "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now())`))
       .catch(err => { joinTableReady = null; throw err })
   }
   return joinTableReady
@@ -977,6 +979,89 @@ const clean = (v, max = 300) =>
     .replace(/[ \t]+/g, ' ').trim().slice(0, max)
 const yesNo = (v) => (v === true || v === 'wi' || v === 'yes' || v === 'true') ? true : (v === false || v === 'non' || v === 'no' || v === 'false') ? false : null
 const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim().slice(0, 64)
+
+// ── Konfigirasyon kesyon yo (admin modifye) ─────────────────
+const Q_TYPES = ['text', 'textarea', 'yesno', 'choice', 'stepper']
+async function loadJoinConfig() {
+  await ensureJoinTable()
+  const rows = await prisma.$queryRawUnsafe(`SELECT config FROM sol_join_config WHERE id = 1`)
+  return rows[0]?.config || null
+}
+function sanitizeJoinConfig(input) {
+  const raw = input && typeof input === 'object' ? input : {}
+  const groups = (Array.isArray(raw.groups) ? raw.groups : []).slice(0, 8).map((g, i) => ({
+    id: clean(g?.id, 40).toLowerCase().replace(/[^a-z0-9_]/g, '') || `g${i + 1}`,
+    title: clean(g?.title, 80) || `Etap ${i + 1}`,
+    sub: clean(g?.sub, 160),
+  }))
+  const gids = new Set(groups.map(g => g.id))
+  if (!groups.length) return { error: 'Omwen yon etap obligatwa.' }
+  const seen = new Set()
+  const questions = []
+  for (const q of (Array.isArray(raw.questions) ? raw.questions : []).slice(0, 40)) {
+    const id = clean(q?.id, 40).toLowerCase().replace(/[^a-z0-9_]/g, '')
+    if (!/^[a-z][a-z0-9_]{0,39}$/.test(id) || seen.has(id)) return { error: `ID kesyon pa valid oswa double: "${clean(q?.id, 40)}"` }
+    if (['fullname', 'phone', 'address', 'acceptrules', 'acceptcontact', 'website'].includes(id.toLowerCase())) return { error: `ID "${id}" rezève.` }
+    seen.add(id)
+    const type = Q_TYPES.includes(q.type) ? q.type : 'text'
+    const label = clean(q.label, 300)
+    if (!label) return { error: 'Chak kesyon dwe gen yon tèks.' }
+    const sIf = q.showIf && typeof q.showIf === 'object' && q.showIf.id ? { id: clean(q.showIf.id, 40), value: q.showIf.value === true || q.showIf.value === false ? q.showIf.value : clean(q.showIf.value, 80) } : null
+    questions.push({
+      id, label, type,
+      group: gids.has(q.group) ? q.group : groups[0].id,
+      required: !!q.required, active: q.active !== false,
+      placeholder: clean(q.placeholder, 200),
+      options: type === 'choice' ? (Array.isArray(q.options) ? q.options : []).slice(0, 20).map(o => clean(o, 80)).filter(Boolean) : [],
+      allowOther: type === 'choice' && !!q.allowOther,
+      gold: !!q.gold,
+      yesLabel: clean(q.yesLabel, 60), noLabel: clean(q.noLabel, 60),
+      min: Number.isFinite(Number(q.min)) ? Math.max(0, Math.min(1000, Math.round(Number(q.min)))) : 1,
+      max: Number.isFinite(Number(q.max)) ? Math.max(1, Math.min(1000, Math.round(Number(q.max)))) : 10,
+      showIf: sIf,
+    })
+  }
+  return { config: { groups, questions } }
+}
+// kesyon an vizib si pa gen showIf oswa si repons kesyon paran an koresponn
+function joinQVisible(q, ans) {
+  if (!q.showIf) return true
+  const v = ans[q.showIf.id]
+  return v === q.showIf.value || (typeof v === 'string' && String(q.showIf.value) === v)
+}
+const FREQ_BY_LABEL = { 'chak jou': 'chak_jou', 'chak semèn': 'chak_semen', 'chak 2 semèn': 'chak_de_semen', 'chak mwa': 'chak_mwa' }
+
+router.get('/join-config', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'public, max-age=60')
+    return res.json({ config: await loadJoinConfig() })
+  } catch (err) {
+    console.error('[SOL JOIN CONFIG GET]', err)
+    return res.json({ config: null })   // fòm lan itilize kesyon default li yo
+  }
+})
+router.get('/admin/join-config', authAdmin, async (req, res) => {
+  try { return res.json({ config: await loadJoinConfig() }) }
+  catch (err) { console.error('[SOL JOIN CONFIG ADMIN GET]', err); return res.status(500).json({ message: 'Erè sèvè' }) }
+})
+router.put('/admin/join-config', authAdmin, async (req, res) => {
+  try {
+    await ensureJoinTable()
+    if (req.body && req.body.reset === true) {
+      await prisma.$executeRawUnsafe(`DELETE FROM sol_join_config WHERE id = 1`)
+      return res.json({ config: null })
+    }
+    const out = sanitizeJoinConfig(req.body)
+    if (out.error) return res.status(400).json({ message: out.error })
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO sol_join_config (id, config, "updatedAt") VALUES (1, $1::jsonb, now())
+       ON CONFLICT (id) DO UPDATE SET config = EXCLUDED.config, "updatedAt" = now()`, JSON.stringify(out.config))
+    return res.json({ config: out.config })
+  } catch (err) {
+    console.error('[SOL JOIN CONFIG PUT]', err)
+    return res.status(500).json({ message: 'Pa ka sove kesyon yo.' })
+  }
+})
 
 router.post('/join-requests', async (req, res) => {
   try {
@@ -1000,31 +1085,62 @@ router.post('/join-requests', async (req, res) => {
     if (address.length < 4)                             return res.status(400).json({ message: 'Antre adrès ou (vil/komin ak katye).', field: 'address' })
     if (b.acceptRules !== true || b.acceptContact !== true) return res.status(400).json({ message: 'Ou dwe aksepte regleman yo epi pèmèt nou kontakte w.', field: 'acceptRules' })
 
-    await ensureJoinTable()
+    // Repons yo: [{id,label,value}] (nouvo) — oswa chan dirèk (ansyen fòm nan kach)
+    const list = []
+    if (Array.isArray(b.answers)) {
+      for (const a of b.answers.slice(0, 60)) {
+        const id = clean(a?.id, 40)
+        if (!/^[a-z][a-z0-9_]{0,39}$/.test(id)) continue
+        const v = a.value
+        const value = typeof v === 'boolean' ? v : typeof v === 'number' && Number.isFinite(v) ? v : clean(v, 1500)
+        if (value === '' || value === null) continue
+        list.push({ id, label: clean(a.label, 300), value })
+      }
+    } else {
+      for (const k of ['occupation','beenInOurSol','likedText','dislikedText','referrer','howKnow','joinedOtherSol','otherSolText','frequency','amount','slots','startWhen','canRecruit','recruitList','message']) {
+        const v = b[k]; if (v === undefined || v === null || v === '') continue
+        list.push({ id: k, label: k, value: typeof v === 'boolean' || typeof v === 'number' ? v : clean(v, 1500) })
+      }
+    }
+    const ans = Object.fromEntries(list.map(a => [a.id, a.value]))
+
+    // Si admin sove yon konfigirasyon: verifye kesyon obligatwa yo (ki vizib)
+    const cfg = await loadJoinConfig().catch(() => null)
+    if (cfg?.questions) {
+      for (const q of cfg.questions) {
+        if (q.active === false || !q.required || !joinQVisible(q, ans)) continue
+        const v = ans[q.id]
+        if (v === undefined || v === '' || v === null) return res.status(400).json({ message: `Reponn kesyon sa a: ${q.label}`, field: q.id })
+      }
+    }
 
     // Menm nimewo a nan 24 èdtan → pa double (retounen siksè san kreye yon lòt)
     const dup = await prisma.$queryRawUnsafe(
       `SELECT id FROM sol_join_requests WHERE regexp_replace(phone, '\\D', '', 'g') = $1 AND "createdAt" > now() - interval '24 hours' LIMIT 1`, digits)
     if (dup.length) return res.status(200).json({ ok: true, duplicate: true, message: 'Nou deja resevwa demann ou a. N ap kontakte w talè.' })
 
-    const freq = ['chak_jou', 'chak_semen', 'chak_de_semen', 'chak_mwa'].includes(b.frequency) ? b.frequency : null
-    const amount = Number.isFinite(Number(b.amount)) && Number(b.amount) > 0 ? Math.min(Math.round(Number(b.amount)), 10000000) : null
-    const slots  = Number.isFinite(Number(b.slots)) && Number(b.slots) > 0 ? Math.min(Math.round(Number(b.slots)), 50) : null
+    // Mapping sou ansyen kolòn yo (pou rapò/filtre) — pi bon efò
+    const txt = (k) => (typeof ans[k] === 'string' ? clean(ans[k], 1500) : (typeof ans[k] === 'number' ? String(ans[k]) : '')) || null
+    const freqRaw = txt('frequency')
+    const freq = freqRaw ? (FREQ_BY_LABEL[freqRaw.toLowerCase()] || (['chak_jou','chak_semen','chak_de_semen','chak_mwa'].includes(freqRaw) ? freqRaw : null)) : null
+    const amtRaw = ans.amount !== undefined ? String(ans.amount).replace(/[\s,]/g, '') : ''
+    const amtNum = /^\d+$/.test(amtRaw) ? Math.min(parseInt(amtRaw, 10), 10000000) : null
+    const slotsN = Number.isFinite(Number(ans.slots)) && Number(ans.slots) > 0 ? Math.min(Math.round(Number(ans.slots)), 50) : null
 
     const rows = await prisma.$queryRawUnsafe(
       `INSERT INTO sol_join_requests
         ("fullName", phone, address, occupation, "beenInOurSol", "likedText", "dislikedText", referrer, "howKnow",
          "joinedOtherSol", "otherSolText", frequency, amount, "amountOther", slots, "startWhen",
-         "canRecruit", "recruitList", message, "acceptRules", "acceptContact", ip, ua)
-       VALUES ($1,$2,$3,$4,$5::boolean,$6,$7,$8,$9,$10::boolean,$11,$12,$13::int,$14,$15::int,$16,$17::boolean,$18,$19,true,true,$20,$21)
+         "canRecruit", "recruitList", message, "acceptRules", "acceptContact", ip, ua, extra)
+       VALUES ($1,$2,$3,$4,$5::boolean,$6,$7,$8,$9,$10::boolean,$11,$12,$13::int,$14,$15::int,$16,$17::boolean,$18,$19,true,true,$20,$21,$22::jsonb)
        RETURNING id`,
-      fullName, phone, address, clean(b.occupation, 160) || null,
-      yesNo(b.beenInOurSol), clean(b.likedText, 1200) || null, clean(b.dislikedText, 1200) || null,
-      clean(b.referrer, 240) || null, clean(b.howKnow, 160) || null,
-      yesNo(b.joinedOtherSol), clean(b.otherSolText, 1200) || null,
-      freq, amount, clean(b.amountOther, 80) || null, slots, clean(b.startWhen, 80) || null,
-      yesNo(b.canRecruit), clean(b.recruitList, 1500) || null, clean(b.message, 1500) || null,
-      ip, clean(req.headers['user-agent'], 240) || null)
+      fullName, phone, address, txt('occupation'),
+      yesNo(ans.beenInOurSol), txt('likedText'), txt('dislikedText'),
+      txt('referrer'), txt('howKnow'),
+      yesNo(ans.joinedOtherSol), txt('otherSolText'),
+      freq, amtNum, amtNum === null && amtRaw ? clean(String(ans.amount), 80) : null, slotsN, txt('startWhen'),
+      yesNo(ans.canRecruit), txt('recruitList'), txt('message'),
+      ip, clean(req.headers['user-agent'], 240) || null, JSON.stringify(list))
 
     hits.push(now); joinHits.set(ip, hits)
     if (joinHits.size > 5000) { for (const [k, v] of joinHits) if (!v.some(t => now - t < 3600000)) joinHits.delete(k) }
