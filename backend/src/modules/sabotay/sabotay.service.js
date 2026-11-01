@@ -108,13 +108,6 @@ async function getPlans(tenantId, branchId, params = {}) {
     ...(status   && { status }),
     ...(search   && { name: { contains: search, mode: 'insensitive' } }),
   }
-  // ⚠️ KORIJE EGRESS — sa a se sous 623.6KB `/api/sabotay/plans` la. Avan,
-  // nou te chaje 6 chan (`id, dueDate, paidDate, amount, timing, fineAmt`)
-  // pou CHAK peman CHAK manm aktif nan CHAK plan — men pi ba a (liy ~146),
-  // transfòmasyon an itilize SÈLMAN `dueDate` ak `timing` pou bati
-  // `payments`/`paymentTimings` (yon bolean pou chak dat). Lòt 4 chan yo
-  // (id, paidDate, amount, fineAmt) te chaje pou granmesi — menm fix ki te
-  // fèt deja nan sol.routes.js (PAYMENT_SELECT_MINIMAL).
   const [plans, total] = await Promise.all([
     prisma.sabotayPlan.findMany({
       where,
@@ -123,7 +116,7 @@ async function getPlans(tenantId, branchId, params = {}) {
         _count:  { select: { members: true, payments: true } },
         members: {
           where:   { isActive: true },
-          include: { payments: { select: { dueDate: true, timing: true } } },
+          include: { payments: { select: { id: true, dueDate: true, paidDate: true, amount: true, timing: true, fineAmt: true } } },
           orderBy: { position: 'asc' },
         },
       },
@@ -828,8 +821,18 @@ async function getAdminCash(tenantId, planId) {
   return { totalGlobal: Number(totalAgg._sum.amount || 0), byType, byPlan: Object.values(byPlan), entries }
 }
 
+// Frè kanpe: valè admin bay la (si valid) → sinon penalite plan lan → sinon "men sòl la" (frè pa manm)
+function resolveStopFee(plan, stopFee) {
+  const def = Number(plan.stopPenaltyAmount || 0) > 0
+    ? Number(plan.stopPenaltyAmount)
+    : Number(plan.feePerMember || plan.fee || 0)
+  if (stopFee === undefined || stopFee === null || stopFee === '') return def
+  const n = Number(stopFee)
+  return Number.isFinite(n) && n >= 0 ? n : def
+}
+
 async function memberAction(tenantId, planId, memberId, userId, data) {
-  const { action, reason, payoutDate } = data
+  const { action, reason, payoutDate, stopFee } = data
 
   if (!['block','unblock','stop','resume','payout','schedule_payout','cancel_scheduled_payout','mark_refund_paid'].includes(action))
     throw new Error(`Aksyon invalide: ${action}`)
@@ -904,11 +907,13 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   }
 
   if (action === 'stop') {
-    const stopPenaltyAmount = Number(plan.stopPenaltyAmount || 0)
+    const stopPenaltyAmount = resolveStopFee(plan, stopFee)
     const totalPaid = member.payments.reduce((s, p) => s + Number(p.amount), 0)
     // ✅ FIX: penalite kounye a se yon MONTAN FIKS (pa pousantaj) — plafonnen
     // pou l pa janm depase kòb manm nan reyèlman peye.
     const penaltyAmt = Math.min(stopPenaltyAmount, totalPaid)
+    // ✅ NOUVO: frè kanpe a ka fikse pa admin nan moman kanpe a (stopFee). Si l pa bay li:
+    // penalite plan lan, epi si sa a 0 → "men sòl la" (frè pa manm plan an).
     // ✅ FIX: montan ki rete a (totalPaid - penalite) kounye a ANREJISTRE sou
     // manm nan — pa jis nan yon mesaj tèks — pou closePlan() ka konte l tout bon.
     const netPayout = totalPaid - penaltyAmt
@@ -923,7 +928,7 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
           data: {
             accountId: solPos.account.id, type: 'stop_penalty', titleHt: '⏸️ Ou kanpe nan Sol la',
             messageHt: penaltyAmt > 0
-              ? `Ou kanpe patisipasyon ou. Penalite: ${penaltyAmt} HTG. Ou ap resevwa ${netPayout} HTG le sol la fini.`
+              ? `Ou kanpe patisipasyon ou. Frè kanpe (men sòl la): ${penaltyAmt} HTG. Ou te peye ${totalPaid} HTG, kidonk ou ap resevwa ${netPayout} HTG le sol la fini.`
               : `Ou kanpe patisipasyon ou nan ${plan.name}. Ou ap resevwa ${totalPaid} HTG le sol la fini.`,
           }
         }).catch(() => {})
@@ -940,6 +945,8 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
       // ✅ NOUVO: 'isBlocked' se chan REYÈL login la verifye — konekte l ak aksyon an
       ...(action === 'block'   && { isBlocked: true }),
       ...(action === 'unblock' && { isBlocked: false }),
+      // ✅ NOUVO: yon manm kanpe pa bloke ankò — li dwe ka antre wè kont li + mesaj kanpe a
+      ...(action === 'stop'    && { isBlocked: false }),
       ...(reason && { notes: reason }),
     },
     include: { payments: true }
@@ -965,12 +972,13 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
           status: newStatus,
           ...(action === 'block'   && { isBlocked: true }),
           ...(action === 'unblock' && { isBlocked: false }),
+          ...(action === 'stop'    && { isBlocked: false }),
         },
       })
       // ✅ FIX: lè kanpe, chak "men" (sibling) dwe gen PWÒP ranbousman pa li,
       // kalkile ak pwòp total peye pa li (pa jis premye a).
       if (action === 'stop') {
-        const stopPenaltyAmount = Number(plan.stopPenaltyAmount || 0)
+        const stopPenaltyAmount = resolveStopFee(plan, stopFee)
         for (const sib of siblings) {
           const sibTotalPaid = sib.payments.reduce((s, p) => s + Number(p.amount), 0)
           const sibPenalty   = Math.min(stopPenaltyAmount, sibTotalPaid)

@@ -258,12 +258,13 @@ router.post('/auth/login', async (req, res) => {
     // ✅ FIX 3: Verifye si manm nan bloke — bloke = pa ka konekte
     const [sabotayMember, lateSt] = await Promise.all([
       matchedAccount.memberId
-        ? prisma.sabotayMember.findUnique({ where: { id: matchedAccount.memberId }, select: { isBlocked: true } }).catch(() => null)
+        ? prisma.sabotayMember.findUnique({ where: { id: matchedAccount.memberId }, select: { isBlocked: true, status: true } }).catch(() => null)
         : Promise.resolve(null),
       getLateStatus(matchedAccount),
     ])
     if (matchedAccount.memberId) {
-      const isBlocked = sabotayMember?.isBlocked === true
+      // ✅ NOUVO: manm kanpe (stopped) ka konekte pou wè mesaj kanpe a + montan l ap touche a
+      const isBlocked = sabotayMember?.isBlocked === true && sabotayMember?.status !== 'stopped'
       if (isBlocked) {
         return res.status(403).json({
           message: '🔒 Kont ou bloke poutèt reta peman. Kontakte admin pou debloke l.',
@@ -273,7 +274,7 @@ router.post('/auth/login', async (req, res) => {
     }
 
     // ✅ NOUVO: blokaj otomatik si manm nan an reta
-    if (lateSt.late) {
+    if (lateSt.late && sabotayMember?.status !== 'stopped') {
       return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
     }
 
@@ -464,14 +465,15 @@ router.get('/members/me', authMember, async (req, res) => {
 
     // ✅ NOUVO: si manm nan tonbe an reta pandan l te deja konekte → bloke aksè a tou
     const [blockedRow, lateSt, tenant] = await Promise.all([
-      prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select: { isBlocked: true } }).catch(() => null),
+      prisma.sabotayMember.findUnique({ where: { id: account.memberId }, select: { isBlocked: true, status: true } }).catch(() => null),
       getLateStatus(account),
       prisma.tenant.findUnique({ where: { id: account.tenantId }, select: { id: true, name: true, phone: true, address: true } }),
     ])
-    if (blockedRow?.isBlocked) {
+    const memberStopped = blockedRow?.status === 'stopped'
+    if (blockedRow?.isBlocked && !memberStopped) {
       return res.status(403).json({ message: '🔒 Kont ou bloke poutèt reta peman. Kontakte admin pou debloke l.', blocked: true })
     }
-    if (lateSt.late) {
+    if (lateSt.late && !memberStopped) {
       return res.status(403).json({ message: lateMessage(lateSt), blocked: true, late: true, lateCount: lateSt.count, lateAmount: lateSt.amount })
     }
 

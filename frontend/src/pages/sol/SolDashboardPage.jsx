@@ -475,6 +475,34 @@ export default function SolDashboardPage() {
         </div>
       )}
 
+      {isStopped && (() => {
+        const refund = Number(member.stopRefundAmount || 0)
+        const feeKept = Math.max(0, amountContributed - refund)
+        const Row = ({ l, v, c, b }) => (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '9px 0', borderTop: b ? `1px dashed ${V.line}` : 'none' }}>
+            <span style={{ fontSize: 13, color: b ? V.text : V.muted2, fontWeight: b ? 700 : 500 }}>{l}</span>
+            <span className="sol-num" style={{ fontSize: b ? 17 : 14, fontWeight: 800, color: c || V.text }}>{v}</span>
+          </div>
+        )
+        return (
+          <div className="sol-card sol-card-pad" style={{ marginBottom: 14, borderColor: 'var(--s-amber-line, var(--s-amber))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber, fontSize: 19 }}>⏸️</div>
+              <div>
+                <div className="sol-alert-title" style={{ color: V.amber }}>Ou kanpe nan sòl la</div>
+                <div className="sol-alert-sub">Ou pa bezwen peye ankò. Ou ap touche lè sòl la fini.</div>
+              </div>
+            </div>
+            <Row l="Total ou te peye" v={`${fmt(amountContributed)} HTG`} />
+            <Row l="Frè kanpe (men sòl la)" v={`− ${fmt(feeKept)} HTG`} c={V.red} />
+            <Row l="Montan ou ap touche" v={`${fmt(refund)} HTG`} c={V.green} b />
+            <div style={{ fontSize: 11.5, color: V.muted2, marginTop: 6 }}>
+              {member.stopRefundPaid ? '✅ Ranbousman sa a peye deja.' : 'Kontakte admin ou si ou gen kesyon sou kòb sa a.'}
+            </div>
+          </div>
+        )
+      })()}
+
       {!isWinner && !isStopped && (() => {
         if (!lastPaidDate) {
           return (
@@ -580,7 +608,7 @@ export default function SolDashboardPage() {
 
       <PerformanceSection scoreData={scoreData} />
       <PerformanceMessage scoreData={scoreData} />
-      {declaredStr !== today && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
+      {declaredStr !== today && !isStopped && <DeclaredPayoutBanner declaredPayoutDate={member.declaredPayoutDate} />}
 
       {!isStopped && plan.stopPenaltyAmount > 0 && (
         <div className="sol-alert amber" style={{ alignItems: 'flex-start' }}>
