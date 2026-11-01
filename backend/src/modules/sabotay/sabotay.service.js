@@ -821,14 +821,27 @@ async function getAdminCash(tenantId, planId) {
   return { totalGlobal: Number(totalAgg._sum.amount || 0), byType, byPlan: Object.values(byPlan), entries }
 }
 
-// Frè kanpe: valè admin bay la (si valid) → sinon penalite plan lan → sinon "men sòl la" (frè pa manm)
-function resolveStopFee(plan, stopFee) {
-  const def = Number(plan.stopPenaltyAmount || 0) > 0
-    ? Number(plan.stopPenaltyAmount)
-    : Number(plan.feePerMember || plan.fee || 0)
+// ✅ "Men sòl" = montan OBLIGATWA chak manm toujou pèdi (frè plan an, egzanp 2000 sou sòl 2000 G).
+// Li pa yon penalite: se pati nòmal estrikti sòl la (27 manm × 2000 = 54 000, gayan touche 52 000).
+function getMenSol(plan) {
+  return Number(plan.feePerMember || plan.fee || 0)
+}
+
+// ✅ Penalite enfraksyon (OPSYONÈL): admin fikse l nan moman kanpe a (stopFee). Si l pa bay li →
+// penalite default plan an (stopPenaltyAmount, souvan 0).
+function resolveStopPenalty(plan, stopFee) {
+  const def = Number(plan.stopPenaltyAmount || 0)
   if (stopFee === undefined || stopFee === null || stopFee === '') return def
   const n = Number(stopFee)
   return Number.isFinite(n) && n >= 0 ? n : def
+}
+
+// Kalkil kanpe: peye → (− men sòl) → ranbousman de baz → (− penalite) → montan final
+function computeStopRefund(plan, totalPaid, stopFee) {
+  const menSol   = Math.min(getMenSol(plan), totalPaid)
+  const base     = totalPaid - menSol
+  const penalty  = Math.min(resolveStopPenalty(plan, stopFee), base)
+  return { totalPaid, menSol, base, penalty, net: base - penalty }
 }
 
 async function memberAction(tenantId, planId, memberId, userId, data) {
@@ -907,18 +920,12 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
   }
 
   if (action === 'stop') {
-    const stopPenaltyAmount = resolveStopFee(plan, stopFee)
     const totalPaid = member.payments.reduce((s, p) => s + Number(p.amount), 0)
-    // ✅ FIX: penalite kounye a se yon MONTAN FIKS (pa pousantaj) — plafonnen
-    // pou l pa janm depase kòb manm nan reyèlman peye.
-    const penaltyAmt = Math.min(stopPenaltyAmount, totalPaid)
-    // ✅ NOUVO: frè kanpe a ka fikse pa admin nan moman kanpe a (stopFee). Si l pa bay li:
-    // penalite plan lan, epi si sa a 0 → "men sòl la" (frè pa manm plan an).
-    // ✅ FIX: montan ki rete a (totalPaid - penalite) kounye a ANREJISTRE sou
-    // manm nan — pa jis nan yon mesaj tèks — pou closePlan() ka konte l tout bon.
-    const netPayout = totalPaid - penaltyAmt
+    // ✅ NOUVO: peye − men sòl (obligatwa) = ranbousman de baz; − penalite enfraksyon (admin fikse) = final.
+    // Montan final la ANREJISTRE sou manm nan pou closePlan() ka konte l.
+    const { menSol, base, penalty: penaltyAmt, net: netPayout } = computeStopRefund(plan, totalPaid, stopFee)
     if (penaltyAmt > 0) {
-      await addToAdminCash(tenantId, planId, plan.name, 'stop_penalty', penaltyAmt, memberId, member.name, `Penalite kanpe: ${penaltyAmt} HTG (montan fiks) sou ${totalPaid} HTG kontribye`)
+      await addToAdminCash(tenantId, planId, plan.name, 'stop_penalty', penaltyAmt, memberId, member.name, `Penalite enfraksyon (kanpe): ${penaltyAmt} HTG sou ${base} HTG (apre men sòl ${menSol} HTG)`)
     }
     await prisma.sabotayMember.update({ where: { id: memberId }, data: { stopRefundAmount: netPayout, stopRefundPaid: false } })
     try {
@@ -927,9 +934,7 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
         await prisma.solNotification.create({
           data: {
             accountId: solPos.account.id, type: 'stop_penalty', titleHt: '⏸️ Ou kanpe nan Sol la',
-            messageHt: penaltyAmt > 0
-              ? `Ou kanpe patisipasyon ou. Frè kanpe (men sòl la): ${penaltyAmt} HTG. Ou te peye ${totalPaid} HTG, kidonk ou ap resevwa ${netPayout} HTG le sol la fini.`
-              : `Ou kanpe patisipasyon ou nan ${plan.name}. Ou ap resevwa ${totalPaid} HTG le sol la fini.`,
+            messageHt: `Ou kanpe nan ${plan.name}. Ou te peye ${totalPaid} HTG; men sòl la (${menSol} HTG) dedwi${penaltyAmt > 0 ? `, ak yon penalite ${penaltyAmt} HTG` : ''}. Ou ap resevwa ${netPayout} HTG le sol la fini.`,
           }
         }).catch(() => {})
       }
@@ -978,13 +983,12 @@ async function memberAction(tenantId, planId, memberId, userId, data) {
       // ✅ FIX: lè kanpe, chak "men" (sibling) dwe gen PWÒP ranbousman pa li,
       // kalkile ak pwòp total peye pa li (pa jis premye a).
       if (action === 'stop') {
-        const stopPenaltyAmount = resolveStopFee(plan, stopFee)
         for (const sib of siblings) {
           const sibTotalPaid = sib.payments.reduce((s, p) => s + Number(p.amount), 0)
-          const sibPenalty   = Math.min(stopPenaltyAmount, sibTotalPaid)
+          const sibCalc      = computeStopRefund(plan, sibTotalPaid, stopFee)
           await prisma.sabotayMember.update({
             where: { id: sib.id },
-            data: { stopRefundAmount: sibTotalPaid - sibPenalty, stopRefundPaid: false },
+            data: { stopRefundAmount: sibCalc.net, stopRefundPaid: false },
           })
         }
       }

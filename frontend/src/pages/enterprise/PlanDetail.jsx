@@ -612,9 +612,12 @@ export default function PlanDetail({
                           {m.stopRefundPaid ? 'Ranbousman peye' : `Rete pou peye: ${fmt(m.stopRefundAmount)} G`}
                         </Chip>
                       )}
-                      {isStopped && (paid * Number(plan.amount) - Number(m.stopRefundAmount || 0)) > 0 && (
-                        <Chip color={T.red}>Frè kanpe − {fmt(paid * Number(plan.amount) - Number(m.stopRefundAmount || 0))} G</Chip>
-                      )}
+                      {isStopped && (() => {
+                        const pd = paid * Number(plan.amount)
+                        const menSol = Math.min(pd, Number(plan.feePerMember || plan.fee || 0))
+                        const pen = pd - menSol - Number(m.stopRefundAmount || 0)
+                        return pen > 0 ? <Chip color={T.red}>Penalite − {fmt(pen)} G</Chip> : null
+                      })()}
                     </div>
                   </div>
 

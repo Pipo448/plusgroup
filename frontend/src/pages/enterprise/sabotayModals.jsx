@@ -512,9 +512,8 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 // ─────────────────────────────────────────────────────────────
 export function ModalMemberAction({ member, plan, action, onClose, onConfirm, loading }) {
   const [reason, setReason] = useState('')
-  // ✅ NOUVO: frè kanpe (men sòl la) — admin ka chanje l nan moman kanpe a
-  const defaultFee = Number(plan.stopPenaltyAmount || 0) > 0 ? Number(plan.stopPenaltyAmount) : Number(plan.feePerMember || plan.fee || 0)
-  const [fee, setFee] = useState(String(defaultFee))
+  // ✅ Penalite enfraksyon (opsyonèl) — admin fikse l nan moman kanpe a. Men sòl la (obligatwa) kalkile otomatikman.
+  const [fee, setFee] = useState(String(Number(plan.stopPenaltyAmount || 0)))
   const configs = {
     block:   { title: 'Bloke kont',          color: T.red,    icon: <Lock size={20} />,       desc: 'Kont manm sa a ap bloke. Li p ap ka kontinye san admin debloke l.', btn: 'Bloke kont',          cls: 'red'    },
     unblock: { title: 'Debloke kont',        color: T.green,  icon: <Unlock size={20} />,     desc: 'Admin ap debloke kont manm sa a.',                                btn: 'Debloke kont',        cls: 'green'  },
@@ -527,7 +526,9 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
     return getAllPaymentDates(plan).filter(d => member.payments?.[d]).length * Number(plan.amount)
   }, [action, plan, member])
   if (!cfg) return null
-  const penalty = Math.min(stoppedPayout, Math.max(0, Number(fee) || 0))
+  const menSol  = Math.min(stoppedPayout, Number(plan.feePerMember || plan.fee || 0))
+  const baseRefund = stoppedPayout - menSol
+  const penalty = Math.min(baseRefund, Math.max(0, Number(fee) || 0))
 
   const footer = (
     <>
@@ -551,14 +552,19 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
         <p style={{ fontSize: 13.5, color: '#3a3d48', margin: 0, lineHeight: 1.6 }}>{cfg.desc}</p>
         {action === 'stop' && (
           <>
-            <Field label="Frè kanpe (men sòl la) ki dedwi">
+            <div className="ke-summary" style={{ marginTop: 0 }}>
+              <div className="line"><span>Kontribisyon deja fèt</span><b>{fmt(stoppedPayout)} HTG</b></div>
+              <div className="line"><span>− Men sòl (obligatwa)</span><b style={{ color: T.red }}>{fmt(menSol)} HTG</b></div>
+              <div className="total"><span>Ranbousman de baz</span><b style={{ color: T.goldInk }}>{fmt(baseRefund)}</b></div>
+            </div>
+            <Field label="Penalite enfraksyon (opsyonèl)" hint="Si manm nan fè yon enfraksyon ki ka fè sòl la kraze. Kite 0 si pa gen.">
               <input type="number" min="0" inputMode="decimal" className="ke-input" value={fee} onChange={e => setFee(e.target.value)}
                 style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }} />
             </Field>
             <div className="ke-summary" style={{ marginTop: 0 }}>
-              <div className="line"><span>Kontribisyon deja fèt</span><b>{fmt(stoppedPayout)} HTG</b></div>
-              <div className="line"><span>− Frè kanpe</span><b style={{ color: T.red }}>{fmt(penalty)} HTG</b></div>
-              <div className="total"><span>L ap resevwa lè plan fèmen</span><b style={{ color: T.goldInk }}>{fmt(stoppedPayout - penalty)}</b></div>
+              <div className="line"><span>Ranbousman de baz</span><b>{fmt(baseRefund)} HTG</b></div>
+              <div className="line"><span>− Penalite enfraksyon</span><b style={{ color: T.red }}>{fmt(penalty)} HTG</b></div>
+              <div className="total"><span>Montan final li ap resevwa</span><b style={{ color: T.goldInk }}>{fmt(baseRefund - penalty)}</b></div>
             </div>
           </>
         )}

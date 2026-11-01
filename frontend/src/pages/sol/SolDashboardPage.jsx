@@ -476,8 +476,10 @@ export default function SolDashboardPage() {
       )}
 
       {isStopped && (() => {
-        const refund = Number(member.stopRefundAmount || 0)
-        const feeKept = Math.max(0, amountContributed - refund)
+        const refund   = Number(member.stopRefundAmount || 0)
+        const menSol   = Math.min(amountContributed, Number(plan.feePerMember || plan.fee || 0))
+        const base     = Math.max(0, amountContributed - menSol)
+        const penalty  = Math.max(0, base - refund)
         const Row = ({ l, v, c, b }) => (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '9px 0', borderTop: b ? `1px dashed ${V.line}` : 'none' }}>
             <span style={{ fontSize: 13, color: b ? V.text : V.muted2, fontWeight: b ? 700 : 500 }}>{l}</span>
@@ -485,21 +487,30 @@ export default function SolDashboardPage() {
           </div>
         )
         return (
-          <div className="sol-card sol-card-pad" style={{ marginBottom: 14, borderColor: 'var(--s-amber-line, var(--s-amber))' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber, fontSize: 19 }}>⏸️</div>
-              <div>
-                <div className="sol-alert-title" style={{ color: V.amber }}>Ou kanpe nan sòl la</div>
-                <div className="sol-alert-sub">Ou pa bezwen peye ankò. Ou ap touche lè sòl la fini.</div>
+          <>
+            <div className="sol-card sol-card-pad" style={{ marginBottom: 14, borderColor: 'var(--s-amber-line, var(--s-amber))' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber, fontSize: 19 }}>⏸️</div>
+                <div>
+                  <div className="sol-alert-title" style={{ color: V.amber }}>Ou kanpe nan sòl la</div>
+                  <div className="sol-alert-sub">Ou pa bezwen peye ankò. Ou ap touche lè sòl la fini.</div>
+                </div>
+              </div>
+              <Row l="Total ou te peye" v={`${fmt(amountContributed)} HTG`} />
+              <Row l="Men sòl (obligatwa)" v={`− ${fmt(menSol)} HTG`} c={V.red} />
+              <Row l="Ranbousman de baz" v={`${fmt(base)} HTG`} c={V.text} b />
+            </div>
+
+            <div className="sol-card sol-card-pad" style={{ marginBottom: 14 }}>
+              <div className="sol-section-title" style={{ marginBottom: 4 }}>Montan final ou ap touche</div>
+              <Row l="Ranbousman de baz" v={`${fmt(base)} HTG`} />
+              {penalty > 0 && <Row l="Penalite enfraksyon" v={`− ${fmt(penalty)} HTG`} c={V.red} />}
+              <Row l="Total final" v={`${fmt(refund)} HTG`} c={V.green} b />
+              <div style={{ fontSize: 11.5, color: V.muted2, marginTop: 6 }}>
+                {member.stopRefundPaid ? '✅ Ranbousman sa a peye deja.' : 'Kontakte admin ou si ou gen kesyon sou kòb sa a.'}
               </div>
             </div>
-            <Row l="Total ou te peye" v={`${fmt(amountContributed)} HTG`} />
-            <Row l="Frè kanpe (men sòl la)" v={`− ${fmt(feeKept)} HTG`} c={V.red} />
-            <Row l="Montan ou ap touche" v={`${fmt(refund)} HTG`} c={V.green} b />
-            <div style={{ fontSize: 11.5, color: V.muted2, marginTop: 6 }}>
-              {member.stopRefundPaid ? '✅ Ranbousman sa a peye deja.' : 'Kontakte admin ou si ou gen kesyon sou kòb sa a.'}
-            </div>
-          </div>
+          </>
         )
       })()}
 
