@@ -25,6 +25,7 @@ import {
   PerformanceMessage, PerformanceSection, SolChat, DeclaredPayoutBanner, MemberScoreDisplay,
 } from './SolDashboardComponents'
 
+import { SolBanner, GoldKpis, SolReports, SolReceiptButton, SolReceiptModal, IMG_LOGO } from './SolReports'
 import { ModalChangePassword, ModalPayMobile, ModalAccount } from './SolDashboardModals'
 
 const VAPID = 'BNF9hgxjoniUXcgyOV7dWIfE5_-edySbwFKLS93Fvp3eYZqaj028sMuwChP-OZTHr9mLjUWxggkgn6H7NtgSpMU'
@@ -65,12 +66,13 @@ export default function SolDashboardPage() {
   const [showChangePw,   setShowChangePw]   = useState(false)
   const [showPayModal,   setShowPayModal]   = useState(false)
   const [showAccount,    setShowAccount]    = useState(false)
+  const [showReceipt,    setShowReceipt]    = useState(false)
   const [showPlanPicker, setShowPlanPicker] = useState(false)
   const [selectedPlanId, setSelectedPlanId] = useState(null)
   const [tab,            setTab]            = useState('home')
   const [unreadCount,    setUnreadCount]    = useState(0)
   const [theme,          setThemeState]     = useState(() => {
-    try { const t = localStorage.getItem('sol_theme'); return THEMES[t] ? t : 'dark' } catch { return 'dark' }
+    try { const t = localStorage.getItem('sol_theme'); return THEMES[t] ? t : 'plus' } catch { return 'plus' }
   })
   const [pushState,      setPushState]      = useState(() => pushSupported() ? Notification.permission : 'unsupported')
   const [, setTick]                         = useState(0) // re-render chak 30s — mete tan ajou
@@ -389,6 +391,7 @@ export default function SolDashboardPage() {
         </div>
       </div>
 
+      <img src={IMG_LOGO} alt="Plus Group" style={{ height: 30, width: 'auto', alignSelf: 'flex-start', margin: '-8px 0 18px 2px', background: '#fff', padding: '5px 10px', borderRadius: 10, boxSizing: 'content-box' }} onError={(e) => { e.currentTarget.style.display = 'none' }} />
       <div className="sol-card" style={{ background: 'var(--s-card2)', padding: 14, marginBottom: 20, display: 'flex', gap: 12, alignItems: 'center' }}>
         <div style={{ width: 42, height: 42, borderRadius: 14, background: 'var(--s-btn)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, flexShrink: 0 }}>{initials}</div>
         <div style={{ minWidth: 0 }}>
@@ -439,6 +442,7 @@ export default function SolDashboardPage() {
   // ─── AKÈY ───────────────────────────────────────────────────
   const homeJSX = (
     <>
+      <SolBanner name={member.name} tenantName={tenantName} />
       {/* Alèt */}
       {isWinner && (
         <div className="sol-alert green">
@@ -518,17 +522,13 @@ export default function SolDashboardPage() {
           </Tile>
         ) : (
           <>
-            <Tile tone={restaPouPeye === 0 ? 'green' : 'red'} icon={<Wallet size={16} />} label="Rès pou peye" sub="HTG">
-              <div className="sol-tile-val sol-num" style={{ color: restaPouPeye === 0 ? V.green : V.red }}><CountUp value={restaPouPeye} /></div>
-            </Tile>
-
             {allSlots.map(slot => {
               const isExchangedSlot = slot.position === (member.accountPosition ?? member.position)
               const slotPayout      = isExchangedSlot ? payoutAjiste : payoutDebaz
               // "Men #X" ak dat li PA JANM afiche otomatikman — sèlman lè ADMIN deklare yon dat
               const slotDeclared = slot.declaredPayoutDate ? String(slot.declaredPayoutDate).split('T')[0] : null
               const showBalance  = isExchangedSlot && memberBalance !== 0
-              if (allSlots.length === 1 && !slotDeclared && !showBalance) return null   // deja nan kat la
+              if (allSlots.length === 1 && !showBalance) return null   // deja nan kat la + KPI lò
               return (
                 <Tile key={slot.position} tone="accent" icon={<Trophy size={16} />} label={slotDeclared ? `Men #${slot.position}` : 'Men'}
                   sub={slotDeclared ? `Ou ap touche ${dmy(slotDeclared)}` : 'HTG'}>
@@ -553,6 +553,9 @@ export default function SolDashboardPage() {
           <MemberScoreDisplay member={member} plan={plan} today={today} currentTime={currentTime} />
         </Tile>
       </div>
+
+      <GoldKpis amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={isWinner ? payoutAjiste : totalPayout} totalPaid={totalPaid} totalDates={dates.length} isStopped={isStopped} payoutDate={declaredDates[0]} />
+      <SolReports dates={dates} member={member} plan={plan} today={today} isDateOverdue={isDateOverdue} allSlots={allSlots} />
 
       <PerformanceSection scoreData={scoreData} />
       <PerformanceMessage scoreData={scoreData} />
@@ -579,6 +582,7 @@ export default function SolDashboardPage() {
   // ─── ISTWA PEMAN ────────────────────────────────────────────
   const historyJSX = (
     <>
+      <SolReceiptButton onClick={() => setShowReceipt(true)} />
       <div className="sol-card" style={{ overflow: 'hidden', marginBottom: 14 }}>
         <div style={{ padding: '16px 20px 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
           <span className="sol-section-title">Kaye peman</span>
@@ -679,6 +683,7 @@ export default function SolDashboardPage() {
           onLogout={() => { setShowAccount(false); handleLogout() }}
         />
       )}
+      {showReceipt && <SolReceiptModal onClose={() => setShowReceipt(false)} member={member} plan={plan} tenantName={tenantName} totalPaid={totalPaid} totalDates={dates.length} amountContributed={amountContributed} restaPouPeye={restaPouPeye} payout={totalPayout} lastPaidDate={lastPaidDate} />}
       {showPayModal && <ModalPayMobile onClose={() => setShowPayModal(false)} />}
       {showChangePw && <ModalChangePassword token={token} onClose={() => setShowChangePw(false)} />}
     </div>

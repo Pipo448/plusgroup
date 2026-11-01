@@ -918,4 +918,157 @@ router.patch('/superadmin/plans/:planId/members/:memberId', authAdmin, async (re
   }
 })
 
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO — DEMANN POU ANTRE NAN SÒL LA (fòm piblik sou paj login lan)
+//   POST  /api/sol/join-requests             (piblik, rate-limit + honeypot)
+//   GET   /api/sol/admin/join-requests       (admin)  ?status=nouvo|kontakte|aksepte|refize
+//   PATCH /api/sol/admin/join-requests/:id   (admin)  { status, adminNote }
+// Tab la (sol_join_requests) kreye otomatikman si l pa egziste. Ou ka kouri sol_join_requests.sql
+// nan Supabase SQL Editor tou (menm bagay). Pa gen okenn chanjman nan schema.prisma.
+// ══════════════════════════════════════════════════════════════
+const JOIN_STATUSES = ['nouvo', 'kontakte', 'aksepte', 'refize']
+const JOIN_MAX_PER_HOUR = 4
+const joinHits = new Map()   // ip -> [timestamps]
+
+let joinTableReady = null
+function ensureJoinTable() {
+  if (!joinTableReady) {
+    joinTableReady = prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS sol_join_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        "createdAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMPTZ NOT NULL DEFAULT now(),
+        "fullName" TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        address TEXT NOT NULL,
+        occupation TEXT,
+        "beenInOurSol" BOOLEAN,
+        "likedText" TEXT,
+        "dislikedText" TEXT,
+        referrer TEXT,
+        "howKnow" TEXT,
+        "joinedOtherSol" BOOLEAN,
+        "otherSolText" TEXT,
+        frequency TEXT,
+        amount INTEGER,
+        "amountOther" TEXT,
+        slots INTEGER,
+        "startWhen" TEXT,
+        "canRecruit" BOOLEAN,
+        "recruitList" TEXT,
+        message TEXT,
+        "acceptRules" BOOLEAN NOT NULL DEFAULT false,
+        "acceptContact" BOOLEAN NOT NULL DEFAULT false,
+        status TEXT NOT NULL DEFAULT 'nouvo',
+        "adminNote" TEXT,
+        "tenantId" TEXT,
+        ip TEXT,
+        ua TEXT
+      )`)
+      .then(() => prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS sol_join_requests_status_idx ON sol_join_requests (status, "createdAt" DESC)`))
+      .catch(err => { joinTableReady = null; throw err })
+  }
+  return joinTableReady
+}
+
+const clean = (v, max = 300) =>
+  (typeof v === 'string' ? v : v == null ? '' : String(v))
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .replace(/[ \t]+/g, ' ').trim().slice(0, max)
+const yesNo = (v) => (v === true || v === 'wi' || v === 'yes' || v === 'true') ? true : (v === false || v === 'non' || v === 'no' || v === 'false') ? false : null
+const clientIp = (req) => String(req.headers['x-forwarded-for'] || req.ip || '').split(',')[0].trim().slice(0, 64)
+
+router.post('/join-requests', async (req, res) => {
+  try {
+    const b = req.body || {}
+    // Honeypot: yon bot ranpli chan kache a → fè kòm si sa pase, men pa sove anyen.
+    if (clean(b.website, 50)) return res.status(201).json({ ok: true, message: 'Mèsi!' })
+
+    const ip = clientIp(req)
+    const now = Date.now()
+    const hits = (joinHits.get(ip) || []).filter(t => now - t < 3600000)
+    if (hits.length >= JOIN_MAX_PER_HOUR) {
+      return res.status(429).json({ message: 'Ou voye twòp demann. Tann yon ti tan epi eseye ankò.' })
+    }
+
+    const fullName = clean(b.fullName, 120)
+    const phone    = clean(b.phone, 40)
+    const address  = clean(b.address, 240)
+    const digits   = phone.replace(/\D/g, '')
+    if (fullName.split(' ').filter(Boolean).length < 2) return res.status(400).json({ message: 'Antre non konplè ou (non ak prenon).', field: 'fullName' })
+    if (digits.length < 8 || digits.length > 15)        return res.status(400).json({ message: 'Nimewo telefòn lan pa valid.', field: 'phone' })
+    if (address.length < 4)                             return res.status(400).json({ message: 'Antre adrès ou (vil/komin ak katye).', field: 'address' })
+    if (b.acceptRules !== true || b.acceptContact !== true) return res.status(400).json({ message: 'Ou dwe aksepte regleman yo epi pèmèt nou kontakte w.', field: 'acceptRules' })
+
+    await ensureJoinTable()
+
+    // Menm nimewo a nan 24 èdtan → pa double (retounen siksè san kreye yon lòt)
+    const dup = await prisma.$queryRawUnsafe(
+      `SELECT id FROM sol_join_requests WHERE regexp_replace(phone, '\\D', '', 'g') = $1 AND "createdAt" > now() - interval '24 hours' LIMIT 1`, digits)
+    if (dup.length) return res.status(200).json({ ok: true, duplicate: true, message: 'Nou deja resevwa demann ou a. N ap kontakte w talè.' })
+
+    const freq = ['chak_jou', 'chak_semen', 'chak_de_semen', 'chak_mwa'].includes(b.frequency) ? b.frequency : null
+    const amount = Number.isFinite(Number(b.amount)) && Number(b.amount) > 0 ? Math.min(Math.round(Number(b.amount)), 10000000) : null
+    const slots  = Number.isFinite(Number(b.slots)) && Number(b.slots) > 0 ? Math.min(Math.round(Number(b.slots)), 50) : null
+
+    const rows = await prisma.$queryRawUnsafe(
+      `INSERT INTO sol_join_requests
+        ("fullName", phone, address, occupation, "beenInOurSol", "likedText", "dislikedText", referrer, "howKnow",
+         "joinedOtherSol", "otherSolText", frequency, amount, "amountOther", slots, "startWhen",
+         "canRecruit", "recruitList", message, "acceptRules", "acceptContact", ip, ua)
+       VALUES ($1,$2,$3,$4,$5::boolean,$6,$7,$8,$9,$10::boolean,$11,$12,$13::int,$14,$15::int,$16,$17::boolean,$18,$19,true,true,$20,$21)
+       RETURNING id`,
+      fullName, phone, address, clean(b.occupation, 160) || null,
+      yesNo(b.beenInOurSol), clean(b.likedText, 1200) || null, clean(b.dislikedText, 1200) || null,
+      clean(b.referrer, 240) || null, clean(b.howKnow, 160) || null,
+      yesNo(b.joinedOtherSol), clean(b.otherSolText, 1200) || null,
+      freq, amount, clean(b.amountOther, 80) || null, slots, clean(b.startWhen, 80) || null,
+      yesNo(b.canRecruit), clean(b.recruitList, 1500) || null, clean(b.message, 1500) || null,
+      ip, clean(req.headers['user-agent'], 240) || null)
+
+    hits.push(now); joinHits.set(ip, hits)
+    if (joinHits.size > 5000) { for (const [k, v] of joinHits) if (!v.some(t => now - t < 3600000)) joinHits.delete(k) }
+
+    return res.status(201).json({ ok: true, id: rows[0]?.id, message: 'Demann ou a rive! N ap kontakte w talè.' })
+  } catch (err) {
+    console.error('[SOL JOIN REQUEST]', err)
+    return res.status(500).json({ message: 'Pa ka voye demann lan kounye a. Eseye ankò talè.' })
+  }
+})
+
+router.get('/admin/join-requests', authAdmin, async (req, res) => {
+  try {
+    await ensureJoinTable()
+    const status = JOIN_STATUSES.includes(req.query.status) ? req.query.status : null
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT * FROM sol_join_requests ${status ? 'WHERE status = $1' : ''} ORDER BY "createdAt" DESC LIMIT 300`,
+      ...(status ? [status] : []))
+    const counts = await prisma.$queryRawUnsafe(`SELECT status, COUNT(*)::int AS n FROM sol_join_requests GROUP BY status`)
+    return res.json({ requests: rows, counts: Object.fromEntries(counts.map(c => [c.status, c.n])) })
+  } catch (err) {
+    console.error('[SOL JOIN LIST]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+router.patch('/admin/join-requests/:id', authAdmin, async (req, res) => {
+  try {
+    await ensureJoinTable()
+    const { status, adminNote } = req.body || {}
+    if (status !== undefined && !JOIN_STATUSES.includes(status)) return res.status(400).json({ message: 'Estati pa valid' })
+    const id = String(req.params.id || '')
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return res.status(400).json({ message: 'ID pa valid' })
+    const rows = await prisma.$queryRawUnsafe(
+      `UPDATE sol_join_requests SET status = COALESCE($2, status), "adminNote" = COALESCE($3, "adminNote"), "updatedAt" = now()
+       WHERE id = $1::uuid RETURNING *`,
+      id, status ?? null, adminNote !== undefined ? clean(adminNote, 1500) : null)
+    if (!rows.length) return res.status(404).json({ message: 'Demann pa jwenn' })
+    return res.json({ request: rows[0] })
+  } catch (err) {
+    console.error('[SOL JOIN PATCH]', err)
+    return res.status(500).json({ message: 'Erè sèvè' })
+  }
+})
+
+
 module.exports = router

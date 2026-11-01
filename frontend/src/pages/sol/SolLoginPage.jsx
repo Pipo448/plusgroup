@@ -12,6 +12,7 @@
 // "Sonje mwen" sove SÈLMAN non itilizatè a (pa janm modpas la).
 
 import { useState, useEffect, useRef } from 'react'
+import SolJoinForm from './SolJoinForm'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
@@ -35,12 +36,12 @@ const waveLine = (base, amp) =>
 function Waves() {
   return (
     <div className="sl-waves" aria-hidden="true">
-      <svg className="sl-wave w3" viewBox="0 0 2880 400" preserveAspectRatio="none"><path d={wave(150, 34)} fill="#FF8A1F" fillOpacity=".92" /></svg>
+      <svg className="sl-wave w3" viewBox="0 0 2880 400" preserveAspectRatio="none"><defs><linearGradient id="slGold" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stopColor="#FF8A1F" /><stop offset=".5" stopColor="#FFC83D" /><stop offset="1" stopColor="#FF8A1F" /></linearGradient></defs><path d={wave(150, 34)} fill="url(#slGold)" fillOpacity=".95" /></svg>
       <svg className="sl-wave w2" viewBox="0 0 2880 400" preserveAspectRatio="none"><path d={wave(170, 30)} fill="#1E5FE0" fillOpacity=".9" /></svg>
       <svg className="sl-wave w1" viewBox="0 0 2880 400" preserveAspectRatio="none">
         <defs><linearGradient id="slNavy" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#0B3AA0" /><stop offset="1" stopColor="#061E57" /></linearGradient></defs>
         <path d={wave(195, 28)} fill="url(#slNavy)" />
-        <path d={waveLine(195, 28)} fill="none" stroke="#FFA33A" strokeWidth="5" strokeLinecap="round" />
+        <path d={waveLine(195, 28)} fill="none" stroke="#FFD25E" strokeWidth="5" strokeLinecap="round" />
       </svg>
     </div>
   )
@@ -139,6 +140,7 @@ export default function SolLoginPage() {
   const [block,    setBlock]    = useState(null)   // { message, lateAmount, lateCount, name }
   const [caps,     setCaps]     = useState(false)
   const [help,     setHelp]     = useState(false)
+  const [joinOpen, setJoinOpen] = useState(false)
   const cardRef = useRef(null)
 
   // Sesyon aktif → dirèk nan dashboard. Sinon: gade si dashboard la te voye yon blokaj + non sonje a.
@@ -241,8 +243,11 @@ export default function SolLoginPage() {
         @keyframes slBar    { from { transform: scaleY(0) } to { transform: scaleY(1) } }
         @keyframes slDraw   { from { stroke-dashoffset: 80 } to { stroke-dashoffset: 0 } }
         @keyframes slPing   { 0% { transform: scale(.85); opacity: .7 } 100% { transform: scale(2.1); opacity: 0 } }
-        @keyframes slQuick  { 0%, 22%, 100% { transform: translateY(0) scale(1); background: transparent; color: var(--navy) } 8%, 14% { transform: translateY(-3px) scale(1.12); background: #FFF1E6; color: var(--orange) } }
+        @keyframes slQuick  { 0%, 22%, 100% { transform: translateY(0) scale(1); background: transparent; color: var(--navy) } 8%, 14% { transform: translateY(-3px) scale(1.12); background: #FFF3C4; color: #C27A00 } }
         @keyframes slToast  { 0%, 4% { opacity: 0; transform: translateX(-22px) scale(.95) } 9%, 40% { opacity: 1; transform: none } 46%, 100% { opacity: 0; transform: translateX(-22px) scale(.95) } }
+        @keyframes slNudge  { 0%, 100% { transform: translateX(0) rotate(0) } 20% { transform: translateX(7px) rotate(-8deg) } 40% { transform: translateX(0) rotate(6deg) } 60% { transform: translateX(7px) rotate(-8deg) } 80% { transform: translateX(0) rotate(0) } }
+        @keyframes slGlow   { 0%, 100% { box-shadow: 0 0 0 0 rgba(245,179,1,.55), 0 10px 22px -12px rgba(229,154,0,.7) } 50% { box-shadow: 0 0 0 9px rgba(245,179,1,0), 0 14px 28px -10px rgba(229,154,0,.9) } }
+        @keyframes slHint   { 0%, 100% { opacity: .55; transform: translateY(0) } 50% { opacity: 1; transform: translateY(2px) } }
         @keyframes slTick   { 0% { transform: scale(0) } 60% { transform: scale(1.25) } 100% { transform: scale(1) } }
 
         /* ── FOTO (kesyè) ── */
@@ -260,7 +265,7 @@ export default function SolLoginPage() {
 
         .sl-tagline { position: absolute; z-index: 3; left: 44px; bottom: 24px; display: flex; align-items: center; gap: 14px; color: #fff; max-width: 330px; animation: slRise .9s cubic-bezier(.2,.8,.2,1) .7s both; }
         .sl-tagline p { font-family: var(--disp); font-size: clamp(17px, 1.55vw, 22px); font-weight: 700; line-height: 1.2; letter-spacing: -0.02em; }
-        .sl-tagline p i { display: inline-flex; vertical-align: -3px; margin-left: 7px; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; background: #FF8A1F; color: #fff; }
+        .sl-tagline p i { display: inline-flex; vertical-align: -3px; margin-left: 7px; width: 20px; height: 20px; border-radius: 50%; align-items: center; justify-content: center; background: linear-gradient(145deg, #FFE08A, #F5B301 60%, #E39A00); color: #3B2600; box-shadow: 0 4px 10px -3px rgba(229,154,0,.8); }
         .sl-growth rect { transform-box: fill-box; transform-origin: bottom; animation: slBar .8s cubic-bezier(.2,.8,.2,1) both; }
         .sl-growth .b1 { animation-delay: 1s } .sl-growth .b2 { animation-delay: 1.15s } .sl-growth .b3 { animation-delay: 1.3s }
         .sl-growth .arr { stroke-dasharray: 80; animation: slDraw 1s ease-out 1.5s both; }
@@ -287,10 +292,17 @@ export default function SolLoginPage() {
         .sl-head { text-align: center; margin-bottom: 15px; }
         .sl-head h1 { display: inline-flex; align-items: center; justify-content: center; gap: 12px; font-family: var(--disp); font-size: clamp(32px, 3.1vw, 42px); font-weight: 800; letter-spacing: -0.045em; line-height: 1; color: var(--blue); animation: slRise .8s cubic-bezier(.2,.8,.2,1) .75s both; }
         .sl-head h1 svg { color: var(--blue); flex-shrink: 0; animation: slFloat 4.5s ease-in-out infinite; }
-        .sl-head h1 em { font-style: normal; color: var(--orange); position: relative; }
-        .sl-head h1 em::after { content: ''; position: absolute; left: -6%; right: -6%; bottom: -9px; height: 5px; border-radius: 4px; background: linear-gradient(90deg, transparent, var(--orange), transparent); transform-origin: left; animation: slWipe .9s ease-out 1.3s both; }
+        .sl-head h1 em { font-style: normal; color: var(--orange); background: linear-gradient(90deg, #FF6A00 0%, #FFB300 55%, #F5B301 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; position: relative; }
+        .sl-head h1 em::after { content: ''; position: absolute; left: -6%; right: -6%; bottom: -9px; height: 5px; border-radius: 4px; background: linear-gradient(90deg, transparent, #F5B301, #FF8A1F, transparent); -webkit-text-fill-color: initial; transform-origin: left; animation: slWipe .9s ease-out 1.3s both; }
         .sl-head p { margin: 14px auto 0; max-width: 28em; font-size: 14px; font-weight: 700; line-height: 1.55; color: var(--navy); animation: slRise .8s cubic-bezier(.2,.8,.2,1) .9s both; }
 
+        .sl-head p { line-height: 1.9; }
+        .sl-join { display: inline-flex; align-items: center; gap: 7px; padding: 3px 13px 3px 8px; margin: 0 1px; border-radius: 99px; border: 1.5px solid #F5B301; background: linear-gradient(180deg, #FFF8DB, #FFEBA8); color: #7A4A00; font: inherit; font-weight: 800; cursor: pointer; animation: slGlow 2.4s ease-in-out 2s infinite; transition: transform .2s, filter .2s; }
+        .sl-join:hover { transform: translateY(-2px) scale(1.03); filter: saturate(1.15); }
+        .sl-join:active { transform: scale(.98); }
+        .sl-finger { display: inline-block; font-size: 22px; line-height: 1; transform-origin: 30% 80%; animation: slNudge 2s ease-in-out 1.6s infinite; filter: drop-shadow(0 3px 3px rgba(150,90,0,.3)); }
+        .sl-join-t { text-decoration: underline; text-decoration-color: rgba(122,74,0,.45); text-underline-offset: 3px; }
+        .sl-join-hint { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 800; color: #B07A00; animation: slHint 2.4s ease-in-out 2.4s infinite; }
         .sl-field { position: relative; margin-bottom: 12px; animation: slRise .7s cubic-bezier(.2,.8,.2,1) both; }
         .sl-field.f1 { animation-delay: 1s } .sl-field.f2 { animation-delay: 1.08s }
         .sl-field > svg.ico { position: absolute; left: 17px; top: 50%; transform: translateY(-50%); color: var(--navy); pointer-events: none; transition: color .2s, transform .2s; }
@@ -427,7 +439,14 @@ export default function SolLoginPage() {
 
             <header className="sl-head">
               <h1><Users size={36} strokeWidth={2.4} aria-hidden="true" /><span>Kont <em>Sòl</em> ou</span></h1>
-              <p>Rejwenn kominote a pou w kapab sanble lajan'w pi byen pou biznis la ka grandi.</p>
+              <p>
+                <button type="button" className="sl-join" onClick={() => setJoinOpen(true)} aria-label="Rejwenn kominote a — louvri fòm pou antre nan sòl la">
+                  <span className="sl-finger" aria-hidden="true">👉</span>
+                  <span className="sl-join-t">Rejwenn kominote a</span>
+                </button>{' '}
+                pou w kapab sanble lajan'w pi byen pou biznis la ka grandi.
+              </p>
+              <span className="sl-join-hint" aria-hidden="true">Klike pou w antre nan sòl la</span>
             </header>
 
             {block && <BlockedPanel info={block} onRetry={clearBlock} />}
@@ -496,6 +515,7 @@ export default function SolLoginPage() {
       </main>
 
       <Waves />
+      {joinOpen && <SolJoinForm onClose={() => setJoinOpen(false)} />}
     </div>
   )
 }

@@ -17,6 +17,7 @@ export const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFracti
 // TÈM
 // ══════════════════════════════════════════════════════════════
 export const THEMES = {
+  plus:   { name: 'Plus',  dark: true,  bg: '#061230', card: '#0D1D48', text: '#EEF3FF', accent: '#2563EB', accentText: '#8DB0FF', accent2: '#F97316' },
   dark:   { name: 'Nwa',   dark: true,  bg: '#050A18', card: '#0C1630', text: '#EEF3FF', accent: '#2563EB', accentText: '#7FA5FF', accent2: '#F97316' },
   blue:   { name: 'Ble',   dark: false, bg: '#EEF3FF', card: '#FFFFFF', text: '#0A1530', accent: '#1D4ED8', accentText: '#1D4ED8', accent2: '#F97316' },
   green:  { name: 'Vèt',   dark: false, bg: '#EFFAF3', card: '#FFFFFF', text: '#052E16', accent: '#16A34A', accentText: '#15803D', accent2: '#0EA5E9' },
@@ -39,7 +40,7 @@ const mix = (hex, withHex, f) => {
 
 // CSS variables pou yon tèm — mete yo sou `style` eleman .sol-root
 export function themeVars(theme) {
-  const t = THEMES[theme] || THEMES.dark
+  const t = THEMES[theme] || THEMES.plus
   const dk = t.dark
   const green = dk ? '#34D399' : '#15803D'
   const red   = dk ? '#F87171' : '#DC2626'
@@ -69,6 +70,8 @@ export function themeVars(theme) {
     '--s-red': red,      '--s-red-soft': rgba(dk ? '#F87171' : '#DC2626', dk ? 0.13 : 0.08),    '--s-red-line': rgba(dk ? '#F87171' : '#DC2626', 0.34),
     '--s-amber': amber,  '--s-amber-soft': rgba(dk ? '#FBBF24' : '#D97706', dk ? 0.13 : 0.10),  '--s-amber-line': rgba(dk ? '#FBBF24' : '#D97706', 0.34),
     '--s-blue': blue,    '--s-blue-soft': rgba(dk ? '#7FB2FF' : '#2563EB', dk ? 0.13 : 0.08),   '--s-blue-line': rgba(dk ? '#7FB2FF' : '#2563EB', 0.34),
+    '--s-gold': dk ? '#F5B93A' : '#B7791F', '--s-gold-soft': rgba(dk ? '#F5B93A' : '#D99A1E', dk ? 0.14 : 0.12), '--s-gold-line': rgba(dk ? '#F5B93A' : '#D99A1E', 0.42),
+    '--s-gold-grad': 'linear-gradient(135deg, #FFE08A 0%, #F5B93A 45%, #C98A12 100%)',
     '--s-shadow': dk ? '0 18px 40px rgba(0,0,0,0.38)' : '0 14px 34px rgba(15,23,42,0.09)',
     colorScheme: dk ? 'dark' : 'light',
   }
@@ -81,6 +84,7 @@ export const V = {
   line: 'var(--s-line)', line2: 'var(--s-line2)',
   accent: 'var(--s-accent)', accentText: 'var(--s-accent-text)', accent2: 'var(--s-accent2)',
   accentSoft: 'var(--s-accent-soft)', accentLine: 'var(--s-accent-line)', btn: 'var(--s-btn)',
+  gold: 'var(--s-gold)', goldSoft: 'var(--s-gold-soft)', goldLine: 'var(--s-gold-line)',
   green: 'var(--s-green)', greenSoft: 'var(--s-green-soft)', greenLine: 'var(--s-green-line)',
   red: 'var(--s-red)', redSoft: 'var(--s-red-soft)', redLine: 'var(--s-red-line)',
   amber: 'var(--s-amber)', amberSoft: 'var(--s-amber-soft)', amberLine: 'var(--s-amber-line)',
@@ -388,4 +392,68 @@ export const GLOBAL_STYLES = `
   .sol-tabs { display: flex; gap: 4px; background: var(--s-card2); border: 1px solid var(--s-line); border-radius: 14px; padding: 4px; margin-bottom: 18px; }
   .sol-tab-btn { flex: 1; padding: 10px 12px; border-radius: 11px; cursor: pointer; font-size: 13px; font-weight: 700; text-align: center; border: none; white-space: nowrap; background: transparent; color: var(--s-muted); }
   .sol-tab-btn.on { background: var(--s-accent-soft); color: var(--s-accent-text); }
+
+  /* ── PLUS GROUP: lò, banyè ti machann, rapò, resi ── */
+  .sol-gold-txt { background: var(--s-gold-grad); -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+  @keyframes goldSheen { 0% { background-position: 200% 0 } 100% { background-position: -100% 0 } }
+  @keyframes drawLine { to { stroke-dashoffset: 0 } }
+  @keyframes growY { from { transform: scaleY(0) } to { transform: scaleY(1) } }
+  @keyframes fadeSoft { from { opacity: 0 } to { opacity: 1 } }
+
+  .sol-banner { position: relative; overflow: hidden; border-radius: 22px; margin-bottom: 14px; min-height: 132px; display: flex; align-items: flex-end; color: #fff; background: #0B2A74; isolation: isolate; border: 1px solid var(--s-gold-line); box-shadow: var(--s-shadow); }
+  .sol-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 30% 22%; z-index: -2; }
+  .sol-banner::before { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(95deg, rgba(6,18,48,.92) 0%, rgba(6,18,48,.72) 48%, rgba(6,18,48,.15) 100%); }
+  .sol-banner-in { padding: 18px 20px 16px; max-width: 78%; }
+  .sol-banner h2 { font-family: var(--f-display); font-weight: 800; font-size: clamp(19px, 5vw, 26px); letter-spacing: -0.03em; line-height: 1.12; margin-bottom: 5px; }
+  .sol-banner p { font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,.82); }
+  .sol-banner-tag { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 9px; padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; background: rgba(245,185,58,.16); border: 1px solid rgba(245,185,58,.5); color: #FFD77A; }
+  .sol-banner-wave { position: absolute; left: 0; right: 0; bottom: -1px; width: 200%; height: 26px; z-index: 0; opacity: .9; animation: waveMove 14s linear infinite; }
+  @keyframes waveMove { to { transform: translateX(-50%) } }
+
+  .sol-kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+  @media (min-width: 700px) { .sol-kpis { grid-template-columns: repeat(4, 1fr); } }
+  .sol-kpi { position: relative; overflow: hidden; border-radius: 20px; padding: 16px 16px 14px; background: var(--s-card); border: 1px solid var(--s-line); box-shadow: var(--s-shadow); animation: rise .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 70ms + 200ms); transition: transform .25s, border-color .25s; }
+  .sol-kpi:hover { transform: translateY(-3px); border-color: var(--s-gold-line); }
+  .sol-kpi::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--s-gold-grad); }
+  .sol-kpi-ico { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: var(--s-gold-soft); color: var(--s-gold); margin-bottom: 12px; }
+  .sol-kpi-val { font-family: var(--f-display); font-weight: 800; font-size: clamp(26px, 7vw, 34px); letter-spacing: -0.045em; line-height: 1; background: var(--s-gold-grad); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; animation: goldSheen 5s ease-in-out infinite; }
+  .sol-kpi-val small { font-size: .42em; letter-spacing: 0; margin-left: 4px; font-family: 'Plus Jakarta Sans', sans-serif; }
+  .sol-kpi-lab { font-size: 12px; font-weight: 700; color: var(--s-muted2); margin-top: 8px; }
+  .sol-kpi-sub { font-size: 11px; color: var(--s-muted); margin-top: 2px; }
+
+  .sol-rep { margin-bottom: 14px; }
+  .sol-rep-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+  @media (min-width: 760px) { .sol-rep-grid.two { grid-template-columns: 1.4fr 1fr; } }
+  .sol-rep-card { border-radius: 22px; padding: 18px 18px 16px; background: var(--s-card); border: 1px solid var(--s-line); box-shadow: var(--s-shadow); min-width: 0; }
+  .sol-rep-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .sol-rep-title { font-family: var(--f-display); font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em; }
+  .sol-rep-sub { font-size: 11.5px; color: var(--s-muted); margin-bottom: 10px; }
+  .sol-chart-line { stroke-dasharray: var(--len, 1200); stroke-dashoffset: var(--len, 1200); animation: drawLine 1.6s cubic-bezier(.3,.7,.2,1) .25s forwards; }
+  .sol-chart-area { animation: fadeSoft 1.2s ease .6s both; }
+  .sol-bar { transform-origin: 50% 100%; animation: growY .8s cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--i, 0) * 45ms + 200ms); }
+  .sol-legend-row { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: 11.5px; color: var(--s-muted2); font-weight: 600; }
+  .sol-legend-row em { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .sol-donut-wrap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .sol-donut-c { position: relative; width: 132px; height: 132px; flex-shrink: 0; }
+  .sol-donut-c .sol-donut-txt { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .sol-donut-txt b { font-family: var(--f-display); font-size: 26px; font-weight: 800; letter-spacing: -0.04em; }
+  .sol-donut-txt span { font-size: 10.5px; color: var(--s-muted); font-weight: 600; }
+  .sol-seg { transition: stroke-dasharray 1.1s cubic-bezier(.3,.7,.2,1) .3s; }
+
+  .sol-receipt-btn { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer; padding: 14px 16px; border-radius: 18px; background: var(--s-card); border: 1px dashed var(--s-gold-line); color: var(--s-text); font: inherit; margin-bottom: 14px; transition: transform .2s, background .2s; }
+  .sol-receipt-btn:hover { background: var(--s-gold-soft); transform: translateY(-2px); }
+  .sol-paper { background: #fff; color: #111; width: 100%; max-width: 330px; margin: 0 auto; padding: 18px 16px 16px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; line-height: 1.55; border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.35); position: relative; }
+  .sol-paper::after { content: ''; position: absolute; left: 0; right: 0; bottom: -7px; height: 8px; background: linear-gradient(-45deg, transparent 5px, #fff 0) 0 0/10px 8px, linear-gradient(45deg, transparent 5px, #fff 0) 0 0/10px 8px; }
+  .sol-paper h4 { text-align: center; font-size: 14px; font-weight: 800; margin-bottom: 2px; }
+  .sol-paper .c { text-align: center; }
+  .sol-paper hr { border: none; border-top: 1px dashed #888; margin: 8px 0; }
+  .sol-paper .r { display: flex; justify-content: space-between; gap: 10px; }
+  .sol-paper .r b { text-align: right; }
+  .sol-paper .tot { font-size: 14px; font-weight: 800; }
+  @media print {
+    body * { visibility: hidden !important; }
+    .sol-paper, .sol-paper * { visibility: visible !important; }
+    .sol-paper { position: fixed; left: 0; top: 0; width: 57mm; max-width: 57mm; box-shadow: none; padding: 2mm; font-size: 9pt; border-radius: 0; }
+    .sol-paper::after { display: none; }
+  }
 `
