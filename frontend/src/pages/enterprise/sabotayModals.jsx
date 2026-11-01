@@ -512,6 +512,9 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
 // ─────────────────────────────────────────────────────────────
 export function ModalMemberAction({ member, plan, action, onClose, onConfirm, loading }) {
   const [reason, setReason] = useState('')
+  // ✅ NOUVO: frè kanpe (men sòl la) — admin ka chanje l nan moman kanpe a
+  const defaultFee = Number(plan.stopPenaltyAmount || 0) > 0 ? Number(plan.stopPenaltyAmount) : Number(plan.feePerMember || plan.fee || 0)
+  const [fee, setFee] = useState(String(defaultFee))
   const configs = {
     block:   { title: 'Bloke kont',          color: T.red,    icon: <Lock size={20} />,       desc: 'Kont manm sa a ap bloke. Li p ap ka kontinye san admin debloke l.', btn: 'Bloke kont',          cls: 'red'    },
     unblock: { title: 'Debloke kont',        color: T.green,  icon: <Unlock size={20} />,     desc: 'Admin ap debloke kont manm sa a.',                                btn: 'Debloke kont',        cls: 'green'  },
@@ -524,12 +527,12 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
     return getAllPaymentDates(plan).filter(d => member.payments?.[d]).length * Number(plan.amount)
   }, [action, plan, member])
   if (!cfg) return null
-  const penalty = Math.min(stoppedPayout, Number(plan.stopPenaltyAmount || 0))
+  const penalty = Math.min(stoppedPayout, Math.max(0, Number(fee) || 0))
 
   const footer = (
     <>
       <button className="ke-fbtn" onClick={onClose}>Anile</button>
-      <button className={`ke-fbtn main ${cfg.cls}`} onClick={() => onConfirm(action, reason)} disabled={loading}>
+      <button className={`ke-fbtn main ${cfg.cls}`} onClick={() => onConfirm(action, reason, action === 'stop' ? Math.max(0, Number(fee) || 0) : undefined)} disabled={loading}>
         {loading ? <Spinner size={16} /> : cfg.icon} {loading ? 'Ap trete...' : cfg.btn}
       </button>
     </>
@@ -546,12 +549,18 @@ export function ModalMemberAction({ member, plan, action, onClose, onConfirm, lo
           </div>
         </div>
         <p style={{ fontSize: 13.5, color: '#3a3d48', margin: 0, lineHeight: 1.6 }}>{cfg.desc}</p>
-        {action === 'stop' && stoppedPayout > 0 && (
-          <div className="ke-summary" style={{ marginTop: 0 }}>
-            <div className="line"><span>Kontribisyon deja fèt</span><b>{fmt(stoppedPayout)} HTG</b></div>
-            {penalty > 0 && <div className="line"><span>− Penalite kanpe</span><b style={{ color: T.red }}>{fmt(penalty)} HTG</b></div>}
-            <div className="total"><span>L ap resevwa lè plan fèmen</span><b style={{ color: T.goldInk }}>{fmt(stoppedPayout - penalty)}</b></div>
-          </div>
+        {action === 'stop' && (
+          <>
+            <Field label="Frè kanpe (men sòl la) ki dedwi">
+              <input type="number" min="0" inputMode="decimal" className="ke-input" value={fee} onChange={e => setFee(e.target.value)}
+                style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 22 }} />
+            </Field>
+            <div className="ke-summary" style={{ marginTop: 0 }}>
+              <div className="line"><span>Kontribisyon deja fèt</span><b>{fmt(stoppedPayout)} HTG</b></div>
+              <div className="line"><span>− Frè kanpe</span><b style={{ color: T.red }}>{fmt(penalty)} HTG</b></div>
+              <div className="total"><span>L ap resevwa lè plan fèmen</span><b style={{ color: T.goldInk }}>{fmt(stoppedPayout - penalty)}</b></div>
+            </div>
+          </>
         )}
         <Field label="Rezon (opsyonèl)">
           <input className="ke-input" value={reason} onChange={e => setReason(e.target.value)}

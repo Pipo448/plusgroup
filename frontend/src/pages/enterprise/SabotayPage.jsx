@@ -209,8 +209,8 @@ export default function SabotayPage() {
           onToggleManualTime={(planId) => mutations.toggleManualTime.mutate(planId)}
           onToggleHidePosition={(planId) => mutations.toggleHidePosition.mutate(planId)}
           onRecalculate={(planId) => mutations.recalculate.mutate(planId)}
-          onMemberAction={(memberId, action, reason, payoutDate) =>
-            mutations.memberAction.mutate({ planId: activePlan.id, memberId, action, reason, payoutDate })}
+          onMemberAction={(memberId, action, reason, payoutDate, stopFee) =>
+            mutations.memberAction.mutate({ planId: activePlan.id, memberId, action, reason, payoutDate, stopFee })}
           onPaymentSaved={(memberId, dates, timings, fines, paidAt) =>
             mutations.markPayment.mutateAsync({ memberId, dates, timings, fines, paidAt })}
           onAdjustPosition={(memberId, steps) =>

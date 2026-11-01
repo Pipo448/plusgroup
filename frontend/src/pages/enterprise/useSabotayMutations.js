@@ -221,10 +221,10 @@ export function useSabotayMutations({
 
   // ─── Aksyon Manm ──────────────────────────────────────────
   const memberAction = useMutation({
-    mutationFn: ({ planId, memberId, action, reason, payoutDate }) =>
+    mutationFn: ({ planId, memberId, action, reason, payoutDate, stopFee }) =>
       apiFetch(
         `/sabotay/plans/${planId}/members/${memberId}/action`,
-        { method: 'POST', body: JSON.stringify({ action, reason, payoutDate }) }
+        { method: 'POST', body: JSON.stringify({ action, reason, payoutDate, stopFee }) }
       ),
     onSuccess: (r, vars) => {
       // ⚠️ KORIJE EGRESS — 'block'/'unblock'/'stop'/'resume' ka kaskad sou

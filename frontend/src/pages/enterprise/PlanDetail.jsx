@@ -612,6 +612,9 @@ export default function PlanDetail({
                           {m.stopRefundPaid ? 'Ranbousman peye' : `Rete pou peye: ${fmt(m.stopRefundAmount)} G`}
                         </Chip>
                       )}
+                      {isStopped && (paid * Number(plan.amount) - Number(m.stopRefundAmount || 0)) > 0 && (
+                        <Chip color={T.red}>Frè kanpe − {fmt(paid * Number(plan.amount) - Number(m.stopRefundAmount || 0))} G</Chip>
+                      )}
                     </div>
                   </div>
 
@@ -658,7 +661,7 @@ export default function PlanDetail({
                         <CheckCircle size={14} />
                       </button>
                     )}
-                    {!m.hasWon && !isStopped && mStatus !== 'blocked' && !isOwn && (
+                    {!m.hasWon && !isStopped && !isOwn && (
                       <button onClick={() => setAction({ member: m, action: 'stop' })} title="Kanpe patisipasyon" aria-label="Kanpe patisipasyon"
                         className="pd-act" style={{ '--ab': hexA(T.orange, .12), '--ac': T.orange }}>
                         <StopCircle size={14} />
@@ -739,7 +742,7 @@ export default function PlanDetail({
         <ModalMemberAction member={actionModal.member} plan={plan} action={actionModal.action}
           printer={printer} loading={false}
           onClose={() => setAction(null)}
-          onConfirm={(action, reason) => { onMemberAction(actionModal.member.id, action, reason); setAction(null) }} />
+          onConfirm={(action, reason, stopFee) => { onMemberAction(actionModal.member.id, action, reason, undefined, stopFee); setAction(null) }} />
       )}
 
       {declaringPayout && (
