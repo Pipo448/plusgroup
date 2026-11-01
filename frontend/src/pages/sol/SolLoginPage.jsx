@@ -427,7 +427,7 @@ export default function SolLoginPage() {
 
             <header className="sl-head">
               <h1><Users size={36} strokeWidth={2.4} aria-hidden="true" /><span>Kont <em>Sòl</em> ou</span></h1>
-              <p>Rejwenn kominote a pou w kapab sanble lajan'w k pi byen pou biznis la ka grandi.</p>
+              <p>Rejwenn kominote a pou w kapab sanble lajan'w pi byen pou biznis la ka grandi.</p>
             </header>
 
             {block && <BlockedPanel info={block} onRetry={clearBlock} />}
