@@ -129,6 +129,8 @@ export const productAPI = {
   getCategories:  ()         => api.get('/products/categories'),
   createCategory: (data)     => api.post('/products/categories', data),
   updateCategory: (id, data) => api.put(`/products/categories/${id}`, data),  // ← AJOUTE
+  // ✅ NOUVO — efase yon kategori (route DELETE /products/categories/:id, admin sèlman)
+  deleteCategory: (id)       => api.delete(`/products/categories/${id}`),
   adjustStock:    (id, data) => api.patch(`/products/${id}/stock`, data),
 }
 

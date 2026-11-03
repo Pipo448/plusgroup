@@ -2,7 +2,8 @@
 // ✅ KORIJE: lis la pa t rafrechi apre kreye/modifye/efase (invalidateQueries v5),
 //            rechèch san debounce, to dola toujou 132, foto telefòn > 2 MB refize,
 //            nivo pri vid ki te bloke anrejistreman an san mesaj
-// ✅ NOUVO:  KPI, kategori an bouton koulè, ba stòk, mak "STÒK FINI", maj benefis an dirèk,
+// ✅ NOUVO:  siprime yon kategori (admin) ak konfimasyon — bloke si gen pwodwi ladan l,
+//            KPI, kategori an bouton koulè, ba stòk, mak "STÒK FINI", maj benefis an dirèk,
 //            panye ak +/−, chwa Fakti OSWA Devi, Escape fèmen fenèt yo
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -109,12 +110,15 @@ const stockOf = (p) => {
 // ════════════════════════════════════════════════════════════
 // Modal Kategori
 // ════════════════════════════════════════════════════════════
-const CategoryModal = ({ categories, onClose }) => {
+const CategoryModal = ({ categories, onClose, onDeleted, onShowCategory }) => {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const [editItem, setEditItem] = useState(null)
   const [form, setForm] = useState({ name: '', color: '#1B3A6B' })
-  useEsc(onClose)
+  const [confirmDel, setConfirmDel] = useState(null)   // ✅ NOUVO — kategori k ap tann konfimasyon efase
+  const isAdmin = useAuthStore(s => s.user?.role === 'admin' || s.user?.isAdmin === true)
+  // Escape: anile konfimasyon an an premye, apre sa fèmen fenèt la
+  useEsc(confirmDel ? () => setConfirmDel(null) : onClose)
 
   // ✅ KORIJE — { queryKey } (v5): anvan sa nouvo kategori a pa t parèt san rechaje paj la
   const refresh = () => { qc.invalidateQueries({ queryKey: ['categories'] }); qc.invalidateQueries({ queryKey: ['products'] }) }
@@ -127,6 +131,21 @@ const CategoryModal = ({ categories, onClose }) => {
     mutationFn: ({ id, ...d }) => productAPI.updateCategory(id, d),
     onSuccess: () => { toast.success(tr(t, 'products.categoryUpdated', 'Kategori mete ajou!')); refresh(); setEditItem(null); setForm({ name: '', color: '#1B3A6B' }) },
     onError: (e) => toast.error(e.response?.data?.message || 'Erè.'),
+  })
+
+  // ✅ NOUVO — efase kategori
+  const deleteMut = useMutation({
+    mutationFn: (id) => productAPI.deleteCategory(id),
+    onSuccess: (res, id) => {
+      toast.success(res?.data?.message || tr(t, 'products.categoryDeleted', 'Kategori efase!'))
+      // Retire l touswit nan lis la (san tann rechajman)
+      qc.setQueryData(['categories'], old => Array.isArray(old) ? old.filter(c => c.id !== id) : old)
+      refresh()
+      if (editItem?.id === id) { setEditItem(null); setForm({ name: '', color: '#1B3A6B' }) }
+      setConfirmDel(null)
+      onDeleted?.(id)
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Pa ka efase kategori sa a.'),
   })
 
   const busy = createMut.isPending || updateMut.isPending
@@ -178,15 +197,61 @@ const CategoryModal = ({ categories, onClose }) => {
             ) : (
               <div style={{ display: 'grid', gap: 8, maxHeight: 280, overflowY: 'auto' }}>
                 {categories.map((cat, i) => (
-                  <div key={cat.id} className={`pd-catrow ${editItem?.id === cat.id ? 'on' : ''} a-slide`} style={{ animationDelay: `${i * 30}ms` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                  <div key={cat.id} className={`pd-catrow ${editItem?.id === cat.id ? 'on' : ''} a-slide`} style={{ animationDelay: `${i * 30}ms`, flexWrap: 'wrap', ...(confirmDel?.id === cat.id ? { borderColor: 'rgba(220,38,38,.35)' } : {}) }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
                       <span style={{ width: 30, height: 30, borderRadius: 9, background: cat.color || '#1B3A6B', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{cat.name?.[0]?.toUpperCase()}</span>
                       <b style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cat.name}</b>
                       {cat._count?.products !== undefined && <span className="iv-pill muted">{cat._count.products}</span>}
                     </div>
-                    <button type="button" className="iv-act" style={{ minHeight: 32, fontSize: 11 }} onClick={() => { setEditItem(cat); setForm({ name: cat.name, color: cat.color || '#1B3A6B' }) }}>
-                      <Edit2 size={12}/> Modifye
-                    </button>
+                    {confirmDel?.id === cat.id ? null : (
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button type="button" className="iv-act" style={{ minHeight: 32, fontSize: 11 }} onClick={() => { setConfirmDel(null); setEditItem(cat); setForm({ name: cat.name, color: cat.color || '#1B3A6B' }) }}>
+                          <Edit2 size={12}/> Modifye
+                        </button>
+                        {/* ✅ NOUVO — siprime (admin sèlman, menm jan ak backend la) */}
+                        {isAdmin && (
+                          <button type="button" className="iv-act danger icon" style={{ minHeight: 32, width: 32 }} title="Siprime kategori a" aria-label={`Siprime ${cat.name}`}
+                            onClick={() => setConfirmDel(cat)}>
+                            <Trash2 size={13}/>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {confirmDel?.id === cat.id && (() => {
+                      const n = Number(cat._count?.products || 0)
+                      return (
+                        <div className="a-up" style={{ flexBasis: '100%', marginTop: 8, padding: '10px 12px', borderRadius: 12,
+                          background: n > 0 ? 'rgba(217,119,6,.10)' : 'rgba(220,38,38,.07)', border: `1px solid ${n > 0 ? 'rgba(217,119,6,.35)' : 'rgba(220,38,38,.3)'}` }}>
+                          {n > 0 ? (
+                            <>
+                              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#92400E', lineHeight: 1.5 }}>
+                                <AlertTriangle size={13} style={{ verticalAlign: '-2px' }}/> « {cat.name} » gen <b>{n} pwodwi</b> ladan l. Deplase yo nan yon lòt kategori anvan (Modifye pwodwi a → Kategori), apre sa w ap ka efase l.
+                              </p>
+                              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                                <button type="button" className="iv-act" style={{ flex: 1, minHeight: 36, fontSize: 12 }} onClick={() => setConfirmDel(null)}>Fèmen</button>
+                                <button type="button" className="iv-btn-main" style={{ flex: 2, minHeight: 36, fontSize: 12 }} onClick={() => { onShowCategory?.(cat.id); onClose() }}>
+                                  <Search size={14}/> Wè {n} pwodwi yo
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <p style={{ margin: 0, fontSize: 12.5, fontWeight: 700, color: '#991B1B', lineHeight: 1.5 }}>
+                                Siprime kategori « {cat.name} »? Aksyon sa a pa ka defèt.
+                              </p>
+                              <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                                <button type="button" className="iv-act" style={{ flex: 1, minHeight: 36, fontSize: 12 }} disabled={deleteMut.isPending} onClick={() => setConfirmDel(null)}>Anile</button>
+                                <button type="button" className="iv-btn-main" disabled={deleteMut.isPending}
+                                  style={{ flex: 2, minHeight: 36, fontSize: 12, background: 'linear-gradient(135deg,#DC2626,#B91C1C)', boxShadow: '0 8px 18px rgba(220,38,38,.3)' }}
+                                  onClick={() => deleteMut.mutate(cat.id)}>
+                                  {deleteMut.isPending ? <RefreshCw size={14} className="spin"/> : <Trash2 size={14}/>} {deleteMut.isPending ? 'Ap efase...' : 'Wi, siprime'}
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 ))}
               </div>
@@ -811,7 +876,11 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {modal?.type === 'category' && <CategoryModal categories={categories} onClose={() => setModal(null)}/>}
+      {modal?.type === 'category' && (
+        <CategoryModal categories={categories} onClose={() => setModal(null)}
+          onDeleted={(id) => { if (catFilter === id) { setCatFilter(''); setPage(1) } }}
+          onShowCategory={(id) => { setCatFilter(id); setSearch(''); setPage(1) }}/>
+      )}
       {(modal?.type === 'create' || modal?.type === 'edit') && (
         <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate} onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
       )}
