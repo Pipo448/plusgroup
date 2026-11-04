@@ -17,7 +17,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { Modal, Sec, TimePicker12h, format24ToDisplay12, MemberStatusBadge, ModalSolReceipt } from './sabotayAtoms'
 import {
   D, fmt, FREQ_LABELS,
-  getAllPaymentDates, getPayoutDate, computeMemberStatus,
+  getAllPaymentDates, getMemberPaymentDates, memberPayoutFor, getPayoutDate, computeMemberStatus,
   memberPayout, ownerPayout, getMemberScore, getPaymentTiming,
   calcMemberDepoRezev, apiFetch, API_URL, normalizePhone, getHaitiNow, hasOwnerSlot,
 } from './sabotayUtils'
@@ -326,7 +326,7 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   useSmStyles()
   const { tenant } = useAuthStore()
   const { today, currentTime } = getHaitiNow()
-  const allDates = useMemo(() => getAllPaymentDates(plan), [plan])
+  const allDates = useMemo(() => getMemberPaymentDates(plan, member), [plan, member])
   const unpaid   = allDates.filter(d => !member.payments?.[d])
 
   const [sel,       setSel]      = useState([])  // ✅ Pa gen okenn dat ki tcheke otomatikman — kesye a chwazi
@@ -742,7 +742,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
 export function MemberVirtualAccount({ member, plan, onClose, printer, allMemberSlots }) {
   useSmStyles()
   const { tenant } = useAuthStore()
-  const allDates   = useMemo(() => getAllPaymentDates(plan), [plan])
+  const allDates   = useMemo(() => getMemberPaymentDates(plan, member), [plan, member])
   const multiSlots = allMemberSlots && allMemberSlots.length > 1
   const [activeSlotIdx, setActiveSlotIdx] = useState(0)
   const activeMember = multiSlots ? allMemberSlots[activeSlotIdx] : member
@@ -776,7 +776,7 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
   const amtPaid   = totalPaid * plan.amount
   const amtDue    = totalDue * plan.amount * allSlotsList.length
   const depoRezev = allSlotsList.reduce((acc, slot) => acc + calcMemberDepoRezev(slot, plan, today), 0)
-  const payout    = isOwner ? ownerPayout(plan) : memberPayout(plan)
+  const payout    = memberPayoutFor(plan, activeMember)
   const paidAll   = allDates.filter(d => activeMember.payments?.[d]).length
   const progress  = allDates.length > 0 ? (paidAll / allDates.length) * 100 : 0
   const scoreData = getMemberScore(activeMember)

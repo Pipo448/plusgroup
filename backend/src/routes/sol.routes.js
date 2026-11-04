@@ -159,16 +159,17 @@ async function computeLateStatus(account) {
       if (own) members.push(own)
     }
 
-    const countCache = {}
+    const schedCache = {}
     let lateDates = 0, lateAmount = 0, planName = null
     for (const m of members) {
       const plan = m.plan
       if (!plan || plan.status === 'closed' || plan.status === 'finished') continue
       if (m.status === 'stopped' || m.hasWon) continue   // menm règ ak panel admin lan
-      if (countCache[plan.id] === undefined) {
-        countCache[plan.id] = cappedSlots(await prisma.sabotayMember.count({ where: { planId: plan.id, status: { not: 'stopped' }, isActive: true } }).catch(() => 0), plan)
+      if (schedCache[plan.id] === undefined) {
+        schedCache[plan.id] = await prisma.sabotayMember.findMany({ where: { planId: plan.id, isActive: true }, select: { id: true, position: true, status: true, hasWon: true } }).catch(() => [])
       }
-      const totalCycles = Math.max(1, countCache[plan.id]) * Math.max(1, Math.floor(Number(plan.interval) || 1))
+      const sched = schedCache[plan.id].length ? solScheduleInfo(plan, schedCache[plan.id], m.id, today) : null
+      const totalCycles = Math.max(1, sched ? sched.dateSlots : 1) * Math.max(1, Math.floor(Number(plan.interval) || 1))
       const dueTimeEnd  = plan.dueTimeEnd || '17:00'
       const paid = new Set(m.payments.map(p => new Date(p.dueDate).toISOString().slice(0, 10)))
       const dates = paymentDatesUntil(plan.frequency, plan.startDate.toISOString(), totalCycles, today)
@@ -191,6 +192,57 @@ async function computeLateStatus(account) {
 const cappedSlots = (count, plan) => {
   const max = Number(plan?.maxMembers) || 0
   return max > 0 ? Math.min(count, max) : count
+}
+
+// ══════════════════════════════════════════════════════════════
+// ✅ NOUVO: kalandriye/montan chak manm lè gen manm kanpe.
+//  • Manm ki DEJA touche (hasWon oswa dat touche orijinal li ≤ jodi a): dat ofisyèl yo ak montan an PA chanje.
+//  • Manm ki POKO touche: chak manm kanpe retire 1 "men" nan montan an; chak plas kanpe ki te nan fiti
+//    rakousi kalandriye a ak 1 dat, epi dat touche yo avanse.
+//  `members` = [{ id, position, status, hasWon }] (aktif sèlman — manm kanpe yo ladan yo)
+// ══════════════════════════════════════════════════════════════
+function solScheduleInfo(plan, members, memberId, today) {
+  const interval = Math.max(1, Math.floor(Number(plan.interval) || 1))
+  const feeUnit  = Number(plan.feePerMember || plan.fee || 0)
+  const amount   = Number(plan.amount || 0)
+  const N        = Math.max(1, cappedSlots(members.length, plan))
+  const stopped  = members.filter(m => m.status === 'stopped')
+  const S        = Math.min(stopped.length, N)
+  const startStr = plan.startDate instanceof Date ? plan.startDate.toISOString() : String(plan.startDate)
+  const allDates = paymentDatesUntil(plan.frequency, startStr, N * interval, '9999-12-31')
+  const origIdx  = (pos) => Math.min(Math.max(1, pos) * interval - 1, allDates.length - 1)
+  const origDate = (pos) => allDates[origIdx(pos)] || null
+
+  const me       = members.find(m => m.id === memberId) || {}
+  const myOrig   = origDate(me.position)
+  const touched  = !!me.hasWon || (myOrig && myOrig <= today) || me.status === 'stopped'
+
+  // dat touche ki deja pase (nan kalandriye orijinal la)
+  let pastRounds = 0
+  for (let p = 1; p <= N; p++) if (origDate(p) && origDate(p) <= today) pastRounds++
+  const futureStopped = stopped.filter(m => origDate(m.position) && origDate(m.position) > today).length
+
+  // dat touche prevwa pou manm ki poko touche: yo avanse, nan lòd pozisyon
+  let expectedPayoutDate = myOrig
+  if (!touched) {
+    const pending = members
+      .filter(m => m.status !== 'stopped' && !m.hasWon && origDate(m.position) > today)
+      .sort((a, b) => a.position - b.position)
+    const j = pending.findIndex(m => m.id === memberId) + 1
+    if (j > 0) expectedPayoutDate = allDates[Math.min((pastRounds + j) * interval - 1, allDates.length - 1)] || myOrig
+  }
+
+  const dateSlots   = touched ? N : Math.max(1, N - futureStopped)
+  const payoutSlots = touched ? N : Math.max(1, N - S)
+  const fullPayout  = Math.max(0, (amount * N - feeUnit) * interval)
+  const payout      = Math.max(0, (amount * payoutSlots - feeUnit) * interval)
+  const endDate     = paymentDatesUntil(plan.frequency, startStr, dateSlots * interval, '9999-12-31').pop() || null
+  return {
+    touched, stoppedCount: S, originalSlots: N, dateSlots, payoutSlots,
+    payoutAmount: payout, originalPayoutAmount: fullPayout, reducedBy: fullPayout - payout,
+    originalPayoutDate: myOrig, expectedPayoutDate, endDate,
+    originalEndDate: allDates[allDates.length - 1] || null,
+  }
 }
 
 const lateMessage = (st) =>
@@ -385,6 +437,14 @@ async function buildPlanData(account, memberId) {
     allSlots = [sabotayMember]
   }
 
+  const scheduleMembers = await prisma.sabotayMember.findMany({
+    where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) },
+    select: { id: true, position: true, status: true, hasWon: true },
+  }).catch(() => [])
+  const schedule = scheduleMembers.length
+    ? solScheduleInfo(plan, scheduleMembers, sabotayMember.id, haitiNow().today)
+    : null
+
   const activeMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) }
   }).catch(() => 0)
@@ -415,6 +475,8 @@ async function buildPlanData(account, memberId) {
       status: sabotayMember.status || 'active',
       stopRefundAmount: sabotayMember.stopRefundAmount ? Number(sabotayMember.stopRefundAmount) : null,
       stopRefundPaid: sabotayMember.stopRefundPaid || false,
+      // ✅ NOUVO: kalkil ki pran an kont manm kanpe yo (montan, dat, mesaj)
+      schedule,
       payments,
       paymentTimings,
       allSlots: allSlots.map(s => {

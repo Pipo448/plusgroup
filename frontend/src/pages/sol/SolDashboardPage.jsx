@@ -232,15 +232,19 @@ export default function SolDashboardPage() {
     }]
   }, [member])
 
+  // ✅ NOUVO: kalkil sèvè a lè gen manm kanpe (moun ki deja touche kenbe dat/montan ofisyèl yo)
+  const sched = member?.schedule || null
+
   const totalSlotCount = useMemo(() => {
     if (!plan) return 0
+    if (sched?.dateSlots) return sched.dateSlots
     if (plan.nonStoppedMemberCount) return plan.nonStoppedMemberCount
     return Math.max(
       plan.activeMemberCount || 0,
       plan.maxMembers        || 0,
       allSlots.reduce((max, s) => Math.max(max, s.position || 0), 0),
     )
-  }, [plan, allSlots])
+  }, [plan, allSlots, sched])
 
   const dates = useMemo(() => {
     if (!plan || !totalSlotCount) return []
@@ -349,7 +353,8 @@ export default function SolDashboardPage() {
 
   // "Touche Chak Konbyen Sik" — montan final la miltipliye pa entèval la
   const planInterval     = Math.max(1, Math.floor(Number(plan.interval) || 1))
-  const payoutDebaz      = ((plan.amount * totalSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
+  const payoutSlotCount  = sched?.payoutSlots || totalSlotCount
+  const payoutDebaz      = ((plan.amount * payoutSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
   const payoutAjiste     = payoutDebaz + memberBalance
   // ✅ KORIJE: total sòl la = kantite dat PREVI yo (manm × entèval), PA `dates.length`.
@@ -511,6 +516,38 @@ export default function SolDashboardPage() {
               </div>
             </div>
           </>
+        )
+      })()}
+
+      {!isStopped && sched && !sched.touched && sched.stoppedCount > 0 && sched.reducedBy > 0 && (() => {
+        const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
+        return (
+          <div className="sol-card sol-card-pad" style={{ marginBottom: 14, borderColor: 'var(--s-amber-line, var(--s-amber))' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+              <div className="sol-alert-ico" style={{ background: 'var(--s-amber-soft)', color: V.amber, fontSize: 19 }}>ℹ️</div>
+              <div>
+                <div className="sol-alert-title" style={{ color: V.amber }}>Kalkil ou chanje</div>
+                <div className="sol-alert-sub">{sched.stoppedCount === 1 ? '1 manm kanpe' : `${sched.stoppedCount} manm kanpe`} nan sòl la, yo pa kontinye peye ankò.</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 13, color: V.muted2, lineHeight: 1.7 }}>
+              Chak manm ki kanpe retire 1 men nan sa w ap touche a.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '9px 0 0' }}>
+              <span style={{ fontSize: 13, color: V.muted2 }}>Anvan</span>
+              <span className="sol-num" style={{ fontSize: 14, fontWeight: 700, color: V.muted, textDecoration: 'line-through' }}>{fmt(sched.originalPayoutAmount)} HTG</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0 0' }}>
+              <span style={{ fontSize: 13, color: V.text, fontWeight: 700 }}>Kounye a ou ap touche</span>
+              <span className="sol-num" style={{ fontSize: 17, fontWeight: 800, color: V.green }}>{fmt(sched.payoutAmount)} HTG</span>
+            </div>
+            {sched.expectedPayoutDate && sched.expectedPayoutDate !== sched.originalPayoutDate && (
+              <div style={{ fontSize: 12, color: V.muted2, marginTop: 8 }}>Dat touche ou avanse: <strong style={{ color: V.text }}>{dmy(sched.originalPayoutDate)} → {dmy(sched.expectedPayoutDate)}</strong></div>
+            )}
+            {sched.endDate && sched.endDate !== sched.originalEndDate && (
+              <div style={{ fontSize: 12, color: V.muted2, marginTop: 4 }}>Sòl ou a fini: <strong style={{ color: V.text }}>{dmy(sched.endDate)}</strong> (olye {dmy(sched.originalEndDate)})</div>
+            )}
+          </div>
         )
       })()}
 

@@ -15,7 +15,7 @@ import {
 
 import {
   D, fmt, freqFullLabel,
-  getAllPaymentDates, getPayoutDateMap,
+  getAllPaymentDates, getPayoutDateMap, getMemberPaymentDates, memberPayoutFor,
   computeMemberStatus, memberPayout, ownerPayout,
   hasOwnerSlot, getMemberSlots, calcDepoRezev,
   getHaitiNow, isDateOverdue, computeLocalBreakdown,
@@ -443,7 +443,7 @@ export default function PlanDetail({
             <p style={{ margin: '4px 0 0', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 26, lineHeight: 1.05, textTransform: 'uppercase' }}>{todayWinner.name}</p>
             {todayWinner.permanentId && <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(242,241,236,.6)', fontWeight: 700 }}>ID {todayWinner.permanentId}</p>}
           </div>
-          <p className="pd-win-amt">{fmt(todayWinner.isOwnerSlot ? ownerPayout(plan) : payout)}<small>HTG</small></p>
+          <p className="pd-win-amt">{fmt(memberPayoutFor(plan, todayWinner))}<small>HTG</small></p>
         </div>
       )}
 
@@ -552,10 +552,11 @@ export default function PlanDetail({
               <p>Pa gen manm ki koresponn ak filt sa a.</p>
             </div>
           ) : shownMembers.map((m, idx) => {
-            const totalDates = allDates.length
-            const paid       = allDates.filter(d => m.payments?.[d]).length
+            const mDates     = getMemberPaymentDates(plan, m)   // ✅ kalandriye pwòp manm nan (kanpe yo pran an kont)
+            const totalDates = mDates.length
+            const paid       = mDates.filter(d => m.payments?.[d]).length
             const rèsHTG     = Math.max(0, (totalDates - paid) * plan.amount)
-            const overdueDates = allDates.filter(d => isDateOverdue(d, today, currentTime, dueTimeEnd) && !m.payments?.[d]).length
+            const overdueDates = mDates.filter(d => isDateOverdue(d, today, currentTime, dueTimeEnd) && !m.payments?.[d]).length
             const payoutDate = payoutMap[m.position]
             const isWin      = payoutDate === today
             const isOwn      = m.isOwnerSlot
@@ -805,7 +806,7 @@ export default function PlanDetail({
               <p style={{ margin: 0, fontFamily: 'var(--display)', fontWeight: 800, fontSize: 24, textTransform: 'uppercase' }}>{confirmingPayout.name}</p>
               {confirmingPayout.permanentId && <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(242,241,236,.6)', fontWeight: 700 }}>ID {confirmingPayout.permanentId}</p>}
               <p style={{ margin: '12px 0 0', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 44, lineHeight: 1, color: '#FFC83D' }}>
-                {fmt(confirmingPayout.isOwnerSlot ? ownerPayout(plan) : memberPayout(plan))}<small style={{ fontSize: 15, color: 'rgba(242,241,236,.6)', marginLeft: 5 }}>HTG</small>
+                {fmt(memberPayoutFor(plan, confirmingPayout))}<small style={{ fontSize: 15, color: 'rgba(242,241,236,.6)', marginLeft: 5 }}>HTG</small>
               </p>
             </div>
             {(() => {

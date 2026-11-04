@@ -184,21 +184,82 @@ export function getPlanStartDate(plan) {
 }
 
 export function getPayoutDate(plan, position) {
-  const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
-  const slots = Math.max(activeMembers.length, position)
-  const totalCycles = slots * interval
-  const allDates = getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
-  const idx = (position * interval) - 1
-  return allDates[Math.min(idx, allDates.length - 1)] || null
+  const m = (plan.members || []).find(x => x.position === position)
+  const info = m ? getSolSchedule(plan).byId.get(m.id) : null
+  if (info) return info.expectedPayoutDate
+  return getSolSchedule(plan).origDate(position)
 }
 
+// ✅ Kalandriye OFISYÈL sòl la = tout manm (kanpe yo enkli). Moun ki deja touche kenbe l konsa.
 export function getAllPaymentDates(plan) {
+  return getSolSchedule(plan).allDates
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ✅ NOUVO: kalandriye/montan chak manm lè gen manm kanpe (menm règ ak backend Sol la)
+//  • Manm ki DEJA touche (hasWon, oswa dat touche orijinal li ≤ jodi a): dat ofisyèl + montan PA chanje.
+//  • Manm ki POKO touche: chak manm kanpe retire 1 "men" nan montan an; chak plas kanpe ki te nan fiti
+//    rakousi kalandriye a ak 1 dat, epi dat touche yo avanse.
+// ═══════════════════════════════════════════════════════════════
+const _schedCache = new WeakMap()
+export function getSolSchedule(plan, todayArg) {
+  const today = todayArg || getHaitiNow().today
+  const hit = _schedCache.get(plan)
+  if (hit && hit.today === today && hit.members === plan.members) return hit.val
+
+  const members  = plan.members || []
   const interval = Math.max(1, Math.floor(plan.interval) || 1)
-  const activeMembers = (plan.members || []).filter(m => m.status !== 'stopped')
-  const slots = activeMembers.length || 1
-  const totalCycles = slots * interval
-  return getPaymentDates(plan.frequency, getPlanStartDate(plan), totalCycles)
+  const amount   = Number(plan.amount || 0)
+  const feeUnit  = Number(plan.feePerMember || 0)
+  const N        = Math.max(1, members.length)
+  const start    = getPlanStartDate(plan)
+  const allDates = getPaymentDates(plan.frequency, start, N * interval)
+  const origDate = (pos) => allDates[Math.min(Math.max(1, Number(pos) || 1) * interval - 1, allDates.length - 1)] || null
+
+  const stopped       = members.filter(m => m.status === 'stopped')
+  const S             = Math.min(stopped.length, N)
+  const futureStopped = stopped.filter(m => (origDate(m.position) || '') > today).length
+  let pastRounds = 0
+  for (let p = 1; p <= N; p++) if ((origDate(p) || '9999') <= today) pastRounds++
+
+  const pending = members
+    .filter(m => m.status !== 'stopped' && !m.hasWon && (origDate(m.position) || '') > today)
+    .sort((a, b) => a.position - b.position)
+  const rank = new Map(pending.map((m, i) => [m.id, i + 1]))
+
+  const fullPayout = Math.max(0, (amount * N - feeUnit) * interval)
+  const byId = new Map()
+  for (const m of members) {
+    const myOrig  = origDate(m.position)
+    const touched = !!m.hasWon || m.status === 'stopped' || (myOrig || '9999') <= today
+    const j       = rank.get(m.id)
+    const expectedPayoutDate = (!touched && j)
+      ? (allDates[Math.min((pastRounds + j) * interval - 1, allDates.length - 1)] || myOrig)
+      : myOrig
+    const dateSlots   = touched ? N : Math.max(1, N - futureStopped)
+    const payoutSlots = touched ? N : Math.max(1, N - S)
+    const payoutAmount = Math.max(0, (amount * payoutSlots - feeUnit) * interval)
+    byId.set(m.id, {
+      touched, dateSlots, payoutSlots, payoutAmount, originalPayoutAmount: fullPayout,
+      reducedBy: fullPayout - payoutAmount, originalPayoutDate: myOrig, expectedPayoutDate,
+      dates: allDates.slice(0, dateSlots * interval),
+    })
+  }
+  const val = { allDates, origDate, byId, stoppedCount: S, originalSlots: N, fullPayout }
+  _schedCache.set(plan, { today, members: plan.members, val })
+  return val
+}
+
+// Dat peman yon manm espesifik (moun ki poko touche yo gen kalandriye rakousi)
+export function getMemberPaymentDates(plan, member) {
+  const info = member ? getSolSchedule(plan).byId.get(member.id) : null
+  return info ? info.dates : getAllPaymentDates(plan)
+}
+
+// Montan yon manm ap touche (kenbe montan ofisyèl si li deja touche)
+export function memberPayoutFor(plan, member) {
+  const info = member ? getSolSchedule(plan).byId.get(member.id) : null
+  return info ? info.payoutAmount : memberPayout(plan)
 }
 
 export function getPayoutDateMap(plan) {
@@ -315,7 +376,7 @@ export function computeMemberStatus(member, plan, today, currentTime = null) {
   if (member.status === 'blocked') return 'blocked'
   if (member.hasWon)               return 'finished'
 
-  const allDates   = getAllPaymentDates(plan)
+  const allDates   = getMemberPaymentDates(plan, member)
   const dueTimeEnd = plan.dueTimeEnd || '17:00'
 
   // ✅ Si `currentTime` bay, sèvi ak `isDateOverdue` (ki konsidere fenèt peman).
@@ -353,7 +414,7 @@ const SCORE_POINTS = {
 }
 
 export function computeLocalBreakdown(member, plan, today, currentTime, fallback = null) {
-  const allDates   = getAllPaymentDates(plan)
+  const allDates   = getMemberPaymentDates(plan, member)
   const dueTimeEnd = plan.dueTimeEnd || '17:00'
 
   const breakdown = {
@@ -413,7 +474,7 @@ export function calcDepoRezev(plan, today) {
  * Kalkile depo rezèv pou yon manm espesifik
  */
 export function calcMemberDepoRezev(member, plan, today) {
-  const allDates = getAllPaymentDates(plan)
+  const allDates = getMemberPaymentDates(plan, member)
   const futureDates = allDates.filter(d => d > today)
   const futurePaid = futureDates.filter(d => member.payments?.[d]).length
   return futurePaid * Number(plan.amount)
@@ -509,8 +570,8 @@ export function buildReceiptHTML(plan, member, paidDates = [], tenant, type = 'p
     return ['A LÈ', '#16a34a']
   }
   const isOwner      = member.isOwnerSlot
-  const payout       = isOwner ? ownerPayout(plan) : memberPayout(plan)
-  const allDates     = getAllPaymentDates(plan)
+  const payout       = memberPayoutFor(plan, member)
+  const allDates     = getMemberPaymentDates(plan, member)
   const totalPaid    = Object.keys(member.payments || {}).filter(d => member.payments[d]).length
   const fmtAmt       = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 0 })
   const interval     = Math.max(1, Math.floor(plan.interval) || 1)
@@ -730,7 +791,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
   const nSlots   = slots.length
   const isPay    = type === 'peman'
   const amount   = Number(plan.amount || 0)
-  const allDates = getAllPaymentDates(plan)
+  const allDates = getMemberPaymentDates(plan, member)
   const nowH = getHaitiNow()
   const today = nowH.today
   // ✅ Lè manyèl: resi a montre lè kliyan an te peye a, epi badj yo baze sou lè sa a
@@ -741,7 +802,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
   const justPaid  = isPay ? paidDates.length * amount * nSlots : 0
   const fineTotal = Object.values(member.fines || {}).reduce((a, b) => a + Number(b), 0)
   const contribution = Math.max(paidCount * amount, justPaid)
-  const payout    = member.isOwnerSlot ? ownerPayout(plan) : memberPayout(plan)
+  const payout    = memberPayoutFor(plan, member)
   const payoutDate = getPayoutDate(plan, member.position)
   const bizRaw    = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const biz       = esc(bizRaw)

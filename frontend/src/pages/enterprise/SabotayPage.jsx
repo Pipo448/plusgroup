@@ -13,7 +13,7 @@ import { useAuthStore } from '../../stores/authStore'
 
 import {
   GLOBAL_STYLES, fmt, freqFullLabel,
-  getAllPaymentDates, computeMemberStatus, memberPayout, ownerPayout,
+  getAllPaymentDates, computeMemberStatus, memberPayout, memberPayoutFor, ownerPayout,
   calcDepoRezev, apiFetch, getHaitiNow,
 } from './sabotayUtils'
 
@@ -354,7 +354,7 @@ export default function SabotayPage() {
                       <div className="sab-win">
                         <Trophy size={16} color="#FFC83D" />
                         <span style={{ flex: 1, minWidth: 0 }}>{winner.name} ap touche jodi a</span>
-                        <b>{fmt(winner.isOwnerSlot ? ownerPayout(plan) : payout)} G</b>
+                        <b>{fmt(memberPayoutFor(plan, winner))} G</b>
                       </div>
                     )}
 

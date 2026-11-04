@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import {
-  D, fmt, getAllPaymentDates, getPayoutDateMap, hasOwnerSlot, apiFetch, API_URL, getHaitiNow,
+  D, fmt, getAllPaymentDates, getPayoutDateMap, getMemberPaymentDates, hasOwnerSlot, apiFetch, API_URL, getHaitiNow,
 } from './sabotayUtils'
 import { T, hexA } from './kane-epay/kaneEpayConstants'
 import { Chip, Spinner, Field, AnimatedNumber } from './kane-epay/KaneEpayComponents'
@@ -97,8 +97,11 @@ export function PlanCalendar({ plan }) {
     return t === 'early' ? '#059669' : t === 'late' ? T.orange : T.green
   }
 
+  // ✅ chak manm gen pwòp kalandriye (moun ki poko touche yo rakousi si gen manm kanpe)
+  const memberDateSets = useMemo(() => new Map(members.map(m => [m.id, new Set(getMemberPaymentDates(plan, m))])), [plan, members])
+
   const dayInfo = (ds) => {
-    const payors  = payDateSet.has(ds) ? members.filter(m => m.status !== 'stopped') : []
+    const payors  = payDateSet.has(ds) ? members.filter(m => m.status !== 'stopped' && memberDateSets.get(m.id)?.has(ds)) : []
     const winners = members.filter(m => m.payoutDate === ds || String(m.declaredPayoutDate || '').split('T')[0] === ds)
     return { payors, winners }
   }
