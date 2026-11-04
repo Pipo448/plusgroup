@@ -15,7 +15,7 @@ import {
 
 import {
   D, fmt, freqFullLabel,
-  getAllPaymentDates, getPayoutDateMap, getMemberPaymentDates, memberPayoutFor,
+  getAllPaymentDates, getPayoutDateMap, getMemberPaymentDates, memberPayoutFor, getMemberUnpaidFines,
   computeMemberStatus, memberPayout, ownerPayout,
   hasOwnerSlot, getMemberSlots, calcDepoRezev,
   getHaitiNow, isDateOverdue, computeLocalBreakdown,
@@ -443,7 +443,9 @@ export default function PlanDetail({
             <p style={{ margin: '4px 0 0', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 26, lineHeight: 1.05, textTransform: 'uppercase' }}>{todayWinner.name}</p>
             {todayWinner.permanentId && <p style={{ margin: '3px 0 0', fontSize: 12, color: 'rgba(242,241,236,.6)', fontWeight: 700 }}>ID {todayWinner.permanentId}</p>}
           </div>
-          <p className="pd-win-amt">{fmt(memberPayoutFor(plan, todayWinner))}<small>HTG</small></p>
+          <p className="pd-win-amt">{fmt(memberPayoutFor(plan, todayWinner))}<small>HTG</small>
+            {getMemberUnpaidFines(plan, todayWinner).amount > 0 && <span style={{ display: 'block', fontSize: 11.5, fontWeight: 700, color: '#fca5a5' }}>− {fmt(getMemberUnpaidFines(plan, todayWinner).amount)} amand</span>}
+          </p>
         </div>
       )}
 
@@ -808,6 +810,9 @@ export default function PlanDetail({
               <p style={{ margin: '12px 0 0', fontFamily: 'var(--display)', fontWeight: 800, fontSize: 44, lineHeight: 1, color: '#FFC83D' }}>
                 {fmt(memberPayoutFor(plan, confirmingPayout))}<small style={{ fontSize: 15, color: 'rgba(242,241,236,.6)', marginLeft: 5 }}>HTG</small>
               </p>
+              {getMemberUnpaidFines(plan, confirmingPayout).amount > 0 && !confirmingPayout.hasWon && (
+                <p style={{ margin: '8px 0 0', fontSize: 12.5, fontWeight: 700, color: '#fca5a5' }}>Amand ki pa peye dedui: − {fmt(getMemberUnpaidFines(plan, confirmingPayout).amount)} HTG</p>
+              )}
             </div>
             {(() => {
               const cp = confirmingPayout

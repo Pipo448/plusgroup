@@ -386,7 +386,7 @@ router.post('/auth/change-password', authMember, async (req, res) => {
 // non Prisma a se literalman `paid_at`), pa `paidAt`. Ansyen non an te
 // lakòz `PrismaClientValidationError` sou chak apèl /members/me, ki te
 // fè paj Sol la rete blanch pou tout moun.
-const PAYMENT_SELECT_MINIMAL = { dueDate: true, timing: true, paidDate: true, paid_at: true }
+const PAYMENT_SELECT_MINIMAL = { dueDate: true, timing: true, paidDate: true, paid_at: true, fineAmt: true }
 
 async function buildPlanData(account, memberId) {
   if (!memberId) return null
@@ -444,6 +444,29 @@ async function buildPlanData(account, memberId) {
   const schedule = scheduleMembers.length
     ? solScheduleInfo(plan, scheduleMembers, sabotayMember.id, haitiNow().today)
     : null
+
+  // ✅ NOUVO: amand ki pa peye → dedui nan kob sòl la
+  const penaltyAmt = Number(plan.penalty || account.planPenalty || 0)
+  let unpaidFineCount = 0
+  if (schedule && penaltyAmt > 0 && sabotayMember.status !== 'stopped' && !sabotayMember.hasWon) {
+    const todayH   = haitiNow().today
+    const startStr = plan.startDate instanceof Date ? plan.startDate.toISOString() : String(plan.startDate)
+    const mDates   = paymentDatesUntil(plan.frequency, startStr, schedule.dateSlots * Math.max(1, Math.floor(Number(plan.interval) || 1)), '9999-12-31')
+    const byDate   = {}
+    for (const pm of sabotayMember.payments) byDate[new Date(pm.dueDate).toISOString().slice(0, 10)] = pm
+    unpaidFineCount = mDates.filter(d => {
+      const pm = byDate[d]
+      if (!pm) return d < todayH
+      const tm = pm.timing || computeTiming(pm.dueDate, pm.paidDate || pm.paid_at || pm.dueDate)
+      return (tm === 'late' || tm === 'veryLate') && !(Number(pm.fineAmt || 0) > 0)
+    }).length
+  }
+  if (schedule) {
+    schedule.unpaidFineCount  = unpaidFineCount
+    schedule.unpaidFineAmount = unpaidFineCount * penaltyAmt
+    schedule.payoutBeforeFines = schedule.payoutAmount
+    schedule.payoutAmount      = Math.max(0, schedule.payoutAmount - schedule.unpaidFineAmount)
+  }
 
   const activeMemberCount = await prisma.sabotayMember.count({
     where: { planId: plan.id, ...(isClosed ? {} : { isActive: true }) }

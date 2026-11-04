@@ -257,9 +257,33 @@ export function getMemberPaymentDates(plan, member) {
 }
 
 // Montan yon manm ap touche (kenbe montan ofisyèl si li deja touche)
-export function memberPayoutFor(plan, member) {
+// Montan brit (anvan amand yo dedui)
+export function memberPayoutGross(plan, member) {
   const info = member ? getSolSchedule(plan).byId.get(member.id) : null
   return info ? info.payoutAmount : memberPayout(plan)
+}
+
+// ✅ NOUVO: amand ki PA peye yon manm (yo dedui nan kob sòl la)
+//  • dat ki pase epi poko peye  → 1 amand
+//  • dat peye an reta men amand lan pa t kolekte (member.fines[d] vid) → 1 amand
+export function getMemberUnpaidFines(plan, member, todayArg) {
+  const pen = Number(plan?.penalty || 0)
+  const empty = { penalty: pen, dates: [], count: 0, amount: 0 }
+  if (!member || pen <= 0 || member.status === 'stopped') return empty
+  const today = todayArg || getHaitiNow().today
+  const dates = getMemberPaymentDates(plan, member).filter(d => {
+    if (!member.payments?.[d]) return d < today
+    const tm = member.paymentTimings?.[d]
+    return (tm === 'late' || tm === 'veryLate') && !Number(member.fines?.[d] || 0)
+  })
+  return { penalty: pen, dates, count: dates.length, amount: dates.length * pen }
+}
+
+// Montan manm nan ap touche NET (apre amand ki pa peye yo dedui)
+export function memberPayoutFor(plan, member) {
+  const gross = memberPayoutGross(plan, member)
+  if (!member || member.hasWon) return gross
+  return Math.max(0, gross - getMemberUnpaidFines(plan, member).amount)
 }
 
 export function getPayoutDateMap(plan) {

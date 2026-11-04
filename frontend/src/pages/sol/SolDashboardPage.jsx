@@ -356,7 +356,9 @@ export default function SolDashboardPage() {
   const payoutSlotCount  = sched?.payoutSlots || totalSlotCount
   const payoutDebaz      = ((plan.amount * payoutSlotCount) - (plan.feePerMember || plan.fee || 0)) * planInterval
   const memberBalance    = Number(member.balance || 0)
-  const payoutAjiste     = payoutDebaz + memberBalance
+  // ✅ amand ki pa peye dedui nan kob sòl la
+  const fineDeduct       = member.status === 'stopped' ? 0 : Number(sched?.unpaidFineAmount || 0)
+  const payoutAjiste     = Math.max(0, payoutDebaz + memberBalance - fineDeduct)
   // ✅ KORIJE: total sòl la = kantite dat PREVI yo (manm × entèval), PA `dates.length`.
   // `dates` ka gen dat siplemantè (peman make sou yon dat ki pa nan kalandriye a) — sa te gonfle total la
   // (egz. 28 olye 27) epi te montre "Rès pou peye" twò gwo (8 000 olye 6 000).
@@ -365,7 +367,7 @@ export default function SolDashboardPage() {
   const progress         = Math.min(100, (totalPaid / scheduleCount) * 100)
   const totalToPayForSol = scheduleCount * plan.amount * allSlots.length
   const restaPouPeye     = Math.max(0, totalToPayForSol - amountContributed)
-  const totalPayout      = allSlots.length > 1 ? payoutDebaz * allSlots.length + memberBalance : payoutAjiste
+  const totalPayout      = allSlots.length > 1 ? Math.max(0, payoutDebaz * allSlots.length + memberBalance - fineDeduct) : payoutAjiste
 
   // pa gen "touche" otomatik — sèlman lè ADMIN deklare yon dat oswa konfime touche a
   const declaredStr = member.declaredPayoutDate ? String(member.declaredPayoutDate).split('T')[0] : null
@@ -518,6 +520,23 @@ export default function SolDashboardPage() {
           </>
         )
       })()}
+
+      {fineDeduct > 0 && (
+        <div className="sol-card sol-card-pad" style={{ marginBottom: 14, borderColor: 'var(--s-red-line, var(--s-red))' }}>
+          <div className="sol-alert-title" style={{ color: V.red, marginBottom: 6 }}>Amand ki pa peye</div>
+          <div style={{ fontSize: 13, color: V.muted2, lineHeight: 1.7 }}>
+            {sched.unpaidFineCount} amand × {fmt(plan.penalty)} HTG. Tout amand ki pa peye ap dedui nan kob sòl ou a.
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 9 }}>
+            <span style={{ fontSize: 13, color: V.muted2 }}>Amand dedui</span>
+            <span className="sol-num" style={{ fontSize: 15, fontWeight: 800, color: V.red }}>− {fmt(fineDeduct)} HTG</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 6 }}>
+            <span style={{ fontSize: 13, color: V.text, fontWeight: 700 }}>Ou ap touche</span>
+            <span className="sol-num" style={{ fontSize: 17, fontWeight: 800, color: V.green }}>{fmt(payoutAjiste)} HTG</span>
+          </div>
+        </div>
+      )}
 
       {!isStopped && sched && !sched.touched && sched.stoppedCount > 0 && sched.reducedBy > 0 && (() => {
         const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')

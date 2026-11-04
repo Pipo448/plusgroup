@@ -17,7 +17,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { Modal, Sec, TimePicker12h, format24ToDisplay12, MemberStatusBadge, ModalSolReceipt } from './sabotayAtoms'
 import {
   D, fmt, FREQ_LABELS,
-  getAllPaymentDates, getMemberPaymentDates, memberPayoutFor, getPayoutDate, computeMemberStatus,
+  getAllPaymentDates, getMemberPaymentDates, memberPayoutFor, getMemberUnpaidFines, getPayoutDate, computeMemberStatus,
   memberPayout, ownerPayout, getMemberScore, getPaymentTiming,
   calcMemberDepoRezev, apiFetch, API_URL, normalizePhone, getHaitiNow, hasOwnerSlot,
 } from './sabotayUtils'
@@ -356,6 +356,10 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
   const baseAmt    = sel.length * Number(plan.amount) * slotCount
   const totalAmt   = baseAmt + fineAmt
   const isBlocked  = member.status === 'blocked'
+  // Amand ki pa peye: sa k ap dedui nan kob sòl la
+  const unpaidInfo    = getMemberUnpaidFines(plan, member, today)
+  const deductNow     = hasPenalty && !applyFine ? lateDates.length * Number(plan.penalty) : 0   // dat chwazi a ki an reta, men amand lan pa peye kounye a
+  const stillUnpaid   = Math.max(0, unpaidInfo.amount - (applyFine ? lateDates.filter(d => unpaidInfo.dates.includes(d)).length * Number(plan.penalty) : 0))
 
   const handleConfirm = async () => {
     if (!sel.length) return toast.error('Chwazi omwen yon dat.')
@@ -475,7 +479,10 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
                       {isLate && <Chip color={T.orange} icon={<AlertTriangle size={10} />}>Reta</Chip>}
                       {isFuture && <Chip color={T.teal} icon={<PiggyBank size={10} />}>Rezèv</Chip>}
                     </div>
-                    <b style={{ fontFamily: 'var(--display)', fontSize: 18, color: c, whiteSpace: 'nowrap' }}>{fmt(plan.amount * slotCount)}</b>
+                    <div style={{ textAlign: 'right' }}>
+                      <b style={{ fontFamily: 'var(--display)', fontSize: 18, color: c, whiteSpace: 'nowrap' }}>{fmt(plan.amount * slotCount)}</b>
+                      {hasPenalty && isLate && <div style={{ fontSize: 11, fontWeight: 800, color: T.red, whiteSpace: 'nowrap' }}>+ {fmt(plan.penalty)} amand</div>}
+                    </div>
                   </div>
                 )
               })}
@@ -487,8 +494,19 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: applyFine ? T.red : D.text }}>Ajoute amand reta</p>
                   <p style={{ margin: '2px 0 0', fontSize: 12, color: D.muted }}>{lateDates.length} dat × {fmt(plan.penalty)} = <b style={{ color: T.red }}>{fmt(lateDates.length * Number(plan.penalty))} HTG</b></p>
+                  {!applyFine && <p style={{ margin: '3px 0 0', fontSize: 11.5, color: T.red, fontWeight: 700 }}>Si w pa kolekte l kounye a, amand lan ap dedui nan kob sòl manm lan.</p>}
                 </div>
                 <AlertTriangle size={16} color={T.red} />
+              </div>
+            )}
+
+            {hasPenalty && unpaidInfo.amount > 0 && (
+              <div className="ke-alert" style={{ '--c': T.red, '--cbg': hexA(T.red, .06), '--cbd': hexA(T.red, .28), margin: 0 }}>
+                <AlertTriangle size={16} />
+                <div>
+                  Amand ki pa peye: <b>{unpaidInfo.count} × {fmt(plan.penalty)} = {fmt(unpaidInfo.amount)} HTG</b>. Tout amand ki pa peye ap dedui nan kob sòl manm lan.
+                  {sel.length > 0 && stillUnpaid !== unpaidInfo.amount && <> Apre peman sa a: <b>{fmt(stillUnpaid)} HTG</b>.</>}
+                </div>
               </div>
             )}
 
@@ -496,7 +514,8 @@ export function ModalMarkPayment({ member, plan, onClose, onSave, printer }) {
               <div className="ke-summary" style={{ marginTop: 0 }}>
                 <div className="line"><span>Peman · {sel.length} dat{slotCount > 1 ? ` × ${slotCount} men` : ''}</span><b>{fmt(baseAmt)} HTG</b></div>
                 {futureSel.length > 0 && <div className="line"><span><PiggyBank size={13} /> Ladan l depo rezèv</span><b style={{ color: T.teal }}>{fmt(futureSel.length * Number(plan.amount) * slotCount)} HTG</b></div>}
-                {fineAmt > 0 && <div className="line"><span>+ Amand</span><b style={{ color: T.red }}>{fmt(fineAmt)} HTG</b></div>}
+                {fineAmt > 0 && <div className="line"><span>+ Amand (peye kounye a)</span><b style={{ color: T.red }}>{fmt(fineAmt)} HTG</b></div>}
+                {deductNow > 0 && <div className="line"><span>Amand pa peye (dedui nan kob sòl)</span><b style={{ color: T.red }}>− {fmt(deductNow)} HTG</b></div>}
                 <div className="total"><span>Total</span><b style={{ color: T.green }}>{fmt(totalAmt)} <small style={{ fontSize: 14, color: D.muted }}>HTG</small></b></div>
               </div>
             )}
@@ -859,7 +878,7 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
         <div className="sm-kv">
           <div><p className="ke-label-s">Deja peye</p><p className="v" style={{ color: T.green }}>{fmt(amtPaid)}</p></div>
           <div><p className="ke-label-s">Rès pou peye</p><p className="v" style={{ color: T.red }}>{fmt(Math.max(0, amtDue - amtPaid))}</p></div>
-          <div><p className="ke-label-s">Ap touche</p><p className="v" style={{ color: T.goldInk }}>{fmt(payout)}</p></div>
+          <div><p className="ke-label-s">Ap touche</p><p className="v" style={{ color: T.goldInk }}>{fmt(payout)}</p>{(() => { const uf = getMemberUnpaidFines(plan, activeMember); return uf.amount > 0 && !activeMember.hasWon ? <p style={{ margin: '2px 0 0', fontSize: 11, fontWeight: 800, color: T.red }}>− {fmt(uf.amount)} amand</p> : null })()}</div>
           <div><p className="ke-label-s">Dat touche</p><p className="v" style={{ color: T.blue }}>{payoutDate ? dmy(payoutDate) : '—'}</p></div>
           {depoRezev > 0 && <div><p className="ke-label-s">Depo rezèv</p><p className="v" style={{ color: T.teal }}>{fmt(depoRezev)}</p></div>}
           {fineTotal > 0 && <div><p className="ke-label-s">Amand</p><p className="v" style={{ color: T.red }}>{fmt(fineTotal)}</p></div>}
