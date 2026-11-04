@@ -32,24 +32,22 @@ async function haitiDayRangeUTC(dateStr) {
 async function genNumeroDossier(tenantId) {
   const ane = new Date().getFullYear()
   const prefix = `DOS-${ane}-`
-  // ⭐ Pran TOUT dosye ane sa a epi kalkile pi gwo nimewo a NIMERIKMAN nan
-  //   JavaScript — pa fè yon ORDER BY tèks (lexicographic) sou
-  //   numero_dossier, paske si gen menm yon sèl dosye ki pa gen
-  //   egzakteman 5 chif ak zewo devan (done antre alamen, enpòte, oswa
-  //   fòma ki chanje avan), tri tèks la ka bay yon move "dènye nimewo" —
-  //   e sa fè menm move nimewo a repwodwi menm apre plizyè eseye.
+  // ⭐ Baze sou pi gwo nimewo ki EGZISTE (pa COUNT) — COUNT te bay menm
+  //   nimewo a ankò apre yo siprime yon pasyan (COUNT desann, men nimewo
+  //   pi wo yo rete pran), sa ki te lakòz "Unique constraint failed on
+  //   numero_dossier". MAX toujou monte, li pa janm rekile.
   const rows = await prisma.$queryRaw`
     SELECT numero_dossier FROM klinik_patients
     WHERE tenant_id::text = ${tenantId}::text
       AND numero_dossier LIKE ${prefix + '%'}
+    ORDER BY numero_dossier DESC
+    LIMIT 1
   `
   let next = 1
-  for (const row of rows) {
-    const m = String(row.numero_dossier || '').match(/(\d+)$/)
-    if (m) {
-      const n = parseInt(m[1], 10) + 1
-      if (n > next) next = n
-    }
+  const last = rows[0]?.numero_dossier
+  if (last) {
+    const m = String(last).match(/(\d+)$/)
+    if (m) next = parseInt(m[1], 10) + 1
   }
   return `${prefix}${String(next).padStart(5, '0')}`
 }
@@ -129,10 +127,6 @@ router.get('/patients/:id', async (req, res) => {
         prescriptions:   { orderBy: { date: 'desc' }, take: 5, include: { items: true } },
         labOrders:       { orderBy: { dateCommande: 'desc' }, take: 5, include: { items: true } },
         hospitalizations:{ orderBy: { dateAdmission: 'desc' }, take: 5 },
-        // ⭐ Sonografi + lòt sèvis — relasyon an rele "klinik_services" (pa
-        //   konvansyon kamelCase abityèl la), konfime nan schema Prisma a.
-        //   Pa gen orderBy paske chan dat modèl sa a pa konfime.
-        klinik_services: { take: 30 },
       },
     })
     if (!patient) return res.status(404).json({ message: 'Pasyan pa jwenn.' })
@@ -295,26 +289,13 @@ router.delete('/patients/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/appointments', async (req, res) => {
   try {
-    const { date, dateFrom, dateTo, statut, patientId, search, includeOverdue, page = 1, limit = 50 } = req.query
+    const { date, dateFrom, dateTo, statut, patientId, search, page = 1, limit = 50 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
 
     if (date) {
       // ⭐ Itilize jou kalandriye AYITI, pa jou UTC sèvè a
-      const range = await haitiDayRangeUTC(date)
-      if (String(includeOverdue) === 'true') {
-        // ⭐ Lè n ap gade "jodi a", enkli tou randevou ki gen yon dat AVAN
-        //   jodi a men ki rete "en_attente" (pasyan poko vini, poko peye).
-        //   Konsa yo kontinye parèt chak jou (ak konbyen jou anreta) jiskaske
-        //   pasyan an vin peye nan Kes oswa randevou a anile — olye yo
-        //   disparèt nèt si pasyan an pa t vini nan dat orijinal la.
-        where.OR = [
-          { dateHeure: range },
-          { dateHeure: { lt: range.gte }, statut: 'en_attente' },
-        ]
-      } else {
-        where.dateHeure = range
-      }
+      where.dateHeure = await haitiDayRangeUTC(date)
     } else if (dateFrom || dateTo) {
       where.dateHeure = {}
       if (dateFrom) { where.dateHeure.gte = (await haitiDayRangeUTC(dateFrom)).gte }
@@ -344,7 +325,7 @@ router.get('/appointments', async (req, res) => {
     const [appointments, total] = await Promise.all([
       prisma.klinikAppointment.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{dateHeure:'asc'},
-        include:{patient:{select:{id:true,nom:true,prenom:true,telephone:true,numeroDossier:true}}},
+        include:{patient:{select:{nom:true,prenom:true,telephone:true,numeroDossier:true}}},
       }),
       prisma.klinikAppointment.count({ where }),
     ])
@@ -440,25 +421,10 @@ router.delete('/appointments/:id', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════
 router.get('/consultations', async (req, res) => {
   try {
-    const { patientId, search, page = 1, limit = 20 } = req.query
+    const { patientId, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
-    // ⭐ Rechèch pa non/prenon/nimewo dosye pasyan an, oswa pa motif/dyagnostik
-    //   konsiltasyon an — te manke nèt, se poutèt sa rechèch la pa t janm fè anyen.
-    if (search && search.trim()) {
-      const tokens = search.trim().split(/\s+/).filter(Boolean)
-      where.AND = tokens.map(tok => ({
-        OR: [
-          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
-          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
-          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
-          { motif:      { contains: tok, mode: 'insensitive' } },
-          { diagnostic: { contains: tok, mode: 'insensitive' } },
-          { doctorName: { contains: tok, mode: 'insensitive' } },
-        ],
-      }))
-    }
     const [consultations, total] = await Promise.all([
       prisma.klinikConsultation.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{date:'desc'},
@@ -618,22 +584,11 @@ router.delete('/consultations/:id', async (req, res) => {
 })
 router.get('/prescriptions', async (req, res) => {
   try {
-    const { patientId, statut, search, page = 1, limit = 20 } = req.query
+    const { patientId, statut, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
     if (statut)    where.statut    = statut
-    if (search && search.trim()) {
-      const tokens = search.trim().split(/\s+/).filter(Boolean)
-      where.AND = tokens.map(tok => ({
-        OR: [
-          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
-          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
-          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
-          { doctorName: { contains: tok, mode: 'insensitive' } },
-        ],
-      }))
-    }
     const [prescriptions, total] = await Promise.all([
       prisma.klinikPrescription.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{date:'desc'},
@@ -691,22 +646,11 @@ router.delete('/prescriptions/:id', async (req, res) => {
 })
 router.get('/lab-orders', async (req, res) => {
   try {
-    const { patientId, statut, search, page = 1, limit = 20 } = req.query
+    const { patientId, statut, page = 1, limit = 20 } = req.query
     const tenantId = tid(req)
     const where    = { tenantId }
     if (patientId) where.patientId = patientId
     if (statut)    where.statut    = statut
-    if (search && search.trim()) {
-      const tokens = search.trim().split(/\s+/).filter(Boolean)
-      where.AND = tokens.map(tok => ({
-        OR: [
-          { patient: { prenom:        { contains: tok, mode: 'insensitive' } } },
-          { patient: { nom:           { contains: tok, mode: 'insensitive' } } },
-          { patient: { numeroDossier: { contains: tok, mode: 'insensitive' } } },
-          { doctorName: { contains: tok, mode: 'insensitive' } },
-        ],
-      }))
-    }
     const [labOrders, total] = await Promise.all([
       prisma.klinikLabOrder.findMany({
         where, skip:(Number(page)-1)*Number(limit), take:Number(limit), orderBy:{dateCommande:'desc'},
@@ -950,17 +894,14 @@ router.patch('/hospitalizations/:id/decharge', async (req, res) => {
 })
 
 // ── PATCH /klinik/hospitalizations/:id/sign-vito ─────────────
-// ⚠️ ENDPOINT SA A DEPRESYE — li ranplase TOUT lis la, sa ka pèdi done
-//    lè 2 moun (2 enfimyè) ap travay sou menm dosye a an menm tan.
-//    Kenbe l sèlman pou konpatibilite ak vye kliyan; itilize
-//    POST .../sign-vito/add ak DELETE .../sign-vito/:entryId pito.
+// Sove tout lis Siy Vito (JSONB array) pou yon ospitalizasyon
 router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
   try {
     const { signVito } = req.body
     if (!Array.isArray(signVito)) {
       return res.status(400).json({ message: 'signVito dwe yon array' })
     }
-    await prisma.$executeRawUnsafe(
+    const hosp = await prisma.$executeRawUnsafe(
       `UPDATE "klinik_hospitalizations"
        SET "signe_vitaux" = $1::jsonb, "updated_at" = NOW()
        WHERE id = $2`,
@@ -969,56 +910,6 @@ router.patch('/hospitalizations/:id/sign-vito', async (req, res) => {
     )
     res.json({ ok: true, count: signVito.length })
   } catch (e) { res.status(500).json({ message: e.message }) }
-})
-
-// ⭐ POST /klinik/hospitalizations/:id/sign-vito/add ───────────
-// Ajoute YON SÈL antre siy vito ATOMIKMAN via operatè jsonb `||`
-// Postgres — pa gen risk pèdi done menm si 2 enfimyè sove an menm
-// tan, paske Postgres jere konkirans nan UPDATE a li menm (pa gen
-// etap "li tout lis la anvan" nan kliyan an ki ka vin demode).
-router.post('/hospitalizations/:id/sign-vito/add', async (req, res) => {
-  try {
-    const entry = req.body?.entry
-    if (!entry || typeof entry !== 'object') {
-      return res.status(400).json({ message: 'entry obligatwa' })
-    }
-    const nouvoEntry = { ...entry, id: entry.id || Date.now() }
-    const rows = await prisma.$queryRawUnsafe(
-      `UPDATE "klinik_hospitalizations"
-       SET "signe_vitaux" = COALESCE("signe_vitaux", '[]'::jsonb) || $1::jsonb,
-           "updated_at"   = NOW()
-       WHERE id = $2 AND tenant_id::text = $3::text
-       RETURNING "signe_vitaux"`,
-      JSON.stringify([nouvoEntry]),
-      req.params.id,
-      tid(req)
-    )
-    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
-    res.json({ ok: true, signVito: rows[0].signe_vitaux, entry: nouvoEntry })
-  } catch (e) { console.error('[POST sign-vito/add]', e.message); res.status(500).json({ message: e.message }) }
-})
-
-// ⭐ DELETE /klinik/hospitalizations/:id/sign-vito/:entryId ────
-// Retire YON SÈL antre siy vito atomikman, san touche rès lis la.
-router.delete('/hospitalizations/:id/sign-vito/:entryId', async (req, res) => {
-  try {
-    const rows = await prisma.$queryRawUnsafe(
-      `UPDATE "klinik_hospitalizations"
-       SET "signe_vitaux" = (
-             SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
-             FROM jsonb_array_elements(COALESCE("signe_vitaux", '[]'::jsonb)) elem
-             WHERE elem->>'id' != $1
-           ),
-           "updated_at" = NOW()
-       WHERE id = $2 AND tenant_id::text = $3::text
-       RETURNING "signe_vitaux"`,
-      String(req.params.entryId),
-      req.params.id,
-      tid(req)
-    )
-    if (!rows[0]) return res.status(404).json({ message: 'Ospitalizasyon pa jwenn.' })
-    res.json({ ok: true, signVito: rows[0].signe_vitaux })
-  } catch (e) { console.error('[DELETE sign-vito]', e.message); res.status(500).json({ message: e.message }) }
 })
 
 // ═══════════════════════════════════════════════════════════════
@@ -1060,11 +951,19 @@ router.get('/services', async (req, res) => {
       if (isValidDateStr(dateTo))   { where += ` AND ks.created_at < $${idx}::date + INTERVAL '1 day'`; params.push(dateTo); idx++ }
     }
 
+    // ⭐ Lè n ap gade Archive la (status=archived), triye pa archived_at
+    //    (lè demann lan te vrèman achive) — se sa ki fè demann ou fèk achive
+    //    a parèt ANLÈ a, olye li rete "dèyè nèt" selon dat kreyasyon an.
+    //    Pou lòt estati yo, konpòtman orijinal la rete (created_at DESC).
+    const orderBy = status === 'archived'
+      ? `ORDER BY ks.archived_at DESC NULLS LAST, ks.created_at DESC`
+      : `ORDER BY ks.created_at DESC`
+
     const [rows, countRow] = await Promise.all([
       prisma.$queryRawUnsafe(`
         SELECT ks.*, json_build_object('id',kp.id,'prenom',kp.prenom,'nom',kp.nom,'numeroDossier',kp.numero_dossier) AS patient
         FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id::text = ks.patient_id::text
-        ${where} ORDER BY ks.created_at DESC LIMIT ${Number(limit)} OFFSET ${offset}
+        ${where} ${orderBy} LIMIT ${Number(limit)} OFFSET ${offset}
       `, ...params),
       prisma.$queryRawUnsafe(`SELECT COUNT(*) as total FROM klinik_services ks LEFT JOIN klinik_patients kp ON kp.id::text = ks.patient_id::text ${where}`, ...params),
     ])
@@ -1137,13 +1036,21 @@ router.patch('/services/:id', async (req, res) => {
     console.log('[PATCH /services]', req.params.id, 'status:', status)
 
     // ⭐ Kast 2 bò an TEKS pou mache kèlkeswa tip kolòn (uuid oswa text)
-    // ⭐ Pa gen updated_at — kolòn an pa egziste nan klinik_services
+    // ⭐ Pa gen updated_at — kolòn an pa egziste nan klinik_services. Men nou
+    //    gen `archived_at`, make SÈLMAN lè demann lan vin achive (pou Archive
+    //    la ka triye pa "pi resan achive anlè"). Si estati a chanje pou yon
+    //    lòt bagay ki pa 'archived' (egz. "Retabli"), nou efase archived_at.
     const rows = await prisma.$queryRaw`
       UPDATE klinik_services SET
         status       = COALESCE(${status||null}, status),
         notes        = COALESCE(${notes||null}, notes),
         price_htg    = COALESCE(${priceHtg!==undefined?Number(priceHtg):null}, price_htg),
-        performed_by = COALESCE(${performedBy||null}, performed_by)
+        performed_by = COALESCE(${performedBy||null}, performed_by),
+        archived_at  = CASE
+                          WHEN ${status||null}::text = 'archived' THEN NOW()
+                          WHEN ${status||null}::text IS NOT NULL THEN NULL
+                          ELSE archived_at
+                        END
       WHERE id::text = ${req.params.id}::text AND tenant_id::text = ${tenantId}::text
       RETURNING *
     `
