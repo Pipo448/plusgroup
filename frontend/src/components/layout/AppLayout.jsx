@@ -13,6 +13,8 @@ import {
   DollarSign, ChevronUp, BookOpen,
   TrendingDown, UserCog, BarChart2, Calculator, Delete, RefreshCw, UtensilsCrossed, Truck, ClipboardCheck,
   Dumbbell, LogIn, Banknote,
+  // ✅ NOUVO — ikòn paj Restoran yo
+  PieChart, ShoppingBag, Globe2, Palette,
 } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
@@ -23,6 +25,9 @@ import { isAndroid, isSunmi } from '../../services/printerService'
 import { isNativePrinterAvailable } from '../../services/printerNative'
 import { getPaperSize, setDevicePaper, PAPER_EVENT } from '../../services/receiptPaper'
 import NotificationBell from '../NotificationBell'
+// ✅ NOUVO — Tradiksyon modil Restoran (tit meni yo nan 4 lang) + koulè anblèm restoran an
+import { ensureRestoI18n } from '../../pages/restaurant/restoI18n'
+import { useTenantBrand } from '../../theme/tenantBrand'
 
 const C = {
   sidebarBg:   '#16192a',
@@ -96,10 +101,19 @@ const HOTEL_ITEMS = [
 ]
 
 // ✅ NOUVO — Restoran
+// roles: sèlman wòl sa yo (admin toujou wè) · adminOnly: admin sèlman
+// strictPage: paj Super Admin lan dwe aktive (=== true) · badge: kòmand an liy ki nouvo
 const RESTAURANT_ITEMS = [
-  // ✅ NOUVO — Tab & Kòmand vin anlè, se sa sèvè a itilize chak jou
-  { to:'/app/restaurant/tables', icon:Users, labelKey:'nav.restaurantTables', label:'Tab & Kòmand', end:true },
-  { to:'/app/restaurant/menu', icon:UtensilsCrossed, labelKey:'nav.restaurant', label:'Meni Restoran', end:true },
+  { to:'/app/restaurant/dashboard',    icon:PieChart,        labelKey:'resto.nav.dashboard',    label:'Tablo Restoran', end:true },
+  { to:'/app/restaurant/counter',      icon:Banknote,        labelKey:'resto.nav.counter',      label:'Kès / Vann',     end:true, roles:['admin','cashier'] },
+  // Tab & Kòmand anlè: se sa sèvè a itilize chak jou
+  { to:'/app/restaurant/tables',       icon:Users,           labelKey:'nav.restaurantTables',   label:'Tab & Kòmand',   end:true },
+  { to:'/app/restaurant/menu',         icon:UtensilsCrossed, labelKey:'nav.restaurant',         label:'Meni Restoran',  end:true },
+  { to:'/app/restaurant/orders',       icon:ShoppingBag,     labelKey:'resto.nav.orders',       label:'Kòmand an liy',  end:true, strictPage:'restaurant-portal', badge:true },
+  { to:'/app/restaurant/reservations', icon:CalendarDays,    labelKey:'resto.nav.reservations', label:'Rezèvasyon',     end:true },
+  { to:'/app/restaurant/report',       icon:BarChart2,       labelKey:'resto.nav.report',       label:'Rapò vant',      end:true, roles:['admin','cashier'] },
+  { to:'/app/restaurant/portal',       icon:Globe2,          labelKey:'resto.nav.portal',       label:'Pòtal kliyan',   end:true, strictPage:'restaurant-portal', adminOnly:true },
+  { to:'/app/restaurant/branding',     icon:Palette,         labelKey:'resto.nav.branding',           label:'Koulè restoran', end:true, adminOnly:true },
 ]
 
 // ✅ NOUVO — Jim/Gym
@@ -522,6 +536,34 @@ export default function AppLayout() {
     return true
   }, [tenant?.allowedPages])
 
+  // ✅ NOUVO — Restoran: tradiksyon, koulè anblèm, lyen ki vizib, kantite kòmand an liy nouvo
+  ensureRestoI18n(i18n)
+  const restoOn = isPageAllowed('restaurant')
+  useTenantBrand(restoOn ? tenant?.id : null)
+  const restoItems = useMemo(() => {
+    let ap = tenant?.allowedPages
+    if (typeof ap === 'string') { try { ap = JSON.parse(ap) } catch { ap = null } }
+    return RESTAURANT_ITEMS.filter((it) => {
+      if (it.adminOnly && !isAdmin) return false
+      if (it.roles && !isAdmin && !it.roles.includes(user?.role)) return false
+      if (it.strictPage && !(ap && ap[it.strictPage] === true)) return false
+      return true
+    })
+  }, [tenant?.allowedPages, isAdmin, user?.role])
+  const portalOn = restoItems.some((it) => it.badge)
+  const [restoNew, setRestoNew] = useState(0)
+  useEffect(() => {
+    if (!portalOn || !token) return undefined
+    let alive = true
+    const load = () => {
+      if (document.hidden) return
+      api.get('/restaurant/online-orders/count').then(r => { if (alive) setRestoNew(r.data?.count || 0) }).catch(() => {})
+    }
+    load()
+    const id = setInterval(load, 60000)
+    return () => { alive = false; clearInterval(id) }
+  }, [portalOn, token])
+
   const currentBranchId   = useMemo(() => localStorage.getItem('plusgroup-branch-id'),   [])  // eslint-disable-line
   const currentBranchName = useMemo(() => localStorage.getItem('plusgroup-branch-name'), [])  // eslint-disable-line
 
@@ -897,12 +939,15 @@ export default function AppLayout() {
                 <span style={{ color:C.restaurant, fontSize:10, fontWeight:800, letterSpacing:'0.10em', textTransform:'uppercase' }}>🍽️ {t('nav.restaurant')}</span>
                 <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant }}/>
               </div>
-              {RESTAURANT_ITEMS.map(({ to, icon:Icon, labelKey, label, end }) => (
+              {restoItems.map(({ to, icon:Icon, labelKey, label, end, badge }) => (
                 <NavLink key={to} to={to} end={end}
                   style={({ isActive }) => restaurantLinkStyle(isActive)}>
                   {({ isActive }) => (<>
                     <Icon size={15} style={{ flexShrink:0, color: isActive ? C.restaurant : C.mutedMd }}/>
                     <span style={{ flex:1 }}>{t(labelKey, { defaultValue: label })}</span>
+                    {badge && restoNew > 0 && (
+                      <span style={{ minWidth:18, height:18, padding:'0 5px', borderRadius:9, background:C.restaurant, color:'#fff', fontSize:10, fontWeight:800, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>{restoNew > 99 ? '99+' : restoNew}</span>
+                    )}
                     {isActive && <div style={{ width:6, height:6, borderRadius:'50%', background:C.restaurant, flexShrink:0 }}/>}
                   </>)}
                 </NavLink>
