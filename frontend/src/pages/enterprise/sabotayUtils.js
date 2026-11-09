@@ -845,7 +845,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
 
   // ✅ Chak dat ak badj li: Reta (wouj) · Bonè / A lè (vèt) · Depo rezèv (teal)
   const badge = (txt, c, bg) =>
-    `<span style="display:inline-flex;align-items:center;justify-content:center;height:20px;padding:0 9px;border-radius:999px;background:${bg};color:${c};font-size:10.5px;font-weight:800;line-height:1;letter-spacing:.03em;white-space:nowrap">${txt}</span>`
+    `<span style="display:block;flex:none;box-sizing:border-box;height:20px;padding:0 9px;border-radius:999px;background:${bg};color:${c};font-size:10.5px;font-weight:800;line-height:20px;text-align:center;letter-spacing:.03em;white-space:nowrap">${txt}</span>`
   const dateInfo = (d) => {
     const tm = member.paymentTimings?.[d]
     if (d > paidDay)                            return { c: RC.teal,  b: badge('DEPO REZÈV', RC.teal, 'rgba(13,148,136,.12)') }
@@ -859,7 +859,7 @@ export function buildSolShareHTML({ plan, member, paidDates = [], tenant, type =
     const fine = Number(member.fines?.[d] || 0)
     return `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid ${RC.line}">
-      <span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap">
         <span style="font-size:13.5px;font-weight:800;line-height:1.3;color:${c}">${dmy(d)}</span>${b}
       </span>
       <span style="text-align:right">
