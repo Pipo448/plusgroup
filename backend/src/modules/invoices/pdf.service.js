@@ -1,9 +1,20 @@
 // src/modules/invoices/pdf.service.js
 const PDFDocument = require('pdfkit');
 
+// ✅ NOUVO — etikèt PDF nan 4 lang (ht · fr · en · es). Lang lan soti nan ?lang=,
+// sinon nan tenant.invoiceLanguage, sinon tenant.defaultLanguage, sinon ht.
+const PDF_LABELS = {
+  ht: { invoice:'FACTURE', no:'No', date:'Dat', client:'Kliyan', tel:'Tel', product:'Pwodwi', discount:'Remiz', subtotal:'Sou-total', vat:'TVA', total:'TOTAL', paid:'Peye', balance:'Balans', notes:'Nòt', terms:'Kondisyon', thanks:'Mèsi pou konfyans ou!' },
+  fr: { invoice:'FACTURE', no:'N°', date:'Date', client:'Client', tel:'Tél', product:'Produit', discount:'Remise', subtotal:'Sous-total', vat:'TVA', total:'TOTAL', paid:'Payé', balance:'Solde', notes:'Notes', terms:'Conditions', thanks:'Merci de votre confiance !' },
+  en: { invoice:'INVOICE', no:'No', date:'Date', client:'Customer', tel:'Tel', product:'Product', discount:'Discount', subtotal:'Subtotal', vat:'VAT', total:'TOTAL', paid:'Paid', balance:'Balance', notes:'Notes', terms:'Terms', thanks:'Thank you for your trust!' },
+  es: { invoice:'FACTURA', no:'N°', date:'Fecha', client:'Cliente', tel:'Tel', product:'Producto', discount:'Descuento', subtotal:'Subtotal', vat:'IVA', total:'TOTAL', paid:'Pagado', balance:'Saldo', notes:'Notas', terms:'Condiciones', thanks:'¡Gracias por su confianza!' },
+};
+const PDF_LOCALE = { ht:'fr-FR', fr:'fr-FR', en:'en-US', es:'es-ES' };
+const pickLang = (c) => (PDF_LABELS[c] ? c : null);
+
 const fmtHTG = (n) => Number(n||0).toLocaleString('fr-FR', { minimumFractionDigits:2, maximumFractionDigits:2 });
 
-function generateInvoicePDF(invoice, size = '80mm') {
+function generateInvoicePDF(invoice, size = '80mm', lang = null) {
   const sizes = {
     '80mm': { width: 226.77 },
     '57mm': { width: 161.57 }
@@ -20,6 +31,8 @@ function generateInvoicePDF(invoice, size = '80mm') {
   });
 
   const tenant    = invoice.tenant    || {};
+  const lng = pickLang(lang) || pickLang(tenant.invoiceLanguage) || pickLang(tenant.defaultLanguage) || 'ht';
+  const T = PDF_LABELS[lng];
   const client    = invoice.client    || null;
   const snap      = invoice.clientSnapshot || {};
   const clientName = client?.name || snap?.name || null;
@@ -40,29 +53,29 @@ function generateInvoicePDF(invoice, size = '80mm') {
 
   // ── HEADER
   doc.fontSize(fsTitle).font('Helvetica-Bold')
-     .text(tenant.name ? tenant.name.toUpperCase() : 'FACTURE', { align:'center' });
+     .text(tenant.name ? tenant.name.toUpperCase() : T.invoice, { align:'center' });
   doc.moveDown(0.2);
 
   doc.fontSize(fs - 1).font('Helvetica');
   if (tenant.address) doc.text(tenant.address, { align:'center' });
-  if (tenant.phone)   doc.text(`Tel: ${tenant.phone}`, { align:'center' });
+  if (tenant.phone)   doc.text(`${T.tel}: ${tenant.phone}`, { align:'center' });
   if (tenant.email)   doc.text(tenant.email, { align:'center' });
   doc.moveDown(0.4);
   drawLine(1);
 
   // ── TITRE FACTURE
   doc.fontSize(fsSub).font('Helvetica-Bold')
-     .text('FACTURE', { align:'center' });
+     .text(T.invoice, { align:'center' });
   doc.moveDown(0.2);
   doc.fontSize(fs).font('Helvetica')
-     .text(`No: ${invoice.invoiceNumber}`, { align:'center' })
-     .text(`Date: ${new Date(invoice.issueDate).toLocaleDateString('fr-FR', { timeZone: 'America/Port-au-Prince' })}`, { align:'center' });
+     .text(`${T.no}: ${invoice.invoiceNumber}`, { align:'center' })
+     .text(`${T.date}: ${new Date(invoice.issueDate).toLocaleDateString(PDF_LOCALE[lng], { timeZone: 'America/Port-au-Prince' })}`, { align:'center' });
 
   // ── CLIENT
   if (clientName) {
     doc.moveDown(0.3);
-    doc.fontSize(fs).font('Helvetica-Bold').text(`Client: `, { continued:true }).font('Helvetica').text(clientName);
-    if (clientPhone) doc.font('Helvetica').text(`Tel: ${clientPhone}`);
+    doc.fontSize(fs).font('Helvetica-Bold').text(`${T.client}: `, { continued:true }).font('Helvetica').text(clientName);
+    if (clientPhone) doc.font('Helvetica').text(`${T.tel}: ${clientPhone}`);
   }
   doc.moveDown(0.4);
   drawLine(0.5);
@@ -79,13 +92,13 @@ function generateInvoicePDF(invoice, size = '80mm') {
 
     // Non pwodui
     doc.fontSize(fs).font('Helvetica-Bold')
-       .text(`${idx+1}. ${prod.name || 'Pwodui'}`, margin.left, doc.y);
+       .text(`${idx+1}. ${prod.name || T.product}`, margin.left, doc.y);
 
     // Qte × Pri
     doc.fontSize(fs - 1).font('Helvetica')
        .text(`   ${qty} x ${fmtHTG(priceHTG)} HTG`);
 
-    if (disc > 0) doc.text(`   Remiz: -${disc}%`);
+    if (disc > 0) doc.text(`   ${T.discount}: -${disc}%`);
 
     // Total item (HTG + USD)
     doc.fontSize(fs).font('Helvetica-Bold');
@@ -109,15 +122,15 @@ function generateInvoicePDF(invoice, size = '80mm') {
   doc.fontSize(fs).font('Helvetica');
 
   if (discountHTG > 0 || taxHTG > 0) {
-    doc.text('Sous-total:', margin.left, doc.y, { continued:true, width: printW*0.55 });
+    doc.text(`${T.subtotal}:`, margin.left, doc.y, { continued:true, width: printW*0.55 });
     doc.text(`${fmtHTG(subtotalHTG)} HTG`, { align:'right' }); doc.moveDown(0.15);
 
     if (discountHTG > 0) {
-      doc.text('Remiz:', margin.left, doc.y, { continued:true, width: printW*0.55 });
+      doc.text(`${T.discount}:`, margin.left, doc.y, { continued:true, width: printW*0.55 });
       doc.text(`-${fmtHTG(discountHTG)} HTG`, { align:'right' }); doc.moveDown(0.15);
     }
     if (taxHTG > 0) {
-      doc.text('TVA:', margin.left, doc.y, { continued:true, width: printW*0.55 });
+      doc.text(`${T.vat}:`, margin.left, doc.y, { continued:true, width: printW*0.55 });
       doc.text(`${fmtHTG(taxHTG)} HTG`, { align:'right' }); doc.moveDown(0.15);
     }
     doc.moveDown(0.1);
@@ -126,7 +139,7 @@ function generateInvoicePDF(invoice, size = '80mm') {
 
   // ── TOTAL FINAL — gwo ekriti, HTG + USD (san taux)
   doc.fontSize(fsTitle).font('Helvetica-Bold');
-  doc.text('TOTAL', margin.left, doc.y, { continued:true, width: printW * 0.4 });
+  doc.text(T.total, margin.left, doc.y, { continued:true, width: printW * 0.4 });
   doc.text(`${fmtHTG(totalHTG)} HTG`, { align:'right' });
 
   doc.fontSize(fsSub).font('Helvetica');
@@ -142,14 +155,14 @@ function generateInvoicePDF(invoice, size = '80mm') {
   if (paidHTG > 0 || balHTG > 0) {
     doc.fontSize(fs).font('Helvetica');
     if (paidHTG > 0) {
-      doc.text('Peye:', margin.left, doc.y, { continued:true, width: printW*0.55 });
+      doc.text(`${T.paid}:`, margin.left, doc.y, { continued:true, width: printW*0.55 });
       doc.text(`${fmtHTG(paidHTG)} HTG`, { align:'right' });
       doc.fontSize(fs-1.5).text(`(${fmtHTG(paidHTG/rate)} USD)`, { align:'right' });
       doc.moveDown(0.15);
     }
     if (balHTG > 0) {
       doc.fontSize(fs).font('Helvetica-Bold');
-      doc.text('Balans:', margin.left, doc.y, { continued:true, width: printW*0.55 });
+      doc.text(`${T.balance}:`, margin.left, doc.y, { continued:true, width: printW*0.55 });
       doc.text(`${fmtHTG(balHTG)} HTG`, { align:'right' });
       doc.fontSize(fs-1.5).font('Helvetica');
       doc.text(`(${fmtHTG(balHTG/rate)} USD)`, { align:'right' });
@@ -162,7 +175,7 @@ function generateInvoicePDF(invoice, size = '80mm') {
   // ── NOTES (nòt pou kliyan)
   const notes = invoice.notes;
   if (notes && notes.trim()) {
-    doc.fontSize(fs).font('Helvetica-Bold').text('Nòt:', margin.left, doc.y);
+    doc.fontSize(fs).font('Helvetica-Bold').text(`${T.notes}:`, margin.left, doc.y);
     doc.fontSize(fs - 0.5).font('Helvetica').text(notes.trim(), { align:'left' });
     doc.moveDown(0.3);
   }
@@ -170,7 +183,7 @@ function generateInvoicePDF(invoice, size = '80mm') {
   // ── KONDISYON
   const terms = invoice.terms;
   if (terms && terms.trim()) {
-    doc.fontSize(fs - 0.5).font('Helvetica-Bold').text('Kondisyon:', margin.left, doc.y);
+    doc.fontSize(fs - 0.5).font('Helvetica-Bold').text(`${T.terms}:`, margin.left, doc.y);
     doc.fontSize(fs - 1).font('Helvetica').text(terms.trim(), { align:'left' });
     doc.moveDown(0.3);
   }
@@ -178,7 +191,7 @@ function generateInvoicePDF(invoice, size = '80mm') {
   // ── FOOTER
   doc.moveDown(0.3);
   doc.fontSize(fs - 1).font('Helvetica')
-     .text('Mèsi pou konfyans ou!', { align:'center' });
+     .text(T.thanks, { align:'center' });
 
   doc.moveDown(0.5);
   return doc;

@@ -69,7 +69,8 @@ const createDirect = asyncHandler(async (req, res) => {
 const downloadPDF = asyncHandler(async (req, res) => {
   const invoice = await svc.getOne(req.tenant.id, req.params.id);
   const size = req.query.size === '57mm' ? '57mm' : '80mm';
-  const doc = generateInvoicePDF(invoice, size);
+  // ✅ NOUVO — lang PDF a (?lang=ht|fr|en|es), sinon lang fakti antrepriz la
+  const doc = generateInvoicePDF(invoice, size, req.query.lang || null);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="facture-${invoice.invoiceNumber}-${size}.pdf"`);
   doc.pipe(res);

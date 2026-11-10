@@ -12,6 +12,7 @@ import { stockAPI, productAPI } from '../../services/api'
 import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
 import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import { useTranslation } from 'react-i18next'
+import '../../i18n/extraResources'
 import toast from 'react-hot-toast'
 import {
   Warehouse, Plus, Search, ChevronLeft, ChevronRight, Package, RefreshCw, X, Check,
@@ -39,20 +40,23 @@ const ADJ_TYPES = [
   { v: 'loss',     key: 'stock.loss',     label: 'Pèt',     icon: '!', color: '#EA580C', sign: -1 },
 ]
 
+// [kle tradiksyon, tèks Kreyòl default] — chip rezon yo swiv lang aplikasyon an
+const R_ = (k, d) => [`stock.reasons.${k}`, d]
 const REASONS = {
-  add:      ['Erè kontaj', 'Retou kliyan', 'Envantè'],
-  remove:   ['Erè kontaj', 'Itilizasyon entèn', 'Envantè'],
-  purchase: ['Livrezon founisè', 'Acha mache', 'Reapwovizyonman'],
-  loss:     ['Kase', 'Ekspire', 'Vòl', 'Domaj'],
+  add:      [R_('accountingError', 'Erè kontaj'), R_('customerReturn', 'Retou kliyan'), R_('inventory', 'Envantè')],
+  remove:   [R_('accountingError', 'Erè kontaj'), R_('internalUse', 'Itilizasyon entèn'), R_('inventory', 'Envantè')],
+  purchase: [R_('supplierDelivery', 'Livrezon founisè'), R_('marketPurchase', 'Acha mache'), R_('restock', 'Reapwovizyonman')],
+  loss:     [R_('broken', 'Kase'), R_('expired', 'Ekspire'), R_('theft', 'Vòl'), R_('damage', 'Domaj')],
 }
 
 const toHaiti = (d) => { try { return new Date(new Date(d).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })) } catch { return new Date(d) } }
-const dayLabel = (d) => {
+const DAY_LOCALE = { ht: 'fr-HT', fr: 'fr-FR', en: 'en-US', es: 'es-ES' }
+const dayLabel = (d, t, lang = 'ht') => {
   const x = toHaiti(d), now = toHaiti(new Date())
   const key = format(x, 'yyyy-MM-dd')
-  if (key === format(now, 'yyyy-MM-dd')) return 'Jodi a'
-  if (key === format(new Date(now.getTime() - 864e5), 'yyyy-MM-dd')) return 'Yè'
-  return x.toLocaleDateString('fr-HT', { weekday: 'long', day: '2-digit', month: 'long' })
+  if (key === format(now, 'yyyy-MM-dd')) return tr(t, 'stock.today', 'Jodi a')
+  if (key === format(new Date(now.getTime() - 864e5), 'yyyy-MM-dd')) return tr(t, 'stock.yesterday', 'Yè')
+  return x.toLocaleDateString(DAY_LOCALE[String(lang).slice(0, 2)] || 'fr-HT', { weekday: 'long', day: '2-digit', month: 'long' })
 }
 
 function useDebounce(value, delay = 350) {
@@ -133,8 +137,8 @@ const AdjustModal = ({ onClose, preset }) => {
   const handleScan = async (raw) => {
     const code = String(raw).trim()
     const p = await lookupProduct(code, { productAPI })
-    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
-    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen stòk.`)
+    if (!p) return toast.error(t('scan.unknownCode', { defaultValue: 'Kòd « {{code}} » pa gen pwodwi.', code }))
+    if (p.isService) return toast.error(t('scan.serviceNoStock', { defaultValue: '"{{name}}" se yon sèvis — pa gen stòk.', name: p.name }))
     setSelected(p); setSearch('')
     toast.success(p.name)
   }
@@ -157,13 +161,13 @@ const AdjustModal = ({ onClose, preset }) => {
       onClose()
     },
     // ✅ NOUVO — anvan sa, si sèvè a refize, pa t gen okenn mesaj
-    onError: (e) => toast.error(e?.response?.data?.message || 'Erè pandan ajisteman an.'),
+    onError: (e) => toast.error(e?.response?.data?.message || tr(t, 'stock.saveError', 'Erè pandan ajisteman an.')),
   })
 
   const handleConfirm = () => {
     if (!selected) return toast.error(tr(t, 'stock.selectProduct', 'Chwazi yon pwodwi.'))
     if (!qty || qty <= 0) { qtyRef.current?.focus(); return toast.error(tr(t, 'stock.quantityRequired', 'Antre yon kantite.')) }
-    if (tooMuch) return toast.error(`Ou pa ka retire ${num(qty)} — se ${num(before)} sèlman ki an stòk.`)
+    if (tooMuch) return toast.error(t('stock.cantRemove', { defaultValue: 'Ou pa ka retire {{qty}} — se {{before}} sèlman ki an stòk.', qty: num(qty), before: num(before) }))
     mutation.mutate({ productId: selected.id, quantity: qty, type: form.type, notes: form.notes.trim() })
   }
 
@@ -172,7 +176,7 @@ const AdjustModal = ({ onClose, preset }) => {
       <div className="iv-sheet" style={{ maxWidth: 480 }}>
         <div className="iv-sheet-h" style={{ background: 'radial-gradient(120% 140% at 100% 0%, #14B8A6, #0F1A5C 75%)' }}>
           <h3><RefreshCw size={18} style={{ verticalAlign: '-2px' }}/> {tr(t, 'stock.adjustTitle', 'Ajiste stòk')}</h3>
-          <p>{product ? product.name : 'Chwazi pwodwi a, tip mouvman an ak kantite a'}</p>
+          <p>{product ? product.name : tr(t, 'stock.pickHint', 'Chwazi pwodwi a, tip mouvman an ak kantite a')}</p>
           <button className="x" onClick={onClose} aria-label="Fèmen"><X size={17}/></button>
         </div>
 
@@ -257,21 +261,21 @@ const AdjustModal = ({ onClose, preset }) => {
           {/* ✅ NOUVO — aperçu an dirèk */}
           {selected && before != null && qty > 0 && (
             <div className={`st-preview ${tooMuch ? 'bad' : ''}`} style={{ '--tc': type.color }}>
-              <div className="bx"><small>Avan</small><div className="num">{num(before)}</div></div>
+              <div className="bx"><small>{tr(t, 'stock.colBefore', 'Avan')}</small><div className="num">{num(before)}</div></div>
               <span className="arr">{type.sign > 0 ? '+' : '−'}{num(qty)} →</span>
-              <div className="bx"><small>Apre</small><div className="num" style={{ color: tooMuch ? 'var(--bad)' : type.color }}>{num(after)}</div></div>
+              <div className="bx"><small>{tr(t, 'stock.colAfter', 'Apre')}</small><div className="num" style={{ color: tooMuch ? 'var(--bad)' : type.color }}>{num(after)}</div></div>
               {tooMuch && <div style={{ gridColumn: '1 / -1', textAlign: 'center', fontSize: 12, fontWeight: 800, color: 'var(--bad)' }}>⚠️ Ou pa ka retire plis pase sa ki an stòk.</div>}
             </div>
           )}
 
           {/* Nòt */}
           <div>
-            <label className="iv-lbl">{tr(t, 'stock.notes', 'Rezon / nòt')} <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>(opsyonèl)</span></label>
+            <label className="iv-lbl">{tr(t, 'stock.notes', 'Rezon / nòt')} <span style={{ textTransform: 'none', letterSpacing: 0, fontWeight: 600 }}>{tr(t, 'stock.optional', '(opsyonèl)')}</span></label>
             <input className="iv-inp" placeholder={tr(t, 'stock.notesPlaceholder', 'Egz: livrezon founisè X')} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}/>
             <div className="iv-quick">
-              {(REASONS[form.type] || []).map(r => (
-                <button key={r} type="button" className={form.notes === r ? 'ex' : ''} onClick={() => setForm(f => ({ ...f, notes: f.notes === r ? '' : r }))}>{r}</button>
-              ))}
+              {(REASONS[form.type] || []).map(([rk, rd]) => { const r = tr(t, rk, rd); return (
+                <button key={rk} type="button" className={form.notes === r ? 'ex' : ''} onClick={() => setForm(f => ({ ...f, notes: f.notes === r ? '' : r }))}>{r}</button>
+              ) })}
             </div>
           </div>
 
@@ -281,7 +285,7 @@ const AdjustModal = ({ onClose, preset }) => {
             <button type="button" className="iv-btn-main" onClick={handleConfirm} disabled={mutation.isPending || tooMuch}
               style={{ background: `linear-gradient(135deg, ${type.color}, ${type.color}CC)`, boxShadow: `0 10px 24px ${type.color}55` }}>
               {mutation.isPending ? <RefreshCw size={16} className="spin"/> : <Check size={16}/>}
-              {mutation.isPending ? 'Ap anrejistre...' : `${tr(t, type.key, type.label)}${qty ? ` ${num(qty)}` : ''}`}
+              {mutation.isPending ? tr(t, 'stock.saving', 'Ap anrejistre...') : `${tr(t, type.key, type.label)}${qty ? ` ${num(qty)}` : ''}`}
             </button>
           </div>
         </div>
@@ -303,7 +307,7 @@ function MoveRow({ m, t, i, onAgain }) {
   const mc = change > 0 ? '#059669' : '#DC2626'
 
   return (
-    <div className="st-row" style={{ '--mc': mv.color, '--mb': mv.bg, animationDelay: `${Math.min(i, 14) * 30}ms` }} onClick={() => onAgain(m)} title="Klike pou ajiste pwodwi sa ankò">
+    <div className="st-row" style={{ '--mc': mv.color, '--mb': mv.bg, animationDelay: `${Math.min(i, 14) * 30}ms` }} onClick={() => onAgain(m)} title={tr(t, 'stock.adjustAgainTitle', 'Klike pou ajiste pwodwi sa ankò')}>
       <span className="st-ic">{m.product?.imageUrl
         ? <span className="iv-thumb" style={{ width: 42, height: 42, borderRadius: 13, backgroundImage: `url(${m.product.imageUrl})` }}/>
         : mv.icon}
@@ -325,7 +329,7 @@ function MoveRow({ m, t, i, onAgain }) {
         {m.creator?.fullName || '—'}
         <small>{format(toHaiti(m.createdAt), 'HH:mm')} · <span className="iv-badge m-only" style={{ background: mv.bg, color: mv.color, padding: "1px 6px", fontSize: 9 }}>{tr(t, mv.key, mv.label)}</span></small>
       </div>
-      <button type="button" className="iv-mini st-again" title="Ajiste ankò" onClick={(e) => { e.stopPropagation(); onAgain(m) }}><Repeat size={13}/></button>
+      <button type="button" className="iv-mini st-again" title={tr(t, 'stock.adjustAgain', 'Ajiste ankò')} onClick={(e) => { e.stopPropagation(); onAgain(m) }}><Repeat size={13}/></button>
       {m.notes && <div className="st-note">“{m.notes}”</div>}
     </div>
   )
@@ -333,7 +337,7 @@ function MoveRow({ m, t, i, onAgain }) {
 
 // ════════════════════════════════════════════════════════════
 export default function StockPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [adjust, setAdjust]         = useState(null)   // null | { product?, type? }
   const [typeFilter, setTypeFilter] = useState('')
   const [page, setPage]             = useState(1)
@@ -356,7 +360,7 @@ export default function StockPage() {
   const groups = useMemo(() => {
     const out = []
     movements.forEach(m => {
-      const label = dayLabel(m.createdAt)
+      const label = dayLabel(m.createdAt, t, i18n.language)
       const last = out[out.length - 1]
       if (last && last.label === label) last.items.push(m)
       else out.push({ label, items: [m] })
@@ -368,7 +372,7 @@ export default function StockPage() {
   const exportCsv = () => {
     if (!movements.length) return
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const rows = [['Dat', 'Pwodwi', 'Kòd', 'Tip', 'Avan', 'Chanjman', 'Apre', 'Pa', 'Nòt']]
+    const rows = [[tr(t, 'stock.colDate', 'Dat'), tr(t, 'stock.colProduct', 'Pwodwi'), tr(t, 'products.code', 'Kòd'), tr(t, 'stock.colType', 'Tip'), tr(t, 'stock.colBefore', 'Avan'), tr(t, 'stock.colChange', 'Chanjman'), tr(t, 'stock.colAfter', 'Apre'), tr(t, 'stock.colBy', 'Pa'), tr(t, 'stock.notes', 'Nòt')]]
     movements.forEach(m => rows.push([
       format(toHaiti(m.createdAt), 'dd/MM/yyyy HH:mm'), m.product?.name, m.product?.code,
       tr(t, (MOVES[m.movementType] || MOVES.adjustment).key, (MOVES[m.movementType] || MOVES.adjustment).label),
@@ -389,8 +393,8 @@ export default function StockPage() {
   const handleScanMain = async (raw) => {
     const code = String(raw).trim()
     const p = await lookupProduct(code, { productAPI })
-    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
-    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen stòk.`)
+    if (!p) return toast.error(t('scan.unknownCode', { defaultValue: 'Kòd « {{code}} » pa gen pwodwi.', code }))
+    if (p.isService) return toast.error(t('scan.serviceNoStock', { defaultValue: '"{{name}}" se yon sèvis — pa gen stòk.', name: p.name }))
     setAdjust({ product: p })
   }
   useBarcodeScanner(handleScanMain, !adjust)
@@ -408,12 +412,12 @@ export default function StockPage() {
         <div className="row">
           <div className="ico teal"><Warehouse size={24} color="#fff"/></div>
           <div className="grow">
-            <p className="eyebrow">Envantè</p>
+            <p className="eyebrow">{tr(t, 'stock.inventory', 'Envantè')}</p>
             <h1>{tr(t, 'stock.title', 'Stòk')}</h1>
-            <p className="sub">Chak antre ak sòti pwodwi — vant, acha, pèt ak ajisteman.</p>
+            <p className="sub">{tr(t, 'stock.subtitle', 'Chak antre ak sòti pwodwi — vant, acha, pèt ak ajisteman.')}</p>
           </div>
           <div className="pd-tools newbtn">
-            <button onClick={exportCsv} disabled={!movements.length} className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} title="Ekspòte paj la an CSV (Excel)">
+            <button onClick={exportCsv} disabled={!movements.length} className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} title={tr(t, 'stock.exportCsv', 'Ekspòte paj la an CSV (Excel)')}>
               <Download size={15}/> CSV
             </button>
             <CameraScanButton className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} onDetected={handleScanMain}/>
@@ -423,9 +427,9 @@ export default function StockPage() {
           </div>
         </div>
         <div className="iv-kpis">
-          <Kpi label="Mouvman"          value={data?.total || 0} icon={Layers}          delay={80}/>
-          <Kpi label="Antre (paj la)"   value={ins}              icon={ArrowUpCircle}   delay={160} tone="green" prefix="+"/>
-          <Kpi label="Sòti (paj la)"    value={outs}             icon={ArrowDownCircle} delay={240} tone="red" prefix="−"/>
+          <Kpi label={tr(t, 'stock.kpiMovements', 'Mouvman')} value={data?.total || 0} icon={Layers}          delay={80}/>
+          <Kpi label={tr(t, 'stock.kpiIn', 'Antre (paj la)')} value={ins}              icon={ArrowUpCircle}   delay={160} tone="green" prefix="+"/>
+          <Kpi label={tr(t, 'stock.kpiOut', 'Sòti (paj la)')} value={outs}             icon={ArrowDownCircle} delay={240} tone="red" prefix="−"/>
         </div>
       </section>
 
@@ -456,8 +460,8 @@ export default function StockPage() {
               <div className="bubble" style={{ background: 'linear-gradient(135deg,#14B8A6,#0F766E)' }}><Warehouse size={18}/></div>
             </div>
             <h3>{tr(t, 'stock.noMovements', 'Pa gen mouvman')}</h3>
-            <p>{typeFilter ? 'Pa gen mouvman pou tip sa a.' : tr(t, 'stock.clickToStart', 'Klike « Ajiste stòk » pou kòmanse.')}</p>
-            {!typeFilter && <button className="iv-btn-main" onClick={() => setAdjust({})}><Plus size={16}/> Ajiste stòk</button>}
+            <p>{typeFilter ? tr(t, 'stock.noMovementsForType', 'Pa gen mouvman pou tip sa a.') : tr(t, 'stock.clickToStart', 'Klike « Ajiste stòk » pou kòmanse.')}</p>
+            {!typeFilter && <button className="iv-btn-main" onClick={() => setAdjust({})}><Plus size={16}/> {tr(t, 'stock.adjustBtn', 'Ajiste stòk')}</button>}
           </div>
         </div>
       ) : (
@@ -473,7 +477,7 @@ export default function StockPage() {
 
       {data?.pages > 1 && (
         <div className="iv-pager">
-          <p>{tr(t, 'stock.page', 'Paj')} <b style={{ color: 'var(--ink)' }}>{page}</b> / {data.pages} · <b style={{ color: 'var(--ink)' }}>{data.total}</b> mouvman</p>
+          <p>{tr(t, 'stock.page', 'Paj')} <b style={{ color: 'var(--ink)' }}>{page}</b> / {data.pages} · <b style={{ color: 'var(--ink)' }}>{data.total}</b> {tr(t, 'stock.movementsWord', 'mouvman')}</p>
           <div className="btns">
             <button className="iv-pg" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronLeft size={17}/></button>
             <button className="iv-pg" disabled={page >= data.pages} onClick={() => setPage(p => p + 1)}><ChevronRight size={17}/></button>

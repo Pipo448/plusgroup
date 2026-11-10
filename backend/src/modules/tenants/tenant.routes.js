@@ -63,6 +63,8 @@ router.get('/settings', asyncHandler(async (req, res) => {
       requireQuote: true,
       // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (web ak APK)
       receiptFooterNote: true,
+      // ✅ NOUVO — lang fakti/resi a (ht · fr · en · es). null = swiv lang defo antrepriz la
+      invoiceLanguage: true,
       status: true, subscriptionEndsAt: true,
       plan: { select: { name: true, maxUsers: true, maxProducts: true, features: true } }
     }
@@ -101,6 +103,8 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
     requireQuote,
     // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a
     receiptFooterNote,
+    // ✅ NOUVO — lang fakti a
+    invoiceLanguage,
   } = req.body;
 
   const tenant = await prisma.tenant.update({
@@ -120,6 +124,9 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       requireQuote:      requireQuote      != null ? Boolean(requireQuote)             : undefined,
       // ✅ NOUVO — Nòt/avètisman ki parèt nan pye paj resi a (max 200 karaktè)
       receiptFooterNote: receiptFooterNote != null ? String(receiptFooterNote).slice(0, 200) : undefined,
+      // ✅ NOUVO — sèlman ht/fr/en/es aksepte ("" oswa null = retounen sou lang defo)
+      invoiceLanguage:   invoiceLanguage === undefined ? undefined
+                         : (['ht','fr','en','es'].includes(invoiceLanguage) ? invoiceLanguage : null),
     },
     select: {
       id: true, name: true, defaultCurrency: true, defaultLanguage: true,
@@ -132,6 +139,7 @@ router.put('/settings', authorize('admin'), asyncHandler(async (req, res) => {
       requireQuote:     true,
       // ✅ NOUVO
       receiptFooterNote: true,
+      invoiceLanguage: true,
     }
   });
 

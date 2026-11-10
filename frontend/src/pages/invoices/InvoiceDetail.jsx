@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { invoiceAPI } from '../../services/api'
+import { invoiceAPI, tenantAPI } from '../../services/api'
 import api from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { usePrinterStore } from '../../stores/printerStore'
@@ -17,10 +17,11 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft, Plus, XCircle, CheckCircle, Clock, Printer, Download, ChevronDown, Bluetooth, BluetoothOff,
   Share2, Copy, Check, MessageCircle, X, RefreshCw, Receipt, User, Phone, Calendar, Package,
-  Banknote, Smartphone, Wallet, CreditCard, ArrowLeftRight, FileText, RotateCcw, AlertCircle, Link2,
+  Banknote, Smartphone, Wallet, CreditCard, ArrowLeftRight, FileText, RotateCcw, AlertCircle, Link2, Globe,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { haitiToday, toHaitiDate as toHaitiShifted } from '../../utils/haitiTime'
+import { INVOICE_LANGS, getReceiptLabels, resolveInvoiceLang } from '../../utils/receiptLabels'
 import './invoices.css'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -124,8 +125,10 @@ const loadPdfLibs = async () => {
   }
 }
 
-function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode }) {
+function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCode, lang }) {
   if (!invoice) return null
+  // ✅ NOUVO — etikèt resi a swiv lang fakti antrepriz la chwazi (ht/fr/en/es)
+  const R = getReceiptLabels(lang)
 
   const snap        = invoice.clientSnapshot || {}
   const isPaid      = invoice.status === 'paid'
@@ -161,17 +164,13 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
   const dueDate     = lastPay?.dueDate || invoice.dueDate || null
   const isCredit    = lastPay?.method === 'credit'
 
-  const METOD_LABEL = {
-    cash:'Kach', moncash:'MonCash', natcash:'NatCash',
-    card:'Kat kredi', transfer:'Virement', check:'Chèk',
-    credit:'Kredi', other:'Lòt',
-  }
+  const METOD_LABEL = R.methods
 
   const statusLabel =
-    isPaid      ? 'TOTAL PEYE' :
-    isCancelled ? 'ANILE'      :
-    isCredit    ? 'KREDI'      :
-    isPartial   ? 'PASYEL'     : 'IMPAYE'
+    isPaid      ? R.statusPaid :
+    isCancelled ? R.statusCancelled :
+    isCredit    ? R.statusCredit :
+    isPartial   ? R.statusPartial : R.statusUnpaid
 
   const statusColor =
     isPaid      ? '#111'    :
@@ -185,7 +184,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
   const bizName = tenant?.businessName || tenant?.name || 'PLUS GROUP'
 
   // ── Tèks footer konfigirab ──────────────────────────────────
-  const thankYouMsg  = tenant?.receiptThankYou   || 'Mèsi paske ou achte lakay nou!'
+  const thankYouMsg  = tenant?.receiptThankYou   || R.thanks
   const footerNote   = tenant?.receiptFooterNote || null
 
   const S = {
@@ -243,12 +242,12 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
 
       {/* ════ INFO RESI ════ */}
       <div style={{ fontSize: is57 ? '9px' : '10px', marginBottom:'2px' }}>
-        <Row2 label="Dat:"     value={toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')} />
-        <Row2 label="Resi N°:" value={invoice.invoiceNumber} bold />
-        {snap.name  && <Row2 label="Kliyan:" value={snap.name} />}
-        {snap.phone && <Row2 label="Tel:"    value={snap.phone} />}
-        {!is57      && <Row2 label="Kasye:"  value={invoice.cashierName || invoice.createdByName || 'Admin'} />}
-        {snap.nif   && <Row2 label="NIF:"    value={snap.nif} />}
+        <Row2 label={`${R.date}:`}     value={toHaitiDate(invoice.issueDate, 'dd/MM/yyyy')} />
+        <Row2 label={`${R.receiptNo}:`} value={invoice.invoiceNumber} bold />
+        {snap.name  && <Row2 label={`${R.client}:`} value={snap.name} />}
+        {snap.phone && <Row2 label={`${R.tel}:`}    value={snap.phone} />}
+        {!is57      && <Row2 label={`${R.cashier}:`}  value={invoice.cashierName || invoice.createdByName || 'Admin'} />}
+        {snap.nif   && <Row2 label={`${R.nif}:`}    value={snap.nif} />}
       </div>
 
       <DASH/>
@@ -265,14 +264,14 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           marginBottom:'2px',
           gap:'2px',
         }}>
-          <span>Pwodwi</span>
-          <span style={{ textAlign:'right' }}>Q</span>
-          <span style={{ textAlign:'right' }}>Pri</span>
-          <span style={{ textAlign:'right' }}>Total</span>
+          <span>{R.product}</span>
+          <span style={{ textAlign:'right' }}>{R.qty}</span>
+          <span style={{ textAlign:'right' }}>{R.price}</span>
+          <span style={{ textAlign:'right' }}>{R.total}</span>
         </div>
 
         {invoice.items?.map((item, i) => {
-          const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+          const nom = item.product?.name || item.productSnapshot?.name || R.item
           return (
             <div key={i} style={{
               display:'grid',
@@ -300,10 +299,10 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       {(Number(invoice.discountHtg) > 0 || Number(invoice.taxHtg) > 0) && (
         <div style={{ fontSize: is57 ? '9px' : '10px', marginBottom:'2px' }}>
           {Number(invoice.discountHtg) > 0 && (
-            <Row2 label="Remiz:" value={`-${fmtR(invoice.discountHtg)} G`} color="#dc2626" />
+            <Row2 label={`${R.discount}:`} value={`-${fmtR(invoice.discountHtg)} G`} color="#dc2626" />
           )}
           {Number(invoice.taxHtg) > 0 && (
-            <Row2 label={`Taks (${Number(invoice.taxRate||0)}%):`} value={`${fmtR(invoice.taxHtg)} G`} />
+            <Row2 label={`${R.tax} (${Number(invoice.taxRate||0)}%):`} value={`${fmtR(invoice.taxHtg)} G`} />
           )}
           <DASH/>
         </div>
@@ -312,7 +311,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       {/* ════ TOTAL ════ */}
       <div style={{ marginBottom:'2px' }}>
         <Row2
-          label="TOTAL:"
+          label={`${R.grandTotal}:`}
           value={`${fmtR(totalHtg)} G`}
           bold large
         />
@@ -330,15 +329,15 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
       {/* ════ PEMAN ════ */}
       <div style={{ fontSize: is57 ? '9px' : '10px', marginBottom:'2px' }}>
         {amountGiven > 0 && (
-          <Row2 label="Kòb kliyan bay:" value={`${fmtR(amountGiven)} G`} bold />
+          <Row2 label={`${R.amountGiven}:`} value={`${fmtR(amountGiven)} G`} bold />
         )}
         {change > 0 && (
-          <Row2 label="Monnen remèt:" value={`${fmtR(change)} G`} bold />
+          <Row2 label={`${R.change}:`} value={`${fmtR(change)} G`} bold />
         )}
         {paidHtg > 0 && (
           // ✅ KORIJE — "Depo peye" si pasyèl, "Kòb peye" si konplè
           <Row2
-            label={balHtg > 0 ? "Depo peye:" : "Kòb peye:"}
+            label={`${balHtg > 0 ? R.deposit : R.amountPaid}:`}
             value={`${fmtR(paidHtg)} G`}
             bold
             color={balHtg > 0 ? "#16a34a" : undefined}
@@ -346,18 +345,18 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
         )}
         {lastPay?.method && (
           <Row2
-            label="Metod:"
+            label={`${R.method}:`}
             value={METOD_LABEL[lastPay.method] || lastPay.method}
           />
         )}
         {lastPay?.reference && (
-          <Row2 label="Ref:" value={lastPay.reference} />
+          <Row2 label={`${R.ref}:`} value={lastPay.reference} />
         )}
         {balHtg > 0 && (
           <>
             <DASH/>
             <Row2
-              label="Balans pou peye:"
+              label={`${R.balanceDue}:`}
               value={`-${fmtR(balHtg)} G${toUSD(balHtg) ? ` / -$${toUSD(balHtg)}` : ''}`}
               bold color="#dc2626"
             />
@@ -371,7 +370,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
             fontSize: is57 ? '9px' : '10px',
           }}>
             <Row2
-              label="📅 Dat pou peye:"
+              label={`📅 ${R.dueDate}:`}
               value={toHaitiDate(dueDate, 'dd/MM/yyyy')}
               bold color="#c47a00"
             />
@@ -387,7 +386,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
             fontSize: is57 ? '10px' : '11px',
             fontWeight: 900, color:'#15803d',
           }}>
-            ✓ KLIYAN AN PA DWE ANKÒ
+            {R.fullyPaid}
           </div>
         )}
       </div>
@@ -436,7 +435,7 @@ function PrintableReceipt({ invoice, tenant, t, qrDataUrl, logoBase64, showQrCod
           </div>
         )}
         <div style={{ fontWeight:'600', color:'#333' }}>
-          Pwodwi pa <strong>{bizName}</strong> · {tenant?.phone || '+509 4244-9024'}
+          {R.producedBy} <strong>{bizName}</strong> · {tenant?.phone || '+509 4244-9024'}
         </div>
       </div>
 
@@ -470,6 +469,18 @@ export default function InvoiceDetail() {
   const [qrDataUrl, setQrDataUrl]     = useState(null)
   const [logoBase64, setLogoBase64]   = useState(null)
   const [printing, setPrinting]       = useState(false)
+  // ✅ NOUVO — lang fakti a (chwa pou enprime sa a > defo antrepriz la)
+  const [langOverride, setLangOverride] = useState(null)
+  const [showLangMenu, setShowLangMenu] = useState(false)
+  const [savingLang, setSavingLang]     = useState(false)
+  // Lang fakti antrepriz la soti nan paramèt backend (kòm /auth/me pa toujou voye l)
+  const { data: settingsRes } = useQuery({
+    queryKey: ['tenant-invoice-lang'], queryFn: () => tenantAPI.getSettings(),
+    staleTime: 5 * 60 * 1000, retry: false,
+  })
+  const tenantForLang = { ...(tenant || {}), invoiceLanguage: settingsRes?.data?.tenant?.invoiceLanguage ?? tenant?.invoiceLanguage ?? null }
+  const defaultInvLang = resolveInvoiceLang(tenantForLang)
+  const invLang = resolveInvoiceLang(tenantForLang, langOverride)
   // ✅ NOUVO — eta pou enprime native (Bluetooth/Sunmi/etc via plugin)
   const [printingNative, setPrintingNative] = useState(false)
 
@@ -508,6 +519,7 @@ export default function InvoiceDetail() {
   useEffect(() => {
     const handler = (e) => {
       if (pdfMenuRef.current && !pdfMenuRef.current.contains(e.target)) setShowPdfMenu(false)
+      if (!e.target.closest?.('[data-langmenu]')) setShowLangMenu(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -543,7 +555,7 @@ export default function InvoiceDetail() {
     if (isUsbPrinter) {
       try {
         setPrinting(true)
-        await printInvoiceHTML(invoice, tenant, user)
+        await printInvoiceHTML(invoice, tenant, user, invLang)
       } catch (err) {
         toast.error('Ere enpresyon: ' + err.message)
       } finally {
@@ -606,6 +618,21 @@ export default function InvoiceDetail() {
     } finally {
       setPrintingNative(false)
     }
+  }
+
+  // ✅ NOUVO — chwazi lang fakti a; admin ka mete l kòm defo pou tout antrepriz la
+  const chooseLang = (code) => { setLangOverride(code); setShowLangMenu(false) }
+  const saveDefaultLang = async (code) => {
+    setSavingLang(true)
+    try {
+      await tenantAPI.updateSettings({ invoiceLanguage: code })
+      try { useAuthStore.setState(s => ({ tenant: { ...(s.tenant || {}), invoiceLanguage: code } })) } catch {}
+      qc.invalidateQueries({ queryKey: ['tenant-invoice-lang'] })
+      setLangOverride(null)
+      toast.success(`Lang fakti antrepriz la: ${INVOICE_LANGS.find(l => l.code === code)?.label || code}`)
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Pa kapab sove lang lan.')
+    } finally { setSavingLang(false); setShowLangMenu(false) }
   }
 
   const downloadPdf = async (size) => {
@@ -727,6 +754,7 @@ export default function InvoiceDetail() {
         invoice={invoice}
         tenant={tenant}
         t={t}
+        lang={invLang}
         qrDataUrl={qrDataUrl}
         logoBase64={logoBase64}
         showQrCode={showQrCode}
@@ -822,6 +850,30 @@ export default function InvoiceDetail() {
               {PDF_SIZES.map(s => (
                 <button key={s.value} onClick={() => downloadPdf(s.value)}>
                   <b>🖨 {s.label}</b><small>{s.desc}</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ✅ NOUVO — Lang fakti a (resi, PDF, enprime) */}
+        <div style={{ position: 'relative' }} data-langmenu>
+          <button onClick={() => setShowLangMenu(v => !v)} className="iv-act" title="Lang fakti a">
+            <Globe size={15}/> {INVOICE_LANGS.find(l => l.code === invLang)?.short}
+            <ChevronDown size={13} style={{ transition: 'transform .2s', transform: showLangMenu ? 'rotate(180deg)' : 'none' }}/>
+          </button>
+          {showLangMenu && (
+            <div className="iv-menu">
+              <div className="h">Lang fakti a</div>
+              {INVOICE_LANGS.map(l => (
+                <button key={l.code} onClick={() => chooseLang(l.code)} style={l.code === invLang ? { background: '#F4F6FE' } : undefined}>
+                  <b>{l.flag} {l.label}{l.code === invLang ? ' ✓' : ''}</b>
+                  {hasRole('admin') && l.code !== defaultInvLang && (
+                    <small role="button" onClick={(e) => { e.stopPropagation(); if (!savingLang) saveDefaultLang(l.code) }} style={{ color: '#1B2A8F', fontWeight: 700, textDecoration: 'underline' }}>
+                      Mete kòm lang defo antrepriz la
+                    </small>
+                  )}
+                  {l.code === defaultInvLang && <small>Lang defo antrepriz la</small>}
                 </button>
               ))}
             </div>

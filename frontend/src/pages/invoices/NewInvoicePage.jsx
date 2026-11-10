@@ -23,6 +23,7 @@ import { useDraftCartStore } from '../../stores/draftCartStore'
 import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
 import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import { haitiToday, haitiMidnightISO, fmtHaitiDate } from '../../utils/haitiTime'
+import '../../i18n/extraResources'
 import './invoices.css'
 
 const C = { blue: '#1B2A8F', orange: '#FF6B00', gold: '#C9A84C' }
@@ -160,7 +161,7 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
     // ✅ Anpeche vann yon pwodwi ki gen 0 stòk (sof sèvis)
     const stock = Number(p.quantity ?? p.stock ?? 0)
     if (!p.isService && stock <= 0) {
-      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete). Kontakte admin pou reapwovizyone l.`, { duration: 4500 })
+      toast.error(t('scan.zeroStockAdmin', { defaultValue: '⛔ "{{name}}" pa gen stòk (0 ki rete). Kontakte admin pou reapwovizyone l.', name: p.name }), { duration: 4500 })
       return
     }
     setSearch(p.name)
@@ -186,7 +187,7 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
     let qty = Number(e.target.value)
     // ⛔ Pa kite kantite a depase stòk la (sof sèvis / pwodwi san done stòk)
     if (!item._isService && item._stock != null && qty > item._stock) {
-      toast.error(`Stòk limite: ${item._stock} sèlman pou "${item.description}".`)
+      toast.error(t('scan.stockLimit', { defaultValue: 'Stòk limite: {{stock}} sèlman pou "{{name}}".', stock: item._stock, name: item.description }))
       qty = Math.max(0, item._stock)
     }
     // ✅ Chanje pri a otomatikman selon kantite a (sof si pri manyèl)
@@ -301,7 +302,7 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
             return (
               <button key={tr.id || tr.minQty} type="button" className={`iv-tierbtn ${item._priceMode === key ? 'on' : ''}`} style={{ '--tb': C.orange }}
                 onClick={() => {
-                  if (!item._isService && item._stock != null && Number(tr.minQty) > item._stock) { toast.error(`Stòk limite: ${item._stock} sèlman pou "${item.description}".`); return }
+                  if (!item._isService && item._stock != null && Number(tr.minQty) > item._stock) { toast.error(t('scan.stockLimit', { defaultValue: 'Stòk limite: {{stock}} sèlman pou "{{name}}".', stock: item._stock, name: item.description })); return }
                   onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: key })
                 }}>
                 {(tr.label || `${tr.minQty}+`).toUpperCase()}
@@ -395,7 +396,7 @@ export default function NewInvoicePage() {
   const addScannedProduct = useCallback((p) => {
     const stock = Number(p.quantity ?? p.stock ?? 0)
     if (!p.isService && stock <= 0) {
-      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
+      toast.error(t('scan.zeroStock', { defaultValue: '⛔ "{{name}}" pa gen stòk (0 ki rete).', name: p.name }), { duration: 4500 })
       return
     }
     const cur = itemsRef.current
@@ -403,28 +404,28 @@ export default function NewInvoicePage() {
     if (idx >= 0) {
       const it  = cur[idx]
       const qty = Number(it.qty || 0) + 1
-      if (!p.isService && qty > stock) { toast.error(`Stòk limite: ${stock} sèlman pou "${p.name}".`); return }
+      if (!p.isService && qty > stock) { toast.error(t('scan.stockLimit', { defaultValue: 'Stòk limite: {{stock}} sèlman pou "{{name}}".', stock, name: p.name })); return }
       let patch = { qty }
       if (it._priceTiers?.length && it._priceMode !== 'manual') {
         const best = pickBestTier(it._priceTiers, qty)
         patch = { qty, unitPrice: best ? Number(best.priceHtg) : it._retailPrice, _priceMode: best ? `tier-${best.id || best.minQty}` : 'retail' }
       }
       setItems(cur.map((x, i) => i === idx ? { ...x, ...patch } : x))
-      toast.success(`+1 ${p.name} (${qty})`)
+      toast.success(t('scan.plusOne', { defaultValue: '+1 {{name}} ({{qty}})', name: p.name, qty }))
       return
     }
     const fresh = buildItemFromProduct(p)
     const emptyIdx = cur.findIndex(it => !it.productId && !String(it.description || '').trim())
     // ranplase premye liy vid la (nouvo id → ItemRow remonte avèk bon non an)
     setItems(emptyIdx >= 0 ? cur.map((x, i) => i === emptyIdx ? fresh : x) : [...cur, fresh])
-    toast.success(`${p.name} ajoute`)
-  }, [])
+    toast.success(t('scan.added', { defaultValue: '{{name}} ajoute', name: p.name }))
+  }, [t])
   const handleScan = useCallback(async (raw) => {
     const code = String(raw).trim()
     const found = await lookupProduct(code, { productAPI, online: isOnline, searchCached: searchCachedProducts })
-    if (!found) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
+    if (!found) return toast.error(t('scan.unknownCode', { defaultValue: 'Kòd « {{code}} » pa gen pwodwi.', code }))
     addScannedProduct(found)
-  }, [isOnline, addScannedProduct])
+  }, [isOnline, addScannedProduct, t])
   useBarcodeScanner(handleScan, !created && !offlineReceipt)
 
   const debouncedClientSearch = useDebounce(clientSearch, 400)
@@ -586,8 +587,8 @@ export default function NewInvoicePage() {
       const bad = Object.values(need).find(n => n.stock <= 0 || n.qty > n.stock)
       if (bad) {
         toast.error(bad.stock <= 0
-          ? `⛔ "${bad.name}" pa gen stòk (0 ki rete).`
-          : `Stòk limite: ${bad.stock} sèlman pou "${bad.name}" (ou mete ${bad.qty}).`, { duration: 4500 })
+          ? t('scan.zeroStock', { defaultValue: '⛔ "{{name}}" pa gen stòk (0 ki rete).', name: bad.name })
+          : t('scan.stockLimitTotal', { defaultValue: 'Stòk limite: {{stock}} sèlman pou "{{name}}" (ou mete {{qty}}).', stock: bad.stock, name: bad.name, qty: bad.qty }), { duration: 4500 })
         goStep('items')
         return
       }

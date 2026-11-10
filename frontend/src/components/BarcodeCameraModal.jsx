@@ -4,6 +4,9 @@
 //  • Lòt (Windows, Firefox, WebView ki pa sipòte l) → ZXing chaje otomatikman (CDN, yon sèl fwa)
 //  • Si kamera a pa disponib / pèmisyon refize → chan pou tape kòd la manyèlman
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from '../i18n/config'
+import '../i18n/extraResources'
 import { Camera, X, ScanLine, Check } from 'lucide-react'
 import { scanFeedback } from '../hooks/useBarcodeScanner'
 
@@ -17,13 +20,15 @@ function loadZXing() {
     const s = document.createElement('script')
     s.src = ZXING_SRC
     s.onload = () => (window.ZXing ? resolve(window.ZXing) : reject(new Error('ZXing pa chaje')))
-    s.onerror = () => { window.__zxingPromise = null; reject(new Error('Pa ka chaje skanè a (entènèt?)')) }
+    s.onerror = () => { window.__zxingPromise = null; reject(new Error(i18n.t('barcode.errLoad', 'Pa ka chaje skanè a (entènèt?)'))) }
     document.head.appendChild(s)
   })
   return window.__zxingPromise
 }
 
-export function BarcodeCameraModal({ onDetected, onClose, continuous = false, title = 'Skane kòd ba' }) {
+export function BarcodeCameraModal({ onDetected, onClose, continuous = false, title }) {
+  const { t } = useTranslation()
+  const heading = title || t('barcode.title', 'Skane kòd ba')
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const stopRef = useRef(false)
@@ -54,7 +59,7 @@ export function BarcodeCameraModal({ onDetected, onClose, continuous = false, ti
 
     const start = async () => {
       try {
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Kamera pa sipòte sou aparèy sa a.')
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error(t('barcode.errNoSupport', 'Kamera pa sipòte sou aparèy sa a.'))
         stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false,
@@ -114,9 +119,9 @@ export function BarcodeCameraModal({ onDetected, onClose, continuous = false, ti
       } catch (e) {
         const name = e?.name || ''
         setError(
-          name === 'NotAllowedError' ? 'Pèmisyon kamera refize. Otorize kamera a nan paramèt aparèy la, oswa tape kòd la anba.'
-          : name === 'NotFoundError' ? 'Okenn kamera pa jwenn. Tape kòd la anba.'
-          : (e?.message || 'Kamera pa disponib. Tape kòd la anba.')
+          name === 'NotAllowedError' ? t('barcode.errNotAllowed', 'Pèmisyon kamera refize. Otorize kamera a nan paramèt aparèy la, oswa tape kòd la anba.')
+          : name === 'NotFoundError' ? t('barcode.errNotFound', 'Okenn kamera pa jwenn. Tape kòd la anba.')
+          : (e?.message || t('barcode.errUnavailable', 'Kamera pa disponib. Tape kòd la anba.'))
         )
       }
     }
@@ -141,8 +146,8 @@ export function BarcodeCameraModal({ onDetected, onClose, continuous = false, ti
       <div style={{ width: '100%', maxWidth: 440, background: '#fff', borderRadius: 22, overflow: 'hidden', boxShadow: '0 30px 60px rgba(0,0,0,.4)', maxHeight: '94vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', background: 'linear-gradient(115deg,#0F1A5C,#1B2A8F)', color: '#fff' }}>
           <ScanLine size={19} />
-          <b style={{ flex: 1, fontSize: 15 }}>{title}</b>
-          <button type="button" onClick={onClose} aria-label="Fèmen"
+          <b style={{ flex: 1, fontSize: 15 }}>{heading}</b>
+          <button type="button" onClick={onClose} aria-label={t('barcode.close', 'Fèmen')}
             style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.15)', color: '#fff', cursor: 'pointer', display: 'grid', placeItems: 'center' }}>
             <X size={17} />
           </button>
@@ -167,11 +172,11 @@ export function BarcodeCameraModal({ onDetected, onClose, continuous = false, ti
 
         <div style={{ padding: 16, display: 'grid', gap: 8 }}>
           <p style={{ margin: 0, fontSize: 12, color: '#6B7AAB', fontWeight: 600 }}>
-            {continuous ? 'Kenbe kòd la devan kamera a — chak kòd ajoute otomatikman.' : 'Mete kòd ba a nan kad la.'}
+            {continuous ? t('barcode.hintContinuous', 'Kenbe kòd la devan kamera a — chak kòd ajoute otomatikman.') : t('barcode.hintSingle', 'Mete kòd ba a nan kad la.')}
           </p>
           <div style={{ display: 'flex', gap: 8 }}>
             <input value={manual} onChange={e => setManual(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitManual()}
-              placeholder="…oswa tape kòd la" inputMode="text" autoComplete="off"
+              placeholder={t('barcode.manualPlaceholder', '…oswa tape kòd la')} inputMode="text" autoComplete="off"
               style={{ flex: 1, minWidth: 0, height: 44, padding: '0 12px', borderRadius: 12, border: '1.5px solid rgba(27,42,143,.2)', fontSize: 14, fontFamily: 'monospace', outline: 'none' }} />
             <button type="button" onClick={submitManual}
               style={{ height: 44, padding: '0 16px', borderRadius: 12, border: 'none', background: '#1B2A8F', color: '#fff', fontWeight: 800, cursor: 'pointer' }}>OK</button>
@@ -183,8 +188,11 @@ export function BarcodeCameraModal({ onDetected, onClose, continuous = false, ti
 }
 
 // Bouton ki louvri kamera a — mete l kote nenpòt chan rechèch
-export function CameraScanButton({ onDetected, continuous = false, className = '', style, label = 'Kamera', title = 'Skane ak kamera a', iconOnly = false }) {
+export function CameraScanButton({ onDetected, continuous = false, className = '', style, label, title, iconOnly = false }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  label = label || t('barcode.camera', 'Kamera')
+  title = title || t('barcode.scanWithCamera', 'Skane ak kamera a')
   return (
     <>
       <button type="button" className={className} style={style} title={title} aria-label={title} onClick={() => setOpen(true)}>

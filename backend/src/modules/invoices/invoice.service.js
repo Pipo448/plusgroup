@@ -144,7 +144,7 @@ const getOne = async (tenantId, id) => {
       quote:     { select: { id: true, quoteNumber: true, notes: true, terms: true } },
       creator:   { select: { fullName: true } },
       canceller: { select: { fullName: true } },
-      tenant:    { select: { name: true, address: true, phone: true, email: true, exchangeRate: true } }
+      tenant:    { select: { name: true, address: true, phone: true, email: true, exchangeRate: true, invoiceLanguage: true, defaultLanguage: true } }
     }
   });
   if (!invoice) throw Object.assign(new Error('Facture pa jwenn.'), { statusCode: 404 });

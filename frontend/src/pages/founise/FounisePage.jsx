@@ -1,5 +1,7 @@
 // src/pages/founise/FounisePage.jsx
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
+import '../../i18n/extraResources'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
@@ -74,22 +76,23 @@ const Modal = ({ title, onClose, children }) => (
 
 // ── Fòm Nouvo Founisè ────────────────────────────────────────────────────
 const FounisModal = ({ onClose, onSaved }) => {
+  const { t } = useTranslation()
   const { register, handleSubmit } = useForm()
   const mutation = useMutation({
     mutationFn: (data) => founiseAPI.create(data),
-    onSuccess: () => { toast.success('Founisè anrejistre.'); onSaved() },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan anrejistreman an.'),
+    onSuccess: () => { toast.success(t('founise.supplierSaved', 'Founisè anrejistre.')); onSaved() },
+    onError: (e) => toast.error(e.response?.data?.message || t('founise.supplierError', 'Erè pandan anrejistreman an.')),
   })
   return (
-    <Modal title="Nouvo Founisè" onClose={onClose}>
+    <Modal title={t('founise.newSupplier', 'Nouvo Founisè')} onClose={onClose}>
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-        <div>{label('Non Founisè *')}<input className="input" style={inp} {...register('non', { required: true })} placeholder="Egz. Distribisyon Karayib"/></div>
-        <div>{label('Telefòn')}<input className="input" style={inp} {...register('telefon')} placeholder="+509 ..."/></div>
-        <div>{label('Email')}<input className="input" style={inp} {...register('email')} placeholder="kontak@founise.com"/></div>
-        <div>{label('Adrès')}<input className="input" style={inp} {...register('adres')} placeholder="Vil, katye..."/></div>
-        <div>{label('Nòt')}<textarea className="input" style={{ ...inp, minHeight:70, resize:'vertical' }} {...register('notes')}/></div>
+        <div>{label(t('founise.supplierName', 'Non Founisè *'))}<input className="input" style={inp} {...register('non', { required: true })} placeholder={t('founise.supplierNamePh', 'Egz. Distribisyon Karayib')}/></div>
+        <div>{label(t('founise.phone', 'Telefòn'))}<input className="input" style={inp} {...register('telefon')} placeholder="+509 ..."/></div>
+        <div>{label(t('founise.email', 'Email'))}<input className="input" style={inp} {...register('email')} placeholder={t('founise.emailPh', 'kontak@founise.com')}/></div>
+        <div>{label(t('founise.address', 'Adrès'))}<input className="input" style={inp} {...register('adres')} placeholder={t('founise.addressPh', 'Vil, katye...')}/></div>
+        <div>{label(t('founise.notes', 'Nòt'))}<textarea className="input" style={{ ...inp, minHeight:70, resize:'vertical' }} {...register('notes')}/></div>
         <button type="submit" disabled={mutation.isPending} style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.blue, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
-          {mutation.isPending ? 'N ap sove...' : 'Anrejistre Founisè'}
+          {mutation.isPending ? t('founise.saving', 'N ap sove...') : t('founise.saveSupplier', 'Anrejistre Founisè')}
         </button>
       </form>
     </Modal>
@@ -98,19 +101,20 @@ const FounisModal = ({ onClose, onSaved }) => {
 
 // ── Fòm Enjeksyon Kapital ────────────────────────────────────────────────
 const KapitalModal = ({ onClose, onSaved }) => {
+  const { t } = useTranslation()
   const { register, handleSubmit } = useForm()
   const mutation = useMutation({
     mutationFn: (data) => founiseAPI.injectKapital({ ...data, montant: Number(data.montant) }),
-    onSuccess: () => { toast.success('Kapital enjekte.'); onSaved() },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan enjeksyon an.'),
+    onSuccess: () => { toast.success(t('founise.capitalInjected', 'Kapital enjekte.')); onSaved() },
+    onError: (e) => toast.error(e.response?.data?.message || t('founise.injectError', 'Erè pandan enjeksyon an.')),
   })
   return (
-    <Modal title="Enjekte Kapital" onClose={onClose}>
+    <Modal title={t('founise.injectCapital', 'Enjekte Kapital')} onClose={onClose}>
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} style={{ display:'flex', flexDirection:'column', gap:14 }}>
-        <div>{label('Montan (HTG) *')}<input type="number" step="0.01" min="0.01" style={inpMoney} {...register('montant', { required: true, min: 0.01 })} placeholder="0.00" autoFocus/></div>
-        <div>{label('Nòt (opsyonèl)')}<input style={inp} {...register('notes')} placeholder="Egz. Kapital inisyal, ogmantasyon..."/></div>
+        <div>{label(t('founise.amountHtg', 'Montan (HTG) *'))}<input type="number" step="0.01" min="0.01" style={inpMoney} {...register('montant', { required: true, min: 0.01 })} placeholder="0.00" autoFocus/></div>
+        <div>{label(t('founise.notesOptional', 'Nòt (opsyonèl)'))}<input style={inp} {...register('notes')} placeholder={t('founise.notesCapitalPh', 'Egz. Kapital inisyal, ogmantasyon...')}/></div>
         <button type="submit" disabled={mutation.isPending} style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.gold, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
-          {mutation.isPending ? 'N ap sove...' : 'Konfime Enjeksyon'}
+          {mutation.isPending ? t('founise.saving', 'N ap sove...') : t('founise.confirmInjection', 'Konfime Enjeksyon')}
         </button>
       </form>
     </Modal>
@@ -119,6 +123,7 @@ const KapitalModal = ({ onClose, onSaved }) => {
 
 // ── Fòm Nouvo Achte ──────────────────────────────────────────────────────
 const AchteModal = ({ founiseList, onClose, onSaved }) => {
+  const { t } = useTranslation()
   const [founiseId, setFouniseId] = useState('')
   const [notes, setNotes] = useState('')
   const [lines, setLines] = useState([]) // [{ id, productId, name, deskripsyon, kantite, priKoutInite }]
@@ -153,15 +158,15 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
     const code = String(raw).trim()
     setSearch(''); setShowResults(false)
     const p = await lookupProduct(code, { productAPI })
-    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi. Kreye pwodwi a nan paj Pwodwi anvan.`, { duration: 4500 })
-    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen estòk pou ajoute.`)
+    if (!p) return toast.error(t('scan.unknownCodeCreate', { defaultValue: 'Kòd « {{code}} » pa gen pwodwi. Kreye pwodwi a nan paj Pwodwi anvan.', code }), { duration: 4500 })
+    if (p.isService) return toast.error(t('scan.serviceNoAdd', { defaultValue: '"{{name}}" se yon sèvis — pa gen estòk pou ajoute.', name: p.name }))
     setLines(ls => {
       const i = ls.findIndex(l => l.productId === p.id)
       if (i >= 0) return ls.map((l, k) => k === i ? { ...l, kantite: (Number(l.kantite) || 0) + 1 } : l)
       return [...ls, { id: `p-${p.id}-${Date.now()}`, productId: p.id, name: p.name, deskripsyon: null,
         kantite: 1, priKoutInite: Number(p.costPriceHtg || 0), priVant: Number(p.priceHtg || 0) }]
     })
-    toast.success(`${p.name} ajoute`)
+    toast.success(t('scan.added', { defaultValue: '{{name}} ajoute', name: p.name }))
   }
   useBarcodeScanner(handleScan, true)
   const addManualLine = () => {
@@ -187,15 +192,15 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
 
   const mutation = useMutation({
     mutationFn: (data) => founiseAPI.createAchteBatch(data),
-    onSuccess: () => { toast.success(`${lines.length} atik anrejistre — estòk ak kapital ajou.`); onSaved() },
-    onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan achte a.'),
+    onSuccess: () => { toast.success(t('founise.purchaseSaved', { defaultValue: '{{count}} atik anrejistre — estòk ak kapital ajou.', count: lines.length })); onSaved() },
+    onError: (e) => toast.error(e.response?.data?.message || t('founise.purchaseError', 'Erè pandan achte a.')),
   })
 
   const handleSubmit = () => {
-    if (!founiseId) return toast.error('Chwazi yon founisè.')
-    if (!lines.length) return toast.error('Ajoute omwen yon atik.')
+    if (!founiseId) return toast.error(t('founise.chooseSupplier', 'Chwazi yon founisè.'))
+    if (!lines.length) return toast.error(t('founise.addAtLeastOne', 'Ajoute omwen yon atik.'))
     const bad = lines.find(l => !l.kantite || Number(l.kantite) <= 0 || l.priKoutInite === '' || Number(l.priKoutInite) < 0)
-    if (bad) return toast.error('Verifye kantite ak pri kout chak liy.')
+    if (bad) return toast.error(t('founise.checkLines', 'Verifye kantite ak pri kout chak liy.'))
     mutation.mutate({
       founiseId,
       notes: notes.trim() || undefined,
@@ -211,12 +216,12 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
   }
 
   return (
-    <Modal title="Nouvo Achte" onClose={onClose}>
+    <Modal title={t('founise.newPurchase', 'Nouvo Achte')} onClose={onClose}>
       <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
         <div>
-          {label('Founisè *')}
+          {label(t('founise.supplierLabel', 'Founisè *'))}
           <select style={inp} value={founiseId} onChange={e => setFouniseId(e.target.value)}>
-            <option value="">— Chwazi founisè —</option>
+            <option value="">{t('founise.selectSupplier', '— Chwazi founisè —')}</option>
             {founiseList.map(f => <option key={f.id} value={f.id}>{f.non}</option>)}
           </select>
         </div>
@@ -224,13 +229,13 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
         {/* ✅ NOUVO — panye acha: ajoute plizyè pwodwi pou MENM founisè a
             anvan w konfime, olye de refè fòm nan yon lòt fwa pou chak atik. */}
         <div style={{ position:'relative' }}>
-          {label('Ajoute yon pwodwi nan estòk')}
+          {label(t('founise.addProductToStock', 'Ajoute yon pwodwi nan estòk'))}
           <div style={{ position:'relative' }}>
             <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
             <input style={{ ...inp, paddingLeft:34, paddingRight:46 }} value={search}
               onChange={e => { setSearch(e.target.value); setShowResults(true) }}
               onFocus={() => setShowResults(true)}
-              placeholder="Chèche, skane kòd ba, oswa klike pou ajoute..."/>
+              placeholder={t('founise.searchPlaceholder', 'Chèche, skane kòd ba, oswa klike pou ajoute...')}/>
             <CameraScanButton iconOnly continuous onDetected={handleScan}
               style={{ position:'absolute', right:5, top:5, width:34, height:34, borderRadius:9, border:'none', background:D.blueDim, color:D.blue, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}/>
           </div>
@@ -241,7 +246,7 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
                   style={{ padding:'10px 14px', cursor:'pointer', fontSize:13, borderBottom:`1px solid ${D.border}` }}
                   onMouseEnter={e => e.currentTarget.style.background = D.blueDim}
                   onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  {p.name} <span style={{ color:D.muted, fontSize:11 }}>· stòk: {p.quantity}</span>
+                  {p.name} <span style={{ color:D.muted, fontSize:11 }}>· {t('founise.stock', 'stòk')}: {p.quantity}</span>
                 </div>
               ))}
             </div>
@@ -251,7 +256,7 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
         <div style={{ display:'flex', gap:8 }}>
           <input style={inp} value={manualDesc} onChange={e => setManualDesc(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addManualLine())}
-            placeholder="...oswa yon atik ki pa nan katalòg la (Antre)"/>
+            placeholder={t('founise.manualPlaceholder', '...oswa yon atik ki pa nan katalòg la (Antre)')}/>
           <button type="button" onClick={addManualLine} style={{ padding:'0 16px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, cursor:'pointer', whiteSpace:'nowrap' }}>
             <Plus size={15}/>
           </button>
@@ -269,10 +274,10 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr auto', gap:8, alignItems:'center' }}>
                   <input type="number" step="0.001" min="0.001" value={l.kantite}
                     onChange={e => updateLine(l.id, { kantite: e.target.value })}
-                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder="Kantite"/>
+                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder={t('founise.quantity', 'Kantite')}/>
                   <input type="number" step="0.01" min="0" value={l.priKoutInite}
                     onChange={e => updateLine(l.id, { priKoutInite: e.target.value })}
-                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder="Pri kout"/>
+                    style={{ ...inpMoney, padding:'7px 10px', fontSize:12 }} placeholder={t('founise.costPrice', 'Pri kout')}/>
                   <span style={{ fontSize:12, fontWeight:800, color:D.blueDk, fontFamily:'monospace', whiteSpace:'nowrap' }}>
                     {fmt((Number(l.kantite)||0) * (Number(l.priKoutInite)||0))}
                   </span>
@@ -280,7 +285,7 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
                 {/* ✅ NOUVO — benefis pwojte pou liy sa a (sèlman si li mare ak yon vrè pwodwi ki gen pri vant) */}
                 {l.priVant != null && (
                   <p style={{ fontSize:10, color:D.muted, margin:'6px 0 0' }}>
-                    Pri vant: <span style={{ fontWeight:700, color:D.text }}>{fmt(l.priVant)} HTG</span> · Benefis pwojte:{' '}
+                    {t('founise.sellPrice', 'Pri vant')}: <span style={{ fontWeight:700, color:D.text }}>{fmt(l.priVant)} HTG</span> · {t('founise.projectedProfit', 'Benefis pwojte')}:{' '}
                     <span style={{ fontWeight:800, color: (l.priVant - (Number(l.priKoutInite)||0)) >= 0 ? D.success : D.red }}>
                       {fmt((l.priVant - (Number(l.priKoutInite)||0)) * (Number(l.kantite)||0))} HTG
                     </span>
@@ -293,23 +298,23 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
 
         {/* ✅ NOUVO — Lòt Frè (transpò, chaje/dechaje...) mare ak menm achte sa a */}
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          <div>{label('Lòt Frè (Transpò, elt.)')}<input type="number" step="0.01" min="0" style={inpMoney} value={fraAdisyonel} onChange={e => setFraAdisyonel(e.target.value)} placeholder="0.00"/></div>
-          <div>{label('Deskripsyon Frè a')}<input style={inp} value={fraDeskripsyon} onChange={e => setFraDeskripsyon(e.target.value)} placeholder="Egz. Transpò"/></div>
+          <div>{label(t('founise.otherFees', 'Lòt Frè (Transpò, elt.)'))}<input type="number" step="0.01" min="0" style={inpMoney} value={fraAdisyonel} onChange={e => setFraAdisyonel(e.target.value)} placeholder="0.00"/></div>
+          <div>{label(t('founise.feeDescription', 'Deskripsyon Frè a'))}<input style={inp} value={fraDeskripsyon} onChange={e => setFraDeskripsyon(e.target.value)} placeholder={t('founise.feeDescriptionPh', 'Egz. Transpò')}/></div>
         </div>
 
         <div style={{ padding:'12px 16px', borderRadius:12, background:D.blueDim, display:'flex', flexDirection:'column', gap:4 }}>
           <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:D.muted }}>
-            <span>Machandiz ({lines.length} atik)</span>
+            <span>{t('founise.goods', 'Machandiz')} ({t('founise.itemsCount', { defaultValue: '{{count}} atik', count: lines.length })})</span>
             <span style={{ fontFamily:'monospace' }}>{fmt(machandizTotal)}</span>
           </div>
           {Number(fraAdisyonel) > 0 && (
             <div style={{ display:'flex', justifyContent:'space-between', fontSize:11, color:D.muted }}>
-              <span>Lòt Frè</span>
+              <span>{t('founise.otherFeesShort', 'Lòt Frè')}</span>
               <span style={{ fontFamily:'monospace' }}>{fmt(Number(fraAdisyonel))}</span>
             </div>
           )}
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', paddingTop:6, marginTop:2, borderTop:`1px dashed ${D.border}` }}>
-            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Total ki soti nan Kapital</span>
+            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>{t('founise.totalFromCapital', 'Total ki soti nan Kapital')}</span>
             <span style={{ fontSize:18, fontWeight:900, color:D.blueDk, fontFamily:'monospace' }}>{fmt(grandTotal)} HTG</span>
           </div>
         </div>
@@ -317,16 +322,16 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
         {/* ✅ NOUVO — benefis total pwojte, dapre pri vant aktyèl pwodwi yo (sèlman si gen omwen yon liy ki mare ak yon vrè pwodwi) */}
         {lines.some(l => l.priVant != null) && (
           <div style={{ padding:'12px 16px', borderRadius:12, background: benefisTotal >= 0 ? D.successBg : 'rgba(192,57,43,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>Benefis Total Pwojte (dapre pri vant aktyèl)</span>
+            <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>{t('founise.projectedProfitFull', 'Benefis Total Pwojte (dapre pri vant aktyèl)')}</span>
             <span style={{ fontSize:16, fontWeight:900, color: benefisTotal >= 0 ? D.success : D.red, fontFamily:'monospace' }}>{fmt(benefisTotal)} HTG</span>
           </div>
         )}
 
-        <div>{label('Nòt (opsyonèl)')}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
+        <div>{label(t('founise.notesOptional', 'Nòt (opsyonèl)'))}<input style={inp} value={notes} onChange={e => setNotes(e.target.value)}/></div>
 
         <button type="button" onClick={handleSubmit} disabled={mutation.isPending}
           style={{ marginTop:6, padding:'12px', borderRadius:12, border:'none', background:D.orange, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift }}>
-          {mutation.isPending ? 'N ap sove...' : `Konfime Achte (${lines.length} atik)`}
+          {mutation.isPending ? t('founise.saving', 'N ap sove...') : t('founise.confirmPurchase', { defaultValue: 'Konfime Achte ({{count}} atik)', count: lines.length })}
         </button>
       </div>
     </Modal>
@@ -337,6 +342,7 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
 // PAJ PRENSIPAL
 // ════════════════════════════════════════════════════════════════════════
 export default function FounisePage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { tenant } = useAuthStore()
@@ -402,9 +408,9 @@ export default function FounisePage() {
             <Truck size={isMobile ? 19 : 23} color="#fff"/>
           </div>
           <div style={{ minWidth:0 }}>
-            <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || 'Founisè'}</p>
-            <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0, letterSpacing:'-0.01em' }}>Founisè & Kapital</h1>
-            <p style={{ color:'rgba(255,255,255,0.65)', fontSize: isMobile ? 11 : 13, margin:'3px 0 0' }}>Jere achte, estòk, ak kapital biznis ou</p>
+            <p style={{ color:'rgba(255,255,255,0.6)', fontSize: isMobile ? 9 : 10, fontWeight:800, letterSpacing:'0.14em', textTransform:'uppercase', margin:'0 0 3px' }}>{tenant?.name || t('founise.defaultName', 'Founisè')}</p>
+            <h1 style={{ color:'#fff', fontSize: isMobile ? 19 : 25, fontWeight:900, margin:0, letterSpacing:'-0.01em' }}>{t('founise.title', 'Founisè & Kapital')}</h1>
+            <p style={{ color:'rgba(255,255,255,0.65)', fontSize: isMobile ? 11 : 13, margin:'3px 0 0' }}>{t('founise.subtitle', 'Jere achte, estòk, ak kapital biznis ou')}</p>
           </div>
         </div>
       </div>
@@ -419,28 +425,28 @@ export default function FounisePage() {
                 <Wallet size={20} color={D.blue}/>
               </div>
               <div>
-                <p style={{ color:D.muted, fontSize:10, fontWeight:800, letterSpacing:'0.08em', textTransform:'uppercase', margin:'0 0 3px' }}>Kapital Disponib</p>
+                <p style={{ color:D.muted, fontSize:10, fontWeight:800, letterSpacing:'0.08em', textTransform:'uppercase', margin:'0 0 3px' }}>{t('founise.capitalAvailable', 'Kapital Disponib')}</p>
                 <p style={{ color: kapital.disponib < 0 ? D.red : D.blueDk, fontSize: isMobile ? 24 : 30, fontWeight:900, margin:0, fontFamily:'monospace' }}>
                   {fmt(kapital.disponib)} <span style={{ fontSize:14, fontWeight:700, color:D.muted }}>HTG</span>
                 </p>
               </div>
             </div>
             <button onClick={() => setModal('kapital')} style={{ padding:'12px 18px', borderRadius:12, border:'none', background:D.gold, color:'#fff', fontWeight:800, fontSize:13, cursor:'pointer', boxShadow:D.shadowLift, display:'flex', alignItems:'center', justifyContent:'center', gap:6, whiteSpace:'nowrap' }}>
-              <Plus size={15}/> Enjekte Kapital
+              <Plus size={15}/> {t('founise.injectCapital', 'Enjekte Kapital')}
             </button>
           </div>
           <div style={{ display:'flex', gap:20, marginTop:16, paddingTop:16, borderTop:`1px dashed ${D.border}` }}>
             <div>
-              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Enjekte</p>
+              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>{t('founise.totalInjected', 'Total Enjekte')}</p>
               <p style={{ fontSize:14, fontWeight:800, color:D.success, margin:0, fontFamily:'monospace' }}>+{fmt(kapital.totalEnjeksyon)}</p>
             </div>
             <div>
-              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Achte</p>
+              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>{t('founise.totalPurchases', 'Total Achte')}</p>
               <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalAchte)}</p>
             </div>
             {/* ✅ KORIJE — Frè adisyonèl (transpò, elt.) mare ak Achte, pa Depans jeneral */}
             <div>
-              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>Total Frè</p>
+              <p style={{ fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', margin:'0 0 2px' }}>{t('founise.totalFees', 'Total Frè')}</p>
               <p style={{ fontSize:14, fontWeight:800, color:D.red, margin:0, fontFamily:'monospace' }}>−{fmt(kapital.totalFre)}</p>
             </div>
           </div>
@@ -453,14 +459,14 @@ export default function FounisePage() {
               <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <Truck size={14} color={D.blue}/>
               </div>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Founisè ({founiseList.length})</h3>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('founise.suppliers', 'Founisè')} ({founiseList.length})</h3>
             </div>
             <button onClick={() => setModal('founise')} style={{ padding:'9px 14px', borderRadius:10, border:`1.5px solid ${D.blue}`, background:'#fff', color:D.blue, fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
-              <Plus size={14}/> Ajoute
+              <Plus size={14}/> {t('founise.add', 'Ajoute')}
             </button>
           </div>
           {founiseList.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen founisè anrejistre ankò.</p>
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>{t('founise.noSuppliers', 'Pa gen founisè anrejistre ankò.')}</p>
           ) : (
             <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap:10 }}>
               {founiseList.map(f => (
@@ -480,20 +486,20 @@ export default function FounisePage() {
               <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <History size={14} color={D.blue}/>
               </div>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Istorik Enjeksyon</h3>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('founise.injectionHistory', 'Istorik Enjeksyon')}</h3>
             </div>
             <button onClick={() => setModal('kapital')} style={{ padding:'9px 14px', borderRadius:10, border:'none', background:D.gold, color:'#fff', fontWeight:800, fontSize:12, cursor:'pointer', display:'flex', alignItems:'center', gap:5 }}>
-              <Plus size={14}/> Enjekte
+              <Plus size={14}/> {t('founise.inject', 'Enjekte')}
             </button>
           </div>
           {enjeksyonList.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen enjeksyon kapital anrejistre ankò.</p>
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>{t('founise.noInjections', 'Pa gen enjeksyon kapital anrejistre ankò.')}</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {enjeksyonList.map(m => (
                 <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{m.notes || 'Enjeksyon Kapital'}</p>
+                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{m.notes || t('founise.capitalInjection', 'Enjeksyon Kapital')}</p>
                     <p style={{ fontSize:11, color:D.muted, margin:0 }}>{new Date(m.created_at).toLocaleString('fr-HT', { timeZone:'America/Port-au-Prince', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
                   </div>
                   <p style={{ fontWeight:900, fontSize:14, color:D.success, fontFamily:'monospace', margin:0, whiteSpace:'nowrap' }}>+{fmt(m.montant)} HTG</p>
@@ -510,30 +516,30 @@ export default function FounisePage() {
               <div style={{ width:30, height:30, borderRadius:9, background:D.blueDim, display:'flex', alignItems:'center', justifyContent:'center' }}>
                 <ShoppingBag size={14} color={D.blue}/>
               </div>
-              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>Achte Resan</h3>
+              <h3 style={{ color:D.text, fontSize:14, fontWeight:800, margin:0 }}>{t('founise.wholesalePurchases', 'Achte Resan')}</h3>
             </div>
             <button onClick={() => setModal('achte')} disabled={founiseList.length === 0}
               style={{ padding:'9px 14px', borderRadius:10, border:'none', background: founiseList.length === 0 ? D.blueDim2 : D.orange, color: founiseList.length === 0 ? D.muted : '#fff', fontWeight:800, fontSize:12, cursor: founiseList.length === 0 ? 'not-allowed' : 'pointer', display:'flex', alignItems:'center', gap:5 }}>
-              <Plus size={14}/> Nouvo Achte
+              <Plus size={14}/> {t('founise.newPurchase', 'Nouvo Achte')}
             </button>
           </div>
           {founiseList.length === 0 && (
-            <p style={{ color:D.muted, fontSize:12, marginBottom:14 }}>Ajoute yon founisè anvan pou w ka anrejistre yon achte.</p>
+            <p style={{ color:D.muted, fontSize:12, marginBottom:14 }}>{t('founise.addSupplierFirst', 'Ajoute yon founisè anvan pou w ka anrejistre yon achte.')}</p>
           )}
 
           {/* ✅ NOUVO — filt dat, itil lè w antre plizyè achte youn pa youn nan menm dat la */}
           <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'end' }}>
             <div>
-              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>De</label>
+              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>{t('founise.from', 'De')}</label>
               <input type="date" value={dateFilt.from} onChange={e => setDateFilt(d => ({ ...d, from: e.target.value }))} style={{ ...inp, padding:'8px 10px', fontSize:12 }}/>
             </div>
             <div>
-              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>Rive</label>
+              <label style={{ display:'block', fontSize:10, fontWeight:800, color:D.muted, textTransform:'uppercase', marginBottom:4 }}>{t('founise.to', 'Rive')}</label>
               <input type="date" value={dateFilt.to} onChange={e => setDateFilt(d => ({ ...d, to: e.target.value }))} style={{ ...inp, padding:'8px 10px', fontSize:12 }}/>
             </div>
             {(dateFilt.from || dateFilt.to) && (
               <button onClick={() => setDateFilt({ from:'', to:'' })} style={{ padding:'8px 12px', borderRadius:10, border:`1px solid ${D.border}`, background:'#fff', color:D.muted, fontWeight:700, fontSize:11, cursor:'pointer' }}>
-                Retire filt
+                {t('founise.clearFilter', 'Retire filt')}
               </button>
             )}
           </div>
@@ -542,20 +548,20 @@ export default function FounisePage() {
           {achteList.length > 0 && (
             <div style={{ padding:'12px 16px', borderRadius:12, background: achteBenefisTotal >= 0 ? D.successBg : 'rgba(192,57,43,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <span style={{ fontSize:11, fontWeight:800, color:D.muted, textTransform:'uppercase' }}>
-                Benefis Total Pwojte {(dateFilt.from && dateFilt.to) ? `(${dateFilt.from} → ${dateFilt.to})` : '(tout achte ki afiche)'}
+                {t('founise.projectedProfitTotal', 'Benefis Total Pwojte')} {(dateFilt.from && dateFilt.to) ? `(${dateFilt.from} → ${dateFilt.to})` : t('founise.allShown', '(tout achte ki afiche)')}
               </span>
               <span style={{ fontSize:16, fontWeight:900, color: achteBenefisTotal >= 0 ? D.success : D.red, fontFamily:'monospace' }}>{fmt(achteBenefisTotal)} HTG</span>
             </div>
           )}
 
           {achteList.length === 0 ? (
-            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>Pa gen achte anrejistre pou peryòd sa a.</p>
+            <p style={{ color:D.muted, fontSize:13, textAlign:'center', padding:'24px 0' }}>{t('founise.noPurchases', 'Pa gen achte anrejistre pou peryòd sa a.')}</p>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
               {achteList.map(a => (
                 <div key={a.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
                   <div style={{ minWidth:0 }}>
-                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{a.product?.name || a.deskripsyon || 'Achte'}</p>
+                    <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{a.product?.name || a.deskripsyon || t('founise.purchase', 'Achte')}</p>
                     <p style={{ fontSize:11, color:D.muted, margin:0 }}>{a.founise?.non} · {Number(a.kantite)} × {fmt(a.pri_kout_inite)} HTG</p>
                   </div>
                   <p style={{ fontWeight:900, fontSize:14, color:D.blueDk, fontFamily:'monospace', margin:0, whiteSpace:'nowrap' }}>{fmt(a.total_htg)} HTG</p>

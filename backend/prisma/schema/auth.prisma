@@ -160,6 +160,8 @@ model Tenant {
   monthlyPrice           Int                     @default(0) @map("monthly_price")
   bannerUrl              String?                 @map("banner_url")
   receiptFooterNote      String?                 @map("receipt_footer_note")
+  // ✅ NOUVO — lang fakti/resi a (ht · fr · en · es); null = swiv defaultLanguage
+  invoiceLanguage        String?                 @map("invoice_language") @db.VarChar(5)
   // ✅ NOUVO — kèk logo (fon fonse) pa enprime byen sou enprimant tèmik
   // (nwa/blan sèlman); pèmèt tenant dezaktive logo a SÈLMAN sou resi yo.
   printLogoOnReceipt     Boolean                 @default(true) @map("print_logo_on_receipt")

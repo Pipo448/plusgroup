@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import { useTranslation } from 'react-i18next'
+import '../../i18n/extraResources'
 import { useForm, useFieldArray } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import { compressImage } from '../../utils/imageCompression'
@@ -442,13 +443,13 @@ const ProductModal = ({ product, prefill, categories, exchangeRate, onClose, onS
             </div>
             {/* ✅ NOUVO — Kòd ba: skane l ak skanè a (fokis isit la) oswa jenere youn si pwodwi a pa gen */}
             <div>
-              <label className="iv-lbl">Kòd ba <span style={{ color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}>· opsyonèl</span></label>
+              <label className="iv-lbl">{tr(t, 'barcode.label', 'Kòd ba')} <span style={{ color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}>· {tr(t, 'barcode.optional', 'opsyonèl')}</span></label>
               <div style={{ display: 'flex', gap: 6 }}>
-                <input className="iv-inp mono" style={{ flex: 1, minWidth: 0 }} placeholder="Skane oswa tape kòd la" inputMode="text" autoComplete="off"
+                <input className="iv-inp mono" style={{ flex: 1, minWidth: 0 }} placeholder={tr(t, 'barcode.scanOrType', 'Skane oswa tape kòd la')} inputMode="text" autoComplete="off"
                   onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }} {...register('barcode')}/>
-                <button type="button" className="iv-act" style={{ minHeight: 44, flexShrink: 0 }} title="Jenere yon kòd otomatikman"
+                <button type="button" className="iv-act" style={{ minHeight: 44, flexShrink: 0 }} title={tr(t, 'barcode.generateTitle', 'Jenere yon kòd otomatikman')}
                   onClick={() => setValue('barcode', 'PG' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 90 + 10), { shouldDirty: true })}>
-                  <RefreshCw size={14}/> Jenere
+                  <RefreshCw size={14}/> {tr(t, 'barcode.generate', 'Jenere')}
                 </button>
               </div>
             </div>
@@ -603,7 +604,7 @@ const ProductCard = ({ p, t, index, inCart, onEdit, onDelete, onAddToCart, onZoo
         <div className="pd-meta">
           {p.category && <span className="cat" style={{ '--cc': p.category.color || '#1B2A8F' }}><i/>{p.category.name}</span>}
           {p.code && <span className="mono">{p.code}</span>}
-          {p.barcode && <span className="mono" title="Kòd ba"><ScanLine size={10} style={{ verticalAlign: '-1px' }}/> {p.barcode}</span>}
+          {p.barcode && <span className="mono" title={tr(t, 'barcode.label', 'Kòd ba')}><ScanLine size={10} style={{ verticalAlign: '-1px' }}/> {p.barcode}</span>}
         </div>
         <div className="pd-price">
           <span className="num">{fmt(p.priceHtg)}<small>HTG</small></span>
@@ -749,9 +750,9 @@ export default function ProductsPage() {
     try {
       const found = await lookupProduct(code, { productAPI })
       if (found) return addToCart(found)
-      if (confirm(`Kòd « ${code} » pa gen pwodwi. Kreye yon pwodwi ak kòd sa a?`)) setModal({ type: 'create', prefill: { barcode: code } })
+      if (confirm(t('scan.createWithCode', { defaultValue: 'Kòd « {{code}} » pa gen pwodwi. Kreye yon pwodwi ak kòd sa a?', code }))) setModal({ type: 'create', prefill: { barcode: code } })
     } catch {
-      toast.error('Erè pandan rechèch kòd la.')
+      toast.error(t('scan.searchError', 'Erè pandan rechèch kòd la.'))
     }
   }
   useBarcodeScanner(handleScan, !modal && !cartOpen)
@@ -788,7 +789,7 @@ export default function ProductsPage() {
 
   const addToCart = (p) => {
     // ✅ NOUVO — pa ajoute yon pwodwi ki pa gen stòk (fakti a t ap refize l apre)
-    if (!p.isService && Number(p.quantity || 0) <= 0) return toast.error(`"${p.name}" pa gen stòk.`)
+    if (!p.isService && Number(p.quantity || 0) <= 0) return toast.error(t('scan.noStock', { defaultValue: '"{{name}}" pa gen stòk.', name: p.name }))
     if (inCart.has(p.id)) {
       setCartItems(cartItems.map(it => it.productId === p.id ? { ...it, qty: Number(it.qty || 0) + 1 } : it))
       toast.success(`+1 "${p.name}"`)

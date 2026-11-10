@@ -1,0 +1,316 @@
+// src/i18n/extraResources.js
+// ══════════════════════════════════════════════════════════════
+// Tradiksyon siplemantè (ht · fr · en · es) pou: Founisè & Kapital, skanè kòd ba,
+// mesaj Stòk/Pwodwi/Fakti ak chwa lang fakti a.
+// Fichye sa a PA ranplase fichye lang ou yo — li AJOUTE kle yo (addResourceBundle,
+// san overwrite). Chak paj enpòte l yon fwa: `import '../../i18n/extraResources'`.
+// Si yon kle manke, paj la toujou afiche tèks Kreyòl la (default nan t(key, default)).
+// ══════════════════════════════════════════════════════════════
+import i18n from './config'
+
+const ht = {
+  scan: {
+    unknownCode: 'Kòd « {{code}} » pa gen pwodwi.',
+    unknownCodeCreate: 'Kòd « {{code}} » pa gen pwodwi. Kreye pwodwi a nan paj Pwodwi anvan.',
+    createWithCode: 'Kòd « {{code}} » pa gen pwodwi. Kreye yon pwodwi ak kòd sa a?',
+    searchError: 'Erè pandan rechèch kòd la.',
+    serviceNoStock: '"{{name}}" se yon sèvis — pa gen stòk.',
+    serviceNoAdd: '"{{name}}" se yon sèvis — pa gen estòk pou ajoute.',
+    noStock: '"{{name}}" pa gen stòk.',
+    zeroStock: '⛔ "{{name}}" pa gen stòk (0 ki rete).',
+    zeroStockAdmin: '⛔ "{{name}}" pa gen stòk (0 ki rete). Kontakte admin pou reapwovizyone l.',
+    stockLimit: 'Stòk limite: {{stock}} sèlman pou "{{name}}".',
+    stockLimitTotal: 'Stòk limite: {{stock}} sèlman pou "{{name}}" (ou mete {{qty}}).',
+    plusOne: '+1 {{name}} ({{qty}})',
+    added: '{{name}} ajoute',
+  },
+  barcode: {
+    title: 'Skane kòd ba', camera: 'Kamera', scanWithCamera: 'Skane ak kamera a', close: 'Fèmen',
+    hintContinuous: 'Kenbe kòd la devan kamera a — chak kòd ajoute otomatikman.',
+    hintSingle: 'Mete kòd ba a nan kad la.',
+    manualPlaceholder: '…oswa tape kòd la',
+    errNotAllowed: 'Pèmisyon kamera refize. Otorize kamera a nan paramèt aparèy la, oswa tape kòd la anba.',
+    errNotFound: 'Okenn kamera pa jwenn. Tape kòd la anba.',
+    errUnavailable: 'Kamera pa disponib. Tape kòd la anba.',
+    errNoSupport: 'Kamera pa sipòte sou aparèy sa a.',
+    errLoad: 'Pa ka chaje skanè a (entènèt?)',
+    label: 'Kòd ba', optional: 'opsyonèl', scanOrType: 'Skane oswa tape kòd la',
+    generate: 'Jenere', generateTitle: 'Jenere yon kòd otomatikman',
+  },
+  founise: {
+    title: 'Founisè & Kapital', subtitle: 'Jere achte, estòk, ak kapital biznis ou', defaultName: 'Founisè',
+    capitalAvailable: 'Kapital Disponib', injectCapital: 'Enjekte Kapital', inject: 'Enjekte',
+    totalInjected: 'Total Enjekte', totalPurchases: 'Total Achte', totalFees: 'Total Frè',
+    suppliers: 'Founisè', add: 'Ajoute', noSuppliers: 'Pa gen founisè anrejistre ankò.',
+    injectionHistory: 'Istorik Enjeksyon', capitalInjection: 'Enjeksyon Kapital', noInjections: 'Pa gen enjeksyon kapital anrejistre ankò.',
+    wholesalePurchases: 'Achte Resan', newPurchase: 'Nouvo Achte', purchase: 'Achte',
+    addSupplierFirst: 'Ajoute yon founisè anvan pou w ka anrejistre yon achte.',
+    from: 'De', to: 'Rive', clearFilter: 'Retire filt',
+    projectedProfitTotal: 'Benefis Total Pwojte', allShown: '(tout achte ki afiche)', noPurchases: 'Pa gen achte anrejistre pou peryòd sa a.',
+    newSupplier: 'Nouvo Founisè', supplierName: 'Non Founisè *', phone: 'Telefòn', email: 'Email', address: 'Adrès', notes: 'Nòt',
+    saveSupplier: 'Anrejistre Founisè', saving: 'N ap sove...',
+    supplierSaved: 'Founisè anrejistre.', supplierError: 'Erè pandan anrejistreman an.',
+    supplierNamePh: 'Egz. Distribisyon Karayib', addressPh: 'Vil, katye...', emailPh: 'kontak@founise.com',
+    amountHtg: 'Montan (HTG) *', notesOptional: 'Nòt (opsyonèl)', notesCapitalPh: 'Egz. Kapital inisyal, ogmantasyon...',
+    confirmInjection: 'Konfime Enjeksyon', capitalInjected: 'Kapital enjekte.', injectError: 'Erè pandan enjeksyon an.',
+    purchaseSaved: '{{count}} atik anrejistre — estòk ak kapital ajou.', purchaseError: 'Erè pandan achte a.',
+    chooseSupplier: 'Chwazi yon founisè.', addAtLeastOne: 'Ajoute omwen yon atik.', checkLines: 'Verifye kantite ak pri kout chak liy.',
+    supplierLabel: 'Founisè *', selectSupplier: '— Chwazi founisè —',
+    addProductToStock: 'Ajoute yon pwodwi nan estòk', searchPlaceholder: 'Chèche, skane kòd ba, oswa klike pou ajoute...',
+    stock: 'stòk', manualPlaceholder: '...oswa yon atik ki pa nan katalòg la (Antre)',
+    quantity: 'Kantite', costPrice: 'Pri kout', sellPrice: 'Pri vant', projectedProfit: 'Benefis pwojte',
+    otherFees: 'Lòt Frè (Transpò, elt.)', otherFeesShort: 'Lòt Frè', feeDescription: 'Deskripsyon Frè a', feeDescriptionPh: 'Egz. Transpò',
+    goods: 'Machandiz', itemsCount: '{{count}} atik', totalFromCapital: 'Total ki soti nan Kapital',
+    projectedProfitFull: 'Benefis Total Pwojte (dapre pri vant aktyèl)', confirmPurchase: 'Konfime Achte ({{count}} atik)',
+  },
+  invoiceLang: {
+    label: 'Lang fakti a', title: 'Lang fakti a', defaultLabel: 'Lang defo antrepriz la', setDefault: 'Mete kòm lang defo antrepriz la',
+    saved: 'Lang fakti antrepriz la: {{lang}}', saveError: 'Pa kapab sove lang lan.',
+  },
+  stock: {
+    saving: 'Ap anrejistre...', optional: '(opsyonèl)', movementsWord: 'mouvman',
+    noMovementsForType: 'Pa gen mouvman pou tip sa a.', cantRemove: 'Ou pa ka retire {{qty}} — se {{before}} sèlman ki an stòk.',
+    cantRemoveMore: '⚠️ Ou pa ka retire plis pase sa ki an stòk.', saveError: 'Erè pandan ajisteman an.',
+    scanTitle: 'Skane pou ajiste', adjustAgain: 'Ajiste ankò', adjustAgainTitle: 'Klike pou ajiste pwodwi sa ankò',
+    exportCsv: 'Ekspòte paj la an CSV (Excel)', exportBtn: 'Sòti (paj la)', before: 'Avan', after: 'Apre',
+  },
+}
+
+const fr = {
+  scan: {
+    unknownCode: 'Le code « {{code}} » ne correspond à aucun produit.',
+    unknownCodeCreate: 'Le code « {{code}} » ne correspond à aucun produit. Créez d\'abord le produit dans la page Produits.',
+    createWithCode: 'Le code « {{code}} » ne correspond à aucun produit. Créer un produit avec ce code ?',
+    searchError: 'Erreur lors de la recherche du code.',
+    serviceNoStock: '« {{name}} » est un service — pas de stock.',
+    serviceNoAdd: '« {{name}} » est un service — pas de stock à ajouter.',
+    noStock: '« {{name}} » n\'a pas de stock.',
+    zeroStock: '⛔ « {{name}} » n\'a pas de stock (0 restant).',
+    zeroStockAdmin: '⛔ « {{name}} » n\'a pas de stock (0 restant). Contactez l\'admin pour réapprovisionner.',
+    stockLimit: 'Stock limité : seulement {{stock}} pour « {{name}} ».',
+    stockLimitTotal: 'Stock limité : seulement {{stock}} pour « {{name}} » (vous en avez mis {{qty}}).',
+    plusOne: '+1 {{name}} ({{qty}})',
+    added: '{{name}} ajouté',
+  },
+  barcode: {
+    title: 'Scanner un code-barres', camera: 'Caméra', scanWithCamera: 'Scanner avec la caméra', close: 'Fermer',
+    hintContinuous: 'Gardez le code devant la caméra — chaque code est ajouté automatiquement.',
+    hintSingle: 'Placez le code-barres dans le cadre.',
+    manualPlaceholder: '…ou saisissez le code',
+    errNotAllowed: 'Permission caméra refusée. Autorisez la caméra dans les paramètres de l\'appareil, ou saisissez le code ci-dessous.',
+    errNotFound: 'Aucune caméra trouvée. Saisissez le code ci-dessous.',
+    errUnavailable: 'Caméra indisponible. Saisissez le code ci-dessous.',
+    errNoSupport: 'La caméra n\'est pas prise en charge sur cet appareil.',
+    errLoad: 'Impossible de charger le scanner (internet ?)',
+    label: 'Code-barres', optional: 'facultatif', scanOrType: 'Scannez ou saisissez le code',
+    generate: 'Générer', generateTitle: 'Générer un code automatiquement',
+  },
+  founise: {
+    title: 'Fournisseurs & Capital', subtitle: 'Gérez vos achats, votre stock et le capital de votre entreprise', defaultName: 'Fournisseurs',
+    capitalAvailable: 'Capital disponible', injectCapital: 'Injecter du capital', inject: 'Injecter',
+    totalInjected: 'Total injecté', totalPurchases: 'Total des achats', totalFees: 'Total des frais',
+    suppliers: 'Fournisseurs', add: 'Ajouter', noSuppliers: 'Aucun fournisseur enregistré pour le moment.',
+    injectionHistory: 'Historique des injections', capitalInjection: 'Injection de capital', noInjections: 'Aucune injection de capital enregistrée pour le moment.',
+    wholesalePurchases: 'Achats en gros', newPurchase: 'Nouvel achat', purchase: 'Achat',
+    addSupplierFirst: 'Ajoutez d\'abord un fournisseur pour pouvoir enregistrer un achat.',
+    from: 'Du', to: 'Au', clearFilter: 'Retirer le filtre',
+    projectedProfitTotal: 'Bénéfice total prévu', allShown: '(tous les achats affichés)', noPurchases: 'Aucun achat enregistré pour cette période.',
+    newSupplier: 'Nouveau fournisseur', supplierName: 'Nom du fournisseur *', phone: 'Téléphone', email: 'E-mail', address: 'Adresse', notes: 'Notes',
+    saveSupplier: 'Enregistrer le fournisseur', saving: 'Enregistrement...',
+    supplierSaved: 'Fournisseur enregistré.', supplierError: 'Erreur lors de l\'enregistrement.',
+    supplierNamePh: 'Ex. Distribution Caraïbes', addressPh: 'Ville, quartier...', emailPh: 'contact@fournisseur.com',
+    amountHtg: 'Montant (HTG) *', notesOptional: 'Notes (facultatif)', notesCapitalPh: 'Ex. Capital initial, augmentation...',
+    confirmInjection: 'Confirmer l\'injection', capitalInjected: 'Capital injecté.', injectError: 'Erreur lors de l\'injection.',
+    purchaseSaved: '{{count}} article(s) enregistré(s) — stock et capital mis à jour.', purchaseError: 'Erreur lors de l\'achat.',
+    chooseSupplier: 'Choisissez un fournisseur.', addAtLeastOne: 'Ajoutez au moins un article.', checkLines: 'Vérifiez la quantité et le prix de revient de chaque ligne.',
+    supplierLabel: 'Fournisseur *', selectSupplier: '— Choisir un fournisseur —',
+    addProductToStock: 'Ajouter un produit au stock', searchPlaceholder: 'Rechercher, scanner un code-barres, ou cliquer pour ajouter...',
+    stock: 'stock', manualPlaceholder: '...ou un article hors catalogue (Entrée)',
+    quantity: 'Quantité', costPrice: 'Prix de revient', sellPrice: 'Prix de vente', projectedProfit: 'Bénéfice prévu',
+    otherFees: 'Autres frais (transport, etc.)', otherFeesShort: 'Autres frais', feeDescription: 'Description des frais', feeDescriptionPh: 'Ex. Transport',
+    goods: 'Marchandises', itemsCount: '{{count}} article(s)', totalFromCapital: 'Total prélevé sur le capital',
+    projectedProfitFull: 'Bénéfice total prévu (selon les prix de vente actuels)', confirmPurchase: 'Confirmer l\'achat ({{count}} article(s))',
+  },
+  invoiceLang: {
+    label: 'Langue de la facture', title: 'Langue de la facture', defaultLabel: 'Langue par défaut de l\'entreprise', setDefault: 'Définir comme langue par défaut de l\'entreprise',
+    saved: 'Langue des factures de l\'entreprise : {{lang}}', saveError: 'Impossible d\'enregistrer la langue.',
+  },
+  stock: {
+    saving: 'Enregistrement...', optional: '(facultatif)', movementsWord: 'mouvements',
+    noMovementsForType: 'Aucun mouvement pour ce type.', cantRemove: 'Impossible de retirer {{qty}} — seulement {{before}} en stock.',
+    cantRemoveMore: '⚠️ Vous ne pouvez pas retirer plus que le stock disponible.', saveError: 'Erreur lors de l\'ajustement.',
+    scanTitle: 'Scanner pour ajuster', adjustAgain: 'Ajuster à nouveau', adjustAgainTitle: 'Cliquez pour ajuster ce produit à nouveau',
+    exportCsv: 'Exporter la page en CSV (Excel)', exportBtn: 'Exporter (page)', before: 'Avant', after: 'Après',
+  },
+}
+
+const en = {
+  scan: {
+    unknownCode: 'Code « {{code}} » matches no product.',
+    unknownCodeCreate: 'Code « {{code}} » matches no product. Create the product in the Products page first.',
+    createWithCode: 'Code « {{code}} » matches no product. Create a product with this code?',
+    searchError: 'Error while searching for the code.',
+    serviceNoStock: '"{{name}}" is a service — no stock.',
+    serviceNoAdd: '"{{name}}" is a service — no stock to add.',
+    noStock: '"{{name}}" is out of stock.',
+    zeroStock: '⛔ "{{name}}" is out of stock (0 left).',
+    zeroStockAdmin: '⛔ "{{name}}" is out of stock (0 left). Contact the admin to restock.',
+    stockLimit: 'Stock limit: only {{stock}} available for "{{name}}".',
+    stockLimitTotal: 'Stock limit: only {{stock}} available for "{{name}}" (you entered {{qty}}).',
+    plusOne: '+1 {{name}} ({{qty}})',
+    added: '{{name}} added',
+  },
+  barcode: {
+    title: 'Scan barcode', camera: 'Camera', scanWithCamera: 'Scan with camera', close: 'Close',
+    hintContinuous: 'Hold the code in front of the camera — each code is added automatically.',
+    hintSingle: 'Place the barcode inside the frame.',
+    manualPlaceholder: '…or type the code',
+    errNotAllowed: 'Camera permission denied. Allow the camera in your device settings, or type the code below.',
+    errNotFound: 'No camera found. Type the code below.',
+    errUnavailable: 'Camera unavailable. Type the code below.',
+    errNoSupport: 'Camera is not supported on this device.',
+    errLoad: 'Could not load the scanner (internet?)',
+    label: 'Barcode', optional: 'optional', scanOrType: 'Scan or type the code',
+    generate: 'Generate', generateTitle: 'Generate a code automatically',
+  },
+  founise: {
+    title: 'Suppliers & Capital', subtitle: 'Manage your purchases, stock and business capital', defaultName: 'Suppliers',
+    capitalAvailable: 'Available capital', injectCapital: 'Inject capital', inject: 'Inject',
+    totalInjected: 'Total injected', totalPurchases: 'Total purchases', totalFees: 'Total fees',
+    suppliers: 'Suppliers', add: 'Add', noSuppliers: 'No suppliers registered yet.',
+    injectionHistory: 'Injection history', capitalInjection: 'Capital injection', noInjections: 'No capital injections registered yet.',
+    wholesalePurchases: 'Wholesale purchases', newPurchase: 'New purchase', purchase: 'Purchase',
+    addSupplierFirst: 'Add a supplier first to be able to register a purchase.',
+    from: 'From', to: 'To', clearFilter: 'Clear filter',
+    projectedProfitTotal: 'Total projected profit', allShown: '(all purchases shown)', noPurchases: 'No purchases registered for this period.',
+    newSupplier: 'New supplier', supplierName: 'Supplier name *', phone: 'Phone', email: 'Email', address: 'Address', notes: 'Notes',
+    saveSupplier: 'Save supplier', saving: 'Saving...',
+    supplierSaved: 'Supplier saved.', supplierError: 'Error while saving.',
+    supplierNamePh: 'E.g. Caribbean Distribution', addressPh: 'City, neighborhood...', emailPh: 'contact@supplier.com',
+    amountHtg: 'Amount (HTG) *', notesOptional: 'Notes (optional)', notesCapitalPh: 'E.g. Initial capital, increase...',
+    confirmInjection: 'Confirm injection', capitalInjected: 'Capital injected.', injectError: 'Error during injection.',
+    purchaseSaved: '{{count}} item(s) saved — stock and capital updated.', purchaseError: 'Error during purchase.',
+    chooseSupplier: 'Choose a supplier.', addAtLeastOne: 'Add at least one item.', checkLines: 'Check the quantity and cost price of each line.',
+    supplierLabel: 'Supplier *', selectSupplier: '— Choose a supplier —',
+    addProductToStock: 'Add a product to stock', searchPlaceholder: 'Search, scan a barcode, or click to add...',
+    stock: 'stock', manualPlaceholder: '...or an item not in the catalog (Enter)',
+    quantity: 'Quantity', costPrice: 'Cost price', sellPrice: 'Selling price', projectedProfit: 'Projected profit',
+    otherFees: 'Other fees (transport, etc.)', otherFeesShort: 'Other fees', feeDescription: 'Fee description', feeDescriptionPh: 'E.g. Transport',
+    goods: 'Goods', itemsCount: '{{count}} item(s)', totalFromCapital: 'Total taken from capital',
+    projectedProfitFull: 'Total projected profit (at current selling prices)', confirmPurchase: 'Confirm purchase ({{count}} item(s))',
+  },
+  invoiceLang: {
+    label: 'Invoice language', title: 'Invoice language', defaultLabel: 'Company default language', setDefault: 'Set as company default language',
+    saved: 'Company invoice language: {{lang}}', saveError: 'Could not save the language.',
+  },
+  stock: {
+    saving: 'Saving...', optional: '(optional)', movementsWord: 'movements',
+    noMovementsForType: 'No movements for this type.', cantRemove: 'You cannot remove {{qty}} — only {{before}} in stock.',
+    cantRemoveMore: '⚠️ You cannot remove more than what is in stock.', saveError: 'Error while adjusting.',
+    scanTitle: 'Scan to adjust', adjustAgain: 'Adjust again', adjustAgainTitle: 'Click to adjust this product again',
+    exportCsv: 'Export this page to CSV (Excel)', exportBtn: 'Export (page)', before: 'Before', after: 'After',
+  },
+}
+
+const es = {
+  scan: {
+    unknownCode: 'El código « {{code}} » no corresponde a ningún producto.',
+    unknownCodeCreate: 'El código « {{code}} » no corresponde a ningún producto. Cree primero el producto en la página Productos.',
+    createWithCode: 'El código « {{code}} » no corresponde a ningún producto. ¿Crear un producto con este código?',
+    searchError: 'Error al buscar el código.',
+    serviceNoStock: '«{{name}}» es un servicio — sin inventario.',
+    serviceNoAdd: '«{{name}}» es un servicio — no hay inventario que añadir.',
+    noStock: '«{{name}}» no tiene existencias.',
+    zeroStock: '⛔ «{{name}}» no tiene existencias (0 disponibles).',
+    zeroStockAdmin: '⛔ «{{name}}» no tiene existencias (0 disponibles). Contacte al administrador para reabastecer.',
+    stockLimit: 'Existencias limitadas: solo {{stock}} para «{{name}}».',
+    stockLimitTotal: 'Existencias limitadas: solo {{stock}} para «{{name}}» (puso {{qty}}).',
+    plusOne: '+1 {{name}} ({{qty}})',
+    added: '{{name}} añadido',
+  },
+  barcode: {
+    title: 'Escanear código de barras', camera: 'Cámara', scanWithCamera: 'Escanear con la cámara', close: 'Cerrar',
+    hintContinuous: 'Mantenga el código frente a la cámara — cada código se añade automáticamente.',
+    hintSingle: 'Coloque el código de barras dentro del marco.',
+    manualPlaceholder: '…o escriba el código',
+    errNotAllowed: 'Permiso de cámara denegado. Autorice la cámara en los ajustes del dispositivo, o escriba el código abajo.',
+    errNotFound: 'No se encontró ninguna cámara. Escriba el código abajo.',
+    errUnavailable: 'Cámara no disponible. Escriba el código abajo.',
+    errNoSupport: 'La cámara no es compatible con este dispositivo.',
+    errLoad: 'No se pudo cargar el escáner (¿internet?)',
+    label: 'Código de barras', optional: 'opcional', scanOrType: 'Escanee o escriba el código',
+    generate: 'Generar', generateTitle: 'Generar un código automáticamente',
+  },
+  founise: {
+    title: 'Proveedores y Capital', subtitle: 'Gestione sus compras, inventario y capital del negocio', defaultName: 'Proveedores',
+    capitalAvailable: 'Capital disponible', injectCapital: 'Inyectar capital', inject: 'Inyectar',
+    totalInjected: 'Total inyectado', totalPurchases: 'Total de compras', totalFees: 'Total de gastos',
+    suppliers: 'Proveedores', add: 'Añadir', noSuppliers: 'Aún no hay proveedores registrados.',
+    injectionHistory: 'Historial de inyecciones', capitalInjection: 'Inyección de capital', noInjections: 'Aún no hay inyecciones de capital registradas.',
+    wholesalePurchases: 'Compras al por mayor', newPurchase: 'Nueva compra', purchase: 'Compra',
+    addSupplierFirst: 'Añada primero un proveedor para poder registrar una compra.',
+    from: 'Desde', to: 'Hasta', clearFilter: 'Quitar filtro',
+    projectedProfitTotal: 'Beneficio total proyectado', allShown: '(todas las compras mostradas)', noPurchases: 'No hay compras registradas para este período.',
+    newSupplier: 'Nuevo proveedor', supplierName: 'Nombre del proveedor *', phone: 'Teléfono', email: 'Correo', address: 'Dirección', notes: 'Notas',
+    saveSupplier: 'Guardar proveedor', saving: 'Guardando...',
+    supplierSaved: 'Proveedor guardado.', supplierError: 'Error al guardar.',
+    supplierNamePh: 'Ej. Distribución Caribe', addressPh: 'Ciudad, barrio...', emailPh: 'contacto@proveedor.com',
+    amountHtg: 'Monto (HTG) *', notesOptional: 'Notas (opcional)', notesCapitalPh: 'Ej. Capital inicial, aumento...',
+    confirmInjection: 'Confirmar inyección', capitalInjected: 'Capital inyectado.', injectError: 'Error durante la inyección.',
+    purchaseSaved: '{{count}} artículo(s) guardado(s) — inventario y capital actualizados.', purchaseError: 'Error durante la compra.',
+    chooseSupplier: 'Elija un proveedor.', addAtLeastOne: 'Añada al menos un artículo.', checkLines: 'Verifique la cantidad y el costo de cada línea.',
+    supplierLabel: 'Proveedor *', selectSupplier: '— Elegir proveedor —',
+    addProductToStock: 'Añadir un producto al inventario', searchPlaceholder: 'Buscar, escanear un código de barras o hacer clic para añadir...',
+    stock: 'existencias', manualPlaceholder: '...o un artículo fuera del catálogo (Enter)',
+    quantity: 'Cantidad', costPrice: 'Costo', sellPrice: 'Precio de venta', projectedProfit: 'Beneficio proyectado',
+    otherFees: 'Otros gastos (transporte, etc.)', otherFeesShort: 'Otros gastos', feeDescription: 'Descripción del gasto', feeDescriptionPh: 'Ej. Transporte',
+    goods: 'Mercancía', itemsCount: '{{count}} artículo(s)', totalFromCapital: 'Total tomado del capital',
+    projectedProfitFull: 'Beneficio total proyectado (según precios de venta actuales)', confirmPurchase: 'Confirmar compra ({{count}} artículo(s))',
+  },
+  invoiceLang: {
+    label: 'Idioma de la factura', title: 'Idioma de la factura', defaultLabel: 'Idioma predeterminado de la empresa', setDefault: 'Definir como idioma predeterminado de la empresa',
+    saved: 'Idioma de las facturas de la empresa: {{lang}}', saveError: 'No se pudo guardar el idioma.',
+  },
+  stock: {
+    saving: 'Guardando...', optional: '(opcional)', movementsWord: 'movimientos',
+    noMovementsForType: 'No hay movimientos de este tipo.', cantRemove: 'No puede retirar {{qty}} — solo hay {{before}} en inventario.',
+    cantRemoveMore: '⚠️ No puede retirar más de lo que hay en inventario.', saveError: 'Error al ajustar.',
+    scanTitle: 'Escanear para ajustar', adjustAgain: 'Ajustar de nuevo', adjustAgainTitle: 'Haga clic para ajustar este producto de nuevo',
+    exportCsv: 'Exportar la página a CSV (Excel)', exportBtn: 'Exportar (página)', before: 'Antes', after: 'Después',
+  },
+}
+
+// ── Kle siplemantè pou paj Stòk (lis rezon, dat, KPI)
+const stockMore = {
+  ht: { today: 'Jodi a', yesterday: 'Yè', inventory: 'Envantè', subtitle: 'Chak antre ak sòti pwodwi — vant, acha, pèt ak ajisteman.',
+        kpiMovements: 'Mouvman', kpiIn: 'Antre (paj la)', kpiOut: 'Sòti (paj la)', pickHint: 'Chwazi pwodwi a, tip mouvman an ak kantite a',
+        reasons: { accountingError: 'Erè kontaj', customerReturn: 'Retou kliyan', inventory: 'Envantè', internalUse: 'Itilizasyon entèn', supplierDelivery: 'Livrezon founisè', marketPurchase: 'Acha mache', restock: 'Reapwovizyonman', broken: 'Kase', expired: 'Ekspire', theft: 'Vòl', damage: 'Domaj' } },
+  fr: { today: 'Aujourd\'hui', yesterday: 'Hier', inventory: 'Inventaire', subtitle: 'Chaque entrée et sortie de produits — ventes, achats, pertes et ajustements.',
+        kpiMovements: 'Mouvements', kpiIn: 'Entrées (page)', kpiOut: 'Sorties (page)', pickHint: 'Choisissez le produit, le type de mouvement et la quantité',
+        reasons: { accountingError: 'Erreur comptable', customerReturn: 'Retour client', inventory: 'Inventaire', internalUse: 'Usage interne', supplierDelivery: 'Livraison fournisseur', marketPurchase: 'Achat au marché', restock: 'Réapprovisionnement', broken: 'Casse', expired: 'Périmé', theft: 'Vol', damage: 'Dommage' } },
+  en: { today: 'Today', yesterday: 'Yesterday', inventory: 'Inventory', subtitle: 'Every product in and out — sales, purchases, losses and adjustments.',
+        kpiMovements: 'Movements', kpiIn: 'In (page)', kpiOut: 'Out (page)', pickHint: 'Choose the product, movement type and quantity',
+        reasons: { accountingError: 'Accounting error', customerReturn: 'Customer return', inventory: 'Inventory count', internalUse: 'Internal use', supplierDelivery: 'Supplier delivery', marketPurchase: 'Market purchase', restock: 'Restock', broken: 'Broken', expired: 'Expired', theft: 'Theft', damage: 'Damage' } },
+  es: { today: 'Hoy', yesterday: 'Ayer', inventory: 'Inventario', subtitle: 'Cada entrada y salida de productos — ventas, compras, pérdidas y ajustes.',
+        kpiMovements: 'Movimientos', kpiIn: 'Entradas (página)', kpiOut: 'Salidas (página)', pickHint: 'Elija el producto, el tipo de movimiento y la cantidad',
+        reasons: { accountingError: 'Error contable', customerReturn: 'Devolución de cliente', inventory: 'Inventario', internalUse: 'Uso interno', supplierDelivery: 'Entrega de proveedor', marketPurchase: 'Compra en mercado', restock: 'Reabastecimiento', broken: 'Roto', expired: 'Vencido', theft: 'Robo', damage: 'Daño' } },
+}
+ht.stock = { ...ht.stock, ...stockMore.ht }
+fr.stock = { ...fr.stock, ...stockMore.fr }
+en.stock = { ...en.stock, ...stockMore.en }
+es.stock = { ...es.stock, ...stockMore.es }
+
+const BUNDLES = { ht, fr, en, es }
+let done = false
+export function registerExtraResources() {
+  if (done) return
+  try {
+    Object.entries(BUNDLES).forEach(([lng, res]) => {
+      // deep=true (fusionne), overwrite=false (ne remplace jamais tes clés existantes)
+      i18n.addResourceBundle(lng, 'translation', res, true, false)
+    })
+    done = true
+  } catch { /* i18n pa pare — paj yo itilize tèks Kreyòl default */ }
+}
+registerExtraResources()
+export default BUNDLES

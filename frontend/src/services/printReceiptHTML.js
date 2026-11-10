@@ -1,10 +1,9 @@
 // src/services/printReceiptHTML.js
+import { getReceiptLabels, resolveInvoiceLang, DATE_LOCALE } from '../utils/receiptLabels'
 // ══════════════════════════════════════════════════════════════
 // PLUS GROUP — Enpresyon HTML pou RP327 80mm (Windows Driver)
 // Itilize window.print() — pa ESC/POS — tèks kla kòm paj tès
 // ══════════════════════════════════════════════════════════════
-
-import { isCompactPaper } from './receiptPaper.js'
 
 // ─── CSS pou 80mm ─────────────────────────────────────────────
 const CSS_80MM = `
@@ -314,82 +313,23 @@ const CSS_80MM = `
   .status-box, .credit-badge, .total-grand { page-break-inside: avoid; }
 `
 
-// ─── CSS pou 57mm (papye etwat) ───────────────────────────────
-// ✅ NOUVO — Anvan, TOUT resi HTML yo te fikse a 80mm (body 76mm). Sou yon
-// papye 57mm (zòn enprimab ≈ 48mm) tout sa ki depase 48mm te KOUPE (body
-// gen `overflow:hidden`), epi logo a (max 50mm) te pran prèske tout lajè a.
-// Fichye sa a SÈLMAN ranplase sa ki bezwen chanje; rès la ret menm jan ak 80mm.
-// Li ajoute APRE CSS_80MM pou li gen priyorite.
-const CSS_57MM_OVERRIDE = `
-  @page { size: 57mm auto; margin: 0mm 4.5mm 4mm 4.5mm; }
-  html  { width: 57mm; }
-  body  { width: 48mm; max-width: 48mm; font-size: 8pt; }
-
-  .xxl { font-size: 13pt; }
-  .xl  { font-size: 11pt; }
-  .lg  { font-size: 9.5pt; }
-  .md  { font-size: 8pt; }
-  .sm  { font-size: 6.5pt; }
-
-  .logo-wrap img { max-width: 26mm; max-height: 11mm; }
-
-  .biz-name  { font-size: 11pt; letter-spacing: 0.3px; }
-  .biz-sub   { font-size: 7pt; }
-  .biz-phone { font-size: 8pt; }
-
-  .info-table { font-size: 7.5pt; }
-  .info-table col:first-child { width: 17mm; }
-  .info-table col:last-child  { width: 31mm; }
-
-  /* Tablo pwodwi 2 kolòn: non (liy 1) / "qte x pri ..... total" (liy 2) */
-  .items-table { font-size: 7.5pt; }
-  .items-table col.col-nom { width: 30mm; }
-  .items-table col.col-tot { width: 18mm; }
-  .items-table th { font-size: 7pt; }
-  .items-table td { font-size: 7.5pt; }
-  .item-name  { max-width: none; }
-  .item-price, .item-total { font-size: 7.5pt; }
-  .items-table td.item-sub { font-size: 7.5pt; font-weight: 700; padding-top: 0; padding-bottom: 3px; }
-
-  .total-row   { font-size: 7.5pt; }
-  .total-grand { font-size: 11pt; }
-  .status-box  { font-size: 11pt; letter-spacing: 1px; }
-  .credit-badge { font-size: 8pt; }
-
-  .pay-table { font-size: 7.5pt; }
-  .pay-table col:first-child { width: 27mm; }
-  .pay-table col:last-child  { width: 21mm; }
-
-  .fx-line { font-size: 6.5pt; }
-  .qr-wrap img { width: 20mm; height: 20mm; }
-  .qr-num { font-size: 6.5pt; }
-
-  .footer .main-msg { font-size: 8pt; }
-  .footer .sub-msg  { font-size: 6.5pt; }
-  .footer .brand    { font-size: 6pt; }
-`
-
-/** CSS final selon tay papye aparèy sa a (device → paramèt biznis → 80mm) */
-const getReceiptCss = (tenant) =>
-  CSS_80MM + (isCompactPaper(tenant) ? CSS_57MM_OVERRIDE : '')
-
 // ─── Fòmate nimerik ───────────────────────────────────────────
 const fmtN = (n) => Number(n || 0)
   .toLocaleString('fr-HT', { minimumFractionDigits: 2 })
   .replace(/\u00A0/g, ' ').replace(/\u202F/g, ' ')
 
-const fmtDate = (d) => {
-  // ✅ KORIJE — fòse fizo orè Ayiti (America/New_York) pou dat la pa
+const fmtDate = (d, loc = 'fr-HT') => {
+  // ✅ KORIJE — fòse fizo orè Ayiti (America/Port-au-Prince) pou dat la pa
   // "sote" yon jou lè aparèy la gen yon lòt fizo orè konfigire.
-  try { return new Date(d).toLocaleDateString('fr-HT', { timeZone: 'America/New_York' }) } catch { return '' }
+  try { return new Date(d).toLocaleDateString(loc, { timeZone: 'America/Port-au-Prince' }) } catch { return '' }
 }
 
 // ✅ NOUVO — Dat + Lè (pou montre EGZAKTEMAN lè yon vant fèt oswa lè yon resi enprime)
-const fmtDateTime = (d) => {
+const fmtDateTime = (d, loc = 'fr-HT') => {
   try {
     const date = new Date(d)
-    const datePart = date.toLocaleDateString('fr-HT', { timeZone: 'America/New_York' })
-    const timePart = date.toLocaleTimeString('fr-HT', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/New_York' })
+    const datePart = date.toLocaleDateString(loc, { timeZone: 'America/Port-au-Prince' })
+    const timePart = date.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Port-au-Prince' })
     return `${datePart} ${timePart}`
   } catch { return '' }
 }
@@ -401,7 +341,11 @@ const qrUrl = (text) =>
 // ══════════════════════════════════════════════════════════════
 // PRINT INVOICE — HTML 80mm
 // ══════════════════════════════════════════════════════════════
-export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
+export const printInvoiceHTML = (invoice, tenant, cashier = null, lang = null) => {
+  // ✅ NOUVO — lang fakti a (ht/fr/en/es): chwa pou enprime sa a > defo antrepriz la
+  const lng = resolveInvoiceLang(tenant, lang)
+  const L = getReceiptLabels(lng)
+  const loc = DATE_LOCALE[lng]
   const snap        = invoice.clientSnapshot || {}
   const cashierName = cashier?.fullName || cashier?.name || null
   const totalHtg    = Number(invoice.totalHtg     || 0)
@@ -427,14 +371,10 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   const toUSD   = (n) => rateUSD > 0 ? (n / rateUSD).toFixed(2) : null
   const toDOP   = (n) => rateDOP > 0 ? (n / rateDOP).toFixed(2) : null
 
-  const METOD = {
-    cash:'Kach', moncash:'MonCash', natcash:'NatCash',
-    card:'Kat kredi', transfer:'Virement', check:'Chek',
-    credit:'Kredi', other:'Lot',
-  }
+  const METOD = { ...L.methods }
 
-  const statusLabel = isPaid ? 'TOTAL PEYE' : isCancelled ? 'ANILE'
-    : isCredit ? 'KREDI' : isPartial ? 'PASYAL' : 'IMPAYE'
+  const statusLabel = isPaid ? L.statusPaid : isCancelled ? L.statusCancelled
+    : isCredit ? L.statusCredit : isPartial ? L.statusPartial : L.statusUnpaid
 
   const bizName  = tenant?.businessName || tenant?.name || 'PLUS GROUP'
   const tagline  = tenant?.tagline || null
@@ -442,27 +382,15 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   const qrLink   = (window?.location?.origin || '') + '/app/invoices/' + invoice.id
 
   // ── Liy pwodwi ──────────────────────────────────────────────
-  // 57mm: 2 kolòn (non sou liy 1, "qte x pri ..... total" sou liy 2) — 4 kolòn
-  // pa antre nan 48mm (non ak chif yo te koupe).
-  const compact = isCompactPaper(tenant)
   const itemRows = (invoice.items || []).map(item => {
-    const nom = item.product?.name || item.productSnapshot?.name || 'Atik'
+    const nom = item.product?.name || item.productSnapshot?.name || L.item
     const qty = Number(item.quantity)
     const pri = fmtN(item.unitPriceHtg)
     const tot = fmtN(item.totalHtg)
-    const span = compact ? 2 : 4
     const dis = Number(item.discountPct) > 0
-      ? `<tr><td colspan="${span}" class="sm" style="padding-left:4px;color:#000;font-style:normal;font-weight:900">
-           ↳ Remiz: -${item.discountPct}%
+      ? `<tr><td colspan="4" class="sm" style="padding-left:4px;color:#000;font-style:normal;font-weight:900">
+           ↳ ${L.discount}: -${item.discountPct}%
          </td></tr>` : ''
-    if (compact) {
-      return `
-      <tr><td colspan="2" class="item-name" style="padding-bottom:0">${nom}</td></tr>
-      <tr>
-        <td class="item-sub">${qty} x ${pri}</td>
-        <td class="item-total">${tot}</td>
-      </tr>${dis}`
-    }
     return `
       <tr>
         <td class="item-name">${nom}</td>
@@ -474,12 +402,12 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
 
   // ── HTML konplè ──────────────────────────────────────────────
   const html = `<!DOCTYPE html>
-<html lang="ht">
+<html lang="${lng}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Resi ${invoice.invoiceNumber || ''}</title>
-  <style>${getReceiptCss(tenant)}</style>
+  <title>${L.receiptNo} ${invoice.invoiceNumber || ''}</title>
+  <style>${CSS_80MM}</style>
 </head>
 <body>
   <!-- LOGO + HEADER -->
@@ -498,32 +426,21 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   <table class="info-table">
     <colgroup><col><col></colgroup>
     <tr>
-      <td>Dat&nbsp;&nbsp;&nbsp;:</td>
-      <td>${fmtDateTime(invoice.issueDate)}</td>
+      <td>${L.date} :</td>
+      <td>${fmtDateTime(invoice.issueDate, loc)}</td>
     </tr>
     <tr>
-      <td>Resi N&nbsp;:</td>
+      <td>${L.receiptNo} :</td>
       <td>${invoice.invoiceNumber || ''}</td>
     </tr>
-    ${snap.name   ? `<tr><td>Kliyan :</td><td>${snap.name}</td></tr>` : ''}
-    ${snap.phone  ? `<tr><td>Tel&nbsp;&nbsp;&nbsp;:</td><td>${snap.phone}</td></tr>` : ''}
-    ${snap.nif    ? `<tr><td>NIF&nbsp;&nbsp;&nbsp;:</td><td>${snap.nif}</td></tr>` : ''}
-    ${cashierName ? `<tr><td>Kesye&nbsp;&nbsp;:</td><td>${cashierName}</td></tr>` : ''}
+    ${snap.name   ? `<tr><td>${L.client} :</td><td>${snap.name}</td></tr>` : ''}
+    ${snap.phone  ? `<tr><td>${L.tel} :</td><td>${snap.phone}</td></tr>` : ''}
+    ${snap.nif    ? `<tr><td>${L.nif} :</td><td>${snap.nif}</td></tr>` : ''}
+    ${cashierName ? `<tr><td>${L.cashier} :</td><td>${cashierName}</td></tr>` : ''}
   </table>
 
   <!-- TABLO PWODWI -->
   <table class="items-table mt2">
-    ${compact ? `
-    <colgroup>
-      <col class="col-nom">
-      <col class="col-tot">
-    </colgroup>
-    <thead>
-      <tr>
-        <th style="text-align:left">Pwodwi &nbsp;(Q x Pri G)</th>
-        <th class="r">Total</th>
-      </tr>
-    </thead>` : `
     <colgroup>
       <col class="col-nom">
       <col class="col-qty">
@@ -532,12 +449,12 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     </colgroup>
     <thead>
       <tr>
-        <th>Pwodwi</th>
-        <th class="c">Q</th>
-        <th class="r">Pri G</th>
-        <th class="r">Total</th>
+        <th>${L.product}</th>
+        <th class="c">${L.qty}</th>
+        <th class="r">${L.priceG}</th>
+        <th class="r">${L.total}</th>
       </tr>
-    </thead>`}
+    </thead>
     <tbody>
       ${itemRows}
     </tbody>
@@ -547,19 +464,19 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   ${Number(invoice.discountHtg) > 0 ? `
   <div class="sep-dsh"></div>
   <div class="total-row sm">
-    <span>Remiz:</span>
+    <span>${L.discount}:</span>
     <span>-${fmtN(invoice.discountHtg)} G</span>
   </div>` : ''}
   ${Number(invoice.taxHtg) > 0 ? `
   <div class="total-row sm">
-    <span>Taks (${Number(invoice.taxRate || 0)}%):</span>
+    <span>${L.tax} (${Number(invoice.taxRate || 0)}%):</span>
     <span>${fmtN(invoice.taxHtg)} G</span>
   </div>` : ''}
 
   <!-- TOTAL -->
   <div class="sep-eq"></div>
   <div class="total-grand">
-    <span>TOTAL:</span>
+    <span>${L.grandTotal}:</span>
     <span>${fmtN(totalHtg)}&nbsp;G</span>
   </div>
   ${toUSD(totalHtg) ? `<div class="fx-line">= $${toUSD(totalHtg)} USD</div>` : ''}
@@ -571,26 +488,26 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     <colgroup><col><col></colgroup>
     ${amountGiven > 0 ? `
     <tr>
-      <td>Kòb kliyan bay :</td>
+      <td>${L.amountGiven} :</td>
       <td>${fmtN(amountGiven)} G</td>
     </tr>` : ''}
     <tr>
-      <td>Kòb peye :</td>
+      <td>${L.amountPaid} :</td>
       <td>${fmtN(paidHtg > 0 ? paidHtg : totalHtg)} G</td>
     </tr>
     ${change > 0 ? `
     <tr>
-      <td>Monnen remèt :</td>
+      <td>${L.change} :</td>
       <td>${fmtN(change)} G</td>
     </tr>` : ''}
     ${lastPay?.method ? `
     <tr>
-      <td>Metod :</td>
+      <td>${L.method} :</td>
       <td>${METOD[lastPay.method] || lastPay.method}</td>
     </tr>` : ''}
     ${lastPay?.reference ? `
     <tr>
-      <td>Ref :</td>
+      <td>${L.ref} :</td>
       <td>${lastPay.reference}</td>
     </tr>` : ''}
   </table>
@@ -599,22 +516,22 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
   ${balanceHtg > 0 ? `
   <div class="sep-dsh"></div>
   <div class="total-row bold">
-    <span>Balans ki rete :</span>
+    <span>${L.balanceLeft} :</span>
     <span>-${fmtN(balanceHtg)} G</span>
   </div>
   ${toUSD(balanceHtg) ? `<div class="fx-line">= -$${toUSD(balanceHtg)} USD</div>` : ''}
   <div class="credit-badge mt1">
-    *** KREDI ***
+    *** ${L.statusCredit} ***
     ${dueDate
-      ? `<br><span class="sm">Dat limit: ${fmtDate(dueDate)}</span>`
-      : '<br><span class="sm">Peye pi vit posib</span>'}
+      ? `<br><span class="sm">${L.dueLimit}: ${fmtDate(dueDate, loc)}</span>`
+      : `<br><span class="sm">${L.payASAP}</span>`}
   </div>` : ''}
 
   <!-- STATUT FINAL -->
   <div class="sep-eq mt2"></div>
   <div class="status-box ${isPaid?'paid':isCredit?'credit':isPartial?'partial':''}">${statusLabel}</div>
   <div class="total-grand mt1">
-    <span>${isPaid?'TOTAL PEYE:':isCredit?'MONTANT DI:':isPartial?'DEJA PEYE:':'TOTAL:'}</span>
+    <span>${isPaid?L.statusPaid+':':isCredit?L.amountOwed+':':isPartial?L.alreadyPaid+':':L.grandTotal+':'}</span>
     <span>${fmtN(isPaid ? totalHtg : paidHtg > 0 ? paidHtg : totalHtg)}&nbsp;G</span>
   </div>
 
@@ -634,7 +551,7 @@ export const printInvoiceHTML = (invoice, tenant, cashier = null) => {
     <div class="main-msg">Powered by plusgroupe.com</div>
     <div class="sub-msg">Tél: +50942449024</div>
     <div class="sep-dsh mt1"></div>
-    <div class="brand">Enprime: ${fmtDateTime(new Date())}</div>
+    <div class="brand">${L.printed}: ${fmtDateTime(new Date(), loc)}</div>
   </div>
 
 </body>
@@ -674,7 +591,7 @@ export const printKaneReceiptHTML = (account, transaction, tenant, type = 'ouver
   const html = `<!DOCTYPE html>
 <html lang="ht"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kane Epay</title><style>${getReceiptCss(tenant)}</style></head>
+<title>Kane Epay</title><style>${CSS_80MM}</style></head>
 <body>
   ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="logo"/></div>` : ''}
   <div class="center">
@@ -736,18 +653,8 @@ export const printPreReceiptHTML = (pre, echeances = [], tenant, type = 'ouvertu
   const logoUrl = tenant?.logoUrl || null
   const PERIODES = { jounal:'Chak Jou', semaine:'Semèn', biweekly:'2 Semèn', mois:'Mwa', trimestre:'Trimès' }
 
-  // 57mm: chak echeyans sou 2 liy ("# dat ..... total" / "Kap + Int") — 5 kolòn
-  // pa antre nan 48mm.
-  const compactPre = isCompactPaper(tenant)
   const echeanceRows = type === 'ouverture' && echeances.length > 0
-    ? echeances.map(e => compactPre ? `
-      <tr>
-        <td><b>#${e.numero || e.num || ''}</b> ${new Date(e.dat_limit || e.datLimit).toLocaleDateString('fr-HT')}</td>
-        <td style="text-align:right"><b>${fmtN(e.montant_total || e.montantTotal || 0)}</b></td>
-      </tr>
-      <tr>
-        <td colspan="2" class="ech-sub">Kap ${fmtN(e.montant_capital || e.montantCapital || 0)} + Int ${fmtN(e.montant_interet || e.montantInteret || 0)}</td>
-      </tr>` : `
+    ? echeances.map(e => `
       <tr>
         <td style="text-align:center">${e.numero || e.num || ''}</td>
         <td>${new Date(e.dat_limit || e.datLimit).toLocaleDateString('fr-HT')}</td>
@@ -761,7 +668,7 @@ export const printPreReceiptHTML = (pre, echeances = [], tenant, type = 'ouvertu
 <html lang="ht"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prè ${pre.numeroPre || ''}</title><style>
-${getReceiptCss(tenant)}
+${CSS_80MM}
 .ech-table { width:100%; border-collapse:collapse; font-size:7pt; table-layout:fixed; }
 .ech-table col:nth-child(1) { width:6mm; }
 .ech-table col:nth-child(2) { width:17mm; }
@@ -771,12 +678,6 @@ ${getReceiptCss(tenant)}
 .ech-table th { border-bottom:1px solid #000; padding:2px 1px; font-weight:800; overflow:hidden; font-size:7pt; }
 .ech-table td { padding:1.5px 1px; border-bottom:1px dotted #ccc; overflow:hidden; font-size:7pt; }
 .sign-line { border-bottom:2px solid #000; margin:14px 0 3px; }
-${isCompactPaper(tenant) ? `
-.ech-table col:nth-child(1) { width:30mm; }
-.ech-table col:nth-child(2) { width:18mm; }
-.ech-table td { font-size:7pt; }
-.ech-sub { font-size:6.5pt; font-weight:700; border-bottom:1px dotted #000 !important; padding-bottom:3px !important; }
-` : ''}
 </style></head>
 <body>
   ${logoUrl ? `<div class="logo-wrap"><img src="${logoUrl}" alt="logo"/></div>` : ''}
@@ -828,14 +729,6 @@ ${isCompactPaper(tenant) ? `
   <div class="sep-eq mt2"></div>
   <div class="center bold" style="font-size:9pt">KALANDRIYE RANBOUSMAN</div>
   <table class="ech-table mt1">
-    ${compactPre ? `
-    <colgroup><col><col></colgroup>
-    <thead>
-      <tr>
-        <th style="text-align:left"># &nbsp;Dat</th>
-        <th style="text-align:right">Total</th>
-      </tr>
-    </thead>` : `
     <colgroup>
       <col><col><col><col><col>
     </colgroup>
@@ -847,11 +740,11 @@ ${isCompactPaper(tenant) ? `
         <th style="text-align:right">Int.</th>
         <th style="text-align:right">Total</th>
       </tr>
-    </thead>`}
+    </thead>
     <tbody>${echeanceRows}</tbody>
     <tfoot>
       <tr>
-        <td colspan="${compactPre ? 1 : 4}" style="text-align:right;font-weight:800;border-top:1px solid #000">TOTAL:</td>
+        <td colspan="4" style="text-align:right;font-weight:800;border-top:1px solid #000">TOTAL:</td>
         <td style="text-align:right;font-weight:800;border-top:1px solid #000">
           ${fmtN(echeances.reduce((s,e) => s + Number(e.montant_total || e.montantTotal || 0), 0))} G
         </td>
