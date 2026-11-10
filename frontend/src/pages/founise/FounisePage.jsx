@@ -6,6 +6,8 @@ import { useForm } from 'react-hook-form'
 import { founiseAPI, productAPI } from '../../services/api'
 import { useAuthStore } from '../../stores/authStore'
 import toast from 'react-hot-toast'
+import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
+import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import {
   ArrowLeft, Plus, Truck, Wallet, ShoppingBag, X, Search, History, TrendingUp,
 } from 'lucide-react'
@@ -145,6 +147,23 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
     }])
     setSearch(''); setShowResults(false)
   }
+
+  // ✅ NOUVO — Skanè kòd ba (fizik + kamera): pwodwi a antre nan panye acha a; si li deja la → kantite +1
+  const handleScan = async (raw) => {
+    const code = String(raw).trim()
+    setSearch(''); setShowResults(false)
+    const p = await lookupProduct(code, { productAPI })
+    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi. Kreye pwodwi a nan paj Pwodwi anvan.`, { duration: 4500 })
+    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen estòk pou ajoute.`)
+    setLines(ls => {
+      const i = ls.findIndex(l => l.productId === p.id)
+      if (i >= 0) return ls.map((l, k) => k === i ? { ...l, kantite: (Number(l.kantite) || 0) + 1 } : l)
+      return [...ls, { id: `p-${p.id}-${Date.now()}`, productId: p.id, name: p.name, deskripsyon: null,
+        kantite: 1, priKoutInite: Number(p.costPriceHtg || 0), priVant: Number(p.priceHtg || 0) }]
+    })
+    toast.success(`${p.name} ajoute`)
+  }
+  useBarcodeScanner(handleScan, true)
   const addManualLine = () => {
     if (!manualDesc.trim()) return
     setLines(ls => [...ls, {
@@ -208,10 +227,12 @@ const AchteModal = ({ founiseList, onClose, onSaved }) => {
           {label('Ajoute yon pwodwi nan estòk')}
           <div style={{ position:'relative' }}>
             <Search size={14} color={D.muted} style={{ position:'absolute', left:12, top:12 }}/>
-            <input style={{ ...inp, paddingLeft:34 }} value={search}
+            <input style={{ ...inp, paddingLeft:34, paddingRight:46 }} value={search}
               onChange={e => { setSearch(e.target.value); setShowResults(true) }}
               onFocus={() => setShowResults(true)}
-              placeholder="Chèche epi klike pou ajoute..."/>
+              placeholder="Chèche, skane kòd ba, oswa klike pou ajoute..."/>
+            <CameraScanButton iconOnly continuous onDetected={handleScan}
+              style={{ position:'absolute', right:5, top:5, width:34, height:34, borderRadius:9, border:'none', background:D.blueDim, color:D.blue, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}/>
           </div>
           {showResults && products.length > 0 && (
             <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:20, background:'#fff', borderRadius:10, border:`1px solid ${D.border}`, boxShadow:D.shadow, maxHeight:180, overflowY:'auto', marginTop:4 }}>

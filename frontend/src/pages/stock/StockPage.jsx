@@ -9,6 +9,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { stockAPI, productAPI } from '../../services/api'
+import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
+import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import { useTranslation } from 'react-i18next'
 import toast from 'react-hot-toast'
 import {
@@ -127,6 +129,17 @@ const AdjustModal = ({ onClose, preset }) => {
 
   useEffect(() => { if (selected) setTimeout(() => qtyRef.current?.focus(), 80) }, [selected])
 
+  // ✅ NOUVO — Skanè kòd ba (fizik + kamera): chwazi pwodwi a dirèkteman, kurseur la ale sou kantite a
+  const handleScan = async (raw) => {
+    const code = String(raw).trim()
+    const p = await lookupProduct(code, { productAPI })
+    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
+    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen stòk.`)
+    setSelected(p); setSearch('')
+    toast.success(p.name)
+  }
+  useBarcodeScanner(handleScan, true)
+
   const type    = ADJ_TYPES.find(x => x.v === form.type) || ADJ_TYPES[0]
   const qty     = Number(form.quantity || 0)
   const before  = product?.quantity != null ? Number(product.quantity) : null
@@ -182,9 +195,12 @@ const AdjustModal = ({ onClose, preset }) => {
               </div>
             ) : (
               <div style={{ position: 'relative' }}>
-                <div className="iv-icon-inp">
-                  {isFetching ? <RefreshCw size={15} className="spin"/> : <Search size={15}/>}
-                  <input className="iv-inp" autoFocus placeholder={tr(t, 'stock.searchProduct', 'Chèche non oswa kòd pwodwi a...')} value={search} onChange={e => setSearch(e.target.value)}/>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="iv-icon-inp" style={{ flex: 1, minWidth: 0 }}>
+                    {isFetching ? <RefreshCw size={15} className="spin"/> : <Search size={15}/>}
+                    <input className="iv-inp" autoFocus placeholder={tr(t, 'stock.searchProduct', 'Chèche non, kòd oswa skane kòd ba...')} value={search} onChange={e => setSearch(e.target.value)}/>
+                  </div>
+                  <CameraScanButton className="iv-act" style={{ minHeight: 44, flexShrink: 0 }} iconOnly onDetected={handleScan}/>
                 </div>
                 {products?.length > 0 && (
                   <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
@@ -369,6 +385,16 @@ export default function StockPage() {
   const FILTERS = [{ v: '', l: tr(t, 'stock.allTypes', 'Tout'), color: '#1B2A8F' },
     ...Object.entries(MOVES).map(([k, m]) => ({ v: k, l: tr(t, m.key, m.label), color: m.color }))]
 
+  // ✅ NOUVO — skane yon kòd sou paj Stòk la → louvri ajisteman an pou pwodwi sa a
+  const handleScanMain = async (raw) => {
+    const code = String(raw).trim()
+    const p = await lookupProduct(code, { productAPI })
+    if (!p) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
+    if (p.isService) return toast.error(`"${p.name}" se yon sèvis — pa gen stòk.`)
+    setAdjust({ product: p })
+  }
+  useBarcodeScanner(handleScanMain, !adjust)
+
   const again = (m) => setAdjust({ product: { id: m.productId || m.product?.id, name: m.product?.name, code: m.product?.code, unit: m.product?.unit, imageUrl: m.product?.imageUrl } })
 
   return (
@@ -390,6 +416,7 @@ export default function StockPage() {
             <button onClick={exportCsv} disabled={!movements.length} className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} title="Ekspòte paj la an CSV (Excel)">
               <Download size={15}/> CSV
             </button>
+            <CameraScanButton className="iv-act" style={{ background: 'rgba(255,255,255,.12)', color: '#fff', borderColor: 'rgba(255,255,255,.25)', minHeight: 46 }} onDetected={handleScanMain}/>
             <button onClick={() => setAdjust({})} className="iv-btn-main pulse" style={{ flex: 1 }}>
               <Plus size={17}/> {tr(t, 'stock.adjustBtn', 'Ajiste stòk')}
             </button>

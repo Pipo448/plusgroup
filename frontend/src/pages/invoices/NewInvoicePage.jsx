@@ -20,6 +20,8 @@ import {
 import { syncPendingSales, countPendingSales, onSyncEvent } from '../../services/offlineSync'
 import { printInvoiceNative, isNativePrinterAvailable } from '../../services/printerNative'
 import { useDraftCartStore } from '../../stores/draftCartStore'
+import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
+import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import './invoices.css'
 
 const C = { blue: '#1B2A8F', orange: '#FF6B00', gold: '#C9A84C' }
@@ -99,6 +101,24 @@ const pickBestTier = (tiers, qty) => {
 
 const isValidItem = (it) => it.description?.trim() && Number(it.unitPrice) > 0
 
+// ✅ NOUVO — liy fakti a soti nan yon pwodwi (menm done ak selectProduct nan ItemRow)
+const buildItemFromProduct = (p) => {
+  const tiers = (p.priceTiers || []).slice().sort((a, b) => a.minQty - b.minQty)
+  const bestTier = pickBestTier(tiers, 1)
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    description: p.name, productId: p.id,
+    qty: 1, discount: 0,
+    unitPrice: bestTier ? Number(bestTier.priceHtg) : (p.priceHtg || 0),
+    _retailPrice: p.priceHtg || 0,
+    _priceTiers: tiers,
+    _priceMode: bestTier ? `tier-${bestTier.id || bestTier.minQty}` : 'retail',
+    _productCode: p.code || null,
+    _unit: p.unit || null,
+    _imageUrl: p.imageUrl || null,
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Liy atik (yon sèl konpozan — CSS la jere mobil/desktop)
 // ═══════════════════════════════════════════════════════════════
@@ -122,7 +142,7 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
     },
     enabled:  debouncedSearch.length >= 2,
     staleTime: 30_000,
-    cacheTime: 60_000,
+    gcTime: 60_000,   // ✅ react-query v5 (cacheTime → gcTime)
     retry: false,
   })
   const products = data || []
@@ -353,6 +373,45 @@ export default function NewInvoicePage() {
   )
 
   useEffect(() => { setDraftItems(items) }, [items])
+
+  // ✅ NOUVO — Skanè kòd ba (fizik USB/Bluetooth + kamera): pwodwi a ajoute sou fakti a,
+  // +1 si li deja la. Kòd ki pa konnen → mesaj.
+  const itemsRef = useRef(items)
+  itemsRef.current = items
+  const addScannedProduct = useCallback((p) => {
+    const stock = Number(p.quantity ?? p.stock ?? 0)
+    if (!p.isService && stock <= 0) {
+      toast.error(`⛔ "${p.name}" pa gen stòk (0 ki rete).`, { duration: 4500 })
+      return
+    }
+    const cur = itemsRef.current
+    const idx = cur.findIndex(it => it.productId === p.id)
+    if (idx >= 0) {
+      const it  = cur[idx]
+      const qty = Number(it.qty || 0) + 1
+      if (!p.isService && qty > stock) { toast.error(`Stòk limite: ${stock} sèlman pou "${p.name}".`); return }
+      let patch = { qty }
+      if (it._priceTiers?.length && it._priceMode !== 'manual') {
+        const best = pickBestTier(it._priceTiers, qty)
+        patch = { qty, unitPrice: best ? Number(best.priceHtg) : it._retailPrice, _priceMode: best ? `tier-${best.id || best.minQty}` : 'retail' }
+      }
+      setItems(cur.map((x, i) => i === idx ? { ...x, ...patch } : x))
+      toast.success(`+1 ${p.name} (${qty})`)
+      return
+    }
+    const fresh = buildItemFromProduct(p)
+    const emptyIdx = cur.findIndex(it => !it.productId && !String(it.description || '').trim())
+    // ranplase premye liy vid la (nouvo id → ItemRow remonte avèk bon non an)
+    setItems(emptyIdx >= 0 ? cur.map((x, i) => i === emptyIdx ? fresh : x) : [...cur, fresh])
+    toast.success(`${p.name} ajoute`)
+  }, [])
+  const handleScan = useCallback(async (raw) => {
+    const code = String(raw).trim()
+    const found = await lookupProduct(code, { productAPI, online: isOnline, searchCached: searchCachedProducts })
+    if (!found) return toast.error(`Kòd « ${code} » pa gen pwodwi.`)
+    addScannedProduct(found)
+  }, [isOnline, addScannedProduct])
+  useBarcodeScanner(handleScan, !created && !offlineReceipt)
 
   const debouncedClientSearch = useDebounce(clientSearch, 400)
 
@@ -796,7 +855,8 @@ export default function NewInvoicePage() {
                 <p className="eb">Etap 2</p>
                 <h3>{t('quotes.items') || 'Atik yo'}</h3>
               </div>
-              <div className="r">
+              <div className="r" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <CameraScanButton className="iv-act" style={{ minHeight: 36 }} continuous onDetected={handleScan}/>
                 <span className={`iv-pill ${itemsOk ? '' : 'muted'}`}>{validItems.length} atik</span>
               </div>
             </div>

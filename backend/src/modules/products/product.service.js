@@ -354,20 +354,32 @@ const adjustStock = async (tenantId, productId, userId, { quantity, type, notes,
   const product = await prisma.product.findFirst({ where: { id: productId, tenantId } });
   if (!product) throw Object.assign(new Error('Pwodui pa jwenn.'), { statusCode: 404 });
 
+  // ✅ KORIJE — paj Stòk la voye 4 tip: add / remove / purchase / loss.
+  // Anvan sa, tout sa ki pa 'add' te RETIRE stòk — donk « Acha » (purchase) te diminye stòk la
+  // olye li ogmante l. Kounye a: add + purchase ogmante; remove + loss diminye.
+  const qty = Number(quantity);
+  if (!qty || qty <= 0) throw Object.assign(new Error('Kantite dwe plis pase 0.'), { statusCode: 400 });
+  const isIncrease = type === 'add' || type === 'purchase';
+
   const qtyBefore = Number(product.quantity);
-  const qtyChange = type === 'add' ? Number(quantity) : -Number(quantity);
+  const qtyChange = isIncrease ? qty : -qty;
   const qtyAfter  = qtyBefore + qtyChange;
 
   if (qtyAfter < 0) throw Object.assign(new Error('Stock pa kapab negatif.'), { statusCode: 400 });
+
+  // 'purchase' gen pwòp tip li nan istorik la; 'loss' rete 'adjustment' ak mak « Pèt » nan nòt la
+  // (pa riske yon enum StockMovementType ki pa gen 'loss')
+  const movementType = type === 'purchase' ? 'purchase' : 'adjustment';
+  const movementNotes = type === 'loss' ? `Pèt${notes ? ' — ' + notes : ''}` : notes;
 
   const [updatedProduct] = await prisma.$transaction([
     prisma.product.update({ where: { id: productId }, data: { quantity: qtyAfter } }),
     prisma.stockMovement.create({
       data: {
         tenantId, branchId: branchId || null, productId,
-        movementType: 'adjustment',
+        movementType,
         quantityBefore: qtyBefore, quantityChange: qtyChange, quantityAfter: qtyAfter,
-        notes, createdBy: userId
+        notes: movementNotes, createdBy: userId
       }
     })
   ]);

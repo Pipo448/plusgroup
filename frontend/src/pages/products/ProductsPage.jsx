@@ -19,6 +19,8 @@ import {
   Camera, ShoppingCart, Layers, TrendingUp, Receipt, FileText, RefreshCw, Save, Minus, ScanLine,
 } from 'lucide-react'
 import HelpModal from '../../components/HelpModal'
+import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
+import { CameraScanButton } from '../../components/BarcodeCameraModal'
 import { useDraftCartStore } from '../../stores/draftCartStore'
 import '../invoices/invoices.css'
 
@@ -68,34 +70,6 @@ function useEsc(onClose) {
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
-}
-
-// ✅ NOUVO — Skanè kòd ba (USB / Bluetooth). Skanè a "tape" kòd la trè vit (< 50ms pa karaktè)
-// epi fini ak Enter, kidonk nou ka distenge l de yon moun k ap tape. Pa gen okenn chan pou fokis.
-function useBarcodeScanner(onScan, enabled = true) {
-  const cb = useRef(onScan)
-  cb.current = onScan
-  useEffect(() => {
-    if (!enabled) return
-    let buf = '', last = 0, fast = 0
-    const reset = () => { buf = ''; fast = 0 }
-    const h = (e) => {
-      if (e.ctrlKey || e.metaKey || e.altKey) return
-      const now = performance.now()
-      if (e.key === 'Enter') {
-        if (buf.length >= 4 && fast >= buf.length - 1) {
-          e.preventDefault(); e.stopPropagation()
-          const code = buf; reset(); cb.current(code)
-        } else reset()
-        return
-      }
-      if (e.key.length !== 1) return
-      if (now - last > 50) { buf = ''; fast = 0 } else fast++
-      buf += e.key; last = now
-    }
-    window.addEventListener('keydown', h, true)
-    return () => window.removeEventListener('keydown', h, true)
-  }, [enabled])
 }
 
 function useCountUp(value, ms = 700) {
@@ -773,8 +747,7 @@ export default function ProductsPage() {
     const code = String(raw).trim()
     setSearch(''); setPage(1)
     try {
-      const r = await productAPI.getAll({ search: code, limit: 10 })
-      const found = (r.data?.products || []).find(p => p.barcode === code || p.code === code)
+      const found = await lookupProduct(code, { productAPI })
       if (found) return addToCart(found)
       if (confirm(`Kòd « ${code} » pa gen pwodwi. Kreye yon pwodwi ak kòd sa a?`)) setModal({ type: 'create', prefill: { barcode: code } })
     } catch {
@@ -876,6 +849,8 @@ export default function ProductsPage() {
           {isFetching && !isLoading ? <RefreshCw size={16} className="spin"/> : <Search size={16}/>}
           <input placeholder={tr(t, 'products.searchProducts', 'Chèche non, kòd oswa skane kòd ba...')} value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/>
         </div>
+        {/* ✅ Kamera (telefòn / APK) — skanè fizik la mache otomatikman san bouton */}
+        <CameraScanButton className="iv-act" style={{ minHeight: 46, flexShrink: 0 }} onDetected={handleScan}/>
       </div>
 
       {/* ✅ NOUVO — kategori an bouton koulè (olye yon lis dewoulan) */}
