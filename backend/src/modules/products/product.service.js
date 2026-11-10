@@ -76,6 +76,7 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
         { code: { contains: search, mode: 'insensitive' } },
+        { barcode: { contains: search, mode: 'insensitive' } },
         { nameFr: { contains: search, mode: 'insensitive' } }
       ]
     }),
@@ -99,6 +100,7 @@ const getAll = async (tenantId, { search, categoryId, isActive, page = 1, limit 
         tenantId: true,
         categoryId: true,
         code: true,
+        barcode: true,
         name: true,
         nameFr: true,
         nameEn: true,
@@ -202,6 +204,13 @@ const create = async (tenantId, userId, data) => {
   const compressedImageUrl     = await compressImageDataUri(data.imageUrl);
   const compressedThumbnailUrl = await compressThumbnailDataUri(data.imageUrl);
 
+  // ✅ NOUVO — kòd ba (opsyonèl, inik pa tenant). "" → null (menm rezon ak "code")
+  const barcode = (data.barcode && String(data.barcode).trim() !== '') ? String(data.barcode).trim() : null;
+  if (barcode) {
+    const bExists = await prisma.product.findFirst({ where: { tenantId, barcode }, select: { name: true } });
+    if (bExists) throw Object.assign(new Error(`Kòd ba sa a deja itilize pou « ${bExists.name} ».`), { statusCode: 409 });
+  }
+
   const product = await prisma.product.create({
     data: {
       tenantId,
@@ -211,6 +220,7 @@ const create = async (tenantId, userId, data) => {
       nameFr:         data.nameFr,
       nameEn:         data.nameEn,
       code:           code,
+      barcode:        barcode,
       description:    data.description,
       categoryId:     data.categoryId,
       unit:           data.unit || 'unité',
@@ -281,6 +291,17 @@ const update = async (tenantId, id, userId, data) => {
     if (dup) throw Object.assign(new Error('Kòd sa deja itilize.'), { statusCode: 409 });
   }
 
+  // ✅ NOUVO — kòd ba: sèlman si frontend voye l; verifye inisite
+  let barcodePatch = {};
+  if ('barcode' in data) {
+    const barcode = (data.barcode && String(data.barcode).trim() !== '') ? String(data.barcode).trim() : null;
+    if (barcode && barcode !== existing.barcode) {
+      const bDup = await prisma.product.findFirst({ where: { tenantId, barcode, NOT: { id } }, select: { name: true } });
+      if (bDup) throw Object.assign(new Error(`Kòd ba sa a deja itilize pou « ${bDup.name} ».`), { statusCode: 409 });
+    }
+    barcodePatch = { barcode };
+  }
+
   // ⚠️ KORIJE EGRESS — sèlman konprese si yon NOUVO imaj voye (data: URI).
   // Si `imageUrl` pa chanje (frontend ka renvoye menm lyen/URL ki te deja
   // konprese a), pa gen rezon pou re-konprese l ankò.
@@ -291,7 +312,7 @@ const update = async (tenantId, id, userId, data) => {
     where: { id },
     data: {
       name: data.name, nameFr: data.nameFr, nameEn: data.nameEn,
-      code, description: data.description,
+      code, ...barcodePatch, description: data.description,
       categoryId: data.categoryId, unit: data.unit,
       priceHtg: data.priceHtg, priceUsd: data.priceUsd,
       costPriceHtg: data.costPriceHtg, alertThreshold: data.alertThreshold,
@@ -401,6 +422,7 @@ const getLowStock = async (tenantId, branchId, module) => {
       tenantId: true,
       categoryId: true,
       code: true,
+      barcode: true,
       name: true,
       nameFr: true,
       nameEn: true,

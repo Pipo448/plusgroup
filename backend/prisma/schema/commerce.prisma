@@ -24,6 +24,7 @@ model Product {
   tenantId               String                   @map("tenant_id")
   categoryId             String?                  @map("category_id")
   code                   String?                  @db.VarChar(100)
+  barcode                String?                  @db.VarChar(100)
   name                   String                   @db.VarChar(200)
   nameFr                 String?                  @map("name_fr") @db.VarChar(200)
   nameEn                 String?                  @map("name_en") @db.VarChar(200)
@@ -63,6 +64,7 @@ model Product {
   stockMovements         StockMovement[]
 
   @@unique([tenantId, code])
+  @@unique([tenantId, barcode])
   @@index([branchId])
   @@index([module])
   @@map("products")

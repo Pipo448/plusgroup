@@ -16,7 +16,7 @@ import toast from 'react-hot-toast'
 import { compressImage } from '../../utils/imageCompression'
 import {
   Plus, Search, Edit2, Trash2, Package, AlertTriangle, X, ChevronLeft, ChevronRight, Tag, Check, Lock,
-  Camera, ShoppingCart, Layers, TrendingUp, Receipt, FileText, RefreshCw, Save, Minus,
+  Camera, ShoppingCart, Layers, TrendingUp, Receipt, FileText, RefreshCw, Save, Minus, ScanLine,
 } from 'lucide-react'
 import HelpModal from '../../components/HelpModal'
 import { useDraftCartStore } from '../../stores/draftCartStore'
@@ -68,6 +68,34 @@ function useEsc(onClose) {
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [onClose])
+}
+
+// ✅ NOUVO — Skanè kòd ba (USB / Bluetooth). Skanè a "tape" kòd la trè vit (< 50ms pa karaktè)
+// epi fini ak Enter, kidonk nou ka distenge l de yon moun k ap tape. Pa gen okenn chan pou fokis.
+function useBarcodeScanner(onScan, enabled = true) {
+  const cb = useRef(onScan)
+  cb.current = onScan
+  useEffect(() => {
+    if (!enabled) return
+    let buf = '', last = 0, fast = 0
+    const reset = () => { buf = ''; fast = 0 }
+    const h = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const now = performance.now()
+      if (e.key === 'Enter') {
+        if (buf.length >= 4 && fast >= buf.length - 1) {
+          e.preventDefault(); e.stopPropagation()
+          const code = buf; reset(); cb.current(code)
+        } else reset()
+        return
+      }
+      if (e.key.length !== 1) return
+      if (now - last > 50) { buf = ''; fast = 0 } else fast++
+      buf += e.key; last = now
+    }
+    window.addEventListener('keydown', h, true)
+    return () => window.removeEventListener('keydown', h, true)
+  }, [enabled])
 }
 
 function useCountUp(value, ms = 700) {
@@ -294,7 +322,7 @@ const ImageLightbox = ({ product, onClose }) => {
 // ════════════════════════════════════════════════════════════
 // Modal Pwodwi
 // ════════════════════════════════════════════════════════════
-const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) => {
+const ProductModal = ({ product, prefill, categories, exchangeRate, onClose, onSaved }) => {
   const { t } = useTranslation()
   const tenant = useAuthStore(s => s.tenant)
   const isEdit = !!product
@@ -338,7 +366,7 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             minQty: tt.minQty, priceHtg: Number(tt.priceHtg), priceUsd: tt.priceUsd != null ? Number(tt.priceUsd) : '',
             totalPriceHtg: tt.totalPriceHtg != null ? Number(tt.totalPriceHtg) : '', label: tt.label || '',
           })) }
-      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', priceTiers: [] },
+      : { isService: false, isActive: true, alertThreshold: 5, unit: 'pyes', priceHtg: '', priceUsd: '', costPriceHtg: '', priceTiers: [], barcode: prefill?.barcode || '' },
   })
   const qc = useQueryClient()
   const { fields: tierFields, append: appendTier, remove: removeTier } = useFieldArray({ control, name: 'priceTiers' })
@@ -437,6 +465,18 @@ const ProductModal = ({ product, categories, exchangeRate, onClose, onSaved }) =
             <div>
               <label className="iv-lbl">{tr(t, 'products.code', 'Kòd')}</label>
               <input className="iv-inp" placeholder={tr(t, 'products.codePlaceholder', 'Egz: DR25')} {...register('code')}/>
+            </div>
+            {/* ✅ NOUVO — Kòd ba: skane l ak skanè a (fokis isit la) oswa jenere youn si pwodwi a pa gen */}
+            <div>
+              <label className="iv-lbl">Kòd ba <span style={{ color: 'var(--muted)', textTransform: 'none', letterSpacing: 0 }}>· opsyonèl</span></label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input className="iv-inp mono" style={{ flex: 1, minWidth: 0 }} placeholder="Skane oswa tape kòd la" inputMode="text" autoComplete="off"
+                  onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }} {...register('barcode')}/>
+                <button type="button" className="iv-act" style={{ minHeight: 44, flexShrink: 0 }} title="Jenere yon kòd otomatikman"
+                  onClick={() => setValue('barcode', 'PG' + Date.now().toString().slice(-8) + Math.floor(Math.random() * 90 + 10), { shouldDirty: true })}>
+                  <RefreshCw size={14}/> Jenere
+                </button>
+              </div>
             </div>
             <div>
               <label className="iv-lbl">{tr(t, 'products.category', 'Kategori')} *</label>
@@ -589,6 +629,7 @@ const ProductCard = ({ p, t, index, inCart, onEdit, onDelete, onAddToCart, onZoo
         <div className="pd-meta">
           {p.category && <span className="cat" style={{ '--cc': p.category.color || '#1B2A8F' }}><i/>{p.category.name}</span>}
           {p.code && <span className="mono">{p.code}</span>}
+          {p.barcode && <span className="mono" title="Kòd ba"><ScanLine size={10} style={{ verticalAlign: '-1px' }}/> {p.barcode}</span>}
         </div>
         <div className="pd-price">
           <span className="num">{fmt(p.priceHtg)}<small>HTG</small></span>
@@ -727,6 +768,21 @@ export default function ProductsPage() {
     onError: (e) => toast.error(e.response?.data?.message || 'Erè pandan siprime pwodwi a.'),
   })
 
+  // ✅ NOUVO — skane yon kòd ba → pwodwi a ajoute nan panye (+1 si l deja la)
+  const handleScan = async (raw) => {
+    const code = String(raw).trim()
+    setSearch(''); setPage(1)
+    try {
+      const r = await productAPI.getAll({ search: code, limit: 10 })
+      const found = (r.data?.products || []).find(p => p.barcode === code || p.code === code)
+      if (found) return addToCart(found)
+      if (confirm(`Kòd « ${code} » pa gen pwodwi. Kreye yon pwodwi ak kòd sa a?`)) setModal({ type: 'create', prefill: { barcode: code } })
+    } catch {
+      toast.error('Erè pandan rechèch kòd la.')
+    }
+  }
+  useBarcodeScanner(handleScan, !modal && !cartOpen)
+
   const handleDelete = (p) => { if (confirm(tr(t, 'products.deleteConfirm', `Efase "${p.name}"?`))) deleteMutation.mutate(p.id) }
 
   // ✅ KORIJE — lis pwodui a (GET /products) renvoye `thumbnailUrl` (100px/60%)
@@ -818,7 +874,7 @@ export default function ProductsPage() {
       <div className="iv-bar a-up" style={{ animationDelay: '120ms' }}>
         <div className="iv-search">
           {isFetching && !isLoading ? <RefreshCw size={16} className="spin"/> : <Search size={16}/>}
-          <input placeholder={tr(t, 'products.searchProducts', 'Chèche non oswa kòd pwodwi...')} value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/>
+          <input placeholder={tr(t, 'products.searchProducts', 'Chèche non, kòd oswa skane kòd ba...')} value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/>
         </div>
       </div>
 
@@ -882,7 +938,7 @@ export default function ProductsPage() {
           onShowCategory={(id) => { setCatFilter(id); setSearch(''); setPage(1) }}/>
       )}
       {(modal?.type === 'create' || modal?.type === 'edit') && (
-        <ProductModal product={modal.product} categories={categories} exchangeRate={exchangeRate} onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
+        <ProductModal product={modal.product} prefill={modal.prefill} categories={categories} exchangeRate={exchangeRate} onClose={() => setModal(null)} onSaved={() => setModal(null)}/>
       )}
       {/* ✅ Pandan nou tann vrè gwo vèsyon an chaje (anvan modal la louvri) */}
       {zoomLoading && !zoomProduct && (
