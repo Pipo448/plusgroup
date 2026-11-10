@@ -10,6 +10,7 @@ import {
   AlertCircle, Clock, CheckCircle, XCircle, RotateCcw, TrendingUp, Layers,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { toHaitiDate } from '../../utils/haitiTime'
 import './invoices.css'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2 })
@@ -298,7 +299,7 @@ function useInvView(inv, showRate, exchangeRates, visibleCurrs) {
       totalConv:   showRate ? fmtConv(total, exchangeRates, visibleCurrs) : null,
       payedConv:   showRate ? fmtConv(paid, exchangeRates, visibleCurrs) : null,
       balanceConv: showRate ? fmtConv(Number(inv.balanceDueHtg), exchangeRates, visibleCurrs) : null,
-      dateStr:     inv.issueDate ? format(new Date(inv.issueDate), 'dd/MM/yy') : '',
+      dateStr:     inv.issueDate ? format(toHaitiDate(inv.issueDate), 'dd/MM/yy') : '',
       hasBalance:  Number(inv.balanceDueHtg) > 0,
       isCancelled: inv.status === 'cancelled',
       isPartial:   inv.status === 'partial',

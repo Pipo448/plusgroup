@@ -76,12 +76,17 @@ export async function searchCachedProducts(query, limit = 8) {
   const all = await getAllCachedProducts()
   const q = (query || '').toLowerCase().trim()
   if (!q) return all.slice(0, limit)
-  return all
-    .filter(p =>
-      p.name?.toLowerCase().includes(q) ||
-      p.code?.toLowerCase().includes(q)
-    )
-    .slice(0, limit)
+  // ✅ NOUVO — rechèch tou pa kòd ba (barcode) ak non franse, menm jan ak backend la.
+  // Match egzat (barcode/kòd) vini an premye pou skanè a pa rate l akoz limit la.
+  const exact = (p) => String(p.barcode || '').toLowerCase() === q || String(p.code || '').toLowerCase() === q
+  const hit = all.filter(p =>
+    p.name?.toLowerCase().includes(q) ||
+    p.nameFr?.toLowerCase().includes(q) ||
+    p.code?.toLowerCase().includes(q) ||
+    p.barcode?.toLowerCase().includes(q)
+  )
+  hit.sort((x, y) => Number(exact(y)) - Number(exact(x)))
+  return hit.slice(0, limit)
 }
 
 // ✅ Ajiste kantite estòk lokal apre yon vant offline (pou rechèch pwochen an

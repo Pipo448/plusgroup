@@ -494,7 +494,7 @@ export default function FounisePage() {
                 <div key={m.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 14px', borderRadius:12, border:`1px solid ${D.border}` }}>
                   <div style={{ minWidth:0 }}>
                     <p style={{ fontWeight:800, fontSize:13, color:D.text, margin:'0 0 2px' }}>{m.notes || 'Enjeksyon Kapital'}</p>
-                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>{new Date(m.created_at).toLocaleString('fr-HT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
+                    <p style={{ fontSize:11, color:D.muted, margin:0 }}>{new Date(m.created_at).toLocaleString('fr-HT', { timeZone:'America/Port-au-Prince', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })}</p>
                   </div>
                   <p style={{ fontWeight:900, fontSize:14, color:D.success, fontFamily:'monospace', margin:0, whiteSpace:'nowrap' }}>+{fmt(m.montant)} HTG</p>
                 </div>

@@ -22,6 +22,7 @@ import { printInvoiceNative, isNativePrinterAvailable } from '../../services/pri
 import { useDraftCartStore } from '../../stores/draftCartStore'
 import { useBarcodeScanner, lookupProduct } from '../../hooks/useBarcodeScanner'
 import { CameraScanButton } from '../../components/BarcodeCameraModal'
+import { haitiToday, haitiMidnightISO, fmtHaitiDate } from '../../utils/haitiTime'
 import './invoices.css'
 
 const C = { blue: '#1B2A8F', orange: '#FF6B00', gold: '#C9A84C' }
@@ -116,6 +117,8 @@ const buildItemFromProduct = (p) => {
     _productCode: p.code || null,
     _unit: p.unit || null,
     _imageUrl: p.imageUrl || null,
+    _stock: p.isService ? null : Number(p.quantity ?? p.stock ?? 0),
+    _isService: !!p.isService,
   }
 }
 
@@ -174,11 +177,18 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
       _productCode: p.code || null,
       _unit: p.unit || null,
       _imageUrl: p.imageUrl || null,
+      _stock: p.isService ? null : stock,
+      _isService: !!p.isService,
     })
   }, [idx, onUpdate])
 
   const onQty = (e) => {
-    const qty = Number(e.target.value)
+    let qty = Number(e.target.value)
+    // ⛔ Pa kite kantite a depase stòk la (sof sèvis / pwodwi san done stòk)
+    if (!item._isService && item._stock != null && qty > item._stock) {
+      toast.error(`Stòk limite: ${item._stock} sèlman pou "${item.description}".`)
+      qty = Math.max(0, item._stock)
+    }
     // ✅ Chanje pri a otomatikman selon kantite a (sof si pri manyèl)
     if (item._priceTiers?.length && item._priceMode !== 'manual') {
       const bestTier = pickBestTier(item._priceTiers, qty)
@@ -290,7 +300,10 @@ const ItemRow = memo(function ItemRow({ item, idx, onUpdate, onRemove, t, count,
             const key = `tier-${tr.id || tr.minQty}`
             return (
               <button key={tr.id || tr.minQty} type="button" className={`iv-tierbtn ${item._priceMode === key ? 'on' : ''}`} style={{ '--tb': C.orange }}
-                onClick={() => onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: key })}>
+                onClick={() => {
+                  if (!item._isService && item._stock != null && Number(tr.minQty) > item._stock) { toast.error(`Stòk limite: ${item._stock} sèlman pou "${item.description}".`); return }
+                  onUpdate(idx, { qty: Number(tr.minQty), unitPrice: Number(tr.priceHtg), _priceMode: key })
+                }}>
                 {(tr.label || `${tr.minQty}+`).toUpperCase()}
                 <small>{tr.totalPriceHtg ? `${fmt(tr.totalPriceHtg)} / ${tr.minQty}` : fmt(tr.priceHtg)} HTG</small>
               </button>
@@ -343,13 +356,13 @@ export default function NewInvoicePage() {
 
   const secRefs = { client: useRef(null), items: useRef(null), pay: useRef(null), confirm: useRef(null) }
 
-  const today = new Date(new Date().getTime() - 5*60*60*1000).toISOString().split('T')[0]
+  const today = haitiToday()
   const [invoiceDate] = useState(today)
 
   // ✅ Dat jodi a → moman egzak; dat pase → "minwit Ayiti"
   const buildIssueDateTime = useCallback(() => {
     if (invoiceDate === today) return new Date().toISOString()
-    return `${invoiceDate}T05:00:00.000Z`
+    return haitiMidnightISO(invoiceDate)
   }, [invoiceDate, today])
   const [dueDate]                           = useState('')
   const [notes]                             = useState('')
@@ -368,6 +381,7 @@ export default function NewInvoicePage() {
       ? draftItems.map(it => ({
           id: it.id, description: it.description, productId: it.productId,
           qty: it.qty, unitPrice: it.unitPrice, discount: it.discount,
+          _stock: it._stock, _isService: it._isService,
         }))
       : [{ id: Date.now(), description:'', productId:null, qty:1, unitPrice:0, discount:0 }]
   )
@@ -561,6 +575,22 @@ export default function NewInvoicePage() {
       toast.error(t('invoice.addAtLeastOneItem') || 'Ajoute omwen yon atik.')
       goStep('items')
       return
+    }
+    // ⛔ Verifye stòk la (total pa pwodwi — menm pwodwi a ka parèt sou plizyè liy)
+    {
+      const need = {}
+      for (const it of validItems) {
+        if (!it.productId || it._isService || it._stock == null) continue
+        need[it.productId] = { name: it.description, stock: it._stock, qty: (need[it.productId]?.qty || 0) + Number(it.qty || 0) }
+      }
+      const bad = Object.values(need).find(n => n.stock <= 0 || n.qty > n.stock)
+      if (bad) {
+        toast.error(bad.stock <= 0
+          ? `⛔ "${bad.name}" pa gen stòk (0 ki rete).`
+          : `Stòk limite: ${bad.stock} sèlman pou "${bad.name}" (ou mete ${bad.qty}).`, { duration: 4500 })
+        goStep('items')
+        return
+      }
     }
     // ✅ Espès: kesye a dwe antre kòb li resevwa a
     if (paymentMethod === 'cash' && amountReceived === '') {
@@ -842,7 +872,7 @@ export default function NewInvoicePage() {
               </div>
               <div>
                 <label className="iv-lbl"><Calendar size={10} style={{ verticalAlign: '-1px' }}/> Dat</label>
-                <input className="iv-inp" value={new Date().toLocaleDateString('fr-HT', { day: '2-digit', month: 'short', year: 'numeric' })} disabled/>
+                <input className="iv-inp" value={fmtHaitiDate(new Date(), { day: '2-digit', month: 'short', year: 'numeric' })} disabled/>
               </div>
             </div>
           </section>
@@ -940,7 +970,7 @@ export default function NewInvoicePage() {
             </div>
             <div className="meta">
               <div><span>Kliyan</span><b>{clientName || 'Vant kontwa'}</b></div>
-              <div style={{ textAlign: 'right' }}><span>Dat</span><b>{new Date().toLocaleDateString('fr-HT')}</b></div>
+              <div style={{ textAlign: 'right' }}><span>Dat</span><b>{fmtHaitiDate(new Date())}</b></div>
             </div>
 
             <div className="iv-rlines">

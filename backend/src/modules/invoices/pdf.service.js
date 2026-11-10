@@ -56,7 +56,7 @@ function generateInvoicePDF(invoice, size = '80mm') {
   doc.moveDown(0.2);
   doc.fontSize(fs).font('Helvetica')
      .text(`No: ${invoice.invoiceNumber}`, { align:'center' })
-     .text(`Date: ${new Date(invoice.issueDate).toLocaleDateString('fr-FR')}`, { align:'center' });
+     .text(`Date: ${new Date(invoice.issueDate).toLocaleDateString('fr-FR', { timeZone: 'America/Port-au-Prince' })}`, { align:'center' });
 
   // ── CLIENT
   if (clientName) {

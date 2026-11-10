@@ -7,11 +7,39 @@ const {
   notifyLowStock,
 } = require('../notifications/notification.service');
 
-// ── Haiti = UTC-5
+// ── Zòn orè Pòtoprens (America/Port-au-Prince) — UTC-5 sezon fwa, UTC-4 lè ete.
+// ✅ KORIJE — pa gen anyen fiks ("T05:00:00Z") ankò: nou kalkile minwit Ayiti REYÈL
+// pou chak dat, konsa fakti/rapò pa "sote" yon jou pandan lè ete.
+const HAITI_TZ = 'America/Port-au-Prince';
+const haitiOffsetMs = (date) => {
+  const p = {};
+  new Intl.DateTimeFormat('en-US', {
+    timeZone: HAITI_TZ, hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(date).forEach(x => { p[x.type] = x.value; });
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second)
+       - Math.floor(date.getTime() / 1000) * 1000;
+};
+// "YYYY-MM-DD" → Date egzat pou minwit Pòtoprens jou sa a
+const haitiMidnight = (ymd) => {
+  const [y, m, d] = String(ymd).slice(0, 10).split('-').map(Number);
+  const guess = Date.UTC(y, m - 1, d, 0, 0, 0);
+  const off1 = haitiOffsetMs(new Date(guess));
+  let t = guess - off1;
+  const off2 = haitiOffsetMs(new Date(t));
+  if (off2 !== off1) t = guess - off2;
+  return new Date(t);
+};
+const haitiYear = () => Number(new Intl.DateTimeFormat('en-US', { timeZone: HAITI_TZ, year: 'numeric' }).format(new Date()));
+
 const haitiRange = (dateFrom, dateTo) => {
   if (!dateFrom || !dateTo) return {};
-  const gte = new Date(`${dateFrom}T05:00:00.000Z`);
-  const lte = new Date(new Date(`${dateTo}T05:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000 - 1);
+  const gte = haitiMidnight(dateFrom);
+  // fen jou a = minwit jou apre a (jere chanjman lè) − 1 ms
+  const [y, m, d] = String(dateTo).slice(0, 10).split('-').map(Number);
+  const nextDay = new Date(Date.UTC(y, m - 1, d + 1)).toISOString().slice(0, 10);
+  const lte = new Date(haitiMidnight(nextDay).getTime() - 1);
   return { gte, lte };
 };
 
@@ -46,7 +74,7 @@ const validateItemPrice = (item, product, isAdmin) => {
 
 // ── Jwenn nimewo fakti nextval
 const getNextInvoiceNumber = async (tenantId) => {
-  const year = new Date().getFullYear();
+  const year = haitiYear();
   const seq = await prisma.documentSequence.upsert({
     where:  { tenantId_documentType: { tenantId, documentType: 'invoice' } },
     create: { tenantId, documentType: 'invoice', prefix: 'FAC', lastNumber: 0, currentYear: year },
@@ -211,10 +239,10 @@ const createDirect = async (tenantId, userId, data, userRole) => {
         issueDate: issueDate
           ? (String(issueDate).includes('T')
               ? new Date(issueDate)
-              : new Date(`${issueDate}T05:00:00.000Z`))
+              : haitiMidnight(issueDate))
           : undefined,
         // ✅ KORIJE — menm konvansyon minwit Ayiti pou dueDate
-        dueDate: dueDate ? new Date(`${dueDate}T05:00:00.000Z`) : null,
+        dueDate: dueDate ? haitiMidnight(dueDate) : null,
         notes, terms, createdBy: userId
       }
     });
@@ -229,9 +257,30 @@ const createDirect = async (tenantId, userId, data, userRole) => {
           // ✅ KORIJE — si allowNegativeStock (vant offline ki senkwonize), kite valè
           // reyèl la (ka negatif) pou n ka detekte "oversell". Sinon, kenbe defo a
           // (pa desann anba 0) pou vant nòmal an dirèk.
-          stockAfter = allowNegativeStock ? rawStockAfter : Math.max(0, rawStockAfter);
+          // ⛔ KORIJE — vant dirèk (online) PA kapab depase stòk la: si stòk la 0 oswa
+          // pa ase, fakti a refize (erè 400, tout transaksyon an anile). Sèl eksepsyon:
+          // vant offline ki senkwonize (allowNegativeStock) — machandiz la deja soti
+          // fizikman, kidonk nou anrejistre l epi nou avèti (estòk negatif).
+          if (!allowNegativeStock && rawStockAfter < 0) {
+            const msg = stockBefore <= 0
+              ? `⛔ "${product.name}" pa gen stòk (0 ki rete). Vant refize.`
+              : `⛔ Stòk pa sifi pou "${product.name}": ${stockBefore} ki rete, ou mande ${Number(item.quantity)}.`;
+            throw Object.assign(new Error(msg), { statusCode: 400 });
+          }
+          stockAfter = rawStockAfter;
 
-          await tx.product.update({ where: { id: item.productId }, data: { quantity: stockAfter } });
+          // Atomik: diminye SÈLMAN si stòk la toujou sifi (pwoteje kont 2 vant an menm tan)
+          if (allowNegativeStock) {
+            await tx.product.update({ where: { id: item.productId }, data: { quantity: stockAfter } });
+          } else {
+            const upd = await tx.product.updateMany({
+              where: { id: item.productId, tenantId, quantity: { gte: Number(item.quantity) } },
+              data: { quantity: { decrement: Number(item.quantity) } }
+            });
+            if (upd.count === 0) {
+              throw Object.assign(new Error(`⛔ Stòk pa sifi pou "${product.name}". Rafrechi paj la epi eseye ankò.`), { statusCode: 400 });
+            }
+          }
           await tx.stockMovement.create({
             data: {
               tenantId, branchId: branchId || null, productId: item.productId,

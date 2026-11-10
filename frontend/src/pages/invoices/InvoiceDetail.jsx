@@ -20,6 +20,7 @@ import {
   Banknote, Smartphone, Wallet, CreditCard, ArrowLeftRight, FileText, RotateCcw, AlertCircle, Link2,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { haitiToday, toHaitiDate as toHaitiShifted } from '../../utils/haitiTime'
 import './invoices.css'
 
 const fmt = (n) => Number(n || 0).toLocaleString('fr-HT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -98,10 +99,7 @@ const toBase64 = (url) => new Promise((resolve) => {
 
 const toHaitiDate = (dateStr, fmt2) => {
   try {
-    return format(
-      new Date(new Date(dateStr).toLocaleString('en-US', { timeZone: 'America/Port-au-Prince' })),
-      fmt2
-    )
+    return format(toHaitiShifted(dateStr), fmt2)
   } catch { return '' }
 }
 
@@ -1135,7 +1133,7 @@ export default function InvoiceDetail() {
                   <label className="iv-lbl">📅 Dat kliyan ap vin peye balans la</label>
                   <input type="date" className="iv-inp"
                     value={payData.dueDate}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={haitiToday()}
                     onChange={e => setPayData(d => ({ ...d, dueDate: e.target.value }))}/>
                   {!payData.dueDate && (
                     <p style={{ fontSize: 11, color: 'var(--warn)', margin: '6px 0 0', fontWeight: 700 }}>⚠️ Rekòmande pou kredi — bay dat limit peman an</p>
