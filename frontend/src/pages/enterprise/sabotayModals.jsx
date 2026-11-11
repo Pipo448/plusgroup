@@ -691,7 +691,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
   useSmStyles()
   const [copied, setCopied] = useState(false)
   const isExisting = credentials?.isExisting
-  const url = 'https://app.plusgroupe.com/app/sol/login'
+  const url = 'https://app.plusgroupe.com/sol.html'
   const text = isExisting
     ? `Non: ${member.name}\nItilizatè: ${credentials.username}\nURL: ${url}`
     : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: ${url}`
@@ -736,7 +736,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
         )}
 
         <div className="ke-col" style={{ gap: 10 }}>
-          <div><label className="ke-label"><Link2 size={11} style={{ verticalAlign: '-1px' }} /> URL koneksyon</label><div className="sm-cred" style={{ color: T.teal, fontSize: 13 }}>app.plusgroupe.com/app/sol/login</div></div>
+          <div><label className="ke-label"><Link2 size={11} style={{ verticalAlign: '-1px' }} /> URL koneksyon</label><div className="sm-cred" style={{ color: T.teal, fontSize: 13 }}>app.plusgroupe.com/sol.html</div></div>
           <div><label className="ke-label">Non itilizatè</label><div className="sm-cred" style={{ fontSize: 18 }}>{credentials?.username}</div></div>
           {!isExisting && credentials?.password && (
             <div><label className="ke-label">Modpas pwovizwa</label>
@@ -924,7 +924,7 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
                 </div>
               )}
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: 12, color: D.muted, fontWeight: 600 }}>app.plusgroupe.com/app/sol/login</p>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: D.muted, fontWeight: 600 }}>app.plusgroupe.com/sol.html</p>
           </div>
         )}
 
