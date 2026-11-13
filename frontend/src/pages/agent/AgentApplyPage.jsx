@@ -315,7 +315,7 @@ export default function AgentApplyPage() {
           <div style={{ flex: 1, minWidth: 0, maxWidth: 720 }}>
             {isMobile && (
               <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-                <PromoCarousel maxWidth={400} height={280} />
+                <PromoCarousel maxWidth={400} height={220} />
               </div>
             )}
             {isMobile && (
@@ -707,7 +707,7 @@ export default function AgentApplyPage() {
 
           {!isMobile && (
             <div style={{ width: 260, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <PromoCarousel maxWidth={260} height={340} />
+              <PromoCarousel maxWidth={260} height={260} />
               <InfoCard title="Poukisa vin ajan" titleAccent="PLUS GROUP?">
                 {[
                   { icon: DollarSign, text: 'Opòtinite revni atraktif' },

@@ -65,7 +65,7 @@ export default function AgentLoginPage() {
 
       <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'center', justifyContent: 'center', padding: 16, gap: 24 }}>
         <div style={{ width: '100%', maxWidth: 380 }}>
-          <PromoCarousel maxWidth={380} height={420} />
+          <PromoCarousel maxWidth={380} height={300} />
         </div>
         <div style={{ width: '100%', maxWidth: 420, background: C.white, borderRadius: 20, padding: 32, boxShadow: '0 4px 24px rgba(15,23,42,0.06)', border: `1px solid ${C.border}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>

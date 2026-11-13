@@ -54,7 +54,9 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false)
   const [showLang, setShowLang] = useState(false)
   // ⚠️ NOUVO — Enskripsyon otonòm (antrepriz ka enskri tèt yo, mande kòd pwomo ajan)
-  const [mode, setMode]           = useState('login') // 'login' | 'signup'
+  // Lyen parenaj ajan: /login?promo=KOD → fòm enskripsyon an louvri ak kòd la deja ranpli
+  const promoParam = (searchParams.get('promo') || '').trim().toUpperCase()
+  const [mode, setMode]           = useState(promoParam ? 'signup' : 'login') // 'login' | 'signup'
   const [signupLoading, setSignupLoading] = useState(false)
   // ⚠️ NOUVO — Lis plan disponib yo, ak plan chwazi a nan fòm enskripsyon an
   const [plans, setPlans] = useState([])
@@ -94,7 +96,7 @@ export default function LoginPage() {
   const {
     register: registerS, handleSubmit: handleSubmitS,
     formState: { errors: errorsS }, watch: watchS, reset: resetS,
-  } = useForm()
+  } = useForm({ defaultValues: { promoCode: promoParam } })
   const { i18n } = useTranslation()
   // ✅ NOUVO — Login offline
   const { isOnline } = useNetworkStatus()
