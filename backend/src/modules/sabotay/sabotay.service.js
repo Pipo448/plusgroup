@@ -597,6 +597,86 @@ async function markPaid(tenantId, planId, memberId, userId, data) {
   return { payments: createdPayments, count: createdPayments.length }
 }
 
+// ─────────────────────────────────────────────────────────────
+// ✅ NOUVO: KORIJE DAT/LÈ PEMAN — kesye a pat la lè kliyan an te peye (bonè),
+// li make peman an apre kòm "reta". Isit la li mete lè REYÈL kliyan an te peye a:
+//   • timing rekalkile (menm fonksyon ak markPaid)
+//   • si nouvo timing lan PA reta → amand lan ANILE otomatikman:
+//       - fineAmt = 0 sou peman an, retire nan member.fines
+//       - retire antre "late_fine" nan kès admin lan (pa konte de fwa)
+//       - SolMemberPosition (pòtal Sòl) sinkwonize + notifikasyon manm nan
+//   • kòb manm nan ap touche a monte otomatikman (amand ki pa peye a pa dedui ankò)
+// ─────────────────────────────────────────────────────────────
+async function correctPaymentTime(tenantId, planId, memberId, userId, data) {
+  const { dueDate, paidAt } = data || {}
+  if (!dueDate) throw new Error('Dat peman an obligatwa.')
+  if (!paidAt)  throw new Error('Lè reyèl peman an obligatwa.')
+  const paidMoment = new Date(paidAt)
+  if (isNaN(paidMoment.getTime())) throw new Error('Lè peman an pa valid.')
+
+  const plan = await prisma.sabotayPlan.findFirst({ where: { id: planId, tenantId } })
+  if (!plan) throw new Error('Plan pa jwenn.')
+  const member = await prisma.sabotayMember.findFirst({ where: { id: memberId, planId } })
+  if (!member) throw new Error('Manm pa jwenn.')
+
+  const payment = await prisma.sabotayPayment.findFirst({ where: { planId, memberId, dueDate: new Date(dueDate) } })
+  if (!payment) throw new Error('Peman sa a poko anrejistre — anrejistre l dabò.')
+
+  const isLateT = (t) => t === 'late' || t === 'veryLate'
+  const timing = rankingSvc.computeDetailedTiming(
+    dueDate, paidMoment, plan.dueTime || '08:00', plan.dueTimeEnd || '15:00',
+  )
+
+  const prevFine   = Math.max(Number(payment.fineAmt || 0), Number(member.fines?.[dueDate] || 0))
+  const cancelFine = !isLateT(timing) && prevFine > 0
+
+  const stamp = `Dat korije → ${paidAt} (${payment.timing || '—'} → ${timing})${cancelFine ? `, amand ${prevFine} anile` : ''}`
+  const updated = await prisma.sabotayPayment.update({
+    where: { id: payment.id },
+    data: {
+      paid_at: paidMoment,
+      timing,
+      ...(cancelFine && { fineAmt: 0 }),
+      notes: payment.notes ? `${payment.notes} | ${stamp}` : stamp,
+    },
+  })
+
+  if (cancelFine) {
+    const fines = { ...(member.fines || {}) }
+    delete fines[dueDate]
+    await prisma.sabotayMember.update({ where: { id: memberId }, data: { fines } })
+    await prisma.sabotayAdminCash.deleteMany({
+      where: { tenantId, planId, memberId, type: 'late_fine', description: `Amand reta ${dueDate}` },
+    }).catch(() => {})
+  }
+
+  try {
+    const solPos = await prisma.solMemberPosition.findFirst({ where: { memberId, planId }, include: { account: true } })
+    if (solPos) {
+      const newTimings = { ...(solPos.paymentTimings || {}), [dueDate]: timing }
+      const newFines   = { ...(solPos.fines || {}) }
+      if (cancelFine) delete newFines[dueDate]
+      await prisma.solMemberPosition.update({
+        where: { id: solPos.id },
+        data:  { paymentTimings: newTimings, ...(cancelFine && { fines: newFines }) },
+      })
+      if (cancelFine && solPos.account) {
+        await prisma.solNotification.create({
+          data: {
+            accountId: solPos.account.id, type: 'fine_cancelled',
+            titleHt: '✅ Amand anile',
+            messageHt: `${plan.name}: peman ${String(dueDate).split('-').reverse().join('/')} korije — ou te peye alè. Amand ${prevFine} HTG la anile.`,
+          },
+        }).catch(() => {})
+      }
+    }
+  } catch (err) {
+    console.warn('[sabotay] Sinkwonizasyon korek dat peman echwe:', err.message)
+  }
+
+  return { payment: updated, dueDate, timing, previousTiming: payment.timing || null, fineCancelled: cancelFine ? prevFine : 0 }
+}
+
 async function unmarkPaid(tenantId, paymentId) {
   const payment = await prisma.sabotayPayment.findFirst({ where: { id: paymentId, plan: { tenantId } } })
   if (!payment) throw new Error('Peman pa jwenn.')
@@ -1164,7 +1244,7 @@ async function repairCorruptedPositions(tenantId, planId) {
 module.exports = {
   getStats, getPlans, getPlanById, createPlan, updatePlan, deletePlan,
   blindDraw, getMembers, addMember, updateMember, removeMember,
-  getPayments, markPaid, unmarkPaid, getMemberAccount,
+  getPayments, markPaid, correctPaymentTime, unmarkPaid, getMemberAccount,
   findSolAccountByPhone, getSolAccountPositions, closePlan,
   memberAction, getAdminCash, addToAdminCash,
   adjustMemberPosition,

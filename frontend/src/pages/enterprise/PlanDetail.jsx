@@ -252,7 +252,7 @@ const dmy = (d) => String(d || '').split('T')[0].split('-').reverse().join('/')
 // ─────────────────────────────────────────────────────────────
 export default function PlanDetail({
   plan, onBack, onAddMember, onPaymentSaved, onBlindDraw,
-  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onToggleManualTime, onToggleHidePosition, onRecalculate, printer, onAdjustPosition,
+  onEditPlan, onClosePlan, onMemberAction, onToggleDynamic, onToggleManualTime, onToggleHidePosition, onRecalculate, printer, onAdjustPosition, onCorrectPaymentTime,
 }) {
   const [viewMember,       setView]             = useState(null)
   const [viewMemberSlots,  setSlots]            = useState(null)
@@ -739,8 +739,11 @@ export default function PlanDetail({
       )}
 
       {viewMember && (
-        <MemberVirtualAccount member={viewMember} plan={plan} printer={printer}
-          allMemberSlots={viewMemberSlots}
+        <MemberVirtualAccount
+          member={(plan.members || []).find(m => m.id === viewMember.id) || viewMember}
+          plan={plan} printer={printer}
+          allMemberSlots={viewMemberSlots ? viewMemberSlots.map(sl => (plan.members || []).find(m => m.id === sl.id) || sl) : viewMemberSlots}
+          onCorrectPaymentTime={onCorrectPaymentTime}
           onClose={() => { setView(null); setSlots(null) }} />
       )}
 

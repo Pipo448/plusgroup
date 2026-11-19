@@ -213,6 +213,8 @@ export default function SabotayPage() {
             mutations.memberAction.mutate({ planId: activePlan.id, memberId, action, reason, payoutDate, stopFee })}
           onPaymentSaved={(memberId, dates, timings, fines, paidAt) =>
             mutations.markPayment.mutateAsync({ memberId, dates, timings, fines, paidAt })}
+          onCorrectPaymentTime={(memberId, dueDate, paidAt) =>
+            mutations.correctPaymentTime.mutateAsync({ memberId, dueDate, paidAt })}
           onAdjustPosition={(memberId, steps) =>
             mutations.adjustPosition.mutate({ planId: activePlan.id, memberId, steps })}
         />

@@ -151,6 +151,11 @@ exports.getPayments = async (req, res) => {
 exports.markPaid = async (req, res) => {
   try {
     const { tenantId, userId } = getCtx(req)
+    // ✅ NOUVO: korije lè/dat reyèl yon peman ki deja anrejistre (menm route, pa gen nouvo route)
+    if (req.body?.action === 'correct_time') {
+      const result = await svc.correctPaymentTime(tenantId, req.params.planId, req.params.memberId, userId, req.body)
+      return res.json({ success: true, payment: result })
+    }
     const payment = await svc.markPaid(tenantId, req.params.planId, req.params.memberId, userId, req.body)
     res.status(201).json({ success: true, payment })
   } catch (e) {

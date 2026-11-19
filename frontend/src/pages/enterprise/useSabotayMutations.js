@@ -219,6 +219,39 @@ export function useSabotayMutations({
     onError: (e) => toast.error(e.message),
   })
 
+  // ─── Korije dat/lè reyèl yon peman (amand anile otomatikman si li pa reta ankò) ──
+  const correctPaymentTime = useMutation({
+    mutationFn: ({ memberId, dueDate, paidAt }) =>
+      apiFetch(
+        `/sabotay/plans/${activePlan?.id}/members/${memberId}/pay`,
+        { method: 'POST', body: JSON.stringify({ action: 'correct_time', dueDate, paidAt }) }
+      ),
+    onSuccess: (r, vars) => {
+      const res = r?.payment || r || {}
+      const dk  = String(vars.dueDate).split('T')[0]
+      if (activePlan?.id && res.timing) {
+        qc.setQueryData(['sabotay-plans'], (old) => {
+          if (!Array.isArray(old)) return old
+          return old.map(plan => plan.id !== activePlan.id ? plan : {
+            ...plan,
+            members: (plan.members || []).map(m => {
+              if (m.id !== vars.memberId) return m
+              const fines = { ...(m.fines || {}) }
+              if (res.fineCancelled > 0) delete fines[dk]
+              return { ...m, fines, paymentTimings: { ...(m.paymentTimings || {}), [dk]: res.timing } }
+            }),
+          })
+        })
+      } else {
+        qc.invalidateQueries({ queryKey: ['sabotay-plans'] })
+      }
+      toast.success(res.fineCancelled > 0
+        ? `✅ Dat korije — amand ${res.fineCancelled} G anile. Remèt kliyan an kòb la si li te peye l.`
+        : '✅ Dat peman korije!')
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
   // ─── Aksyon Manm ──────────────────────────────────────────
   const memberAction = useMutation({
     mutationFn: ({ planId, memberId, action, reason, payoutDate, stopFee }) =>
@@ -372,7 +405,7 @@ export function useSabotayMutations({
 
   return {
     createPlan, updatePlan, closePlan,
-    addMember, markPayment, memberAction, blindDraw,
+    addMember, markPayment, correctPaymentTime, memberAction, blindDraw,
     toggleDynamic, toggleManualTime, toggleHidePosition, recalculate,
     adjustPosition,
   }

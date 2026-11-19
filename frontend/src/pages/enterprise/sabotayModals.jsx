@@ -11,7 +11,7 @@ import {
   Clock, CheckCircle, Trophy, AlertCircle, Printer, Key, Star, UserCheck,
   Shuffle, Info, AlertTriangle, Lock, Unlock, StopCircle, Plus, TrendingUp,
   Calendar, Edit3, Wallet, FileText, Coins, Copy, Share2, PiggyBank, Receipt,
-  CalendarDays, ShieldAlert, Repeat, Phone, Hash, Link2, CircleDollarSign,
+  CalendarDays, ShieldAlert, Repeat, Phone, Hash, Link2, CircleDollarSign, Timer,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { Modal, Sec, TimePicker12h, format24ToDisplay12, MemberStatusBadge, ModalSolReceipt } from './sabotayAtoms'
@@ -640,6 +640,72 @@ export function ModalDeclarePayout({ member, plan, onClose, onConfirm, loading }
 }
 
 // ─────────────────────────────────────────────────────────────
+// MODAL: KORIJE DAT/LÈ PEMAN
+// Kesye a pat la lè kliyan an te peye → li mete lè reyèl la. Si l pa reta ankò, amand lan anile.
+// ─────────────────────────────────────────────────────────────
+export function ModalFixPaymentTime({ member, plan, dueDate, onClose, onSave }) {
+  const { today, currentTime } = getHaitiNow()
+  const [date, setDate] = useState(today)
+  const [hour, setHour] = useState(currentTime)
+  const [saving, setSaving] = useState(false)
+
+  // Peye yon jou ANVAN dat limit la = toujou « Bonè » (pa gade lè a); menm jou a = swiv fenèt lè a
+  const newTiming   = !date ? null : (date < dueDate ? 'early' : getPaymentTiming(plan, dueDate, { date, time: hour }))
+  const stillLate   = newTiming === 'late'
+  const prevFine    = Math.max(Number(member.fines?.[dueDate] || 0), 0)
+  const willCancel  = !stillLate && prevFine > 0
+  const hasPenalty  = Number(plan.penalty) > 0
+  const labels      = { early: 'Bonè', onTime: 'A lè', late: 'Reta' }
+
+  const handleSave = async () => {
+    if (!date) return toast.error('Chwazi dat la.')
+    setSaving(true)
+    try {
+      await onSave(member.id, dueDate, `${date}T${hour}:00`)
+      onClose()
+    } catch { /* toast deja afiche pa mutation an */ }
+    finally { setSaving(false) }
+  }
+
+  const footer = (
+    <>
+      <button className="ke-fbtn" onClick={onClose}>Anile</button>
+      <button className="ke-fbtn main dark" onClick={handleSave} disabled={saving || !date}>
+        {saving ? <Spinner size={16} /> : <Timer size={17} />} {saving ? 'Ap sove...' : 'Korije peman an'}
+      </button>
+    </>
+  )
+
+  return (
+    <Modal onClose={onClose} title="Korije dat peman" subtitle={`${member.name} · peman ${dmy(dueDate)}`} icon={<Timer size={20} />} width={440} footer={footer}>
+      <div className="ke-col" style={{ gap: 14 }}>
+        <div className="ke-alert" style={{ '--c': T.blue, '--cbg': hexA(T.blue, .06), '--cbd': hexA(T.blue, .2), margin: 0 }}>
+          <Info size={16} />
+          <div>Antre dat ak lè <b>kliyan an te REYÈLMAN bay kòb la</b>. Si li te peye anvan lè limit la, peman an vin <b>Bonè / A lè</b> epi amand lan <b>anile otomatikman</b>.</div>
+        </div>
+        <Field label="Dat kliyan an te peye">
+          <input type="date" className="ke-input" value={date} max={today} onChange={e => setDate(e.target.value)} />
+        </Field>
+        <Field label="Lè kliyan an te peye">
+          <TimePicker12h value={hour} onChange={setHour} />
+        </Field>
+        {newTiming && (
+          <div className="ke-alert" style={{ '--c': stillLate ? T.orange : T.green, '--cbg': hexA(stillLate ? T.orange : T.green, .08), '--cbd': hexA(stillLate ? T.orange : T.green, .3), margin: 0 }}>
+            {stillLate ? <AlertTriangle size={16} /> : <CheckCircle size={16} />}
+            <div>
+              Nouvo badj: <b>{labels[newTiming] || newTiming}</b>.{' '}
+              {willCancel && <>Amand <b>{fmt(prevFine)} G</b> ap <b>anile</b> — remèt kliyan an kòb la si li te peye l.</>}
+              {!willCancel && stillLate && hasPenalty && <>Li toujou an reta — amand lan rete.</>}
+              {!willCancel && !stillLate && <>Pa gen amand pou anile.</>}
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
 // MODAL: FÈMEN PLAN
 // ─────────────────────────────────────────────────────────────
 export function ModalClosePlan({ plan, onClose, onConfirm, loading }) {
@@ -691,7 +757,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
   useSmStyles()
   const [copied, setCopied] = useState(false)
   const isExisting = credentials?.isExisting
-  const url = 'https://app.plusgroupe.com/sol.html'
+  const url = 'https://app.plusgroupe.com/app/sol/login'
   const text = isExisting
     ? `Non: ${member.name}\nItilizatè: ${credentials.username}\nURL: ${url}`
     : `Non: ${member.name}\nItilizatè: ${credentials?.username}\nModpas: ${credentials?.password}\nURL: ${url}`
@@ -736,7 +802,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
         )}
 
         <div className="ke-col" style={{ gap: 10 }}>
-          <div><label className="ke-label"><Link2 size={11} style={{ verticalAlign: '-1px' }} /> URL koneksyon</label><div className="sm-cred" style={{ color: T.teal, fontSize: 13 }}>app.plusgroupe.com/sol.html</div></div>
+          <div><label className="ke-label"><Link2 size={11} style={{ verticalAlign: '-1px' }} /> URL koneksyon</label><div className="sm-cred" style={{ color: T.teal, fontSize: 13 }}>app.plusgroupe.com/app/sol/login</div></div>
           <div><label className="ke-label">Non itilizatè</label><div className="sm-cred" style={{ fontSize: 18 }}>{credentials?.username}</div></div>
           {!isExisting && credentials?.password && (
             <div><label className="ke-label">Modpas pwovizwa</label>
@@ -758,7 +824,7 @@ export function ModalMemberCredentials({ member, credentials, onClose, positions
 // KONT VITYÈL MANM
 // ✅ Pataje kont lan an imaj, pataje resi chak peman
 // ─────────────────────────────────────────────────────────────
-export function MemberVirtualAccount({ member, plan, onClose, printer, allMemberSlots }) {
+export function MemberVirtualAccount({ member, plan, onClose, printer, allMemberSlots, onCorrectPaymentTime }) {
   useSmStyles()
   const { tenant } = useAuthStore()
   const allDates   = useMemo(() => getMemberPaymentDates(plan, member), [plan, member])
@@ -768,6 +834,7 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
   const [solAccount, setSolAccount] = useState(null)
   const [share, setShare] = useState(null)
   const [showPass, setShowPass] = useState(false)
+  const [fixDate, setFixDate] = useState(null)
 
   const { today, currentTime } = getHaitiNow()
 
@@ -817,6 +884,11 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
   const shareData = (type, dates = []) => ({ plan, member: activeMember, paidDates: dates, tenant, type, allSlots: allMemberSlots || [activeMember] })
 
   if (share) return <ModalSolReceipt data={share} printer={printer} onClose={() => setShare(null)} />
+
+  if (fixDate && onCorrectPaymentTime) return (
+    <ModalFixPaymentTime member={activeMember} plan={plan} dueDate={fixDate}
+      onClose={() => setFixDate(null)} onSave={onCorrectPaymentTime} />
+  )
 
   const footer = (
     <>
@@ -924,7 +996,7 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
                 </div>
               )}
             </div>
-            <p style={{ margin: '8px 0 0', fontSize: 12, color: D.muted, fontWeight: 600 }}>app.plusgroupe.com/sol.html</p>
+            <p style={{ margin: '8px 0 0', fontSize: 12, color: D.muted, fontWeight: 600 }}>app.plusgroupe.com/app/sol/login</p>
           </div>
         )}
 
@@ -956,6 +1028,9 @@ export function MemberVirtualAccount({ member, plan, onClose, printer, allMember
                     </b>
                     {paid && (
                       <>
+                        {onCorrectPaymentTime && !isDepo && (timing === 'late' || timing === 'veryLate') && (
+                          <button className="sm-mini" title="Korije dat peman (kliyan an te peye bonè)" onClick={() => setFixDate(d)}><Timer size={14} /></button>
+                        )}
                         <button className="sm-mini" title="Pataje resi" onClick={() => setShare(shareData('peman', [d]))}><Receipt size={14} /></button>
                         <button className="sm-mini" title="Re-enprime resi" onClick={() => printer.print(plan, activeMember, [d], tenant, 'peman', allMemberSlots || [activeMember])}><Printer size={14} /></button>
                       </>
