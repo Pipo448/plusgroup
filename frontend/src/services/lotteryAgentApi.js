@@ -45,6 +45,8 @@ export const lotteryAgentApi = {
   logout: () => setLotterySession(null),
   programs: () => call('/public/agents/programs').then((r) => r?.data || []),
   me: () => call('/ref-agent/me', { auth: true }).then((r) => r.data),
+  // Patnè Bolèt: bolèt ajan an te mennen ($ pa POS chak mwa)
+  partners: () => call('/ref-agent/partners', { auth: true }).then((r) => r.data),
   join: (slug) => call(`/ref-agent/programs/${encodeURIComponent(slug)}/join`, { method: 'POST', auth: true }),
   payout: (slug, amount) => call('/ref-agent/payouts', { method: 'POST', auth: true, body: { slug, amount } }),
   // Ouvri espas lotri a san rekonekte (token nan "#", li pa janm ale sou sèvè a)

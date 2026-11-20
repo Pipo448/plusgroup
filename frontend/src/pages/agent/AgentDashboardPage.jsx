@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 import QRCode from 'qrcode'
 import {
   Bell, User, Users, Coins, Layers, ShoppingCart, Package, Link2, Image as ImageIcon, Wallet, Home,
-  BarChart3, Zap, Copy, LogOut, Plus, X, Trophy, CheckCircle2, TrendingUp, ArrowRight, ExternalLink, Crown,
+  BarChart3, Zap, Copy, LogOut, Plus, X, Trophy, CheckCircle2, TrendingUp, ArrowRight, ExternalLink, Crown, Building2,
 } from 'lucide-react'
 import { agentApi, clearAgent } from '../../services/agentApi'
 import { lotteryAgentApi, getLotterySession, LOTTERY_SITE } from '../../services/lotteryAgentApi'
@@ -39,6 +39,8 @@ const nf = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const cf = new Intl.NumberFormat('fr-FR', { notation: 'compact', maximumFractionDigits: 1 })
 const htg = (n) => `${nf.format(Number(n) || 0)} HTG`
 const short = (n) => cf.format(Number(n) || 0)
+const usd = (n) => `${(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} $`
+const monthFr = (d) => new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${String(d).slice(0, 10)}T00:00:00Z`))
 const dateFr = (v) => (v ? new Date(v).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '')
 const MONTHS = ['jan', 'fev', 'mas', 'avr', 'me', 'jen', 'jiy', 'out', 'sep', 'okt', 'nov', 'des']
 
@@ -222,6 +224,7 @@ export default function AgentDashboardPage() {
   const [flyerSrc, setFlyerSrc] = useState(null)
   const [amount, setAmount]   = useState('')
   const [busy, setBusy]       = useState(false)
+  const [partners, setPartners] = useState(null)   // Patnè Bolèt (lotri a)
 
   useEffect(() => {
     agentApi.get('/agents/dashboard')
@@ -236,6 +239,10 @@ export default function AgentDashboardPage() {
     try { setLot(await lotteryAgentApi.me()) } catch (e) { if (e.status === 401) { setLotLinked(false); setLot(null) } }
   }, [])
   useEffect(() => { loadLottery() }, [loadLottery])
+  useEffect(() => {
+    if (!lotLinked) { setPartners(null); return }
+    lotteryAgentApi.partners().then(setPartners).catch(() => setPartners(null))
+  }, [lotLinked])
   useEffect(() => { if (view === 'pwogram' && lotLinked) lotteryAgentApi.programs().then(setOthers).catch(() => setOthers([])) }, [view, lotLinked])
 
   const handleLogout = () => {
@@ -253,6 +260,9 @@ export default function AgentDashboardPage() {
   const stockLink = agent ? `${APP_URL}/login?promo=${encodeURIComponent(agent.promoCode)}` : ''
   const lotApproved = useMemo(() => (lot?.programs || []).filter((p) => p.status === 'approved'), [lot])
   const lotLink = (p) => `${LOTTERY_SITE}${p.link}`
+  const paryeLink = (p) => (p.paryeLink ? `${LOTTERY_SITE}${p.paryeLink}` : '')
+  const waParye = (p) => window.open(`https://wa.me/?text=${encodeURIComponent(`Parye sou match foutbòl yo ak ${p.name} sou Parye Plis+! Kreye kont ou isit la: ${paryeLink(p)}`)}`, '_blank', 'noopener')
+  const pt = partners?.totals || {}
 
   // Grafik: 6 dènye mwa (stock + lotri)
   const chart = useMemo(() => {
@@ -393,6 +403,10 @@ export default function AgentDashboardPage() {
                 <span className="go"><ArrowRight size={14} /></span>
                 <span style={{ fontSize: 22, lineHeight: 1 }} aria-hidden="true">🎱</span>Ajan Plus Lotterie
                 <small>{!lotLinked ? 'Aktive l' : lotApproved.length ? `${lotApproved.length} bolèt` : 'Chwazi yon bolèt'}</small>
+              </button>
+              <button type="button" className={`pga-prog pga-prog--gold ${pt.tenants ? 'on' : ''}`} onClick={() => (lotLinked ? go('patne') : setSheet({ kind: 'connect' }))}>
+                <span className="go"><ArrowRight size={14} /></span><Building2 size={28} />Patnè Bolèt
+                <small>{!lotLinked ? 'Aktive l' : pt.tenants ? `${pt.tenants} bolèt · ${usd(pt.monthly)}/mwa` : '2 $ pa POS chak mwa'}</small>
               </button>
             </div>
 
@@ -561,7 +575,7 @@ export default function AgentDashboardPage() {
                   {(lot?.programs || []).map((p) => (
                     <div key={p.slug} className="pga-lot">
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-                        <span className="pga-li"><b>{p.name}</b><small>{p.status === 'approved' ? `${p.rate}% sou vant kliyan ou yo` : p.status === 'pending' ? 'Bolèt la ap revize demann ou an' : 'Pa aktif'}</small></span>
+                        <span className="pga-li"><b>{p.name}</b><small>{p.status === 'approved' ? `${p.rate}% sou fich bolèt kliyan ou yo · ${p.rate}% sou pari Parye Plis+ yo pèdi` : p.status === 'pending' ? 'Bolèt la ap revize demann ou an' : 'Pa aktif'}</small></span>
                         <span className={`pga-pill ${p.status === 'approved' ? 'ok' : p.status === 'pending' ? 'wait' : 'no'}`}>{p.status === 'approved' ? 'Apwouve' : p.status === 'pending' ? 'Ap tann' : 'Refize'}</span>
                       </div>
                       {p.status === 'approved' && (
@@ -578,6 +592,15 @@ export default function AgentDashboardPage() {
                             <button type="button" className="pga-btn pga-btn--red" onClick={() => doAction('wa', { key: p.slug, p })}>WhatsApp</button>
                             <button type="button" className="pga-btn pga-btn--ghost" onClick={() => doAction('flyer', { key: p.slug, p })}><ImageIcon size={15} /> Flyer</button>
                           </div>
+                          {p.paryeLink && (
+                            <>
+                              <div className="pga-link"><Link2 size={15} /><span><b style={{ color: '#ff6b00' }}>Parye Plis+</b> · {paryeLink(p)}</span></div>
+                              <div className="pga-row">
+                                <button type="button" className="pga-btn pga-btn--ghost" onClick={() => copy(paryeLink(p), 'Lyen Parye Plis+ kopye!')}><Copy size={15} /> Kopye</button>
+                                <button type="button" className="pga-btn pga-btn--red" onClick={() => waParye(p)}>WhatsApp</button>
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </div>
@@ -596,6 +619,62 @@ export default function AgentDashboardPage() {
               )}
             </section>
           </>
+        )}
+
+        {view === 'patne' && (
+          <section className="pga-card">
+            <Head icon={Building2} title="Patnè Bolèt" />
+            <p className="pga-muted">Mennen yon antrepriz bolèt sou Plus Lotterie: chak mwa li peye abònman li, ou touche <b>{usd(2)}</b> sou chak machin POS li konekte, kèlkeswa pri abònman an.</p>
+            <ol className="pga-steps">
+              <li>Bay antrepriz la kòd pwomo ou: <b>{partners?.code || lot?.agent?.code || '—'}</b></li>
+              <li>Lè Plus Group aktive bolèt la, li mete kòd ou sou li.</li>
+              <li>Chak mwa bolèt la peye, montan ou a anrejistre otomatikman; Plus Group peye w.</li>
+            </ol>
+            {partners?.code && (
+              <div className="pga-row" style={{ marginTop: 8 }}>
+                <button type="button" className="pga-btn pga-btn--ghost" onClick={() => copy(partners.code, 'Kòd pwomo kopye!')}><Copy size={15} /> Kopye kòd la</button>
+                <a className="pga-btn pga-btn--orange" href={`https://wa.me/${PLUS_WA}?text=${encodeURIComponent(`Bonjou Plus Group, mwen se ajan ${partners.code}. Mwen gen yon antrepriz bolèt ki vle Plus Lotterie.`)}`} target="_blank" rel="noopener noreferrer">Voye yon bolèt bay Plus Group</a>
+              </div>
+            )}
+            {partners?.setup && <p className="pga-muted" style={{ marginTop: 10 }}>Pati sa a poko aktive. Tounen pita.</p>}
+            <div className="pga-kpi3">
+              <div><small>Bolèt</small><b>{pt.tenants || 0}</b></div>
+              <div><small>POS aktif</small><b>{pt.pos || 0}</b></div>
+              <div><small>Chak mwa</small><b>{usd(pt.monthly)}</b></div>
+            </div>
+            <div className="pga-kpi3">
+              <div><small>Total touche</small><b>{usd(pt.earned)}</b></div>
+              <div><small>Peye</small><b>{usd(pt.paid)}</b></div>
+              <div><small>Pou touche</small><b>{usd(pt.pending)}</b></div>
+            </div>
+            {(partners?.tenants || []).length > 0 && (
+              <ul className="pga-list">
+                {partners.tenants.map((t) => (
+                  <li key={t.name}>
+                    <span className="pga-li"><b>{t.name}</b><small>{t.pos} POS aktif × {usd(t.rateUsd)}</small></span>
+                    <b style={{ whiteSpace: 'nowrap' }}>{usd(t.monthlyUsd)}<small style={{ fontWeight: 600, color: 'var(--muted)' }}>/mwa</small></b>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(partners?.earnings || []).length > 0 && (
+              <>
+                <h3 style={{ margin: '14px 0 6px', fontSize: '.95rem' }}>Istorik chak mwa</h3>
+                <ul className="pga-list">
+                  {partners.earnings.map((e) => (
+                    <li key={e.id}>
+                      <span className="pga-li"><b style={{ textTransform: 'capitalize' }}>{monthFr(e.period)} · {e.tenant}</b><small>{e.pos} POS × {usd(e.rateUsd)}</small></span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <b style={{ whiteSpace: 'nowrap' }}>{usd(e.amountUsd)}</b>
+                        <span className={`pga-pill ${e.status === 'paid' ? 'ok' : e.status === 'pending' ? 'wait' : 'no'}`}>{e.status === 'paid' ? 'Peye' : e.status === 'pending' ? 'Ap tann' : 'Anile'}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {partners && !(partners.tenants || []).length && !partners.setup && <p className="pga-muted" style={{ marginTop: 6 }}>Ou poko gen bolèt patnè. Lè Plus Group mete kòd ou sou yon bolèt, li parèt isit la.</p>}
+          </section>
         )}
 
         {view === 'pwofil' && (
