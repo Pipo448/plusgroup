@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────
 import { useState, useEffect, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
-import { Users, Star, UserCheck, UserPlus, ArrowLeft, Calendar, Camera, CreditCard, User, ShieldCheck, Phone, Trophy, CheckCircle } from 'lucide-react'
+import { Users, Star, UserCheck, UserPlus, ArrowLeft, Calendar, Camera, CreditCard, User, ShieldCheck, Phone, Trophy, CheckCircle, Copy, Key } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { Modal } from './sabotayAtoms'
 import { D, fmt, RELATIONSHIPS, getPayoutDate, generateCredentials, API_URL } from './sabotayUtils'
@@ -162,7 +162,7 @@ export function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) 
       _cb: (saved) => onShowCreds({
         member: saved || { ...form, position: firstPos, positions: finalPositions },
         credentials: existingAccount
-          ? { username: existingAccount.username, password: null, isExisting: true }
+          ? { username: existingAccount.username, password: existingAccount.plainPassword || null, isExisting: true }
           : { ...credentials, username: saved?.username || credentials?.username },
         positions: finalPositions, payoutDates: payoutDatesMap,
       }),
@@ -310,7 +310,21 @@ export function ModalAddMember({ plan, onClose, onSave, loading, onShowCreds }) 
             {existingAccount && (
               <div className="ke-alert" style={{ '--c': T.teal, '--cbg': hexA(T.teal, .07), '--cbd': hexA(T.teal, .3), margin: 0 }}>
                 <UserCheck size={17} />
-                <div><b>Kont sol egziste — {existingAccount.memberName}.</b> Itilizatè: <b>{existingAccount.username}</b>. Nouvo men an ap ajoute sou menm kont lan.</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <b>Kont sol egziste — {existingAccount.memberName}.</b> Nouvo men an ap ajoute sou menm kont lan.
+                  <div style={{ display: 'grid', gap: 6, marginTop: 10 }}>
+                    {[['Itilizatè', existingAccount.username, <User size={13} key="u" />], ['Modpas', existingAccount.plainPassword, <Key size={13} key="k" />]].map(([lbl, val, ic]) => (
+                      <button key={lbl} type="button" disabled={!val}
+                        onClick={() => { navigator.clipboard?.writeText(String(val)); toast.success(`${lbl} kopye`) }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', borderRadius: 11, border: `1px solid ${hexA(T.teal, .3)}`, background: '#fff', font: 'inherit', cursor: val ? 'pointer' : 'default', textAlign: 'left' }}>
+                        {ic}
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: D.muted, minWidth: 62 }}>{lbl}</span>
+                        <b style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', fontFamily: 'monospace', fontSize: 14, letterSpacing: '.04em' }}>{val || 'pa disponib'}</b>
+                        {val && <Copy size={13} color={T.teal} />}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
