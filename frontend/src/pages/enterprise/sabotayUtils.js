@@ -187,7 +187,13 @@ export function getPayoutDate(plan, position) {
   const m = (plan.members || []).find(x => x.position === position)
   const info = m ? getSolSchedule(plan).byId.get(m.id) : null
   if (info) return info.expectedPayoutDate
-  return getSolSchedule(plan).origDate(position)
+  const sch = getSolSchedule(plan)
+  // ✅ FIX: pozisyon ki poko gen manm (apèsi nan "Enskri manm") pa dwe kole sou DÈNYE dat kalandriye a.
+  // Anvan, si plan an te gen pa anpil manm, tout pozisyon alavni yo te parèt ak menm dat la.
+  const interval = Math.max(1, Math.floor(plan.interval) || 1)
+  const idx = Math.max(1, Number(position) || 1) * interval - 1
+  if (idx < sch.allDates.length) return sch.origDate(position)
+  return getPaymentDates(plan.frequency, getPlanStartDate(plan), idx + 1)[idx] || sch.origDate(position)
 }
 
 // ✅ Kalandriye OFISYÈL sòl la = tout manm (kanpe yo enkli). Moun ki deja touche kenbe l konsa.
